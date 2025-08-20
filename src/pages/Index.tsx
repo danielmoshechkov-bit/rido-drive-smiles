@@ -1,9 +1,9 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import WhyRido from "@/components/WhyRido";
-import JakZaczac from "@/components/JakZaczac";
-import Cennik from "@/components/Cennik";
+import ProsteModele from "@/components/ProsteModele";
 import Wymagania from "@/components/Wymagania";
+import JakZaczac from "@/components/JakZaczac";
 import KartyPaliwowe from "@/components/KartyPaliwowe";
 import FAQ from "@/components/FAQ";
 import Kontakt from "@/components/Kontakt";
@@ -18,9 +18,9 @@ const Index = () => {
       <main>
         <Hero />
         <WhyRido />
-        <JakZaczac />
-        <Cennik />
+        <ProsteModele />
         <Wymagania />
+        <JakZaczac />
         <KartyPaliwowe />
         <FAQ />
         <Kontakt />

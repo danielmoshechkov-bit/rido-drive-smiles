@@ -10,7 +10,7 @@ const Hero = () => {
   };
 
   return (
-    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-8">
+    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-2">
       {/* Background Animation */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
@@ -19,13 +19,13 @@ const Hero = () => {
         <div className="absolute top-1/6 right-1/3 w-20 h-20 bg-accent/15 rounded-full animate-float-slow"></div>
       </div>
 
-      {/* Top Bar */}
+      {/* Top Bar - moved closer */}
       <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium relative z-10">
         Dwa modele rozliczeń - wybierz najlepszy dla siebie
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-5xl mx-auto space-y-8">
+      <div className="container mx-auto px-4 relative z-10 pt-4">
+        <div className="max-w-5xl mx-auto space-y-6">
           {/* Title */}
           <div className="space-y-4 text-left">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
@@ -39,46 +39,6 @@ const Hero = () => {
             </p>
           </div>
 
-          {/* Two pricing models - Full width side by side */}
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Model pierwszy - 159 zł */}
-            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-accent-foreground">
-                  MODEL PIERWSZY
-                </h3>
-                <div className="text-5xl font-bold text-accent-foreground">
-                  159 zł + 0% podatku
-                </div>
-                <p className="text-sm text-accent-foreground/80">
-                  Warunek: aktywne korzystanie z karty paliwowej
-                </p>
-              </div>
-            </Card>
-
-            {/* Model drugi - 39 zł */}
-            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
-                </h3>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl line-through text-accent-foreground/60">50 zł</span>
-                  <span className="text-lg text-accent-foreground">→</span>
-                  <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
-                </div>
-                <p className="text-sm text-accent-foreground/80">
-                  Dla pierwszych 50 kierowców
-                </p>
-              </div>
-            </Card>
-          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
