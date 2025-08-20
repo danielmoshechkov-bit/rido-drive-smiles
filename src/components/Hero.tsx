@@ -10,7 +10,7 @@ const Hero = () => {
   };
 
   return (
-    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-20">
+    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-8">
       {/* Background Animation */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
@@ -25,29 +25,32 @@ const Hero = () => {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-5xl mx-auto text-center space-y-8">
+        <div className="max-w-5xl mx-auto space-y-8">
           {/* Title */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-left">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
               <span className="text-primary">RIDO</span> — partner kierowców 
               <span className="block">
-                <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-black">FreeNow</span>
+                <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl">
               Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.
             </p>
           </div>
 
           {/* Two pricing models - Full width side by side */}
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Rozliczenie pierwsze */}
-            <Card className="p-8 bg-gradient-accent shadow-gold border-accent/20">
+            {/* Model pierwszy - 159 zł */}
+            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                PROMOCJA
+              </div>
               <div className="text-center space-y-4">
                 <h3 className="text-xl font-bold text-accent-foreground">
-                  ROZLICZENIE PIERWSZE
+                  MODEL PIERWSZY
                 </h3>
-                <div className="text-3xl font-bold text-accent-foreground">
+                <div className="text-5xl font-bold text-accent-foreground">
                   159 zł + 0% podatku
                 </div>
                 <p className="text-sm text-accent-foreground/80">
@@ -56,15 +59,19 @@ const Hero = () => {
               </div>
             </Card>
 
-            {/* Rozliczenie drugie */}
-            <Card className="p-8 bg-gradient-accent shadow-gold border-accent/20">
+            {/* Model drugi - 39 zł */}
+            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                PROMOCJA
+              </div>
               <div className="text-center space-y-4">
                 <h3 className="text-xl font-bold text-accent-foreground">
-                  ROZLICZENIE DRUGIE
+                  MODEL DRUGI
                 </h3>
-                <div className="space-y-2">
-                  <div className="text-lg line-through text-accent-foreground/60">50 zł</div>
-                  <div className="text-3xl font-bold text-accent-foreground">39 zł + 8% podatku</div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-2xl line-through text-accent-foreground/60">50 zł</span>
+                  <span className="text-lg text-accent-foreground">→</span>
+                  <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
                 </div>
                 <p className="text-sm text-accent-foreground/80">
                   Dla pierwszych 50 kierowców

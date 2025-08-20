@@ -85,7 +85,7 @@ const Footer = () => {
 
         <div className="border-t border-primary-foreground/20 mt-8 pt-8 text-center">
           <p className="text-primary-foreground/60 text-sm">
-            © 2024 RIDO. Wszystkie prawa zastrzeżone.
+            getrido.pl - RIDO. Wszystkie prawa zastrzeżone.
           </p>
         </div>
       </div>

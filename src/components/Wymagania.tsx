@@ -11,14 +11,14 @@ const Wymagania = () => {
   };
 
   const driverDocs = [
-    "Prawo jazdy polskie (min. 1 rok)",
-    "Zaświadczenie o niekaralności (ważne max 30 dni)",
+    "Prawo jazdy polskie",
+    "Zaświadczenie o niekaralności",
     "Zaświadczenie lekarskie i psychotechniczne", 
-    "Zdjęcie 3.5x4.5 cm do aplikacji"
+    "Zdjęcie 4.5x3.5"
   ];
 
   const carDocs = [
-    "Przegląd TAXI bez adnotacji TAXI",
+    "Przegląd TAXI",
     "Ubezpieczenie OC.",
     "Oklejone zgodnie z przepisami"
   ];
@@ -40,7 +40,7 @@ const Wymagania = () => {
                 <FileText className="h-6 w-6 text-primary" />
               </div>
               <h3 className="text-xl font-semibold text-foreground">
-                Dokumenty od kierowcy
+                Dokumenty dla kierowcy
               </h3>
             </div>
             
