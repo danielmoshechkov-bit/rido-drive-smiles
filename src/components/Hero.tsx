@@ -11,99 +11,86 @@ const Hero = () => {
 
   return (
     <section id="home" className="relative overflow-hidden bg-gradient-subtle py-20">
+      {/* Background Animation */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
+        <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-accent/10 rounded-full animate-float-medium"></div>
+        <div className="absolute top-1/2 left-3/4 w-16 h-16 bg-primary/15 rounded-full animate-float-fast"></div>
+        <div className="absolute top-1/6 right-1/3 w-20 h-20 bg-accent/15 rounded-full animate-float-slow"></div>
+      </div>
+
       {/* Top Bar */}
-      <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium">
+      <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium relative z-10">
         Dwa modele rozliczeń - wybierz najlepszy dla siebie
       </div>
 
-      <div className="container mx-auto px-4">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left Content */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-                <span className="text-primary">RIDO</span> — partner kierowców 
-                <span className="block text-primary">Uber, Bolt, FreeNow</span>
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl">
-                Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.
-              </p>
-            </div>
-
-            {/* Two pricing models */}
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Opcja 1 */}
-              <Card className="p-6 bg-gradient-accent shadow-gold border-accent/20">
-                <div className="text-center space-y-3">
-                  <h3 className="text-lg font-bold text-accent-foreground">
-                    OPCJA 1
-                  </h3>
-                  <div className="text-2xl font-bold text-accent-foreground">
-                    159 zł + 0% podatku
-                  </div>
-                  <p className="text-sm text-accent-foreground/80">
-                    Warunek: aktywne korzystanie z karty paliwowej
-                  </p>
-                </div>
-              </Card>
-
-              {/* Opcja 2 */}
-              <Card className="p-6 bg-gradient-accent shadow-gold border-accent/20">
-                <div className="text-center space-y-3">
-                  <h3 className="text-lg font-bold text-accent-foreground">
-                    OPCJA 2
-                  </h3>
-                  <div className="space-y-1">
-                    <div className="text-lg line-through text-accent-foreground/60">50 zł</div>
-                    <div className="text-2xl font-bold text-accent-foreground">39 zł + 8% podatku</div>
-                  </div>
-                  <p className="text-sm text-accent-foreground/80">
-                    Dla pierwszych 50 kierowców
-                  </p>
-                </div>
-              </Card>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                variant="accent" 
-                size="lg"
-                onClick={() => scrollToSection('kontakt')}
-                className="text-lg px-8"
-              >
-                Dołącz teraz
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => scrollToSection('jak-zaczac')}
-                className="text-lg px-8"
-              >
-                Jak zacząć
-              </Button>
-            </div>
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="max-w-5xl mx-auto text-center space-y-8">
+          {/* Title */}
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
+              <span className="text-primary">RIDO</span> — partner kierowców 
+              <span className="block">
+                <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-black">FreeNow</span>
+              </span>
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.
+            </p>
           </div>
 
-          {/* Right Content - Mascot */}
-          <div className="flex justify-center lg:justify-end">
-            <div className="relative">
-              <img 
-                src="/lovable-uploads/a27439d2-e539-4826-82f2-2c73646d08cc.png"
-                alt="RIDO maskotka - partner kierowców Uber"
-                className="w-64 md:w-80 lg:w-96 h-auto animate-bounce-gentle"
-              />
-              {/* Pointing arrow to promotion */}
-              <div className="absolute -left-8 top-1/2 transform -translate-y-1/2 hidden lg:block">
-                <svg 
-                  className="w-8 h-8 text-accent animate-pulse" 
-                  fill="currentColor" 
-                  viewBox="0 0 20 20"
-                >
-                  <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+          {/* Two pricing models - Full width side by side */}
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* Rozliczenie pierwsze */}
+            <Card className="p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="text-center space-y-4">
+                <h3 className="text-xl font-bold text-accent-foreground">
+                  ROZLICZENIE PIERWSZE
+                </h3>
+                <div className="text-3xl font-bold text-accent-foreground">
+                  159 zł + 0% podatku
+                </div>
+                <p className="text-sm text-accent-foreground/80">
+                  Warunek: aktywne korzystanie z karty paliwowej
+                </p>
               </div>
-            </div>
+            </Card>
+
+            {/* Rozliczenie drugie */}
+            <Card className="p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="text-center space-y-4">
+                <h3 className="text-xl font-bold text-accent-foreground">
+                  ROZLICZENIE DRUGIE
+                </h3>
+                <div className="space-y-2">
+                  <div className="text-lg line-through text-accent-foreground/60">50 zł</div>
+                  <div className="text-3xl font-bold text-accent-foreground">39 zł + 8% podatku</div>
+                </div>
+                <p className="text-sm text-accent-foreground/80">
+                  Dla pierwszych 50 kierowców
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              variant="accent" 
+              size="lg"
+              onClick={() => scrollToSection('kontakt')}
+              className="text-lg px-8"
+            >
+              Dołącz teraz
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg"
+              onClick={() => scrollToSection('jak-zaczac')}
+              className="text-lg px-8"
+            >
+              Jak zacząć
+            </Button>
           </div>
         </div>
       </div>
