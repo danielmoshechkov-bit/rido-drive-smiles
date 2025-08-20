@@ -10,7 +10,7 @@ const Hero = () => {
   };
 
   return (
-    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-8">
+    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-2">
       {/* Background Animation */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
@@ -19,19 +19,16 @@ const Hero = () => {
         <div className="absolute top-1/6 right-1/3 w-20 h-20 bg-accent/15 rounded-full animate-float-slow"></div>
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Title with mascot */}
-          <div className="space-y-4 text-left relative">
-            {/* Animated mascot */}
-            <div className="absolute -top-4 -right-4 md:-right-8">
-              <img 
-                src="/lovable-uploads/d636ba1c-61cd-484b-8be5-0cfe55d7386b.png" 
-                alt="RIDO Mascot" 
-                className="w-16 h-16 md:w-20 md:h-20 animate-bounce"
-              />
-            </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
+      {/* Top Bar - moved closer */}
+      <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium relative z-10">
+        Dwa modele rozliczeń - wybierz najlepszy dla siebie
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10 pt-4">
+        <div className="max-w-5xl mx-auto space-y-6">
+          {/* Title */}
+          <div className="space-y-4 text-left">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
               <span className="text-primary">RIDO</span> — partner kierowców 
               <span className="block">
                 <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>

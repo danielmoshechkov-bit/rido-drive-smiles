@@ -1,18 +1,26 @@
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 const ProsteModele = () => {
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <section id="proste-modele" className="py-16 bg-background">
+    <section className="py-16 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Proste modele rozliczenia
+            Proste modele rozliczeniowe
           </h2>
         </div>
 
-        {/* Two pricing models - Full width side by side */}
+        {/* Two pricing models - 159 left, 39 right */}
         <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          {/* Model pierwszy - 159 zł (LEFT SIDE) */}
+          {/* Model pierwszy - 159 zł - LEFT */}
           <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
             <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
               PROMOCJA
@@ -30,9 +38,9 @@ const ProsteModele = () => {
             </div>
           </Card>
 
-          {/* Model drugi - 39 zł (RIGHT SIDE) */}
+          {/* Model drugi - 39 zł - RIGHT */}
           <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+            <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
               PROMOCJA
             </div>
             <div className="text-center space-y-4">
@@ -40,8 +48,8 @@ const ProsteModele = () => {
                 MODEL DRUGI
               </h3>
               <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl line-through text-accent-foreground/60">50 zł</span>
-                <span className="text-lg text-accent-foreground">→</span>
+                <span className="text-4xl line-through text-accent-foreground/60 font-bold">50 zł</span>
+                <span className="text-2xl text-accent-foreground">→</span>
                 <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
               </div>
               <p className="text-sm text-accent-foreground/80">
@@ -49,6 +57,26 @@ const ProsteModele = () => {
               </p>
             </div>
           </Card>
+        </div>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+          <Button 
+            variant="accent" 
+            size="lg"
+            onClick={() => scrollToSection('kontakt')}
+            className="text-lg px-8"
+          >
+            Dołącz teraz
+          </Button>
+          <Button 
+            variant="outline" 
+            size="lg"
+            onClick={() => scrollToSection('wymagania')}
+            className="text-lg px-8"
+          >
+            Zobacz wymagania
+          </Button>
         </div>
       </div>
     </section>

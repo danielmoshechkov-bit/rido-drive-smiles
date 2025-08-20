@@ -30,12 +30,6 @@ const Header = () => {
             Strona główna
           </button>
           <button
-            onClick={() => scrollToSection('proste-modele')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            Modele
-          </button>
-          <button
             onClick={() => scrollToSection('cennik')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
@@ -79,16 +73,11 @@ const Header = () => {
         </Button>
       </div>
 
-      {/* Purple bar with text */}
-      <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium">
-        Dwa modele rozliczeń - wybierz najlepszy dla siebie
-      </div>
-
       {/* Mobile menu - simplified for now */}
       <div className="md:hidden px-4 pb-4">
         <nav className="flex flex-wrap gap-4 text-sm">
-          <button onClick={() => scrollToSection('proste-modele')} className="text-foreground hover:text-primary">
-            Modele
+          <button onClick={() => scrollToSection('cennik')} className="text-foreground hover:text-primary">
+            Cennik
           </button>
           <button onClick={() => scrollToSection('jak-zaczac')} className="text-foreground hover:text-primary">
             Jak zacząć
