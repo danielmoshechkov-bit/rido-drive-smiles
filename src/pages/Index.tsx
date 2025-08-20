@@ -9,6 +9,7 @@ import FAQ from "@/components/FAQ";
 import Kontakt from "@/components/Kontakt";
 import SEOSection from "@/components/SEOSection";
 import Footer from "@/components/Footer";
+import ChatWidget from "@/components/ChatWidget";
 
 const Index = () => {
   return (
@@ -26,6 +27,7 @@ const Index = () => {
         <SEOSection />
       </main>
       <Footer />
+      <ChatWidget />
     </div>
   );
 };

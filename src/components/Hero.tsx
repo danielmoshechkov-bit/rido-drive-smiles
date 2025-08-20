@@ -13,7 +13,7 @@ const Hero = () => {
     <section id="home" className="relative overflow-hidden bg-gradient-subtle py-20">
       {/* Top Bar */}
       <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium">
-        Sam wybierasz model rozliczeń: 39 zł + 8% podatku lub 159 zł + 0% podatku.
+        Dwa modele rozliczeń - wybierz najlepszy dla siebie
       </div>
 
       <div className="container mx-auto px-4">
@@ -23,37 +23,46 @@ const Hero = () => {
             <div className="space-y-4">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
                 <span className="text-primary">RIDO</span> — partner kierowców 
-                <span className="block text-primary">Uber i Bolt</span>
+                <span className="block text-primary">Uber, Bolt, FreeNow</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl">
                 Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.
               </p>
             </div>
 
-            {/* Promotion Card */}
-            <Card className="p-6 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="space-y-4">
-                <h3 className="text-2xl font-bold text-accent-foreground">
-                  🎉 PROMOCJA
-                </h3>
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold text-accent-foreground">
-                    <span className="line-through text-muted-foreground">50 zł</span> → 
-                    <span className="text-2xl ml-2">39 zł + 8% podatku</span>
-                  </p>
-                  <p className="text-sm text-accent-foreground/80">
-                    dla pierwszych 50 kierowców
-                  </p>
-                  <p className="text-base text-accent-foreground">
-                    Alternatywa: <strong>159 zł + 0% podatku</strong> (z aktywną kartą paliwową RIDO)
-                  </p>
-                  <div className="flex items-center space-x-2 text-sm text-accent-foreground/80">
-                    <span>⏰ Zostało: </span>
-                    <span className="font-bold">42 miejsc</span>
+            {/* Two pricing models */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Opcja 1 */}
+              <Card className="p-6 bg-gradient-accent shadow-gold border-accent/20">
+                <div className="text-center space-y-3">
+                  <h3 className="text-lg font-bold text-accent-foreground">
+                    OPCJA 1
+                  </h3>
+                  <div className="text-2xl font-bold text-accent-foreground">
+                    159 zł + 0% podatku
                   </div>
+                  <p className="text-sm text-accent-foreground/80">
+                    Warunek: aktywne korzystanie z karty paliwowej
+                  </p>
                 </div>
-              </div>
-            </Card>
+              </Card>
+
+              {/* Opcja 2 */}
+              <Card className="p-6 bg-gradient-accent shadow-gold border-accent/20">
+                <div className="text-center space-y-3">
+                  <h3 className="text-lg font-bold text-accent-foreground">
+                    OPCJA 2
+                  </h3>
+                  <div className="space-y-1">
+                    <div className="text-lg line-through text-accent-foreground/60">50 zł</div>
+                    <div className="text-2xl font-bold text-accent-foreground">39 zł + 8% podatku</div>
+                  </div>
+                  <p className="text-sm text-accent-foreground/80">
+                    Dla pierwszych 50 kierowców
+                  </p>
+                </div>
+              </Card>
+            </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">

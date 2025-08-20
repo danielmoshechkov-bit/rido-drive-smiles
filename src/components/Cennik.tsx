@@ -79,7 +79,7 @@ const Cennik = () => {
                   <span className="text-lg text-muted-foreground">+ 0% podatku</span>
                 </div>
                 <div className="text-sm font-medium text-primary">
-                  z aktywną kartą paliwową RIDO
+                  z aktywną kartą paliwową E100
                 </div>
               </div>
 
@@ -90,7 +90,7 @@ const Cennik = () => {
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="h-5 w-5 text-primary" />
-                  <span className="text-sm">Zniżki na paliwo (karta RIDO)</span>
+                  <span className="text-sm">Zniżki na paliwo (karta E100)</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="h-5 w-5 text-primary" />

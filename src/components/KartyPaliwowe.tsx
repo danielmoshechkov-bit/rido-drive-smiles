@@ -21,10 +21,10 @@ const KartyPaliwowe = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Karty paliwowe RIDO — tankuj taniej
+            Karty paliwowe E100 — tankuj taniej
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Dla kierowców RIDO przygotowaliśmy karty paliwowe z realnymi zniżkami na wybranych stacjach.
+            Dla kierowców RIDO przygotowaliśmy karty paliwowe E100 z realnymi zniżkami na wybranych stacjach.
           </p>
         </div>
 
@@ -38,7 +38,7 @@ const KartyPaliwowe = () => {
             </div>
             
             <h3 className="text-2xl font-bold text-center text-accent-foreground mb-6">
-              Korzyści karty RIDO
+              Korzyści karty E100
             </h3>
             
             <div className="grid md:grid-cols-3 gap-6">
@@ -62,7 +62,7 @@ const KartyPaliwowe = () => {
                   Warunek modelu 159 zł + 0% podatku
                 </h4>
                 <p className="text-muted-foreground">
-                  Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej RIDO.
+                  Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.
                 </p>
               </div>
             </div>
