@@ -59,25 +59,19 @@ const Hero = () => {
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
             <span className="text-primary font-bold">Get RIDO</span> — Twój partner <span className="text-black font-semibold">Uber</span>, <span className="text-[#34D186] font-semibold">Bolt</span>, <span className="text-red-600 font-semibold">FreeNow</span>. Stworzone przez kierowców, dla kierowców.
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground">
-            Rozliczaj się prosto. Wypłaty co tydzień. Przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na Twoim koncie. Zero ukrytych kosztów.
-          </p>
+          
         </div>
       </Card>
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pt-6 md:pt-8 py-0">
-          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 max-w-4xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 max-w-full md:max-w-4xl">
             <div className="bg-gradient-accent text-accent-foreground p-4 md:p-6 rounded-lg shadow-gold">
               <p className="text-base md:text-lg font-bold text-center">
                 ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
               </p>
             </div>
-            <img 
-              src="/lovable-uploads/a4e8a919-1b0c-497b-aa7f-55337b0bc02f.png" 
-              alt="Get RIDO Mascot" 
-              className="h-16 w-16 md:h-20 md:w-20 animate-bounce" 
-            />
+            <img src="/lovable-uploads/a4e8a919-1b0c-497b-aa7f-55337b0bc02f.png" alt="Get RIDO Mascot" className="h-16 w-16 md:h-20 md:w-20 animate-bounce" />
           </div>
 
           {/* Two pricing models - Full width side by side */}
@@ -89,7 +83,7 @@ const Hero = () => {
               </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
-                  MODEL PIERWSZY
+                  MODEL DRUGI
                 </h3>
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">159 zł + 0% podatku</div>
                 <p className="text-xs md:text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
@@ -104,7 +98,7 @@ Warunek: aktywne korzystanie z karty paliwowej</p>
               </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
+                  MODEL PIERWSZY
                 </h3>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 md:gap-3">
                   <span className="text-2xl md:text-3xl line-through text-accent-foreground/60 font-semibold">50 zł</span>
