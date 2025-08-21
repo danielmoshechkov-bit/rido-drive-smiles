@@ -1,35 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
-
 const ProsteCenniki = () => {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({
+        behavior: 'smooth'
+      });
     }
   };
-
-  const benefits39 = [
-    "Wypłaty co tydzień",
-    "Wsparcie 7 dni w tygodniu",
-    "Przejrzysty cennik",
-    "Proste rozliczenia",
-    "Bez ukrytych kosztów"
-  ];
-
-  const benefits159 = [
-    "Wypłaty co tydzień",
-    "Wsparcie 7 dni w tygodniu", 
-    "Przejrzysty cennik",
-    "Proste rozliczenia",
-    "Karta paliwowa E100",
-    "Realne zniżki na paliwo",
-    "0% podatku"
-  ];
-
-  return (
-    <section className="py-16 bg-background">
+  const benefits39 = ["Wypłaty co tydzień", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Bez ukrytych kosztów"];
+  const benefits159 = ["Wypłaty co tydzień", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Karta paliwowa E100", "Realne zniżki na paliwo", "0% podatku"];
+  return <section className="py-16 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -61,20 +44,13 @@ const ProsteCenniki = () => {
 
             <div className="space-y-4 mb-8">
               <h4 className="font-semibold text-foreground text-lg">Co otrzymujesz:</h4>
-              {benefits39.map((benefit, index) => (
-                <div key={index} className="flex items-center gap-3">
+              {benefits39.map((benefit, index) => <div key={index} className="flex items-center gap-3">
                   <Check className="h-5 w-5 text-primary flex-shrink-0" />
                   <span className="text-muted-foreground">{benefit}</span>
-                </div>
-              ))}
+                </div>)}
             </div>
 
-            <Button 
-              variant="accent" 
-              size="lg" 
-              className="w-full text-lg"
-              onClick={() => scrollToSection('kontakt')}
-            >
+            <Button variant="accent" size="lg" onClick={() => scrollToSection('kontakt')} className="w-full text-lg py-0 my-[37px]">
               Wybieram ten model
             </Button>
           </Card>
@@ -92,27 +68,18 @@ const ProsteCenniki = () => {
 
             <div className="space-y-4 mb-8">
               <h4 className="font-semibold text-foreground text-lg">Co otrzymujesz:</h4>
-              {benefits159.map((benefit, index) => (
-                <div key={index} className="flex items-center gap-3">
+              {benefits159.map((benefit, index) => <div key={index} className="flex items-center gap-3">
                   <Check className="h-5 w-5 text-primary flex-shrink-0" />
                   <span className="text-muted-foreground">{benefit}</span>
-                </div>
-              ))}
+                </div>)}
             </div>
 
-            <Button 
-              variant="default" 
-              size="lg" 
-              className="w-full text-lg bg-primary hover:bg-primary-hover"
-              onClick={() => scrollToSection('kontakt')}
-            >
+            <Button variant="default" size="lg" className="w-full text-lg bg-primary hover:bg-primary-hover" onClick={() => scrollToSection('kontakt')}>
               Wybieram ten model
             </Button>
           </Card>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default ProsteCenniki;

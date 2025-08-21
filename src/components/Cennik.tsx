@@ -1,17 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
-
 const Cennik = () => {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({
+        behavior: 'smooth'
+      });
     }
   };
-
-  return (
-    <section id="cennik" className="py-16 bg-gradient-subtle">
+  return <section id="cennik" className="bg-gradient-subtle py-0">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -23,7 +22,7 @@ const Cennik = () => {
           {/* Plan 1 - Promocyjny */}
           <Card className="p-8 relative overflow-hidden shadow-gold border-accent/20">
             {/* Promocja Badge */}
-            <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-2 rotate-12 text-sm font-bold shadow-lg">
+            <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-2 rotate-12 text-sm font-bold shadow-lg my-[4px]">
               PROMOCJA!
             </div>
             
@@ -60,11 +59,7 @@ const Cennik = () => {
                 </li>
               </ul>
 
-              <Button 
-                variant="accent" 
-                className="w-full"
-                onClick={() => scrollToSection('kontakt')}
-              >
+              <Button variant="accent" className="w-full" onClick={() => scrollToSection('kontakt')}>
                 Wybieram ten model
               </Button>
             </div>
@@ -102,11 +97,7 @@ const Cennik = () => {
                 </li>
               </ul>
 
-              <Button 
-                variant="default" 
-                className="w-full"
-                onClick={() => scrollToSection('kontakt')}
-              >
+              <Button variant="default" className="w-full" onClick={() => scrollToSection('kontakt')}>
                 Wybieram ten model
               </Button>
             </div>
@@ -132,8 +123,6 @@ const Cennik = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default Cennik;
