@@ -17,7 +17,7 @@ const KartyPaliwowe = () => {
   ];
 
   return (
-    <section id="karty-paliwowe" className="py-16 bg-background">
+    <section id="karty-paliwowe" className="py-16">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -42,13 +42,17 @@ const KartyPaliwowe = () => {
             </h3>
             
             {/* Benefits Section */}
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <Check className="h-5 w-5 text-accent" />
-                  <span className="text-foreground font-medium">{benefit}</span>
-                </div>
-              ))}
+            <div className="bg-white/90 backdrop-blur-sm rounded-lg p-6 mb-8 border border-white/20">
+              <div className="grid md:grid-cols-3 gap-6">
+                {benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-center space-x-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Check className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-foreground font-medium">{benefit}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Partner Stations */}
