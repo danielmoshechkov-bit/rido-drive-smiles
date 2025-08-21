@@ -12,7 +12,7 @@ const ProsteCenniki = () => {
   };
   const benefits39 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Bez ukrytych kosztów"];
   const benefits159 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Karta paliwowa E100", "Realne zniżki na paliwo", "0% podatku"];
-  return <section className="py-16 bg-background relative z-20">
+  return <section className="py-16 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">

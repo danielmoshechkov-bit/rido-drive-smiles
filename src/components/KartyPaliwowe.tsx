@@ -29,7 +29,7 @@ const KartyPaliwowe = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          {/* Benefits Box */}
+          {/* Unified E100 Card with all benefits and partner stations */}
           <Card className="p-8 mb-8 bg-gradient-accent shadow-gold border-accent/20">
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center">
@@ -37,11 +37,12 @@ const KartyPaliwowe = () => {
               </div>
             </div>
             
-            <h3 className="text-2xl font-bold text-center text-foreground mb-6">
-              Korzyści karty E100
+            <h3 className="text-2xl font-bold text-center text-foreground mb-8">
+              Korzyści karty paliwowej E100
             </h3>
             
-            <div className="grid md:grid-cols-3 gap-6">
+            {/* Benefits Section */}
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
               {benefits.map((benefit, index) => (
                 <div key={index} className="flex items-center space-x-3">
                   <Check className="h-5 w-5 text-accent" />
@@ -49,155 +50,155 @@ const KartyPaliwowe = () => {
                 </div>
               ))}
             </div>
-          </Card>
 
-          {/* Model 159 Requirement */}
-          <Card className="p-6 bg-white border-primary/20 mb-8">
-            <div className="flex items-start space-x-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <CreditCard className="h-6 w-6 text-primary" />
+            {/* Model 159 Requirement */}
+            <div className="bg-accent/10 rounded-lg p-6 mb-8 border border-accent/20">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CreditCard className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold text-foreground mb-2">
+                    Warunek modelu 159 zł + 0% podatku
+                  </h4>
+                  <p className="text-foreground/80">
+                    Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-lg font-semibold text-foreground mb-2">
-                  Warunek modelu 159 zł + 0% podatku
+            </div>
+
+            {/* Partner Stations */}
+            <div className="bg-accent/10 rounded-lg p-6 border border-accent/20">
+              <div className="mb-6">
+                <h4 className="text-xl font-semibold text-foreground mb-2 text-center">
+                  Partnerskie stacje paliw
                 </h4>
-                <p className="text-muted-foreground">
-                  Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.
+                <p className="text-sm text-foreground/70 text-center mb-6">
+                  Rabaty w PLN brutto na litr paliwa
                 </p>
               </div>
-            </div>
-          </Card>
-
-          {/* Partner Stations */}
-          <Card className="p-6 bg-primary text-primary-foreground shadow-purple border">
-            <div className="mb-6">
-              <h4 className="text-xl font-semibold text-primary-foreground mb-2 text-center">
-                Partnerskie stacje paliw
-              </h4>
-              <p className="text-sm text-primary-foreground/80 text-center mb-6">
-                Rabaty w PLN brutto na litr paliwa
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              {/* MOL/Lotos, Amic, Moya - same discounts */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-primary-foreground/10 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <h5 className="font-semibold text-primary-foreground">MOL/Lotos</h5>
+              
+              <div className="space-y-4">
+                {/* MOL/Lotos, Amic, Moya - same discounts */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <h5 className="font-semibold text-foreground">MOL/Lotos</h5>
+                    </div>
+                    <div className="space-y-1 text-sm text-foreground">
+                      <div className="flex justify-between">
+                        <span>ON:</span>
+                        <span className="font-medium text-green-600">-0,30 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>PB95:</span>
+                        <span className="font-medium text-green-600">-0,20 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>LPG:</span>
+                        <span className="font-medium text-green-600">-0,05 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Myjnia:</span>
+                        <span className="font-medium text-green-600">-5%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1 text-sm text-primary-foreground">
-                    <div className="flex justify-between">
-                      <span>ON:</span>
-                      <span className="font-medium text-green-400">-0,30 zł</span>
+
+                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                      <h5 className="font-semibold text-foreground">Amic</h5>
                     </div>
-                    <div className="flex justify-between">
-                      <span>PB95:</span>
-                      <span className="font-medium text-green-400">-0,20 zł</span>
+                    <div className="space-y-1 text-sm text-foreground">
+                      <div className="flex justify-between">
+                        <span>ON:</span>
+                        <span className="font-medium text-green-600">-0,30 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>PB95:</span>
+                        <span className="font-medium text-green-600">-0,20 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>LPG:</span>
+                        <span className="font-medium text-green-600">-0,05 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Myjnia:</span>
+                        <span className="font-medium text-green-600">-5%</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>LPG:</span>
-                      <span className="font-medium text-green-400">-0,05 zł</span>
+                  </div>
+
+                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      <h5 className="font-semibold text-foreground">Moya</h5>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Myjnia:</span>
-                      <span className="font-medium text-green-400">-5%</span>
+                    <div className="space-y-1 text-sm text-foreground">
+                      <div className="flex justify-between">
+                        <span>ON:</span>
+                        <span className="font-medium text-green-600">-0,30 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>PB95:</span>
+                        <span className="font-medium text-green-600">-0,20 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>LPG:</span>
+                        <span className="font-medium text-green-600">-0,05 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Myjnia:</span>
+                        <span className="font-medium text-green-600">-5%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-primary-foreground/10 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <h5 className="font-semibold text-primary-foreground">Amic</h5>
+                {/* Orlen and Power Max */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                      <h5 className="font-semibold text-foreground">Orlen</h5>
+                    </div>
+                    <div className="space-y-1 text-sm text-foreground">
+                      <div className="flex justify-between">
+                        <span>ON:</span>
+                        <span className="font-medium text-green-600">-0,05 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>PB95:</span>
+                        <span className="font-medium text-green-600">-0,05 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>LPG:</span>
+                        <span className="font-medium text-green-600">-0,02 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Myjnia:</span>
+                        <span className="font-medium text-green-600">-5%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1 text-sm text-primary-foreground">
-                    <div className="flex justify-between">
-                      <span>ON:</span>
-                      <span className="font-medium text-green-400">-0,30 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>PB95:</span>
-                      <span className="font-medium text-green-400">-0,20 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>LPG:</span>
-                      <span className="font-medium text-green-400">-0,05 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Myjnia:</span>
-                      <span className="font-medium text-green-400">-5%</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="bg-primary-foreground/10 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                    <h5 className="font-semibold text-primary-foreground">Moya</h5>
-                  </div>
-                  <div className="space-y-1 text-sm text-primary-foreground">
-                    <div className="flex justify-between">
-                      <span>ON:</span>
-                      <span className="font-medium text-green-400">-0,30 zł</span>
+                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <h5 className="font-semibold text-foreground">Power Max</h5>
                     </div>
-                    <div className="flex justify-between">
-                      <span>PB95:</span>
-                      <span className="font-medium text-green-400">-0,20 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>LPG:</span>
-                      <span className="font-medium text-green-400">-0,05 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Myjnia:</span>
-                      <span className="font-medium text-green-400">-5%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Orlen and Power Max */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-primary-foreground/10 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                    <h5 className="font-semibold text-primary-foreground">Orlen</h5>
-                  </div>
-                  <div className="space-y-1 text-sm text-primary-foreground">
-                    <div className="flex justify-between">
-                      <span>ON:</span>
-                      <span className="font-medium text-green-400">-0,05 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>PB95:</span>
-                      <span className="font-medium text-green-400">-0,05 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>LPG:</span>
-                      <span className="font-medium text-green-400">-0,02 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Myjnia:</span>
-                      <span className="font-medium text-green-400">-5%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-primary-foreground/10 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <h5 className="font-semibold text-primary-foreground">Power Max</h5>
-                  </div>
-                  <div className="space-y-1 text-sm text-primary-foreground">
-                    <div className="flex justify-between">
-                      <span>Spot Orlen:</span>
-                      <span className="font-medium text-green-400">-0,12 zł</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Myjnia:</span>
-                      <span className="font-medium text-green-400">-5%</span>
+                    <div className="space-y-1 text-sm text-foreground">
+                      <div className="flex justify-between">
+                        <span>Spot Orlen:</span>
+                        <span className="font-medium text-green-600">-0,12 zł</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Myjnia:</span>
+                        <span className="font-medium text-green-600">-5%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
