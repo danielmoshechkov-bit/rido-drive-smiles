@@ -43,7 +43,7 @@ const Kontakt = () => {
   };
 
   return (
-    <section id="kontakt" className="py-16 bg-background">
+    <section id="kontakt" className="py-16 bg-background relative z-20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -53,7 +53,7 @@ const Kontakt = () => {
 
         <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
           {/* Contact Form */}
-          <Card className="p-8 shadow-soft">
+          <Card className="p-8 bg-white shadow-soft">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -127,7 +127,7 @@ const Kontakt = () => {
           {/* Contact Info */}
           <div className="space-y-6">
             {/* Quick Contact */}
-            <Card className="p-6 shadow-soft">
+            <Card className="p-6 bg-white shadow-soft">
               <h3 className="text-xl font-semibold text-foreground mb-4">
                 Szybki kontakt
               </h3>
