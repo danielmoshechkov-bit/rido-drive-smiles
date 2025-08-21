@@ -12,12 +12,44 @@ const Hero = () => {
   return <section id="home" className="relative overflow-hidden bg-gradient-subtle">
       {/* Background Animation with Mascots */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/4 left-1/4 h-12 w-12 animate-float-slow opacity-30" />
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-3/4 right-1/4 h-10 w-10 animate-float-medium opacity-20" />
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/2 left-3/4 h-8 w-8 animate-float-fast opacity-25" />
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/6 right-1/3 h-10 w-10 animate-float-slow opacity-20" />
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-2/3 left-1/6 h-8 w-8 animate-float-medium opacity-15" />
-        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/3 right-1/6 h-12 w-12 animate-float-fast opacity-25" />
+        {/* Row 1 - Top */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[5%] left-[10%] h-8 w-8 animate-float-slow opacity-10" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[8%] left-[25%] h-6 w-6 animate-float-medium opacity-8" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[12%] left-[40%] h-10 w-10 animate-float-fast opacity-12" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[6%] left-[55%] h-7 w-7 animate-float-slow opacity-9" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[10%] left-[70%] h-9 w-9 animate-float-medium opacity-11" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[4%] left-[85%] h-8 w-8 animate-float-fast opacity-10" />
+        
+        {/* Row 2 - Upper Middle */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[20%] left-[5%] h-6 w-6 animate-float-medium opacity-8" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[25%] left-[30%] h-12 w-12 animate-float-slow opacity-15" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[22%] left-[60%] h-7 w-7 animate-float-fast opacity-9" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[28%] left-[80%] h-10 w-10 animate-float-medium opacity-12" />
+        
+        {/* Row 3 - Middle */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[40%] left-[15%] h-9 w-9 animate-float-fast opacity-11" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[45%] left-[35%] h-8 w-8 animate-float-slow opacity-10" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[42%] left-[50%] h-6 w-6 animate-float-medium opacity-8" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[48%] left-[75%] h-11 w-11 animate-float-fast opacity-13" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[38%] left-[90%] h-7 w-7 animate-float-slow opacity-9" />
+        
+        {/* Row 4 - Lower Middle */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[60%] left-[8%] h-10 w-10 animate-float-medium opacity-12" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[65%] left-[25%] h-8 w-8 animate-float-fast opacity-10" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[62%] left-[45%] h-9 w-9 animate-float-slow opacity-11" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[68%] left-[65%] h-7 w-7 animate-float-medium opacity-9" />
+        
+        {/* Row 5 - Bottom */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[80%] left-[12%] h-8 w-8 animate-float-slow opacity-10" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[85%] left-[35%] h-6 w-6 animate-float-fast opacity-8" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[82%] left-[55%] h-10 w-10 animate-float-medium opacity-12" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[88%] left-[78%] h-9 w-9 animate-float-slow opacity-11" />
+        
+        {/* Additional scattered mascots */}
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[15%] left-[50%] h-7 w-7 animate-float-medium opacity-9" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[35%] left-[20%] h-8 w-8 animate-float-fast opacity-10" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[55%] left-[40%] h-6 w-6 animate-float-slow opacity-8" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-[75%] left-[60%] h-11 w-11 animate-float-medium opacity-13" />
       </div>
 
       {/* Top Bar */}
