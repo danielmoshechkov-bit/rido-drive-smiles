@@ -23,7 +23,7 @@ const Hero = () => {
         Dwa modele rozliczeń - wybierz najlepszy dla siebie
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-4 relative z-10 py-0">
         <div className="max-w-5xl mx-auto space-y-8 pt-8 py-0">
           {/* Title with Mascot */}
           <div className="space-y-4 text-left relative">
