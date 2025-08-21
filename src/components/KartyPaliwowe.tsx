@@ -42,26 +42,26 @@ const KartyPaliwowe = () => {
             </h3>
             
             {/* Benefits Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-lg p-6 mb-8 border border-white/20">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 mb-8 border-2 border-white/50">
               <div className="grid md:grid-cols-3 gap-6">
                 {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                       <Check className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-foreground font-medium">{benefit}</span>
+                    <span className="text-foreground font-semibold text-base">{benefit}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Partner Stations */}
-            <div className="bg-accent/10 rounded-lg p-6 border border-accent/20">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 border-2 border-white/50">
               <div className="mb-6">
                 <h4 className="text-xl font-semibold text-foreground mb-2 text-center">
                   Partnerskie stacje paliw
                 </h4>
-                <p className="text-sm text-foreground/70 text-center mb-6">
+                <p className="text-base text-foreground/70 text-center mb-6">
                   Rabaty w PLN brutto na litr paliwa
                 </p>
               </div>
@@ -69,77 +69,77 @@ const KartyPaliwowe = () => {
               <div className="space-y-4">
                 {/* MOL/Lotos, Amic, Moya - same discounts */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <h5 className="font-semibold text-foreground">MOL/Lotos</h5>
+                      <h5 className="font-semibold text-foreground text-base">MOL/Lotos</h5>
                     </div>
-                    <div className="space-y-1 text-sm text-foreground">
+                    <div className="space-y-1 text-base text-foreground">
                       <div className="flex justify-between">
                         <span>ON:</span>
-                        <span className="font-medium text-green-600">-0,30 zł</span>
+                        <span className="font-semibold text-green-600">-0,30 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>PB95:</span>
-                        <span className="font-medium text-green-600">-0,20 zł</span>
+                        <span className="font-semibold text-green-600">-0,20 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>LPG:</span>
-                        <span className="font-medium text-green-600">-0,05 zł</span>
+                        <span className="font-semibold text-green-600">-0,05 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Myjnia:</span>
-                        <span className="font-medium text-green-600">-5%</span>
+                        <span className="font-semibold text-green-600">-5%</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                      <h5 className="font-semibold text-foreground">Amic</h5>
+                      <h5 className="font-semibold text-foreground text-base">Amic</h5>
                     </div>
-                    <div className="space-y-1 text-sm text-foreground">
+                    <div className="space-y-1 text-base text-foreground">
                       <div className="flex justify-between">
                         <span>ON:</span>
-                        <span className="font-medium text-green-600">-0,30 zł</span>
+                        <span className="font-semibold text-green-600">-0,30 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>PB95:</span>
-                        <span className="font-medium text-green-600">-0,20 zł</span>
+                        <span className="font-semibold text-green-600">-0,20 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>LPG:</span>
-                        <span className="font-medium text-green-600">-0,05 zł</span>
+                        <span className="font-semibold text-green-600">-0,05 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Myjnia:</span>
-                        <span className="font-medium text-green-600">-5%</span>
+                        <span className="font-semibold text-green-600">-5%</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                      <h5 className="font-semibold text-foreground">Moya</h5>
+                      <h5 className="font-semibold text-foreground text-base">Moya</h5>
                     </div>
-                    <div className="space-y-1 text-sm text-foreground">
+                    <div className="space-y-1 text-base text-foreground">
                       <div className="flex justify-between">
                         <span>ON:</span>
-                        <span className="font-medium text-green-600">-0,30 zł</span>
+                        <span className="font-semibold text-green-600">-0,30 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>PB95:</span>
-                        <span className="font-medium text-green-600">-0,20 zł</span>
+                        <span className="font-semibold text-green-600">-0,20 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>LPG:</span>
-                        <span className="font-medium text-green-600">-0,05 zł</span>
+                        <span className="font-semibold text-green-600">-0,05 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Myjnia:</span>
-                        <span className="font-medium text-green-600">-5%</span>
+                        <span className="font-semibold text-green-600">-5%</span>
                       </div>
                     </div>
                   </div>
@@ -147,44 +147,44 @@ const KartyPaliwowe = () => {
 
                 {/* Orlen and Power Max */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                      <h5 className="font-semibold text-foreground">Orlen</h5>
+                      <h5 className="font-semibold text-foreground text-base">Orlen</h5>
                     </div>
-                    <div className="space-y-1 text-sm text-foreground">
+                    <div className="space-y-1 text-base text-foreground">
                       <div className="flex justify-between">
                         <span>ON:</span>
-                        <span className="font-medium text-green-600">-0,05 zł</span>
+                        <span className="font-semibold text-green-600">-0,05 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>PB95:</span>
-                        <span className="font-medium text-green-600">-0,05 zł</span>
+                        <span className="font-semibold text-green-600">-0,05 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>LPG:</span>
-                        <span className="font-medium text-green-600">-0,02 zł</span>
+                        <span className="font-semibold text-green-600">-0,02 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Myjnia:</span>
-                        <span className="font-medium text-green-600">-5%</span>
+                        <span className="font-semibold text-green-600">-5%</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-accent/5 p-4 rounded-lg border border-accent/10">
+                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <h5 className="font-semibold text-foreground">Power Max</h5>
+                      <h5 className="font-semibold text-foreground text-base">Power Max</h5>
                     </div>
-                    <div className="space-y-1 text-sm text-foreground">
+                    <div className="space-y-1 text-base text-foreground">
                       <div className="flex justify-between">
                         <span>Spot Orlen:</span>
-                        <span className="font-medium text-green-600">-0,12 zł</span>
+                        <span className="font-semibold text-green-600">-0,12 zł</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Myjnia:</span>
-                        <span className="font-medium text-green-600">-5%</span>
+                        <span className="font-semibold text-green-600">-5%</span>
                       </div>
                     </div>
                   </div>

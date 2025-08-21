@@ -12,7 +12,7 @@ const ProsteCenniki = () => {
   };
   const benefits39 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Bez ukrytych kosztów"];
   const benefits159 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Karta paliwowa E100", "Realne zniżki na paliwo", "0% podatku"];
-  return <section className="py-16 bg-background">
+  return <section className="py-16">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -25,7 +25,7 @@ const ProsteCenniki = () => {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {/* Karta 159 zł - MODEL PIERWSZY */}
-          <Card className="relative p-8 bg-white shadow-soft border hover:shadow-purple transition-all duration-300">
+          <Card className="relative p-8 bg-white/95 backdrop-blur-sm shadow-soft border-2 border-white/50 hover:shadow-purple transition-all duration-300">
             <div className="text-center mb-8">
               <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
               <div className="text-5xl font-bold text-foreground mb-2">
@@ -50,7 +50,7 @@ const ProsteCenniki = () => {
           </Card>
 
           {/* Karta 39 zł - MODEL DRUGI */}
-          <Card className="relative p-8 bg-white shadow-soft border hover:shadow-gold transition-all duration-300">
+          <Card className="relative p-8 bg-white/95 backdrop-blur-sm shadow-soft border-2 border-white/50 hover:shadow-gold transition-all duration-300">
             <div className="absolute top-4 right-4 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full">
               PROMOCJA!
             </div>

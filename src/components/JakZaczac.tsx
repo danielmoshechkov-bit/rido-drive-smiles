@@ -45,14 +45,14 @@ const JakZaczac = () => {
           {/* Steps */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {steps.map((step, index) => (
-              <Card key={index} className="p-6 text-center bg-white shadow-soft hover:shadow-purple transition-all duration-300">
+              <Card key={index} className="p-6 text-center bg-white/95 backdrop-blur-sm shadow-soft hover:shadow-purple transition-all duration-300 border-2 border-white/50">
                 <div className="w-12 h-12 bg-gradient-hero text-primary-foreground rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
                   {step.number}
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  {step.title}  
-                </h3>
-                <p className="text-sm text-muted-foreground">
+                 <h3 className="text-xl font-semibold text-foreground mb-2">
+                   {step.title}  
+                 </h3>
+                 <p className="text-base text-muted-foreground">
                   {step.description}
                 </p>
               </Card>
