@@ -19,6 +19,45 @@ const Cennik = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Plan 2 - Stały - MODEL DRUGI */}
+          <Card className="p-8 shadow-purple border-primary/20">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
+                <div className="flex items-baseline space-x-2 mb-2">
+                  <span className="text-3xl font-bold text-foreground">159 zł</span>
+                  <span className="text-lg text-muted-foreground">+ 0% podatku</span>
+                </div>
+                <div className="text-sm font-medium text-primary">
+                  z aktywną kartą paliwową E100
+                </div>
+              </div>
+
+              <ul className="space-y-3">
+                <li className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-primary" />
+                  <span className="text-sm">Stała kwota, 0% podatku</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-primary" />
+                  <span className="text-sm">Zniżki na paliwo (karta E100)</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-primary" />
+                  <span className="text-sm">Maksymalna przewidywalność kosztów</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-primary" />
+                  <span className="text-sm">Wszystkie benefity planu podstawowego</span>
+                </li>
+              </ul>
+
+              <Button variant="default" className="w-full" onClick={() => scrollToSection('kontakt')}>
+                Wybieram ten model
+              </Button>
+            </div>
+          </Card>
+
           {/* Plan 1 - Promocyjny - MODEL PIERWSZY */}
           <Card className="p-8 relative overflow-hidden shadow-gold border-accent/20">
             {/* Promocja Badge */}
@@ -61,45 +100,6 @@ const Cennik = () => {
               </ul>
 
               <Button variant="accent" className="w-full" onClick={() => scrollToSection('kontakt')}>
-                Wybieram ten model
-              </Button>
-            </div>
-          </Card>
-
-          {/* Plan 2 - Stały - MODEL DRUGI */}
-          <Card className="p-8 shadow-purple border-primary/20">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
-                <div className="flex items-baseline space-x-2 mb-2">
-                  <span className="text-3xl font-bold text-foreground">159 zł</span>
-                  <span className="text-lg text-muted-foreground">+ 0% podatku</span>
-                </div>
-                <div className="text-sm font-medium text-primary">
-                  z aktywną kartą paliwową E100
-                </div>
-              </div>
-
-              <ul className="space-y-3">
-                <li className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-primary" />
-                  <span className="text-sm">Stała kwota, 0% podatku</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-primary" />
-                  <span className="text-sm">Zniżki na paliwo (karta E100)</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-primary" />
-                  <span className="text-sm">Maksymalna przewidywalność kosztów</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-primary" />
-                  <span className="text-sm">Wszystkie benefity planu podstawowego</span>
-                </li>
-              </ul>
-
-              <Button variant="default" className="w-full" onClick={() => scrollToSection('kontakt')}>
                 Wybieram ten model
               </Button>
             </div>
