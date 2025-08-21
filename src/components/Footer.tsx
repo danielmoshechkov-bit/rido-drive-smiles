@@ -15,10 +15,10 @@ const Footer = () => {
             <div className="flex items-center space-x-2 mb-4">
               <img 
                 src="/lovable-uploads/7503999e-6dce-49e0-b88d-2d447d2a0d2e.png" 
-                alt="RIDO Logo" 
+                alt="Get RIDO Logo" 
                 className="h-8 w-8"
               />
-              <span className="text-xl font-bold">RIDO</span>
+              <span className="text-xl font-bold">Get RIDO</span>
             </div>
             <p className="text-primary-foreground/80 text-sm max-w-md">
               Partner kierowców Uber i Bolt. Proste rozliczenia, przejrzysty cennik, 
@@ -85,7 +85,7 @@ const Footer = () => {
 
         <div className="border-t border-primary-foreground/20 mt-8 pt-8 text-center">
           <p className="text-primary-foreground/60 text-sm">
-            getrido.pl - RIDO. Wszystkie prawa zastrzeżone.
+            getrido.pl - Get RIDO. Wszystkie prawa zastrzeżone.
           </p>
         </div>
       </div>

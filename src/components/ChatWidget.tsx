@@ -38,7 +38,7 @@ const ChatWidget = () => {
                   Masz pytania? Skontaktuj się z nami!
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Odpowiadamy szybko na wszystkie pytania dotyczące RIDO
+                  Odpowiadamy szybko na wszystkie pytania dotyczące Get RIDO
                 </p>
               </div>
               

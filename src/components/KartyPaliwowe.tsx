@@ -24,7 +24,7 @@ const KartyPaliwowe = () => {
             Karty paliwowe E100 — tankuj taniej
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Dla kierowców RIDO przygotowaliśmy karty paliwowe E100 z realnymi zniżkami na wybranych stacjach.
+            Dla kierowców Get RIDO przygotowaliśmy karty paliwowe E100 z realnymi zniżkami na wybranych stacjach.
           </p>
         </div>
 

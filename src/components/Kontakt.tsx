@@ -113,7 +113,7 @@ const Kontakt = () => {
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
-                  placeholder="Chcę zostać kierowcą RIDO..."
+                  placeholder="Chcę zostać kierowcą Get RIDO..."
                   rows={4}
                 />
               </div>

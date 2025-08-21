@@ -12,7 +12,7 @@ const FAQ = () => {
     },
     {
       question: "Czy muszę mieć działalność?",
-      answer: "Nie. Jeździsz przez RIDO — rozliczamy Cię jako partnera."
+      answer: "Nie. Jeździsz przez Get RIDO — rozliczamy Cię jako partnera."
     },
     {
       question: "Czy mogę przejść z innego partnera?",
@@ -27,11 +27,11 @@ const FAQ = () => {
       answer: "Tak — raz w miesiącu."
     },
     {
-      question: "Na czym polega karta paliwowa RIDO?",
+      question: "Na czym polega karta paliwowa Get RIDO?",
       answer: "To karta z rabatem na paliwo na partnerskich stacjach. Jest wymagana, by skorzystać z modelu 159 zł + 0% podatku."
     },
     {
-      question: "Czy RIDO pomaga w formalnościach?",
+      question: "Czy Get RIDO pomaga w formalnościach?",
       answer: "Tak — przeprowadzimy Cię przez cały proces, krok po kroku."
     }
   ];

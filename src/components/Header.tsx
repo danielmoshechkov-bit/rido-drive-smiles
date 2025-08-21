@@ -15,10 +15,10 @@ const Header = () => {
         <div className="flex items-center space-x-2">
           <img 
             src="/lovable-uploads/7503999e-6dce-49e0-b88d-2d447d2a0d2e.png" 
-            alt="RIDO Logo" 
+            alt="Get RIDO Logo" 
             className="h-8 w-8"
           />
-          <span className="text-xl font-bold text-primary">RIDO</span>
+          <span className="text-xl font-bold text-primary">Get RIDO</span>
         </div>
 
         {/* Navigation */}
