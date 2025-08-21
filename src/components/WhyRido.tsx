@@ -10,7 +10,7 @@ const WhyRido = () => {
     {
       icon: "📆",
       title: "Wypłaty co tydzień",
-      description: "regularne wypłaty na czas"
+      description: "przelew wysylamy w poniedzialek do godziny 12"
     },
     {
       icon: "☎️",
