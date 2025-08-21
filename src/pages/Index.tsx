@@ -11,6 +11,7 @@ import Kontakt from "@/components/Kontakt";
 import SEOSection from "@/components/SEOSection";
 import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
+import ContactButtons from "@/components/ContactButtons";
 
 const Index = () => {
   return (
@@ -30,6 +31,7 @@ const Index = () => {
       </main>
       <Footer />
       <ChatWidget />
+      <ContactButtons />
     </div>
   );
 };
