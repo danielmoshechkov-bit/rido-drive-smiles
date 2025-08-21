@@ -30,7 +30,7 @@ const Hero = () => {
           <div className="space-y-4 text-left relative">
             <div className="absolute top-0 right-0 hidden md:block">
               <img 
-                src="/lovable-uploads/a27439d2-e539-4826-82f2-2c73646d08cc.png" 
+                src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" 
                 alt="Get RIDO Mascot" 
                 className="h-16 w-16 animate-bounce-gentle"
               />
