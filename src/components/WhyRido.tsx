@@ -7,7 +7,11 @@ const WhyRido = () => {
   }, {
     icon: "📆",
     title: "Wypłaty co tydzień",
-    description: "regularne wypłaty na czas"
+    description: "przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na twoim koncie"
+  }, {
+    icon: "💰",
+    title: "Wypłata gotówką",
+    description: "możliwość odebrania swojej wypłaty gotówką w każdy wtorek u nas w biurze"
   }, {
     icon: "☎️",
     title: "Wsparcie 7 dni w tygodniu",
@@ -25,7 +29,7 @@ const WhyRido = () => {
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
           {benefits.map((benefit, index) => <Card key={index} className="p-6 text-center shadow-soft hover:shadow-purple transition-all duration-300">
               <div className="text-4xl mb-4">{benefit.icon}</div>
               <h3 className="text-lg font-semibold text-foreground mb-2">

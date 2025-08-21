@@ -10,12 +10,14 @@ const Hero = () => {
     }
   };
   return <section id="home" className="relative overflow-hidden bg-gradient-subtle">
-      {/* Background Animation */}
+      {/* Background Animation with Mascots */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
-        <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-accent/10 rounded-full animate-float-medium"></div>
-        <div className="absolute top-1/2 left-3/4 w-16 h-16 bg-primary/15 rounded-full animate-float-fast"></div>
-        <div className="absolute top-1/6 right-1/3 w-20 h-20 bg-accent/15 rounded-full animate-float-slow"></div>
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/4 left-1/4 h-12 w-12 animate-float-slow opacity-30" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-3/4 right-1/4 h-10 w-10 animate-float-medium opacity-20" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/2 left-3/4 h-8 w-8 animate-float-fast opacity-25" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/6 right-1/3 h-10 w-10 animate-float-slow opacity-20" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-2/3 left-1/6 h-8 w-8 animate-float-medium opacity-15" />
+        <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="absolute top-1/3 right-1/6 h-12 w-12 animate-float-fast opacity-25" />
       </div>
 
       {/* Top Bar */}
@@ -28,7 +30,7 @@ const Hero = () => {
           {/* Title with Mascot */}
           <div className="space-y-4 text-left relative">
             <div className="absolute top-0 right-0 hidden md:block">
-              <img src="/lovable-uploads/a27439d2-e539-4826-82f2-2c73646d08cc.png" alt="Get RIDO Mascot" className="h-16 w-16 animate-bounce-gentle" />
+              <img src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" alt="Get RIDO Mascot" className="h-24 w-24 animate-bounce-gentle" />
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
               <span className="text-primary">Get RIDO</span> — partner kierowców 
@@ -36,7 +38,12 @@ const Hero = () => {
                 <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl">Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów. WYPŁATA GOTÓWKI W KAZDY WTOREK U NAS W BIURZ</p>
+            <p className="text-xl text-muted-foreground max-w-2xl">Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.</p>
+            <div className="bg-gradient-accent text-accent-foreground p-4 rounded-lg shadow-gold max-w-2xl">
+              <p className="text-lg font-bold text-center">
+                ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
+              </p>
+            </div>
           </div>
 
           {/* Two pricing models - Full width side by side */}

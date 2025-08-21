@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import LanguageSelector from "@/components/LanguageSelector";
 
 const Header = () => {
   const scrollToSection = (sectionId: string) => {
@@ -67,10 +68,13 @@ const Header = () => {
           </button>
         </nav>
 
-        {/* CTA Button */}
-        <Button variant="accent" size="sm">
-          Dołącz teraz
-        </Button>
+        {/* CTA Button and Language Selector */}
+        <div className="flex items-center gap-3">
+          <LanguageSelector />
+          <Button variant="accent" size="sm">
+            Dołącz teraz
+          </Button>
+        </div>
       </div>
 
       {/* Mobile menu - simplified for now */}
