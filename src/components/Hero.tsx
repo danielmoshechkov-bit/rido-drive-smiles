@@ -67,10 +67,17 @@ const Hero = () => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pt-6 md:pt-8 py-0">
-          <div className="bg-gradient-accent text-accent-foreground p-4 md:p-6 rounded-lg shadow-gold max-w-full md:max-w-2xl">
-            <p className="text-base md:text-lg font-bold text-center">
-              ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
-            </p>
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 max-w-full md:max-w-4xl">
+            <div className="bg-gradient-accent text-accent-foreground p-4 md:p-6 rounded-lg shadow-gold">
+              <p className="text-base md:text-lg font-bold text-center">
+                ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
+              </p>
+            </div>
+            <img 
+              src="/lovable-uploads/a12a86d9-cc57-4efc-9f3d-25a513b5bd15.png" 
+              alt="Get RIDO Mascot" 
+              className="h-16 w-16 md:h-20 md:w-20 animate-bounce" 
+            />
           </div>
 
           {/* Two pricing models - Full width side by side */}

@@ -14,7 +14,7 @@ const Footer = () => {
           <div className="md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
               <img 
-                src="/lovable-uploads/7503999e-6dce-49e0-b88d-2d447d2a0d2e.png" 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
                 className="h-8 w-8"
               />
