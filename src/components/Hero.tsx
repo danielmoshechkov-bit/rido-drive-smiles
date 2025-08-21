@@ -23,20 +23,22 @@ const Hero = () => {
         Dwa modele rozliczeń - wybierz najlepszy dla siebie
       </div>
 
-      <div className="container mx-auto px-4 relative z-10 py-0">
-        <div className="max-w-5xl mx-auto space-y-8 pt-8 py-0">
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="max-w-5xl mx-auto space-y-8 pt-8">
           {/* Title with Mascot */}
           <div className="space-y-4 text-left relative">
             <div className="absolute top-0 right-0 hidden md:block">
               <img src="/lovable-uploads/a27439d2-e539-4826-82f2-2c73646d08cc.png" alt="Get RIDO Mascot" className="h-16 w-16 animate-bounce-gentle" />
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-              <span className="text-primary">Get RIDO</span> — partner kierowców 
+              <span className="text-primary">Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów. </span> — partner kierowców 
               <span className="block">
                 <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl">Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów. WYPŁATA GOTÓWKI W KAZDY WTOREK U NAS W BIURZ</p>
+            <p className="text-xl text-muted-foreground max-w-2xl">
+              Zarabiaj więcej, rozliczaj się prosto. Wypłaty co tydzień. Zero ukrytych kosztów.
+            </p>
           </div>
 
           {/* Two pricing models - Full width side by side */}
@@ -55,8 +57,9 @@ const Hero = () => {
                   <span className="text-xl text-accent-foreground">→</span>
                   <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
                 </div>
-                <p className="text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
-Dla pierwszych 50 kierowców</p>
+                <p className="text-sm text-accent-foreground/80">
+                  Dla pierwszych 50 kierowców
+                </p>
               </div>
             </Card>
 
@@ -69,9 +72,12 @@ Dla pierwszych 50 kierowców</p>
                 <h3 className="text-xl font-bold text-accent-foreground">
                   MODEL PIERWSZY
                 </h3>
-                <div className="text-5xl font-bold text-accent-foreground">159 zł + 0% podatku</div>
-                <p className="text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
-Warunek: aktywne korzystanie z karty paliwowej</p>
+                <div className="text-5xl font-bold text-accent-foreground">
+                  159 zł + 0% podatku
+                </div>
+                <p className="text-sm text-accent-foreground/80">
+                  Warunek: aktywne korzystanie z karty paliwowej
+                </p>
               </div>
             </Card>
           </div>
