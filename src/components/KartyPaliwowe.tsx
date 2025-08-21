@@ -51,23 +51,6 @@ const KartyPaliwowe = () => {
               ))}
             </div>
 
-            {/* Model 159 Requirement */}
-            <div className="bg-accent/10 rounded-lg p-6 mb-8 border border-accent/20">
-              <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <CreditCard className="h-6 w-6 text-accent" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-foreground mb-2">
-                    Warunek modelu 159 zł + 0% podatku
-                  </h4>
-                  <p className="text-foreground/80">
-                    Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Partner Stations */}
             <div className="bg-accent/10 rounded-lg p-6 border border-accent/20">
               <div className="mb-6">
@@ -202,6 +185,23 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Model 159 Requirement - Separate Purple Card */}
+          <Card className="p-6 bg-primary text-primary-foreground shadow-purple border-primary/20 mb-8">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <CreditCard className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-primary-foreground mb-2">
+                  Warunek modelu 159 zł + 0% podatku
+                </h4>
+                <p className="text-primary-foreground/80">
+                  Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.
+                </p>
               </div>
             </div>
           </Card>
