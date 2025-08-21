@@ -10,7 +10,7 @@ const Hero = () => {
   };
 
   return (
-    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-8">
+    <section id="home" className="relative overflow-hidden bg-gradient-subtle py-2">
       {/* Background Animation */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/10 rounded-full animate-float-slow"></div>
@@ -41,7 +41,27 @@ const Hero = () => {
 
           {/* Two pricing models - Full width side by side */}
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Model pierwszy - 159 zł */}
+            {/* Model drugi - 39 zł (teraz po lewej) */}
+            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                PROMOCJA
+              </div>
+              <div className="text-center space-y-4">
+                <h3 className="text-xl font-bold text-accent-foreground">
+                  MODEL DRUGI
+                </h3>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-4xl line-through text-accent-foreground/60">50 zł</span>
+                  <span className="text-2xl text-accent-foreground font-bold">→</span>
+                  <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
+                </div>
+                <p className="text-sm text-accent-foreground/80">
+                  Dla pierwszych 50 kierowców
+                </p>
+              </div>
+            </Card>
+
+            {/* Model pierwszy - 159 zł (teraz po prawej) */}
             <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
                 PROMOCJA
@@ -55,26 +75,6 @@ const Hero = () => {
                 </div>
                 <p className="text-sm text-accent-foreground/80">
                   Warunek: aktywne korzystanie z karty paliwowej
-                </p>
-              </div>
-            </Card>
-
-            {/* Model drugi - 39 zł */}
-            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
-                </h3>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl line-through text-accent-foreground/60">50 zł</span>
-                  <span className="text-lg text-accent-foreground">→</span>
-                  <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
-                </div>
-                <p className="text-sm text-accent-foreground/80">
-                  Dla pierwszych 50 kierowców
                 </p>
               </div>
             </Card>
