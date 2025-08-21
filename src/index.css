@@ -160,4 +160,11 @@ All colors MUST be HSL.
   .animate-bounce-gentle {
     animation: bounce-gentle 3s ease-in-out infinite;
   }
+
+  /* Custom opacity utilities for very transparent elements */
+  .opacity-8 { opacity: 0.08; }
+  .opacity-9 { opacity: 0.09; }
+  .opacity-10 { opacity: 0.10; }
+  .opacity-11 { opacity: 0.11; }
+  .opacity-12 { opacity: 0.12; }
 }

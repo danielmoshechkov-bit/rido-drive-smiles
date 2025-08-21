@@ -8,7 +8,7 @@ const ChatWidget = () => {
 
   const handleChatClick = () => {
     // Tu można dodać integrację z rzeczywistym chatem (Tidio, Crisp, itp.)
-    window.open('https://wa.me/48123456789', '_blank');
+    window.open('https://wa.me/48519474583', '_blank');
   };
 
   return (
@@ -51,7 +51,7 @@ const ChatWidget = () => {
                   📱 WhatsApp
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = 'tel:+48123456789'}
+                  onClick={() => window.location.href = 'tel:+48519474583'}
                   variant="outline" 
                   className="w-full"
                 >
