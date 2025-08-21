@@ -19,16 +19,19 @@ const Hero = () => {
         <div className="absolute top-1/6 right-1/3 w-20 h-20 bg-accent/15 rounded-full animate-float-slow"></div>
       </div>
 
-      {/* Top Bar */}
-      <div className="bg-primary text-primary-foreground py-3 text-center text-sm font-medium relative z-10">
-        Dwa modele rozliczeń - wybierz najlepszy dla siebie
-      </div>
-
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto space-y-8">
-          {/* Title */}
-          <div className="space-y-4 text-left">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
+          {/* Title with mascot */}
+          <div className="space-y-4 text-left relative">
+            {/* Animated mascot */}
+            <div className="absolute -top-4 -right-4 md:-right-8">
+              <img 
+                src="/lovable-uploads/d636ba1c-61cd-484b-8be5-0cfe55d7386b.png" 
+                alt="RIDO Mascot" 
+                className="w-16 h-16 md:w-20 md:h-20 animate-bounce"
+              />
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
               <span className="text-primary">RIDO</span> — partner kierowców 
               <span className="block">
                 <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>
@@ -39,46 +42,6 @@ const Hero = () => {
             </p>
           </div>
 
-          {/* Two pricing models - Full width side by side */}
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Model pierwszy - 159 zł */}
-            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-accent-foreground">
-                  MODEL PIERWSZY
-                </h3>
-                <div className="text-5xl font-bold text-accent-foreground">
-                  159 zł + 0% podatku
-                </div>
-                <p className="text-sm text-accent-foreground/80">
-                  Warunek: aktywne korzystanie z karty paliwowej
-                </p>
-              </div>
-            </Card>
-
-            {/* Model drugi - 39 zł */}
-            <Card className="relative p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
-                </h3>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl line-through text-accent-foreground/60">50 zł</span>
-                  <span className="text-lg text-accent-foreground">→</span>
-                  <span className="text-5xl font-bold text-accent-foreground">39 zł + 8% podatku</span>
-                </div>
-                <p className="text-sm text-accent-foreground/80">
-                  Dla pierwszych 50 kierowców
-                </p>
-              </div>
-            </Card>
-          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
