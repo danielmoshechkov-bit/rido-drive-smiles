@@ -76,7 +76,7 @@ const Kontakt = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    placeholder="+48 123 456 789"
+                    placeholder="+48 519 474 583"
                   />
                 </div>
               </div>
@@ -138,7 +138,7 @@ const Kontakt = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Telefon</p>
-                    <p className="text-sm text-muted-foreground">+48 123 456 789</p>
+                    <p className="text-sm text-muted-foreground">+48 519 474 583</p>
                   </div>
                 </div>
                 
@@ -148,7 +148,7 @@ const Kontakt = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">WhatsApp</p>
-                    <p className="text-sm text-muted-foreground">+48 123 456 789</p>
+                    <p className="text-sm text-muted-foreground">+48 519 474 583</p>
                   </div>
                 </div>
 
@@ -158,7 +158,7 @@ const Kontakt = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">E-mail</p>
-                    <p className="text-sm text-muted-foreground">kontakt@rido.pl</p>
+                    <p className="text-sm text-muted-foreground">biuro@getrido.pl</p>
                   </div>
                 </div>
               </div>
@@ -177,15 +177,6 @@ const Kontakt = () => {
               </Button>
             </Card>
 
-            {/* Company Data Placeholder */}
-            <Card className="p-6 bg-muted/30">
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Dane firmy
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Dane firmy: nazwa, NIP, adres zostają uzupełnione.
-              </p>
-            </Card>
           </div>
         </div>
       </div>

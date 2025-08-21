@@ -74,7 +74,7 @@ const Hero = () => {
               </p>
             </div>
             <img 
-              src="/lovable-uploads/a12a86d9-cc57-4efc-9f3d-25a513b5bd15.png" 
+              src="/lovable-uploads/a4e8a919-1b0c-497b-aa7f-55337b0bc02f.png" 
               alt="Get RIDO Mascot" 
               className="h-16 w-16 md:h-20 md:w-20 animate-bounce" 
             />
@@ -82,7 +82,22 @@ const Hero = () => {
 
           {/* Two pricing models - Full width side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
-            {/* Model pierwszy - 39 zł (Left) */}
+            {/* Model drugi - 159 zł (Left) */}
+            <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                PROMOCJA
+              </div>
+              <div className="text-center space-y-3 md:space-y-4">
+                <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
+                  MODEL DRUGI
+                </h3>
+                <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">159 zł + 0% podatku</div>
+                <p className="text-xs md:text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
+Warunek: aktywne korzystanie z karty paliwowej</p>
+              </div>
+            </Card>
+
+            {/* Model pierwszy - 39 zł (Right) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
                 PROMOCJA
@@ -98,21 +113,6 @@ const Hero = () => {
                 </div>
                 <p className="text-xs md:text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
 Dla pierwszych 50 kierowców</p>
-              </div>
-            </Card>
-
-            {/* Model drugi - 159 zł (Right) */}
-            <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                PROMOCJA
-              </div>
-              <div className="text-center space-y-3 md:space-y-4">
-                <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
-                </h3>
-                <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">159 zł + 0% podatku</div>
-                <p className="text-xs md:text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
-Warunek: aktywne korzystanie z karty paliwowej</p>
               </div>
             </Card>
           </div>
