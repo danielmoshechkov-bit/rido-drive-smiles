@@ -27,7 +27,7 @@ const ProsteCenniki = () => {
           {/* Karta 159 zł - MODEL DRUGI */}
           <Card className="relative p-8 bg-card shadow-soft border hover:shadow-purple transition-all duration-300">
             <div className="text-center mb-8">
-              <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
+              <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
               <div className="text-5xl font-bold text-foreground mb-2">
                 159 zł + 0% podatku
               </div>
@@ -56,7 +56,7 @@ const ProsteCenniki = () => {
             </div>
             
             <div className="text-center mb-8">
-              <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
+              <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
               <div className="text-5xl font-bold text-foreground mb-2">
                 39 zł + 8% podatku
               </div>

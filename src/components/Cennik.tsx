@@ -23,7 +23,7 @@ const Cennik = () => {
           <Card className="p-8 shadow-purple border-primary/20">
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
+                <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
                 <div className="flex items-baseline space-x-2 mb-2">
                   <span className="text-3xl font-bold text-foreground">159 zł</span>
                   <span className="text-lg text-muted-foreground">+ 0% podatku</span>
@@ -67,7 +67,7 @@ const Cennik = () => {
             
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
+                <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
                 <div className="flex items-baseline space-x-2 mb-2">
                   <span className="text-3xl font-bold text-foreground">39 zł</span>
                   <span className="text-lg text-muted-foreground">+ 8% podatku</span>
