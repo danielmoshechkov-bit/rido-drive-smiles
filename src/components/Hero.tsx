@@ -45,45 +45,44 @@ const Hero = () => {
         <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute top-[90%] left-[80%] h-7 w-7 animate-float-medium opacity-9" />
       </div>
 
-      {/* Top Bar with white frame */}
-      <div className="bg-white/90 backdrop-blur-sm border-b border-white/20 text-foreground py-4 text-center text-sm md:text-base font-medium relative z-10 shadow-soft">
+      {/* Top Bar with purple frame */}
+      <div className="bg-primary text-white py-4 text-center text-sm md:text-base font-medium relative z-10 shadow-soft">
         <div className="container mx-auto px-4">
-          <span className="text-primary font-bold">Get RIDO</span> — Twój partner <span className="text-black font-semibold">Uber</span>, <span className="text-[#34D186] font-semibold">Bolt</span>, <span className="text-red-600 font-semibold">FreeNow</span>. 
-          <span className="block mt-1 text-muted-foreground">Stworzone przez kierowców, dla kierowców.</span>
+          <span className="font-bold">Get RIDO</span> — Twój partner <span className="font-semibold">Uber</span>, <span className="font-semibold">Bolt</span>, <span className="font-semibold">FreeNow</span>. 
+          <span className="block mt-1">Stworzone przez kierowców, dla kierowców.</span>
         </div>
       </div>
 
+      {/* White rectangle with main slogan */}
+      <Card className="mx-4 md:mx-8 mt-6 p-6 md:p-8 bg-white text-center relative z-10 shadow-soft">
+        <div className="space-y-4">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
+            <span className="text-primary font-bold">Get RIDO</span> — Twój partner <span className="text-black font-semibold">Uber</span>, <span className="text-[#34D186] font-semibold">Bolt</span>, <span className="text-red-600 font-semibold">FreeNow</span>. Stworzone przez kierowców, dla kierowców.
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground">
+            Rozliczaj się prosto. Wypłaty co tydzień. Przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na Twoim koncie. Zero ukrytych kosztów.
+          </p>
+        </div>
+      </Card>
+
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pt-6 md:pt-8 py-0">
-          {/* Title with Mascot */}
-          <div className="space-y-4 text-left relative">
-            <div className="absolute top-0 right-0 hidden lg:block">
-              <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="h-20 w-20 md:h-24 md:w-24 animate-bounce-gentle" />
-            </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground leading-tight pr-0 lg:pr-28">
-              <span className="text-primary">Zarabiaj więcej</span> jako kierowca
-              <span className="block">
-                <span className="text-black">Uber</span>, <span className="text-[#34D186]">Bolt</span>, <span className="text-red-600">FreeNow</span>
-              </span>
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl">Rozliczaj się prosto. Wypłaty co tydzień. Przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na Twoim koncie. Zero ukrytych kosztów.</p>
-            <div className="bg-gradient-accent text-accent-foreground p-4 md:p-6 rounded-lg shadow-gold max-w-full md:max-w-2xl">
-              <p className="text-base md:text-lg font-bold text-center">
-                ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
-              </p>
-            </div>
+          <div className="bg-gradient-accent text-accent-foreground p-4 md:p-6 rounded-lg shadow-gold max-w-full md:max-w-2xl">
+            <p className="text-base md:text-lg font-bold text-center">
+              ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE
+            </p>
           </div>
 
           {/* Two pricing models - Full width side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
-            {/* Model drugi - 39 zł (Left) */}
+            {/* Model pierwszy - 39 zł (Left) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
                 PROMOCJA
               </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
-                  MODEL DRUGI
+                  MODEL PIERWSZY
                 </h3>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 md:gap-3">
                   <span className="text-2xl md:text-3xl line-through text-accent-foreground/60 font-semibold">50 zł</span>
@@ -95,14 +94,14 @@ Dla pierwszych 50 kierowców</p>
               </div>
             </Card>
 
-            {/* Model pierwszy - 159 zł (Right) */}
+            {/* Model drugi - 159 zł (Right) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
                 PROMOCJA
               </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
-                  MODEL PIERWSZY
+                  MODEL DRUGI
                 </h3>
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">159 zł + 0% podatku</div>
                 <p className="text-xs md:text-sm text-accent-foreground/80">Za tygodniowe rozliczenie za jedną i więcej aplikacji 
