@@ -21,7 +21,7 @@ const WhyRido = () => {
     title: "Karta paliwowa",
     description: "realne zniżki na stacjach"
   }];
-  return <section className="bg-background py-0">
+  return <section className="bg-background py-0 relative z-20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -30,7 +30,7 @@ const WhyRido = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
-          {benefits.map((benefit, index) => <Card key={index} className="p-6 text-center shadow-soft hover:shadow-purple transition-all duration-300">
+          {benefits.map((benefit, index) => <Card key={index} className="p-6 text-center bg-white shadow-soft hover:shadow-purple transition-all duration-300">
               <div className="text-4xl mb-4">{benefit.icon}</div>
               <h3 className="text-lg font-semibold text-foreground mb-2">
                 {benefit.title}

@@ -10,7 +10,7 @@ const Cennik = () => {
       });
     }
   };
-  return <section id="cennik" className="bg-gradient-subtle py-0">
+  return <section id="cennik" className="bg-gradient-subtle py-0 relative z-20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -19,8 +19,8 @@ const Cennik = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Plan 2 - Stały - MODEL DRUGI */}
-          <Card className="p-8 shadow-purple border-primary/20">
+          {/* Plan 2 - Stały - MODEL PIERWSZY */}
+          <Card className="p-8 bg-white shadow-purple border-primary/20">
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
@@ -58,8 +58,8 @@ const Cennik = () => {
             </div>
           </Card>
 
-          {/* Plan 1 - Promocyjny - MODEL PIERWSZY */}
-          <Card className="p-8 relative overflow-hidden shadow-gold border-accent/20">
+          {/* Plan 1 - Promocyjny - MODEL DRUGI */}
+          <Card className="p-8 relative overflow-hidden bg-white shadow-gold border-accent/20">
             {/* Promocja Badge */}
             <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-2 rotate-12 text-sm font-bold shadow-lg my-[4px]">
               PROMOCJA!
@@ -114,11 +114,11 @@ const Cennik = () => {
           
           {/* Mikro FAQ */}
           <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mt-8">
-            <Card className="p-4">
+            <Card className="p-4 bg-white">
               <h4 className="font-semibold text-foreground mb-2">Czy są inne opłaty?</h4>
               <p className="text-sm text-muted-foreground">Nie. Zero ukrytych opłat.</p>
             </Card>
-            <Card className="p-4">
+            <Card className="p-4 bg-white">
               <h4 className="font-semibold text-foreground mb-2">Czy mogę przejść z innego partnera?</h4>
               <p className="text-sm text-muted-foreground">Tak, pomożemy w 24h.</p>
             </Card>
