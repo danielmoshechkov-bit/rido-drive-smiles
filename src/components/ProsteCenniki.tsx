@@ -25,7 +25,7 @@ const ProsteCenniki = () => {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {/* Karta 159 zł - MODEL PIERWSZY */}
-          <Card className="relative p-8 !bg-white border-2 border-white/30 shadow-soft hover:shadow-purple transition-all duration-300">
+          <Card className="relative p-8 bg-white border-2 border-white/30 shadow-soft hover:shadow-purple transition-all duration-300">
             <div className="text-center mb-8">
               <h3 className="text-xl font-bold text-primary mb-4">MODEL PIERWSZY</h3>
               <div className="text-5xl font-bold text-foreground mb-2">
@@ -50,7 +50,7 @@ const ProsteCenniki = () => {
           </Card>
 
           {/* Karta 39 zł - MODEL DRUGI */}
-          <Card className="relative p-8 !bg-white border-2 border-white/30 shadow-soft hover:shadow-gold transition-all duration-300">
+          <Card className="relative p-8 bg-white border-2 border-white/30 shadow-soft hover:shadow-gold transition-all duration-300">
             <div className="absolute top-4 right-4 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full">
               PROMOCJA!
             </div>
