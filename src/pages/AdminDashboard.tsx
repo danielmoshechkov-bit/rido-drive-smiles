@@ -66,9 +66,10 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="weekly-report">{t('admin.weeklyReport')}</TabsTrigger>
             <TabsTrigger value="drivers-list">{t('admin.driversList')}</TabsTrigger>
+            <TabsTrigger value="settlements">{t('admin.settlements')}</TabsTrigger>
             <TabsTrigger value="data-import">{t('admin.dataImport')}</TabsTrigger>
             <TabsTrigger value="settings">{t('admin.settings')}</TabsTrigger>
             <TabsTrigger value="reports">{t('admin.reports')}</TabsTrigger>

@@ -16,9 +16,38 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password validation
+  const validatePassword = (password: string) => {
+    const minLength = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    return {
+      minLength,
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      hasSpecial,
+      isStrong: minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial
+    };
+  };
+
+  const passwordValidation = validatePassword(password);
+  const passwordsMatch = password === confirmPassword && password.length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Admin login
+    if (isLogin && email === 'daniel.moshechkov@gmail.com' && password === 'danmos050389') {
+      navigate('/admin/dashboard');
+      return;
+    }
     
     // Simple test login
     if (isLogin && email === 'test' && password === 'test') {
@@ -26,18 +55,23 @@ const Auth = () => {
       return;
     }
     
+    // For registration, validate password
+    if (!isLogin && !passwordValidation.isStrong) {
+      alert('Hasło nie spełnia wymagań!');
+      return;
+    }
+    
+    if (!isLogin && !passwordsMatch) {
+      alert('Hasła nie są zgodne!');
+      return;
+    }
+    
     // For now, just show success message
-    alert(isLogin ? 'Zalogowano pomyślnie!' : 'Zarejestrowano pomyślnie!');
+    alert(isLogin ? 'Zalogowano pomyślnie!' : 'Zarejestrowano pomyślnie! Sprawdź e-mail w celu aktywacji konta.');
   };
 
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden bg-gradient-subtle"
-      style={{
-        backgroundImage: `url(/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png)`,
-        backgroundSize: '50px 50px',
-        backgroundRepeat: 'repeat'
-      }}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 to-blue-50"
     >
       {/* Background Animation with Mascots */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">

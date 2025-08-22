@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 const ProsteCenniki = () => {
+  const { t } = useTranslation();
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -10,8 +12,8 @@ const ProsteCenniki = () => {
       });
     }
   };
-  const benefits39 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Bez ukrytych kosztów"];
-  const benefits159 = ["Wypłaty co tydzień", "Przelewy w poniedziałek do 12:00", "Wsparcie 7 dni w tygodniu", "Przejrzysty cennik", "Proste rozliczenia", "Karta paliwowa E100", "Realne zniżki na paliwo", "0% podatku"];
+  const benefits39 = t('simplePricing.benefits39', { returnObjects: true }) as string[];
+  const benefits159 = t('simplePricing.benefits159', { returnObjects: true }) as string[];
   return <section className="py-16">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">

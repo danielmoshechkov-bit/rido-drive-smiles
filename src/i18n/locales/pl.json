@@ -35,7 +35,7 @@
       },
       "cashPayout": {
         "title": "Wypłata gotówką",
-        "description": "możliwość odebrania swojej wypłaty gotówką w każy wtorek u nas w biurze"
+        "description": "możliwość odebrania swojej wypłaty gotówką w każdy wtorek u nas w biurze"
       },
       "support": {
         "title": "Wsparcie 7 dni w tygodniu",
@@ -50,26 +50,242 @@
   "seo": {
     "description": "Szukasz zaufanego partnera dla kierowców Uber i Bolt w Polsce? Get RIDO oferuje proste rozliczenia, wypłaty co tydzień oraz wsparcie 7 dni w tygodniu. Wybierz model rozliczeń: 39 zł + 8% podatku (promocja z 50 zł) albo 159 zł + 0% podatku (z kartą paliwową Get RIDO). Dołącz do Get RIDO i zacznij zarabiać więcej w Warszawie, Krakowie i całej Polsce."
   },
+  "pricing": {
+    "title": "Proste modele rozliczeń — wybierz, co Ci się opłaca",
+    "model1": "MODEL PIERWSZY",
+    "model2": "MODEL DRUGI",
+    "model1Price": "159 zł + 0% podatku",
+    "model2Price": "39 zł + 8% podatku",
+    "model1Subtitle": "z aktywną kartą paliwową E100",
+    "model2Subtitle": "Normalnie: 50 zł + 8% podatku",
+    "promotion": "PROMOCJA!",
+    "first50": "Dla pierwszych 50 kierowców",
+    "chooseModel": "Wybieram ten model",
+    "changeInfo": "Model rozliczeń wybierasz przy podpisaniu umowy. Możliwość zmiany raz w miesiącu. Wypłaty: raz w tygodniu.",
+    "noHiddenFees": "Czy są inne opłaty?",
+    "noHiddenFeesAnswer": "Nie. Zero ukrytych opłat.",
+    "switchPartner": "Czy mogę przejść z innego partnera?",
+    "switchPartnerAnswer": "Tak, pomożemy w 24h.",
+    "benefits159": [
+      "Stała kwota, 0% podatku",
+      "Zniżki na paliwo (karta E100)",
+      "Maksymalna przewidywalność kosztów",
+      "Wszystkie benefity planu podstawowego"
+    ],
+    "benefits39": [
+      "Pełna obsługa rozliczeń",
+      "Brak ukrytych kosztów",
+      "Wypłaty co tydzień",
+      "Wsparcie 7 dni w tygodniu"
+    ]
+  },
+  "simplePricing": {
+    "title": "Proste modele rozliczeń",
+    "subtitle": "Wybierz model, który najlepiej odpowiada Twoim potrzebom",
+    "benefits159": [
+      "Wypłaty co tydzień",
+      "Przelewy w poniedziałek do 12:00",
+      "Wsparcie 7 dni w tygodniu",
+      "Przejrzysty cennik",
+      "Proste rozliczenia",
+      "Karta paliwowa E100",
+      "Realne zniżki na paliwo",
+      "0% podatku"
+    ],
+    "benefits39": [
+      "Wypłaty co tydzień",
+      "Przelewy w poniedziałek do 12:00",
+      "Wsparcie 7 dni w tygodniu",
+      "Przejrzysty cennik",
+      "Proste rozliczenia",
+      "Bez ukrytych kosztów"
+    ],
+    "whatYouGet": "Co otrzymujesz:"
+  },
+  "howToStart": {
+    "title": "Jak dołączyć do Get RIDO i zacząć jeździć?",
+    "steps": [
+      {
+        "number": "1",
+        "title": "Zgłoszenie online",
+        "description": "wypełnij formularz (imię, telefon, e-mail, miasto, czy masz auto)"
+      },
+      {
+        "number": "2",
+        "title": "Dokumenty",
+        "description": "wyślij skany; pomożemy wszystko skompletować"
+      },
+      {
+        "number": "3",
+        "title": "Weryfikacja i podpis",
+        "description": "umowa elektroniczna, bez biegania po urzędach"
+      },
+      {
+        "number": "4",
+        "title": "Aktywacja w Uber/Bolt",
+        "description": "start nawet w 24h"
+      }
+    ],
+    "joinNow": "Zgłoś się teraz",
+    "documents": "Lista dokumentów → Wymagania"
+  },
+  "requirements": {
+    "title": "Co jest potrzebne do rozpoczęcia?",
+    "driverDocs": "Dokumenty dla kierowcy",
+    "carRequirements": "Wymagania do auta",
+    "driverDocsList": [
+      "Prawo jazdy polskie",
+      "Zaświadczenie o niekaralności",
+      "Zaświadczenie lekarskie i psychotechniczne",
+      "Zdjęcie 4.5x3.5"
+    ],
+    "carDocsList": [
+      "Przegląd TAXI",
+      "Ubezpieczenie OC.",
+      "Oklejone zgodnie z przepisami"
+    ],
+    "noCar": "Nie masz auta?",
+    "noCarDesc": "Daj znać, pomożemy dobrać rozwiązanie.",
+    "joinButton": "Chcę dołączyć",
+    "chatButton": "Zapytaj nas na czacie"
+  },
+  "fuelCards": {
+    "title": "Karty paliwowe E100 — tankuj taniej",
+    "subtitle": "Dla kierowców Get RIDO przygotowaliśmy karty paliwowe E100 z realnymi zniżkami na wybranych stacjach.",
+    "benefitsTitle": "Korzyści karty paliwowej E100",
+    "benefits": [
+      "Zniżki na paliwo",
+      "Prosta obsługa",
+      "Dodatkowe benefity partnerskie"
+    ],
+    "partnerStations": "Partnerskie stacje paliw",
+    "discountInfo": "Rabaty w PLN brutto na litr paliwa",
+    "requirementTitle": "Warunek modelu 159 zł + 0% podatku",
+    "requirementDesc": "Dostęp do modelu 159 zł + 0% podatku wymaga aktywnej karty paliwowej E100.",
+    "orderCard": "Zamów kartę paliwową"
+  },
+  "faq": {
+    "title": "Najczęściej zadawane pytania",
+    "questions": [
+      {
+        "question": "Kiedy są wypłaty?",
+        "answer": "Wypłaty realizujemy raz w tygodniu (docelowo planujemy opcję codziennych)."
+      },
+      {
+        "question": "Czy są ukryte opłaty?",
+        "answer": "Nie. Masz przejrzysty cennik i zero ukrytych kosztów."
+      },
+      {
+        "question": "Czy muszę mieć działalność?",
+        "answer": "Nie. Jeździsz przez Get RIDO — rozliczamy Cię jako partnera."
+      },
+      {
+        "question": "Czy mogę przejść z innego partnera?",
+        "answer": "Tak. Pomożemy w 24h przenieść rozliczenia i aktywację."
+      },
+      {
+        "question": "Jakie dokumenty są wymagane?",
+        "answer": "Prawo jazdy (min. 1 rok), niekaralność (≤30 dni), badania lekarskie i psychotechniczne, zdjęcie. Samochód z przeglądem TAXI (jeśli wymagane)."
+      },
+      {
+        "question": "Czy mogę zmienić model rozliczeń?",
+        "answer": "Tak — raz w miesiącu."
+      },
+      {
+        "question": "Na czym polega karta paliwowa Get RIDO?",
+        "answer": "To karta z rabatem na paliwo na partnerskich stacjach. Jest wymagana, by skorzystać z modelu 159 zł + 0% podatku."
+      },
+      {
+        "question": "Czy Get RIDO pomaga w formalnościach?",
+        "answer": "Tak — przeprowadzimy Cię przez cały proces, krok po kroku."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Skontaktuj się z nami",
+    "name": "Imię i nazwisko",
+    "phone": "Telefon",
+    "email": "E-mail",
+    "city": "Miasto",
+    "message": "Wiadomość",
+    "sendMessage": "Wyślij wiadomość",
+    "quickContact": "Szybki kontakt",
+    "phoneLabel": "Telefon",
+    "whatsAppLabel": "WhatsApp",
+    "emailLabel": "E-mail",
+    "liveChat": "Live Chat",
+    "liveChatDesc": "Skorzystaj z czatu na żywo - odpowiadamy 24/7! FAQ-bot odpowiada natychmiast, a konsultant dołączy gdy potrzebujesz.",
+    "startChat": "Rozpocznij chat",
+    "formSent": "Formularz wysłany!",
+    "formSentDesc": "Skontaktujemy się z Tobą w ciągu 24 godzin.",
+    "placeholders": {
+      "name": "Jan Kowalski",
+      "phone": "+48 519 474 583",
+      "email": "jan@example.com",
+      "city": "Warszawa",
+      "message": "Chcę zostać kierowcą Get RIDO..."
+    }
+  },
+  "footer": {
+    "description": "Partner kierowców Uber i Bolt. Proste rozliczenia, przejrzysty cennik, wypłaty co tydzień, wsparcie 7 dni w tygodniu.",
+    "menu": "Menu",
+    "home": "Strona główna",
+    "pricing": "Cennik",
+    "howToStart": "Jak zacząć",
+    "contact": "Kontakt",
+    "info": "Informacje",
+    "privacy": "Polityka prywatności",
+    "gdpr": "RODO",
+    "terms": "Regulamin",
+    "copyright": "getrido.pl - Get RIDO. Wszystkie prawa zastrzeżone."
+  },
   "auth": {
     "login": "Zaloguj się",
     "register": "Zarejestruj się",
-    "email": "E-mail",
+    "email": "Adres e-mail",
     "password": "Hasło",
     "confirmPassword": "Potwierdź hasło",
-    "acceptTerms": "Akceptuję regulamin",
-    "loginButton": "Zaloguj",
-    "registerButton": "Zarejestruj"
+    "acceptTerms": "Akceptuję regulamin i politykę prywatności",
+    "loginButton": "Zaloguj się",
+    "registerButton": "Zarejestruj się",
+    "passwordRequirements": "Hasło musi zawierać:",
+    "passwordMinLength": "Co najmniej 8 znaków",
+    "passwordUppercase": "Wielką literę",
+    "passwordLowercase": "Małą literę",
+    "passwordNumber": "Cyfrę",
+    "passwordSpecial": "Znak specjalny",
+    "strongPassword": "Silne hasło",
+    "weakPassword": "Słabe hasło",
+    "passwordsMatch": "Hasła są zgodne",
+    "passwordsDontMatch": "Hasła nie są zgodne"
   },
   "admin": {
-    "dashboard": "Panel administratora",
-    "weeklyReport": "Zestawienie tygodniowe",
-    "driversList": "Lista kierowców",
+    "dashboard": "Panel Administratora",
+    "logout": "Wyloguj",
+    "weeklyReport": "Raport tygodniowy",
+    "driversList": "Lista kierowców", 
     "dataImport": "Import danych",
     "settings": "Ustawienia",
     "reports": "Raporty",
+    "totalDrivers": "Łączna liczba kierowców",
+    "totalEarnings": "Łączne zarobki",
+    "totalTrips": "Łączna liczba kursów",
+    "averageRating": "Średnia ocena",
+    "earnings": "Zarobki",
+    "trips": "kursów",
     "uber": "Uber",
-    "bolt": "Bolt", 
+    "bolt": "Bolt",
     "freenow": "FreeNow",
-    "logout": "Wyloguj"
+    "settlements": "Rozliczenia",
+    "transfers": "Przelewy",
+    "roles": "Role",
+    "assignRole": "Przydziel rolę",
+    "administrator": "Administrator",
+    "moderator": "Moderator",
+    "uploadCsv": "Wgraj CSV",
+    "calendar": "Kalendarz",
+    "weeklySettlement": "Rozliczenie tygodniowe",
+    "mondayToSunday": "Poniedziałek - Niedziela",
+    "nextMondaySettlement": "Rozliczenie w kolejny poniedziałek"
   }
 }
