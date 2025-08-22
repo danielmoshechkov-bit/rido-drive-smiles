@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { useDrivers } from '@/hooks/useDrivers';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
+import { InlineEdit } from './InlineEdit';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DriversManagementProps {
   cityId: string;
@@ -50,6 +52,35 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   const handleEditDriver = () => {
     onDriverUpdate();
     setEditingDriver(null);
+  };
+
+  const updateDriverField = async (driverId: string, field: string, value: string) => {
+    const { error } = await supabase
+      .from('drivers')
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq('id', driverId);
+
+    if (error) throw error;
+    onDriverUpdate();
+  };
+
+  const updatePlatformId = async (oldPlatformId: string, newValue: string) => {
+    // Find the platform record to update
+    const { data: platformRecord, error: findError } = await supabase
+      .from('driver_platform_ids')
+      .select('id')
+      .eq('platform_id', oldPlatformId)
+      .single();
+
+    if (findError || !platformRecord) throw new Error('Platform not found');
+
+    const { error } = await supabase
+      .from('driver_platform_ids')
+      .update({ platform_id: newValue })
+      .eq('id', platformRecord.id);
+
+    if (error) throw error;
+    onDriverUpdate();
   };
 
   if (loading) {
@@ -123,58 +154,89 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         </Button>
                       </div>
 
-                      {/* Platform badges */}
+                      {/* Platform badges - only names */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-muted-foreground">Platformy:</span>
                         {driver.platform_ids && driver.platform_ids.length > 0 ? (
                           driver.platform_ids.map((platform) => (
                             <Badge 
                               key={platform.platform} 
-                              className={`${getServiceColor(platform.platform)} px-3 py-1 text-sm cursor-pointer`}
-                              onClick={() => copyToClipboard(platform.platform_id, platform.platform.toUpperCase())}
+                              className={`${getServiceColor(platform.platform)} rounded-full px-4 py-2 text-sm font-medium`}
                             >
-                              {platform.platform.toUpperCase()}: {platform.platform_id}
-                              <Copy className="ml-2 h-3 w-3" />
+                              {platform.platform.toUpperCase()}
                             </Badge>
                           ))
                         ) : (
-                          <Badge variant="outline" className="px-3 py-1">
+                          <Badge variant="outline" className="rounded-full px-4 py-2">
                             Brak platform
                           </Badge>
                         )}
                       </div>
 
-                      {/* Contact information */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {driver.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span className="flex-1">{driver.phone}</span>
+                      {/* Contact information and platform IDs in one line */}
+                      <div className="flex items-center gap-6 flex-wrap text-sm">
+                        {/* Phone */}
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          {driver.phone ? (
+                            <InlineEdit
+                              value={driver.phone}
+                              onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                              placeholder="Brak telefonu"
+                            />
+                          ) : (
+                            <InlineEdit
+                              value=""
+                              onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                              placeholder="Dodaj telefon"
+                              className="text-muted-foreground"
+                            />
+                          )}
+                        </div>
+
+                        {/* Email */}
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {driver.email ? (
+                            <InlineEdit
+                              value={driver.email}
+                              onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                              placeholder="Brak email"
+                            />
+                          ) : (
+                            <InlineEdit
+                              value=""
+                              onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                              placeholder="Dodaj email"
+                              className="text-muted-foreground"
+                            />
+                          )}
+                        </div>
+
+                        {/* Platform IDs */}
+                        {driver.platform_ids && driver.platform_ids.map((platform) => (
+                          <div key={platform.platform} className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs px-2 py-1 ${getServiceColor(platform.platform).replace('bg-', 'border-').replace('text-white', 'text-primary')}`}
+                            >
+                              {platform.platform.toUpperCase()}
+                            </Badge>
+                            <InlineEdit
+                              value={platform.platform_id}
+                              onSave={(value) => updatePlatformId(platform.platform_id, value)}
+                              truncateLength={8}
+                              className="font-mono"
+                            />
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(driver.phone!, 'numer telefonu')}
+                              onClick={() => copyToClipboard(platform.platform_id, platform.platform.toUpperCase())}
                               className="h-6 w-6 p-0"
                             >
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
-                        )}
-                        
-                        {driver.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span className="flex-1">{driver.email}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(driver.email!, 'email')}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
+                        ))}
                       </div>
 
                       {/* Missing data indicators */}

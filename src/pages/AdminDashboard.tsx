@@ -11,6 +11,7 @@ import { CSVUpload } from "@/components/CSVUpload";
 import { useCities, City } from "@/hooks/useCities";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriversManagement } from "@/components/DriversManagement";
+import { SettlementsManagement } from "@/components/SettlementsManagement";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -151,6 +152,21 @@ const AdminDashboard = () => {
                 cityId={selectedCity.id}
                 cityName={selectedCity.name}
                 onDriverUpdate={refetchDrivers}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="settlements" className="space-y-6">
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć rozliczenia</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <SettlementsManagement 
+                cityId={selectedCity.id}
+                cityName={selectedCity.name}
               />
             )}
           </TabsContent>

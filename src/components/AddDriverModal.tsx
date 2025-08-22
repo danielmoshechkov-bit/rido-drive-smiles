@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +29,6 @@ export const AddDriverModal = ({ isOpen, onClose, cityId, onSuccess }: AddDriver
     phone: ''
   });
   const [platformIds, setPlatformIds] = useState<PlatformId[]>([]);
-  const [newPlatform, setNewPlatform] = useState({ platform: '', platform_id: '' });
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -37,26 +36,13 @@ export const AddDriverModal = ({ isOpen, onClose, cityId, onSuccess }: AddDriver
     { id: 'freenow', name: 'FreeNow', color: 'bg-red-500 text-white' },
   ];
 
-  const addPlatformId = () => {
-    if (newPlatform.platform && newPlatform.platform_id) {
-      // Check if platform already exists
-      if (platformIds.some(p => p.platform === newPlatform.platform)) {
-        toast.error('Ta platforma już została dodana');
-        return;
-      }
-      
-      setPlatformIds([...platformIds, newPlatform]);
-      setNewPlatform({ platform: '', platform_id: '' });
-    }
+  const getServiceColor = (service: string) => {
+    const platform = platforms.find(p => p.id === service.toLowerCase());
+    return platform?.color || 'bg-gray-500 text-white';
   };
 
   const removePlatformId = (index: number) => {
     setPlatformIds(platformIds.filter((_, i) => i !== index));
-  };
-
-  const getServiceColor = (service: string) => {
-    const platform = platforms.find(p => p.id === service.toLowerCase());
-    return platform?.color || 'bg-gray-500 text-white';
   };
 
   const checkForDuplicates = async (firstName: string, lastName: string) => {
@@ -204,41 +190,38 @@ export const AddDriverModal = ({ isOpen, onClose, cityId, onSuccess }: AddDriver
             </div>
           </div>
 
-          {/* Platform IDs */}
+          {/* Platform IDs - Direct input fields */}
           <div className="space-y-4">
-            <Label>Identyfikatory platform</Label>
+            <Label>Identyfikatory platform (opcjonalne)</Label>
             
-            {/* Add new platform */}
-            <div className="flex gap-2">
-              <select
-                value={newPlatform.platform}
-                onChange={(e) => setNewPlatform({ ...newPlatform, platform: e.target.value })}
-                className="px-3 py-2 border rounded-md"
-              >
-                <option value="">Wybierz platformę</option>
-                {platforms.map(platform => (
-                  <option key={platform.id} value={platform.id}>
-                    {platform.name}
-                  </option>
-                ))}
-              </select>
-              <Input
-                placeholder="ID kierowcy"
-                value={newPlatform.platform_id}
-                onChange={(e) => setNewPlatform({ ...newPlatform, platform_id: e.target.value })}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={addPlatformId}
-                disabled={!newPlatform.platform || !newPlatform.platform_id}
-                size="sm"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {platforms.map(platform => (
+                <div key={platform.id} className="space-y-2">
+                  <Label className="text-sm flex items-center gap-2">
+                    <Badge className={`${platform.color} text-xs px-2 py-1`}>
+                      {platform.name}
+                    </Badge>
+                    ID
+                  </Label>
+                  <Input
+                    placeholder={`ID kierowcy w ${platform.name}`}
+                    value={platformIds.find(p => p.platform === platform.id)?.platform_id || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPlatformIds(prev => {
+                        const filtered = prev.filter(p => p.platform !== platform.id);
+                        if (value) {
+                          return [...filtered, { platform: platform.id, platform_id: value }];
+                        }
+                        return filtered;
+                      });
+                    }}
+                  />
+                </div>
+              ))}
             </div>
 
-            {/* Current platform IDs */}
+            {/* Show added platforms */}
             {platformIds.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-sm">Dodane platformy:</Label>
