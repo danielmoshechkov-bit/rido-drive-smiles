@@ -34,7 +34,7 @@ const Wymagania = () => {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Dokumenty od kierowcy */}
-          <Card className="p-6 bg-white shadow-soft">
+          <Card className="p-8 bg-white border-2 border-white/30 shadow-soft">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                 <FileText className="h-6 w-6 text-primary" />
@@ -55,7 +55,7 @@ const Wymagania = () => {
           </Card>
 
           {/* Dokumenty od samochodu */}
-          <Card className="p-6 bg-white shadow-soft">
+          <Card className="p-8 bg-white border-2 border-white/30 shadow-soft">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                 <Car className="h-6 w-6 text-primary" />
@@ -77,7 +77,7 @@ const Wymagania = () => {
         </div>
 
         {/* Uwaga - Nie masz auta */}
-        <Card className="max-w-2xl mx-auto mt-8 p-6 bg-white border-accent/20">
+        <Card className="max-w-2xl mx-auto mt-8 p-8 bg-white border-2 border-white/30 shadow-soft">
           <div className="flex items-start space-x-3">
             <AlertCircle className="h-6 w-6 text-accent mt-1 flex-shrink-0" />
             <div>

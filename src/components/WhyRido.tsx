@@ -30,12 +30,12 @@ const WhyRido = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
-          {benefits.map((benefit, index) => <Card key={index} className="p-6 text-center bg-white shadow-soft hover:shadow-purple transition-all duration-300">
-              <div className="text-4xl mb-4">{benefit.icon}</div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
+          {benefits.map((benefit, index) => <Card key={index} className="p-8 text-center bg-white border-2 border-white/30 shadow-soft hover:shadow-purple transition-all duration-300">
+              <div className="text-5xl mb-6">{benefit.icon}</div>
+              <h3 className="text-xl font-bold text-foreground mb-3">
                 {benefit.title}
               </h3>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-base">
                 {benefit.description}
               </p>
             </Card>)}

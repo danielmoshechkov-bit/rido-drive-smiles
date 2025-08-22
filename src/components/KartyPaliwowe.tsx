@@ -31,32 +31,26 @@ const KartyPaliwowe = () => {
         <div className="max-w-4xl mx-auto">
           {/* Unified E100 Card with all benefits and partner stations */}
           <Card className="p-8 mb-8 bg-gradient-accent shadow-gold border-accent/20">
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center">
-                <Fuel className="h-8 w-8 text-accent" />
-              </div>
-            </div>
-            
-            <h3 className="text-2xl font-bold text-center text-foreground mb-8">
+            <h3 className="text-3xl font-bold text-center text-foreground mb-6">
               Korzyści karty paliwowej E100
             </h3>
             
             {/* Benefits Section */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 mb-8 border-2 border-white/50">
-              <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg p-8 mb-8 border-2 border-white/30 shadow-soft">
+              <div className="grid md:grid-cols-3 gap-8">
                 {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Check className="h-4 w-4 text-white" />
+                  <div key={index} className="flex items-center space-x-4">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Check className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-foreground font-semibold text-base">{benefit}</span>
+                    <span className="text-foreground font-bold text-lg">{benefit}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Partner Stations */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 border-2 border-white/50">
+            <div className="bg-white rounded-lg p-8 border-2 border-white/30 shadow-soft">
               <div className="mb-6">
                 <h4 className="text-xl font-semibold text-foreground mb-2 text-center">
                   Partnerskie stacje paliw
@@ -69,7 +63,7 @@ const KartyPaliwowe = () => {
               <div className="space-y-4">
                 {/* MOL/Lotos, Amic, Moya - same discounts */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
+                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">MOL/Lotos</h5>
@@ -94,7 +88,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
+                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Amic</h5>
@@ -119,7 +113,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
+                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Moya</h5>
@@ -147,7 +141,7 @@ const KartyPaliwowe = () => {
 
                 {/* Orlen and Power Max */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
+                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Orlen</h5>
@@ -172,7 +166,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg border-2 border-white/50">
+                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Power Max</h5>
@@ -194,7 +188,7 @@ const KartyPaliwowe = () => {
           </Card>
 
           {/* Model 159 Requirement - Separate Purple Card */}
-          <Card className="p-6 bg-primary text-primary-foreground shadow-purple border-primary/20 mb-8">
+          <Card className="p-8 bg-primary text-primary-foreground shadow-purple border-2 border-white/30 mb-8">
             <div className="flex items-start space-x-4">
               <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <CreditCard className="h-6 w-6 text-primary-foreground" />
