@@ -1,185 +1,32 @@
 {
-  "meta": {
-    "title": "Get RIDO – Partner kierowców Uber Warszawa | Kierowca Uber | Proste rozliczenia, wypłaty co tydzień",
-    "description": "Get RIDO - partner kierowców Uber, Bolt, FreeNow w Warszawie. Zostań kierowcą Uber już dziś! Proste rozliczenia: 39 zł + 8% podatku lub 159 zł + 0% podatku. Wypłaty co tydzień, wsparcie 7 dni, karta paliwowa. Dołącz teraz!",
-    "keywords": "kierowca uber warszawa, partner uber warszawa, praca kierowca uber, zostań kierowcą uber, kierowca bolt warszawa, rozliczenia uber bolt, partner flotowy warszawa, jak zostać kierowcą uber warszawa, dokumenty uber warszawa, karta paliwowa kierowcy, wypłaty kierowców uber, kierowca freenow warszawa"
+  "hero": {
+    "topBar": "Twój partner Uber, Bolt, FreeNow. Stworzone przez kierowców, dla kierowców.",
+    "mainTitle": "Twój partner {{uber}}, {{bolt}}, {{freenow}}. Stworzone przez kierowców, dla kierowców.",
+    "cashout": "ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE",
+    "model1": {
+      "title": "MODEL PIERWSZY",
+      "price": "159 zł + 0% podatku",
+      "description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nWarunek: aktywne korzystanie z karty paliwowej"
+    },
+    "model2": {
+      "title": "MODEL DRUGI", 
+      "oldPrice": "50 zł",
+      "newPrice": "39 zł + 8% podatku",
+      "description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nDla pierwszych 50 kierowców"
+    },
+    "buttons": {
+      "join": "Dołącz teraz",
+      "howToStart": "Jak zacząć"
+    }
   },
   "nav": {
-    "home": "Główna",
+    "home": "Strona główna",
     "pricing": "Cennik",
-    "howToStart": "Jak zacząć?",
-    "contact": "Kontakt",
-    "joinNow": "Dołącz teraz"
-  },
-  "hero": {
-    "title": "Zacznij zarabiać z",
-    "subtitle": "Get RIDO",
-    "description": "Proste rozliczenia, wypłaty co tydzień, wsparcie 7 dni w tygodniu",
-    "cta": "Zostań kierowcą"
-  },
-  "simplePricing": {
-    "title": "Proste cenniki",
-    "subtitle": "Wybierz wariant dla siebie",
-    "plan1": {
-      "name": "STANDARD",
-      "price": "39 zł",
-      "period": "tygodniowo",
-      "discount": "Promocja z 50 zł",
-      "features": ["+ 8% podatku VAT", "Wypłaty co tydzień", "Wsparcie 7 dni", "Bez ukrytych opłat"]
-    },
-    "plan2": {
-      "name": "PREMIUM",
-      "price": "159 zł", 
-      "period": "tygodniowo",
-      "features": ["+ 0% podatku VAT", "Wypłaty co tydzień", "Wsparcie 7 dni", "Karta paliwowa Get RIDO"]
-    },
-    "popular": "Najpopularniejszy"
-  },
-  "whyRido": {
-    "title": "Dlaczego Get RIDO?",
-    "benefits": {
-      "transparency": {
-        "title": "Przejrzyście",
-        "description": "jeden cennik, bez ukrytych opłat"
-      },
-      "weeklyPayouts": {
-        "title": "Wypłaty co tydzień",
-        "description": "przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na twoim koncie"
-      },
-      "cashPayout": {
-        "title": "Wypłata gotówką",
-        "description": "możliwość odebrania swojej wypłaty gotówką w każdy wtorek u nas w biurze"
-      },
-      "support": {
-        "title": "Wsparcie 7 dni w tygodniu",
-        "description": "zawsze możesz na nas liczyć"
-      },
-      "fuelCard": {
-        "title": "Karta paliwowa",
-        "description": "realne zniżki na stacjach"
-      }
-    }
-  },
-  "howToStart": {
-    "title": "Jak zacząć?",
-    "steps": {
-      "step1": {
-        "title": "Wypełnij formularz",
-        "description": "Podaj swoje dane i informacje o pojeździe"
-      },
-      "step2": {
-        "title": "Przygotuj dokumenty",
-        "description": "Zbierz wszystkie wymagane dokumenty"
-      },
-      "step3": {
-        "title": "Rozpocznij jazdę",
-        "description": "Po weryfikacji możesz rozpocząć zarabianie"
-      },
-      "step4": {
-        "title": "Otrzymuj wypłaty",
-        "description": "Wypłaty co tydzień na twoje konto"
-      }
-    },
-    "joinButton": "Chcę dołączyć",
-    "requirementsButton": "Zobacz wymagania"
-  },
-  "pricing": {
-    "title": "Cennik",
-    "subtitle": "Wybierz najlepszy plan dla siebie"  
-  },
-  "requirements": {
-    "title": "Co jest potrzebne do rozpoczęcia?",
-    "driver": {
-      "title": "Dokumenty kierowcy",
-      "docs": [
-        "Prawo jazdy kategorii B (min. 3 lata)",
-        "Dowód osobisty lub paszport",
-        "Zaświadczenie o niekaralności",
-        "Badania lekarskie",
-        "Kurs dla kierowców"
-      ]
-    },
-    "car": {
-      "title": "Dokumenty pojazdu",
-      "docs": [
-        "Dowód rejestracyjny",
-        "Polisa OC i AC",
-        "Przegląd techniczny",
-        "Samochód max 10 lat",
-        "Min. 4 drzwi, 5 miejsc"
-      ]
-    },
-    "noCar": {
-      "title": "Nie masz samochodu?",
-      "description": "Skontaktuj się z nami - pomożemy znaleźć rozwiązanie!"
-    },
-    "joinButton": "Chcę dołączyć",
-    "chatButton": "Zapytaj nas na czacie"
-  },
-  "fuelCards": {
-    "title": "Karty paliwowe Get RIDO",
-    "subtitle": "Tankuj taniej z naszą kartą paliwową",
-    "description": "Karta paliwowa Get RIDO to realne oszczędności na każdym tankowaniu. Dostępna w planie Premium.",
-    "benefits": [
-      "Zniżki na stacjach partnersich",
-      "Bezpłatna obsługa karty",
-      "Szczegółowe raporty wydatków",
-      "Dostęp do aplikacji mobilnej"
-    ],
-    "getCard": "Zdobądź kartę"
-  },
-  "faq": {
-    "title": "Najczęściej zadawane pytania",
-    "questions": {
-      "q1": {
-        "question": "Ile kosztuje współpraca z Get RIDO?",
-        "answer": "Oferujemy dwa plany: Standard (39 zł + 8% VAT tygodniowo) oraz Premium (159 zł + 0% VAT tygodniowo z kartą paliwową)."
-      },
-      "q2": {
-        "question": "Kiedy otrzymam wypłatę?",
-        "answer": "Wypłaty wysyłamy każdy poniedziałek do godziny 12:00. Środki trafiają na konto tego samego dnia."
-      },
-      "q3": {
-        "question": "Czy mogę odebrać wypłatę gotówką?",
-        "answer": "Tak, każdy wtorek można odebrać wypłatę gotówką w naszym biurze."
-      },
-      "q4": {
-        "question": "Jakie dokumenty są potrzebne?",
-        "answer": "Potrzebujesz prawa jazdy (min. 3 lata), dowodu osobistego, zaświadczenia o niekaralności, badań lekarskich i kursu dla kierowców."
-      },
-      "q5": {
-        "question": "Czy Get RIDO działa poza Warszawą?",
-        "answer": "Tak, współpracujemy z kierowcami w całej Polsce, w tym w Krakowie, Gdańsku, Wrocławiu i innych miastach."
-      }
-    }
-  },
-  "contact": {
-    "title": "Skontaktuj się z nami",
-    "subtitle": "Masz pytania? Napisz do nas!",
-    "form": {
-      "name": "Imię i nazwisko",
-      "email": "Adres email",
-      "phone": "Numer telefonu",
-      "message": "Wiadomość",
-      "send": "Wyślij wiadomość"
-    },
-    "info": {
-      "address": "ul. Przykładowa 123, 00-001 Warszawa",
-      "phone": "+48 123 456 789",
-      "email": "kontakt@getrido.pl",
-      "hours": "Pon-Pt: 9:00-18:00"
-    }
-  },
-  "footer": {
-    "description": "Get RIDO - Twój zaufany partner w świecie transportu. Proste rozliczenia, wypłaty co tydzień.",
-    "quickLinks": "Szybkie linki",
-    "legal": "Informacje prawne",
-    "privacy": "Polityka prywatności",
-    "gdpr": "RODO", 
-    "terms": "Regulamin",
-    "copyright": "© 2024 Get RIDO. Wszelkie prawa zastrzeżone."
-  },
-  "seo": {
-    "text": "Szukasz zaufanego partnera dla kierowców Uber i Bolt w Polsce? Get RIDO oferuje proste rozliczenia, wypłaty co tydzień oraz wsparcie 7 dni w tygodniu. Wybierz model rozliczeń: 39 zł + 8% podatku (promocja z 50 zł) albo 159 zł + 0% podatku (z kartą paliwową Get RIDO). Dołącz do Get RIDO i zacznij zarabiać więcej w Warszawie, Krakowie i całej Polsce."
+    "why": "Dlaczego RIDO",
+    "howToStart": "Jak zacząć",
+    "requirements": "Wymagania",
+    "fuelCards": "Karty paliwowe",
+    "faq": "FAQ",
+    "contact": "Kontakt"
   }
 }

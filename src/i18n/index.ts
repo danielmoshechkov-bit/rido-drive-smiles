@@ -7,18 +7,21 @@ import ru from './locales/ru.json';
 import ua from './locales/ua.json';
 import kz from './locales/kz.json';
 
+const resources = {
+  pl: { translation: pl },
+  en: { translation: en },
+  ru: { translation: ru },
+  ua: { translation: ua },
+  kz: { translation: kz },
+};
+
 i18n
   .use(initReactI18next)
   .init({
-    resources: {
-      pl: { translation: pl },
-      en: { translation: en },
-      ru: { translation: ru },
-      ua: { translation: ua },
-      kz: { translation: kz },
-    },
-    lng: 'pl',
+    resources,
+    lng: 'pl', // default language
     fallbackLng: 'pl',
+    debug: false,
     interpolation: {
       escapeValue: false,
     },

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 const Header = () => {
   const { t } = useTranslation();
+  
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -48,19 +49,19 @@ const Header = () => {
             onClick={() => scrollToSection('wymagania')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('requirements.title')}
+            {t('nav.requirements')}
           </button>
           <button
             onClick={() => scrollToSection('karty-paliwowe')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('fuelCards.title')}
+            {t('nav.fuelCards')}
           </button>
           <button
             onClick={() => scrollToSection('faq')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            FAQ
+            {t('nav.faq')}
           </button>
           <button
             onClick={() => scrollToSection('kontakt')}
@@ -74,7 +75,7 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <LanguageSelector />
           <Button variant="accent" size="sm">
-            {t('nav.joinNow')}
+            {t('hero.buttons.join')}
           </Button>
         </div>
       </div>

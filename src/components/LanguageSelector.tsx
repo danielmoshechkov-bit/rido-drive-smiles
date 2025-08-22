@@ -1,26 +1,27 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useTranslation } from "react-i18next";
 
 const LanguageSelector = () => {
-  const [isOpen, setIsOpen] = useState(false);
   const { i18n } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language.toUpperCase());
 
   const languages = [
-    { code: "pl", name: "Polski", flag: "🇵🇱" },
-    { code: "en", name: "English", flag: "🇬🇧" },
-    { code: "ru", name: "Русский", flag: "🇷🇺" },
-    { code: "ua", name: "Українська", flag: "🇺🇦" },
-    { code: "kz", name: "Қазақша", flag: "🇰🇿" },
+    { code: "PL", name: "Polski", flag: "🇵🇱" },
+    { code: "EN", name: "English", flag: "🇬🇧" },
+    { code: "RU", name: "Русский", flag: "🇷🇺" },
+    { code: "UA", name: "Українська", flag: "🇺🇦" },
+    { code: "KZ", name: "Қазақша", flag: "🇰🇿" },
   ];
 
   const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
+    const lowerCode = langCode.toLowerCase();
+    i18n.changeLanguage(lowerCode);
+    setCurrentLanguage(langCode);
     setIsOpen(false);
   };
-
-  const currentLanguage = i18n.language.toUpperCase();
 
   return (
     <div className="relative">
@@ -30,7 +31,7 @@ const LanguageSelector = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 min-w-[80px]"
       >
-        <span>{languages.find(lang => lang.code === i18n.language)?.flag}</span>
+        <span>{languages.find(lang => lang.code === currentLanguage)?.flag}</span>
         <span className="text-xs">{currentLanguage}</span>
       </Button>
 
@@ -41,7 +42,7 @@ const LanguageSelector = () => {
               key={language.code}
               onClick={() => handleLanguageChange(language.code)}
               className={`w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 ${
-                i18n.language === language.code ? "bg-muted" : ""
+                currentLanguage === language.code ? "bg-muted" : ""
               }`}
             >
               <span>{language.flag}</span>
