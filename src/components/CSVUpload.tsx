@@ -42,14 +42,14 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
   };
 
   const processBoltCSV = (rows: string[][]): any[] => {
-    // Bolt: Kol A = Imię Nazwisko, B = Email, C = Telefon, D = ID (od linii 2)
+    // Bolt: Kol A = Imię Nazwisko, B = Email, C = Telefon, W = ID (kolumna 22, od linii 2)
     return rows.slice(1).map((row, index) => {
       const fullName = row[0] || '';
-      const [first_name, ...lastNameParts] = fullName.split(' ');
+      const [first_name, ...lastNameParts] = fullName.split(' ');  
       const last_name = lastNameParts.join(' ');
       
       return {
-        platform_id: row[3] || '',
+        platform_id: row[22] || '', // Zmienione z row[3] na row[22] (kolumna W)
         first_name: first_name || '',
         last_name: last_name || '',
         email: row[1] || null,
@@ -77,6 +77,19 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
     }).filter(driver => driver.platform_id && driver.first_name);
   };
 
+  const findDriverByEmail = async (email: string, cityId: string) => {
+    if (!email) return null;
+    
+    const { data: existingDriver } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('city_id', cityId)
+      .eq('email', email)
+      .single();
+
+    return existingDriver || null;
+  };
+
   const findSimilarDriver = async (firstName: string, lastName: string, cityId: string) => {
     const { data: existingDrivers } = await supabase
       .from('drivers')
@@ -90,7 +103,7 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
     for (const driver of existingDrivers) {
       const existingName = `${driver.first_name} ${driver.last_name}`.toLowerCase().trim();
       
-      // Check for exact match or very similar names
+      // Check for exact match first
       if (existingName === fullName) {
         return driver;
       }
@@ -165,17 +178,21 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
             .update(updateData)
             .eq('id', driverId);
         } else {
-          // Check for similar driver by name
-          const similarDriver = await findSimilarDriver(driverData.first_name, driverData.last_name, cityId);
+          // NAJPIERW sprawdź czy istnieje kierowca o tym samym emailu
+          let existingDriverByEmail = null;
+          if (driverData.email) {
+            existingDriverByEmail = await findDriverByEmail(driverData.email, cityId);
+          }
           
-          if (similarDriver) {
-            // Add platform to existing similar driver
-            driverId = similarDriver.id;
+          if (existingDriverByEmail) {
+            // Połącz z kierowcą o tym samym emailu
+            driverId = existingDriverByEmail.id;
             
             // Update driver data with new info if it's better/more complete
             const updateData: any = { updated_at: new Date().toISOString() };
-            if (driverData.email && !similarDriver.email) updateData.email = driverData.email;
-            if (driverData.phone && !similarDriver.phone) updateData.phone = driverData.phone;
+            if (driverData.first_name && !existingDriverByEmail.first_name) updateData.first_name = driverData.first_name;
+            if (driverData.last_name && !existingDriverByEmail.last_name) updateData.last_name = driverData.last_name;
+            if (driverData.phone && !existingDriverByEmail.phone) updateData.phone = driverData.phone;
             
             if (Object.keys(updateData).length > 1) {
               await supabase
@@ -193,30 +210,59 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
                 platform_id: driverData.platform_id
               });
           } else {
-            // Create completely new driver
-            const { data: newDriver, error: driverError } = await supabase
-              .from('drivers')
-              .insert({
-                first_name: driverData.first_name,
-                last_name: driverData.last_name,
-                email: driverData.email,
-                phone: driverData.phone,
-                city_id: cityId
-              })
-              .select()
-              .single();
+            // Check for similar driver by name
+            const similarDriver = await findSimilarDriver(driverData.first_name, driverData.last_name, cityId);
+            
+            if (similarDriver) {
+              // Add platform to existing similar driver
+              driverId = similarDriver.id;
+              
+              // Update driver data with new info if it's better/more complete
+              const updateData: any = { updated_at: new Date().toISOString() };
+              if (driverData.email && !similarDriver.email) updateData.email = driverData.email;
+              if (driverData.phone && !similarDriver.phone) updateData.phone = driverData.phone;
+              
+              if (Object.keys(updateData).length > 1) {
+                await supabase
+                  .from('drivers')
+                  .update(updateData)
+                  .eq('id', driverId);
+              }
+              
+              // Add new platform ID
+              await supabase
+                .from('driver_platform_ids')
+                .insert({
+                  driver_id: driverId,
+                  platform: platform,
+                  platform_id: driverData.platform_id
+                });
+            } else {
+              // Create completely new driver
+              const { data: newDriver, error: driverError } = await supabase
+                .from('drivers')
+                .insert({
+                  first_name: driverData.first_name,
+                  last_name: driverData.last_name,
+                  email: driverData.email,
+                  phone: driverData.phone,
+                  city_id: cityId
+                })
+                .select()
+                .single();
 
-            if (driverError) throw driverError;
-            driverId = newDriver.id;
+              if (driverError) throw driverError;
+              driverId = newDriver.id;
 
-            // Create platform ID record
-            await supabase
-              .from('driver_platform_ids')
-              .insert({
-                driver_id: driverId,
-                platform: platform,
-                platform_id: driverData.platform_id
-              });
+              // Create platform ID record
+              await supabase
+                .from('driver_platform_ids')
+                .insert({
+                  driver_id: driverId,
+                  platform: platform,
+                  platform_id: driverData.platform_id
+                });
+            }
           }
         }
       }

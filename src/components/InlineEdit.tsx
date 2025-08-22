@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit3 } from 'lucide-react';
+import { Check, X, Edit3, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface InlineEditProps {
@@ -44,6 +44,15 @@ export const InlineEdit = ({
     }
   };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(editValue);
+      toast.success('Skopiowano do schowka');
+    } catch (error) {
+      toast.error('Błąd podczas kopiowania');
+    }
+  };
+
   const handleCancel = () => {
     setEditValue(value);
     setIsEditing(false);
@@ -72,6 +81,16 @@ export const InlineEdit = ({
           className="h-8 text-sm"
           autoFocus
         />
+        <Button
+          size="sm"
+          onClick={handleCopy}
+          disabled={loading}
+          className="h-8 w-8 p-0"
+          variant="ghost"
+          title="Kopiuj"
+        >
+          <Copy className="h-3 w-3" />
+        </Button>
         <Button
           size="sm"
           onClick={handleSave}
