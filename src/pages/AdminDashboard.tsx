@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
@@ -6,37 +6,44 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import LanguageSelector from "@/components/LanguageSelector";
+import { CitySelector } from "@/components/CitySelector";
+import { CSVUpload } from "@/components/CSVUpload";
+import { useCities, City } from "@/hooks/useCities";
+import { useDrivers } from "@/hooks/useDrivers";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('weekly-report');
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  
+  const { cities } = useCities();
+  const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
+
+  // Auto-select first city when cities load
+  useEffect(() => {
+    if (cities.length > 0 && !selectedCity) {
+      setSelectedCity(cities[0]);
+    }
+  }, [cities, selectedCity]);
 
   const handleLogout = () => {
     navigate('/');
   };
 
-  // Mock data for demonstration
+  // Dynamic stats based on real data
   const weeklyStats = {
-    totalDrivers: 157,
-    totalEarnings: 45230.50,
-    totalTrips: 2341,
-    averageRating: 4.8
+    totalDrivers: drivers.length,
+    totalEarnings: 0, // TODO: Calculate from settlements
+    totalTrips: 0, // TODO: Calculate from settlements
+    averageRating: 0 // TODO: Calculate from settlements
   };
 
-  const drivers = [
-    { id: 1, name: 'Jan Kowalski', service: 'Uber', earnings: 1250.00, trips: 45, status: 'active' },
-    { id: 2, name: 'Anna Nowak', service: 'Bolt', earnings: 980.50, trips: 38, status: 'active' },
-    { id: 3, name: 'Piotr Wiśniewski', service: 'FreeNow', earnings: 1100.75, trips: 42, status: 'inactive' },
-    { id: 4, name: 'Maria Dąbrowska', service: 'Uber', earnings: 1450.25, trips: 52, status: 'active' },
-    { id: 5, name: 'Tomasz Lewandowski', service: 'Bolt', earnings: 890.00, trips: 33, status: 'active' },
-  ];
-
   const getServiceColor = (service: string) => {
-    switch (service) {
-      case 'Uber': return 'bg-black text-white';
-      case 'Bolt': return 'bg-green-500 text-white';
-      case 'FreeNow': return 'bg-red-500 text-white';
+    switch (service.toLowerCase()) {
+      case 'uber': return 'bg-black text-white';
+      case 'bolt': return 'bg-green-500 text-white';
+      case 'freenow': return 'bg-red-500 text-white';
       default: return 'bg-gray-500 text-white';
     }
   };
@@ -60,6 +67,14 @@ const AdminDashboard = () => {
               {t('admin.logout')}
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* City Selector */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Wybierz miasto:</h2>
+          <CitySelector selectedCity={selectedCity} onCitySelect={setSelectedCity} />
         </div>
       </div>
 
@@ -124,48 +139,84 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="drivers-list" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin.driversList')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {drivers.map((driver) => (
-                    <div key={driver.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <h3 className="font-semibold">{driver.name}</h3>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge className={getServiceColor(driver.service)}>
-                              {driver.service}
-                            </Badge>
-                            <Badge variant={driver.status === 'active' ? 'default' : 'secondary'}>
-                              {driver.status}
-                            </Badge>
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć listę kierowców</p>
+                </CardContent>
+              </Card>
+            ) : driversLoading ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Ładowanie kierowców...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lista kierowców - {selectedCity.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Znaleziono {drivers.length} kierowców
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {drivers.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Brak kierowców w tym mieście. Zaimportuj dane CSV aby dodać kierowców.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {drivers.map((driver) => (
+                        <div key={driver.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <div>
+                              <h3 className="font-semibold">
+                                {driver.first_name} {driver.last_name}
+                              </h3>
+                              <div className="flex items-center space-x-2 mt-1">
+                                {driver.platform_ids?.map((platform) => (
+                                  <Badge key={platform.platform} className={getServiceColor(platform.platform)}>
+                                    {platform.platform}
+                                  </Badge>
+                                ))}
+                              </div>
+                              {driver.email && (
+                                <p className="text-xs text-muted-foreground">{driver.email}</p>
+                              )}
+                              {driver.phone && (
+                                <p className="text-xs text-muted-foreground">{driver.phone}</p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{driver.earnings.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}</p>
-                        <p className="text-sm text-muted-foreground">{driver.trips} kursów</p>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="data-import" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin.dataImport')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">Funkcja importu danych zostanie wkrótce dodana.</p>
-                <Button disabled>Importuj dane CSV</Button>
-              </CardContent>
-            </Card>
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zaimportować dane</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Import danych CSV - {selectedCity.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Importuj kierowców z różnych platform transportowych
+                    </p>
+                  </CardHeader>
+                </Card>
+                <CSVUpload cityId={selectedCity.id} onUploadComplete={refetchDrivers} />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
