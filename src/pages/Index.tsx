@@ -13,8 +13,10 @@ import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
 import CallButton from "@/components/CallButton";
 import CookieBanner from "@/components/CookieBanner";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const Index = () => {
+  useDocumentTitle();
   return (
     <div className="min-h-screen">
       <Header />

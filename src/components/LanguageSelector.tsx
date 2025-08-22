@@ -1,24 +1,26 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useTranslation } from "react-i18next";
 
 const LanguageSelector = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentLanguage, setCurrentLanguage] = useState("PL");
+  const { i18n } = useTranslation();
 
   const languages = [
-    { code: "PL", name: "Polski", flag: "🇵🇱" },
-    { code: "EN", name: "English", flag: "🇬🇧" },
-    { code: "RU", name: "Русский", flag: "🇷🇺" },
-    { code: "UA", name: "Українська", flag: "🇺🇦" },
-    { code: "KZ", name: "Қазақша", flag: "🇰🇿" },
+    { code: "pl", name: "Polski", flag: "🇵🇱" },
+    { code: "en", name: "English", flag: "🇬🇧" },
+    { code: "ru", name: "Русский", flag: "🇷🇺" },
+    { code: "ua", name: "Українська", flag: "🇺🇦" },
+    { code: "kz", name: "Қазақша", flag: "🇰🇿" },
   ];
 
   const handleLanguageChange = (langCode: string) => {
-    setCurrentLanguage(langCode);
+    i18n.changeLanguage(langCode);
     setIsOpen(false);
-    // Here you would implement actual language switching logic
   };
+
+  const currentLanguage = i18n.language.toUpperCase();
 
   return (
     <div className="relative">
@@ -28,7 +30,7 @@ const LanguageSelector = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 min-w-[80px]"
       >
-        <span>{languages.find(lang => lang.code === currentLanguage)?.flag}</span>
+        <span>{languages.find(lang => lang.code === i18n.language)?.flag}</span>
         <span className="text-xs">{currentLanguage}</span>
       </Button>
 
@@ -39,7 +41,7 @@ const LanguageSelector = () => {
               key={language.code}
               onClick={() => handleLanguageChange(language.code)}
               className={`w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 ${
-                currentLanguage === language.code ? "bg-muted" : ""
+                i18n.language === language.code ? "bg-muted" : ""
               }`}
             >
               <span>{language.flag}</span>

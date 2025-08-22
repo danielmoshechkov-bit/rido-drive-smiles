@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useTranslation } from "react-i18next";
+
 const Hero = () => {
+  const { t } = useTranslation();
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -57,7 +60,7 @@ const Hero = () => {
       <Card className="mx-4 md:mx-8 mt-6 p-6 md:p-8 bg-white text-center relative z-10 shadow-soft">
         <div className="space-y-4">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
-            <span className="text-primary font-bold">Get RIDO</span> — Twój partner <span className="text-black font-semibold">Uber</span>, <span className="text-[#34D186] font-semibold">Bolt</span>, <span className="text-red-600 font-semibold">FreeNow</span>. Stworzone przez kierowców, dla kierowców.
+            <span className="text-primary font-bold">Get RIDO</span> — {t('hero.description')}
           </h1>
           
         </div>
@@ -114,10 +117,10 @@ Dla pierwszych 50 kierowców</p>
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-6 md:pb-8">
             <Button variant="accent" size="lg" onClick={() => scrollToSection('kontakt')} className="text-base md:text-lg px-6 md:px-8 w-full sm:w-auto">
-              Dołącz teraz
+              {t('nav.joinNow')}
             </Button>
             <Button variant="outline" size="lg" onClick={() => scrollToSection('jak-zaczac')} className="text-base md:text-lg px-6 md:px-8 w-full sm:w-auto">
-              Jak zacząć
+              {t('nav.howToStart')}
             </Button>
           </div>
         </div>

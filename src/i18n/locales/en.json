@@ -1,0 +1,185 @@
+{
+  "meta": {
+    "title": "Get RIDO – Uber Driver Partner Warsaw | Become Uber Driver | Simple settlements, weekly payouts",
+    "description": "Get RIDO - partner for Uber, Bolt, FreeNow drivers in Warsaw. Become an Uber driver today! Simple settlements: 39 PLN + 8% tax or 159 PLN + 0% tax. Weekly payouts, 7-day support, fuel card. Join now!",
+    "keywords": "uber driver warsaw, uber partner warsaw, uber driver job, become uber driver, bolt driver warsaw, uber bolt settlements, fleet partner warsaw, how to become uber driver warsaw, uber documents warsaw, fuel card drivers, uber driver payouts, freenow driver warsaw"
+  },
+  "nav": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "howToStart": "How to Start?",
+    "contact": "Contact",
+    "joinNow": "Join Now"
+  },
+  "hero": {
+    "title": "Start earning with",
+    "subtitle": "Get RIDO",
+    "description": "Simple settlements, weekly payouts, 7-day support",
+    "cta": "Become a driver"
+  },
+  "simplePricing": {
+    "title": "Simple pricing",
+    "subtitle": "Choose the option for you",
+    "plan1": {
+      "name": "STANDARD",
+      "price": "39 PLN",
+      "period": "weekly",
+      "discount": "Promotion from 50 PLN",
+      "features": ["+ 8% VAT tax", "Weekly payouts", "7-day support", "No hidden fees"]
+    },
+    "plan2": {
+      "name": "PREMIUM",
+      "price": "159 PLN",
+      "period": "weekly", 
+      "features": ["+ 0% VAT tax", "Weekly payouts", "7-day support", "Get RIDO fuel card"]
+    },
+    "popular": "Most popular"
+  },
+  "whyRido": {
+    "title": "Why Get RIDO?",
+    "benefits": {
+      "transparency": {
+        "title": "Transparent",
+        "description": "one price list, no hidden fees"
+      },
+      "weeklyPayouts": {
+        "title": "Weekly payouts",
+        "description": "we send transfers on Monday by 12 PM and they're in your account the same day"
+      },
+      "cashPayout": {
+        "title": "Cash payout",
+        "description": "possibility to collect your payout in cash every Tuesday at our office"
+      },
+      "support": {
+        "title": "7-day support",
+        "description": "you can always count on us"
+      },
+      "fuelCard": {
+        "title": "Fuel card",
+        "description": "real discounts at gas stations"
+      }
+    }
+  },
+  "howToStart": {
+    "title": "How to start?",
+    "steps": {
+      "step1": {
+        "title": "Fill out the form",
+        "description": "Provide your details and vehicle information"
+      },
+      "step2": {
+        "title": "Prepare documents",
+        "description": "Gather all required documents"
+      },
+      "step3": {
+        "title": "Start driving",
+        "description": "After verification, you can start earning"
+      },
+      "step4": {
+        "title": "Receive payouts",
+        "description": "Weekly payouts to your account"
+      }
+    },
+    "joinButton": "I want to join",
+    "requirementsButton": "See requirements"
+  },
+  "pricing": {
+    "title": "Pricing",
+    "subtitle": "Choose the best plan for you"
+  },
+  "requirements": {
+    "title": "What do you need to get started?",
+    "driver": {
+      "title": "Driver documents",
+      "docs": [
+        "Category B driving license (min. 3 years)",
+        "ID card or passport",
+        "Certificate of no criminal record",
+        "Medical examination",
+        "Driver training course"
+      ]
+    },
+    "car": {
+      "title": "Vehicle documents",
+      "docs": [
+        "Vehicle registration certificate",
+        "Liability and comprehensive insurance",
+        "Technical inspection",
+        "Car max 10 years old",
+        "Min. 4 doors, 5 seats"
+      ]
+    },
+    "noCar": {
+      "title": "Don't have a car?",
+      "description": "Contact us - we'll help you find a solution!"
+    },
+    "joinButton": "I want to join",
+    "chatButton": "Ask us in chat"
+  },
+  "fuelCards": {
+    "title": "Get RIDO Fuel Cards",
+    "subtitle": "Fuel cheaper with our fuel card",
+    "description": "Get RIDO fuel card means real savings on every refuel. Available in Premium plan.",
+    "benefits": [
+      "Discounts at partner stations",
+      "Free card service",
+      "Detailed expense reports",
+      "Mobile app access"
+    ],
+    "getCard": "Get card"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "questions": {
+      "q1": {
+        "question": "How much does cooperation with Get RIDO cost?",
+        "answer": "We offer two plans: Standard (39 PLN + 8% VAT weekly) and Premium (159 PLN + 0% VAT weekly with fuel card)."
+      },
+      "q2": {
+        "question": "When will I receive my payout?",
+        "answer": "We send payouts every Monday by 12:00 PM. Funds reach your account the same day."
+      },
+      "q3": {
+        "question": "Can I collect my payout in cash?",
+        "answer": "Yes, every Tuesday you can collect your payout in cash at our office."
+      },
+      "q4": {
+        "question": "What documents are needed?",
+        "answer": "You need a driving license (min. 3 years), ID card, certificate of no criminal record, medical examination and driver training course."
+      },
+      "q5": {
+        "question": "Does Get RIDO work outside Warsaw?",
+        "answer": "Yes, we work with drivers throughout Poland, including Krakow, Gdansk, Wroclaw and other cities."
+      }
+    }
+  },
+  "contact": {
+    "title": "Contact us",
+    "subtitle": "Have questions? Write to us!",
+    "form": {
+      "name": "Full name",
+      "email": "Email address",
+      "phone": "Phone number", 
+      "message": "Message",
+      "send": "Send message"
+    },
+    "info": {
+      "address": "123 Example St, 00-001 Warsaw",
+      "phone": "+48 123 456 789",
+      "email": "contact@getrido.pl",
+      "hours": "Mon-Fri: 9:00-18:00"
+    }
+  },
+  "footer": {
+    "description": "Get RIDO - Your trusted partner in transportation. Simple settlements, weekly payouts.",
+    "quickLinks": "Quick links",
+    "legal": "Legal information",
+    "privacy": "Privacy Policy",
+    "gdpr": "GDPR",
+    "terms": "Terms of Service",
+    "copyright": "© 2024 Get RIDO. All rights reserved."
+  },
+  "seo": {
+    "text": "Looking for a trusted partner for Uber and Bolt drivers in Poland? Get RIDO offers simple settlements, weekly payouts and 7-day support. Choose a settlement model: 39 PLN + 8% tax (promotion from 50 PLN) or 159 PLN + 0% tax (with Get RIDO fuel card). Join Get RIDO and start earning more in Warsaw, Krakow and throughout Poland."
+  }
+}
