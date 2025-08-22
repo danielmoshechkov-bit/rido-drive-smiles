@@ -14,7 +14,234 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cities: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      csv_imports: {
+        Row: {
+          city_id: string
+          filename: string
+          id: string
+          imported_at: string
+          platform: string
+          records_count: number | null
+        }
+        Insert: {
+          city_id: string
+          filename: string
+          id?: string
+          imported_at?: string
+          platform: string
+          records_count?: number | null
+        }
+        Update: {
+          city_id?: string
+          filename?: string
+          id?: string
+          imported_at?: string
+          platform?: string
+          records_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "csv_imports_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_platform_ids: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          platform: string
+          platform_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          platform: string
+          platform_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          platform?: string
+          platform_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_platform_ids_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drivers: {
+        Row: {
+          city_id: string
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          city_id: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city_id?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drivers_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_cards: {
+        Row: {
+          card_number: string
+          city_id: string
+          created_at: string
+          driver_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          card_number: string
+          city_id: string
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          card_number?: string
+          city_id?: string
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_cards_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_cards_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements: {
+        Row: {
+          city_id: string
+          commission_amount: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          net_amount: number | null
+          platform: string
+          total_earnings: number | null
+          updated_at: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          city_id: string
+          commission_amount?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          net_amount?: number | null
+          platform: string
+          total_earnings?: number | null
+          updated_at?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          city_id?: string
+          commission_amount?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          net_amount?: number | null
+          platform?: string
+          total_earnings?: number | null
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
