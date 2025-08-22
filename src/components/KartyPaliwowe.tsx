@@ -36,7 +36,7 @@ const KartyPaliwowe = () => {
             </h3>
             
             {/* Benefits Section */}
-            <div className="bg-white rounded-lg p-8 mb-8 border-2 border-white/30 shadow-soft">
+            <div className="!bg-white rounded-lg p-8 mb-8 border-2 border-white/30 shadow-soft">
               <div className="grid md:grid-cols-3 gap-8">
                 {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center space-x-4">
@@ -50,7 +50,7 @@ const KartyPaliwowe = () => {
             </div>
 
             {/* Partner Stations */}
-            <div className="bg-white rounded-lg p-8 border-2 border-white/30 shadow-soft">
+            <div className="!bg-white rounded-lg p-8 border-2 border-white/30 shadow-soft">
               <div className="mb-6">
                 <h4 className="text-xl font-semibold text-foreground mb-2 text-center">
                   Partnerskie stacje paliw
@@ -63,7 +63,7 @@ const KartyPaliwowe = () => {
               <div className="space-y-4">
                 {/* MOL/Lotos, Amic, Moya - same discounts */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
+                    <div className="!bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">MOL/Lotos</h5>
@@ -88,7 +88,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
+                  <div className="!bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Amic</h5>
@@ -113,7 +113,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
+                  <div className="!bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Moya</h5>
@@ -141,7 +141,7 @@ const KartyPaliwowe = () => {
 
                 {/* Orlen and Power Max */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
+                  <div className="!bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Orlen</h5>
@@ -166,7 +166,7 @@ const KartyPaliwowe = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
+                  <div className="!bg-white p-6 rounded-lg border-2 border-white/30 shadow-soft">
                     <div className="flex items-center space-x-2 mb-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                       <h5 className="font-semibold text-foreground text-base">Power Max</h5>
@@ -188,7 +188,7 @@ const KartyPaliwowe = () => {
           </Card>
 
           {/* Model 159 Requirement - Separate Purple Card */}
-          <Card className="p-8 bg-primary text-primary-foreground shadow-purple border-2 border-white/30 mb-8">
+          <Card className="p-8 !bg-primary text-primary-foreground shadow-purple border-2 border-white/30 mb-8">
             <div className="flex items-start space-x-4">
               <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <CreditCard className="h-6 w-6 text-primary-foreground" />

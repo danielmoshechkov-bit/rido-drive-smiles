@@ -53,7 +53,7 @@ const Kontakt = () => {
 
         <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
           {/* Contact Form */}
-          <Card className="p-10 bg-white border-2 border-white/30 shadow-soft">
+          <Card className="p-10 !bg-white border-2 border-white/30 shadow-soft">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -127,7 +127,7 @@ const Kontakt = () => {
           {/* Contact Info */}
           <div className="space-y-6">
             {/* Quick Contact */}
-            <Card className="p-8 bg-white border-2 border-white/30 shadow-soft">
+            <Card className="p-8 !bg-white border-2 border-white/30 shadow-soft">
               <h3 className="text-xl font-semibold text-foreground mb-4">
                 Szybki kontakt
               </h3>
