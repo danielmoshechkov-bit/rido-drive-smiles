@@ -1,0 +1,32 @@
+{
+  "hero": {
+    "topBar": "Your partner Uber, Bolt, FreeNow. Created by drivers, for drivers.",
+    "mainTitle": "Your partner {{uber}}, {{bolt}}, {{freenow}}. Created by drivers, for drivers.",
+    "cashout": "COLLECT YOUR CASH PAYOUT EVERY TUESDAY AT OUR OFFICE",
+    "model1": {
+      "title": "MODEL ONE",
+      "price": "159 PLN + 0% tax",
+      "description": "For weekly settlement for one and more applications\nCondition: active use of fuel card"
+    },
+    "model2": {
+      "title": "MODEL TWO",
+      "oldPrice": "50 PLN",
+      "newPrice": "39 PLN + 8% tax",
+      "description": "For weekly settlement for one and more applications\nFor the first 50 drivers"
+    },
+    "buttons": {
+      "join": "Join now",
+      "howToStart": "How to start"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "why": "Why RIDO",
+    "howToStart": "How to start",
+    "requirements": "Requirements",
+    "fuelCards": "Fuel cards",
+    "faq": "FAQ",
+    "contact": "Contact"
+  }
+}
