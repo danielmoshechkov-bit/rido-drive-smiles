@@ -1,31 +1,34 @@
 import { Card } from "@/components/ui/card";
+import { useTranslation } from 'react-i18next';
 const WhyRido = () => {
+  const { t } = useTranslation();
+  
   const benefits = [{
     icon: "💸",
-    title: "Przejrzyście",
-    description: "jeden cennik, bez ukrytych opłat"
+    title: t('whyRido.benefits.transparent.title'),
+    description: t('whyRido.benefits.transparent.description')
   }, {
     icon: "📆",
-    title: "Wypłaty co tydzień",
-    description: "przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na twoim koncie"
+    title: t('whyRido.benefits.weeklyPayouts.title'),
+    description: t('whyRido.benefits.weeklyPayouts.description')
   }, {
     icon: "💰",
-    title: "Wypłata gotówką",
-    description: "możliwość odebrania swojej wypłaty gotówką w każdy wtorek u nas w biurze"
+    title: t('whyRido.benefits.cashPayout.title'),
+    description: t('whyRido.benefits.cashPayout.description')
   }, {
     icon: "☎️",
-    title: "Wsparcie 7 dni w tygodniu",
-    description: "zawsze możesz na nas liczyć"
+    title: t('whyRido.benefits.support.title'),
+    description: t('whyRido.benefits.support.description')
   }, {
     icon: "⛽",
-    title: "Karta paliwowa",
-    description: "realne zniżki na stacjach"
+    title: t('whyRido.benefits.fuelCard.title'),
+    description: t('whyRido.benefits.fuelCard.description')
   }];
   return <section className="bg-background py-0">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Dlaczego Get RIDO?
+            {t('whyRido.title')}
           </h2>
         </div>
 

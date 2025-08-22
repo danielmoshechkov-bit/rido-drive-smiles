@@ -1,0 +1,75 @@
+{
+  "header": {
+    "home": "Strona główna",
+    "pricing": "Cennik",
+    "howToStart": "Jak zacząć",
+    "requirements": "Wymagania", 
+    "fuelCards": "Karty paliwowe",
+    "faq": "FAQ",
+    "contact": "Kontakt",
+    "joinNow": "Dołącz teraz"
+  },
+  "hero": {
+    "companyTagline": "Get RIDO — Twój partner Uber, Bolt, FreeNow. Stworzone przez kierowców, dla kierowców.",
+    "cashPayout": "ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE",
+    "model1": "MODEL PIERWSZY",
+    "model2": "MODEL DRUGI", 
+    "promotion": "PROMOCJA",
+    "model1Price": "159 zł + 0% podatku",
+    "model1Description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nWarunek: aktywne korzystanie z karty paliwowej",
+    "model2Price": "39 zł + 8% podatku",
+    "model2Description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nDla pierwszych 50 kierowców",
+    "joinNow": "Dołącz teraz",
+    "howToStart": "Jak zacząć"
+  },
+  "whyRido": {
+    "title": "Dlaczego Get RIDO?",
+    "benefits": {
+      "transparent": {
+        "title": "Przejrzyście",
+        "description": "jeden cennik, bez ukrytych opłat"
+      },
+      "weeklyPayouts": {
+        "title": "Wypłaty co tydzień", 
+        "description": "przelewy wysyłamy w poniedziałek do godziny 12 i tego samego dnia są już na twoim koncie"
+      },
+      "cashPayout": {
+        "title": "Wypłata gotówką",
+        "description": "możliwość odebrania swojej wypłaty gotówką w każy wtorek u nas w biurze"
+      },
+      "support": {
+        "title": "Wsparcie 7 dni w tygodniu",
+        "description": "zawsze możesz na nas liczyć"
+      },
+      "fuelCard": {
+        "title": "Karta paliwowa", 
+        "description": "realne zniżki na stacjach"
+      }
+    }
+  },
+  "seo": {
+    "description": "Szukasz zaufanego partnera dla kierowców Uber i Bolt w Polsce? Get RIDO oferuje proste rozliczenia, wypłaty co tydzień oraz wsparcie 7 dni w tygodniu. Wybierz model rozliczeń: 39 zł + 8% podatku (promocja z 50 zł) albo 159 zł + 0% podatku (z kartą paliwową Get RIDO). Dołącz do Get RIDO i zacznij zarabiać więcej w Warszawie, Krakowie i całej Polsce."
+  },
+  "auth": {
+    "login": "Zaloguj się",
+    "register": "Zarejestruj się",
+    "email": "E-mail",
+    "password": "Hasło",
+    "confirmPassword": "Potwierdź hasło",
+    "acceptTerms": "Akceptuję regulamin",
+    "loginButton": "Zaloguj",
+    "registerButton": "Zarejestruj"
+  },
+  "admin": {
+    "dashboard": "Panel administratora",
+    "weeklyReport": "Zestawienie tygodniowe",
+    "driversList": "Lista kierowców",
+    "dataImport": "Import danych",
+    "settings": "Ustawienia",
+    "reports": "Raporty",
+    "uber": "Uber",
+    "bolt": "Bolt", 
+    "freenow": "FreeNow",
+    "logout": "Wyloguj"
+  }
+}

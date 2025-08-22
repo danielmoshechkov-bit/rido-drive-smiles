@@ -1,0 +1,75 @@
+{
+  "header": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "howToStart": "How to Start",
+    "requirements": "Requirements",
+    "fuelCards": "Fuel Cards", 
+    "faq": "FAQ",
+    "contact": "Contact",
+    "joinNow": "Join Now"
+  },
+  "hero": {
+    "companyTagline": "Get RIDO — Your partner for Uber, Bolt, FreeNow. Created by drivers, for drivers.",
+    "cashPayout": "COLLECT YOUR CASH PAYOUT EVERY TUESDAY AT OUR OFFICE",
+    "model1": "MODEL ONE",
+    "model2": "MODEL TWO",
+    "promotion": "PROMOTION", 
+    "model1Price": "159 PLN + 0% tax",
+    "model1Description": "For weekly settlement for one or more applications\nCondition: active use of fuel card",
+    "model2Price": "39 PLN + 8% tax",
+    "model2Description": "For weekly settlement for one or more applications\nFor the first 50 drivers",
+    "joinNow": "Join Now",
+    "howToStart": "How to Start"
+  },
+  "whyRido": {
+    "title": "Why Get RIDO?",
+    "benefits": {
+      "transparent": {
+        "title": "Transparent",
+        "description": "one price list, no hidden fees"
+      },
+      "weeklyPayouts": {
+        "title": "Weekly Payouts",
+        "description": "we send transfers on Monday by 12 PM and they are in your account the same day"
+      },
+      "cashPayout": {
+        "title": "Cash Payout",
+        "description": "possibility to collect your payout in cash every Tuesday at our office"
+      },
+      "support": {
+        "title": "24/7 Support",
+        "description": "you can always count on us"
+      },
+      "fuelCard": {
+        "title": "Fuel Card",
+        "description": "real discounts at gas stations"
+      }
+    }
+  },
+  "seo": {
+    "description": "Looking for a trusted partner for Uber and Bolt drivers in Poland? Get RIDO offers simple settlements, weekly payouts and 24/7 support. Choose a settlement model: 39 PLN + 8% tax (promotion from 50 PLN) or 159 PLN + 0% tax (with Get RIDO fuel card). Join Get RIDO and start earning more in Warsaw, Krakow and all over Poland."
+  },
+  "auth": {
+    "login": "Log In",
+    "register": "Sign Up", 
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "acceptTerms": "I accept the terms",
+    "loginButton": "Log In",
+    "registerButton": "Sign Up"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "weeklyReport": "Weekly Report",
+    "driversList": "Drivers List",
+    "dataImport": "Data Import",
+    "settings": "Settings",
+    "reports": "Reports", 
+    "uber": "Uber",
+    "bolt": "Bolt",
+    "freenow": "FreeNow",
+    "logout": "Logout"
+  }
+}
