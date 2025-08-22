@@ -2,9 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useTranslation } from "react-i18next";
 const Hero = () => {
-  const {
-    t
-  } = useTranslation();
+  const { t } = useTranslation();
+  
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -61,10 +60,10 @@ const Hero = () => {
         <div className="space-y-4">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
             <span className="text-primary font-bold">Get RIDO</span> — {t('hero.mainTitle', {
-            uber: 'Uber',
-            bolt: 'Bolt',
-            freenow: 'FreeNow'
-          })}
+              uber: 'Uber',
+              bolt: 'Bolt', 
+              freenow: 'FreeNow'
+            })}
           </h1>
           
         </div>
@@ -85,7 +84,9 @@ const Hero = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
             {/* Model drugi - 159 zł (Left) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
-              
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                PROMOCJA
+              </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
                   {t('hero.model1.title')}
