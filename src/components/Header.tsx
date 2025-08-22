@@ -1,10 +1,7 @@
 import { Button } from "@/components/ui/button";
 import LanguageSelector from "@/components/LanguageSelector";
-import { useTranslation } from "react-i18next";
 
 const Header = () => {
-  const { t } = useTranslation();
-  
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -31,43 +28,43 @@ const Header = () => {
             onClick={() => scrollToSection('home')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.home')}
+            Strona główna
           </button>
           <button
             onClick={() => scrollToSection('cennik')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.pricing')}
+            Cennik
           </button>
           <button
             onClick={() => scrollToSection('jak-zaczac')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.howToStart')}
+            Jak zacząć
           </button>
           <button
             onClick={() => scrollToSection('wymagania')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.requirements')}
+            Wymagania
           </button>
           <button
             onClick={() => scrollToSection('karty-paliwowe')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.fuelCards')}
+            Karty paliwowe
           </button>
           <button
             onClick={() => scrollToSection('faq')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.faq')}
+            FAQ
           </button>
           <button
             onClick={() => scrollToSection('kontakt')}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            {t('nav.contact')}
+            Kontakt
           </button>
         </nav>
 
@@ -75,7 +72,7 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <LanguageSelector />
           <Button variant="accent" size="sm">
-            {t('hero.buttons.join')}
+            Dołącz teraz
           </Button>
         </div>
       </div>
@@ -84,13 +81,13 @@ const Header = () => {
       <div className="md:hidden px-4 pb-4">
         <nav className="flex flex-wrap gap-4 text-sm">
           <button onClick={() => scrollToSection('cennik')} className="text-foreground hover:text-primary">
-            {t('nav.pricing')}
+            Cennik
           </button>
           <button onClick={() => scrollToSection('jak-zaczac')} className="text-foreground hover:text-primary">
-            {t('nav.howToStart')}
+            Jak zacząć
           </button>
           <button onClick={() => scrollToSection('kontakt')} className="text-foreground hover:text-primary">
-            {t('nav.contact')}
+            Kontakt
           </button>
         </nav>
       </div>

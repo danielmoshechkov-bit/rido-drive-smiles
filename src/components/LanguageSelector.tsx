@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 const LanguageSelector = () => {
-  const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentLanguage, setCurrentLanguage] = useState(i18n.language.toUpperCase());
+  const [currentLanguage, setCurrentLanguage] = useState("PL");
 
   const languages = [
     { code: "PL", name: "Polski", flag: "🇵🇱" },
@@ -17,10 +15,9 @@ const LanguageSelector = () => {
   ];
 
   const handleLanguageChange = (langCode: string) => {
-    const lowerCode = langCode.toLowerCase();
-    i18n.changeLanguage(lowerCode);
     setCurrentLanguage(langCode);
     setIsOpen(false);
+    // Here you would implement actual language switching logic
   };
 
   return (
