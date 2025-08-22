@@ -10,6 +10,7 @@ import { CitySelector } from "@/components/CitySelector";
 import { CSVUpload } from "@/components/CSVUpload";
 import { useCities, City } from "@/hooks/useCities";
 import { useDrivers } from "@/hooks/useDrivers";
+import { DriversManagement } from "@/components/DriversManagement";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -145,55 +146,12 @@ const AdminDashboard = () => {
                   <p className="text-muted-foreground">Wybierz miasto aby zobaczyć listę kierowców</p>
                 </CardContent>
               </Card>
-            ) : driversLoading ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Ładowanie kierowców...</p>
-                </CardContent>
-              </Card>
             ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Lista kierowców - {selectedCity.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Znaleziono {drivers.length} kierowców
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  {drivers.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Brak kierowców w tym mieście. Zaimportuj dane CSV aby dodać kierowców.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {drivers.map((driver) => (
-                        <div key={driver.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex items-center space-x-4">
-                            <div>
-                              <h3 className="font-semibold">
-                                {driver.first_name} {driver.last_name}
-                              </h3>
-                              <div className="flex items-center space-x-2 mt-1">
-                                {driver.platform_ids?.map((platform) => (
-                                  <Badge key={platform.platform} className={getServiceColor(platform.platform)}>
-                                    {platform.platform}
-                                  </Badge>
-                                ))}
-                              </div>
-                              {driver.email && (
-                                <p className="text-xs text-muted-foreground">{driver.email}</p>
-                              )}
-                              {driver.phone && (
-                                <p className="text-xs text-muted-foreground">{driver.phone}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <DriversManagement 
+                cityId={selectedCity.id}
+                cityName={selectedCity.name}
+                onDriverUpdate={refetchDrivers}
+              />
             )}
           </TabsContent>
 
