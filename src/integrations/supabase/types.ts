@@ -193,6 +193,44 @@ export type Database = {
           },
         ]
       }
+      driver_document_statuses: {
+        Row: {
+          created_at: string
+          date_uploaded: string | null
+          document_type: string
+          driver_id: string
+          id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_uploaded?: string | null
+          document_type: string
+          driver_id: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_uploaded?: string | null
+          document_type?: string
+          driver_id?: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_document_statuses_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_documents: {
         Row: {
           created_at: string
@@ -279,8 +317,67 @@ export type Database = {
           },
         ]
       }
+      driver_vehicle_assignments: {
+        Row: {
+          assigned_at: string | null
+          created_at: string
+          driver_id: string
+          fleet_id: string | null
+          id: string
+          status: string | null
+          unassigned_at: string | null
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          created_at?: string
+          driver_id: string
+          fleet_id?: string | null
+          id?: string
+          status?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          created_at?: string
+          driver_id?: string
+          fleet_id?: string | null
+          id?: string
+          status?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_vehicle_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_vehicle_assignments_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_vehicle_assignments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
+          billing_method: string | null
           city_id: string
           created_at: string
           email: string | null
@@ -288,10 +385,12 @@ export type Database = {
           id: string
           last_name: string | null
           phone: string | null
+          registration_date: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
         }
         Insert: {
+          billing_method?: string | null
           city_id: string
           created_at?: string
           email?: string | null
@@ -299,10 +398,12 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }
         Update: {
+          billing_method?: string | null
           city_id?: string
           created_at?: string
           email?: string | null
@@ -310,6 +411,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }
