@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import LanguageSelector from "@/components/LanguageSelector";
 
-export default function DriverDashboard() {
+const DriverDashboard = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("week");
+  const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
 
@@ -23,27 +27,44 @@ export default function DriverDashboard() {
       }
       setUser(session.user);
       
-      // Pobierz dane kierowcy
-      const { data } = await supabase
-        .from("driver_app_users")
-        .select(`
-          *,
-          drivers!inner(*)
-        `)
-        .eq("user_id", session.user.id)
-        .single();
-        
-      if (data) {
-        setDriverData(data);
+      // Pobierz dane kierowcy - najpierw sprawdź czy to test@test.pl
+      if (session.user.email === 'test@test.pl') {
+        // Znajdź kierowcę po emailu
+        const { data: driverRecord } = await supabase
+          .from("drivers")
+          .select("*")
+          .eq("email", "test@test.pl")
+          .single();
+          
+        if (driverRecord) {
+          setDriverData({
+            driver_id: driverRecord.id,
+            drivers: driverRecord,
+            city_id: driverRecord.city_id
+          });
+        }
+      } else {
+        // Standardowe pobieranie dla autentycznych użytkowników
+        const { data } = await supabase
+          .from("driver_app_users")
+          .select(`
+            *,
+            drivers!inner(*)
+          `)
+          .eq("user_id", session.user.id)
+          .single();
+          
+        if (data) {
+          setDriverData(data);
+        }
       }
     };
 
     checkAuth();
   }, [navigate]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+  const handleLogout = () => {
+    navigate('/');
   };
 
   if (!user || !driverData) {
@@ -55,61 +76,70 @@ export default function DriverDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5">
-      {/* Header */}
-      <header className="bg-background border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Panel Kierowcy</h1>
-            <p className="text-muted-foreground">
-              Witaj, {driverData.drivers.first_name} {driverData.drivers.last_name}
-            </p>
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Header - identyczny jak AdminDashboard */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <img 
+              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+              alt="Get RIDO Logo" 
+              className="h-8 w-8"
+            />
+            <h1 className="text-xl font-bold text-primary">Panel Kierowcy</h1>
+            <span className="text-muted-foreground">
+              - {driverData.drivers.first_name} {driverData.drivers.last_name}
+            </span>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            Wyloguj
-          </Button>
+          <div className="flex items-center space-x-4">
+            <LanguageSelector />
+            <Button variant="outline" onClick={handleLogout}>
+              Wyloguj
+            </Button>
+          </div>
         </div>
-      </header>
+      </div>
 
-      <div className="container mx-auto px-4 py-6">
-        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
-            <TabsTrigger value="week">Wyniki</TabsTrigger>
-            <TabsTrigger value="docs">Dokumenty</TabsTrigger>
-            <TabsTrigger value="car">Auto</TabsTrigger>
+      {/* Main Content - identyczny layout jak AdminDashboard */}
+      <div className="container mx-auto px-4 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="weekly-report">Wyniki tygodnia</TabsTrigger>
+            <TabsTrigger value="cars">Auta</TabsTrigger>
+            <TabsTrigger value="documents">Dokumenty</TabsTrigger>
             <TabsTrigger value="fuel">Paliwo</TabsTrigger>
             <TabsTrigger value="chat">Czat</TabsTrigger>
             <TabsTrigger value="settings">Ustawienia</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="week">
+          <TabsContent value="weekly-report" className="space-y-6">
             <WeeklyResults driverData={driverData} />
           </TabsContent>
 
-          <TabsContent value="docs">
-            <DriverDocuments driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="car">
+          <TabsContent value="cars" className="space-y-6">
             <DriverCar driverData={driverData} />
           </TabsContent>
 
-          <TabsContent value="fuel">
+          <TabsContent value="documents" className="space-y-6">
+            <DriverDocuments driverData={driverData} />
+          </TabsContent>
+
+          <TabsContent value="fuel" className="space-y-6">
             <FuelLogs driverData={driverData} />
           </TabsContent>
 
-          <TabsContent value="chat">
+          <TabsContent value="chat" className="space-y-6">
             <DriverChat driverData={driverData} />
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="space-y-6">
             <DriverSettings driverData={driverData} />
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
-}
+};
 
 // Komponent wyników tygodnia
 function WeeklyResults({ driverData }: { driverData: any }) {
@@ -520,10 +550,14 @@ function DriverChat({ driverData }: { driverData: any }) {
       content: text.trim()
     }]);
 
-    if (!error) {
-      setText("");
-      load();
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+
+    setText("");
+    load();
+    toast.success("Wiadomość wysłana");
   };
 
   return (
@@ -532,31 +566,30 @@ function DriverChat({ driverData }: { driverData: any }) {
         <CardTitle>Czat z administratorem</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2 h-64 overflow-auto border rounded p-3 bg-muted/30">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-3 rounded ${
-                msg.from_role === 'driver' 
-                  ? 'bg-primary/10 ml-auto max-w-[80%]' 
-                  : 'bg-muted mr-auto max-w-[80%]'
-              }`}
-            >
-              <div>{msg.content}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {new Date(msg.created_at).toLocaleString()}
+        <div className="border rounded-lg p-3 h-64 overflow-y-auto space-y-2">
+          {messages.length === 0 ? (
+            <p className="text-muted-foreground">Brak wiadomości.</p>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id} className={`p-2 rounded ${msg.from_role === 'driver' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'}`}>
+                <div className="text-xs text-muted-foreground">
+                  {msg.from_role === 'driver' ? 'Ty' : 'Administrator'} • {new Date(msg.created_at).toLocaleString()}
+                </div>
+                <div>{msg.content}</div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div className="flex gap-2">
           <Input
+            placeholder="Napisz wiadomość..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Napisz wiadomość..."
             onKeyPress={(e) => e.key === 'Enter' && send()}
           />
-          <Button onClick={send}>Wyślij</Button>
+          <Button onClick={send} disabled={!text.trim()}>
+            Wyślij
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -565,50 +598,48 @@ function DriverChat({ driverData }: { driverData: any }) {
 
 // Komponent ustawień
 function DriverSettings({ driverData }: { driverData: any }) {
-  const [plan, setPlan] = useState(driverData.plan_type || '39+8');
+  const [plan, setPlan] = useState(driverData?.plan_type || '39+8');
 
-  const savePlan = async () => {
+  const save = async () => {
     const { error } = await supabase
       .from("driver_app_users")
       .update({ plan_type: plan })
-      .eq("user_id", driverData.user_id);
+      .eq("driver_id", driverData.driver_id);
 
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    toast.success("Model rozliczeń został zaktualizowany");
+    toast.success("Ustawienia zapisane");
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Ustawienia rozliczeń</CardTitle>
+        <CardTitle>Ustawienia rozliczania</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-3">
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">
+            Plan taryfowy
+          </label>
           <select
-            className="border rounded px-3 py-2 flex-1 bg-background"
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
+            className="w-full p-2 border rounded"
           >
-            <option value="39+8">39 zł + 8% podatku</option>
-            <option value="159+0">159 zł + 0% podatku</option>
+            <option value="39+8">39 zł + 8%</option>
+            <option value="59+5">59 zł + 5%</option>
+            <option value="79+3">79 zł + 3%</option>
           </select>
-          <Button onClick={savePlan}>Zapisz</Button>
         </div>
-        
-        <div className="text-sm text-muted-foreground">
-          <p>Aktualny plan: <strong>{plan === '39+8' ? '39 zł + 8% podatku' : '159 zł + 0% podatku'}</strong></p>
-          <p className="mt-2">
-            {plan === '39+8' 
-              ? 'Płacisz 39 zł tygodniowo plus 8% podatku od przychodów'
-              : 'Płacisz 159 zł tygodniowo, bez dodatkowego podatku'
-            }
-          </p>
-        </div>
+        <Button onClick={save}>
+          Zapisz ustawienia
+        </Button>
       </CardContent>
     </Card>
   );
 }
+
+export default DriverDashboard;

@@ -31,6 +31,11 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
     }
   };
 
+  const handleTextClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+
   const savePlatformId = async () => {
     try {
       const { error } = await supabase
@@ -78,17 +83,28 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
           </Button>
         </div>
       ) : (
-        <div 
-          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
-          onClick={() => setIsEditing(true)}
-          onMouseEnter={currentId ? copyToClipboard : undefined}
-          title={currentId ? "Najedź aby skopiować, kliknij aby edytować" : "Kliknij aby edytować"}
-        >
-          <span className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1">
+        <div className="flex items-center gap-2">
+          <span 
+            className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1 cursor-pointer hover:bg-muted/70"
+            onClick={handleTextClick}
+            title="Kliknij aby edytować"
+          >
             {currentId || "Brak ID"}
           </span>
-          {copied && currentId && (
-            <Check size={12} className="text-green-500" />
+          {currentId && (
+            <Button
+              size="sm" 
+              variant="ghost" 
+              onClick={copyToClipboard}
+              className="h-6 w-6 p-0"
+              title="Kopiuj ID"
+            >
+              {copied ? (
+                <Check size={12} className="text-green-500" />
+              ) : (
+                <Copy size={12} />
+              )}
+            </Button>
           )}
         </div>
       )}
