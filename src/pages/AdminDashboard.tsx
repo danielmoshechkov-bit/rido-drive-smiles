@@ -12,6 +12,8 @@ import { useCities, City } from "@/hooks/useCities";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriversManagement } from "@/components/DriversManagement";
 import { SettlementsManagement } from "@/components/SettlementsManagement";
+import { FleetManagement } from "@/components/FleetManagement";
+import { DocumentsManagement } from "@/components/DocumentsManagement";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -83,10 +85,12 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="weekly-report">{t('admin.weeklyReport')}</TabsTrigger>
             <TabsTrigger value="drivers-list">{t('admin.driversList')}</TabsTrigger>
             <TabsTrigger value="settlements">{t('admin.settlements')}</TabsTrigger>
+            <TabsTrigger value="fleet">Flota</TabsTrigger>
+            <TabsTrigger value="documents">Dokumenty</TabsTrigger>
             <TabsTrigger value="data-import">{t('admin.dataImport')}</TabsTrigger>
             <TabsTrigger value="settings">{t('admin.settings')}</TabsTrigger>
             <TabsTrigger value="reports">{t('admin.reports')}</TabsTrigger>
@@ -165,6 +169,36 @@ const AdminDashboard = () => {
               </Card>
             ) : (
               <SettlementsManagement 
+                cityId={selectedCity.id}
+                cityName={selectedCity.name}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="fleet" className="space-y-6">
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć flotę</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <FleetManagement 
+                cityId={selectedCity.id}
+                cityName={selectedCity.name}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-6">
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zarządzać dokumentami</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <DocumentsManagement 
                 cityId={selectedCity.id}
                 cityName={selectedCity.name}
               />
