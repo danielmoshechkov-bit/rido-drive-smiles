@@ -71,7 +71,6 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
             onChange={(e) => setValue(e.target.value)}
             className="h-7 text-xs"
             placeholder={`${platform} ID`}
-            autoFocus
           />
           <Button size="sm" onClick={savePlatformId} className="h-7 px-2">
             Zapisz
