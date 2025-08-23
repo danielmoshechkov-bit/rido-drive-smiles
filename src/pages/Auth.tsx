@@ -1,57 +1,79 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import LanguageSelector from "@/components/LanguageSelector";
 
 const Auth = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password validation
+  const validatePassword = (password: string) => {
+    const minLength = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    return {
+      minLength,
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      hasSpecial,
+      isStrong: minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial
+    };
+  };
+
+  const passwordValidation = validatePassword(password);
+  const passwordsMatch = password === confirmPassword && password.length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     // Admin login
-    if (email === 'daniel.moshechkov@gmail.com' && password === 'danmos050389') {
+    if (isLogin && email === 'daniel.moshechkov@gmail.com' && password === 'danmos050389') {
       navigate('/admin/dashboard');
       return;
     }
     
     // Simple test login
-    if (email === 'test' && password === 'test') {
+    if (isLogin && email === 'test' && password === 'test') {
       navigate('/admin/dashboard');
       return;
     }
     
     // Test driver login
-    if (email === 'test@test.pl' && password === '12345') {
-      // Store test user info in localStorage for DriverDashboard
-      localStorage.setItem('testUser', JSON.stringify({ 
-        email: 'test@test.pl', 
-        type: 'driver' 
-      }));
+    if (isLogin && email === 'test@test.pl' && password === '12345') {
       navigate('/driver');
       return;
     }
     
-    // Test driver login - Anastasia
-    if (email === 'anastasia.loktionova1991@gmail.com' && password === 'Test12345!') {
-      // Store test user info in localStorage for DriverDashboard
-      localStorage.setItem('testUser', JSON.stringify({ 
-        email: 'anastasia.loktionova1991@gmail.com', 
-        type: 'driver' 
-      }));
-      navigate('/driver');
+    // For registration, validate password
+    if (!isLogin && !passwordValidation.isStrong) {
+      alert('Hasło nie spełnia wymagań!');
       return;
     }
     
-    // For now, just show error message for invalid credentials
-    alert('Nieprawidłowy email lub hasło!');
+    if (!isLogin && !passwordsMatch) {
+      alert('Hasła nie są zgodne!');
+      return;
+    }
+    
+    // For now, just show success message
+    alert(isLogin ? 'Zalogowano pomyślnie!' : 'Zarejestrowano pomyślnie! Sprawdź e-mail w celu aktywacji konta.');
   };
 
   return (
@@ -83,7 +105,7 @@ const Auth = () => {
         <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">
-              {t('auth.login')}
+              {isLogin ? t('auth.login') : t('auth.register')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -112,28 +134,60 @@ const Auth = () => {
                 />
               </div>
 
+              {!isLogin && (
+                <div>
+                  <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="acceptTerms"
+                    checked={acceptTerms}
+                    onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                  />
+                  <Label htmlFor="acceptTerms" className="text-sm">
+                    {t('auth.acceptTerms')}
+                  </Label>
+                </div>
+              )}
+
               <Button 
                 type="submit" 
                 className="w-full"
+                disabled={!isLogin && (!acceptTerms || password !== confirmPassword)}
               >
-                {t('auth.loginButton')}
+                {isLogin ? t('auth.loginButton') : t('auth.registerButton')}
               </Button>
             </form>
 
             <div className="text-center">
-              <Link
-                to="/driver/register"
+              <button
+                onClick={() => setIsLogin(!isLogin)}
                 className="text-primary hover:underline text-sm"
               >
-                Nie masz konta? Zarejestruj się jako kierowca
-              </Link>
+                {isLogin 
+                  ? `${t('auth.register')}?`
+                  : `${t('auth.login')}?`
+                }
+              </button>
             </div>
 
-            <div className="text-center text-xs text-muted-foreground space-y-1">
-              <div>Admin: email "test", password "test"</div>
-              <div>Kierowca: email "test@test.pl", password "12345"</div>
-              <div>Kierowca: email "anastasia.loktionova1991@gmail.com", password "Test12345!"</div>
-            </div>
+            {isLogin && (
+              <div className="text-center text-xs text-muted-foreground space-y-1">
+                <div>Admin: email "test", password "test"</div>
+                <div>Kierowca: email "test@test.pl", password "12345"</div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

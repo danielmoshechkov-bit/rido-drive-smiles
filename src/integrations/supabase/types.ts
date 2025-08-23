@@ -595,7 +595,6 @@ export type Database = {
           id: string
           net_amount: number | null
           platform: string
-          rental_fee: number | null
           total_earnings: number | null
           updated_at: string
           week_end: string
@@ -609,7 +608,6 @@ export type Database = {
           id?: string
           net_amount?: number | null
           platform: string
-          rental_fee?: number | null
           total_earnings?: number | null
           updated_at?: string
           week_end: string
@@ -623,7 +621,6 @@ export type Database = {
           id?: string
           net_amount?: number | null
           platform?: string
-          rental_fee?: number | null
           total_earnings?: number | null
           updated_at?: string
           week_end?: string
@@ -849,7 +846,6 @@ export type Database = {
           status: string | null
           updated_at: string
           vin: string | null
-          weekly_rental_fee: number | null
           year: number | null
         }
         Insert: {
@@ -866,7 +862,6 @@ export type Database = {
           status?: string | null
           updated_at?: string
           vin?: string | null
-          weekly_rental_fee?: number | null
           year?: number | null
         }
         Update: {
@@ -883,7 +878,6 @@ export type Database = {
           status?: string | null
           updated_at?: string
           vin?: string | null
-          weekly_rental_fee?: number | null
           year?: number | null
         }
         Relationships: [
