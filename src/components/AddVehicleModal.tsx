@@ -97,11 +97,11 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Nr rejestracyjny *</Label>
-            <Input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="np. WX1234A" />
+            <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="np. WX1234A" className="uppercase" />
           </div>
           <div>
             <Label>VIN</Label>
-            <Input value={vin} onChange={(e) => setVin(e.target.value)} placeholder="17 znaków" />
+            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase" />
           </div>
           <div>
             <Label>Marka *</Label>
