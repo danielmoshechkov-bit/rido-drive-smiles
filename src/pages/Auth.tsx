@@ -34,6 +34,12 @@ const Auth = () => {
       return;
     }
     
+    // Test driver login - Anastasia
+    if (email === 'anastasia.loktionova1991@gmail.com' && password === 'Test12345!') {
+      navigate('/driver');
+      return;
+    }
+    
     // For now, just show error message for invalid credentials
     alert('Nieprawidłowy email lub hasło!');
   };
@@ -116,6 +122,7 @@ const Auth = () => {
             <div className="text-center text-xs text-muted-foreground space-y-1">
               <div>Admin: email "test", password "test"</div>
               <div>Kierowca: email "test@test.pl", password "12345"</div>
+              <div>Kierowca: email "anastasia.loktionova1991@gmail.com", password "Test12345!"</div>
             </div>
           </CardContent>
         </Card>

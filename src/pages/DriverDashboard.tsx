@@ -27,13 +27,13 @@ const DriverDashboard = () => {
       }
       setUser(session.user);
       
-      // Pobierz dane kierowcy - najpierw sprawdź czy to test@test.pl
-      if (session.user.email === 'test@test.pl') {
+      // Pobierz dane kierowcy - sprawdź email testowy
+      if (session.user.email === 'test@test.pl' || session.user.email === 'anastasia.loktionova1991@gmail.com') {
         // Znajdź kierowcę po emailu
         const { data: driverRecord } = await supabase
           .from("drivers")
           .select("*")
-          .eq("email", "test@test.pl")
+          .eq("email", session.user.email)
           .single();
           
         if (driverRecord) {
@@ -103,7 +103,8 @@ const DriverDashboard = () => {
       {/* Main Content - identyczny layout jak AdminDashboard */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="fleet-info">Flota</TabsTrigger>
             <TabsTrigger value="weekly-report">Wyniki tygodnia</TabsTrigger>
             <TabsTrigger value="cars">Auta</TabsTrigger>
             <TabsTrigger value="documents">Dokumenty</TabsTrigger>
@@ -111,6 +112,10 @@ const DriverDashboard = () => {
             <TabsTrigger value="chat">Czat</TabsTrigger>
             <TabsTrigger value="settings">Ustawienia</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="fleet-info" className="space-y-6">
+            <FleetInfo driverData={driverData} />
+          </TabsContent>
 
           <TabsContent value="weekly-report" className="space-y-6">
             <WeeklyResults driverData={driverData} />
@@ -639,6 +644,127 @@ function DriverSettings({ driverData }: { driverData: any }) {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// Komponent informacji o flocie i przypisanym aucie
+function FleetInfo({ driverData }: { driverData: any }) {
+  const [fleetInfo, setFleetInfo] = useState<any>(null);
+  const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
+  const [assignment, setAssignment] = useState<any>(null);
+
+  useEffect(() => {
+    const loadFleetInfo = async () => {
+      if (driverData.drivers.fleet_id) {
+        const { data: fleet } = await supabase
+          .from('fleets')
+          .select('*')
+          .eq('id', driverData.drivers.fleet_id)
+          .single();
+        setFleetInfo(fleet);
+      }
+
+      // Pobierz przypisane auto
+      const { data: activeAssignment } = await supabase
+        .from('driver_vehicle_assignments')
+        .select(`
+          *,
+          vehicles(*)
+        `)
+        .eq('driver_id', driverData.driver_id)
+        .eq('status', 'active')
+        .single();
+
+      if (activeAssignment) {
+        setAssignment(activeAssignment);
+        setAssignedVehicle(activeAssignment.vehicles);
+      }
+    };
+
+    loadFleetInfo();
+  }, [driverData]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Informacje o flocie</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fleetInfo ? (
+            <div className="space-y-2">
+              <div className="text-lg font-medium">{fleetInfo.name}</div>
+              <div className="text-sm text-muted-foreground">
+                Data dołączenia: {new Date(fleetInfo.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanej floty</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do floty
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Przypisane auto</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assignedVehicle ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-lg font-medium">
+                  {assignedVehicle.brand} {assignedVehicle.model}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {assignedVehicle.plate}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">VIN:</span>
+                  <div>{assignedVehicle.vin || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Rok:</span>
+                  <div>{assignedVehicle.year || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Kolor:</span>
+                  <div>{assignedVehicle.color || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Przebieg:</span>
+                  <div>{assignedVehicle.odometer || 0} km</div>
+                </div>
+              </div>
+
+              <Badge variant="outline" className="w-fit">
+                Status: {assignedVehicle.status}
+              </Badge>
+
+              {assignment && (
+                <div className="text-xs text-muted-foreground">
+                  Przypisane od: {new Date(assignment.assigned_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanego auta</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do pojazdu
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
