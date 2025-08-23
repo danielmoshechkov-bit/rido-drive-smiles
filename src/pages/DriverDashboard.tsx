@@ -186,6 +186,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       freenow: 450
     },
     fuel: 320,
+    rental: 0,
     plan: "39+8%"
   });
 
@@ -221,17 +222,39 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       to: dates.to
     }));
 
-    // Tutaj można dodać rzeczywiste ładowanie z bazy danych
-    const { data } = await supabase
+    // Ładowanie rzeczywistych danych z bazy
+    const { data: settlements } = await supabase
       .from("settlements")
       .select("*")
       .eq("driver_id", driverData.driver_id)
       .gte("week_start", dates.from)
       .lte("week_end", dates.to);
     
-    if (data && data.length > 0) {
+    // Pobierz opłatę za wynajem z przypisanego pojazdu
+    const { data: assignment } = await supabase
+      .from("driver_vehicle_assignments")
+      .select(`
+        vehicles(weekly_rental_fee)
+      `)
+      .eq("driver_id", driverData.driver_id)
+      .eq("status", "active")
+      .single();
+    
+    const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
+    
+    if (settlements && settlements.length > 0) {
       // Użyj rzeczywistych danych jeśli dostępne
-      console.log("Znaleziono dane rozliczeń:", data);
+      setWeekData(prev => ({
+        ...prev,
+        rental: rentalFee
+      }));
+      console.log("Znaleziono dane rozliczeń:", settlements);
+    } else {
+      // Aktualizuj tylko opłatę za wynajem
+      setWeekData(prev => ({
+        ...prev,
+        rental: rentalFee
+      }));
     }
   };
 
@@ -242,7 +265,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   const chartData = [
     { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
     { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
-    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#F59E0B" }
+    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#EF4444" }
   ];
 
   const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
@@ -275,10 +298,26 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 value={selectedWeek} 
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
                 className="border rounded px-2 py-1"
+                size={4}
+                style={{ maxHeight: '120px', overflowY: 'auto' }}
               >
-                {Array.from({ length: 52 }, (_, i) => i + 1).map(week => (
-                  <option key={week} value={week}>{week}</option>
-                ))}
+                {Array.from({ length: 52 }, (_, i) => {
+                  const weekNum = i + 1;
+                  const dates = getWeekDates(selectedYear, weekNum);
+                  const weekEndDate = new Date(dates.to);
+                  const today = new Date();
+                  
+                  // Ukryj przyszłe tygodnie (nie zakończone)
+                  if (weekEndDate > today) return null;
+                  
+                  const fromDate = new Date(dates.from).toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
+                  const toDate = weekEndDate.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
+                  return (
+                    <option key={weekNum} value={weekNum}>
+                      {weekNum} ({fromDate} - {toDate})
+                    </option>
+                  );
+                }).filter(Boolean)}
               </select>
             </div>
             
@@ -347,10 +386,14 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 <span>Paliwo:</span>
                 <span>-{weekData.fuel} zł</span>
               </div>
+              <div className="flex justify-between text-red-600">
+                <span>Wynajem auta:</span>
+                <span>-{weekData.rental || 0} zł</span>
+              </div>
               <div className="border-t pt-2">
                 <div className="flex justify-between font-bold text-lg text-green-600">
                   <span>Do wypłaty:</span>
-                  <span>{totalEarnings - weekData.fuel} zł</span>
+                  <span>{totalEarnings - weekData.fuel - (weekData.rental || 0)} zł</span>
                 </div>
               </div>
             </div>
@@ -487,6 +530,8 @@ function DriverCar({ driverData }: { driverData: any }) {
   const [vin, setVin] = useState("");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
+  const [year, setYear] = useState("");
+  const [color, setColor] = useState("");
   const [insp, setInsp] = useState("");
   const [policy, setPolicy] = useState("");
 
@@ -504,6 +549,8 @@ function DriverCar({ driverData }: { driverData: any }) {
           vin: vin ? vin.toUpperCase() : null,
           brand,
           model,
+          year: year ? parseInt(year) : null,
+          color: color || null,
           status: "aktywne",
           owner_name: "Prywatne",
           city_id: driverData.city_id
@@ -538,6 +585,8 @@ function DriverCar({ driverData }: { driverData: any }) {
       setVin("");
       setBrand("");
       setModel("");
+      setYear("");
+      setColor("");
       setInsp("");
       setPolicy("");
     } catch (error: any) {
@@ -572,6 +621,17 @@ function DriverCar({ driverData }: { driverData: any }) {
           placeholder="Model"
           value={model}
           onChange={(e) => setModel(e.target.value)}
+        />
+        <Input
+          placeholder="Rok produkcji"
+          type="number"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+        />
+        <Input
+          placeholder="Kolor"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
         />
         <div>
           <label className="text-sm text-muted-foreground block mb-1">
@@ -938,7 +998,7 @@ function FleetInfo({ driverData }: { driverData: any }) {
   );
 }
 
-// Mały przycisk czatu w prawym dolnym rogu
+// Sidebar czatu w prawym dolnym rogu
 function DriverChatButton({ driverData }: { driverData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -952,22 +1012,106 @@ function DriverChatButton({ driverData }: { driverData: any }) {
         💬
       </Button>
       
+      {/* Sidebar Chat */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md h-96 flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
+        <>
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Sidebar */}
+          <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-xl z-50 flex flex-col animate-slide-in-right">
+            <div className="p-4 border-b flex justify-between items-center bg-primary text-white">
               <h3 className="font-medium">Czat z administratorem</h3>
-              <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsOpen(false)}
+                className="text-white hover:bg-white/20 h-8 w-8 p-0"
+              >
                 ✕
               </Button>
             </div>
-            <div className="flex-1 p-4">
-              <DriverChat driverData={driverData} />
+            
+            <div className="flex-1 p-4 overflow-hidden">
+              <DriverChatContent driverData={driverData} />
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
+  );
+}
+
+// Komponent zawartości czatu do użycia w sidebar
+function DriverChatContent({ driverData }: { driverData: any }) {
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState<any[]>([]);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("driver_id", driverData.driver_id)
+      .order("created_at", { ascending: true });
+    setMessages(data || []);
+  };
+
+  useEffect(() => {
+    load();
+  }, [driverData.driver_id]);
+
+  const send = async () => {
+    if (!text.trim()) return;
+
+    const { error } = await supabase.from("messages").insert([{
+      driver_id: driverData.driver_id,
+      from_role: "driver",
+      content: text.trim()
+    }]);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setText("");
+    load();
+    toast.success("Wiadomość wysłana");
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 border rounded-lg p-3 overflow-y-auto space-y-2 mb-4">
+        {messages.length === 0 ? (
+          <p className="text-muted-foreground">Brak wiadomości.</p>
+        ) : (
+          messages.map((msg) => (
+            <div key={msg.id} className={`p-3 rounded-lg ${msg.from_role === 'driver' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'}`}>
+              <div className="text-xs text-muted-foreground mb-1">
+                {msg.from_role === 'driver' ? 'Ty' : 'Administrator'} • {new Date(msg.created_at).toLocaleString()}
+              </div>
+              <div className="text-sm">{msg.content}</div>
+            </div>
+          ))
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        <Input
+          placeholder="Napisz wiadomość..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && send()}
+          className="flex-1"
+        />
+        <Button onClick={send} disabled={!text.trim()}>
+          Wyślij
+        </Button>
+      </div>
+    </div>
   );
 }
 

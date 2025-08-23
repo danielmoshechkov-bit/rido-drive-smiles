@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useDropdownState } from '@/hooks/useGlobalDropdown';
 
 interface DriverRentalBadgeProps {
   driverId: string;
@@ -14,7 +15,7 @@ interface DriverRentalBadgeProps {
 
 export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: DriverRentalBadgeProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [showVehicleList, setShowVehicleList] = useState(false);
+  const { isOpen: showVehicleList, toggle: toggleVehicleList, close: closeVehicleList } = useDropdownState(`rental-${driverId}`);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
@@ -41,24 +42,49 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
     checkAssignment();
   }, [driverId]);
 
-  // Pobierz auta z tej samej floty co kierowca
+  // Pobierz dostępne pojazdy - sprawdź flotę, potem miasto
   const loadFleetVehicles = async () => {
-    if (!driverData.fleet_id) {
-      toast.error('Kierowca nie ma przypisanej floty');
-      return;
-    }
-
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('fleet_id', driverData.fleet_id)
-        .eq('status', 'aktywne')
-        .order('brand', { ascending: true });
+      let data = [];
+      
+      // Najpierw spróbuj znaleźć pojazdy w tej samej flocie
+      if (driverData.fleet_id) {
+        const { data: fleetVehicles } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('fleet_id', driverData.fleet_id)
+          .eq('status', 'aktywne')
+          .is('vehicle_assignments.vehicle_id', null)
+          .order('brand', { ascending: true });
+        
+        data = fleetVehicles || [];
+        
+        // Jeśli flota ma pojazdy, używaj tylko ich (nie fallback do miasta)
+        if (data.length > 0) {
+          console.log('Found vehicles in same fleet:', data.length);
+          setVehicles(data);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Tylko jeśli flota nie ma żadnych pojazdów, szukaj w mieście
+      if (data.length === 0 && !driverData.fleet_id) {
+        const { data: cityVehicles } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('city_id', cityId)
+          .eq('status', 'aktywne')
+          .order('brand', { ascending: true });
+        
+        data = cityVehicles || [];
+      }
 
-      setVehicles(data || []);
+      console.log('Found vehicles:', data.length, 'Driver fleet_id:', driverData.fleet_id, 'City:', cityId);
+      setVehicles(data);
     } catch (error) {
+      console.error('Error loading vehicles:', error);
       toast.error('Błąd podczas ładowania pojazdów');
     } finally {
       setLoading(false);
@@ -101,7 +127,7 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
       if (error) throw error;
 
       toast.success('Pojazd został przypisany do kierowcy');
-      setShowVehicleList(false);
+      closeVehicleList();
       onUpdate();
     } catch (error: any) {
       toast.error(error.message);
@@ -136,8 +162,10 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
   );
 
   const handleRentalClick = () => {
-    setShowVehicleList(true);
-    loadFleetVehicles();
+    toggleVehicleList();
+    if (!showVehicleList) {
+      loadFleetVehicles();
+    }
   };
 
   if (assignedVehicle) {
@@ -169,63 +197,61 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
       </Badge>
 
       {showVehicleList && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-96 flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="font-medium">Wybierz pojazd do wynajęcia</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowVehicleList(false)}
-              >
-                ✕
-              </Button>
-            </div>
-            
-            <div className="p-4 border-b">
-              <Input
-                placeholder="Szukaj pojazdu..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+        <div className="absolute z-50 mt-2 w-80 bg-background border rounded-xl shadow-lg max-h-96 flex flex-col">
+          <div className="p-3 border-b flex justify-between items-center">
+            <h3 className="font-medium text-sm">Wybierz pojazd</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => closeVehicleList()}
+              className="h-6 w-6 p-0"
+            >
+              ✕
+            </Button>
+          </div>
+          
+          <div className="p-3 border-b">
+            <Input
+              placeholder="Szukaj pojazdu..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
 
-            <div className="flex-1 p-4 overflow-y-auto">
-              {loading ? (
-                <div className="text-center py-4">Ładowanie pojazdów...</div>
-              ) : filteredVehicles.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  {!driverData.fleet_id 
-                    ? 'Kierowca nie ma przypisanej floty'
-                    : vehicles.length === 0 
-                    ? 'Brak dostępnych pojazdów we flocie'
-                    : 'Nie znaleziono pojazdów pasujących do wyszukiwania'
-                  }
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredVehicles.map(vehicle => (
-                    <div
-                      key={vehicle.id}
-                      className="border rounded-lg p-3 hover:bg-muted cursor-pointer"
-                      onClick={() => assignVehicle(vehicle.id)}
-                    >
-                      <div className="font-medium">
-                        {vehicle.brand} {vehicle.model}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {vehicle.plate} • {vehicle.year || 'Nieznany rok'} • {vehicle.color || 'Nieznany kolor'}
-                      </div>
-                      {vehicle.odometer && (
-                        <div className="text-xs text-muted-foreground">
-                          Przebieg: {vehicle.odometer} km
-                        </div>
-                      )}
+          <div className="flex-1 p-2 overflow-y-auto">
+            {loading ? (
+              <div className="text-center py-4 text-sm">Ładowanie pojazdów...</div>
+            ) : filteredVehicles.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                {vehicles.length === 0 
+                  ? 'Brak dostępnych pojazdów'
+                  : 'Nie znaleziono pojazdów'
+                }
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredVehicles.map(vehicle => (
+                  <div
+                    key={vehicle.id}
+                    className="border rounded-lg p-2 hover:bg-muted cursor-pointer transition-colors"
+                    onClick={() => assignVehicle(vehicle.id)}
+                  >
+                    <div className="font-medium text-sm">
+                      {vehicle.brand} {vehicle.model}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <div className="text-xs text-muted-foreground">
+                      {vehicle.plate} • {vehicle.year || '?'} • {vehicle.color || '?'}
+                    </div>
+                    {vehicle.odometer && (
+                      <div className="text-xs text-muted-foreground">
+                        {vehicle.odometer} km
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -28,39 +28,33 @@ const ChatWidget = () => {
         </Button>
       </div>
 
-      {/* Chat Popup */}
+      {/* Compact Chat Popup */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-40">
-          <Card className="w-80 p-4 shadow-gold border-accent/20">
-            <div className="space-y-4">
+          <Card className="w-64 p-3 shadow-lg border border-border/50 bg-background/95 backdrop-blur-sm">
+            <div className="space-y-3">
               <div className="text-center">
-                <h3 className="font-semibold text-foreground mb-2">
-                  Masz pytania? Skontaktuj się z nami!
+                <h3 className="font-medium text-sm text-foreground">
+                  Kontakt
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Odpowiadamy szybko na wszystkie pytania dotyczące Get RIDO
-                </p>
               </div>
               
               <div className="space-y-2">
                 <Button 
                   onClick={handleChatClick}
-                  variant="accent" 
-                  className="w-full"
+                  size="sm"
+                  className="w-full h-8 text-xs"
                 >
                   📱 WhatsApp
                 </Button>
                 <Button 
                   onClick={() => window.location.href = 'tel:+48519474583'}
                   variant="outline" 
-                  className="w-full"
+                  size="sm"
+                  className="w-full h-8 text-xs"
                 >
-                  📞 Zadzwoń
+                  📞 Telefon
                 </Button>
-              </div>
-              
-              <div className="text-xs text-center text-muted-foreground">
-                Dostępni: Pon-Ndz 8:00-20:00
               </div>
             </div>
           </Card>
