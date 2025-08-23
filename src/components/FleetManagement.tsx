@@ -235,10 +235,26 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
                           )}
                         </div>
 
-                        {/* prawa strona: status, flota, terminy */}
+                        {/* prawa strona: status, flota, terminy, wynajem */}
                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Badge variant="outline" className="rounded-full">{v.status}</Badge>
+                          {/* Zmieniony status na ikonę */}
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-green-500" title={v.status}></div>
+                            <span className="text-xs text-muted-foreground">{v.status}</span>
+                          </div>
                           <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">Wynajem:</span>
+                            <Input
+                              type="number"
+                              value={v.weekly_rental_fee || 0}
+                              onBlur={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
+                              className="w-16 h-6 text-xs"
+                              step="1"
+                              min="0"
+                            />
+                            <span className="text-xs">zł/tyg</span>
+                          </div>
                           <ExpiryBadges vehicleId={v.id} />
                         </div>
                       </div>

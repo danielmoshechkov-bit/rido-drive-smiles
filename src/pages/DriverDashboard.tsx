@@ -186,6 +186,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       freenow: 450
     },
     fuel: 320,
+    rental: 0,
     plan: "39+8%"
   });
 
@@ -221,17 +222,39 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       to: dates.to
     }));
 
-    // Tutaj można dodać rzeczywiste ładowanie z bazy danych
-    const { data } = await supabase
+    // Ładowanie rzeczywistych danych z bazy
+    const { data: settlements } = await supabase
       .from("settlements")
       .select("*")
       .eq("driver_id", driverData.driver_id)
       .gte("week_start", dates.from)
       .lte("week_end", dates.to);
     
-    if (data && data.length > 0) {
+    // Pobierz opłatę za wynajem z przypisanego pojazdu
+    const { data: assignment } = await supabase
+      .from("driver_vehicle_assignments")
+      .select(`
+        vehicles(weekly_rental_fee)
+      `)
+      .eq("driver_id", driverData.driver_id)
+      .eq("status", "active")
+      .single();
+    
+    const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
+    
+    if (settlements && settlements.length > 0) {
       // Użyj rzeczywistych danych jeśli dostępne
-      console.log("Znaleziono dane rozliczeń:", data);
+      setWeekData(prev => ({
+        ...prev,
+        rental: rentalFee
+      }));
+      console.log("Znaleziono dane rozliczeń:", settlements);
+    } else {
+      // Aktualizuj tylko opłatę za wynajem
+      setWeekData(prev => ({
+        ...prev,
+        rental: rentalFee
+      }));
     }
   };
 
@@ -274,20 +297,27 @@ function WeeklyResults({ driverData }: { driverData: any }) {
               <select 
                 value={selectedWeek} 
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                className="border rounded px-2 py-1 max-h-40 overflow-y-auto"
-                size={1}
+                className="border rounded px-2 py-1"
+                size={4}
+                style={{ maxHeight: '120px', overflowY: 'auto' }}
               >
                 {Array.from({ length: 52 }, (_, i) => {
                   const weekNum = i + 1;
                   const dates = getWeekDates(selectedYear, weekNum);
+                  const weekEndDate = new Date(dates.to);
+                  const today = new Date();
+                  
+                  // Ukryj przyszłe tygodnie (nie zakończone)
+                  if (weekEndDate > today) return null;
+                  
                   const fromDate = new Date(dates.from).toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
-                  const toDate = new Date(dates.to).toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
+                  const toDate = weekEndDate.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
                   return (
                     <option key={weekNum} value={weekNum}>
                       {weekNum} ({fromDate} - {toDate})
                     </option>
                   );
-                })}
+                }).filter(Boolean)}
               </select>
             </div>
             
@@ -356,10 +386,14 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 <span>Paliwo:</span>
                 <span>-{weekData.fuel} zł</span>
               </div>
+              <div className="flex justify-between text-red-600">
+                <span>Wynajem auta:</span>
+                <span>-{weekData.rental || 0} zł</span>
+              </div>
               <div className="border-t pt-2">
                 <div className="flex justify-between font-bold text-lg text-green-600">
                   <span>Do wypłaty:</span>
-                  <span>{totalEarnings - weekData.fuel} zł</span>
+                  <span>{totalEarnings - weekData.fuel - (weekData.rental || 0)} zł</span>
                 </div>
               </div>
             </div>

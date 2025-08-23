@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useDropdownState } from '@/hooks/useGlobalDropdown';
 
 interface DriverRentalBadgeProps {
   driverId: string;
@@ -14,7 +15,7 @@ interface DriverRentalBadgeProps {
 
 export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: DriverRentalBadgeProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [showVehicleList, setShowVehicleList] = useState(false);
+  const { isOpen: showVehicleList, toggle: toggleVehicleList, close: closeVehicleList } = useDropdownState(`rental-${driverId}`);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
@@ -54,13 +55,22 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
           .select('*')
           .eq('fleet_id', driverData.fleet_id)
           .eq('status', 'aktywne')
+          .is('vehicle_assignments.vehicle_id', null)
           .order('brand', { ascending: true });
         
         data = fleetVehicles || [];
+        
+        // Jeśli flota ma pojazdy, używaj tylko ich (nie fallback do miasta)
+        if (data.length > 0) {
+          console.log('Found vehicles in same fleet:', data.length);
+          setVehicles(data);
+          setLoading(false);
+          return;
+        }
       }
       
-      // Jeśli nie ma floty lub nie znaleziono pojazdów, szukaj w mieście
-      if (data.length === 0) {
+      // Tylko jeśli flota nie ma żadnych pojazdów, szukaj w mieście
+      if (data.length === 0 && !driverData.fleet_id) {
         const { data: cityVehicles } = await supabase
           .from('vehicles')
           .select('*')
@@ -117,7 +127,7 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
       if (error) throw error;
 
       toast.success('Pojazd został przypisany do kierowcy');
-      setShowVehicleList(false);
+      closeVehicleList();
       onUpdate();
     } catch (error: any) {
       toast.error(error.message);
@@ -152,8 +162,10 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
   );
 
   const handleRentalClick = () => {
-    setShowVehicleList(true);
-    loadFleetVehicles();
+    toggleVehicleList();
+    if (!showVehicleList) {
+      loadFleetVehicles();
+    }
   };
 
   if (assignedVehicle) {
@@ -191,7 +203,7 @@ export const DriverRentalBadge = ({ driverId, driverData, cityId, onUpdate }: Dr
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => setShowVehicleList(false)}
+              onClick={() => closeVehicleList()}
               className="h-6 w-6 p-0"
             >
               ✕
