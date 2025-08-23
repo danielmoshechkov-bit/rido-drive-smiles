@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { Search, Plus, Edit2, Copy, Phone, Mail } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { useDrivers } from '@/hooks/useDrivers';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
-import { InlineEdit } from './InlineEdit';
 import { DriverStatusBadge } from './DriverStatusBadge';
+import { NewDriverBadge } from './NewDriverBadge';
+import { DriverExpandedPanel } from './DriverExpandedPanel';
+import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { InlineEdit } from './InlineEdit';
 
 interface DriversManagementProps {
   cityId: string;
@@ -21,15 +23,26 @@ interface DriversManagementProps {
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<string | null>(null);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
   
-  const { drivers, loading } = useDrivers(cityId);
+  const { drivers, loading, refetch } = useDrivers(cityId);
 
   const filteredDrivers = drivers.filter(driver => 
     `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.phone?.includes(searchTerm)
   );
+
+  const toggleDriverExpansion = (driverId: string) => {
+    const newExpanded = new Set(expandedDrivers);
+    if (newExpanded.has(driverId)) {
+      newExpanded.delete(driverId);
+    } else {
+      newExpanded.add(driverId);
+    }
+    setExpandedDrivers(newExpanded);
+  };
 
   const getServiceColor = (service: string) => {
     switch (service.toLowerCase()) {
@@ -137,133 +150,97 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
           ) : (
             <div className="space-y-4">
               {filteredDrivers.map((driver) => (
-                <div key={driver.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                <div 
+                  key={driver.id} 
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => toggleDriverExpansion(driver.id)}
+                >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      {/* Driver name and edit button */}
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-medium">
                           {driver.first_name} {driver.last_name}
                         </h3>
-                        <DriverStatusBadge 
-                          driverId={driver.id} 
-                          currentRole={(driver as any).user_role || 'kierowca'} 
-                        />
+                        <div className="flex items-center gap-2">
+                          <DriverStatusBadge 
+                            driverId={driver.id}
+                            currentRole={(driver as any).user_role || 'kierowca'}
+                          />
+                          {driver.registration_date && (
+                            <NewDriverBadge registrationDate={driver.registration_date} />
+                          )}
+                          {driver.vehicle_assignment?.status === 'active' && (
+                            <Badge className="bg-orange-500/10 text-orange-700 border-orange-500/20">
+                              WYNAJMUJE
+                            </Badge>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setEditingDriver(driver.id)}
-                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDriver(driver);
+                          }}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          Edytuj
                         </Button>
                       </div>
 
-                      {/* Platform badges - only names */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {driver.platform_ids && driver.platform_ids.length > 0 ? (
-                          driver.platform_ids.map((platform) => (
-                            <Badge 
-                              key={platform.platform} 
-                              className={`${getServiceColor(platform.platform)} rounded-full px-4 py-2 text-sm font-medium`}
-                            >
-                              {platform.platform.toUpperCase()}
-                            </Badge>
-                          ))
-                        ) : (
-                          <Badge variant="outline" className="rounded-full px-4 py-2">
-                            Brak platform
+                      <div className="flex items-center gap-2 mb-2">
+                        {driver.platform_ids && driver.platform_ids.map((platform) => (
+                          <Badge
+                            key={platform.platform}
+                            className={getServiceColor(platform.platform)}
+                            variant="outline"
+                          >
+                            {platform.platform.toUpperCase()}
                           </Badge>
-                        )}
+                        ))}
                       </div>
 
-                      {/* Contact information and platform IDs in one line */}
-                      <div className="flex items-center gap-6 flex-wrap text-sm">
-                        {/* Phone */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <Phone size={14} />
                           {driver.phone ? (
                             <InlineEdit
                               value={driver.phone}
                               onSave={(value) => updateDriverField(driver.id, 'phone', value)}
-                              placeholder="Brak telefonu"
                             />
                           ) : (
-                            <InlineEdit
-                              value=""
-                              onSave={(value) => updateDriverField(driver.id, 'phone', value)}
-                              placeholder="Dodaj telefon"
-                              className="text-muted-foreground"
-                            />
+                            <span className="text-red-500 text-xs">Brak telefonu</span>
                           )}
                         </div>
-
-                        {/* Email */}
+                        
                         <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <Mail size={14} />
                           {driver.email ? (
                             <InlineEdit
                               value={driver.email}
                               onSave={(value) => updateDriverField(driver.id, 'email', value)}
-                              placeholder="Brak email"
                             />
                           ) : (
-                            <InlineEdit
-                              value=""
-                              onSave={(value) => updateDriverField(driver.id, 'email', value)}
-                              placeholder="Dodaj email"
-                              className="text-muted-foreground"
-                            />
+                            <span className="text-red-500 text-xs">Brak e-maila</span>
                           )}
                         </div>
-
-                        {/* Platform IDs */}
-                        {driver.platform_ids && driver.platform_ids.map((platform) => (
-                          <div key={platform.platform} className="flex items-center gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs px-2 py-1 ${getServiceColor(platform.platform).replace('bg-', 'border-').replace('text-white', 'text-primary')}`}
-                            >
-                              {platform.platform.toUpperCase()}
-                            </Badge>
-                            <InlineEdit
-                              value={platform.platform_id}
-                              onSave={(value) => updatePlatformId(platform.platform_id, value)}
-                              truncateLength={8}
-                              className="font-mono"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(platform.platform_id, platform.platform.toUpperCase())}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Missing data indicators */}
-                      <div className="flex gap-2 text-xs">
-                        {!driver.phone && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-200">
-                            Brak telefonu
-                          </Badge>
-                        )}
-                        {!driver.email && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-200">
-                            Brak email
-                          </Badge>
-                        )}
-                        {(!driver.platform_ids || driver.platform_ids.length === 0) && (
-                          <Badge variant="outline" className="text-red-600 border-red-200">
-                            Brak platform
-                          </Badge>
-                        )}
                       </div>
                     </div>
+                    
+                    <div className="flex items-center">
+                      {expandedDrivers.has(driver.id) ? (
+                        <ChevronUp size={16} className="text-muted-foreground" />
+                      ) : (
+                        <ChevronDown size={16} className="text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
+
+                  {expandedDrivers.has(driver.id) && (
+                    <DriverExpandedPanel 
+                      driver={driver} 
+                      onUpdate={refetch}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -282,7 +259,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
         <EditDriverModal
           isOpen={true}
           onClose={() => setEditingDriver(null)}
-          driverId={editingDriver}
+          driverId={editingDriver.id}
           onSuccess={handleEditDriver}
         />
       )}

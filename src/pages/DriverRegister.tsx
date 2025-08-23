@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Check, X } from "lucide-react";
 
 export default function DriverRegister() {
   const navigate = useNavigate();
@@ -18,7 +19,22 @@ export default function DriverRegister() {
   const [rodo, setRodo] = useState(false);
   const [terms, setTerms] = useState(false);
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Password validation
+  const passwordRequirements = {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  };
+
+  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   useEffect(() => {
     const loadCities = async () => {
@@ -29,8 +45,14 @@ export default function DriverRegister() {
   }, []);
 
   const submit = async () => {
-    if (!firstName || !lastName || !email || !phone || !cityId) {
+    if (!firstName || !lastName || !email || !phone || !cityId || !password) {
       return toast.error("Uzupełnij wszystkie pola");
+    }
+    if (!isPasswordValid) {
+      return toast.error("Hasło nie spełnia wymagań");
+    }
+    if (!passwordsMatch) {
+      return toast.error("Hasła nie są identyczne");
     }
     if (!rodo || !terms) {
       return toast.error("Zaznacz wymagane zgody");
@@ -41,7 +63,7 @@ export default function DriverRegister() {
       // Rejestracja użytkownika
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        password: password || Math.random().toString(36).slice(2, 12),
+        password,
         options: {
           emailRedirectTo: window.location.origin + "/driver",
           data: {
@@ -74,7 +96,8 @@ export default function DriverRegister() {
             first_name: firstName,
             last_name: lastName,
             phone: phone,
-            city_id: cityId
+            city_id: cityId,
+            registration_date: new Date().toISOString()
           })
           .eq("id", driverId);
       } else {
@@ -87,7 +110,8 @@ export default function DriverRegister() {
             email: email,
             phone: phone,
             city_id: cityId,
-            user_role: 'kierowca'
+            user_role: 'kierowca',
+            registration_date: new Date().toISOString()
           }])
           .select("id")
           .single();
@@ -172,12 +196,75 @@ export default function DriverRegister() {
               ))}
             </select>
             
-            <Input
-              placeholder="Hasło (opcjonalne - wyślemy link aktywacyjny)"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="space-y-4">
+              <div className="relative">
+                <Input
+                  placeholder="Hasło *"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+
+              <div className="relative">
+                <Input
+                  placeholder="Powtórz hasło *"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+
+              {password && (
+                <div className="bg-muted/50 p-3 rounded-md space-y-2">
+                  <p className="text-sm font-medium">Wymagania hasła:</p>
+                  <div className="grid grid-cols-1 gap-1 text-xs">
+                    <div className={`flex items-center gap-2 ${passwordRequirements.minLength ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordRequirements.minLength ? <Check size={12} /> : <X size={12} />}
+                      Minimum 8 znaków
+                    </div>
+                    <div className={`flex items-center gap-2 ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordRequirements.hasUppercase ? <Check size={12} /> : <X size={12} />}
+                      Duża litera
+                    </div>
+                    <div className={`flex items-center gap-2 ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordRequirements.hasLowercase ? <Check size={12} /> : <X size={12} />}
+                      Mała litera
+                    </div>
+                    <div className={`flex items-center gap-2 ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordRequirements.hasNumber ? <Check size={12} /> : <X size={12} />}
+                      Cyfra
+                    </div>
+                    <div className={`flex items-center gap-2 ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordRequirements.hasSpecialChar ? <Check size={12} /> : <X size={12} />}
+                      Znak specjalny
+                    </div>
+                  </div>
+                  {confirmPassword && (
+                    <div className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : 'text-red-500'}`}>
+                      {passwordsMatch ? <Check size={12} /> : <X size={12} />}
+                      Hasła są identyczne
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="space-y-3 pt-4">
               <label className="flex items-center gap-2 text-sm">
@@ -200,7 +287,7 @@ export default function DriverRegister() {
             <Button 
               onClick={submit} 
               className="w-full"
-              disabled={loading}
+              disabled={loading || !isPasswordValid || !passwordsMatch}
             >
               {loading ? "Rejestrowanie..." : "Zarejestruj się"}
             </Button>
