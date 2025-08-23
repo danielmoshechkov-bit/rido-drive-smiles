@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { InlineEdit } from './InlineEdit';
 import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
+import { DriverRentalBadge } from './DriverRentalBadge';
 import { Trash2 } from 'lucide-react';
 
 interface DriversManagementProps {
@@ -172,11 +173,12 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                           {driver.registration_date && (
                             <NewDriverBadge registrationDate={driver.registration_date} />
                           )}
-                          {driver.vehicle_assignment?.status === 'active' && (
-                            <Badge className="bg-orange-500/10 text-orange-700 border-orange-500/20">
-                              WYNAJMUJE
-                            </Badge>
-                          )}
+                          <DriverRentalBadge 
+                            driverId={driver.id}
+                            driverData={driver}
+                            cityId={cityId}
+                            onUpdate={refetch}
+                          />
                         </div>
                         <Button
                           variant="ghost"

@@ -224,9 +224,37 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
     <div className="space-y-4">
       <Card>
         <CardHeader><CardTitle>Przypisany kierowca</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {activeAssignment ? (
-            <div className="border rounded-lg p-3 bg-green-50">
+            <div className="border rounded-lg p-3 bg-green-50 relative">
+              {/* Przycisk usuwania kierowcy */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full w-6 h-6 p-0"
+                onClick={async () => {
+                  if (confirm('Czy na pewno chcesz usunąć przypisanie kierowcy?')) {
+                    const { error } = await supabase
+                      .from('driver_vehicle_assignments')
+                      .update({ 
+                        status: 'inactive',
+                        unassigned_at: new Date().toISOString()
+                      })
+                      .eq('id', activeAssignment.id);
+
+                    if (error) {
+                      toast.error(error.message);
+                      return;
+                    }
+
+                    toast.success('Kierowca został usunięty z pojazdu');
+                    loadAssignments();
+                  }
+                }}
+              >
+                ✕
+              </Button>
+              
               <div className="font-medium">
                 {activeAssignment.drivers.first_name} {activeAssignment.drivers.last_name}
               </div>
