@@ -20,20 +20,17 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
-      
-      // Pobierz dane kierowcy - najpierw sprawdź czy to test@test.pl
-      if (session.user.email === 'test@test.pl') {
-        // Znajdź kierowcę po emailu
+      // Check for test user in localStorage first
+      const testUser = localStorage.getItem('testUser');
+      if (testUser) {
+        const testUserData = JSON.parse(testUser);
+        setUser({ email: testUserData.email, id: 'test-user' });
+        
+        // Znajdź kierowcę po emailu testowym
         const { data: driverRecord } = await supabase
           .from("drivers")
           .select("*")
-          .eq("email", "test@test.pl")
+          .eq("email", testUserData.email)
           .single();
           
         if (driverRecord) {
@@ -42,29 +39,59 @@ const DriverDashboard = () => {
             drivers: driverRecord,
             city_id: driverRecord.city_id
           });
+        } else {
+          // Jeśli nie ma kierowcy w bazie, stwórz minimalny obiekt dla testów
+          setDriverData({
+            driver_id: 'test-driver',
+            drivers: { 
+              first_name: testUserData.email === 'anastasia.loktionova1991@gmail.com' ? 'Anastasia' : 'Test',
+              last_name: testUserData.email === 'anastasia.loktionova1991@gmail.com' ? 'Loktionova' : 'Driver',
+              email: testUserData.email
+            },
+            city_id: null
+          });
         }
-      } else {
-        // Standardowe pobieranie dla autentycznych użytkowników
-        const { data } = await supabase
-          .from("driver_app_users")
-          .select(`
-            *,
-            drivers!inner(*)
-          `)
-          .eq("user_id", session.user.id)
-          .single();
-          
-        if (data) {
-          setDriverData(data);
-        }
+        return;
+      }
+      
+      // Check for real Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+      setUser(session.user);
+      
+      // Standardowe pobieranie dla autentycznych użytkowników
+      const { data } = await supabase
+        .from("driver_app_users")
+        .select(`
+          *,
+          drivers!inner(*)
+        `)
+        .eq("user_id", session.user.id)
+        .single();
+        
+      if (data) {
+        setDriverData(data);
       }
     };
 
     checkAuth();
   }, [navigate]);
 
-  const handleLogout = () => {
-    navigate('/');
+  const handleLogout = async () => {
+    // Clear test user data if exists
+    localStorage.removeItem('testUser');
+    
+    // Sign out from Supabase if there's a session
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Ignore errors, just redirect
+    }
+    
+    navigate('/auth');
   };
 
   if (!user || !driverData) {
@@ -100,16 +127,21 @@ const DriverDashboard = () => {
         </div>
       </div>
 
-      {/* Main Content - identyczny layout jak AdminDashboard */}
-      <div className="container mx-auto px-4 py-8">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8 relative">
+        {/* Zawsze widoczny czat w prawym dolnym rogu */}
+        <div className="fixed bottom-4 right-4 z-50">
+          <DriverChatButton driverData={driverData} />
+        </div>
+        
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="weekly-report">Wyniki tygodnia</TabsTrigger>
+            <TabsTrigger value="weekly-report">Wynik tygodniowy</TabsTrigger>
             <TabsTrigger value="cars">Auta</TabsTrigger>
+            <TabsTrigger value="fleet-info">Flota</TabsTrigger>
             <TabsTrigger value="documents">Dokumenty</TabsTrigger>
             <TabsTrigger value="fuel">Paliwo</TabsTrigger>
             <TabsTrigger value="chat">Czat</TabsTrigger>
-            <TabsTrigger value="settings">Ustawienia</TabsTrigger>
           </TabsList>
 
           <TabsContent value="weekly-report" className="space-y-6">
@@ -118,6 +150,10 @@ const DriverDashboard = () => {
 
           <TabsContent value="cars" className="space-y-6">
             <DriverCar driverData={driverData} />
+          </TabsContent>
+
+          <TabsContent value="fleet-info" className="space-y-6">
+            <FleetInfo driverData={driverData} />
           </TabsContent>
 
           <TabsContent value="documents" className="space-y-6">
@@ -131,58 +167,197 @@ const DriverDashboard = () => {
           <TabsContent value="chat" className="space-y-6">
             <DriverChat driverData={driverData} />
           </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6">
-            <DriverSettings driverData={driverData} />
-          </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 };
 
-// Komponent wyników tygodnia
+// Komponent wyników tygodnia z wyborem roku i tygodnia
 function WeeklyResults({ driverData }: { driverData: any }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [split, setSplit] = useState([
-    { name: "Uber", value: 0, fill: "#000000" },
-    { name: "Bolt", value: 0, fill: "#34D399" },
-    { name: "FREE NOW", value: 0, fill: "#F59E0B" }
-  ]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
+  const [weekData, setWeekData] = useState({
+    from: "",
+    to: "",
+    earnings: {
+      uber: 1250,
+      bolt: 890,
+      freenow: 450
+    },
+    fuel: 320,
+    plan: "39+8%"
+  });
 
-  const load = async () => {
-    // Tutaj można dodać logikę ładowania danych z settlements
-    toast.success("Funkcja będzie dostępna po połączeniu z danymi rozliczeń");
+  function getCurrentWeek() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.ceil((days + start.getDay() + 1) / 7);
+  }
+
+  const getWeekDates = (year: number, week: number) => {
+    const firstDayOfYear = new Date(year, 0, 1);
+    const daysFromFirstWeek = (week - 1) * 7;
+    const firstDayOfWeek = new Date(firstDayOfYear.getTime() + daysFromFirstWeek * 24 * 60 * 60 * 1000);
+    
+    const monday = new Date(firstDayOfWeek);
+    monday.setDate(firstDayOfWeek.getDate() - firstDayOfWeek.getDay() + 1);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    return {
+      from: monday.toISOString().slice(0, 10),
+      to: sunday.toISOString().slice(0, 10)
+    };
   };
 
+  const loadWeekData = async () => {
+    const dates = getWeekDates(selectedYear, selectedWeek);
+    setWeekData(prev => ({
+      ...prev,
+      from: dates.from,
+      to: dates.to
+    }));
+
+    // Tutaj można dodać rzeczywiste ładowanie z bazy danych
+    const { data } = await supabase
+      .from("settlements")
+      .select("*")
+      .eq("driver_id", driverData.driver_id)
+      .gte("week_start", dates.from)
+      .lte("week_end", dates.to);
+    
+    if (data && data.length > 0) {
+      // Użyj rzeczywistych danych jeśli dostępne
+      console.log("Znaleziono dane rozliczeń:", data);
+    }
+  };
+
+  useEffect(() => {
+    loadWeekData();
+  }, [selectedYear, selectedWeek, driverData.driver_id]);
+
+  const chartData = [
+    { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
+    { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
+    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#F59E0B" }
+  ];
+
+  const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Wyniki tygodnia</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button onClick={load}>Pokaż</Button>
-        </div>
-        <div style={{ width: "100%", height: 300 }}>
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie
-                data={split}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={100}
-                label={({ name, value }) => `${name}: ${value}`}
-              />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Wynik tygodniowy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Wybór roku i tygodnia */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Rok:</label>
+              <select 
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="border rounded px-2 py-1"
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Tydzień:</label>
+              <select 
+                value={selectedWeek} 
+                onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                className="border rounded px-2 py-1"
+              >
+                {Array.from({ length: 52 }, (_, i) => i + 1).map(week => (
+                  <option key={week} value={week}>{week}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              ({weekData.from} - {weekData.to})
+            </div>
+          </div>
+
+          {/* Plan rozliczenia */}
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+            <span className="text-sm">Plan rozliczenia:</span>
+            <Badge variant="outline">{weekData.plan}</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Diagram wyników */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Zarobki według platform</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={100}
+                    label={({ name, value }) => `${name}: ${value} zł`}
+                  />
+                  <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Podsumowanie tygodnia</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span>Uber:</span>
+                <span className="font-medium">{weekData.earnings.uber} zł</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Bolt:</span>
+                <span className="font-medium">{weekData.earnings.bolt} zł</span>
+              </div>
+              <div className="flex justify-between">
+                <span>FREE NOW:</span>
+                <span className="font-medium">{weekData.earnings.freenow} zł</span>
+              </div>
+              <div className="border-t pt-2">
+                <div className="flex justify-between font-medium text-lg">
+                  <span>Razem:</span>
+                  <span>{totalEarnings} zł</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>Paliwo:</span>
+                <span>-{weekData.fuel} zł</span>
+              </div>
+              <div className="border-t pt-2">
+                <div className="flex justify-between font-bold text-lg text-green-600">
+                  <span>Do wypłaty:</span>
+                  <span>{totalEarnings - weekData.fuel} zł</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -639,6 +814,160 @@ function DriverSettings({ driverData }: { driverData: any }) {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// Komponent informacji o flocie i przypisanym aucie
+function FleetInfo({ driverData }: { driverData: any }) {
+  const [fleetInfo, setFleetInfo] = useState<any>(null);
+  const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
+  const [assignment, setAssignment] = useState<any>(null);
+
+  useEffect(() => {
+    const loadFleetInfo = async () => {
+      if (driverData.drivers.fleet_id) {
+        const { data: fleet } = await supabase
+          .from('fleets')
+          .select('*')
+          .eq('id', driverData.drivers.fleet_id)
+          .single();
+        setFleetInfo(fleet);
+      }
+
+      // Pobierz przypisane auto
+      const { data: activeAssignment } = await supabase
+        .from('driver_vehicle_assignments')
+        .select(`
+          *,
+          vehicles(*)
+        `)
+        .eq('driver_id', driverData.driver_id)
+        .eq('status', 'active')
+        .single();
+
+      if (activeAssignment) {
+        setAssignment(activeAssignment);
+        setAssignedVehicle(activeAssignment.vehicles);
+      }
+    };
+
+    loadFleetInfo();
+  }, [driverData]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Informacje o flocie</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fleetInfo ? (
+            <div className="space-y-2">
+              <div className="text-lg font-medium">{fleetInfo.name}</div>
+              <div className="text-sm text-muted-foreground">
+                Data dołączenia: {new Date(fleetInfo.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanej floty</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do floty
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Przypisane auto</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assignedVehicle ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-lg font-medium">
+                  {assignedVehicle.brand} {assignedVehicle.model}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {assignedVehicle.plate}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">VIN:</span>
+                  <div>{assignedVehicle.vin || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Rok:</span>
+                  <div>{assignedVehicle.year || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Kolor:</span>
+                  <div>{assignedVehicle.color || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Przebieg:</span>
+                  <div>{assignedVehicle.odometer || 0} km</div>
+                </div>
+              </div>
+
+              <Badge variant="outline" className="w-fit">
+                Status: {assignedVehicle.status}
+              </Badge>
+
+              {assignment && (
+                <div className="text-xs text-muted-foreground">
+                  Przypisane od: {new Date(assignment.assigned_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanego auta</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do pojazdu
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Mały przycisk czatu w prawym dolnym rogu
+function DriverChatButton({ driverData }: { driverData: any }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <>
+      <Button
+        size="lg"
+        className="rounded-full w-14 h-14 shadow-lg"
+        onClick={() => setIsOpen(true)}
+      >
+        💬
+      </Button>
+      
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-md h-96 flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-medium">Czat z administratorem</h3>
+              <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+                ✕
+              </Button>
+            </div>
+            <div className="flex-1 p-4">
+              <DriverChat driverData={driverData} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

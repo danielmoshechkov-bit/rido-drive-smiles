@@ -30,6 +30,22 @@ const Auth = () => {
     
     // Test driver login
     if (email === 'test@test.pl' && password === '12345') {
+      // Store test user info in localStorage for DriverDashboard
+      localStorage.setItem('testUser', JSON.stringify({ 
+        email: 'test@test.pl', 
+        type: 'driver' 
+      }));
+      navigate('/driver');
+      return;
+    }
+    
+    // Test driver login - Anastasia
+    if (email === 'anastasia.loktionova1991@gmail.com' && password === 'Test12345!') {
+      // Store test user info in localStorage for DriverDashboard
+      localStorage.setItem('testUser', JSON.stringify({ 
+        email: 'anastasia.loktionova1991@gmail.com', 
+        type: 'driver' 
+      }));
       navigate('/driver');
       return;
     }
@@ -116,6 +132,7 @@ const Auth = () => {
             <div className="text-center text-xs text-muted-foreground space-y-1">
               <div>Admin: email "test", password "test"</div>
               <div>Kierowca: email "test@test.pl", password "12345"</div>
+              <div>Kierowca: email "anastasia.loktionova1991@gmail.com", password "Test12345!"</div>
             </div>
           </CardContent>
         </Card>
