@@ -4,12 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { FleetBadgeSelector } from "./FleetBadgeSelector";
 import { ExpiryBadges } from "./ExpiryBadges";
+import { VehicleDocuments } from "./VehicleDocuments";
+import { VehicleDriverHistory } from "./VehicleDriverHistory";
+import { VehicleServiceTab } from "./VehicleServiceTab";
 
 type Vehicle = {
   id: string;
@@ -145,6 +149,25 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
     }
   };
 
+  const saveVehicleInfo = async (vehicleId: string, patch: Partial<Vehicle>) => {
+    try {
+      if (patch.plate) patch.plate = patch.plate.toUpperCase();
+      if (patch.vin) patch.vin = patch.vin.toUpperCase();
+      
+      const { error } = await supabase
+        .from("vehicles")
+        .update(patch)
+        .eq("id", vehicleId);
+
+      if (error) throw error;
+      
+      toast.success("Zapisano");
+      fetchVehicles();
+    } catch (error) {
+      toast.error("Błąd podczas aktualizacji pojazdu");
+    }
+  };
+
   const openDetails = (id: string) => {
     toggleExpanded(id);
   };
@@ -263,47 +286,94 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
                   
                   <CollapsibleContent className="px-4 pb-4">
                     <div className="mt-3 p-4 bg-muted/30 rounded-lg">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground font-medium">Status:</span>
-                          <div>{v.status}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Przebieg:</span>
-                          <div>{v.odometer || 0} km</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Właściciel:</span>
-                          <div>{v.owner_name || "—"}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Utworzono:</span>
-                          <div>{new Date(v.created_at || "").toLocaleDateString()}</div>
-                        </div>
-                      </div>
-                      
-                      {v.assignedDriver && (
-                        <div className="mt-4 p-3 bg-primary/10 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium">
-                                Przypisany kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}
+                      <Tabs defaultValue="info" className="w-full">
+                        <TabsList className="grid w-full grid-cols-4">
+                          <TabsTrigger value="info">Informacje</TabsTrigger>
+                          <TabsTrigger value="docs">Dokumenty</TabsTrigger>
+                          <TabsTrigger value="drivers">Historia kierowców</TabsTrigger>
+                          <TabsTrigger value="service">Serwis</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="info" className="mt-4">
+                          <Card>
+                            <CardHeader><CardTitle>Dane pojazdu</CardTitle></CardHeader>
+                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Nr rejestracyjny</label>
+                                <Input 
+                                  defaultValue={v.plate} 
+                                  onBlur={e => saveVehicleInfo(v.id, { plate: e.target.value })} 
+                                  className="uppercase" 
+                                />
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                Od: {new Date(v.assignedDriver.assigned_at).toLocaleString()}
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">VIN</label>
+                                <Input 
+                                  defaultValue={v.vin ?? ""} 
+                                  onBlur={e => saveVehicleInfo(v.id, { vin: e.target.value })} 
+                                  className="uppercase" 
+                                />
                               </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => removeDriverAssignment(v.id, v.assignedDriver!.id)}
-                              className="text-red-500 hover:text-red-700 border-red-200 hover:border-red-300"
-                            >
-                              Usuń przypisanie
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Marka</label>
+                                <Input 
+                                  defaultValue={v.brand} 
+                                  onBlur={e => saveVehicleInfo(v.id, { brand: e.target.value })} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Model</label>
+                                <Input 
+                                  defaultValue={v.model} 
+                                  onBlur={e => saveVehicleInfo(v.id, { model: e.target.value })} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Rok</label>
+                                <Input 
+                                  type="number" 
+                                  defaultValue={v.year ?? ""} 
+                                  onBlur={e => saveVehicleInfo(v.id, { year: e.target.value ? Number(e.target.value) : null })} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Kolor</label>
+                                <Input 
+                                  defaultValue={v.color ?? ""} 
+                                  onBlur={e => saveVehicleInfo(v.id, { color: e.target.value || null })} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Przebieg</label>
+                                <Input 
+                                  type="number" 
+                                  defaultValue={v.odometer ?? ""} 
+                                  onBlur={e => saveVehicleInfo(v.id, { odometer: e.target.value ? Number(e.target.value) : null })} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground">Właściciel / Flota</label>
+                                <Input 
+                                  defaultValue={v.owner_name ?? ""} 
+                                  onBlur={e => saveVehicleInfo(v.id, { owner_name: e.target.value || null })} 
+                                />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                        
+                        <TabsContent value="docs" className="mt-4">
+                          <VehicleDocuments vehicleId={v.id} />
+                        </TabsContent>
+                        
+                        <TabsContent value="drivers" className="mt-4">
+                          <VehicleDriverHistory vehicleId={v.id} />
+                        </TabsContent>
+                        
+                        <TabsContent value="service" className="mt-4">
+                          <VehicleServiceTab vehicleId={v.id} />
+                        </TabsContent>
+                      </Tabs>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
