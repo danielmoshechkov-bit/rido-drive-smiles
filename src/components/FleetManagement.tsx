@@ -23,6 +23,7 @@ type Vehicle = {
   status: "aktywne" | "serwis" | "sprzedane";
   owner_name: string | null;
   fleet_id?: string | null;
+  weekly_rental_fee?: number | null;
   created_at?: string;
   assignedDriver?: {
     id: string;
@@ -128,6 +129,22 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
     }
   };
 
+  const updateWeeklyRentalFee = async (vehicleId: string, fee: number) => {
+    try {
+      const { error } = await supabase
+        .from("vehicles")
+        .update({ weekly_rental_fee: fee })
+        .eq("id", vehicleId);
+
+      if (error) throw error;
+      
+      toast.success("Zaktualizowano opłatę za wynajem");
+      fetchVehicles();
+    } catch (error) {
+      toast.error("Błąd podczas aktualizacji opłaty za wynajem");
+    }
+  };
+
   const openDetails = (id: string) => {
     toggleExpanded(id);
   };
@@ -180,16 +197,42 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
                             ) : (
                               <ChevronRight size={16} className="text-muted-foreground" />
                             )}
-                            {v.brand} {v.model} <span className="text-muted-foreground">• {v.plate}</span>
+                            <span>{v.brand} {v.model}</span>
+                            <span className="text-muted-foreground">• {v.plate}</span>
+                            <div className="flex items-center gap-2 ml-2" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-xs text-muted-foreground">Wynajem za tydzień:</span>
+                              <Input
+                                type="number"
+                                value={v.weekly_rental_fee || 0}
+                                onChange={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
+                                onBlur={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
+                                className="w-20 h-6 text-xs border-border/50 focus:border-primary"
+                                min="0"
+                                step="10"
+                              />
+                              <span className="text-xs text-muted-foreground">zł</span>
+                            </div>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {v.year ? `${v.year} • ` : ""}{v.color || "—"} • VIN: {v.vin ?? "—"}
-                            {v.assignedDriver && (
-                              <span className="ml-2 text-primary">
-                                • Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}
-                              </span>
-                            )}
                           </div>
+                          {v.assignedDriver && (
+                            <div className="flex items-center gap-2 text-sm text-primary mt-1">
+                              <span>Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeDriverAssignment(v.id, v.assignedDriver!.id);
+                                }}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                title="Usuń przypisanie kierowcy"
+                              >
+                                <X size={12} />
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
                         {/* prawa strona: status, flota, terminy */}
@@ -197,17 +240,6 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
                           <Badge variant="outline" className="rounded-full">{v.status}</Badge>
                           <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
                           <ExpiryBadges vehicleId={v.id} />
-                          {v.assignedDriver && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeDriverAssignment(v.id, v.assignedDriver!.id)}
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                              title="Usuń przypisanie kierowcy"
-                            >
-                              <X size={16} />
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </div>
