@@ -20,20 +20,17 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
-      
-      // Pobierz dane kierowcy - sprawdź email testowy
-      if (session.user.email === 'test@test.pl' || session.user.email === 'anastasia.loktionova1991@gmail.com') {
-        // Znajdź kierowcę po emailu
+      // Check for test user in localStorage first
+      const testUser = localStorage.getItem('testUser');
+      if (testUser) {
+        const testUserData = JSON.parse(testUser);
+        setUser({ email: testUserData.email, id: 'test-user' });
+        
+        // Znajdź kierowcę po emailu testowym
         const { data: driverRecord } = await supabase
           .from("drivers")
           .select("*")
-          .eq("email", session.user.email)
+          .eq("email", testUserData.email)
           .single();
           
         if (driverRecord) {
@@ -42,29 +39,59 @@ const DriverDashboard = () => {
             drivers: driverRecord,
             city_id: driverRecord.city_id
           });
+        } else {
+          // Jeśli nie ma kierowcy w bazie, stwórz minimalny obiekt dla testów
+          setDriverData({
+            driver_id: 'test-driver',
+            drivers: { 
+              first_name: testUserData.email === 'anastasia.loktionova1991@gmail.com' ? 'Anastasia' : 'Test',
+              last_name: testUserData.email === 'anastasia.loktionova1991@gmail.com' ? 'Loktionova' : 'Driver',
+              email: testUserData.email
+            },
+            city_id: null
+          });
         }
-      } else {
-        // Standardowe pobieranie dla autentycznych użytkowników
-        const { data } = await supabase
-          .from("driver_app_users")
-          .select(`
-            *,
-            drivers!inner(*)
-          `)
-          .eq("user_id", session.user.id)
-          .single();
-          
-        if (data) {
-          setDriverData(data);
-        }
+        return;
+      }
+      
+      // Check for real Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+      setUser(session.user);
+      
+      // Standardowe pobieranie dla autentycznych użytkowników
+      const { data } = await supabase
+        .from("driver_app_users")
+        .select(`
+          *,
+          drivers!inner(*)
+        `)
+        .eq("user_id", session.user.id)
+        .single();
+        
+      if (data) {
+        setDriverData(data);
       }
     };
 
     checkAuth();
   }, [navigate]);
 
-  const handleLogout = () => {
-    navigate('/');
+  const handleLogout = async () => {
+    // Clear test user data if exists
+    localStorage.removeItem('testUser');
+    
+    // Sign out from Supabase if there's a session
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Ignore errors, just redirect
+    }
+    
+    navigate('/auth');
   };
 
   if (!user || !driverData) {
