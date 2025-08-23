@@ -55,6 +55,12 @@ const Auth = () => {
       return;
     }
     
+    // Test driver login
+    if (isLogin && email === 'test@test.pl' && password === '12345') {
+      navigate('/driver');
+      return;
+    }
+    
     // For registration, validate password
     if (!isLogin && !passwordValidation.isStrong) {
       alert('Hasło nie spełnia wymagań!');
@@ -177,8 +183,9 @@ const Auth = () => {
             </div>
 
             {isLogin && (
-              <div className="text-center text-xs text-muted-foreground">
-                Test login: email "test", password "test"
+              <div className="text-center text-xs text-muted-foreground space-y-1">
+                <div>Admin: email "test", password "test"</div>
+                <div>Kierowca: email "test@test.pl", password "12345"</div>
               </div>
             )}
           </CardContent>

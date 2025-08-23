@@ -13,6 +13,8 @@ import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { InlineEdit } from './InlineEdit';
+import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
+import { Trash2 } from 'lucide-react';
 
 interface DriversManagementProps {
   cityId: string;
@@ -78,23 +80,24 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
     onDriverUpdate();
   };
 
-  const updatePlatformId = async (oldPlatformId: string, newValue: string) => {
-    // Find the platform record to update
-    const { data: platformRecord, error: findError } = await supabase
-      .from('driver_platform_ids')
-      .select('id')
-      .eq('platform_id', oldPlatformId)
-      .single();
+  const deleteDriver = async (driverId: string, driverName: string) => {
+    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName}?`)) return;
 
-    if (findError || !platformRecord) throw new Error('Platform not found');
-
-    const { error } = await supabase
-      .from('driver_platform_ids')
-      .update({ platform_id: newValue })
-      .eq('id', platformRecord.id);
-
-    if (error) throw error;
-    onDriverUpdate();
+    try {
+      // Usuń powiązane dane
+      await supabase.from('driver_platform_ids').delete().eq('driver_id', driverId);
+      await supabase.from('driver_document_statuses').delete().eq('driver_id', driverId);
+      await supabase.from('driver_vehicle_assignments').delete().eq('driver_id', driverId);
+      
+      // Usuń główny rekord kierowcy
+      const { error } = await supabase.from('drivers').delete().eq('id', driverId);
+      if (error) throw error;
+      
+      toast.success(`Usunięto kierowcę ${driverName}`);
+      onDriverUpdate();
+    } catch (error) {
+      toast.error('Błąd podczas usuwania kierowcy');
+    }
   };
 
   if (loading) {
@@ -199,7 +202,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         ))}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center gap-4 text-sm flex-wrap">
                         <div className="flex items-center gap-2">
                           <Phone size={14} />
                           {driver.phone ? (
@@ -223,10 +226,26 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                             <span className="text-red-500 text-xs">Brak e-maila</span>
                           )}
                         </div>
+
+                        <DriverFleetBadgeSelector 
+                          driverId={driver.id}
+                          fleetId={(driver as any).fleet_id}
+                        />
                       </div>
                     </div>
                     
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
+                        }}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                       {expandedDrivers.has(driver.id) ? (
                         <ChevronUp size={16} className="text-muted-foreground" />
                       ) : (

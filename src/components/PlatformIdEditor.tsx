@@ -17,8 +17,9 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
   const [value, setValue] = useState(currentId);
   const [copied, setCopied] = useState(false);
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = async (e: React.MouseEvent) => {
     if (!currentId) return;
+    e.stopPropagation();
     
     try {
       await navigator.clipboard.writeText(currentId);
@@ -78,22 +79,16 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
         </div>
       ) : (
         <div 
-          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded group"
+          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
           onClick={() => setIsEditing(true)}
+          onMouseEnter={currentId ? copyToClipboard : undefined}
+          title={currentId ? "Najedź aby skopiować, kliknij aby edytować" : "Kliknij aby edytować"}
         >
           <span className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1">
             {currentId || "Brak ID"}
           </span>
-          {currentId && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                copyToClipboard();
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-            </button>
+          {copied && currentId && (
+            <Check size={12} className="text-green-500" />
           )}
         </div>
       )}

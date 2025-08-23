@@ -382,6 +382,7 @@ export type Database = {
           created_at: string
           email: string | null
           first_name: string | null
+          fleet_id: string | null
           id: string
           last_name: string | null
           phone: string | null
@@ -395,6 +396,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
+          fleet_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -408,6 +410,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
+          fleet_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -421,6 +424,13 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drivers_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
             referencedColumns: ["id"]
           },
         ]
