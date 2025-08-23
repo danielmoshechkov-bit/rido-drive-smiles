@@ -3,8 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AddVehicleModal } from "./AddVehicleModal";
@@ -23,13 +22,6 @@ type Vehicle = {
   status: "aktywne" | "serwis" | "sprzedane";
   owner_name: string | null;
   fleet_id?: string | null;
-  created_at?: string;
-  assignedDriver?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    assigned_at: string;
-  } | null;
 };
 
 export function FleetManagement({ cityId, cityName }: { cityId?: string | null; cityName: string }) {
@@ -37,59 +29,13 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"Wszystkie" | Vehicle["status"]>("Wszystkie");
   const [showAdd, setShowAdd] = useState(false);
-  const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
 
   const fetchVehicles = async () => {
-    let q = supabase
-      .from("vehicles")
-      .select(`
-        *,
-        driver_vehicle_assignments!inner(
-          id,
-          assigned_at,
-          status,
-          drivers(id, first_name, last_name)
-        )
-      `)
-      .eq("driver_vehicle_assignments.status", "active")
-      .order("created_at", { ascending: false });
-      
+    let q = supabase.from("vehicles").select("*").order("created_at", { ascending: false });
     if (cityId) q = q.eq("city_id", cityId);
-    
-    const { data: assignedVehicles, error: assignedError } = await q;
-    
-    // Also get unassigned vehicles
-    let unassignedQuery = supabase
-      .from("vehicles")
-      .select("*")
-      .order("created_at", { ascending: false });
-      
-    if (cityId) unassignedQuery = unassignedQuery.eq("city_id", cityId);
-    
-    const { data: allVehicles, error: allError } = await unassignedQuery;
-    
-    if (assignedError || allError) {
-      toast.error("Błąd ładowania pojazdów");
-      return;
-    }
-    
-    // Combine data: mark vehicles with assignments
-    const vehiclesWithAssignments = allVehicles?.map(vehicle => {
-      const assignment = assignedVehicles?.find(av => av.id === vehicle.id);
-      return {
-        ...vehicle,
-        assignedDriver: assignment?.driver_vehicle_assignments?.[0]?.drivers 
-          ? {
-              id: assignment.driver_vehicle_assignments[0].drivers.id,
-              first_name: assignment.driver_vehicle_assignments[0].drivers.first_name,
-              last_name: assignment.driver_vehicle_assignments[0].drivers.last_name,
-              assigned_at: assignment.driver_vehicle_assignments[0].assigned_at
-            }
-          : null
-      };
-    }) || [];
-    
-    setVehicles(vehiclesWithAssignments as Vehicle[]);
+    const { data, error } = await q;
+    if (error) toast.error(error.message);
+    if (data) setVehicles(data as any);
   };
   useEffect(() => { fetchVehicles(); /* eslint-disable-next-line */ }, [cityId]);
 
@@ -100,36 +46,8 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
     return okText && okStatus;
   });
 
-  const toggleExpanded = (vehicleId: string) => {
-    const newExpanded = new Set(expandedVehicles);
-    if (newExpanded.has(vehicleId)) {
-      newExpanded.delete(vehicleId);
-    } else {
-      newExpanded.add(vehicleId);
-    }
-    setExpandedVehicles(newExpanded);
-  };
-
-  const removeDriverAssignment = async (vehicleId: string, driverId: string) => {
-    try {
-      const { error } = await supabase
-        .from("driver_vehicle_assignments")
-        .update({ status: "inactive", unassigned_at: new Date().toISOString() })
-        .eq("vehicle_id", vehicleId)
-        .eq("driver_id", driverId)
-        .eq("status", "active");
-
-      if (error) throw error;
-      
-      toast.success("Kierowca został odłączony od pojazdu");
-      fetchVehicles();
-    } catch (error) {
-      toast.error("Błąd podczas odłączania kierowcy");
-    }
-  };
-
   const openDetails = (id: string) => {
-    toggleExpanded(id);
+    window.open(`/admin/fleet/${id}`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -169,96 +87,29 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
           ) : (
             <div className="space-y-3">
               {filtered.map(v => (
-                <Collapsible key={v.id} open={expandedVehicles.has(v.id)} onOpenChange={() => toggleExpanded(v.id)}>
-                  <CollapsibleTrigger asChild>
-                    <div className="border rounded-2xl p-4 transition-colors hover:bg-muted/60 cursor-pointer">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex-1 min-w-[260px]">
-                          <div className="text-lg font-semibold flex items-center gap-2">
-                            {expandedVehicles.has(v.id) ? (
-                              <ChevronDown size={16} className="text-muted-foreground" />
-                            ) : (
-                              <ChevronRight size={16} className="text-muted-foreground" />
-                            )}
-                            {v.brand} {v.model} <span className="text-muted-foreground">• {v.plate}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {v.year ? `${v.year} • ` : ""}{v.color || "—"} • VIN: {v.vin ?? "—"}
-                            {v.assignedDriver && (
-                              <span className="ml-2 text-primary">
-                                • Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                <div
+                  key={v.id}
+                  className="border rounded-2xl p-4 transition-colors hover:bg-muted/60 cursor-pointer"
+                  onClick={() => openDetails(v.id)}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex-1 min-w-[260px]">
+                      <div className="text-lg font-semibold">
+                        {v.brand} {v.model} <span className="text-muted-foreground">• {v.plate}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {v.year ? `${v.year} • ` : ""}{v.color || "—"} • VIN: {v.vin ?? "—"}
+                      </div>
+                    </div>
 
-                        {/* prawa strona: status, flota, terminy */}
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Badge variant="outline" className="rounded-full">{v.status}</Badge>
-                          <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
-                          <ExpiryBadges vehicleId={v.id} />
-                          {v.assignedDriver && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeDriverAssignment(v.id, v.assignedDriver!.id)}
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                              title="Usuń przypisanie kierowcy"
-                            >
-                              <X size={16} />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
+                    {/* prawa strona: status, flota, terminy */}
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Badge variant="outline" className="rounded-full">{v.status}</Badge>
+                      <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
+                      <ExpiryBadges vehicleId={v.id} />
                     </div>
-                  </CollapsibleTrigger>
-                  
-                  <CollapsibleContent className="px-4 pb-4">
-                    <div className="mt-3 p-4 bg-muted/30 rounded-lg">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground font-medium">Status:</span>
-                          <div>{v.status}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Przebieg:</span>
-                          <div>{v.odometer || 0} km</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Właściciel:</span>
-                          <div>{v.owner_name || "—"}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-medium">Utworzono:</span>
-                          <div>{new Date(v.created_at || "").toLocaleDateString()}</div>
-                        </div>
-                      </div>
-                      
-                      {v.assignedDriver && (
-                        <div className="mt-4 p-3 bg-primary/10 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium">
-                                Przypisany kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Od: {new Date(v.assignedDriver.assigned_at).toLocaleString()}
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => removeDriverAssignment(v.id, v.assignedDriver!.id)}
-                              className="text-red-500 hover:text-red-700 border-red-200 hover:border-red-300"
-                            >
-                              Usuń przypisanie
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                  </div>
+                </div>
               ))}
             </div>
           )}
