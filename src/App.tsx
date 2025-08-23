@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
+import DriverRegister from "./pages/DriverRegister";
+import DriverDashboard from "./pages/DriverDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
+          <Route path="/driver/register" element={<DriverRegister />} />
+          <Route path="/driver" element={<DriverDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

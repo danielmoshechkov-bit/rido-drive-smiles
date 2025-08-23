@@ -145,6 +145,54 @@ export type Database = {
           },
         ]
       }
+      driver_app_users: {
+        Row: {
+          city_id: string | null
+          created_at: string | null
+          driver_id: string | null
+          phone: string | null
+          plan_type: string | null
+          rodo_accepted_at: string | null
+          terms_accepted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          city_id?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          phone?: string | null
+          plan_type?: string | null
+          rodo_accepted_at?: string | null
+          terms_accepted_at?: string | null
+          user_id: string
+        }
+        Update: {
+          city_id?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          phone?: string | null
+          plan_type?: string | null
+          rodo_accepted_at?: string | null
+          terms_accepted_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_app_users_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_app_users_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_documents: {
         Row: {
           created_at: string
@@ -241,6 +289,7 @@ export type Database = {
           last_name: string | null
           phone: string | null
           updated_at: string
+          user_role: Database["public"]["Enums"]["user_role_type"] | null
         }
         Insert: {
           city_id: string
@@ -251,6 +300,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           updated_at?: string
+          user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }
         Update: {
           city_id?: string
@@ -261,6 +311,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           updated_at?: string
+          user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }
         Relationships: [
           {
@@ -271,6 +322,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fleets: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       fuel_cards: {
         Row: {
@@ -307,6 +376,79 @@ export type Database = {
           },
           {
             foreignKeyName: "fuel_cards_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_logs: {
+        Row: {
+          amount: number
+          created_at: string | null
+          date: string
+          driver_id: string | null
+          id: string
+          liters: number | null
+          notes: string | null
+          station: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          date: string
+          driver_id?: string | null
+          id?: string
+          liters?: number | null
+          notes?: string | null
+          station?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          date?: string
+          driver_id?: string | null
+          id?: string
+          liters?: number | null
+          notes?: string | null
+          station?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_logs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          driver_id: string | null
+          from_role: string
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          driver_id?: string | null
+          from_role: string
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          driver_id?: string | null
+          from_role?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
@@ -583,6 +725,7 @@ export type Database = {
           city_id: string | null
           color: string | null
           created_at: string
+          fleet_id: string | null
           id: string
           model: string
           odometer: number | null
@@ -598,6 +741,7 @@ export type Database = {
           city_id?: string | null
           color?: string | null
           created_at?: string
+          fleet_id?: string | null
           id?: string
           model: string
           odometer?: number | null
@@ -613,6 +757,7 @@ export type Database = {
           city_id?: string | null
           color?: string | null
           created_at?: string
+          fleet_id?: string | null
           id?: string
           model?: string
           odometer?: number | null
@@ -631,6 +776,13 @@ export type Database = {
             referencedRelation: "cities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vehicles_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -641,7 +793,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -768,6 +920,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role_type: ["kierowca", "partner", "pracownik", "admin"],
+    },
   },
 } as const

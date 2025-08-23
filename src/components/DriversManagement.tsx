@@ -9,6 +9,7 @@ import { useDrivers } from '@/hooks/useDrivers';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { InlineEdit } from './InlineEdit';
+import { DriverStatusBadge } from './DriverStatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DriversManagementProps {
@@ -144,6 +145,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         <h3 className="text-lg font-semibold">
                           {driver.first_name} {driver.last_name}
                         </h3>
+                        <DriverStatusBadge 
+                          driverId={driver.id} 
+                          currentRole={(driver as any).user_role || 'kierowca'} 
+                        />
                         <Button
                           variant="ghost"
                           size="sm"
