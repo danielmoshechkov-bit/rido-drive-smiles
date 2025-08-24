@@ -376,8 +376,8 @@ function WeeklyResults({ driverData }: { driverData: any }) {
             <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
             
             {/* Compact Controls Row */}
-            <div className="flex gap-3 items-center flex-wrap">
-              <div className="filter-tile min-w-0">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="flex-shrink-0">
                 <label className="text-xs text-muted-foreground block mb-1">Rok</label>
                 <UniversalSelector
                   id="year-selector"
@@ -392,7 +392,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 />
               </div>
               
-              <div className="filter-tile min-w-0 max-w-64">
+              <div className="flex-shrink-0">
                 <label className="text-xs text-muted-foreground block mb-1">Okres</label>
                 <UniversalSelector
                   id="week-selector"
@@ -406,11 +406,11 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                   showAdd={false}
                   allowClear={false}
                   onSelect={(item) => item && setSelectedWeek(parseInt(item.id))}
-                  className="w-48"
+                  className="w-64"
                 />
               </div>
 
-              <div className="filter-tile">
+              <div className="flex-shrink-0">
                 <SettlementPlanSelector driverData={driverData} currentPlan="" onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
               </div>
             </div>

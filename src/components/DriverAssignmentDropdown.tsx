@@ -137,7 +137,7 @@ export function DriverAssignmentDropdown({
         id={`vehicle-driver-${vehicleId}`}
         items={driverItems}
         currentValue={currentDriver?.id || null}
-        placeholder={currentDriverName}
+        placeholder="Wybierz kierowcę"
         searchPlaceholder="Szukaj kierowcy..."
         noResultsText="Brak kierowców"
         showSearch={true}
