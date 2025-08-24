@@ -307,18 +307,10 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                                     <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
                                     <div className="font-semibold">{vehicle.plate}</div>
                                   </div>
-                                   <div className="min-w-[150px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                     <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-                                   </div>
-                                   <div className="min-w-[80px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Rok:</span>
-                                     <div className="font-semibold">{vehicle.year || "—"}</div>
-                                   </div>
-                                   <div className="min-w-[100px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Kolor:</span>
-                                     <div className="font-semibold">{vehicle.color || "—"}</div>
-                                   </div>
+                                  <div className="min-w-[150px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                    <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                  </div>
                                    <div className="min-w-[100px]">
                                      <span className="font-medium text-sm text-muted-foreground">Flota:</span>
                                      <div onClick={(e) => e.stopPropagation()}>
