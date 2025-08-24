@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 
 interface Driver {
   id: string;
@@ -130,7 +130,10 @@ export function DriverAssignmentDropdown({
       <div className="font-semibold flex items-center gap-2">
         {currentDriver ? (
           <>
-            <span>{currentDriver.first_name} {currentDriver.last_name}</span>
+            <span className="text-primary flex items-center gap-1">
+              {currentDriver.first_name} {currentDriver.last_name}
+              <ChevronDown className="h-3 w-3" />
+            </span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -148,9 +151,10 @@ export function DriverAssignmentDropdown({
               e.stopPropagation();
               setIsOpen(!isOpen);
             }}
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-primary hover:text-primary/80 flex items-center gap-1"
           >
             Brak przypisania
+            <ChevronDown className="h-3 w-3" />
           </button>
         )}
       </div>

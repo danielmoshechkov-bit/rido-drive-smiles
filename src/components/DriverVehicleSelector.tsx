@@ -103,9 +103,10 @@ export const DriverVehicleSelector = ({
 
   if (!fleetId || vehicles.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-1 text-sm text-primary">
         <Car size={14} />
         <span>Własne auto</span>
+        <ChevronDown className="h-3 w-3" />
       </div>
     );
   }
