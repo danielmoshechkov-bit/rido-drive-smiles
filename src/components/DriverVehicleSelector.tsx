@@ -50,23 +50,23 @@ export const DriverVehicleSelector = ({
       
       if (data) {
         setVehicles(data);
-        
-        if (currentVehicleId) {
-          const currentVehicle = data.find(v => v.id === currentVehicleId);
-          if (currentVehicle) {
-            const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
-            setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
-          } else {
-            setSelectedVehicleText("Własne auto");
-          }
-        } else {
-          setSelectedVehicleText("Własne auto");
-        }
       }
     };
 
     fetchVehicles();
-  }, [fleetId, currentVehicleId]);
+  }, [fleetId]);
+
+  useEffect(() => {
+    if (currentVehicleId && vehicles.length > 0) {
+      const currentVehicle = vehicles.find(v => v.id === currentVehicleId);
+      if (currentVehicle) {
+        const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
+        setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
+        return;
+      }
+    }
+    setSelectedVehicleText("Własne auto");
+  }, [currentVehicleId, vehicles]);
 
   const assignVehicle = async (vehicleId: string | null, vehicleText: string) => {
     setLoading(true);
@@ -91,11 +91,12 @@ export const DriverVehicleSelector = ({
           });
 
         if (error) throw error;
+        toast.success(`Przypisano pojazd flotowy`);
+      } else {
+        toast.success(`Ustawiono własne auto`);
       }
 
-      setSelectedVehicleText(vehicleText);
-      toast.success(`Zmieniono pojazd na: ${vehicleText}`);
-      
+      // Wywołaj callback jeśli istnieje - to spowoduje odświeżenie danych
       if (onVehicleUpdate) {
         onVehicleUpdate();
       }

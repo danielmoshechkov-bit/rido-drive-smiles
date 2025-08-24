@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { UniversalSelector } from "@/components/UniversalSelector";
 
 type Vehicle = {
   id: string; plate: string; vin: string | null; brand: string; model: string;
@@ -147,9 +148,6 @@ function VehicleDocuments({ vehicleId }: { vehicleId: string }) {
 function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
-  const [selectedDriverId, setSelectedDriverId] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
 
   const loadDrivers = async () => {
     const { data } = await supabase.from('drivers').select('*').order('first_name');
@@ -173,10 +171,10 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
     loadAssignments();
   }, [vehicleId]);
 
-  const assignDriver = async () => {
-    if (!selectedDriverId) return;
+  const assignDriver = async (item: {id: string; name: string} | null) => {
+    if (!item) return;
     
-    // Zakończ poprzednie przypisania
+    // Zakończ poprzednie przypisania dla pojazdu
     const { error: updateError } = await supabase
       .from('driver_vehicle_assignments')
       .update({ 
@@ -191,11 +189,21 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
       return;
     }
 
+    // Zakończ poprzednie przypisania dla kierowcy
+    await supabase
+      .from('driver_vehicle_assignments')
+      .update({ 
+        status: 'inactive',
+        unassigned_at: new Date().toISOString()
+      })
+      .eq('driver_id', item.id)
+      .eq('status', 'active');
+
     // Utwórz nowe przypisanie
     const { error } = await supabase
       .from('driver_vehicle_assignments')
       .insert([{
-        driver_id: selectedDriverId,
+        driver_id: item.id,
         vehicle_id: vehicleId,
         status: 'active',
         assigned_at: new Date().toISOString()
@@ -207,18 +215,17 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
     }
 
     toast.success('Kierowca został przypisany do pojazdu');
-    setSelectedDriverId('');
-    setSearchQuery('');
-    setShowDropdown(false);
     loadAssignments();
   };
 
-  const filteredDrivers = drivers.filter(driver => 
-    `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const activeAssignment = assignments.find(a => a.status === 'active');
+  
+  // Przygotuj listę kierowców dla UniversalSelector
+  const driverItems = drivers.map(driver => ({
+    id: driver.id,
+    name: `${driver.first_name} ${driver.last_name}`,
+    value: driver.email
+  }));
 
   return (
     <div className="space-y-4">
@@ -269,39 +276,19 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
             <p className="text-muted-foreground">Brak przypisanego kierowcy</p>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="relative">
-              <Input
-                placeholder="Szukaj kierowcy..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowDropdown(true);
-                }}
-                onFocus={() => setShowDropdown(true)}
-              />
-              {showDropdown && filteredDrivers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {filteredDrivers.map(driver => (
-                    <div
-                      key={driver.id}
-                      className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                      onClick={() => {
-                        setSelectedDriverId(driver.id);
-                        setSearchQuery(`${driver.first_name} ${driver.last_name}`);
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <div className="font-medium">{driver.first_name} {driver.last_name}</div>
-                      <div className="text-muted-foreground">{driver.email}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <Button onClick={assignDriver} disabled={!selectedDriverId}>
-              Przypisz kierowcę
-            </Button>
+          <div className="mt-4">
+            <UniversalSelector
+              id={`vehicle-driver-${vehicleId}`}
+              items={driverItems}
+              currentValue={null}
+              placeholder="Przypisz kierowcę"
+              searchPlaceholder="Szukaj kierowcy..."
+              noResultsText="Brak kierowców"
+              showSearch={true}
+              showAdd={false}
+              allowClear={false}
+              onSelect={assignDriver}
+            />
           </div>
         </CardContent>
       </Card>
