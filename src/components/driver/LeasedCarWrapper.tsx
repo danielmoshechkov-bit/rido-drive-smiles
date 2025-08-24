@@ -9,6 +9,7 @@ interface LeasedCarWrapperProps {
 interface VehicleAssignment {
   vehicle_id: string;
   assigned_at: string;
+  unassigned_at?: string;
   vehicles: {
     brand: string;
     model: string;
@@ -17,9 +18,13 @@ interface VehicleAssignment {
     color?: string;
     vin?: string;
     weekly_rental_fee?: number;
-  };
-  fleets?: {
-    name: string;
+    fleets?: {
+      name: string;
+      nip?: string;
+      address?: string;
+      contact_name?: string;
+      phone?: string;
+    };
   };
 }
 
@@ -35,6 +40,7 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
           .select(`
             vehicle_id,
             assigned_at,
+            unassigned_at,
             vehicles (
               brand,
               model,
@@ -43,10 +49,14 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
               color,
               vin,
               weekly_rental_fee,
-              fleet_id
-            ),
-            fleets (
-              name
+              fleet_id,
+              fleets (
+                name,
+                nip,
+                address,
+                contact_name,
+                phone
+              )
             )
           `)
           .eq("driver_id", driverData.driver_id)
@@ -89,7 +99,7 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
     <LeasedCarCard
       vehicle={assignment?.vehicles || null}
       assignment={assignment}
-      fleet={assignment?.fleets}
+      fleet={assignment?.vehicles?.fleets}
       readOnlyRent={true}
     />
   );

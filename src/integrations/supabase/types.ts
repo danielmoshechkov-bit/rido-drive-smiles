@@ -437,19 +437,31 @@ export type Database = {
       }
       fleets: {
         Row: {
+          address: string | null
+          contact_name: string | null
           created_at: string | null
           id: string
           name: string
+          nip: string | null
+          phone: string | null
         }
         Insert: {
+          address?: string | null
+          contact_name?: string | null
           created_at?: string | null
           id?: string
           name: string
+          nip?: string | null
+          phone?: string | null
         }
         Update: {
+          address?: string | null
+          contact_name?: string | null
           created_at?: string | null
           id?: string
           name?: string
+          nip?: string | null
+          phone?: string | null
         }
         Relationships: []
       }

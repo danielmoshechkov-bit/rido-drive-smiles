@@ -43,11 +43,11 @@ import { toast } from "sonner";
 export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
   return (
     <Tabs {...props}>
-      <div className="rounded-[9999px] bg-[#6C3CF0] p-[2px] shadow-[0_8px_30px_rgba(108,60,240,0.18)]">
+      <div className="rounded-[9999px] bg-[#6C3CF0] p-1 shadow-[0_8px_30px_rgba(108,60,240,0.18)]">
         <TabsList
           className="
             flex w-full items-center gap-1 overflow-x-auto no-scrollbar
-            rounded-[9999px] bg-[#F3F0FF] px-1
+            rounded-[9999px] bg-[#6C3CF0] px-1
             min-h-[44px]
           "
         >
@@ -55,9 +55,9 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
             if (child?.type?.displayName === "TabsTrigger") {
               return React.cloneElement(child, {
                 className:
-                  "px-5 h-10 flex items-center rounded-full text-sm whitespace-nowrap transition " +
-                  "data-[state=active]:bg-white data-[state=active]:text-[#6C3CF0] " +
-                  "hover:bg-white hover:text-[#6C3CF0] focus-visible:outline-none",
+                  "px-5 h-10 flex items-center rounded-full text-sm whitespace-nowrap transition text-white " +
+                  "data-[state=active]:bg-white data-[state=active]:text-[#6C3CF0] data-[state=active]:font-semibold " +
+                  "hover:bg-white/20 focus-visible:outline-none",
               });
             }
             return null;
@@ -154,6 +154,24 @@ export function LeasedCarCard({
   fleet?: any;
   readOnlyRent?: boolean;
 }) {
+  if (!vehicle) {
+    return (
+      <div
+        className="
+          rounded-2xl border border-[#E9E5FF] bg-white
+          shadow-[0_8px_30px_rgba(108,60,240,0.08)]
+          p-6 text-center
+        "
+      >
+        <div className="text-muted-foreground py-8">
+          <span className="text-4xl block mb-4">🚗</span>
+          <p className="text-lg">Brak przypisanego pojazdu</p>
+          <p className="text-sm mt-2">Skontaktuj się z administratorem</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="
@@ -175,37 +193,62 @@ export function LeasedCarCard({
           </h3>
           <div className="text-2xl font-bold text-[#6C3CF0]">{vehicle.plate}</div>
 
-          {/* równy układ danych */}
-          <div className="mt-4 grid grid-cols-12 gap-y-2">
-            <div className="col-span-6 text-muted-foreground">Rok produkcji:</div>
-            <div className="col-span-6">{vehicle.year || "—"}</div>
-
-            <div className="col-span-6 text-muted-foreground">Kolor:</div>
-            <div className="col-span-6">{vehicle.color || "—"}</div>
-
-            {/* „Wynajem" – etykieta w rzędzie, kwota pod spodem */}
-            <div className="col-span-12 mt-2">
-              <VehicleRentBlock
-                value={vehicle.weekly_rental_fee || 0}
-                readOnly={readOnlyRent}
-              />
-            </div>
+          {/* bardziej zwarte rozmieszczenie */}
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <div className="text-muted-foreground">Rok produkcji:</div>
+            <div className="font-medium">{vehicle.year || "—"}</div>
+            <div className="text-muted-foreground">Kolor:</div>
+            <div className="font-medium">{vehicle.color || "—"}</div>
           </div>
 
-          <hr className="my-5" />
-          <div className="text-muted-foreground">VIN:</div>
-          <div className="font-mono text-[15px]">{vehicle.vin || "—"}</div>
+          {/* „Wynajem" – etykieta w rzędzie, kwota pod spodem */}
+          <div className="mt-4">
+            <VehicleRentBlock
+              value={vehicle.weekly_rental_fee || 0}
+              readOnly={readOnlyRent}
+            />
+          </div>
+
+          {vehicle.vin && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-muted-foreground text-sm">VIN:</div>
+              <div className="font-mono text-sm">{vehicle.vin}</div>
+            </div>
+          )}
         </div>
 
         {/* prawa część */}
         <div className="col-span-12 lg:col-span-5 space-y-4">
-          <div className="rounded-2xl bg-[#F6F3FF] p-4 border border-[#E9E5FF]">
-            <div className="text-muted-foreground">Flota:</div>
-            <div className="font-semibold text-lg">{fleet?.name || "—"}</div>
+          {/* Flota - nazwa obok, dane pod spodem */}
+          <div className="rounded-2xl border border-[#E9E5FF] p-0 overflow-hidden">
+            <div className="bg-[#6C3CF0] text-white px-4 py-3 font-semibold">
+              Flota: <span className="font-extrabold">{fleet?.name || "—"}</span>
+            </div>
+            {fleet && (
+              <div className="bg-[#F8F7FF] p-4 space-y-2 text-sm">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-muted-foreground">NIP:</div>
+                  <div className="col-span-2 font-medium">{fleet.nip || "—"}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-muted-foreground">Adres:</div>
+                  <div className="col-span-2 font-medium">{fleet.address || "—"}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-muted-foreground">Kontakt:</div>
+                  <div className="col-span-2 font-medium">{fleet.contact_name || "—"}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-muted-foreground">Telefon:</div>
+                  <div className="col-span-2 font-medium">{fleet.phone || "—"}</div>
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Data przypisania */}
           <div className="rounded-2xl bg-[#F6F3FF] p-4 border border-[#E9E5FF]">
-            <div className="text-muted-foreground">Od kiedy korzystasz z auta:</div>
+            <div className="text-muted-foreground text-sm">Od kiedy korzystasz z auta:</div>
             <div className="font-semibold text-lg">
               {assignment?.assigned_at
                 ? new Date(assignment.assigned_at).toLocaleDateString("pl-PL", {
@@ -215,6 +258,18 @@ export function LeasedCarCard({
                   })
                 : "—"}
             </div>
+            {assignment?.unassigned_at && (
+              <>
+                <div className="text-muted-foreground text-sm mt-2">Do kiedy:</div>
+                <div className="font-semibold">
+                  {new Date(assignment.unassigned_at).toLocaleDateString("pl-PL", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

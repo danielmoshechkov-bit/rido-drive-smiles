@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TabsPill } from "@/ridoUiPack";
+import { TabsPill, AddOwnCarModal, useDriverId } from "@/ridoUiPack";
 import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
@@ -25,7 +25,8 @@ import {
   Calendar, 
   Car,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Plus
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
@@ -164,7 +165,7 @@ const DriverDashboard = () => {
           </TabsContent>
           
           <TabsContent value="cars">
-            <LeasedCarWrapper driverData={driverData} />
+            <CarsSection driverData={driverData} />
           </TabsContent>
           
           <TabsContent value="fleet-info">
@@ -183,6 +184,37 @@ const DriverDashboard = () => {
     </div>
   );
 };
+
+// Komponent sekcji samochodów z przyciskiem dodaj auto
+function CarsSection({ driverData }: { driverData: any }) {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const driverId = useDriverId();
+
+  return (
+    <div className="space-y-4">
+      {/* Przycisk Dodaj auto */}
+      <div className="flex justify-end">
+        <Button 
+          onClick={() => setShowAddModal(true)}
+          className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
+        >
+          <Plus className="h-4 w-4" />
+          Dodaj auto
+        </Button>
+      </div>
+
+      {/* Karta wynajętego auta */}
+      <LeasedCarWrapper driverData={driverData} />
+
+      {/* Modal dodawania auta */}
+      <AddOwnCarModal 
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        driverId={driverId}
+      />
+    </div>
+  );
+}
 
 // Komponent wyników tygodnia z poprawionym kalendarzem
 function WeeklyResults({ driverData }: { driverData: any }) {
