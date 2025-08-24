@@ -2,11 +2,12 @@
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Get RIDO – Partner kierowców Uber Warszawa | Kierowca Uber | Proste rozliczenia, wypłaty co tydzień</title>
-    <meta name="description" content="Get RIDO - partner kierowców Uber, Bolt, FreeNow w Warszawie. Zostań kierowcą Uber już dziś! Proste rozliczenia: 39 zł + 8% podatku lub 159 zł + 0% podatku. Wypłaty co tydzień, wsparcie 7 dni, karta paliwowa. Dołącz teraz!" />
-    <meta name="author" content="Get RIDO" />
-    <meta name="keywords" content="kierowca uber warszawa, partner uber warszawa, praca kierowca uber, zostań kierowcą uber, kierowca bolt warszawa, rozliczenia uber bolt, partner flotowy warszawa, jak zostać kierowcą uber warszawa, dokumenty uber warszawa, karta paliwowa kierowcy, wypłaty kierowców uber, kierowca freenow warszawa" />
+    <meta name="theme-color" content="#6C4AE2" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>RIDO Driver Portal - Zarządzanie flotą</title>
+    <meta name="description" content="Portal kierowcy RIDO - zarządzanie rozliczeniami, dokumentami i flotą" />
 
     <meta property="og:title" content="Get RIDO – Partner kierowców Uber Warszawa | Kierowca Uber | Proste rozliczenia, wypłaty co tydzień" />
     <meta property="og:description" content="Get RIDO - partner kierowców Uber, Bolt, FreeNow w Warszawie. Zostań kierowcą Uber już dziś! Proste rozliczenia: 39 zł + 8% podatku lub 159 zł + 0% podatku. Wypłaty co tydzień, wsparcie 7 dni, karta paliwowa. Dołącz teraz!" />
@@ -21,5 +22,17 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('SW registered: ', registration);
+            }, function(registrationError) {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

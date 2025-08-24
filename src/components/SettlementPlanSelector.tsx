@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronDown, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useDropdownState } from "@/hooks/useGlobalDropdown";
 
 interface SettlementPlanSelectorProps {
   driverData: any;
@@ -13,14 +13,18 @@ interface SettlementPlanSelectorProps {
   onPlanChange: (plan: string) => void;
 }
 
-export const SettlementPlanSelector = ({ driverData, currentPlan, onPlanChange }: SettlementPlanSelectorProps) => {
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
+export const SettlementPlanSelector = ({
+  driverData,
+  currentPlan,
+  onPlanChange
+}: SettlementPlanSelectorProps) => {
+  const [selectedPlan, setSelectedPlan] = useState(currentPlan || "");
+  const [isOpen, setIsOpen] = useState(false);
   const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
-  const { isOpen, toggle, close } = useDropdownState("settlement-plan-selector");
 
   const plans = [
-    { id: "39+8%", name: "39 zł + 8%", description: "39 zł opłaty stałej + 8% podatek od zarobków" },
-    { id: "tylko 159", name: "Tylko 159 zł", description: "159 zł miesięcznie bez dodatkowych opłat" }
+    { id: "tylko 159", name: "159 zł + 0% VAT", description: "159 zł tygodniowo bez dodatkowych opłat" },
+    { id: "39+8%", name: "39+8% VAT", description: "39 zł + 8% VAT tygodniowo" }
   ];
 
   useEffect(() => {
@@ -46,7 +50,8 @@ export const SettlementPlanSelector = ({ driverData, currentPlan, onPlanChange }
   };
 
   const handlePlanChange = async (newPlan: string) => {
-    if (!canChangePlan()) {
+    // Jeśli nie ma wybranego planu, pozwól wybrać
+    if (selectedPlan && !canChangePlan()) {
       toast.error(`Możesz zmienić plan za ${daysUntilNextChange()} dni`);
       return;
     }
@@ -62,7 +67,7 @@ export const SettlementPlanSelector = ({ driverData, currentPlan, onPlanChange }
       setSelectedPlan(newPlan);
       onPlanChange(newPlan);
       setLastChangeDate(new Date());
-      close();
+      setIsOpen(false);
       toast.success("Plan rozliczenia został zmieniony");
     } catch (error: any) {
       toast.error("Błąd przy zmianie planu: " + error.message);
@@ -70,42 +75,24 @@ export const SettlementPlanSelector = ({ driverData, currentPlan, onPlanChange }
   };
 
   return (
-    <div className="relative">
-      <Card className="rounded-lg border border-border/50">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">Plan rozliczenia:</div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="rounded-md">{selectedPlan}</Badge>
-                {!canChangePlan() && (
-                  <span className="text-xs text-muted-foreground">
-                    Zmiana możliwa za {daysUntilNextChange()} dni
-                  </span>
-                )}
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggle}
-              className="rounded-md"
-              disabled={!canChangePlan()}
-            >
-              <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    <Card className="p-4 rounded-lg shadow-md">
+      <div className="flex flex-col">
+        <label className="text-sm font-medium text-muted-foreground mb-2">Plan rozliczenia</label>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-48 justify-between rounded-lg">
+              <span className="truncate">
+                {selectedPlan && plans.find(p => p.id === selectedPlan)?.name || "Wybierz plan"}
+              </span>
+              <ChevronDown className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {isOpen && (
-        <Card className="absolute top-full left-0 right-0 z-50 mt-1 border border-border/50 shadow-lg rounded-lg">
-          <CardContent className="p-2">
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-2 rounded-lg bg-white border shadow-lg" align="start">
             {plans.map((plan) => (
               <Button
                 key={plan.id}
                 variant="ghost"
-                className="w-full justify-start p-3 h-auto rounded-md"
+                className="w-full justify-start p-3 h-auto rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
                 onClick={() => handlePlanChange(plan.id)}
               >
                 <div className="flex items-center gap-2 w-full">
@@ -117,9 +104,14 @@ export const SettlementPlanSelector = ({ driverData, currentPlan, onPlanChange }
                 </div>
               </Button>
             ))}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </PopoverContent>
+        </Popover>
+        {selectedPlan && !canChangePlan() && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Zmiana możliwa za {daysUntilNextChange()} dni
+          </div>
+        )}
+      </div>
+    </Card>
   );
 };

@@ -85,15 +85,55 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="weekly-report">{t('admin.weeklyReport')}</TabsTrigger>
-            <TabsTrigger value="drivers-list">{t('admin.driversList')}</TabsTrigger>
-            <TabsTrigger value="settlements">{t('admin.settlements')}</TabsTrigger>
-            <TabsTrigger value="fleet">Flota</TabsTrigger>
-            <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-            <TabsTrigger value="data-import">{t('admin.dataImport')}</TabsTrigger>
-            <TabsTrigger value="settings">{t('admin.settings')}</TabsTrigger>
-            <TabsTrigger value="reports">{t('admin.reports')}</TabsTrigger>
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-2 shadow-purple h-14 w-full grid grid-cols-8">
+            <TabsTrigger 
+              value="weekly-report" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.weeklyReport')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="drivers-list" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.driversList')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="settlements" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.settlements')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="fleet" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              Flota
+            </TabsTrigger>
+            <TabsTrigger 
+              value="documents" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              Dokumenty
+            </TabsTrigger>
+            <TabsTrigger 
+              value="data-import" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.dataImport')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="settings" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.settings')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="reports" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium"
+            >
+              {t('admin.reports')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="weekly-report" className="space-y-6">
