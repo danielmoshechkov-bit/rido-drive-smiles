@@ -18,13 +18,13 @@ export const SettlementPlanSelector = ({
   currentPlan,
   onPlanChange
 }: SettlementPlanSelectorProps) => {
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan || "");
+  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
   const [isOpen, setIsOpen] = useState(false);
   const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
 
   const plans = [
-    { id: "tylko 159", name: "159 zł + 0% VAT", description: "159 zł tygodniowo bez dodatkowych opłat" },
-    { id: "39+8%", name: "39+8% VAT", description: "39 zł + 8% VAT tygodniowo" }
+    { id: "39+8%", name: "39 zł + 8%", description: "39 zł opłaty stałej + 8% podatek od zarobków" },
+    { id: "tylko 159", name: "Tylko 159 zł", description: "159 zł miesięcznie bez dodatkowych opłat" }
   ];
 
   useEffect(() => {
@@ -50,8 +50,7 @@ export const SettlementPlanSelector = ({
   };
 
   const handlePlanChange = async (newPlan: string) => {
-    // Jeśli nie ma wybranego planu, pozwól wybrać
-    if (selectedPlan && !canChangePlan()) {
+    if (!canChangePlan()) {
       toast.error(`Możesz zmienić plan za ${daysUntilNextChange()} dni`);
       return;
     }
@@ -75,43 +74,54 @@ export const SettlementPlanSelector = ({
   };
 
   return (
-    <Card className="p-4 rounded-lg shadow-md">
-      <div className="flex flex-col">
-        <label className="text-sm font-medium text-muted-foreground mb-2">Plan rozliczenia</label>
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-48 justify-between rounded-lg">
-              <span className="truncate">
-                {selectedPlan && plans.find(p => p.id === selectedPlan)?.name || "Wybierz plan"}
-              </span>
-              <ChevronDown className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-2 rounded-lg bg-white border shadow-lg" align="start">
-            {plans.map((plan) => (
-              <Button
-                key={plan.id}
-                variant="ghost"
-                className="w-full justify-start p-3 h-auto rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
-                onClick={() => handlePlanChange(plan.id)}
-              >
-                <div className="flex items-center gap-2 w-full">
-                  <div className="flex-1 text-left">
-                    <div className="font-medium">{plan.name}</div>
-                    <div className="text-xs text-muted-foreground">{plan.description}</div>
-                  </div>
-                  {selectedPlan === plan.id && <Check className="h-4 w-4 text-primary" />}
-                </div>
-              </Button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        {selectedPlan && !canChangePlan() && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Zmiana możliwa za {daysUntilNextChange()} dni
+    <Card className="rounded-lg">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium mb-1">Plan rozliczenia:</div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="rounded-md">
+                {plans.find(p => p.id === selectedPlan)?.name || selectedPlan}
+              </Badge>
+              {!canChangePlan() && (
+                <span className="text-xs text-muted-foreground">
+                  Zmiana możliwa za {daysUntilNextChange()} dni
+                </span>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                disabled={!canChangePlan()}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-2 rounded-lg" align="end">
+              {plans.map((plan) => (
+                <Button
+                  key={plan.id}
+                  variant="ghost"
+                  className="w-full justify-start p-3 h-auto rounded-md"
+                  onClick={() => handlePlanChange(plan.id)}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">{plan.name}</div>
+                      <div className="text-xs text-muted-foreground">{plan.description}</div>
+                    </div>
+                    {selectedPlan === plan.id && <Check className="h-4 w-4 text-primary" />}
+                  </div>
+                </Button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        </div>
+      </CardContent>
     </Card>
   );
 };
