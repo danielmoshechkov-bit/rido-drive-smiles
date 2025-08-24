@@ -336,11 +336,12 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                                         Kierowca:
                                         <ChevronDown className="h-3 w-3 text-primary" />
                                       </span>
-                                     <DriverAssignmentDropdown
-                                       vehicleId={vehicle.id}
-                                       currentDriver={vehicle.assignedDriver}
-                                       onAssignmentChange={fetchVehicles}
-                                     />
+                                      <DriverAssignmentDropdown
+                                        vehicleId={vehicle.id}
+                                        currentDriver={vehicle.assignedDriver}
+                                        onAssignmentChange={fetchVehicles}
+                                        cityId={cityId}
+                                      />
                                    </div>
                                   <div className="min-w-[200px]">
                                     <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>

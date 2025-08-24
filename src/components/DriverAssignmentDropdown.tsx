@@ -15,27 +15,37 @@ interface DriverAssignmentDropdownProps {
   vehicleId: string;
   currentDriver?: Driver;
   onAssignmentChange: () => void;
+  cityId?: string | null;
 }
 
 export function DriverAssignmentDropdown({ 
   vehicleId, 
   currentDriver, 
-  onAssignmentChange 
+  onAssignmentChange,
+  cityId 
 }: DriverAssignmentDropdownProps) {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadDrivers = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from('drivers')
       .select('id, first_name, last_name, email')
       .order('first_name');
+
+    // Filter by city if cityId is provided
+    if (cityId) {
+      query = query.eq('city_id', cityId);
+    }
+
+    const { data } = await query;
+    console.log(`Loaded ${data?.length || 0} drivers${cityId ? ` for city ${cityId}` : ''}`);
     setDrivers(data || []);
   };
 
   useEffect(() => {
     loadDrivers();
-  }, []);
+  }, [cityId]);
 
   const assignDriver = async (driverId: string) => {
     setLoading(true);
