@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { X, ChevronDown } from 'lucide-react';
+import { UniversalSelector } from './UniversalSelector';
 
 interface Driver {
   id: string;
@@ -23,15 +22,8 @@ export function DriverAssignmentDropdown({
   currentDriver, 
   onAssignmentChange 
 }: DriverAssignmentDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const filteredDrivers = drivers.filter(driver => 
-    `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    (driver.email && driver.email.toLowerCase().includes(search.toLowerCase()))
-  );
 
   const loadDrivers = async () => {
     const { data } = await supabase
@@ -42,88 +34,92 @@ export function DriverAssignmentDropdown({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      loadDrivers();
-    }
-  }, [isOpen]);
+    loadDrivers();
+  }, []);
 
   const assignDriver = async (driverId: string) => {
     setLoading(true);
     
-    // Zakończ wszystkie poprzednie przypisania dla tego kierowcy
-    const { error: deactivateDriverError } = await supabase
-      .from('driver_vehicle_assignments')
-      .update({ 
-        status: 'inactive',
-        unassigned_at: new Date().toISOString()
-      })
-      .eq('driver_id', driverId)
-      .eq('status', 'active');
+    try {
+      // Zakończ wszystkie poprzednie przypisania dla tego kierowcy
+      const { error: deactivateDriverError } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('driver_id', driverId)
+        .eq('status', 'active');
 
-    if (deactivateDriverError) {
-      toast.error('Błąd przy dezaktywacji poprzednich przypisań kierowcy');
-      setLoading(false);
-      return;
-    }
+      if (deactivateDriverError) throw deactivateDriverError;
 
-    // Zakończ poprzednie przypisania pojazdu
-    const { error: updateError } = await supabase
-      .from('driver_vehicle_assignments')
-      .update({ 
-        status: 'inactive',
-        unassigned_at: new Date().toISOString()
-      })
-      .eq('vehicle_id', vehicleId)
-      .eq('status', 'active');
+      // Zakończ poprzednie przypisania pojazdu
+      const { error: updateError } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('vehicle_id', vehicleId)
+        .eq('status', 'active');
 
-    if (updateError) {
-      toast.error('Błąd przy usuwaniu poprzedniego przypisania');
-      setLoading(false);
-      return;
-    }
+      if (updateError) throw updateError;
 
-    // Dodaj nowe przypisanie
-    const { error } = await supabase
-      .from('driver_vehicle_assignments')
-      .insert([{
-        vehicle_id: vehicleId,
-        driver_id: driverId,
-        assigned_at: new Date().toISOString(),
-        status: 'active'
-      }]);
+      // Dodaj nowe przypisanie
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .insert([{
+          vehicle_id: vehicleId,
+          driver_id: driverId,
+          assigned_at: new Date().toISOString(),
+          status: 'active'
+        }]);
 
-    if (error) {
-      toast.error('Błąd przy przypisywaniu kierowcy');
-    } else {
+      if (error) throw error;
+      
       toast.success('Kierowca przypisany do pojazdu');
       onAssignmentChange();
-      setIsOpen(false);
-      setSearch('');
+    } catch (error) {
+      toast.error('Błąd przy przypisywaniu kierowcy');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const removeAssignment = async () => {
     if (!currentDriver) return;
     
     setLoading(true);
-    const { error } = await supabase
-      .from('driver_vehicle_assignments')
-      .update({ status: 'inactive', unassigned_at: new Date().toISOString() })
-      .eq('vehicle_id', vehicleId)
-      .eq('driver_id', currentDriver.id)
-      .eq('status', 'active');
+    try {
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ status: 'inactive', unassigned_at: new Date().toISOString() })
+        .eq('vehicle_id', vehicleId)
+        .eq('driver_id', currentDriver.id)
+        .eq('status', 'active');
 
-    if (error) {
-      toast.error('Błąd przy usuwaniu przypisania');
-    } else {
+      if (error) throw error;
+      
       toast.success('Przypisanie usunięte');
       onAssignmentChange();
+    } catch (error) {
+      toast.error('Błąd przy usuwaniu przypisania');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
+
+  const handleSelect = async (item: {id: string; name: string} | null) => {
+    if (item) {
+      await assignDriver(item.id);
+    }
+  };
+
+  // Transform drivers for UniversalSelector
+  const driverItems = drivers.map(driver => ({
+    id: driver.id,
+    name: `${driver.first_name} ${driver.last_name}${driver.email ? ` (${driver.email})` : ''}`
+  }));
 
   return (
     <div className="relative">
@@ -146,61 +142,20 @@ export function DriverAssignmentDropdown({
             </button>
           </>
         ) : (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsOpen(!isOpen);
-            }}
-            className="text-primary hover:text-primary/80 flex items-center gap-1"
-          >
-            Brak przypisania
-            <ChevronDown className="h-3 w-3" />
-          </button>
+          <UniversalSelector
+            id={`vehicle-driver-${vehicleId}`}
+            items={driverItems}
+            currentValue={null}
+            placeholder="Brak przypisania"
+            searchPlaceholder="Szukaj kierowcy..."
+            noResultsText="Brak kierowców"
+            showSearch={true}
+            showAdd={false}
+            onSelect={handleSelect}
+            disabled={loading}
+          />
         )}
       </div>
-
-      {isOpen && !currentDriver && (
-        <div className="absolute z-50 mt-2 w-96 bg-popover border rounded-xl shadow-lg p-4">
-          <div className="space-y-3">
-            <Input
-              placeholder="Szukaj kierowcy..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 rounded-lg"
-            />
-            
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {filteredDrivers.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-8">
-                  Brak kierowców
-                </div>
-              ) : (
-                filteredDrivers.map((driver) => (
-                  <div
-                    key={driver.id}
-                    onClick={() => assignDriver(driver.id)}
-                    className="p-4 rounded-lg hover:bg-primary/10 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
-                  >
-                    <div className="font-semibold text-base">{driver.first_name} {driver.last_name}</div>
-                    <div className="text-sm text-muted-foreground mt-1">{driver.email || "Brak email"}</div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg"
-              >
-                Anuluj
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
