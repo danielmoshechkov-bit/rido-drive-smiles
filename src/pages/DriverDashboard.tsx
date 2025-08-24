@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { UniversalTabBar } from "@/components/UniversalTabBar";
 import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
+import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -146,66 +147,24 @@ const DriverDashboard = () => {
           <DriverChatButton driverData={driverData} />
         </div>
         
-        <div className="bg-gradient-hero text-primary-foreground rounded-lg p-2 shadow-purple h-14 mb-6">
-          <div className="grid grid-cols-5 h-full gap-1">
-            <button
-              onClick={() => setActiveTab('weekly-report')}
-              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
-                activeTab === 'weekly-report' 
-                  ? 'bg-white text-primary' 
-                  : 'hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              Rozliczenie tygodniowe
-            </button>
-            <button
-              onClick={() => setActiveTab('cars')}
-              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
-                activeTab === 'cars' 
-                  ? 'bg-white text-primary' 
-                  : 'hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              Samochód
-            </button>
-            <button
-              onClick={() => setActiveTab('fleet-info')}
-              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
-                activeTab === 'fleet-info' 
-                  ? 'bg-white text-primary' 
-                  : 'hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              Informacje flotowe
-            </button>
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
-                activeTab === 'documents' 
-                  ? 'bg-white text-primary' 
-                  : 'hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              Dokumenty
-            </button>
-            <button
-              onClick={() => setActiveTab('fuel')}
-              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
-                activeTab === 'fuel' 
-                  ? 'bg-white text-primary' 
-                  : 'hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              Paliwo
-            </button>
-          </div>
-        </div>
+        <UniversalTabBar 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          tabs={[
+            { value: 'weekly-report', label: 'Rozliczenie tygodniowe' },
+            { value: 'cars', label: 'Samochód' },
+            { value: 'fleet-info', label: 'Informacje flotowe' },
+            { value: 'documents', label: 'Dokumenty' },
+            { value: 'fuel', label: 'Paliwo' }
+          ]}
+        >
+          <div />
+        </UniversalTabBar>
 
-        
         {/* Tab Content */}
         <div className="space-y-6">
           {activeTab === 'weekly-report' && <WeeklyResults driverData={driverData} />}
-          {activeTab === 'cars' && <AddCarForm driverId={driverData.driver_id} />}
+          {activeTab === 'cars' && <VehicleList driverId={driverData.driver_id} />}
           {activeTab === 'fleet-info' && <FleetInfo driverData={driverData} />}
           {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
           {activeTab === 'fuel' && <FuelLogs driverData={driverData} />}
@@ -711,72 +670,70 @@ function FleetInfo({ driverData }: { driverData: any }) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
       {/* Wynajęte auto - lewa kolumna */}
-      <UniversalCard title="Wynajęte auto">
+      <UniversalCard title="Wynajęte auto" className="max-w-md">
         {vehicleData ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Marka i model</Label>
+              <p className="text-sm font-semibold text-foreground mt-1">{vehicleData.brand} {vehicleData.model}</p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Nr rejestracji</Label>
+              <p className="text-sm font-medium text-foreground mt-1">{vehicleData.plate}</p>
+            </div>
+            {vehicleData.year && (
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Marka i model</Label>
-                <p className="text-lg font-semibold text-foreground mt-1">{vehicleData.brand} {vehicleData.model}</p>
+                <Label className="text-xs font-medium text-muted-foreground">Rok produkcji</Label>
+                <p className="text-sm text-foreground mt-1">{vehicleData.year}</p>
               </div>
+            )}
+            {vehicleData.color && (
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Nr rejestracji</Label>
-                <p className="text-base font-medium text-foreground mt-1">{vehicleData.plate}</p>
+                <Label className="text-xs font-medium text-muted-foreground">Kolor</Label>
+                <p className="text-sm text-foreground mt-1">{vehicleData.color}</p>
               </div>
-              {vehicleData.year && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Rok produkcji</Label>
-                  <p className="text-base text-foreground mt-1">{vehicleData.year}</p>
-                </div>
-              )}
-              {vehicleData.color && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Kolor</Label>
-                  <p className="text-base text-foreground mt-1">{vehicleData.color}</p>
-                </div>
-              )}
-              {assignmentData?.assigned_date && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Wynajęte od</Label>
-                  <p className="text-base font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
-                </div>
-              )}
+            )}
+            {assignmentData?.assigned_date && (
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</Label>
-                <p className="text-lg font-bold text-green-600 mt-1">{vehicleData.weekly_rental_fee || 0} zł</p>
+                <Label className="text-xs font-medium text-muted-foreground">Wynajęte od</Label>
+                <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
               </div>
+            )}
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Wynajem tygodniowy</Label>
+              <p className="text-sm font-bold text-green-600 mt-1">{vehicleData.weekly_rental_fee || 0} zł</p>
             </div>
             {vehicleData.vin && (
-              <div className="pt-3 border-t border-border">
-                <Label className="text-sm font-medium text-muted-foreground">VIN</Label>
-                <p className="text-sm font-mono text-foreground mt-1">{vehicleData.vin}</p>
+              <div className="pt-2 mt-2 border-t border-border">
+                <Label className="text-xs font-medium text-muted-foreground">VIN</Label>
+                <p className="text-xs font-mono text-foreground mt-1">{vehicleData.vin}</p>
               </div>
             )}
           </div>
         ) : (
-          <p className="text-base text-muted-foreground">Nie masz przypisanego pojazdu.</p>
+          <p className="text-sm text-muted-foreground">Nie masz przypisanego pojazdu.</p>
         )}
       </UniversalCard>
 
       {/* Informacje o flocie - prawa kolumna */}
-      <UniversalCard title="Informacje o flocie">
+      <UniversalCard title="Informacje o flocie" className="max-w-md">
         {fleetData ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
-              <p className="text-lg font-semibold text-foreground mt-1">{fleetData.name}</p>
+              <Label className="text-xs font-medium text-muted-foreground">Nazwa floty</Label>
+              <p className="text-sm font-semibold text-foreground mt-1">{fleetData.name}</p>
             </div>
             {assignmentData?.assigned_date && (
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Data dołączenia</Label>
-                <p className="text-base text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
+                <Label className="text-xs font-medium text-muted-foreground">Data dołączenia</Label>
+                <p className="text-sm text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
               </div>
             )}
           </div>
         ) : (
-          <p className="text-base text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Nie jesteś przypisany do żadnej floty.
           </p>
         )}
