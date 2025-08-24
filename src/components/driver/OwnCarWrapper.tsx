@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LeasedCarCard } from "./LeasedCarCard";
+import { OwnCarCard } from "./OwnCarCard";
 
-interface LeasedCarWrapperProps {
+interface OwnCarWrapperProps {
   driverData: any;
   refreshTrigger?: number;
 }
@@ -18,23 +18,16 @@ interface VehicleAssignment {
     year?: number;
     color?: string;
     vin?: string;
-    weekly_rental_fee?: number;
-    fleets?: {
-      name: string;
-      nip?: string;
-      address?: string;
-      contact_name?: string;
-      phone?: string;
-    };
+    fleet_id?: string;
   };
 }
 
-export const LeasedCarWrapper = ({ driverData, refreshTrigger }: LeasedCarWrapperProps) => {
+export const OwnCarWrapper = ({ driverData, refreshTrigger }: OwnCarWrapperProps) => {
   const [assignment, setAssignment] = useState<VehicleAssignment | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadVehicleAssignment = async () => {
+    const loadOwnVehicleAssignment = async () => {
       try {
         const { data, error } = await supabase
           .from("driver_vehicle_assignments")
@@ -49,51 +42,37 @@ export const LeasedCarWrapper = ({ driverData, refreshTrigger }: LeasedCarWrappe
               year,
               color,
               vin,
-              weekly_rental_fee,
-              fleet_id,
-              fleets (
-                name,
-                nip,
-                city,
-                postal_code,
-                street,
-                house_number,
-                contact_name,
-                phone,
-                contact_phone_for_drivers,
-                owner_name,
-                owner_phone
-              )
+              fleet_id
             )
           `)
           .eq("driver_id", driverData.driver_id)
           .is("unassigned_at", null)
           .eq("status", "active")
-          .not("vehicles.fleet_id", "is", null) // Only fleet cars (not personal cars)
+          .is("vehicles.fleet_id", null) // Only personal cars (not fleet cars)
           .order("assigned_at", { ascending: false })
           .limit(1)
           .single();
 
         if (error && error.code !== 'PGRST116') {
-          console.error("Error loading vehicle assignment:", error);
+          console.error("Error loading own vehicle assignment:", error);
         } else if (data) {
           setAssignment(data as VehicleAssignment);
         }
       } catch (error) {
-        console.error("Error loading vehicle assignment:", error);
+        console.error("Error loading own vehicle assignment:", error);
       } finally {
         setLoading(false);
       }
     };
 
     if (driverData.driver_id) {
-      loadVehicleAssignment();
+      loadOwnVehicleAssignment();
     }
   }, [driverData.driver_id, refreshTrigger]);
 
   if (loading) {
     return (
-      <div className="rounded-2xl border bg-card shadow-soft p-5">
+      <div className="rounded-lg border bg-card shadow-sm p-4">
         <div className="animate-pulse">
           <div className="h-4 bg-muted rounded w-1/3 mb-3"></div>
           <div className="h-6 bg-muted rounded w-1/2 mb-2"></div>
@@ -103,12 +82,14 @@ export const LeasedCarWrapper = ({ driverData, refreshTrigger }: LeasedCarWrappe
     );
   }
 
+  if (!assignment) {
+    return null; // Don't show anything if no personal car
+  }
+
   return (
-    <LeasedCarCard
+    <OwnCarCard
       vehicle={assignment?.vehicles || null}
       assignment={assignment}
-      fleet={assignment?.vehicles?.fleets}
-      readOnlyRent={true}
     />
   );
 };

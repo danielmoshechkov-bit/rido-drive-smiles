@@ -15,6 +15,7 @@ import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
+import { OwnCarWrapper } from "@/components/driver/OwnCarWrapper";
 import { UniversalSelector } from "@/components/UniversalSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -201,9 +202,11 @@ function CarsSection({ driverData }: { driverData: any }) {
         </Button>
       </div>
 
-
-      {/* Karta wynajętego auta */}
+      {/* Karta wynajętego auta (z floty) */}
       <LeasedCarWrapper driverData={driverData} refreshTrigger={refreshTrigger} />
+
+      {/* Karta własnego auta */}
+      <OwnCarWrapper driverData={driverData} refreshTrigger={refreshTrigger} />
 
       {/* Modal dodawania auta */}
       <AddOwnCarModal 
