@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UniversalSelector } from "./UniversalSelector";
 
 interface SettlementPlanSelectorProps {
   driverData: any;
@@ -19,7 +15,6 @@ export const SettlementPlanSelector = ({
   onPlanChange
 }: SettlementPlanSelectorProps) => {
   const [selectedPlan, setSelectedPlan] = useState(currentPlan || "");
-  const [isOpen, setIsOpen] = useState(false);
   const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
 
   const plans = [
@@ -49,7 +44,11 @@ export const SettlementPlanSelector = ({
     return 30 - daysSinceChange;
   };
 
-  const handlePlanChange = async (newPlan: string) => {
+  const handlePlanChange = async (item: {id: string; name: string} | null) => {
+    if (!item) return;
+    
+    const newPlan = item.id;
+    
     // Jeśli nie ma wybranego planu, pozwól wybrać
     if (selectedPlan && !canChangePlan()) {
       toast.error(`Możesz zmienić plan za ${daysUntilNextChange()} dni`);
@@ -67,51 +66,36 @@ export const SettlementPlanSelector = ({
       setSelectedPlan(newPlan);
       onPlanChange(newPlan);
       setLastChangeDate(new Date());
-      setIsOpen(false);
       toast.success("Plan rozliczenia został zmieniony");
     } catch (error: any) {
       toast.error("Błąd przy zmianie planu: " + error.message);
     }
   };
 
+  const currentPlanName = plans.find(p => p.id === selectedPlan)?.name || "Wybierz plan";
+
   return (
-    <Card className="p-4 rounded-lg shadow-md">
-      <div className="flex flex-col">
-        <label className="text-sm font-medium text-muted-foreground mb-2">Plan rozliczenia</label>
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-48 justify-between rounded-lg">
-              <span className="truncate">
-                {selectedPlan && plans.find(p => p.id === selectedPlan)?.name || "Wybierz plan"}
-              </span>
-              <ChevronDown className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-2 rounded-lg bg-white border shadow-lg" align="start">
-            {plans.map((plan) => (
-              <Button
-                key={plan.id}
-                variant="ghost"
-                className="w-full justify-start p-3 h-auto rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
-                onClick={() => handlePlanChange(plan.id)}
-              >
-                <div className="flex items-center gap-2 w-full">
-                  <div className="flex-1 text-left">
-                    <div className="font-medium">{plan.name}</div>
-                    <div className="text-xs text-muted-foreground">{plan.description}</div>
-                  </div>
-                  {selectedPlan === plan.id && <Check className="h-4 w-4 text-primary" />}
-                </div>
-              </Button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        {selectedPlan && !canChangePlan() && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Zmiana możliwa za {daysUntilNextChange()} dni
-          </div>
-        )}
-      </div>
-    </Card>
+    <div className="flex flex-col">
+      <label className="text-xs text-muted-foreground mb-1">Plan rozliczenia</label>
+      <UniversalSelector
+        id="settlement-plan-selector"
+        items={plans.map(plan => ({
+          id: plan.id,
+          name: plan.name
+        }))}
+        currentValue={selectedPlan}
+        placeholder={currentPlanName}
+        showSearch={false}
+        showAdd={false}
+        allowClear={false}
+        onSelect={handlePlanChange}
+        className="w-48"
+      />
+      {selectedPlan && !canChangePlan() && (
+        <div className="mt-1 text-xs text-muted-foreground">
+          Zmiana możliwa za {daysUntilNextChange()} dni
+        </div>
+      )}
+    </div>
   );
 };

@@ -126,13 +126,18 @@ export function DriverAssignmentDropdown({
     name: `${driver.first_name} ${driver.last_name}${driver.email ? ` (${driver.email})` : ''}`
   }));
 
+  // Display current driver name or fallback
+  const currentDriverName = currentDriver 
+    ? `${currentDriver.first_name} ${currentDriver.last_name}${currentDriver.email ? ` (${currentDriver.email})` : ''}`
+    : "Brak przypisania";
+
   return (
     <div className="relative">
       <UniversalSelector
         id={`vehicle-driver-${vehicleId}`}
         items={driverItems}
         currentValue={currentDriver?.id || null}
-        placeholder="Brak przypisania"
+        placeholder={currentDriverName}
         searchPlaceholder="Szukaj kierowcy..."
         noResultsText="Brak kierowców"
         showSearch={true}

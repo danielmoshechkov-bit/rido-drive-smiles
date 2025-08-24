@@ -14,7 +14,7 @@ import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
-import { DriverFleetBadgeSelector } from "@/components/DriverFleetBadgeSelector";
+import { UniversalSelector } from "@/components/UniversalSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -200,15 +200,6 @@ function CarsSection({ driverData }: { driverData: any }) {
         </Button>
       </div>
 
-      {/* Selektor floty */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Flota:</span>
-        <DriverFleetBadgeSelector 
-          driverId={driverData.driver_id}
-          fleetId={driverData.drivers?.fleet_id}
-          onFleetChange={() => setRefreshTrigger(prev => prev + 1)}
-        />
-      </div>
 
       {/* Karta wynajętego auta */}
       <LeasedCarWrapper key={refreshTrigger} driverData={driverData} />
@@ -388,57 +379,35 @@ function WeeklyResults({ driverData }: { driverData: any }) {
             <div className="flex gap-3 items-center flex-wrap">
               <div className="filter-tile min-w-0">
                 <label className="text-xs text-muted-foreground block mb-1">Rok</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" className="h-6 p-0 text-sm font-medium hover:bg-transparent">
-                      {selectedYear}
-                      <ChevronDown className="ml-1 h-3 w-3" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-32 p-2 rounded-lg">
-                    {years.map(year => (
-                      <Button
-                        key={year}
-                        variant="ghost"
-                        className="w-full justify-start rounded-md text-sm"
-                        onClick={() => setSelectedYear(year)}
-                      >
-                        {year}
-                      </Button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
+                <UniversalSelector
+                  id="year-selector"
+                  items={years.map(year => ({ id: year.toString(), name: year.toString() }))}
+                  currentValue={selectedYear.toString()}
+                  placeholder={selectedYear.toString()}
+                  showSearch={false}
+                  showAdd={false}
+                  allowClear={false}
+                  onSelect={(item) => item && setSelectedYear(parseInt(item.id))}
+                  className="w-24"
+                />
               </div>
               
               <div className="filter-tile min-w-0 max-w-64">
                 <label className="text-xs text-muted-foreground block mb-1">Okres</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" className="h-6 p-0 text-sm font-medium hover:bg-transparent justify-start">
-                      <span className="truncate">
-                        {weekDates.find(w => w.week === selectedWeek) 
-                          ? `Tydz. ${selectedWeek}`
-                          : "Wybierz"}
-                      </span>
-                      <ChevronDown className="ml-1 h-3 w-3 flex-shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-2 rounded-lg max-h-64 overflow-y-auto">
-                    {weekDates.map(({ week, startDate, endDate }) => (
-                      <Button
-                        key={week}
-                        variant="ghost"
-                        className="w-full justify-start text-left rounded-md"
-                        onClick={() => setSelectedWeek(week)}
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium text-sm">Tydzień {week}</span>
-                          <span className="text-xs text-muted-foreground">{startDate} - {endDate}</span>
-                        </div>
-                      </Button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
+                <UniversalSelector
+                  id="week-selector"
+                  items={weekDates.map(({ week, startDate, endDate }) => ({
+                    id: week.toString(),
+                    name: `Tydz. ${week} (${startDate} - ${endDate})`
+                  }))}
+                  currentValue={selectedWeek.toString()}
+                  placeholder={weekDates.find(w => w.week === selectedWeek) ? `Tydz. ${selectedWeek}` : "Wybierz"}
+                  showSearch={true}
+                  showAdd={false}
+                  allowClear={false}
+                  onSelect={(item) => item && setSelectedWeek(parseInt(item.id))}
+                  className="w-48"
+                />
               </div>
 
               <div className="filter-tile">
