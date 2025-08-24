@@ -4,7 +4,6 @@ import { LeasedCarCard } from "./LeasedCarCard";
 
 interface LeasedCarWrapperProps {
   driverData: any;
-  refreshTrigger?: number;
 }
 
 interface VehicleAssignment {
@@ -29,7 +28,7 @@ interface VehicleAssignment {
   };
 }
 
-export const LeasedCarWrapper = ({ driverData, refreshTrigger }: LeasedCarWrapperProps) => {
+export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
   const [assignment, setAssignment] = useState<VehicleAssignment | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +87,7 @@ export const LeasedCarWrapper = ({ driverData, refreshTrigger }: LeasedCarWrappe
     if (driverData.driver_id) {
       loadVehicleAssignment();
     }
-  }, [driverData.driver_id, refreshTrigger]);
+  }, [driverData.driver_id]);
 
   if (loading) {
     return (
