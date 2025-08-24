@@ -155,7 +155,6 @@ const DriverDashboard = () => {
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
           <TabsTrigger value="cars">Samochód</TabsTrigger>
-          <TabsTrigger value="fleet-info">Informacje flotowe</TabsTrigger>
           <TabsTrigger value="documents">Dokumenty</TabsTrigger>
           <TabsTrigger value="fuel">Paliwo</TabsTrigger>
 
@@ -166,10 +165,6 @@ const DriverDashboard = () => {
           
           <TabsContent value="cars">
             <CarsSection driverData={driverData} />
-          </TabsContent>
-          
-          <TabsContent value="fleet-info">
-            <FleetInfo driverData={driverData} />
           </TabsContent>
           
           <TabsContent value="documents">
@@ -657,119 +652,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent informacji flotowych
-function FleetInfo({ driverData }: { driverData: any }) {
-  const [vehicleData, setVehicleData] = useState<any>(null);
-  const [fleetData, setFleetData] = useState<any>(null);
-  const [assignmentData, setAssignmentData] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchFleetInfo = async () => {
-      // Pobierz dane o wynajętym aucie i flocie wraz z datą rozpoczęcia
-      const { data: assignment } = await supabase
-        .from("driver_vehicle_assignments")
-        .select(`
-          *,
-          vehicles(
-            plate, brand, model, year, color, vin,
-            weekly_rental_fee,
-            fleets(name)
-          )
-        `)
-        .eq("driver_id", driverData.driver_id)
-        .eq("status", "active")
-        .single();
-      
-      if (assignment?.vehicles) {
-        setVehicleData(assignment.vehicles);
-        setFleetData(assignment.vehicles.fleets);
-        setAssignmentData(assignment);
-      }
-    };
-
-    fetchFleetInfo();
-  }, [driverData.driver_id]);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pl-PL', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-      {/* Wynajęte auto - lewa kolumna */}
-      <UniversalCard title="Wynajęte auto" className="max-w-md">
-        {vehicleData ? (
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground">Marka i model</Label>
-              <p className="text-sm font-semibold text-foreground mt-1">{vehicleData.brand} {vehicleData.model}</p>
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground">Nr rejestracji</Label>
-              <p className="text-sm font-medium text-foreground mt-1">{vehicleData.plate}</p>
-            </div>
-            {vehicleData.year && (
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground">Rok produkcji</Label>
-                <p className="text-sm text-foreground mt-1">{vehicleData.year}</p>
-              </div>
-            )}
-            {vehicleData.color && (
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground">Kolor</Label>
-                <p className="text-sm text-foreground mt-1">{vehicleData.color}</p>
-              </div>
-            )}
-            {assignmentData?.assigned_at && (
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground">Wynajęte od</Label>
-                <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_at)}</p>
-              </div>
-            )}
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground">Wynajem tygodniowy</Label>
-              <p className="text-sm font-bold text-green-600 mt-1">{vehicleData.weekly_rental_fee || 0} zł</p>
-            </div>
-            {vehicleData.vin && (
-              <div className="pt-2 mt-2 border-t border-border">
-                <Label className="text-xs font-medium text-muted-foreground">VIN</Label>
-                <p className="text-xs font-mono text-foreground mt-1">{vehicleData.vin}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nie masz przypisanego pojazdu.</p>
-        )}
-      </UniversalCard>
-
-      {/* Informacje o flocie - prawa kolumna */}
-      <UniversalCard title="Informacje o flocie" className="max-w-md">
-        {fleetData ? (
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground">Nazwa floty</Label>
-              <p className="text-sm font-semibold text-foreground mt-1">{fleetData.name}</p>
-            </div>
-            {assignmentData?.assigned_at && (
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground">Data dołączenia</Label>
-                <p className="text-sm text-foreground mt-1">{formatDate(assignmentData.assigned_at)}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Nie jesteś przypisany do żadnej floty.
-          </p>
-        )}
-      </UniversalCard>
-    </div>
-  );
-}
+// Function removed - fleet info is now integrated into the car section
 
 // Komponent logów paliwa
 function FuelLogs({ driverData }: { driverData: any }) {

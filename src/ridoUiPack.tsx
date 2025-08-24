@@ -201,12 +201,16 @@ export function LeasedCarCard({
             </div>
           )}
 
-          {/* bardziej zwarte rozmieszczenie - zmniejszone odstępy */}
-          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0 text-sm">
-            <div className="text-muted-foreground">Rok produkcji:</div>
-            <div className="font-medium">{vehicle.year || "—"}</div>
-            <div className="text-muted-foreground">Kolor:</div>
-            <div className="font-medium">{vehicle.color || "—"}</div>
+          {/* bardzo zwarte rozmieszczenie - bez odstępów */}
+          <div className="mt-1 space-y-0 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Rok produkcji:</span>
+              <span className="font-medium">{vehicle.year || "—"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Kolor:</span>
+              <span className="font-medium">{vehicle.color || "—"}</span>
+            </div>
           </div>
 
           {/* „Wynajem" – etykieta w rzędzie, kwota pod spodem */}

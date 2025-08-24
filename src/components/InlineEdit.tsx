@@ -44,7 +44,9 @@ export const InlineEdit = ({
     }
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent) => {
+    // Prevent scrolling and focus loss during save
+    e.preventDefault();
     if (editValue !== value && editValue.trim() !== '') {
       handleSave();
     } else if (editValue.trim() === '' && value !== '') {
@@ -89,7 +91,7 @@ export const InlineEdit = ({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           maxLength={maxLength}
-          className="h-8 text-sm bg-violet-50 border-violet-200 focus:border-violet-400"
+          className="h-8 text-sm bg-violet-100 border-2 border-violet-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
           autoFocus
         />
         <Button
