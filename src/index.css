@@ -174,4 +174,24 @@ All colors MUST be HSL.
   .opacity-10 { opacity: 0.10; }
   .opacity-11 { opacity: 0.11; }
   .opacity-12 { opacity: 0.12; }
+
+  /* Scrollbar hide utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Additional scrollbar utilities for TabsPill */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

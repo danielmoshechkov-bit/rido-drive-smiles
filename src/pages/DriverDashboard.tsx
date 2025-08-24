@@ -12,7 +12,7 @@ import { AddCarForm } from "@/components/AddCarForm";
 import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { ChatFab } from "@/components/chat/ChatFab";
-import { LeasedCarCard } from "@/components/driver/LeasedCarCard";
+import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -165,7 +165,7 @@ const DriverDashboard = () => {
           </TabsPillContent>
           
           <TabsPillContent value="cars">
-            <LeasedCarCard driverData={driverData} />
+            <LeasedCarWrapper driverData={driverData} />
           </TabsPillContent>
           
           <TabsPillContent value="fleet-info">
