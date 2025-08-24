@@ -1,23 +1,22 @@
-// ===================================================================
-// File: src/components/DriversManagement.tsx   (PODMIANA CAŁEGO PLIKU)
-// Lista kierowców z: węższym polem "Szukaj", filtrem obok,
-// oraz przyciskiem "+ Dodaj kierowcę" w prawym górnym rogu.
-// Floty do filtra są pobierane z tabeli `fleets` (name,id,...).
-// ===================================================================
-
-import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Edit2, Copy, Phone, Mail, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
-import { useDrivers } from "@/hooks/useDrivers";
-import { AddDriverModal } from "./AddDriverModal";
-import { EditDriverModal } from "./EditDriverModal";
-import { InlineEdit } from "./InlineEdit";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { AddDriverModal } from './AddDriverModal';
+import { EditDriverModal } from './EditDriverModal';
+import { DriverStatusBadge } from './DriverStatusBadge';
+import { NewDriverBadge } from './NewDriverBadge';
+import { DriverExpandedPanel } from './DriverExpandedPanel';
+import { useDrivers, Driver } from '@/hooks/useDrivers';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { InlineEdit } from './InlineEdit';
+import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
+import { DriverRentalBadge } from './DriverRentalBadge';
+import { DriverFilters } from './DriverFilters';
+import { Trash2 } from 'lucide-react';
 
 interface DriversManagementProps {
   cityId: string;
@@ -25,46 +24,36 @@ interface DriversManagementProps {
   onDriverUpdate: () => void;
 }
 
-/** pomocniczo: heurystyka "nowy kierowca" */
-const isNewDriver = (created_at?: string | null) => {
-  if (!created_at) return false;
-  const created = new Date(created_at).getTime();
-  const days14 = 14 * 24 * 60 * 60 * 1000;
-  return Date.now() - created < days14;
-};
-
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversManagementProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<string | null>(null);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
+  
+  const { drivers, loading, refetch } = useDrivers(cityId);
 
-  // FILTRY
-  const [fleets, setFleets] = useState<{ id: string; name: string }[]>([]);
-  const [selectedFleets, setSelectedFleets] = useState<Set<string>>(new Set());
-  const [status, setStatus] = useState<{ active: boolean; inactive: boolean; fresh: boolean }>({
-    active: false, inactive: false, fresh: false
-  });
+  const filteredDrivers = drivers.filter(driver => 
+    `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    driver.phone?.includes(searchTerm)
+  );
 
-  const { drivers, loading } = useDrivers(cityId);
+  const toggleDriverExpansion = (driverId: string) => {
+    const newExpanded = new Set(expandedDrivers);
+    if (newExpanded.has(driverId)) {
+      newExpanded.delete(driverId);
+    } else {
+      newExpanded.add(driverId);
+    }
+    setExpandedDrivers(newExpanded);
+  };
 
-  // pobranie flot do filtra (z zakładki Floty)
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("fleets")
-        .select("id,name")
-        .order("name", { ascending: true });
-      if (!error && data) setFleets(data as any);
-    })();
-  }, []);
-
-  // kolorystyka plakietek platform (zostawiona jak było)
   const getServiceColor = (service: string) => {
     switch (service.toLowerCase()) {
-      case "uber": return "bg-black text-white hover:bg-gray-800";
-      case "bolt": return "bg-green-500 text-white hover:bg-green-600";
-      case "freenow": return "bg-red-500 text-white hover:bg-red-600";
-      default: return "bg-gray-500 text-white hover:bg-gray-600";
+      case 'uber': return 'bg-black text-white hover:bg-gray-800';
+      case 'bolt': return 'bg-green-500 text-white hover:bg-green-600';
+      case 'freenow': return 'bg-red-500 text-white hover:bg-red-600';
+      default: return 'bg-gray-500 text-white hover:bg-gray-600';
     }
   };
 
@@ -85,68 +74,33 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
 
   const updateDriverField = async (driverId: string, field: string, value: string) => {
     const { error } = await supabase
-      .from("drivers")
+      .from('drivers')
       .update({ [field]: value, updated_at: new Date().toISOString() })
-      .eq("id", driverId);
+      .eq('id', driverId);
 
     if (error) throw error;
     onDriverUpdate();
   };
 
-  const updatePlatformId = async (oldPlatformId: string, newValue: string) => {
-    const { data: platformRecord, error: findError } = await supabase
-      .from("driver_platform_ids")
-      .select("id")
-      .eq("platform_id", oldPlatformId)
-      .single();
+  const deleteDriver = async (driverId: string, driverName: string) => {
+    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName}?`)) return;
 
-    if (findError || !platformRecord) throw new Error("Platform not found");
-
-    const { error } = await supabase
-      .from("driver_platform_ids")
-      .update({ platform_id: newValue })
-      .eq("id", platformRecord.id);
-
-    if (error) throw error;
-    onDriverUpdate();
+    try {
+      // Usuń powiązane dane
+      await supabase.from('driver_platform_ids').delete().eq('driver_id', driverId);
+      await supabase.from('driver_document_statuses').delete().eq('driver_id', driverId);
+      await supabase.from('driver_vehicle_assignments').delete().eq('driver_id', driverId);
+      
+      // Usuń główny rekord kierowcy
+      const { error } = await supabase.from('drivers').delete().eq('id', driverId);
+      if (error) throw error;
+      
+      toast.success(`Usunięto kierowcę ${driverName}`);
+      onDriverUpdate();
+    } catch (error) {
+      toast.error('Błąd podczas usuwania kierowcy');
+    }
   };
-
-  // zastosowanie filtrów i wyszukiwarki
-  const filteredDrivers = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
-    return drivers.filter((d: any) => {
-      // wyszukiwarka
-      const hay =
-        `${d.first_name ?? ""} ${d.last_name ?? ""}`.toLowerCase() +
-        ` ${d.email ?? ""}`.toLowerCase() +
-        ` ${d.phone ?? ""}` +
-        ` ${d.fleet_name ?? ""}`.toLowerCase();
-      if (term && !hay.includes(term)) return false;
-
-      // filtr: floty (jeśli coś zaznaczono)
-      if (selectedFleets.size > 0) {
-        const name = (d.fleet_name ?? "").toString();
-        // UWAGA: oczekujemy, że backend/usługa listy kierowców podaje 'fleet_name'
-        // (np. bieżąca flota z aktywnego przypisania). Jeśli brak – kierowca "odpada"
-        if (!name || !selectedFleets.has(name)) return false;
-      }
-
-      // filtr: status
-      if (status.active || status.inactive || status.fresh) {
-        const isActive = d.is_active ?? true; // domyślnie traktujemy jako aktywnego
-        const fresh = isNewDriver(d.created_at);
-
-        let pass = false;
-        if (status.active && isActive) pass = true;
-        if (status.inactive && !isActive) pass = true;
-        if (status.fresh && fresh) pass = true;
-        if (!pass) return false;
-      }
-
-      return true;
-    });
-  }, [drivers, searchTerm, selectedFleets, status]);
 
   if (loading) {
     return (
@@ -161,236 +115,155 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   return (
     <>
       <Card>
-        <CardHeader className="pb-4">
-          {/* Nagłówek: tytuł po lewej, +Dodaj po prawej */}
-          <div className="flex items-center justify-between gap-3">
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <div>
               <CardTitle>Lista kierowców - {cityName}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
               </p>
             </div>
-
             <Button onClick={() => setShowAddModal(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Dodaj kierowcę
             </Button>
           </div>
-
-          {/* Pasek: mniejszy search + Filtry zaraz obok po prawej */}
-          <div className="mt-4 flex items-center gap-2">
-            <div className="relative flex-1 max-w-[520px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          
+          <div className="flex items-center justify-between mt-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Szukaj kierowców…"
+                placeholder="Szukaj kierowców..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10"
+                className="pl-10 rounded-lg"
               />
             </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filtry
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[280px]">
-                <DropdownMenuLabel>Floty</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {fleets.length === 0 && (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    Brak zdefiniowanych flot
-                  </div>
-                )}
-                {fleets.map((f) => (
-                  <DropdownMenuCheckboxItem
-                    key={f.id}
-                    checked={selectedFleets.has(f.name)}
-                    onCheckedChange={(checked) => {
-                      const next = new Set(selectedFleets);
-                      if (checked) next.add(f.name);
-                      else next.delete(f.name);
-                      setSelectedFleets(next);
-                    }}
-                  >
-                    {f.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={status.active}
-                  onCheckedChange={(c) => setStatus((s) => ({ ...s, active: !!c }))}
-                >
-                  Aktywni
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={status.inactive}
-                  onCheckedChange={(c) => setStatus((s) => ({ ...s, inactive: !!c }))}
-                >
-                  Nieaktywni
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={status.fresh}
-                  onCheckedChange={(c) => setStatus((s) => ({ ...s, fresh: !!c }))}
-                >
-                  Nowi kierowcy
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DriverFilters onFilterChange={() => {}} />
           </div>
         </CardHeader>
-
+        
         <CardContent>
           {filteredDrivers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                {drivers.length === 0
+                {drivers.length === 0 
                   ? "Brak kierowców w tym mieście. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
-                  : "Nie znaleziono kierowców pasujących do filtrów/wyszukiwania."}
+                  : "Nie znaleziono kierowców pasujących do wyszukiwania."
+                }
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredDrivers.map((driver: any) => (
-                <div key={driver.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+              {filteredDrivers.map((driver) => (
+                <div 
+                  key={driver.id} 
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => toggleDriverExpansion(driver.id)}
+                >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      {/* Imię + przycisk edycji */}
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-medium">
                           {driver.first_name} {driver.last_name}
                         </h3>
+                        <div className="flex items-center gap-2">
+                          <DriverStatusBadge 
+                            driverId={driver.id}
+                            currentRole={(driver as any).user_role || 'kierowca'}
+                          />
+                          {driver.registration_date && (
+                            <NewDriverBadge registrationDate={driver.registration_date} />
+                          )}
+                          <DriverRentalBadge 
+                            driverId={driver.id}
+                            driverData={driver}
+                            cityId={cityId}
+                            onUpdate={refetch}
+                          />
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setEditingDriver(driver.id)}
-                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDriver(driver);
+                          }}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          Edytuj
                         </Button>
-                        {/* Jeśli mamy nazwę floty dla kierowcy – pokaż jako plakietkę */}
-                        {driver.fleet_name && (
-                          <Badge variant="outline" className="rounded-full px-3 py-1">
-                            {driver.fleet_name}
-                          </Badge>
-                        )}
-                        {isNewDriver(driver.created_at) && (
-                          <Badge className="bg-emerald-100 text-emerald-700 rounded-full px-3 py-1">
-                            NOWY
-                          </Badge>
-                        )}
                       </div>
 
-                      {/* Plakietki platform (same nazwy) */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {driver.platform_ids && driver.platform_ids.length > 0 ? (
-                          driver.platform_ids.map((platform: any) => (
-                            <Badge
-                              key={platform.platform}
-                              className={`${getServiceColor(platform.platform)} rounded-full px-4 py-2 text-sm font-medium`}
-                            >
-                              {platform.platform.toUpperCase()}
-                            </Badge>
-                          ))
-                        ) : (
-                          <Badge variant="outline" className="rounded-full px-4 py-2">
-                            Brak platform
+                      <div className="flex items-center gap-2 mb-2">
+                        {driver.platform_ids && driver.platform_ids.map((platform) => (
+                          <Badge
+                            key={platform.platform}
+                            className={getServiceColor(platform.platform)}
+                            variant="outline"
+                          >
+                            {platform.platform.toUpperCase()}
                           </Badge>
-                        )}
-                      </div>
-
-                      {/* Kontakt + ID platformowe w jednej linii */}
-                      <div className="flex items-center gap-6 flex-wrap text-sm">
-                        {/* Telefon */}
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          {driver.phone ? (
-                            <InlineEdit
-                              value={driver.phone}
-                              onSave={(value) => updateDriverField(driver.id, "phone", value)}
-                              placeholder="Brak telefonu"
-                            />
-                          ) : (
-                            <InlineEdit
-                              value=""
-                              onSave={(value) => updateDriverField(driver.id, "phone", value)}
-                              placeholder="Dodaj telefon"
-                              className="text-muted-foreground"
-                            />
-                          )}
-                        </div>
-
-                        {/* Email */}
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          {driver.email ? (
-                            <InlineEdit
-                              value={driver.email}
-                              onSave={(value) => updateDriverField(driver.id, "email", value)}
-                              placeholder="Brak email"
-                            />
-                          ) : (
-                            <InlineEdit
-                              value=""
-                              onSave={(value) => updateDriverField(driver.id, "email", value)}
-                              placeholder="Dodaj email"
-                              className="text-muted-foreground"
-                            />
-                          )}
-                        </div>
-
-                        {/* Platform IDs */}
-                        {driver.platform_ids && driver.platform_ids.map((platform: any) => (
-                          <div key={platform.platform} className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={`text-xs px-2 py-1 ${getServiceColor(platform.platform).replace("bg-", "border-").replace("text-white", "text-primary")}`}
-                            >
-                              {platform.platform.toUpperCase()}
-                            </Badge>
-                            <InlineEdit
-                              value={platform.platform_id}
-                              onSave={(value) => updatePlatformId(platform.platform_id, value)}
-                              truncateLength={8}
-                              className="font-mono"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(platform.platform_id, platform.platform.toUpperCase())}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
                         ))}
                       </div>
 
-                      {/* brakujące dane – sygnalizacje */}
-                      <div className="flex gap-2 text-xs">
-                        {!driver.phone && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-200">
-                            Brak telefonu
-                          </Badge>
-                        )}
-                        {!driver.email && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-200">
-                            Brak email
-                          </Badge>
-                        )}
-                        {(!driver.platform_ids || driver.platform_ids.length === 0) && (
-                          <Badge variant="outline" className="text-red-600 border-red-200">
-                            Brak platform
-                          </Badge>
-                        )}
+                      <div className="flex items-center gap-4 text-sm flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Phone size={14} />
+                          {driver.phone ? (
+                            <InlineEdit
+                              value={driver.phone}
+                              onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                            />
+                          ) : (
+                            <span className="text-red-500 text-xs">Brak telefonu</span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Mail size={14} />
+                          {driver.email ? (
+                            <InlineEdit
+                              value={driver.email}
+                              onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                            />
+                          ) : (
+                            <span className="text-red-500 text-xs">Brak e-maila</span>
+                          )}
+                        </div>
+
+                        <DriverFleetBadgeSelector 
+                          driverId={driver.id}
+                          fleetId={(driver as any).fleet_id}
+                        />
                       </div>
                     </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
+                        }}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                      {expandedDrivers.has(driver.id) ? (
+                        <ChevronUp size={16} className="text-muted-foreground" />
+                      ) : (
+                        <ChevronDown size={16} className="text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
+
+                  {expandedDrivers.has(driver.id) && (
+                    <DriverExpandedPanel 
+                      driver={driver} 
+                      onUpdate={refetch}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -398,7 +271,6 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
         </CardContent>
       </Card>
 
-      {/* Modale */}
       <AddDriverModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -410,7 +282,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
         <EditDriverModal
           isOpen={true}
           onClose={() => setEditingDriver(null)}
-          driverId={editingDriver}
+          driverId={editingDriver.id}
           onSuccess={handleEditDriver}
         />
       )}
