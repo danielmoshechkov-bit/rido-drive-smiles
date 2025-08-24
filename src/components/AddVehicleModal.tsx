@@ -44,7 +44,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
           model: model,
           year: year === "" ? null : Number(year),
           color: color || null,
-          odometer: 0,
+          odometer: odometer === "" ? 0 : Number(odometer),
           status: "aktywne",
           owner_name: ownerName || null,
           ...(cityId ? { city_id: cityId } : {})
@@ -118,6 +118,10 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
           <div>
             <Label>Kolor</Label>
             <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
+          </div>
+          <div>
+            <Label>Przebieg (km)</Label>
+            <Input type="number" value={odometer} onChange={(e) => setOdometer(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 145000" />
           </div>
           <div>
             <Label>Właściciel / Flota (nazwa spółki)</Label>

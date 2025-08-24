@@ -177,30 +177,30 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                            <div className="flex items-center justify-between">
                              {/* Main content */}
                              <div className="flex-1 space-y-3">
-                                <div className="flex items-center gap-6">
-                                  <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                    <div className="font-semibold">{vehicle.plate}</div>
-                                  </div>
-                                  <div className="min-w-[150px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                    <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-                                  </div>
-                                  <div className="min-w-[100px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Rok:</span>
-                                    <div className="font-semibold">{vehicle.year || "Brak"}</div>
-                                  </div>
-                                  <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                    <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
-                                      <InlineEdit
-                                        value={vehicle.weekly_rental_fee?.toString() || "0"}
-                                        onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
-                                      />
-                                      <span className="text-sm"> zł/tydz.</span>
-                                    </div>
-                                  </div>
-                                </div>
+                               <div className="flex items-center gap-6">
+                                 <div className="min-w-[120px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                                   <div className="font-semibold">{vehicle.plate}</div>
+                                 </div>
+                                 <div className="min-w-[150px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                   <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                 </div>
+                                 <div className="min-w-[100px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Rok:</span>
+                                   <div className="font-semibold">{vehicle.year || "Brak"}</div>
+                                 </div>
+                                 <div className="min-w-[120px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                                   <div className="font-semibold">
+                                     <InlineEdit
+                                       value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                       onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                                     />
+                                     <span className="text-sm"> zł/tydz.</span>
+                                   </div>
+                                 </div>
+                               </div>
                                
                                {/* Second row - documents */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
@@ -249,13 +249,13 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                       </div>
                     </Tabs>
 
-                     {/* Vehicle details */}
-                     {vehicle.vin && (
-                       <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                         <span className="font-medium text-sm text-muted-foreground">VIN:</span>
-                         <div className="font-mono text-sm">{vehicle.vin}</div>
-                       </div>
-                     )}
+                    {/* Vehicle details */}
+                    {vehicle.vin && (
+                      <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                        <span className="font-medium text-sm text-muted-foreground">VIN:</span>
+                        <div className="font-mono text-sm">{vehicle.vin}</div>
+                      </div>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Card>
