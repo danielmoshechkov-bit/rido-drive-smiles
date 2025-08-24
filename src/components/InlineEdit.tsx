@@ -44,6 +44,16 @@ export const InlineEdit = ({
     }
   };
 
+  const handleBlur = () => {
+    if (editValue !== value && editValue.trim() !== '') {
+      handleSave();
+    } else if (editValue.trim() === '' && value !== '') {
+      handleCancel();
+    } else {
+      setIsEditing(false);
+    }
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(editValue);
@@ -77,8 +87,9 @@ export const InlineEdit = ({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           maxLength={maxLength}
-          className="h-8 text-sm"
+          className="h-8 text-sm bg-violet-50 border-violet-200 focus:border-violet-400"
           autoFocus
         />
         <Button
@@ -114,13 +125,13 @@ export const InlineEdit = ({
 
   return (
     <div 
-      className={`group flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 ${className}`}
+      className={`group flex items-center gap-2 cursor-pointer hover:bg-violet-50/70 hover:border-violet-200 rounded px-2 py-1 border border-transparent transition-all ${className}`}
       onClick={() => setIsEditing(true)}
     >
       <span className="flex-1 text-sm">
         {displayValue || placeholder}
       </span>
-      <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+      <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity text-violet-500" />
     </div>
   );
 };

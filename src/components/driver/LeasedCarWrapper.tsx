@@ -53,9 +53,15 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
               fleets (
                 name,
                 nip,
-                address,
+                city,
+                postal_code,
+                street,
+                house_number,
                 contact_name,
-                phone
+                phone,
+                contact_phone_for_drivers,
+                owner_name,
+                owner_phone
               )
             )
           `)

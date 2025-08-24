@@ -35,8 +35,7 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
     nip: "",
     city: "",
     postal_code: "",
-    street: "",
-    house_number: "",
+    address: "",
     contact_name: "",
     phone: "",
     owner_name: "",
@@ -65,9 +64,17 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
       return;
     }
 
+    // Split address into street and house_number for database
+    const fleetData = {
+      ...newFleet,
+      street: newFleet.address.split(' ').slice(0, -1).join(' ') || newFleet.address,
+      house_number: newFleet.address.split(' ').slice(-1)[0] || null
+    };
+    delete (fleetData as any).address;
+
     const { error } = await supabase
       .from("fleets")
-      .insert([newFleet]);
+      .insert([fleetData]);
 
     if (error) {
       toast.error(error.message);
@@ -76,7 +83,7 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
 
     toast.success("Dodano flotę");
     setNewFleet({ 
-      name: "", nip: "", city: "", postal_code: "", street: "", house_number: "",
+      name: "", nip: "", city: "", postal_code: "", address: "",
       contact_name: "", phone: "", owner_name: "", owner_phone: "", contact_phone_for_drivers: "", email: ""
     });
     setShowAddForm(false);
@@ -85,9 +92,22 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
 
   const updateFleetField = async (fleetId: string, field: string, value: string) => {
     try {
+      let updateData: any = {};
+      
+      if (field === 'address') {
+        // Split address into street and house_number
+        const addressParts = value.split(' ');
+        updateData = {
+          street: addressParts.slice(0, -1).join(' ') || value,
+          house_number: addressParts.slice(-1)[0] || null
+        };
+      } else {
+        updateData = { [field]: value };
+      }
+
       const { error } = await supabase
         .from("fleets")
-        .update({ [field]: value })
+        .update(updateData)
         .eq("id", fleetId);
 
       if (error) throw error;
@@ -202,21 +222,12 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
                 />
               </div>
               <div>
-                <Label htmlFor="fleet-street">Ulica</Label>
+                <Label htmlFor="fleet-address">Adres (ulica i nr)</Label>
                 <Input
-                  id="fleet-street"
-                  value={newFleet.street}
-                  onChange={(e) => setNewFleet({ ...newFleet, street: e.target.value })}
-                  placeholder="Nazwa ulicy"
-                />
-              </div>
-              <div>
-                <Label htmlFor="fleet-house">Nr domu/mieszkania</Label>
-                <Input
-                  id="fleet-house"
-                  value={newFleet.house_number}
-                  onChange={(e) => setNewFleet({ ...newFleet, house_number: e.target.value })}
-                  placeholder="Nr domu/mieszkania"
+                  id="fleet-address"
+                  value={newFleet.address}
+                  onChange={(e) => setNewFleet({ ...newFleet, address: e.target.value })}
+                  placeholder="ul. Przykładowa 123"
                 />
               </div>
               <div>
@@ -423,20 +434,11 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Ulica</Label>
+                          <Label className="text-sm font-medium text-muted-foreground">Adres (ulica i nr)</Label>
                           <div onClick={(e) => e.stopPropagation()}>
                             <InlineEdit
-                              value={fleet.street || ""}
-                              onSave={(value) => updateFleetField(fleet.id, "street", value)}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Nr domu/mieszkania</Label>
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <InlineEdit
-                              value={fleet.house_number || ""}
-                              onSave={(value) => updateFleetField(fleet.id, "house_number", value)}
+                              value={`${fleet.street || ""}${fleet.house_number ? " " + fleet.house_number : ""}`.trim()}
+                              onSave={(value) => updateFleetField(fleet.id, "address", value)}
                             />
                           </div>
                         </div>

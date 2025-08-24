@@ -201,8 +201,8 @@ export function LeasedCarCard({
             </div>
           )}
 
-          {/* bardziej zwarte rozmieszczenie */}
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          {/* bardziej zwarte rozmieszczenie - zmniejszone odstępy */}
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0 text-sm">
             <div className="text-muted-foreground">Rok produkcji:</div>
             <div className="font-medium">{vehicle.year || "—"}</div>
             <div className="text-muted-foreground">Kolor:</div>
@@ -210,7 +210,7 @@ export function LeasedCarCard({
           </div>
 
           {/* „Wynajem" – etykieta w rzędzie, kwota pod spodem */}
-          <div className="mt-4">
+          <div className="mt-3">
             <VehicleRentBlock
               value={vehicle.weekly_rental_fee || 0}
               readOnly={readOnlyRent}
@@ -218,7 +218,7 @@ export function LeasedCarCard({
           </div>
 
           {vehicle.vin && (
-            <div className="mt-4 pt-4 border-t">
+            <div className="mt-3 pt-3 border-t">
               <div className="text-muted-foreground text-sm">VIN:</div>
               <div className="font-mono text-sm">{vehicle.vin}</div>
             </div>
@@ -253,6 +253,12 @@ export function LeasedCarCard({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-muted-foreground">Kontakt:</div>
                     <div className="col-span-2 font-medium">{fleet.contact_name}</div>
+                  </div>
+                )}
+                {fleet.phone && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Tel. biura:</div>
+                    <div className="col-span-2 font-medium">{fleet.phone}</div>
                   </div>
                 )}
                 {fleet.contact_phone_for_drivers && (
