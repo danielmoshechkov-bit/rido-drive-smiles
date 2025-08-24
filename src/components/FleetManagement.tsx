@@ -200,59 +200,38 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border rounded-lg p-1 w-fit">
-            <TabsTrigger value="vehicles" className="px-8 py-2">Auta</TabsTrigger>
-            <TabsTrigger value="fleets" className="px-8 py-2">Floty</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="vehicles">Auta</TabsTrigger>
+            <TabsTrigger value="fleets">Floty</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="vehicles" className="space-y-6">
-            {/* Header dla pojazdów */}
-            <div className="flex justify-between items-center gap-4">
-              <h3 className="text-lg font-semibold">Pojazdy ({filtered.length})</h3>
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <TabsContent value="vehicles" className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div></div>
+              <div className="flex items-center space-x-4">
+                <div className="relative w-72">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
                     placeholder="Szukaj po numerze rejestracyjnym"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="pl-10 rounded-lg w-64"
+                    className="pl-10"
                   />
                 </div>
-                <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-lg">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="px-3 py-2 border rounded-md text-sm bg-background"
+                >
+                  <option value="all">Status</option>
+                  <option value="aktywne">Aktywne</option>
+                  <option value="serwis">Serwis</option>
+                  <option value="sprzedane">Sprzedane</option>
+                </select>
+                <Button onClick={() => setShowAddModal(true)} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Dodaj pojazd
                 </Button>
-              </div>
-            </div>
-
-            {/* Filtry */}
-            <div className="flex gap-4">
-              <div className="relative">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setOpenDropdown(openDropdown === "fleet-status" ? null : "fleet-status")} 
-                  className="gap-2 rounded-lg"
-                >
-                  <Filter className="h-4 w-4" />
-                  Status: {status === "all" ? "Wszystkie" : status}
-                </Button>
-                {openDropdown === "fleet-status" && (
-                  <div className="absolute top-full right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-10 min-w-[150px]">
-                    {["all", "aktywne", "serwis", "sprzedane"].map((s) => (
-                      <button
-                        key={s}
-                        className="w-full text-left px-3 py-2 hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
-                        onClick={() => {
-                          setStatus(s);
-                          setOpenDropdown(null);
-                        }}
-                      >
-                        {s === "all" ? "Wszystkie" : s}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -275,30 +254,32 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                           <div className="flex items-center justify-between">
                             {/* Pierwszy rząd - podstawowe info */}
                             <div className="flex-1 space-y-3">
-                              <div className="flex items-center gap-6">
-                                 <div className="min-w-[120px]">
-                                   <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                   <div className="font-semibold">{vehicle.plate}</div>
-                                 </div>
-                                 <div className="min-w-[150px]">
-                                   <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                   <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-                                 </div>
-                                  <div className="min-w-[100px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                    <div className="font-semibold">{vehicle.fleet?.name || "Brak"}</div>
-                                  </div>
+                               <div className="flex items-center gap-6">
                                   <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                    <div className="font-semibold">
-                                      <InlineEdit
-                                        value={vehicle.weekly_rental_fee?.toString() || "0"}
-                                        onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
-                                      />
-                                      <span className="text-sm"> zł/tydz.</span>
-                                    </div>
+                                    <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                                    <div className="font-semibold">{vehicle.plate}</div>
                                   </div>
-                              </div>
+                                  <div className="min-w-[150px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                    <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                  </div>
+                                   <div className="min-w-[100px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Flota:</span>
+                                     <div className="font-semibold cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                       {vehicle.fleet?.name || "Brak"}
+                                     </div>
+                                   </div>
+                                   <div className="min-w-[120px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
+                                       <InlineEdit
+                                         value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                         onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                                       />
+                                       <span className="text-sm"> zł/tydz.</span>
+                                     </div>
+                                   </div>
+                               </div>
                               
                                {/* Drugi rząd - kierowca i daty */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
