@@ -258,15 +258,6 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
                 />
               </div>
               <div>
-                <Label htmlFor="fleet-phone">Telefon biura</Label>
-                <Input
-                  id="fleet-phone"
-                  value={newFleet.phone}
-                  onChange={(e) => setNewFleet({ ...newFleet, phone: e.target.value })}
-                  placeholder="Numer telefonu biura"
-                />
-              </div>
-              <div>
                 <Label htmlFor="fleet-driver-phone">Tel. dla kontaktu kierowcy</Label>
                 <Input
                   id="fleet-driver-phone"
@@ -469,24 +460,15 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
                             />
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Telefon biura</Label>
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <InlineEdit
-                              value={fleet.phone || ""}
-                              onSave={(value) => updateFleetField(fleet.id, "phone", value)}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Tel. dla kontaktu kierowcy</Label>
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <InlineEdit
-                              value={fleet.contact_phone_for_drivers || ""}
-                              onSave={(value) => updateFleetField(fleet.id, "contact_phone_for_drivers", value)}
-                            />
-                          </div>
-                        </div>
+                         <div>
+                           <Label className="text-sm font-medium text-muted-foreground">Tel. dla kontaktu kierowcy</Label>
+                           <div onClick={(e) => e.stopPropagation()}>
+                             <InlineEdit
+                               value={fleet.contact_phone_for_drivers || ""}
+                               onSave={(value) => updateFleetField(fleet.id, "contact_phone_for_drivers", value)}
+                             />
+                           </div>
+                         </div>
                       </div>
                     </div>
                   </div>

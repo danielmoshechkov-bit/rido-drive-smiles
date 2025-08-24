@@ -11,6 +11,7 @@ import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleServiceTab } from "./VehicleServiceTab";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
+import { VehicleFleetSelector } from "./VehicleFleetSelector";
 import { toast } from "sonner";
 
 interface VehicleListProps {
@@ -177,38 +178,48 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                            <div className="flex items-center justify-between">
                              {/* Main content */}
                              <div className="flex-1 space-y-3">
-                                <div className="flex items-center gap-6">
-                                  <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                    <div className="font-semibold">{vehicle.plate}</div>
-                                  </div>
-                                  <div className="min-w-[150px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                    <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-                                  </div>
-                                  <div className="min-w-[100px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Rok:</span>
-                                    <div className="font-semibold">{vehicle.year || "Brak"}</div>
-                                  </div>
-                                  <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                    <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
-                                      <InlineEdit
-                                        value={vehicle.weekly_rental_fee?.toString() || "0"}
-                                        onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
-                                      />
-                                      <span className="text-sm"> zł/tydz.</span>
-                                    </div>
-                                  </div>
-                                </div>
+                                 <div className="flex items-center gap-6">
+                                   <div className="min-w-[120px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                                     <div className="font-semibold">{vehicle.plate}</div>
+                                   </div>
+                                   <div className="min-w-[150px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                     <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                   </div>
+                                   <div className="min-w-[100px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Flota:</span>
+                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
+                                       <VehicleFleetSelector 
+                                         vehicleId={vehicle.id}
+                                         currentFleetId={(vehicle as any).fleet_id}
+                                         onFleetUpdate={loadVehicles}
+                                       />
+                                     </div>
+                                   </div>
+                                   <div className="min-w-[120px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
+                                       <InlineEdit
+                                         value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                         onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                                       />
+                                       <span className="text-sm"> zł/tydz.</span>
+                                     </div>
+                                   </div>
+                                 </div>
                                
-                               {/* Second row - documents */}
+                               {/* Second row - documents and additional info */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
                                  <div className="min-w-[200px]">
                                    <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
                                    <div className="font-semibold">
                                      <ExpiryBadges vehicleId={vehicle.id} />
                                    </div>
+                                 </div>
+                                 <div className="min-w-[100px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Rok:</span>
+                                   <div className="font-semibold">{vehicle.year || "Brak"}</div>
                                  </div>
                                  {vehicle.color && (
                                    <div className="min-w-[100px]">

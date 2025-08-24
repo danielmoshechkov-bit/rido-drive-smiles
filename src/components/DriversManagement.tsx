@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -16,7 +16,7 @@ import { InlineEdit } from './InlineEdit';
 import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
 import { DriverRentalBadge } from './DriverRentalBadge';
 import { DriverFilters } from './DriverFilters';
-import { Trash2 } from 'lucide-react';
+import { DriverVehicleSelector } from "./DriverVehicleSelector";
 
 interface DriversManagementProps {
   cityId: string;
@@ -234,6 +234,12 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         <DriverFleetBadgeSelector 
                           driverId={driver.id}
                           fleetId={(driver as any).fleet_id}
+                        />
+
+                        <DriverVehicleSelector 
+                          driverId={driver.id}
+                          fleetId={(driver as any).fleet_id}
+                          onVehicleUpdate={refetch}
                         />
                       </div>
                     </div>

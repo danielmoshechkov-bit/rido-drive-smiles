@@ -107,29 +107,28 @@ export function VehicleRentBlock({
   };
 
   return (
-    <div className={["flex flex-col gap-1", className || ""].join(" ")}>
-      {/* rząd etykiety – idzie razem z innymi polami w nagłówku karty */}
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground font-medium">Wynajem:</span>
-        <span className="text-muted-foreground">zł/tydz.</span>
-      </div>
-      {/* kwota pod spodem */}
+    <div className={["flex items-center gap-2", className || ""].join(" ")}>
+      {/* wszystko w jednym rzędzie */}
+      <span className="text-muted-foreground font-medium">Wynajem:</span>
       {readOnly ? (
         <span className="font-semibold text-[#6C3CF0]">
           {value == null || value === ""
             ? "—"
-            : Number(value).toLocaleString("pl-PL")}
+            : `${Number(value).toLocaleString("pl-PL")} zł/tydz.`}
         </span>
       ) : (
-        <Input
-          inputMode="decimal"
-          value={buf}
-          onChange={(e) => setBuf(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
-          className="h-9 w-32 font-semibold"
-          placeholder="Wpisz kwotę"
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            inputMode="decimal"
+            value={buf}
+            onChange={(e) => setBuf(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === "Enter" && commit()}
+            className="h-9 w-20 font-semibold"
+            placeholder="500"
+          />
+          <span className="text-muted-foreground text-sm">zł/tydz.</span>
+        </div>
       )}
     </div>
   );
