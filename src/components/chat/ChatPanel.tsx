@@ -15,6 +15,7 @@ export const ChatPanel = ({ driverData, onClose }: ChatPanelProps) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const quickActions = [
@@ -60,6 +61,7 @@ export const ChatPanel = ({ driverData, onClose }: ChatPanelProps) => {
       toast.error("Błąd wysyłania wiadomości");
     } else {
       setNewMessage("");
+      setSelectedCategory(null);
       loadMessages();
     }
 
@@ -68,6 +70,12 @@ export const ChatPanel = ({ driverData, onClose }: ChatPanelProps) => {
 
   const handleQuickAction = (message: string) => {
     setNewMessage(message);
+    setSelectedCategory(message);
+  };
+
+  const handleCancelCategory = () => {
+    setNewMessage("");
+    setSelectedCategory(null);
   };
 
   useEffect(() => {
@@ -93,8 +101,8 @@ export const ChatPanel = ({ driverData, onClose }: ChatPanelProps) => {
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
-          {/* Quick Actions - tylko gdy nie ma wiadomości */}
-          {messages.length === 0 && (
+          {/* Quick Actions - pokazuj gdy nie ma wiadomości i nie wybrano kategorii */}
+          {messages.length === 0 && !selectedCategory && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground text-center">
                 Wybierz temat lub napisz własną wiadomość:
@@ -113,6 +121,23 @@ export const ChatPanel = ({ driverData, onClose }: ChatPanelProps) => {
                   </Button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Selected category with cancel option */}
+          {messages.length === 0 && selectedCategory && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Wybrano temat. Możesz teraz napisać szczegóły:
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelCategory}
+                className="w-full"
+              >
+                Anuluj i wybierz inny temat
+              </Button>
             </div>
           )}
 

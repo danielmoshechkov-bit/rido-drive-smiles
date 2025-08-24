@@ -186,7 +186,7 @@ const DriverDashboard = () => {
 function CarsSection({ driverData }: { driverData: any }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const driverId = useDriverId();
+  const driverId = driverData.driver_id;
 
   return (
     <div className="space-y-4">

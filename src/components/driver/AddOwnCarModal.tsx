@@ -34,6 +34,12 @@ export function AddOwnCarModal({
       return;
     }
 
+    if (!driverId) {
+      toast.error("Błąd: Brak ID kierowcy. Spróbuj ponownie zalogować się.");
+      console.error("AddOwnCarModal: driverId is empty:", driverId);
+      return;
+    }
+
     setLoading(true);
     try {
       // Pobierz city_id kierowcy - sprawdź najpierw w drivers, potem w driver_app_users
@@ -59,7 +65,8 @@ export function AddOwnCarModal({
       }
 
       if (!cityId) {
-        toast.error("Nie można określić miasta kierowcy. Skontaktuj się z administratorem.");
+        console.error("AddOwnCarModal: No cityId found for driverId:", driverId);
+        toast.error("Nie można określić miasta kierowcy. Spróbuj ponownie zalogować się lub skontaktuj się z administratorem.");
         return;
       }
 
