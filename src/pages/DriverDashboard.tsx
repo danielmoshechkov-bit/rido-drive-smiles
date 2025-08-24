@@ -712,29 +712,7 @@ function FleetInfo({ driverData }: { driverData: any }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-      {/* Informacje o flocie - lewa kolumna */}
-      <UniversalCard title="Informacje o flocie">
-        {fleetData ? (
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
-              <p className="text-lg font-semibold text-foreground mt-1">{fleetData.name}</p>
-            </div>
-            {assignmentData?.assigned_date && (
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">Data dołączenia</Label>
-                <p className="text-base text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-base text-muted-foreground">
-            Nie jesteś przypisany do żadnej floty.
-          </p>
-        )}
-      </UniversalCard>
-
-      {/* Wynajęte auto - prawa kolumna */}
+      {/* Wynajęte auto - lewa kolumna */}
       <UniversalCard title="Wynajęte auto">
         {vehicleData ? (
           <div className="space-y-4">
@@ -779,6 +757,28 @@ function FleetInfo({ driverData }: { driverData: any }) {
           </div>
         ) : (
           <p className="text-base text-muted-foreground">Nie masz przypisanego pojazdu.</p>
+        )}
+      </UniversalCard>
+
+      {/* Informacje o flocie - prawa kolumna */}
+      <UniversalCard title="Informacje o flocie">
+        {fleetData ? (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
+              <p className="text-lg font-semibold text-foreground mt-1">{fleetData.name}</p>
+            </div>
+            {assignmentData?.assigned_date && (
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Data dołączenia</Label>
+                <p className="text-base text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-base text-muted-foreground">
+            Nie jesteś przypisany do żadnej floty.
+          </p>
         )}
       </UniversalCard>
     </div>

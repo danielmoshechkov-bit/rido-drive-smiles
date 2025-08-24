@@ -11,7 +11,7 @@ interface UniversalCardProps {
 export const UniversalCard = ({ title, children, className, headerAction }: UniversalCardProps) => {
   return (
     <Card className={cn(
-      "w-full max-w-4xl transition-all duration-300",
+      "w-full max-w-3xl transition-all duration-300",
       "border-2 border-border/30 hover:border-primary/30",
       "hover:bg-white hover:shadow-soft",
       "bg-card rounded-lg",

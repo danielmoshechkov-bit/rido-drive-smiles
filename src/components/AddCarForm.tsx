@@ -141,21 +141,14 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
           
           <div>
             <Label htmlFor="color" className="text-sm font-medium text-foreground">Kolor</Label>
-            <Select onValueChange={(value) => setFormData({...formData, color: value})}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Wybierz kolor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="biały">Biały</SelectItem>
-                <SelectItem value="czarny">Czarny</SelectItem>
-                <SelectItem value="srebrny">Srebrny</SelectItem>
-                <SelectItem value="szary">Szary</SelectItem>
-                <SelectItem value="niebieski">Niebieski</SelectItem>
-                <SelectItem value="czerwony">Czerwony</SelectItem>
-                <SelectItem value="zielony">Zielony</SelectItem>
-                <SelectItem value="żółty">Żółty</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              id="color"
+              type="text"
+              placeholder="np. srebrny"
+              value={formData.color}
+              onChange={(e) => setFormData({...formData, color: e.target.value})}
+              className="mt-1"
+            />
           </div>
         </div>
         
