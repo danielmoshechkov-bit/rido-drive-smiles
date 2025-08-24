@@ -14,6 +14,7 @@ import { VehicleServiceTab } from "./VehicleServiceTab";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleDriverHistory } from "./VehicleDriverHistory";
 import { VehicleFleetSelector } from "./VehicleFleetSelector";
+import { VehicleRentBlock } from "./ui/VehicleRentBlock";
 import { FleetTabManagement } from "./FleetTabManagement";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { ExpiryBadges } from "./ExpiryBadges";
@@ -277,16 +278,12 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                                        />
                                      </div>
                                    </div>
-                                   <div className="min-w-[120px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
-                                       <InlineEdit
-                                         value={vehicle.weekly_rental_fee?.toString() || "0"}
-                                         onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
-                                       />
-                                       <span className="text-sm"> zł/tydz.</span>
-                                     </div>
-                                   </div>
+                                    <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                      <VehicleRentBlock
+                                        value={vehicle.weekly_rental_fee}
+                                        onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
+                                      />
+                                    </div>
                                </div>
                               
                                {/* Drugi rząd - kierowca i daty */}

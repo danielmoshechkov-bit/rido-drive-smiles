@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFleetName, setSelectedFleetName] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     const fetchFleets = async () => {
@@ -38,6 +40,10 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
     fetchFleets();
   }, [currentFleetId]);
 
+  const filteredFleets = fleets.filter(fleet => 
+    fleet.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const updateVehicleFleet = async (fleetId: string | null, fleetName: string) => {
     setLoading(true);
     try {
@@ -50,6 +56,7 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
 
       setSelectedFleetName(fleetName);
       toast.success(`Zmieniono flotę na: ${fleetName}`);
+      setSearchTerm(""); // Clear search after selection
       
       if (onFleetUpdate) {
         onFleetUpdate();
@@ -66,27 +73,38 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
       <PopoverTrigger asChild>
         <Button 
           variant="ghost" 
-          className="h-auto p-0 text-left font-medium hover:bg-transparent"
+          className="h-auto p-0 text-left font-semibold text-primary hover:bg-transparent cursor-pointer"
           disabled={loading}
         >
           {selectedFleetName}
           <ChevronDown className="ml-1 h-3 w-3" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2 bg-popover border shadow-lg" align="start">
-        <div className="space-y-1">
+      <PopoverContent className="w-64 p-3 bg-popover border shadow-lg" align="start">
+        {/* Search input */}
+        <div className="relative mb-3">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj floty..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
+        
+        <div className="space-y-1 max-h-48 overflow-y-auto">
           <Button
             variant="ghost"
-            className="w-full justify-start text-sm"
+            className="w-full justify-start text-sm hover:bg-muted"
             onClick={() => updateVehicleFleet(null, "Brak floty")}
           >
             Brak floty
           </Button>
-          {fleets.map((fleet) => (
+          {filteredFleets.map((fleet) => (
             <Button
               key={fleet.id}
               variant="ghost"
-              className="w-full justify-start text-sm"
+              className="w-full justify-start text-sm hover:bg-muted"
               onClick={() => updateVehicleFleet(fleet.id, fleet.name)}
             >
               {fleet.name}
