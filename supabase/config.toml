@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.reminders]
 verify_jwt = false
+
+[functions.settlements]
+verify_jwt = false

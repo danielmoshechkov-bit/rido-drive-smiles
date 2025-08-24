@@ -1,86 +1,279 @@
-import { useState } from 'react';
-import { Calendar, Download, Upload, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format, addDays, startOfWeek, endOfWeek, isMonday } from 'date-fns';
+import { pl } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SettlementsManagementProps {
   cityId: string;
   cityName: string;
 }
 
+interface Settlement {
+  id: number;
+  driver_id: string;
+  platform: string;
+  week_start: string;
+  week_end: string;
+  trips_count: number;
+  gross_sum: number;
+  commission_sum: number;
+  cash_sum: number;
+  adjustments_sum: number;
+  net_result: number;
+  driver_name: string;
+}
+
+interface ImportJob {
+  id: string;
+  platform: string;
+  week_start: string;
+  week_end: string;
+  filename: string;
+  status: string;
+  created_at: string;
+}
+
+interface ImportError {
+  id: number;
+  row_no: number | null;
+  code: string;
+  message: string;
+  raw: any;
+}
+
+// Helper function to get Monday of week
+const getMonday = (date: Date): Date => {
+  return startOfWeek(date, { weekStartsOn: 1 });
+};
+
+// Helper function to get Sunday of week
+const getSunday = (date: Date): Date => {
+  return endOfWeek(date, { weekStartsOn: 1 });
+};
+
 export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagementProps) => {
-  const [selectedWeek, setSelectedWeek] = useState('');
-  const [uploading, setUploading] = useState(false);
-
-  // Generate week options for the current year
-  const generateWeekOptions = () => {
-    const weeks = [];
-    const currentYear = new Date().getFullYear();
-    const startDate = new Date(currentYear, 0, 1);
-    
-    // Find first Monday of the year
-    const firstMonday = new Date(startDate);
-    firstMonday.setDate(startDate.getDate() + (1 - startDate.getDay() + 7) % 7);
-    
-    for (let i = 0; i < 52; i++) {
-      const weekStart = new Date(firstMonday);
-      weekStart.setDate(firstMonday.getDate() + (i * 7));
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      
-      if (weekStart.getFullYear() === currentYear) {
-        weeks.push({
-          value: `${weekStart.toISOString().split('T')[0]}_${weekEnd.toISOString().split('T')[0]}`,
-          label: `Tydzień ${i + 1}: ${weekStart.toLocaleDateString('pl-PL')} - ${weekEnd.toLocaleDateString('pl-PL')}`
-        });
-      }
-    }
-    
-    return weeks.reverse(); // Most recent first
-  };
-
-  const weekOptions = generateWeekOptions();
-
-  const handleCSVUpload = async (file: File, platform: string) => {
-    setUploading(true);
-    try {
-      // TODO: Implement CSV parsing and settlement import
-      toast.success(`Zaimportowano rozliczenia z ${platform}`);
-    } catch (error) {
-      toast.error('Błąd podczas importu rozliczeń');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, platform: string) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleCSVUpload(file, platform);
-    }
-  };
-
-  const generateReport = () => {
-    if (!selectedWeek) {
-      toast.error('Wybierz tydzień do wygenerowania raportu');
-      return;
-    }
-    
-    // TODO: Generate and download report
-    toast.info('Generowanie raportu...');
-  };
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
+  const [weekEnd, setWeekEnd] = useState<Date>(getSunday(new Date()));
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [importJobs, setImportJobs] = useState<ImportJob[]>([]);
+  const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [uploading, setUploading] = useState<{[key: string]: boolean}>({});
+  const [computing, setComputing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
     { id: 'bolt', name: 'Bolt', color: 'bg-green-500 text-white' },
     { id: 'freenow', name: 'FreeNow', color: 'bg-red-500 text-white' },
   ];
+
+  // Update week when date changes
+  useEffect(() => {
+    const monday = getMonday(selectedDate);
+    const sunday = getSunday(selectedDate);
+    setWeekStart(monday);
+    setWeekEnd(sunday);
+  }, [selectedDate]);
+
+  // Load data when week changes
+  useEffect(() => {
+    loadSettlements();
+    loadImportJobs();
+  }, [weekStart, weekEnd, cityId]);
+
+  const loadSettlements = async () => {
+    if (!cityId) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settlements_weekly')
+        .select(`
+          *,
+          drivers(first_name, last_name, email)
+        `)
+        .eq('week_start', format(weekStart, 'yyyy-MM-dd'))
+        .eq('week_end', format(weekEnd, 'yyyy-MM-dd'))
+        .order('net_result', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedSettlements: Settlement[] = (data || []).map(item => ({
+        ...item,
+        id: item.id,
+        gross_sum: item.gross_sum || 0,
+        commission_sum: item.commission_sum || 0,
+        cash_sum: item.cash_sum || 0,
+        adjustments_sum: item.adjustments_sum || 0,
+        net_result: item.net_result || 0,
+        driver_name: `${item.drivers?.first_name || ''} ${item.drivers?.last_name || ''}`.trim() || 'Nieznany kierowca'
+      }));
+
+      setSettlements(formattedSettlements);
+    } catch (error) {
+      console.error('Error loading settlements:', error);
+      toast.error('Błąd ładowania rozliczeń');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadImportJobs = async () => {
+    if (!cityId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('import_jobs')
+        .select('*')
+        .eq('week_start', format(weekStart, 'yyyy-MM-dd'))
+        .eq('week_end', format(weekEnd, 'yyyy-MM-dd'))
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setImportJobs(data || []);
+    } catch (error) {
+      console.error('Error loading import jobs:', error);
+    }
+  };
+
+  const loadImportErrors = async (jobId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('import_errors')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('row_no', { ascending: true });
+
+      if (error) throw error;
+      setImportErrors(data || []);
+    } catch (error) {
+      console.error('Error loading import errors:', error);
+      toast.error('Błąd ładowania błędów importu');
+    }
+  };
+
+  const handleCSVUpload = async (file: File, platform: string) => {
+    setUploading(prev => ({ ...prev, [platform]: true }));
+    
+    try {
+      const formData = new FormData();
+      formData.append('platform', platform);
+      formData.append('week_start', format(weekStart, 'yyyy-MM-dd'));
+      formData.append('week_end', format(weekEnd, 'yyyy-MM-dd'));
+      formData.append('city_id', cityId);
+      formData.append('file', file);
+
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk";
+      
+      const response = await fetch(`https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/settlements?action=import`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Import failed');
+      }
+
+      const result = await response.json();
+      if (result.ok) {
+        toast.success(`Zaimportowano ${result.inserted} wierszy z ${platform}${result.errors > 0 ? ` (${result.errors} błędów)` : ''}`);
+        loadImportJobs();
+      } else {
+        toast.error('Błąd podczas importu CSV');
+      }
+    } catch (error) {
+      console.error('CSV import error:', error);
+      toast.error('Błąd podczas importu pliku CSV');
+    } finally {
+      setUploading(prev => ({ ...prev, [platform]: false }));
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, platform: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        toast.error('Wybierz plik CSV');
+        return;
+      }
+      handleCSVUpload(file, platform);
+    }
+  };
+
+  const generateReport = async () => {
+    const jobs = importJobs.filter(job => job.status === 'done');
+    if (jobs.length === 0) {
+      toast.error('Najpierw zaimportuj pliki CSV dla wybranego tygodnia');
+      return;
+    }
+
+    setComputing(true);
+    try {
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk";
+      
+      // Generate reports for all completed jobs
+      for (const job of jobs) {
+        const response = await fetch(`https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/settlements?action=compute`, {
+          method: 'POST',
+          body: JSON.stringify({ job_id: job.id }),
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Compute failed');
+        }
+      }
+
+      toast.success('Raport wygenerowany pomyślnie');
+      loadSettlements();
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Błąd podczas generowania raportu');
+    } finally {
+      setComputing(false);
+    }
+  };
+
+  // Filter settlements
+  const filteredSettlements = settlements.filter(settlement => {
+    const matchesSearch = settlement.driver_name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesPlatform = selectedPlatform === 'all' || settlement.platform === selectedPlatform;
+    return matchesSearch && matchesPlatform;
+  });
+
+  // Calculate totals
+  const totals = filteredSettlements.reduce(
+    (acc, settlement) => ({
+      trips: acc.trips + settlement.trips_count,
+      gross: acc.gross + settlement.gross_sum,
+      commission: acc.commission + settlement.commission_sum,
+      cash: acc.cash + settlement.cash_sum,
+      adjustments: acc.adjustments + settlement.adjustments_sum,
+      net: acc.net + settlement.net_result,
+    }),
+    { trips: 0, gross: 0, commission: 0, cash: 0, adjustments: 0, net: 0 }
+  );
 
   return (
     <div className="space-y-6">
@@ -95,27 +288,42 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <Label htmlFor="week-select">Tydzień rozliczeniowy</Label>
-              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Wybierz tydzień..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {weekOptions.map((week) => (
-                    <SelectItem key={week.value} value={week.value}>
-                      {week.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="week-select">Tydzień rozliczeniowy (Poniedziałek - Niedziela)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {format(weekStart, 'dd.MM.yyyy', { locale: pl })} - {format(weekEnd, 'dd.MM.yyyy', { locale: pl })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date);
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <Button 
               onClick={generateReport} 
-              disabled={!selectedWeek}
+              disabled={computing || importJobs.filter(j => j.status === 'done').length === 0}
               className="gap-2"
             >
               <Download className="h-4 w-4" />
-              Generuj raport
+              {computing ? 'Generowanie...' : 'Generuj raport'}
             </Button>
           </div>
         </CardContent>
@@ -131,54 +339,196 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {platforms.map((platform) => (
-              <div key={platform.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <Badge className={platform.color}>
-                    {platform.name}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
-                    <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Rozliczenia {platform.name}
-                    </p>
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => handleFileInput(e, platform.id)}
-                      className="hidden"
-                      id={`settlement-${platform.id}`}
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => document.getElementById(`settlement-${platform.id}`)?.click()}
-                      disabled={uploading}
-                    >
-                      {uploading ? 'Importowanie...' : 'Wybierz plik'}
-                    </Button>
+            {platforms.map((platform) => {
+              const existingJob = importJobs.find(job => job.platform === platform.id);
+              const isUploading = uploading[platform.id];
+              
+              return (
+                <div key={platform.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Badge className={platform.color}>
+                      {platform.name}
+                    </Badge>
+                    {existingJob && (
+                      <Badge variant={existingJob.status === 'done' ? 'default' : existingJob.status === 'error' ? 'destructive' : 'secondary'}>
+                        {existingJob.status === 'done' ? 'Zaimportowano' : existingJob.status === 'error' ? 'Błąd' : 'W trakcie'}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
+                      <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Rozliczenia {platform.name}
+                      </p>
+                      {existingJob && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {existingJob.filename}
+                        </p>
+                      )}
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => handleFileInput(e, platform.id)}
+                        className="hidden"
+                        id={`settlement-${platform.id}`}
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => document.getElementById(`settlement-${platform.id}`)?.click()}
+                          disabled={isUploading}
+                          className="flex-1"
+                        >
+                          {isUploading ? 'Importowanie...' : existingJob ? 'Zastąp plik' : 'Wybierz plik'}
+                        </Button>
+                        {existingJob && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => loadImportErrors(existingJob.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl">
+                              <DialogHeader>
+                                <DialogTitle>Błędy importu - {platform.name}</DialogTitle>
+                                <DialogDescription>
+                                  Plik: {existingJob.filename}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="max-h-96 overflow-y-auto">
+                                {importErrors.length === 0 ? (
+                                  <p className="text-center text-muted-foreground py-4">Brak błędów</p>
+                                ) : (
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Wiersz</TableHead>
+                                        <TableHead>Kod</TableHead>
+                                        <TableHead>Wiadomość</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {importErrors.map((error) => (
+                                        <TableRow key={error.id}>
+                                          <TableCell>{error.row_no || 'N/A'}</TableCell>
+                                          <TableCell>{error.code}</TableCell>
+                                          <TableCell>{error.message}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Settlements */}
+      {/* Settlements Results */}
       <Card>
         <CardHeader>
-          <CardTitle>Ostatnie rozliczenia</CardTitle>
+          <CardTitle>Wyniki rozliczeń tygodniowych</CardTitle>
+          <div className="flex gap-4">
+            <Input
+              placeholder="Szukaj po nazwisku kierowcy..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+            <select
+              value={selectedPlatform}
+              onChange={(e) => setSelectedPlatform(e.target.value)}
+              className="px-3 py-2 border border-input bg-background rounded-md"
+            >
+              <option value="all">Wszystkie platformy</option>
+              {platforms.map(platform => (
+                <option key={platform.id} value={platform.id}>
+                  {platform.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="mx-auto h-12 w-12 mb-4" />
-            <p>Brak rozliczeń do wyświetlenia</p>
-            <p className="text-sm">Zaimportuj pliki CSV z rozliczeniami platform</p>
-          </div>
+          {loading ? (
+            <div className="text-center py-8">Ładowanie...</div>
+          ) : filteredSettlements.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="mx-auto h-12 w-12 mb-4" />
+              <p>Brak rozliczeń do wyświetlenia</p>
+              <p className="text-sm">Zaimportuj pliki CSV i wygeneruj raport</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Kierowca</TableHead>
+                      <TableHead>Platforma</TableHead>
+                      <TableHead className="text-right">Kursy</TableHead>
+                      <TableHead className="text-right">Przychód</TableHead>
+                      <TableHead className="text-right">Prowizje</TableHead>
+                      <TableHead className="text-right">Korekty</TableHead>
+                      <TableHead className="text-right">Gotówka</TableHead>
+                      <TableHead className="text-right">Wynik (netto)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSettlements.map((settlement) => (
+                      <TableRow key={settlement.id}>
+                        <TableCell className="font-medium">{settlement.driver_name}</TableCell>
+                        <TableCell>
+                          <Badge className={platforms.find(p => p.id === settlement.platform)?.color}>
+                            {platforms.find(p => p.id === settlement.platform)?.name}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{settlement.trips_count}</TableCell>
+                        <TableCell className="text-right">{settlement.gross_sum.toFixed(2)} zł</TableCell>
+                        <TableCell className="text-right">{settlement.commission_sum.toFixed(2)} zł</TableCell>
+                        <TableCell className="text-right">{settlement.adjustments_sum.toFixed(2)} zł</TableCell>
+                        <TableCell className="text-right">{settlement.cash_sum.toFixed(2)} zł</TableCell>
+                        <TableCell className="text-right font-bold">
+                          <span className={settlement.net_result >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {settlement.net_result.toFixed(2)} zł
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals row */}
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell colSpan={2}>SUMA</TableCell>
+                      <TableCell className="text-right">{totals.trips}</TableCell>
+                      <TableCell className="text-right">{totals.gross.toFixed(2)} zł</TableCell>
+                      <TableCell className="text-right">{totals.commission.toFixed(2)} zł</TableCell>
+                      <TableCell className="text-right">{totals.adjustments.toFixed(2)} zł</TableCell>
+                      <TableCell className="text-right">{totals.cash.toFixed(2)} zł</TableCell>
+                      <TableCell className="text-right">
+                        <span className={totals.net >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {totals.net.toFixed(2)} zł
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

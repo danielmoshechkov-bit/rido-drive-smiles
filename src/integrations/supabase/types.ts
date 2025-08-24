@@ -572,6 +572,88 @@ export type Database = {
           },
         ]
       }
+      import_errors: {
+        Row: {
+          code: string
+          created_at: string
+          id: number
+          job_id: string
+          message: string
+          raw: Json | null
+          row_no: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: number
+          job_id: string
+          message: string
+          raw?: Json | null
+          row_no?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: number
+          job_id?: string
+          message?: string
+          raw?: Json | null
+          row_no?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          city_id: string | null
+          created_at: string
+          created_by: string | null
+          filename: string
+          id: string
+          platform: string
+          status: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          city_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          filename: string
+          id?: string
+          platform: string
+          status?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          city_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          filename?: string
+          id?: string
+          platform?: string
+          status?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -600,6 +682,96 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_import_config: {
+        Row: {
+          columns: Json
+          created_at: string
+          platform: string
+          updated_at: string
+        }
+        Insert: {
+          columns: Json
+          created_at?: string
+          platform: string
+          updated_at?: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          platform?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rides_raw: {
+        Row: {
+          adjustments: number | null
+          cash_collected: number | null
+          city: string | null
+          commission_amount: number | null
+          completed_at: string | null
+          created_at: string
+          driver_id: string | null
+          driver_platform_id: string | null
+          extra: Json | null
+          gross_amount: number | null
+          id: number
+          job_id: string
+          platform: string
+          started_at: string | null
+          trip_uuid: string
+        }
+        Insert: {
+          adjustments?: number | null
+          cash_collected?: number | null
+          city?: string | null
+          commission_amount?: number | null
+          completed_at?: string | null
+          created_at?: string
+          driver_id?: string | null
+          driver_platform_id?: string | null
+          extra?: Json | null
+          gross_amount?: number | null
+          id?: number
+          job_id: string
+          platform: string
+          started_at?: string | null
+          trip_uuid: string
+        }
+        Update: {
+          adjustments?: number | null
+          cash_collected?: number | null
+          city?: string | null
+          commission_amount?: number | null
+          completed_at?: string | null
+          created_at?: string
+          driver_id?: string | null
+          driver_platform_id?: string | null
+          extra?: Json | null
+          gross_amount?: number | null
+          id?: number
+          job_id?: string
+          platform?: string
+          started_at?: string | null
+          trip_uuid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rides_raw_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rides_raw_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -678,6 +850,72 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements_weekly: {
+        Row: {
+          adjustments_sum: number | null
+          cash_sum: number | null
+          commission_sum: number | null
+          created_at: string
+          driver_id: string
+          gross_sum: number | null
+          id: number
+          job_id: string
+          net_result: number | null
+          platform: string
+          trips_count: number | null
+          updated_at: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          adjustments_sum?: number | null
+          cash_sum?: number | null
+          commission_sum?: number | null
+          created_at?: string
+          driver_id: string
+          gross_sum?: number | null
+          id?: number
+          job_id: string
+          net_result?: number | null
+          platform: string
+          trips_count?: number | null
+          updated_at?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          adjustments_sum?: number | null
+          cash_sum?: number | null
+          commission_sum?: number | null
+          created_at?: string
+          driver_id?: string
+          gross_sum?: number | null
+          id?: number
+          job_id?: string
+          net_result?: number | null
+          platform?: string
+          trips_count?: number | null
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_weekly_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_weekly_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
             referencedColumns: ["id"]
           },
         ]
