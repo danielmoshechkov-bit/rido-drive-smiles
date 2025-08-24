@@ -10,10 +10,12 @@ export function AddOwnCarModal({
   open,
   onClose,
   driverId,
+  onVehicleAdded,
 }: {
   open: boolean;
   onClose: () => void;
   driverId: string;
+  onVehicleAdded?: () => void;
 }) {
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -82,6 +84,7 @@ export function AddOwnCarModal({
     }
     
     toast.success("Pojazd dodany i przypisany");
+    onVehicleAdded?.();
     onClose();
   };
 

@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TabsPill, AddOwnCarModal, useDriverId } from "@/ridoUiPack";
+import { TabsPill, useDriverId } from "@/ridoUiPack";
+import { AddOwnCarModal } from "@/components/driver/AddOwnCarModal";
 import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
@@ -209,6 +210,7 @@ function CarsSection({ driverData }: { driverData: any }) {
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         driverId={driverId}
+        onVehicleAdded={() => setRefreshTrigger(prev => prev + 1)}
       />
     </div>
   );

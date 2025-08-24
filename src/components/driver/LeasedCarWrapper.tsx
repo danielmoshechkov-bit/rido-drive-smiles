@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LeasedCarCard } from "@/ridoUiPack";
+import { LeasedCarCard } from "./LeasedCarCard";
 
 interface LeasedCarWrapperProps {
   driverData: any;
