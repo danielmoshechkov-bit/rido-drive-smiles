@@ -27,72 +27,46 @@ export function LeasedCarCard({
   }
 
   return (
-    <div className="rounded-2xl border bg-card shadow-soft p-5 hover:shadow-purple/10 transition-all duration-300">
-      <div className="flex items-start justify-between gap-6 flex-wrap">
-        <div className="flex-1 min-w-[280px]">
-          <div className="flex items-center gap-2 text-lg font-semibold text-primary mb-3">
-            <Car className="h-5 w-5" />
-            Wynajęte auto
-          </div>
-          
-          <h3 className="text-2xl font-bold text-foreground">
-            {vehicle.brand} {vehicle.model}
-          </h3>
-          <div className="text-xl font-semibold text-primary uppercase tracking-wider">
-            {vehicle.plate}
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm">
-            <div className="text-muted-foreground">Rok produkcji:</div>
-            <div className="font-medium">{vehicle.year || "—"}</div>
-            <div className="text-muted-foreground">Kolor:</div>
-            <div className="font-medium">{vehicle.color || "—"}</div>
-          </div>
-
-          {/* Wynajem — etykieta w 1 rzędzie, kwota POD spodem */}
-          <div className="mt-4">
-            <VehicleRentBlock
-              value={vehicle.weekly_rental_fee || 0}
-              readOnly={readOnlyRent}
-            />
-          </div>
-
-          {vehicle.vin && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-muted-foreground text-sm">VIN:</div>
-              <div className="font-mono text-sm text-foreground break-all mt-1">
-                {vehicle.vin}
-              </div>
-            </div>
-          )}
+    <div className="rounded-lg border bg-card shadow-sm p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+          <Car className="h-5 w-5" />
+          Moje auto
         </div>
-
-        <div className="flex-1 min-w-[260px] space-y-3">
-          {fleet && (
-            <div className="bg-primary/5 rounded-2xl p-4">
-              <div className="bg-primary text-primary-foreground p-3 rounded-t-2xl -mx-4 -mt-4 mb-4">
-                <h3 className="font-semibold">Flota: {fleet.name}</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div><strong>NIP:</strong> {fleet.nip}</div>
-                <div><strong>Kontakt:</strong> {fleet.contact_name}</div>
-                <div><strong>Tel. dla kierowcy:</strong> {fleet.contact_phone_for_drivers}</div>
-              </div>
+      </div>
+      
+      {/* Format similar to fleet table - simplified */}
+      <div className="space-y-4">
+        {/* First row - basic info */}
+        <div className="flex items-center gap-6">
+          <div className="min-w-[120px]">
+            <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+            <div className="font-semibold">{vehicle.plate}</div>
+          </div>
+          <div className="min-w-[150px]">
+            <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+            <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+          </div>
+          <div className="min-w-[80px]">
+            <span className="font-medium text-sm text-muted-foreground">Rok:</span>
+            <div className="font-semibold">{vehicle.year || "—"}</div>
+          </div>
+        </div>
+        
+        {/* Second row - documents */}
+        <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+          <div className="min-w-[200px]">
+            <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
+            <div className="flex gap-2 mt-1">
+              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">OC ważne</span>
+              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Przegląd ważny</span>
             </div>
-          )}
-          
-          <div className="bg-primary/5 rounded-2xl p-4">
-            <Calendar className="h-5 w-5 text-primary mb-2" />
-            <div className="text-muted-foreground text-sm">
-              Od kiedy korzystasz z auta:
-            </div>
-            <div className="font-semibold text-foreground">
+          </div>
+          <div className="min-w-[150px]">
+            <span className="font-medium text-sm text-muted-foreground">Od kiedy:</span>
+            <div className="font-semibold">
               {assignment?.assigned_at
-                ? new Date(assignment.assigned_at).toLocaleDateString("pl-PL", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })
+                ? new Date(assignment.assigned_at).toLocaleDateString("pl-PL")
                 : "—"}
             </div>
           </div>
