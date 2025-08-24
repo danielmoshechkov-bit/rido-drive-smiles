@@ -20,7 +20,7 @@ export const UniversalTabBar = ({ activeTab, onTabChange, tabs, children }: Univ
           <TabsTrigger
             key={tab.value}
             value={tab.value}
-            className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-2 text-base font-medium flex-1"
+            className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/10 transition-colors px-6 py-2 text-base font-medium flex-1"
           >
             {tab.label}
           </TabsTrigger>

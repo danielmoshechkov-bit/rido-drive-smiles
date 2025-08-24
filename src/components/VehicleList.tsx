@@ -1,20 +1,48 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, Calendar, Shield, Wrench } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { UniversalCard } from "./UniversalCard";
+import { Plus, Car, ChevronDown, ChevronUp } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import { AddCarForm } from "./AddCarForm";
+import { VehicleDocuments } from "./VehicleDocuments";
+import { VehicleServiceTab } from "./VehicleServiceTab";
 
 interface VehicleListProps {
   driverId: string;
 }
 
+interface Vehicle {
+  id: string;
+  plate: string;
+  vin: string | null;
+  brand: string;
+  model: string;
+  year: number | null;
+  color: string | null;
+  status: string;
+  weekly_rental_fee: number | null;
+  vehicle_inspections?: Array<{
+    date: string;
+    valid_to: string;
+    result: string;
+  }>;
+  vehicle_policies?: Array<{
+    type: string;
+    valid_from: string;
+    valid_to: string;
+    policy_no: string;
+    provider: string;
+  }>;
+}
+
 export const VehicleList = ({ driverId }: VehicleListProps) => {
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -37,10 +65,28 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
     loadVehicles();
   }, [driverId]);
 
+  const toggleExpanded = (vehicleId: string) => {
+    const newExpanded = new Set(expandedVehicles);
+    if (newExpanded.has(vehicleId)) {
+      newExpanded.delete(vehicleId);
+    } else {
+      newExpanded.add(vehicleId);
+    }
+    setExpandedVehicles(newExpanded);
+  };
+
   const handleCarAdded = () => {
     setShowAddForm(false);
     loadVehicles();
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Ładowanie...</p>
+      </div>
+    );
+  }
 
   if (showAddForm) {
     return (
@@ -60,128 +106,161 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Moje samochody</h3>
+  if (vehicles.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Car className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+        <h3 className="text-lg font-medium mb-2">Brak samochodów</h3>
+        <p className="text-muted-foreground mb-6">
+          Nie masz jeszcze dodanych samochodów
+        </p>
         <Button 
           onClick={() => setShowAddForm(true)}
-          className="bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-4 h-4" />
+          Dodaj auto
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Moje samochody ({vehicles.length})</h3>
+        <Button 
+          onClick={() => setShowAddForm(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+        >
+          <Plus className="w-4 h-4" />
           Dodaj auto
         </Button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">Ładowanie...</p>
-        </div>
-      ) : vehicles.length === 0 ? (
-        <UniversalCard title="Brak samochodów">
-          <div className="text-center py-8">
-            <Car className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground mb-4">
-              Nie masz jeszcze dodanych samochodów
-            </p>
-            <Button 
-              onClick={() => setShowAddForm(true)}
-              className="bg-primary hover:bg-primary-hover text-primary-foreground"
+      {/* Vehicle List */}
+      <div className="space-y-4">
+        {vehicles.map((vehicle) => {
+          const inspection = vehicle.vehicle_inspections?.[0];
+          const ocPolicy = vehicle.vehicle_policies?.find(p => p.type === 'OC');
+          
+          return (
+            <Collapsible
+              key={vehicle.id}
+              open={expandedVehicles.has(vehicle.id)}
+              onOpenChange={() => toggleExpanded(vehicle.id)}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Dodaj pierwszy samochód
-            </Button>
-          </div>
-        </UniversalCard>
-      ) : (
-        <div className="grid gap-4">
-          {vehicles.map((vehicle) => (
-            <UniversalCard 
-              key={vehicle.id} 
-              title={`${vehicle.brand} ${vehicle.model}`}
-              className="max-w-2xl"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground">Nr rejestracji</Label>
-                    <p className="text-sm font-semibold">{vehicle.plate}</p>
-                  </div>
-                  {vehicle.year && (
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Rok</Label>
-                      <p className="text-sm">{vehicle.year}</p>
-                    </div>
-                  )}
-                  {vehicle.color && (
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Kolor</Label>
-                      <p className="text-sm">{vehicle.color}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {/* Przegląd techniczny */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      Przegląd techniczny
-                    </Label>
-                    {vehicle.vehicle_inspections?.length > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <Badge variant={new Date(vehicle.vehicle_inspections[0].valid_to) > new Date() ? "default" : "destructive"}>
-                          {vehicle.vehicle_inspections[0].valid_to ? 
-                            new Date(vehicle.vehicle_inspections[0].valid_to).toLocaleDateString('pl-PL') : 
-                            'Brak daty'
-                          }
-                        </Badge>
+              <Card className="border rounded-lg">
+                <CollapsibleTrigger asChild>
+                  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      {/* Main content */}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-6">
+                          <div className="min-w-[120px]">
+                            <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                            <div className="font-semibold">{vehicle.plate}</div>
+                          </div>
+                          <div className="min-w-[150px]">
+                            <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                            <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
+                          </div>
+                          <div className="min-w-[100px]">
+                            <span className="font-medium text-sm text-muted-foreground">Rok:</span>
+                            <div className="text-sm">{vehicle.year || "Brak"}</div>
+                          </div>
+                          {vehicle.weekly_rental_fee && (
+                            <div className="min-w-[120px]">
+                              <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                              <div className="font-semibold text-primary">{vehicle.weekly_rental_fee} zł/tydz.</div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Second row - documents */}
+                        <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+                          <div className="min-w-[100px]">
+                            <span className="font-medium text-sm text-muted-foreground">OC:</span>
+                            <div className="text-sm">
+                              {ocPolicy ? (
+                                <Badge variant={
+                                  new Date(ocPolicy.valid_to) > new Date() ? "default" : "destructive"
+                                }>
+                                  {new Date(ocPolicy.valid_to).toLocaleDateString('pl-PL')}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Nie dodano</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="min-w-[100px]">
+                            <span className="font-medium text-sm text-muted-foreground">Przegląd:</span>
+                            <div className="text-sm">
+                              {inspection ? (
+                                <Badge variant={
+                                  new Date(inspection.valid_to) > new Date() ? "default" : "destructive"
+                                }>
+                                  {new Date(inspection.valid_to).toLocaleDateString('pl-PL')}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Nie dodano</Badge>
+                              )}
+                            </div>
+                          </div>
+                          {vehicle.color && (
+                            <div className="min-w-[100px]">
+                              <span className="font-medium text-sm text-muted-foreground">Kolor:</span>
+                              <div className="text-sm">{vehicle.color}</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <Badge variant="secondary">Nie dodano</Badge>
+                      
+                      {/* Expand button */}
+                      <div className="ml-4">
+                        {expandedVehicles.has(vehicle.id) ? 
+                          <ChevronUp className="h-5 w-5" /> : 
+                          <ChevronDown className="h-5 w-5" />
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <div className="border-t p-4">
+                    <Tabs defaultValue="documents" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 rounded-lg">
+                        <TabsTrigger value="documents">Dokumenty</TabsTrigger>
+                        <TabsTrigger value="service">Serwis</TabsTrigger>
+                      </TabsList>
+
+                      <div className="mt-4">
+                        <TabsContent value="documents">
+                          <VehicleDocuments vehicleId={vehicle.id} />
+                        </TabsContent>
+
+                        <TabsContent value="service">
+                          <VehicleServiceTab vehicleId={vehicle.id} />
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+
+                    {/* Vehicle details */}
+                    {vehicle.vin && (
+                      <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                        <span className="font-medium text-sm text-muted-foreground">VIN:</span>
+                        <div className="font-mono text-sm">{vehicle.vin}</div>
+                      </div>
                     )}
                   </div>
-
-                  {/* Ubezpieczenie */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground flex items-center">
-                      <Shield className="w-3 h-3 mr-1" />
-                      Ubezpieczenie OC
-                    </Label>
-                    {vehicle.vehicle_policies?.find((p: any) => p.type === 'OC') ? (
-                      <div className="flex items-center gap-2">
-                        <Badge variant={
-                          new Date(vehicle.vehicle_policies.find((p: any) => p.type === 'OC').valid_to) > new Date() ? 
-                          "default" : "destructive"
-                        }>
-                          {new Date(vehicle.vehicle_policies.find((p: any) => p.type === 'OC').valid_to).toLocaleDateString('pl-PL')}
-                        </Badge>
-                      </div>
-                    ) : (
-                      <Badge variant="secondary">Nie dodano</Badge>
-                    )}
-                  </div>
-
-                  {/* Wynajem tygodniowy */}
-                  {vehicle.weekly_rental_fee && (
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Wynajem tygodniowy</Label>
-                      <p className="text-sm font-bold text-green-600">{vehicle.weekly_rental_fee} zł</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {vehicle.vin && (
-                <div className="pt-3 mt-3 border-t border-border">
-                  <Label className="text-xs font-medium text-muted-foreground">VIN</Label>
-                  <p className="text-xs font-mono">{vehicle.vin}</p>
-                </div>
-              )}
-            </UniversalCard>
-          ))}
-        </div>
-      )}
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          );
+        })}
+      </div>
     </div>
   );
 };

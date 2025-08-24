@@ -21,6 +21,8 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
     year: "",
     color: "",
     vin: "",
+    inspection_due: "",
+    oc_policy_due: "",
   });
 
   const handleAddCar = async () => {
@@ -56,6 +58,8 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
         year: "",
         color: "",
         vin: "",
+        inspection_due: "",
+        oc_policy_due: "",
       });
       onCarAdded?.();
     } catch (error) {
@@ -147,6 +151,28 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
               placeholder="np. srebrny"
               value={formData.color}
               onChange={(e) => setFormData({...formData, color: e.target.value})}
+              className="mt-1"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="inspection_due" className="text-sm font-medium text-foreground">Przegląd ważny do</Label>
+            <Input
+              id="inspection_due"
+              type="date"
+              value={formData.inspection_due}
+              onChange={(e) => setFormData({...formData, inspection_due: e.target.value})}
+              className="mt-1"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="oc_policy_due" className="text-sm font-medium text-foreground">Polisa OC ważna do</Label>
+            <Input
+              id="oc_policy_due"
+              type="date"
+              value={formData.oc_policy_due}
+              onChange={(e) => setFormData({...formData, oc_policy_due: e.target.value})}
               className="mt-1"
             />
           </div>
