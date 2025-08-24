@@ -1,16 +1,34 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Edit, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, Building, X } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { InlineEdit } from "./InlineEdit";
+
+interface Fleet {
+  id: string;
+  name: string;
+  nip: string | null;
+  city: string | null;
+  postal_code: string | null;
+  street: string | null;
+  house_number: string | null;
+  contact_name: string | null;
+  phone: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+  contact_phone_for_drivers: string | null;
+  email: string | null;
+}
 
 export function FleetTabManagement({ cityId }: { cityId: string }) {
-  const [fleets, setFleets] = useState<any[]>([]);
-  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [fleets, setFleets] = useState<Fleet[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expandedFleets, setExpandedFleets] = useState<Set<string>>(new Set());
   const [newFleet, setNewFleet] = useState({
     name: "",
@@ -23,15 +41,18 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
     phone: "",
     owner_name: "",
     owner_phone: "",
-    contact_phone_for_drivers: ""
+    contact_phone_for_drivers: "",
+    email: ""
   });
 
   const fetchFleets = async () => {
+    setLoading(true);
     const { data } = await supabase
       .from("fleets")
       .select("*")
       .order("name");
     setFleets(data || []);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -56,25 +77,26 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
     toast.success("Dodano flotę");
     setNewFleet({ 
       name: "", nip: "", city: "", postal_code: "", street: "", house_number: "",
-      contact_name: "", phone: "", owner_name: "", owner_phone: "", contact_phone_for_drivers: ""
+      contact_name: "", phone: "", owner_name: "", owner_phone: "", contact_phone_for_drivers: "", email: ""
     });
+    setShowAddForm(false);
     fetchFleets();
   };
 
-  const updateFleet = async (id: string, updates: any) => {
-    const { error } = await supabase
-      .from("fleets")
-      .update(updates)
-      .eq("id", id);
+  const updateFleetField = async (fleetId: string, field: string, value: string) => {
+    try {
+      const { error } = await supabase
+        .from("fleets")
+        .update({ [field]: value })
+        .eq("id", fleetId);
 
-    if (error) {
-      toast.error(error.message);
-      return;
+      if (error) throw error;
+      
+      toast.success("Zaktualizowano flotę");
+      fetchFleets();
+    } catch (error) {
+      toast.error("Błąd podczas aktualizacji floty");
     }
-
-    toast.success("Zaktualizowano flotę");
-    setIsEditing(null);
-    fetchFleets();
   };
 
   const deleteFleet = async (id: string) => {
@@ -94,340 +116,383 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
     fetchFleets();
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Dodaj nową flotę */}
-      <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Dodaj nową flotę
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fleet-name">Nazwa floty *</Label>
-              <Input
-                id="fleet-name"
-                value={newFleet.name}
-                onChange={(e) => setNewFleet({ ...newFleet, name: e.target.value })}
-                placeholder="Nazwa floty"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-nip">NIP</Label>
-              <Input
-                id="fleet-nip"
-                value={newFleet.nip}
-                onChange={(e) => setNewFleet({ ...newFleet, nip: e.target.value })}
-                placeholder="NIP"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-city">Miasto</Label>
-              <Input
-                id="fleet-city"
-                value={newFleet.city}
-                onChange={(e) => setNewFleet({ ...newFleet, city: e.target.value })}
-                placeholder="Miasto"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-postal">Kod pocztowy</Label>
-              <Input
-                id="fleet-postal"
-                value={newFleet.postal_code}
-                onChange={(e) => setNewFleet({ ...newFleet, postal_code: e.target.value })}
-                placeholder="00-000"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-street">Ulica</Label>
-              <Input
-                id="fleet-street"
-                value={newFleet.street}
-                onChange={(e) => setNewFleet({ ...newFleet, street: e.target.value })}
-                placeholder="Nazwa ulicy"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-house">Nr domu</Label>
-              <Input
-                id="fleet-house"
-                value={newFleet.house_number}
-                onChange={(e) => setNewFleet({ ...newFleet, house_number: e.target.value })}
-                placeholder="Nr domu/mieszkania"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-owner">Właściciel floty</Label>
-              <Input
-                id="fleet-owner"
-                value={newFleet.owner_name}
-                onChange={(e) => setNewFleet({ ...newFleet, owner_name: e.target.value })}
-                placeholder="Imię i nazwisko właściciela"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-owner-phone">Tel. właściciela</Label>
-              <Input
-                id="fleet-owner-phone"
-                value={newFleet.owner_phone}
-                onChange={(e) => setNewFleet({ ...newFleet, owner_phone: e.target.value })}
-                placeholder="Numer telefonu właściciela"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-contact">Osoba do kontaktu</Label>
-              <Input
-                id="fleet-contact"
-                value={newFleet.contact_name}
-                onChange={(e) => setNewFleet({ ...newFleet, contact_name: e.target.value })}
-                placeholder="Imię i nazwisko"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-phone">Telefon biura</Label>
-              <Input
-                id="fleet-phone"
-                value={newFleet.phone}
-                onChange={(e) => setNewFleet({ ...newFleet, phone: e.target.value })}
-                placeholder="Numer telefonu biura"
-                className="rounded-lg"
-              />
-            </div>
-            <div>
-              <Label htmlFor="fleet-driver-phone">Tel. dla kierowcy</Label>
-              <Input
-                id="fleet-driver-phone"
-                value={newFleet.contact_phone_for_drivers}
-                onChange={(e) => setNewFleet({ ...newFleet, contact_phone_for_drivers: e.target.value })}
-                placeholder="Numer telefonu dla kierowców"
-                className="rounded-lg"
-              />
-            </div>
-          </div>
-          <Button onClick={addFleet} className="rounded-lg">
-            Dodaj flotę
-          </Button>
-        </CardContent>
-      </Card>
+  const toggleExpanded = (fleetId: string) => {
+    const newExpanded = new Set(expandedFleets);
+    if (newExpanded.has(fleetId)) {
+      newExpanded.delete(fleetId);
+    } else {
+      newExpanded.add(fleetId);
+    }
+    setExpandedFleets(newExpanded);
+  };
 
-      {/* Lista flot */}
-      <div className="grid gap-4">
-        {fleets.map((fleet) => (
-          <Card key={fleet.id} className="rounded-lg">
-            <Collapsible 
-              open={expandedFleets.has(fleet.id)} 
-              onOpenChange={(open) => {
-                const newExpanded = new Set(expandedFleets);
-                if (open) {
-                  newExpanded.add(fleet.id);
-                } else {
-                  newExpanded.delete(fleet.id);
-                  setIsEditing(null); // Cancel editing when collapsing
-                }
-                setExpandedFleets(newExpanded);
-              }}
+  const handleFleetAdded = () => {
+    setShowAddForm(false);
+    fetchFleets();
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Ładowanie...</p>
+      </div>
+    );
+  }
+
+  if (showAddForm) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Dodaj nową flotę</h3>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAddForm(false)}
+            className="text-sm"
+          >
+            Anuluj
+          </Button>
+        </div>
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fleet-name">Nazwa floty *</Label>
+                <Input
+                  id="fleet-name"
+                  value={newFleet.name}
+                  onChange={(e) => setNewFleet({ ...newFleet, name: e.target.value })}
+                  placeholder="Nazwa floty"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-nip">NIP</Label>
+                <Input
+                  id="fleet-nip"
+                  value={newFleet.nip}
+                  onChange={(e) => setNewFleet({ ...newFleet, nip: e.target.value })}
+                  placeholder="NIP"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-email">Adres email</Label>
+                <Input
+                  id="fleet-email"
+                  type="email"
+                  value={newFleet.email}
+                  onChange={(e) => setNewFleet({ ...newFleet, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-city">Miasto</Label>
+                <Input
+                  id="fleet-city"
+                  value={newFleet.city}
+                  onChange={(e) => setNewFleet({ ...newFleet, city: e.target.value })}
+                  placeholder="Miasto"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-postal">Kod pocztowy</Label>
+                <Input
+                  id="fleet-postal"
+                  value={newFleet.postal_code}
+                  onChange={(e) => setNewFleet({ ...newFleet, postal_code: e.target.value })}
+                  placeholder="00-000"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-street">Ulica</Label>
+                <Input
+                  id="fleet-street"
+                  value={newFleet.street}
+                  onChange={(e) => setNewFleet({ ...newFleet, street: e.target.value })}
+                  placeholder="Nazwa ulicy"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-house">Nr domu/mieszkania</Label>
+                <Input
+                  id="fleet-house"
+                  value={newFleet.house_number}
+                  onChange={(e) => setNewFleet({ ...newFleet, house_number: e.target.value })}
+                  placeholder="Nr domu/mieszkania"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-owner">Właściciel floty</Label>
+                <Input
+                  id="fleet-owner"
+                  value={newFleet.owner_name}
+                  onChange={(e) => setNewFleet({ ...newFleet, owner_name: e.target.value })}
+                  placeholder="Imię i nazwisko właściciela"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-owner-phone">Tel. właściciela</Label>
+                <Input
+                  id="fleet-owner-phone"
+                  value={newFleet.owner_phone}
+                  onChange={(e) => setNewFleet({ ...newFleet, owner_phone: e.target.value })}
+                  placeholder="Numer telefonu właściciela"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-contact">Osoba do kontaktu dla kierowcy</Label>
+                <Input
+                  id="fleet-contact"
+                  value={newFleet.contact_name}
+                  onChange={(e) => setNewFleet({ ...newFleet, contact_name: e.target.value })}
+                  placeholder="Imię i nazwisko"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-phone">Telefon biura</Label>
+                <Input
+                  id="fleet-phone"
+                  value={newFleet.phone}
+                  onChange={(e) => setNewFleet({ ...newFleet, phone: e.target.value })}
+                  placeholder="Numer telefonu biura"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fleet-driver-phone">Tel. dla kontaktu kierowcy</Label>
+                <Input
+                  id="fleet-driver-phone"
+                  value={newFleet.contact_phone_for_drivers}
+                  onChange={(e) => setNewFleet({ ...newFleet, contact_phone_for_drivers: e.target.value })}
+                  placeholder="Numer telefonu dla kierowców"
+                />
+              </div>
+            </div>
+            <Button onClick={addFleet}>
+              Dodaj flotę
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (fleets.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Building className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+        <h3 className="text-lg font-medium mb-2">Brak flot</h3>
+        <p className="text-muted-foreground mb-6">
+          Nie masz jeszcze dodanych flot
+        </p>
+        <Button 
+          onClick={() => setShowAddForm(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Dodaj nową flotę
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Floty ({fleets.length})</h3>
+        <Button 
+          onClick={() => setShowAddForm(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Dodaj nową flotę
+        </Button>
+      </div>
+
+      {/* Fleet List */}
+      <div className="space-y-4">
+        {fleets.map((fleet) => {
+          return (
+            <Collapsible
+              key={fleet.id}
+              open={expandedFleets.has(fleet.id)}
+              onOpenChange={() => toggleExpanded(fleet.id)}
             >
-              <CollapsibleTrigger asChild>
-                <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      {expandedFleets.has(fleet.id) ? 
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" /> : 
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      }
-                      <div>
-                        <h3 className="font-semibold text-lg">{fleet.name}</h3>
-                        {fleet.nip && <p className="text-sm text-muted-foreground">NIP: {fleet.nip}</p>}
+              <Card className="border rounded-lg">
+                <CollapsibleTrigger asChild>
+                  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      {/* Main content */}
+                      <div className="flex-1 space-y-3">
+                         <div className="flex items-center gap-6">
+                           <div className="min-w-[150px]">
+                             <span className="font-medium text-sm text-muted-foreground">Nazwa skrócona:</span>
+                             <div className="font-semibold">{fleet.name}</div>
+                           </div>
+                           <div className="min-w-[200px]">
+                             <span className="font-medium text-sm text-muted-foreground">Osoba do kontaktu dla kierowcy:</span>
+                             <div className="font-semibold">{fleet.contact_name || "Brak"}</div>
+                           </div>
+                           <div className="min-w-[180px]">
+                             <span className="font-medium text-sm text-muted-foreground">Tel. dla kontaktu kierowcy:</span>
+                             <div className="font-semibold">{fleet.contact_phone_for_drivers || "Brak"}</div>
+                           </div>
+                         </div>
+                        
+                        {/* Second row - NIP */}
+                        {fleet.nip && (
+                          <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+                            <div className="min-w-[200px]">
+                              <span className="font-medium text-sm text-muted-foreground">NIP:</span>
+                              <div className="font-semibold">{fleet.nip}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Expand button */}
+                      <div className="ml-4">
+                        {expandedFleets.has(fleet.id) ? 
+                          <ChevronUp className="h-5 w-5" /> : 
+                          <ChevronDown className="h-5 w-5" />
+                        }
                       </div>
                     </div>
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setExpandedFleets(prev => new Set([...prev, fleet.id]));
-                          setIsEditing(fleet.id);
-                        }}
-                        className="rounded-lg"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                  </div>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <div className="border-t p-4">
+                    {/* Delete button */}
+                    <div className="flex justify-end mb-4">
                       <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => deleteFleet(fleet.id)}
-                        className="rounded-lg"
+                        className="gap-2"
                       >
                         <Trash2 className="h-4 w-4" />
+                        Usuń
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="pt-0 px-4 pb-4">
-                  {isEditing === fleet.id ? (
-                    <EditFleetForm
-                      fleet={fleet}
-                      onSave={(updates) => updateFleet(fleet.id, updates)}
-                      onCancel={() => setIsEditing(null)}
-                    />
-                  ) : (
-                    <div className="space-y-3 mt-4 pt-4 border-t">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        {fleet.city && <div><span className="font-medium">Miasto:</span> {fleet.city}</div>}
-                        {fleet.postal_code && <div><span className="font-medium">Kod pocztowy:</span> {fleet.postal_code}</div>}
-                        {fleet.street && <div><span className="font-medium">Ulica:</span> {fleet.street}</div>}
-                        {fleet.house_number && <div><span className="font-medium">Nr domu:</span> {fleet.house_number}</div>}
-                        {fleet.owner_name && <div><span className="font-medium">Właściciel:</span> {fleet.owner_name}</div>}
-                        {fleet.owner_phone && <div><span className="font-medium">Tel. właściciela:</span> {fleet.owner_phone}</div>}
-                        {fleet.contact_name && <div><span className="font-medium">Osoba kontaktowa:</span> {fleet.contact_name}</div>}
-                        {fleet.phone && <div><span className="font-medium">Tel. biura:</span> {fleet.phone}</div>}
-                        {fleet.contact_phone_for_drivers && <div><span className="font-medium">Tel. dla kierowcy:</span> {fleet.contact_phone_for_drivers}</div>}
+
+                    {/* Editable fields */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.name || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "name", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">NIP</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.nip || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "nip", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Adres email</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.email || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "email", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Miasto</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.city || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "city", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Kod pocztowy</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.postal_code || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "postal_code", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Ulica</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.street || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "street", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Nr domu/mieszkania</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.house_number || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "house_number", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Właściciel floty</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.owner_name || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "owner_name", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Tel. właściciela</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.owner_phone || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "owner_phone", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Osoba do kontaktu dla kierowcy</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.contact_name || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "contact_name", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Telefon biura</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.phone || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "phone", value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Tel. dla kontaktu kierowcy</Label>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <InlineEdit
+                              value={fleet.contact_phone_for_drivers || ""}
+                              onSave={(value) => updateFleetField(fleet.id, "contact_phone_for_drivers", value)}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </CollapsibleContent>
+                  </div>
+                </CollapsibleContent>
+              </Card>
             </Collapsible>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EditFleetForm({ fleet, onSave, onCancel }: { 
-  fleet: any; 
-  onSave: (updates: any) => void; 
-  onCancel: () => void; 
-}) {
-  const [formData, setFormData] = useState({
-    name: fleet.name || "",
-    nip: fleet.nip || "",
-    city: fleet.city || "",
-    postal_code: fleet.postal_code || "",
-    street: fleet.street || "",
-    house_number: fleet.house_number || "",
-    contact_name: fleet.contact_name || "",
-    phone: fleet.phone || "",
-    owner_name: fleet.owner_name || "",
-    owner_phone: fleet.owner_phone || "",
-    contact_phone_for_drivers: fleet.contact_phone_for_drivers || ""
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Nazwa floty *</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>NIP</Label>
-          <Input
-            value={formData.nip}
-            onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Miasto</Label>
-          <Input
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Kod pocztowy</Label>
-          <Input
-            value={formData.postal_code}
-            onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Ulica</Label>
-          <Input
-            value={formData.street}
-            onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Nr domu</Label>
-          <Input
-            value={formData.house_number}
-            onChange={(e) => setFormData({ ...formData, house_number: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Właściciel floty</Label>
-          <Input
-            value={formData.owner_name}
-            onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Tel. właściciela</Label>
-          <Input
-            value={formData.owner_phone}
-            onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Osoba kontaktowa</Label>
-          <Input
-            value={formData.contact_name}
-            onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Tel. biura</Label>
-          <Input
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-        <div>
-          <Label>Tel. dla kierowcy</Label>
-          <Input
-            value={formData.contact_phone_for_drivers}
-            onChange={(e) => setFormData({ ...formData, contact_phone_for_drivers: e.target.value })}
-            className="rounded-lg"
-          />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Button onClick={() => onSave(formData)} className="rounded-lg">
-          Zapisz
-        </Button>
-        <Button variant="outline" onClick={onCancel} className="rounded-lg">
-          Anuluj
-        </Button>
+          );
+        })}
       </div>
     </div>
   );
