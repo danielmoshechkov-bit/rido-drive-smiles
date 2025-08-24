@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import LanguageSelector from "@/components/LanguageSelector";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { FileText, MessageCircle, X, Send, ChevronDown } from "lucide-react";
+import { AddCarForm } from "@/components/AddCarForm";
 
 const DriverDashboard = () => {
   const { t } = useTranslation();
@@ -139,35 +140,70 @@ const DriverDashboard = () => {
           <DriverChatButton driverData={driverData} />
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-2 shadow-purple h-14">
-            <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Rozliczenie tygodniowe</TabsTrigger>
-            <TabsTrigger value="cars" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Samochód</TabsTrigger>
-            <TabsTrigger value="fleet-info" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Informacje flotowe</TabsTrigger>
-            <TabsTrigger value="documents" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Dokumenty</TabsTrigger>
-            <TabsTrigger value="fuel" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Paliwo</TabsTrigger>
-          </TabsList>
+        <div className="bg-gradient-hero text-primary-foreground rounded-lg p-2 shadow-purple h-14 mb-6">
+          <div className="grid grid-cols-5 h-full gap-1">
+            <button
+              onClick={() => setActiveTab('weekly-report')}
+              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
+                activeTab === 'weekly-report' 
+                  ? 'bg-white text-primary' 
+                  : 'hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              Rozliczenie tygodniowe
+            </button>
+            <button
+              onClick={() => setActiveTab('cars')}
+              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
+                activeTab === 'cars' 
+                  ? 'bg-white text-primary' 
+                  : 'hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              Samochód
+            </button>
+            <button
+              onClick={() => setActiveTab('fleet-info')}
+              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
+                activeTab === 'fleet-info' 
+                  ? 'bg-white text-primary' 
+                  : 'hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              Informacje flotowe
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
+                activeTab === 'documents' 
+                  ? 'bg-white text-primary' 
+                  : 'hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              Dokumenty
+            </button>
+            <button
+              onClick={() => setActiveTab('fuel')}
+              className={`rounded-md px-6 py-3 text-base font-medium transition-all ${
+                activeTab === 'fuel' 
+                  ? 'bg-white text-primary' 
+                  : 'hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              Paliwo
+            </button>
+          </div>
+        </div>
 
-          <TabsContent value="weekly-report" className="space-y-6">
-            <WeeklyResults driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="cars" className="space-y-6">
-            <DriverCar driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="fleet-info" className="space-y-6">
-            <FleetInfo driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="documents" className="space-y-6">
-            <DriverDocuments driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="fuel" className="space-y-6">
-            <FuelLogs driverData={driverData} />
-          </TabsContent>
-        </Tabs>
+        
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {activeTab === 'weekly-report' && <WeeklyResults driverData={driverData} />}
+          {activeTab === 'cars' && <AddCarForm driverId={driverData.driver_id} />}
+          {activeTab === 'fleet-info' && <FleetInfo driverData={driverData} />}
+          {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
+          {activeTab === 'fuel' && <FuelLogs driverData={driverData} />}
+        </div>
       </div>
     </div>
   );
