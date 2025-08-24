@@ -119,13 +119,12 @@ export function AddOwnCarModal({
       }
 
       // Automatyczne przypisanie do kierowcy od dziś
-      const today = new Date().toISOString().slice(0, 10);
       const { error: assignError } = await supabase
         .from("driver_vehicle_assignments")
         .insert({ 
           driver_id: driverId, 
           vehicle_id: veh.id, 
-          assigned_at: today + "T00:00:00Z",
+          assigned_at: new Date().toISOString(), // Użyj aktualnego timestampu
           unassigned_at: null,
           status: "active"
         });
