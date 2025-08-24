@@ -14,6 +14,7 @@ import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
+import { DriverFleetBadgeSelector } from "@/components/DriverFleetBadgeSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -198,6 +199,15 @@ function CarsSection({ driverData }: { driverData: any }) {
         </Button>
       </div>
 
+      {/* Selektor floty */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">Flota:</span>
+        <DriverFleetBadgeSelector 
+          driverId={driverData.driver_id}
+          fleetId={driverData.drivers?.fleet_id}
+        />
+      </div>
+
       {/* Karta wynajętego auta */}
       <LeasedCarWrapper driverData={driverData} />
 
@@ -310,13 +320,13 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .select(`
         id,
         vehicle_id,
-        vehicles!inner(
-          weekly_rental_fee
-        )
+        vehicles(weekly_rental_fee)
       `)
       .eq("driver_id", driverData.driver_id)
       .eq("status", "active")
-      .maybeSingle();
+      .order('assigned_at', { ascending: false })
+      .limit(1)
+      .single();
     
     console.log("Assignment data:", assignment);
     console.log("Assignment error:", error);
