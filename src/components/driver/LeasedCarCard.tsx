@@ -70,9 +70,14 @@ export function LeasedCarCard({
         <div className="flex-1 min-w-[260px] space-y-3">
           {fleet && (
             <div className="bg-primary/5 rounded-2xl p-4">
-              <Building2 className="h-5 w-5 text-primary mb-2" />
-              <div className="text-muted-foreground text-sm">Flota:</div>
-              <div className="font-semibold text-foreground">{fleet.name}</div>
+              <div className="bg-primary text-primary-foreground p-3 rounded-t-2xl -mx-4 -mt-4 mb-4">
+                <h3 className="font-semibold">Flota: {fleet.name}</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div><strong>NIP:</strong> {fleet.nip}</div>
+                <div><strong>Kontakt:</strong> {fleet.contact_name}</div>
+                <div><strong>Tel. dla kierowcy:</strong> {fleet.contact_phone_for_drivers}</div>
+              </div>
             </div>
           )}
           

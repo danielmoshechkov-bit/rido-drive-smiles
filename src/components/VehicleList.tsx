@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, ChevronDown, ChevronUp, X, Search } from "lucide-react";
+import { Plus, Car, ChevronDown, ChevronUp, X, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCarForm } from "./AddCarForm";
 import { VehicleDocuments } from "./VehicleDocuments";
@@ -44,9 +45,11 @@ interface Vehicle {
 
 export const VehicleList = ({ driverId }: VehicleListProps) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
 
   const updateWeeklyRentalFee = async (vehicleId: string, feeString: string) => {
     const fee = parseFloat(feeString) || 0;
@@ -82,9 +85,43 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
     setLoading(false);
   };
 
+  const deleteVehicle = async (vehicleId: string) => {
+    if (!confirm("Czy na pewno chcesz usunąć ten pojazd?")) return;
+    
+    try {
+      // First deactivate assignments
+      await supabase
+        .from("driver_vehicle_assignments")
+        .update({ status: "inactive", unassigned_at: new Date().toISOString() })
+        .eq("vehicle_id", vehicleId)
+        .eq("status", "active");
+
+      // Then delete the vehicle
+      const { error } = await supabase
+        .from("vehicles")
+        .delete()
+        .eq("id", vehicleId);
+
+      if (error) throw error;
+      
+      toast.success("Pojazd został usunięty");
+      loadVehicles();
+    } catch (error) {
+      toast.error("Błąd podczas usuwania pojazdu");
+    }
+  };
+
   useEffect(() => {
     loadVehicles();
   }, [driverId]);
+
+  useEffect(() => {
+    const filtered = vehicles.filter(vehicle =>
+      vehicle.plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${vehicle.brand} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredVehicles(filtered);
+  }, [vehicles, searchTerm]);
 
   const toggleExpanded = (vehicleId: string) => {
     const newExpanded = new Set(expandedVehicles);
@@ -127,7 +164,7 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
     );
   }
 
-  if (vehicles.length === 0) {
+  if (filteredVehicles.length === 0 && vehicles.length === 0) {
     return (
       <div className="text-center py-12">
         <Car className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
@@ -149,7 +186,7 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Moje samochody ({vehicles.length})</h3>
         <Button 
           onClick={() => setShowAddForm(true)}
@@ -160,9 +197,27 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
         </Button>
       </div>
 
+      {/* Search Bar */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Szukaj po nr rejestracyjnym lub marce..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
       {/* Vehicle List */}
       <div className="space-y-4">
-        {vehicles.map((vehicle) => {
+        {filteredVehicles.length === 0 && searchTerm ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Brak wyników dla "{searchTerm}"</p>
+          </div>
+        ) : (
+          filteredVehicles.map((vehicle) => {
           const inspection = vehicle.vehicle_inspections?.[0];
           const ocPolicy = vehicle.vehicle_policies?.find(p => p.type === 'OC');
           
@@ -172,73 +227,83 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
               open={expandedVehicles.has(vehicle.id)}
               onOpenChange={() => toggleExpanded(vehicle.id)}
             >
-              <Card className="border rounded-lg">
+              <Card className="border rounded-lg relative">
+                {/* Delete button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteVehicle(vehicle.id);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+
                 <CollapsibleTrigger asChild>
-                         <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                           <div className="flex items-center justify-between">
-                             {/* Main content */}
-                             <div className="flex-1 space-y-3">
-                                 <div className="flex items-center gap-6">
-                                   <div className="min-w-[120px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                     <div className="font-semibold">{vehicle.plate}</div>
-                                   </div>
-                                   <div className="min-w-[150px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                     <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-                                   </div>
-                                   <div className="min-w-[100px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
-                                       <VehicleFleetSelector 
-                                         vehicleId={vehicle.id}
-                                         currentFleetId={(vehicle as any).fleet_id}
-                                         onFleetUpdate={loadVehicles}
-                                       />
-                                     </div>
-                                   </div>
-                                   <div className="min-w-[120px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                     <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
-                                       <InlineEdit
-                                         value={vehicle.weekly_rental_fee?.toString() || "0"}
-                                         onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
-                                       />
-                                       <span className="text-sm"> zł/tydz.</span>
-                                     </div>
-                                   </div>
-                                 </div>
-                               
-                               {/* Second row - documents and additional info */}
-                               <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                 <div className="min-w-[200px]">
-                                   <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
-                                   <div className="font-semibold">
-                                     <ExpiryBadges vehicleId={vehicle.id} />
-                                   </div>
-                                 </div>
-                                 <div className="min-w-[100px]">
-                                   <span className="font-medium text-sm text-muted-foreground">Rok:</span>
-                                   <div className="font-semibold">{vehicle.year || "Brak"}</div>
-                                 </div>
-                                 {vehicle.color && (
-                                   <div className="min-w-[100px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Kolor:</span>
-                                     <div className="font-semibold">{vehicle.color}</div>
-                                   </div>
-                                 )}
-                               </div>
-                             </div>
-                             
-                             {/* Expand button */}
-                             <div className="ml-4">
-                               {expandedVehicles.has(vehicle.id) ? 
-                                 <ChevronUp className="h-5 w-5" /> : 
-                                 <ChevronDown className="h-5 w-5" />
-                               }
-                             </div>
-                           </div>
-                         </div>
+                  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between pr-10">
+                      {/* Main content */}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                            <div className="font-semibold text-primary">{vehicle.plate}</div>
+                            {vehicle.year && <div className="text-sm text-muted-foreground">{vehicle.year}</div>}
+                            {vehicle.color && <div className="text-sm text-muted-foreground">{vehicle.color}</div>}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                          <div className="min-w-[100px]">
+                            <span className="font-medium text-sm text-muted-foreground">Flota:</span>
+                            <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
+                              <VehicleFleetSelector 
+                                vehicleId={vehicle.id}
+                                currentFleetId={(vehicle as any).fleet_id}
+                                onFleetUpdate={loadVehicles}
+                              />
+                            </div>
+                          </div>
+                          <div className="min-w-[140px]">
+                            <div className="font-semibold flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-sm text-muted-foreground">Wynajem:</span>
+                              <InlineEdit
+                                value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                              />
+                              <span className="text-sm text-muted-foreground">zł/tydz.</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Second row - documents and VIN */}
+                        <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+                          <div className="min-w-[200px]">
+                            <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
+                            <div className="font-semibold">
+                              <ExpiryBadges vehicleId={vehicle.id} />
+                            </div>
+                          </div>
+                          {vehicle.vin && (
+                            <div className="min-w-[200px]">
+                              <span className="font-medium text-sm text-muted-foreground">VIN:</span>
+                              <div className="font-mono text-sm">{vehicle.vin}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Expand button */}
+                      <div className="ml-4">
+                        {expandedVehicles.has(vehicle.id) ? 
+                          <ChevronUp className="h-5 w-5" /> : 
+                          <ChevronDown className="h-5 w-5" />
+                        }
+                      </div>
+                    </div>
+                  </div>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
@@ -260,19 +325,12 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                       </div>
                     </Tabs>
 
-                     {/* Vehicle details */}
-                     {vehicle.vin && (
-                       <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                         <span className="font-medium text-sm text-muted-foreground">VIN:</span>
-                         <div className="font-mono text-sm">{vehicle.vin}</div>
-                       </div>
-                     )}
                   </div>
                 </CollapsibleContent>
               </Card>
             </Collapsible>
           );
-        })}
+         }))}
       </div>
     </div>
   );
