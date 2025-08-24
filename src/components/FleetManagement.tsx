@@ -19,7 +19,7 @@ import { FleetTabManagement } from "./FleetTabManagement";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
-import { DriverAssignmentDropdown } from "./DriverAssignmentDropdown";
+import { UniversalSelector } from "./UniversalSelector";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -54,12 +54,30 @@ type Vehicle = {
 
 export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<{id: string; name: string}[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeTab, setActiveTab] = useState("vehicles");
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
+
+  const loadDrivers = async () => {
+    if (!cityId) return;
+    
+    let query = supabase
+      .from('drivers')
+      .select('id, first_name, last_name, email')
+      .eq('city_id', cityId)
+      .order('first_name');
+
+    const { data } = await query;
+    const driverItems = (data || []).map(driver => ({
+      id: driver.id,
+      name: `${driver.first_name} ${driver.last_name}${driver.email ? ` (${driver.email})` : ''}`
+    }));
+    setDrivers(driverItems);
+  };
 
   const fetchVehicles = async () => {
     let vehiclesQuery = supabase
@@ -112,6 +130,7 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
   
   useEffect(() => {
     fetchVehicles();
+    loadDrivers();
   }, [cityId]);
 
   const filtered = vehicles.filter(v => {
@@ -133,7 +152,72 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
     setOpenDropdown(null);
   };
 
-  const removeDriverAssignment = async (vehicleId: string, driverId: string) => {
+  const assignDriver = async (vehicleId: string, driverId: string) => {
+    try {
+      // Zakończ poprzednie przypisania pojazdu
+      const { error: updateError } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('vehicle_id', vehicleId)
+        .eq('status', 'active');
+
+      if (updateError) throw updateError;
+
+      // Zakończ poprzednie przypisania kierowcy
+      const { error: deactivateDriverError } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('driver_id', driverId)
+        .eq('status', 'active');
+
+      if (deactivateDriverError) throw deactivateDriverError;
+
+      // Dodaj nowe przypisanie
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .insert([{
+          vehicle_id: vehicleId,
+          driver_id: driverId,
+          assigned_at: new Date().toISOString(),
+          status: 'active'
+        }]);
+
+      if (error) throw error;
+      
+      toast.success('Kierowca przypisany do pojazdu');
+      fetchVehicles();
+    } catch (error) {
+      toast.error('Błąd przy przypisywaniu kierowcy');
+    }
+  };
+
+  const removeDriverAssignment = async (vehicleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('vehicle_id', vehicleId)
+        .eq('status', 'active');
+
+      if (error) throw error;
+      
+      toast.success('Przypisanie kierowcy zostało usunięte');
+      fetchVehicles();
+    } catch (error) {
+      toast.error('Błąd podczas usuwania przypisania kierowcy');
+    }
+  };
+
+  const removeDriverAssignmentOld = async (vehicleId: string, driverId: string) => {
     try {
       const { error } = await supabase
         .from("driver_vehicle_assignments")
@@ -331,18 +415,34 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                               
                                {/* Drugi rząd - kierowca i daty */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                   <div className="min-w-[150px]">
-                                      <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
-                                        Kierowca:
-                                        <ChevronDown className="h-3 w-3 text-primary" />
-                                      </span>
-                                      <DriverAssignmentDropdown
-                                        vehicleId={vehicle.id}
-                                        currentDriver={vehicle.assignedDriver}
-                                        onAssignmentChange={fetchVehicles}
-                                        cityId={cityId}
-                                      />
-                                   </div>
+                                    <div className="min-w-[150px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                       <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                                         Kierowca:
+                                         <ChevronDown className="h-3 w-3 text-primary" />
+                                       </span>
+                                       <UniversalSelector
+                                         id={`vehicle-driver-${vehicle.id}`}
+                                         items={drivers}
+                                         currentValue={vehicle.assignedDriver?.id || null}
+                                         placeholder={vehicle.assignedDriver 
+                                           ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
+                                           : "Brak przypisania"
+                                         }
+                                         searchPlaceholder="Szukaj kierowcy..."
+                                         noResultsText="Brak kierowców"
+                                         showSearch={true}
+                                         showAdd={false}
+                                         allowClear={true}
+                                         onSelect={async (item) => {
+                                           if (item) {
+                                             await assignDriver(vehicle.id, item.id);
+                                           } else {
+                                             await removeDriverAssignment(vehicle.id);
+                                           }
+                                         }}
+                                         className="inline-block"
+                                       />
+                                    </div>
                                   <div className="min-w-[200px]">
                                     <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
                                     <div className="font-semibold">
