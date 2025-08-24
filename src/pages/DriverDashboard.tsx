@@ -852,13 +852,15 @@ function DriverCar({ driverData }: { driverData: any }) {
 function FleetInfo({ driverData }: { driverData: any }) {
   const [vehicleData, setVehicleData] = useState<any>(null);
   const [fleetData, setFleetData] = useState<any>(null);
+  const [assignmentData, setAssignmentData] = useState<any>(null);
 
   useEffect(() => {
     const fetchFleetInfo = async () => {
-      // Pobierz dane o wynajętym aucie i flocie
+      // Pobierz dane o wynajętym aucie i flocie wraz z datą rozpoczęcia
       const { data: assignment } = await supabase
         .from("driver_vehicle_assignments")
         .select(`
+          *,
           vehicles(
             plate, brand, model, year, color, vin,
             weekly_rental_fee,
@@ -872,70 +874,91 @@ function FleetInfo({ driverData }: { driverData: any }) {
       if (assignment?.vehicles) {
         setVehicleData(assignment.vehicles);
         setFleetData(assignment.vehicles.fleets);
+        setAssignmentData(assignment);
       }
     };
 
     fetchFleetInfo();
   }, [driverData.driver_id]);
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pl-PL', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-4">
       {/* Wynajęte auto */}
       <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle>Wynajęte auto</CardTitle>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Wynajęte auto</CardTitle>
         </CardHeader>
         <CardContent>
           {vehicleData ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Marka i model</label>
-                  <p className="font-medium">{vehicleData.brand} {vehicleData.model}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Marka i model</Label>
+                  <p className="text-base font-semibold">{vehicleData.brand} {vehicleData.model}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Nr rejestracji</label>
-                  <p className="font-medium">{vehicleData.plate}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Nr rejestracji</Label>
+                  <p className="text-base font-semibold">{vehicleData.plate}</p>
                 </div>
+                {vehicleData.year && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Rok produkcji</Label>
+                    <p className="text-base">{vehicleData.year}</p>
+                  </div>
+                )}
+                {vehicleData.color && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Kolor</Label>
+                    <p className="text-base">{vehicleData.color}</p>
+                  </div>
+                )}
+                {assignmentData?.assigned_date && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Data wynajmu</Label>
+                    <p className="text-base">{formatDate(assignmentData.assigned_date)}</p>
+                  </div>
+                )}
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Rok produkcji</label>
-                  <p className="font-medium">{vehicleData.year}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Kolor</label>
-                  <p className="font-medium">{vehicleData.color}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">VIN</label>
-                  <p className="font-medium text-xs">{vehicleData.vin}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</label>
-                  <p className="font-medium text-green-600">{vehicleData.weekly_rental_fee || 0} zł</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</Label>
+                  <p className="text-base font-semibold text-green-600">{vehicleData.weekly_rental_fee || 0} zł</p>
                 </div>
               </div>
+              {vehicleData.vin && (
+                <div className="pt-2 border-t">
+                  <Label className="text-sm font-medium text-muted-foreground">VIN</Label>
+                  <p className="text-sm font-mono mt-1">{vehicleData.vin}</p>
+                </div>
+              )}
             </div>
           ) : (
-            <p className="text-muted-foreground">Nie masz przypisanego pojazdu.</p>
+            <p className="text-base text-muted-foreground">Nie masz przypisanego pojazdu.</p>
           )}
         </CardContent>
       </Card>
 
       {/* Informacje o flocie */}
       <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle>Informacje o flocie</CardTitle>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Informacje o flocie</CardTitle>
         </CardHeader>
         <CardContent>
           {fleetData ? (
-            <div className="space-y-2">
+            <div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Nazwa floty</label>
-                <p className="font-medium">{fleetData.name}</p>
+                <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
+                <p className="text-base font-semibold">{fleetData.name}</p>
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Nie jesteś przypisany do żadnej floty.
             </p>
           )}

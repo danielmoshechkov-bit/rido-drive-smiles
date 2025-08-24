@@ -24,7 +24,6 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
     year: "",
     color: "",
     vin: "",
-    weekly_rental_fee: ""
   });
 
   const handleSearch = () => {
@@ -45,7 +44,7 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
             year: parseInt(formData.year) || null,
             color: formData.color || null,
             vin: formData.vin || null,
-            weekly_rental_fee: parseFloat(formData.weekly_rental_fee) || null,
+            weekly_rental_fee: null, // Prywatny pojazd, brak wynajmu
             status: "aktywne",
             owner_name: "Prywatne",
             city_id: null // TODO: Get from driver's city
@@ -65,7 +64,7 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
         year: "",
         color: "",
         vin: "",
-        weekly_rental_fee: ""
+        
       });
       setShowAddForm(false);
       onCarAdded?.();
@@ -78,35 +77,8 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Search Section */}
-      <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5 text-primary" />
-            Wyszukaj pojazd
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-3">
-            <Input
-              placeholder="Wprowadź numer rejestracyjny lub VIN..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={handleSearch} className="bg-primary hover:bg-primary-hover">
-              <Search className="h-4 w-4 mr-2" />
-              Szukaj
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Wyszukaj pojazd w bazie danych floty lub dodaj nowy pojazd poniżej
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Add New Car Section */}
+    <div className="max-w-4xl">
+      {/* Add Private Car Section */}
       <Card className="border-2 border-accent/20 hover:border-accent/40 transition-colors">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -202,17 +174,6 @@ export const AddCarForm = ({ driverId, onCarAdded }: AddCarFormProps) => {
                 </Select>
               </div>
               
-              <div className="md:col-span-2">
-                <Label htmlFor="weekly_rental_fee">Tygodniowa opłata za wynajem (PLN)</Label>
-                <Input
-                  id="weekly_rental_fee"
-                  type="number"
-                  step="0.01"
-                  value={formData.weekly_rental_fee}
-                  onChange={(e) => setFormData({...formData, weekly_rental_fee: e.target.value})}
-                  placeholder="np. 350.00"
-                />
-              </div>
             </div>
             
             <Button 
