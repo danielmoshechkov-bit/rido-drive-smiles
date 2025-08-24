@@ -189,6 +189,36 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
     }
   };
 
+  const deleteVehicle = async (vehicleId: string) => {
+    if (!confirm("Czy na pewno chcesz usunąć ten pojazd? Ta operacja nie może być cofnięta.")) return;
+    
+    try {
+      // Najpierw dezaktywuj wszystkie przypisania
+      await supabase
+        .from("driver_vehicle_assignments")
+        .update({ 
+          status: "inactive", 
+          unassigned_at: new Date().toISOString() 
+        })
+        .eq("vehicle_id", vehicleId)
+        .eq("status", "active");
+
+      // Następnie usuń pojazd
+      const { error } = await supabase
+        .from("vehicles")
+        .delete()
+        .eq("id", vehicleId);
+
+      if (error) throw error;
+      
+      toast.success("Pojazd został usunięty");
+      fetchVehicles();
+    } catch (error) {
+      console.error("Error deleting vehicle:", error);
+      toast.error("Błąd podczas usuwania pojazdu");
+    }
+  };
+
   return (
     <Card className="rounded-lg">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -253,10 +283,23 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                     open={expandedVehicles.has(vehicle.id)}
                     onOpenChange={() => toggleExpanded(vehicle.id)}
                   >
-                    <Card className="border rounded-lg">
-                      <CollapsibleTrigger asChild>
-                        <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-between">
+                    <Card className="border rounded-lg relative">
+                       {/* Delete button */}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="absolute top-2 right-2 h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 z-10"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           deleteVehicle(vehicle.id);
+                         }}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+
+                       <CollapsibleTrigger asChild>
+                         <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                           <div className="flex items-center justify-between pr-10">
                             {/* Pierwszy rząd - podstawowe info */}
                             <div className="flex-1 space-y-3">
                                <div className="flex items-center gap-6">

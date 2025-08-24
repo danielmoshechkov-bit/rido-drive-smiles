@@ -27,6 +27,19 @@ export function AddOwnCarModal({
       toast.error("Uzupełnij: nr rejestracyjny, marka, model");
       return;
     }
+
+    // Pobierz city_id kierowcy
+    const { data: driverData, error: driverError } = await supabase
+      .from('drivers')
+      .select('city_id')
+      .eq('id', driverId)
+      .single();
+
+    if (driverError || !driverData?.city_id) {
+      toast.error("Błąd pobierania danych kierowcy");
+      return;
+    }
+
     const payload: any = {
       plate: plate.toUpperCase().trim(),
       vin: vin.toUpperCase().trim() || null,
@@ -35,6 +48,7 @@ export function AddOwnCarModal({
       year: year || null,
       color: color || null,
       status: "aktywne",
+      city_id: driverData.city_id,
     };
     
     const { data: veh, error: e1 } = await supabase
@@ -57,6 +71,7 @@ export function AddOwnCarModal({
         driver_id: driverId, 
         vehicle_id: veh!.id, 
         assigned_at: today + "T00:00:00Z",
+        unassigned_at: null,
         status: "active"
       });
       
