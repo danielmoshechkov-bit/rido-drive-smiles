@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Car, ChevronDown, ChevronUp, X, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { AddCarForm } from "./AddCarForm";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleServiceTab } from "./VehicleServiceTab";
+import { ExpiryBadges } from "./ExpiryBadges";
+import { InlineEdit } from "./InlineEdit";
+import { toast } from "sonner";
 
 interface VehicleListProps {
   driverId: string;
@@ -43,6 +46,23 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
+
+  const updateWeeklyRentalFee = async (vehicleId: string, feeString: string) => {
+    const fee = parseFloat(feeString) || 0;
+    try {
+      const { error } = await supabase
+        .from("vehicles")
+        .update({ weekly_rental_fee: fee })
+        .eq("id", vehicleId);
+
+      if (error) throw error;
+      
+      toast.success("Zaktualizowano opłatę za wynajem");
+      loadVehicles();
+    } catch (error) {
+      toast.error("Błąd podczas aktualizacji opłaty za wynajem");
+    }
+  };
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -153,79 +173,61 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
             >
               <Card className="border rounded-lg">
                 <CollapsibleTrigger asChild>
-                  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      {/* Main content */}
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center gap-6">
-                          <div className="min-w-[120px]">
-                            <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                            <div className="font-semibold">{vehicle.plate}</div>
-                          </div>
-                          <div className="min-w-[150px]">
-                            <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                            <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
-                          </div>
-                          <div className="min-w-[100px]">
-                            <span className="font-medium text-sm text-muted-foreground">Rok:</span>
-                            <div className="text-sm">{vehicle.year || "Brak"}</div>
-                          </div>
-                          {vehicle.weekly_rental_fee && (
-                            <div className="min-w-[120px]">
-                              <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                              <div className="font-semibold text-primary">{vehicle.weekly_rental_fee} zł/tydz.</div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Second row - documents */}
-                        <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                          <div className="min-w-[100px]">
-                            <span className="font-medium text-sm text-muted-foreground">OC:</span>
-                            <div className="text-sm">
-                              {ocPolicy ? (
-                                <Badge variant={
-                                  new Date(ocPolicy.valid_to) > new Date() ? "default" : "destructive"
-                                }>
-                                  {new Date(ocPolicy.valid_to).toLocaleDateString('pl-PL')}
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">Nie dodano</Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="min-w-[100px]">
-                            <span className="font-medium text-sm text-muted-foreground">Przegląd:</span>
-                            <div className="text-sm">
-                              {inspection ? (
-                                <Badge variant={
-                                  new Date(inspection.valid_to) > new Date() ? "default" : "destructive"
-                                }>
-                                  {new Date(inspection.valid_to).toLocaleDateString('pl-PL')}
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">Nie dodano</Badge>
-                              )}
-                            </div>
-                          </div>
-                          {vehicle.color && (
-                            <div className="min-w-[100px]">
-                              <span className="font-medium text-sm text-muted-foreground">Kolor:</span>
-                              <div className="text-sm">{vehicle.color}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Expand button */}
-                      <div className="ml-4">
-                        {expandedVehicles.has(vehicle.id) ? 
-                          <ChevronUp className="h-5 w-5" /> : 
-                          <ChevronDown className="h-5 w-5" />
-                        }
-                      </div>
-                    </div>
-                  </div>
+                         <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                           <div className="flex items-center justify-between">
+                             {/* Main content */}
+                             <div className="flex-1 space-y-3">
+                               <div className="flex items-center gap-6">
+                                 <div className="min-w-[120px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                                   <div className="font-semibold">{vehicle.plate}</div>
+                                 </div>
+                                 <div className="min-w-[150px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                   <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                 </div>
+                                 <div className="min-w-[100px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Rok:</span>
+                                   <div className="font-semibold">{vehicle.year || "Brak"}</div>
+                                 </div>
+                                 <div className="min-w-[120px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                                   <div className="font-semibold">
+                                     <InlineEdit
+                                       value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                       onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                                     />
+                                     <span className="text-sm"> zł/tydz.</span>
+                                   </div>
+                                 </div>
+                               </div>
+                               
+                               {/* Second row - documents */}
+                               <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+                                 <div className="min-w-[200px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
+                                   <div className="font-semibold">
+                                     <ExpiryBadges vehicleId={vehicle.id} />
+                                   </div>
+                                 </div>
+                                 {vehicle.color && (
+                                   <div className="min-w-[100px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Kolor:</span>
+                                     <div className="font-semibold">{vehicle.color}</div>
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                             
+                             {/* Expand button */}
+                             <div className="ml-4">
+                               {expandedVehicles.has(vehicle.id) ? 
+                                 <ChevronUp className="h-5 w-5" /> : 
+                                 <ChevronDown className="h-5 w-5" />
+                               }
+                             </div>
+                           </div>
+                         </div>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
@@ -237,13 +239,13 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                       </TabsList>
 
                       <div className="mt-4">
-                        <TabsContent value="documents">
-                          <VehicleDocuments vehicleId={vehicle.id} />
-                        </TabsContent>
+                         <TabsContent value="documents">
+                           <VehicleDocuments vehicleId={vehicle.id} />
+                         </TabsContent>
 
-                        <TabsContent value="service">
-                          <VehicleServiceTab vehicleId={vehicle.id} />
-                        </TabsContent>
+                         <TabsContent value="service">
+                           <VehicleServiceTab vehicleId={vehicle.id} />
+                         </TabsContent>
                       </div>
                     </Tabs>
 

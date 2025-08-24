@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X } from "lucide-react";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleDriverHistory } from "./VehicleDriverHistory";
@@ -15,6 +15,8 @@ import { VehicleServiceTab } from "./VehicleServiceTab";
 import { VehicleInfoTab } from "./VehicleInfoTab";
 import { FleetTabManagement } from "./FleetTabManagement";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
+import { ExpiryBadges } from "./ExpiryBadges";
+import { InlineEdit } from "./InlineEdit";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -198,33 +200,34 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border rounded-lg p-1">
-            <TabsTrigger value="vehicles">Auta</TabsTrigger>
-            <TabsTrigger value="fleets">Floty</TabsTrigger>
+          <TabsList className="bg-card border rounded-lg p-1 w-fit">
+            <TabsTrigger value="vehicles" className="px-8 py-2">Auta</TabsTrigger>
+            <TabsTrigger value="fleets" className="px-8 py-2">Floty</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-6">
             {/* Header dla pojazdów */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-4">
               <h3 className="text-lg font-semibold">Pojazdy ({filtered.length})</h3>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-lg">
-                <Plus className="h-4 w-4" />
-                Dodaj pojazd
-              </Button>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj po numerze rejestracyjnym"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-10 rounded-lg w-64"
+                  />
+                </div>
+                <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-lg">
+                  <Plus className="h-4 w-4" />
+                  Dodaj pojazd
+                </Button>
+              </div>
             </div>
 
             {/* Filtry */}
             <div className="flex gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Szukaj po numerze rejestracyjnym, marce, modelu..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-10 rounded-lg"
-                />
-              </div>
-              
               <div className="relative">
                 <Button 
                   variant="outline" 
@@ -273,44 +276,60 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                             {/* Pierwszy rząd - podstawowe info */}
                             <div className="flex-1 space-y-3">
                               <div className="flex items-center gap-6">
-                                <div className="min-w-[120px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                  <div className="font-semibold">{vehicle.plate}</div>
-                                </div>
-                                <div className="min-w-[150px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                  <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                  <div className="text-sm">{vehicle.fleet?.name || "Brak"}</div>
-                                </div>
-                                <div className="min-w-[120px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                  <div className="font-semibold text-primary">{vehicle.weekly_rental_fee || 0} zł/tydz.</div>
-                                </div>
+                                 <div className="min-w-[120px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
+                                   <div className="font-semibold">{vehicle.plate}</div>
+                                 </div>
+                                 <div className="min-w-[150px]">
+                                   <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
+                                   <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                 </div>
+                                  <div className="min-w-[100px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Flota:</span>
+                                    <div className="font-semibold">{vehicle.fleet?.name || "Brak"}</div>
+                                  </div>
+                                  <div className="min-w-[120px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
+                                    <div className="font-semibold">
+                                      <InlineEdit
+                                        value={vehicle.weekly_rental_fee?.toString() || "0"}
+                                        onSave={(value) => updateWeeklyRentalFee(vehicle.id, value)}
+                                      />
+                                      <span className="text-sm"> zł/tydz.</span>
+                                    </div>
+                                  </div>
                               </div>
                               
-                              {/* Drugi rząd - kierowca i daty */}
-                              <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                <div className="min-w-[150px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
-                                  <div className="text-sm">
-                                    {vehicle.assignedDriver ? 
-                                      `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}` : 
-                                      "Brak przypisania"
-                                    }
+                               {/* Drugi rząd - kierowca i daty */}
+                               <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
+                                  <div className="min-w-[150px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
+                                    <div className="font-semibold flex items-center gap-2">
+                                      {vehicle.assignedDriver ? (
+                                        <>
+                                          <span>{vehicle.assignedDriver.first_name} {vehicle.assignedDriver.last_name}</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeDriverAssignment(vehicle.id, vehicle.assignedDriver!.id);
+                                            }}
+                                            className="text-red-500 hover:text-red-700 p-1"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </>
+                                      ) : (
+                                        "Brak przypisania"
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">OC:</span>
-                                  <div className="text-sm">Do 12.2024</div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Przegląd:</span>
-                                  <div className="text-sm">Do 01.2025</div>
-                                </div>
-                              </div>
+                                  <div className="min-w-[200px]">
+                                    <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
+                                    <div className="font-semibold">
+                                      <ExpiryBadges vehicleId={vehicle.id} />
+                                    </div>
+                                  </div>
+                               </div>
                             </div>
                             
                             {/* Przycisk rozwijania */}
@@ -356,18 +375,6 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                             </div>
                           </Tabs>
 
-                          {/* Edycja wynajmu */}
-                          <div className="mt-4 p-4 bg-muted/30 rounded-lg">
-                            <label className="block text-sm font-medium mb-2">Stawka za wynajem (zł/tydzień)</label>
-                            <Input
-                              type="number"
-                              placeholder="Wprowadź stawkę"
-                              defaultValue={vehicle.weekly_rental_fee || ""}
-                              onBlur={(e) => updateWeeklyRentalFee(vehicle.id, e.target.value)}
-                              className="w-48 rounded-lg"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
                         </div>
                       </CollapsibleContent>
                     </Card>
