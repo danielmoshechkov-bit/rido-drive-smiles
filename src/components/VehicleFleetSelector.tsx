@@ -80,7 +80,7 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
           <ChevronDown className="ml-1 h-3 w-3" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3 bg-popover border shadow-lg" align="start">
+      <PopoverContent className="w-72 p-3 bg-popover border shadow-lg z-50 rounded-lg" align="start">
         {/* Search input */}
         <div className="relative mb-3">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -92,10 +92,10 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
           />
         </div>
         
-        <div className="space-y-1 max-h-48 overflow-y-auto">
+        <div className="space-y-2 max-h-56 overflow-y-auto">
           <Button
             variant="ghost"
-            className="w-full justify-start text-sm hover:bg-muted"
+            className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
             onClick={() => updateVehicleFleet(null, "Brak floty")}
           >
             Brak floty
@@ -104,7 +104,7 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
             <Button
               key={fleet.id}
               variant="ghost"
-              className="w-full justify-start text-sm hover:bg-muted"
+              className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
               onClick={() => updateVehicleFleet(fleet.id, fleet.name)}
             >
               {fleet.name}

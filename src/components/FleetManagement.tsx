@@ -289,7 +289,10 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                                {/* Drugi rząd - kierowca i daty */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
                                    <div className="min-w-[150px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
+                                      <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                                        Kierowca:
+                                        <ChevronDown className="h-3 w-3 text-primary" />
+                                      </span>
                                      <DriverAssignmentDropdown
                                        vehicleId={vehicle.id}
                                        currentDriver={vehicle.assignedDriver}

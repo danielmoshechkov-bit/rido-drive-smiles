@@ -39,7 +39,13 @@ export const DriverVehicleSelector = ({
 
       const { data } = await supabase
         .from("vehicles")
-        .select("id, brand, model, plate")
+        .select(`
+          id, 
+          brand, 
+          model, 
+          plate,
+          fleets(name)
+        `)
         .eq("fleet_id", fleetId)
         .eq("status", "aktywne")
         .order("brand", { ascending: true });
@@ -50,7 +56,8 @@ export const DriverVehicleSelector = ({
         if (currentVehicleId) {
           const currentVehicle = data.find(v => v.id === currentVehicleId);
           if (currentVehicle) {
-            setSelectedVehicleText(`${currentVehicle.brand} ${currentVehicle.model} • ${currentVehicle.plate}`);
+            const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
+            setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
           } else {
             setSelectedVehicleText("Własne auto");
           }
@@ -125,28 +132,31 @@ export const DriverVehicleSelector = ({
             <ChevronDown className="ml-1 h-3 w-3" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-72 p-2 bg-white border shadow-lg z-50" align="start">
-          <div className="space-y-1">
+        <PopoverContent className="w-72 p-3 bg-popover border shadow-lg z-50 rounded-lg" align="start">
+          <div className="space-y-2">
             <Button
               variant="ghost"
-              className="w-full justify-start text-sm"
+              className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
               onClick={() => assignVehicle(null, "Własne auto")}
             >
               Własne auto
             </Button>
-            {vehicles.map((vehicle) => (
-              <Button
-                key={vehicle.id}
-                variant="ghost"
-                className="w-full justify-start text-sm"
-                onClick={() => assignVehicle(
-                  vehicle.id, 
-                  `${vehicle.brand} ${vehicle.model} • ${vehicle.plate}`
-                )}
-              >
-                {vehicle.brand} {vehicle.model} • {vehicle.plate}
-              </Button>
-            ))}
+            {vehicles.map((vehicle) => {
+              const fleetName = (vehicle as any).fleets?.name || "Brak floty";
+              return (
+                <Button
+                  key={vehicle.id}
+                  variant="ghost"
+                  className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
+                  onClick={() => assignVehicle(
+                    vehicle.id, 
+                    `${fleetName} • ${vehicle.brand} ${vehicle.model}`
+                  )}
+                >
+                  {fleetName} • {vehicle.brand} {vehicle.model} • {vehicle.plate}
+                </Button>
+              );
+            })}
           </div>
         </PopoverContent>
       </Popover>

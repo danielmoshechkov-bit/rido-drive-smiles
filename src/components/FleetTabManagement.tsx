@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Plus, ChevronDown, ChevronUp, Building, X } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronUp, Building, X, Search } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { InlineEdit } from "./InlineEdit";
 
@@ -30,6 +30,7 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedFleets, setExpandedFleets] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
   const [newFleet, setNewFleet] = useState({
     name: "",
     nip: "",
@@ -297,9 +298,20 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="relative w-full max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Szukaj floty..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 h-10 rounded-lg"
+        />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Floty ({fleets.length})</h3>
+        <h3 className="text-lg font-semibold">Floty ({fleets.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).length})</h3>
         <Button 
           onClick={() => setShowAddForm(true)}
           className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
@@ -311,7 +323,7 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
 
       {/* Fleet List */}
       <div className="space-y-4">
-        {fleets.map((fleet) => {
+        {fleets.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((fleet) => {
           return (
             <Collapsible
               key={fleet.id}

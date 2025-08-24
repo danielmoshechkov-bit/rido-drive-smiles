@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -182,16 +182,6 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                             onUpdate={refetch}
                           />
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingDriver(driver);
-                          }}
-                        >
-                          Edytuj
-                        </Button>
                       </div>
 
                       <div className="flex items-center gap-2 mb-2">
@@ -245,6 +235,17 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                     </div>
                     
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingDriver(driver);
+                        }}
+                        className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                      >
+                        <Edit size={14} />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

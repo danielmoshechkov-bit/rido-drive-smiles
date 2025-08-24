@@ -160,18 +160,18 @@ export function DriverAssignmentDropdown({
       </div>
 
       {isOpen && !currentDriver && (
-        <div className="absolute z-50 mt-2 w-80 bg-background border rounded-xl shadow-lg p-4">
+        <div className="absolute z-50 mt-2 w-96 bg-popover border rounded-xl shadow-lg p-4">
           <div className="space-y-3">
             <Input
               placeholder="Szukaj kierowcy..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full"
+              className="w-full h-10 rounded-lg"
             />
             
-            <div className="max-h-48 overflow-y-auto space-y-2">
+            <div className="max-h-64 overflow-y-auto space-y-2">
               {filteredDrivers.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-4">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Brak kierowców
                 </div>
               ) : (
@@ -179,10 +179,10 @@ export function DriverAssignmentDropdown({
                   <div
                     key={driver.id}
                     onClick={() => assignDriver(driver.id)}
-                    className="p-3 rounded hover:bg-muted cursor-pointer transition-colors"
+                    className="p-4 rounded-lg hover:bg-primary/10 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
                   >
-                    <div className="font-medium">{driver.first_name} {driver.last_name}</div>
-                    <div className="text-sm text-muted-foreground">{driver.email || "Brak email"}</div>
+                    <div className="font-semibold text-base">{driver.first_name} {driver.last_name}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{driver.email || "Brak email"}</div>
                   </div>
                 ))
               )}
@@ -193,6 +193,7 @@ export function DriverAssignmentDropdown({
                 variant="outline" 
                 size="sm" 
                 onClick={() => setIsOpen(false)}
+                className="rounded-lg"
               >
                 Anuluj
               </Button>

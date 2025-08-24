@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { ChevronDown } from "lucide-react";
 
 // VehicleRentBlock — GÓRA: "Wynajem: zł/tydz." | DÓŁ: kwota
 export function VehicleRentBlock({
@@ -26,9 +27,10 @@ export function VehicleRentBlock({
   return (
     <div className={`flex flex-col gap-1 ${className || ""}`}>
       {/* Górny pasek z etykietą (wspólny rząd z innymi polami) */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <span className="text-muted-foreground font-medium">Wynajem:</span>
         <span className="text-muted-foreground">zł/tydz.</span>
+        {!readOnly && <ChevronDown className="h-3 w-3 text-primary" />}
       </div>
 
       {/* POD spodem: kwota (edytowalna lub tylko do odczytu) */}
