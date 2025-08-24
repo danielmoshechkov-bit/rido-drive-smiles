@@ -335,7 +335,12 @@ export function AddOwnCarModal({
       .select("id")
       .single();
     if (e1) {
-      toast.error("Błąd dodawania pojazdu");
+      // Sprawdź czy to błąd duplikatu numeru rejestracyjnego
+      if (e1.code === '23505' && e1.message?.includes('vehicles_plate_key')) {
+        toast.error(`Pojazd z numerem ${payload.plate} już istnieje w bazie`);
+      } else {
+        toast.error("Błąd dodawania pojazdu");
+      }
       return;
     }
     const today = new Date().toISOString();

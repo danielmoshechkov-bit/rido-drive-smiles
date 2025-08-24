@@ -305,7 +305,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .lte("week_end", weekInfo.toISO);
     
     // Pobierz opłatę za wynajem z przypisanego pojazdu
-    const { data: assignment } = await supabase
+    const { data: assignment, error } = await supabase
       .from("driver_vehicle_assignments")
       .select(`
         vehicles(weekly_rental_fee)
@@ -314,7 +314,12 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .eq("status", "active")
       .single();
     
+    console.log("Assignment data:", assignment);
+    console.log("Assignment error:", error);
+    console.log("Driver ID:", driverData.driver_id);
+    
     const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
+    console.log("Rental fee:", rentalFee);
     
     if (settlements && settlements.length > 0) {
       setWeekData(prev => ({
