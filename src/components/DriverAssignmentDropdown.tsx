@@ -128,40 +128,19 @@ export function DriverAssignmentDropdown({
 
   return (
     <div className="relative">
-      <div className="font-semibold flex items-center gap-2">
-        {currentDriver ? (
-          <>
-            <span className="text-primary flex items-center gap-1">
-              {currentDriver.first_name} {currentDriver.last_name}
-              <ChevronDown className="h-3 w-3" />
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                removeAssignment();
-              }}
-              className="text-red-500 hover:text-red-700 p-1"
-              disabled={loading}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </>
-        ) : (
-          <UniversalSelector
-            id={`vehicle-driver-${vehicleId}`}
-            items={driverItems}
-            currentValue={null}
-            placeholder="Brak przypisania"
-            searchPlaceholder="Szukaj kierowcy..."
-            noResultsText="Brak kierowców"
-            showSearch={true}
-            showAdd={false}
-            allowClear={false}
-            onSelect={handleSelect}
-            disabled={loading}
-          />
-        )}
-      </div>
+      <UniversalSelector
+        id={`vehicle-driver-${vehicleId}`}
+        items={driverItems}
+        currentValue={currentDriver?.id || null}
+        placeholder="Brak przypisania"
+        searchPlaceholder="Szukaj kierowcy..."
+        noResultsText="Brak kierowców"
+        showSearch={true}
+        showAdd={false}
+        allowClear={true}
+        onSelect={handleSelect}
+        disabled={loading}
+      />
     </div>
   );
 }

@@ -24,10 +24,11 @@ const AdminDashboard = () => {
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
 
-  // Auto-select first city when cities load
+  // Auto-select Warszawa or first city when cities load
   useEffect(() => {
     if (cities.length > 0 && !selectedCity) {
-      setSelectedCity(cities[0]);
+      const warszawa = cities.find(city => city.name === 'Warszawa');
+      setSelectedCity(warszawa || cities[0]);
     }
   }, [cities, selectedCity]);
 
@@ -93,16 +94,16 @@ const AdminDashboard = () => {
               {t('admin.weeklyReport')}
             </TabsTrigger>
             <TabsTrigger 
-              value="drivers-list" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.driversList')}
-            </TabsTrigger>
-            <TabsTrigger 
               value="settlements" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               {t('admin.settlements')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="drivers-list" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              {t('admin.driversList')}
             </TabsTrigger>
             <TabsTrigger 
               value="fleet" 
@@ -184,6 +185,21 @@ const AdminDashboard = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="settlements" className="space-y-6">
+            {!selectedCity ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć rozliczenia</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <SettlementsManagement 
+                cityId={selectedCity.id}
+                cityName={selectedCity.name}
+              />
+            )}
+          </TabsContent>
+
           <TabsContent value="drivers-list" className="space-y-6">
             {!selectedCity ? (
               <Card>
@@ -196,21 +212,6 @@ const AdminDashboard = () => {
                 cityId={selectedCity.id}
                 cityName={selectedCity.name}
                 onDriverUpdate={refetchDrivers}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="settlements" className="space-y-6">
-            {!selectedCity ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć rozliczenia</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <SettlementsManagement 
-                cityId={selectedCity.id}
-                cityName={selectedCity.name}
               />
             )}
           </TabsContent>

@@ -8,6 +8,7 @@ interface Vehicle {
   brand: string;
   model: string;
   plate: string;
+  fleet_id?: string | null;
 }
 
 interface DriverVehicleSelectorProps {
@@ -29,12 +30,7 @@ export const DriverVehicleSelector = ({
 
   useEffect(() => {
     const fetchVehicles = async () => {
-      if (!fleetId) {
-        setVehicles([]);
-        setSelectedVehicleText("Własne auto");
-        return;
-      }
-
+      // Pobierz wszystkie dostępne pojazdy, nie tylko z konkretnej floty
       const { data } = await supabase
         .from("vehicles")
         .select(`
@@ -42,9 +38,9 @@ export const DriverVehicleSelector = ({
           brand, 
           model, 
           plate,
+          fleet_id,
           fleets(name)
         `)
-        .eq("fleet_id", fleetId)
         .eq("status", "aktywne")
         .order("brand", { ascending: true });
       
@@ -54,7 +50,7 @@ export const DriverVehicleSelector = ({
     };
 
     fetchVehicles();
-  }, [fleetId]);
+  }, []); // Usuń dependency na fleetId żeby ładować wszystkie pojazdy
 
   useEffect(() => {
     if (currentVehicleId && vehicles.length > 0) {
@@ -79,13 +75,17 @@ export const DriverVehicleSelector = ({
         .eq("status", "active");
 
       if (vehicleId) {
+        // Get the vehicle to get its fleet_id
+        const vehicle = vehicles.find(v => v.id === vehicleId);
+        const vehicleFleetId = vehicle?.fleet_id || null;
+        
         // Create new assignment
         const { error } = await supabase
           .from("driver_vehicle_assignments")
           .insert({
             driver_id: driverId,
             vehicle_id: vehicleId,
-            fleet_id: fleetId,
+            fleet_id: vehicleFleetId,
             status: "active",
             assigned_at: new Date().toISOString()
           });
@@ -135,22 +135,6 @@ export const DriverVehicleSelector = ({
     ...vehicleItems
   ];
 
-  // If no fleetId, show disabled own car option
-  if (!fleetId || vehicles.length === 0) {
-    return (
-      <UniversalSelector
-        id={`driver-vehicle-${driverId}`}
-        items={[{ id: 'own', name: 'Własne auto' }]}
-        currentValue="own"
-        placeholder="Własne auto"
-        showSearch={false}
-        showAdd={false}
-        disabled={true}
-        onSelect={() => {}}
-      />
-    );
-  }
-
   const currentValue = currentVehicleId || 'own';
 
   return (
@@ -163,6 +147,7 @@ export const DriverVehicleSelector = ({
       noResultsText="Brak pojazdów"
       showSearch={true}
       showAdd={false}
+      allowClear={false}
       onSelect={handleSelect}
       disabled={loading}
     />
