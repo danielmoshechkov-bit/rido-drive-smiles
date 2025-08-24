@@ -120,6 +120,10 @@ All colors MUST be HSL.
   }
 }
 
+/* Import theme and chat styles */
+@import './styles/theme.css';
+@import './styles/chat.css';
+
 /* Floating animations for background elements and mascots */
 @keyframes float-slow {
   0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }

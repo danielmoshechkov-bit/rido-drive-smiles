@@ -1,0 +1,82 @@
+/* Chat Widget Styles */
+.chat-fab {
+  @apply fixed bottom-6 right-6 z-50;
+  @apply w-14 h-14 rounded-full;
+  @apply bg-primary hover:bg-primary-hover;
+  @apply shadow-purple;
+  @apply transition-all duration-300;
+  @apply hover:scale-110;
+}
+
+.chat-panel {
+  @apply fixed z-50;
+  @apply bg-white/95 backdrop-blur-sm;
+  @apply shadow-purple;
+  @apply rounded-2xl;
+  @apply border-0;
+  animation: slideInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-panel-mobile {
+  @apply w-full h-full;
+  @apply bottom-0 right-0;
+  @apply rounded-t-3xl rounded-b-none;
+}
+
+.chat-panel-desktop {
+  @apply w-96 h-[500px];
+  @apply bottom-4 right-4;
+}
+
+.chat-messages {
+  @apply flex-1 overflow-y-auto;
+  @apply space-y-3;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.2) transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.2);
+  border-radius: 3px;
+}
+
+.chat-message-driver {
+  @apply bg-primary text-white;
+  @apply rounded-2xl px-4 py-2;
+  @apply max-w-[80%] ml-auto;
+}
+
+.chat-message-admin {
+  @apply bg-muted text-foreground;
+  @apply rounded-2xl px-4 py-2;
+  @apply max-w-[80%] mr-auto;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

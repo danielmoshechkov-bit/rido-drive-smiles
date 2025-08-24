@@ -1,0 +1,122 @@
+/* Typography Scale - Consistent font sizes and weights */
+:root {
+  /* Font Sizes */
+  --font-h1: 2rem;      /* 32px */
+  --font-h2: 1.5rem;    /* 24px */
+  --font-h3: 1.25rem;   /* 20px */
+  --font-body: 1rem;    /* 16px */
+  --font-small: 0.875rem; /* 14px */
+  --font-xs: 0.75rem;   /* 12px */
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+  
+  /* Spacing Scale */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 0.75rem;   /* 12px */
+  --spacing-lg: 1rem;      /* 16px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-2xl: 2rem;     /* 32px */
+  
+  /* Component Heights */
+  --input-height: 2.75rem;  /* 44px */
+  --button-height: 2.75rem; /* 44px */
+  --tab-height: 3rem;       /* 48px */
+}
+
+/* Typography Utilities */
+.text-h1 {
+  font-size: var(--font-h1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.text-h2 {
+  font-size: var(--font-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.text-h3 {
+  font-size: var(--font-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.text-body {
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+.text-small {
+  font-size: var(--font-small);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+/* Component Utilities */
+.input-compact {
+  height: var(--input-height);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.button-compact {
+  height: var(--input-height);
+  padding: 0 var(--spacing-lg);
+  border-radius: calc(var(--radius) - 2px);
+}
+
+/* Spacing Utilities */
+.space-compact > * + * {
+  margin-top: var(--spacing-md);
+}
+
+.space-normal > * + * {
+  margin-top: var(--spacing-lg);
+}
+
+.space-relaxed > * + * {
+  margin-top: var(--spacing-xl);
+}
+
+/* Card Variants */
+.card-compact {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius);
+}
+
+.card-normal {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius);
+}
+
+/* Filter Tiles - Compact Style */
+.filter-tile {
+  height: var(--input-height);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  transition: var(--transition-smooth);
+}
+
+.filter-tile:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--primary) / 0.02);
+}
+
+.filter-tile:focus-within {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}

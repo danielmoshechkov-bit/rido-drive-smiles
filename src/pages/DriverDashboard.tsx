@@ -6,11 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UniversalTabBar } from "@/components/UniversalTabBar";
+import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/TabsPill";
 import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
 import { VehicleList } from "@/components/VehicleList";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
+import { ChatFab } from "@/components/chat/ChatFab";
+import { LeasedCarCard } from "@/components/driver/LeasedCarCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -141,34 +143,43 @@ const DriverDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 relative">
-        {/* Kompaktowy chat widget w prawym dolnym rogu */}
-        <div className="fixed bottom-4 right-4 z-50">
-          <DriverChatButton driverData={driverData} />
+      <div className="container mx-auto px-4 pt-4 pb-8 relative">
+        {/* Floating Chat Widget */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <ChatFab driverData={driverData} />
         </div>
         
-        <UniversalTabBar 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab}
-          tabs={[
-            { value: 'weekly-report', label: 'Rozliczenie tygodniowe' },
-            { value: 'cars', label: 'Samochód' },
-            { value: 'fleet-info', label: 'Informacje flotowe' },
-            { value: 'documents', label: 'Dokumenty' },
-            { value: 'fuel', label: 'Paliwo' }
-          ]}
-        >
-          <div />
-        </UniversalTabBar>
+        {/* Slim Pill Tabs */}
+        <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsPillList>
+            <TabsPillTrigger value="weekly-report">Rozliczenie tygodniowe</TabsPillTrigger>
+            <TabsPillTrigger value="cars">Samochód</TabsPillTrigger>
+            <TabsPillTrigger value="fleet-info">Informacje flotowe</TabsPillTrigger>
+            <TabsPillTrigger value="documents">Dokumenty</TabsPillTrigger>
+            <TabsPillTrigger value="fuel">Paliwo</TabsPillTrigger>
+          </TabsPillList>
 
-        {/* Tab Content */}
-        <div className="space-y-6">
-          {activeTab === 'weekly-report' && <WeeklyResults driverData={driverData} />}
-          {activeTab === 'cars' && <VehicleList driverId={driverData.driver_id} />}
-          {activeTab === 'fleet-info' && <FleetInfo driverData={driverData} />}
-          {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
-          {activeTab === 'fuel' && <FuelLogs driverData={driverData} />}
-        </div>
+          {/* Tab Content */}
+          <TabsPillContent value="weekly-report">
+            <WeeklyResults driverData={driverData} />
+          </TabsPillContent>
+          
+          <TabsPillContent value="cars">
+            <LeasedCarCard driverData={driverData} />
+          </TabsPillContent>
+          
+          <TabsPillContent value="fleet-info">
+            <FleetInfo driverData={driverData} />
+          </TabsPillContent>
+          
+          <TabsPillContent value="documents">
+            <DriverDocuments driverData={driverData} />
+          </TabsPillContent>
+          
+          <TabsPillContent value="fuel">
+            <FuelLogs driverData={driverData} />
+          </TabsPillContent>
+        </TabsPill>
       </div>
     </div>
   );
@@ -199,7 +210,6 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   }
 
   // Funkcja do obliczania tygodni zgodnie z kalendarzem (poniedziałek-niedziela)
-  // Pokazuje tylko przeszłe tygodnie i obecny tydzień
   const getWeekDates = (year: number) => {
     const weeks = [];
     const now = new Date();
@@ -211,7 +221,6 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     while (currentDate.getDay() !== 1) {
       currentDate.setDate(currentDate.getDate() + 1);
       // Jeśli doszliśmy do lutego, znaczy że 1 stycznia nie było poniedziałkiem
-      // W takim przypadku pierwszym tygodniem będzie tydzień z 1 stycznia
       if (currentDate.getMonth() > 0) {
         currentDate = new Date(year, 0, 1);
         break;
@@ -231,7 +240,6 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       }
       
       // Tylko dodaj tygodnie, które już się skończyły lub obecny tydzień
-      // Nie pokazuj przyszłych tygodni
       if (year < currentYear || (year === currentYear && startDate <= now)) {
         weeks.push({
           week: weekNumber,
@@ -287,7 +295,6 @@ function WeeklyResults({ driverData }: { driverData: any }) {
         ...prev,
         rental: rentalFee
       }));
-      console.log("Znaleziono dane rozliczeń:", settlements);
     } else {
       setWeekData(prev => ({
         ...prev,
@@ -320,21 +327,20 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle>Wynik tygodniowy</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Elegancki wybór roku, tygodnia i planu rozliczenia */}
-          <div className="flex gap-4 items-center mb-6 flex-wrap">
-            <Card className="p-4 rounded-lg shadow-md">
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-muted-foreground mb-2">Rok</label>
+      <Card className="rounded-xl shadow-soft">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
+            
+            {/* Compact Controls Row */}
+            <div className="flex gap-3 items-center flex-wrap">
+              <div className="filter-tile min-w-0">
+                <label className="text-xs text-muted-foreground block mb-1">Rok</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-24 justify-center rounded-lg">
+                    <Button variant="ghost" className="h-6 p-0 text-sm font-medium hover:bg-transparent">
                       {selectedYear}
-                      <ChevronDown className="ml-2 h-4 w-4" />
+                      <ChevronDown className="ml-1 h-3 w-3" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-32 p-2 rounded-lg">
@@ -342,7 +348,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                       <Button
                         key={year}
                         variant="ghost"
-                        className="w-full justify-start rounded-md"
+                        className="w-full justify-start rounded-md text-sm"
                         onClick={() => setSelectedYear(year)}
                       >
                         {year}
@@ -351,20 +357,18 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                   </PopoverContent>
                 </Popover>
               </div>
-            </Card>
-            
-            <Card className="p-4 rounded-lg shadow-md">
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-muted-foreground mb-2">Okres</label>
+              
+              <div className="filter-tile min-w-0 max-w-64">
+                <label className="text-xs text-muted-foreground block mb-1">Okres</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-64 justify-between rounded-lg">
+                    <Button variant="ghost" className="h-6 p-0 text-sm font-medium hover:bg-transparent justify-start">
                       <span className="truncate">
                         {weekDates.find(w => w.week === selectedWeek) 
-                          ? `Tydzień ${selectedWeek}: ${weekDates.find(w => w.week === selectedWeek)?.startDate} - ${weekDates.find(w => w.week === selectedWeek)?.endDate}`
-                          : "Wybierz tydzień"}
+                          ? `Tydz. ${selectedWeek}`
+                          : "Wybierz"}
                       </span>
-                      <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
+                      <ChevronDown className="ml-1 h-3 w-3 flex-shrink-0" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80 p-2 rounded-lg max-h-64 overflow-y-auto">
@@ -376,105 +380,108 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                         onClick={() => setSelectedWeek(week)}
                       >
                         <div className="flex flex-col items-start">
-                          <span className="font-medium">Tydzień {week}</span>
-                          <span className="text-sm text-muted-foreground">{startDate} - {endDate}</span>
+                          <span className="font-medium text-sm">Tydzień {week}</span>
+                          <span className="text-xs text-muted-foreground">{startDate} - {endDate}</span>
                         </div>
                       </Button>
                     ))}
                   </PopoverContent>
                 </Popover>
               </div>
+
+              <div className="filter-tile">
+                <SettlementPlanSelector driverData={driverData} currentPlan="" onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {/* Diagram wyników */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="rounded-xl shadow-soft">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-h3">Zarobki według platform</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div style={{ width: "100%", height: 300 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={100}
+                        label={({ name, value }) => `${name}: ${value} zł`}
+                      />
+                      <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
             </Card>
 
-            <SettlementPlanSelector driverData={driverData} currentPlan="" onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
+            <Card className="rounded-xl shadow-soft">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-h3">Podsumowanie tygodnia</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span>Uber:</span>
+                    <span className="font-medium">{weekData.earnings.uber} zł</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bolt:</span>
+                    <span className="font-medium">{weekData.earnings.bolt} zł</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>FREE NOW:</span>
+                    <span className="font-medium">{weekData.earnings.freenow} zł</span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between font-medium text-lg">
+                      <span>Razem:</span>
+                      <span>{totalEarnings} zł</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Paliwo:</span>
+                    <span>-{weekData.fuel} zł</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Wynajem auta:</span>
+                    <span>-{weekData.rental || 0} zł</span>
+                  </div>
+                  {weekData.plan === "39+8%" && (
+                    <>
+                      <div className="flex justify-between text-red-600">
+                        <span>Opłata stała:</span>
+                        <span>-39 zł</span>
+                      </div>
+                      <div className="flex justify-between text-red-600">
+                        <span>Podatek (8%):</span>
+                        <span>-{Math.round(totalEarnings * 0.08)} zł</span>
+                      </div>
+                    </>
+                  )}
+                  {weekData.plan === "tylko 159" && (
+                    <div className="flex justify-between text-red-600">
+                      <span>Opłata miesięczna:</span>
+                      <span>-159 zł</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between font-bold text-lg text-green-600">
+                      <span>Do wypłaty:</span>
+                      <span>{calculateNetAmount(totalEarnings, weekData.fuel, weekData.rental || 0, weekData.plan)} zł</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </CardContent>
       </Card>
-
-      {/* Diagram wyników */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle>Zarobki według platform</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={100}
-                    label={({ name, value }) => `${name}: ${value} zł`}
-                  />
-                  <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle>Podsumowanie tygodnia</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>Uber:</span>
-                <span className="font-medium">{weekData.earnings.uber} zł</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Bolt:</span>
-                <span className="font-medium">{weekData.earnings.bolt} zł</span>
-              </div>
-              <div className="flex justify-between">
-                <span>FREE NOW:</span>
-                <span className="font-medium">{weekData.earnings.freenow} zł</span>
-              </div>
-              <div className="border-t pt-2">
-                <div className="flex justify-between font-medium text-lg">
-                  <span>Razem:</span>
-                  <span>{totalEarnings} zł</span>
-                </div>
-              </div>
-              <div className="flex justify-between text-red-600">
-                <span>Paliwo:</span>
-                <span>-{weekData.fuel} zł</span>
-              </div>
-              <div className="flex justify-between text-red-600">
-                <span>Wynajem auta:</span>
-                <span>-{weekData.rental || 0} zł</span>
-              </div>
-              {weekData.plan === "39+8%" && (
-                <>
-                  <div className="flex justify-between text-red-600">
-                    <span>Opłata stała:</span>
-                    <span>-39 zł</span>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Podatek (8%):</span>
-                    <span>-{Math.round(totalEarnings * 0.08)} zł</span>
-                  </div>
-                </>
-              )}
-              {weekData.plan === "tylko 159" && (
-                <div className="flex justify-between text-red-600">
-                  <span>Opłata miesięczna:</span>
-                  <span>-159 zł</span>
-                </div>
-              )}
-              <div className="border-t pt-2">
-                <div className="flex justify-between font-bold text-lg text-green-600">
-                  <span>Do wypłaty:</span>
-                  <span>{calculateNetAmount(totalEarnings, weekData.fuel, weekData.rental || 0, weekData.plan)} zł</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
@@ -564,7 +571,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   ];
 
   return (
-    <Card className="rounded-lg">
+    <Card className="rounded-xl shadow-soft">
       <CardHeader>
         <CardTitle>Dokumenty</CardTitle>
       </CardHeader>
@@ -619,16 +626,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent auta - używa AddCarForm jako jedynego zawartości
-function DriverCar({ driverData }: { driverData: any }) {
-  return (
-    <div className="max-w-4xl">
-      <AddCarForm driverId={driverData.driver_id} />
-    </div>
-  );
-}
-
-// Komponent informacji flotowych - pokazuje wynajęte auto i informacje o flocie  
+// Komponent informacji flotowych
 function FleetInfo({ driverData }: { driverData: any }) {
   const [vehicleData, setVehicleData] = useState<any>(null);
   const [fleetData, setFleetData] = useState<any>(null);
@@ -695,10 +693,10 @@ function FleetInfo({ driverData }: { driverData: any }) {
                 <p className="text-sm text-foreground mt-1">{vehicleData.color}</p>
               </div>
             )}
-            {assignmentData?.assigned_date && (
+            {assignmentData?.assigned_at && (
               <div>
                 <Label className="text-xs font-medium text-muted-foreground">Wynajęte od</Label>
-                <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
+                <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_at)}</p>
               </div>
             )}
             <div>
@@ -725,10 +723,10 @@ function FleetInfo({ driverData }: { driverData: any }) {
               <Label className="text-xs font-medium text-muted-foreground">Nazwa floty</Label>
               <p className="text-sm font-semibold text-foreground mt-1">{fleetData.name}</p>
             </div>
-            {assignmentData?.assigned_date && (
+            {assignmentData?.assigned_at && (
               <div>
                 <Label className="text-xs font-medium text-muted-foreground">Data dołączenia</Label>
-                <p className="text-sm text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
+                <p className="text-sm text-foreground mt-1">{formatDate(assignmentData.assigned_at)}</p>
               </div>
             )}
           </div>
@@ -745,7 +743,7 @@ function FleetInfo({ driverData }: { driverData: any }) {
 // Komponent logów paliwa
 function FuelLogs({ driverData }: { driverData: any }) {
   return (
-    <Card className="rounded-lg">
+    <Card className="rounded-xl shadow-soft">
       <CardHeader>
         <CardTitle>Logi paliwa</CardTitle>
       </CardHeader>
@@ -755,150 +753,6 @@ function FuelLogs({ driverData }: { driverData: any }) {
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-// Kompaktowy chat widget w prawym dolnym rogu
-function DriverChatButton({ driverData }: { driverData: any }) {
-  const [isOpen, setIsOpen] = useState(false);
-  
-  return (
-    <>
-      {/* Floating chat button */}
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="rounded-full w-14 h-14 shadow-lg bg-primary hover:bg-primary/90"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </Button>
-      
-      {/* Compact chat sidebar */}
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
-          
-          {/* Chat sidebar */}
-          <div className="fixed right-0 top-0 h-full w-96 bg-background border-l shadow-xl z-50 flex flex-col rounded-l-lg">
-            <div className="p-4 border-b flex justify-between items-center bg-primary text-primary-foreground rounded-tl-lg">
-              <h3 className="font-medium">Czat z administratorem</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsOpen(false)}
-                className="text-primary-foreground hover:bg-primary-foreground/10 rounded-lg"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="flex-1 p-4 overflow-hidden">
-              <DriverChatContent driverData={driverData} />
-            </div>
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
-// Komponent zawartości czatu
-function DriverChatContent({ driverData }: { driverData: any }) {
-  const [text, setText] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
-
-  const load = async () => {
-    const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("driver_id", driverData.driver_id)
-      .order("created_at", { ascending: true });
-    setMessages(data || []);
-  };
-
-  useEffect(() => {
-    load();
-  }, [driverData.driver_id]);
-
-  const send = async () => {
-    if (!text.trim()) return;
-
-    const { error } = await supabase.from("messages").insert([{
-      driver_id: driverData.driver_id,
-      content: text.trim(),
-      from_role: "driver"
-    }]);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setText("");
-    load();
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-        {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Rozpocznij rozmowę z administratorem</p>
-          </div>
-        ) : (
-          messages.map(msg => (
-            <div key={msg.id} className={`flex ${msg.from_role === 'driver' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                msg.from_role === 'driver' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted'
-              }`}>
-                <div>{msg.content}</div>
-                <div className={`text-xs mt-1 opacity-70 ${
-                  msg.from_role === 'driver' ? 'text-primary-foreground' : 'text-muted-foreground'
-                }`}>
-                  {new Date(msg.created_at).toLocaleTimeString('pl-PL', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Input area */}
-      <div className="border-t pt-3">
-        <div className="flex gap-2">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Napisz wiadomość..."
-            className="flex-1 min-h-[40px] max-h-[100px] resize-none rounded-lg"
-            rows={1}
-          />
-          <Button 
-            onClick={send} 
-            disabled={!text.trim()}
-            size="sm"
-            className="rounded-lg"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
   );
 }
 
