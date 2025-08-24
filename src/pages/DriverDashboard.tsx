@@ -184,6 +184,7 @@ const DriverDashboard = () => {
 // Komponent sekcji samochodów z przyciskiem dodaj auto
 function CarsSection({ driverData }: { driverData: any }) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const driverId = useDriverId();
 
   return (
@@ -205,11 +206,12 @@ function CarsSection({ driverData }: { driverData: any }) {
         <DriverFleetBadgeSelector 
           driverId={driverData.driver_id}
           fleetId={driverData.drivers?.fleet_id}
+          onFleetChange={() => setRefreshTrigger(prev => prev + 1)}
         />
       </div>
 
       {/* Karta wynajętego auta */}
-      <LeasedCarWrapper driverData={driverData} />
+      <LeasedCarWrapper key={refreshTrigger} driverData={driverData} />
 
       {/* Modal dodawania auta */}
       <AddOwnCarModal 
