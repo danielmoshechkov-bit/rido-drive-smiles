@@ -308,18 +308,27 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     const { data: assignment, error } = await supabase
       .from("driver_vehicle_assignments")
       .select(`
-        vehicles(weekly_rental_fee)
+        id,
+        vehicle_id,
+        vehicles!inner(
+          weekly_rental_fee
+        )
       `)
       .eq("driver_id", driverData.driver_id)
       .eq("status", "active")
-      .single();
+      .maybeSingle();
     
     console.log("Assignment data:", assignment);
     console.log("Assignment error:", error);
     console.log("Driver ID:", driverData.driver_id);
     
+    if (error) {
+      console.error("Error fetching assignment:", error);
+    }
+    
     const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
-    console.log("Rental fee:", rentalFee);
+    console.log("Rental fee extracted:", rentalFee);
+    console.log("Full vehicles object:", assignment?.vehicles);
     
     if (settlements && settlements.length > 0) {
       setWeekData(prev => ({
