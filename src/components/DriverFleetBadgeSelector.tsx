@@ -44,11 +44,33 @@ export function DriverFleetBadgeSelector({ driverId, fleetId }:{
     setOpen(false);
   };
 
+  const removeFleet = async () => {
+    const { error } = await supabase.from("drivers").update({
+      fleet_id: null
+    }).eq("id", driverId);
+    
+    if (error) return toast.error(error.message);
+    toast.success("Usunięto flotę kierowcy");
+    setLabel("Flota: brak");
+    setOpen(false);
+  };
+
   return (
     <div className="relative">
-      <Badge onClick={()=>setOpen(o=>!o)} className="cursor-pointer rounded-full bg-blue-500/10 text-blue-700 border-blue-500/20 hover:bg-blue-500/20">
-        {label}
-      </Badge>
+      <div className="flex items-center gap-1">
+        <Badge onClick={()=>setOpen(o=>!o)} className="cursor-pointer rounded-full bg-blue-500/10 text-blue-700 border-blue-500/20 hover:bg-blue-500/20">
+          {label}
+        </Badge>
+        {fleetId && (
+          <button 
+            onClick={removeFleet}
+            className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
+            title="Usuń flotę"
+          >
+            ×
+          </button>
+        )}
+      </div>
       {open && (
         <div className="absolute z-10 mt-2 w-56 bg-background border rounded-xl shadow-lg p-2">
           {fleets.map(f=>(

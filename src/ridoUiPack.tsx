@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ExpiryBadges } from "@/components/ExpiryBadges";
 
 /* ---------------------------------------------------------------
    0) Minimalne style globalne (auto-inject; nic nie dopisujesz)
@@ -193,6 +194,13 @@ export function LeasedCarCard({
           </h3>
           <div className="text-2xl font-bold text-[#6C3CF0]">{vehicle.plate}</div>
 
+          {/* OC i Przegląd */}
+          {vehicle.id && (
+            <div className="mt-3">
+              <ExpiryBadges vehicleId={vehicle.id} />
+            </div>
+          )}
+
           {/* bardziej zwarte rozmieszczenie */}
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <div className="text-muted-foreground">Rok produkcji:</div>
@@ -226,22 +234,45 @@ export function LeasedCarCard({
             </div>
             {fleet && (
               <div className="bg-[#F8F7FF] p-4 space-y-2 text-sm">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-muted-foreground">NIP:</div>
-                  <div className="col-span-2 font-medium">{fleet.nip || "—"}</div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-muted-foreground">Adres:</div>
-                  <div className="col-span-2 font-medium">{fleet.address || "—"}</div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-muted-foreground">Kontakt:</div>
-                  <div className="col-span-2 font-medium">{fleet.contact_name || "—"}</div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-muted-foreground">Telefon:</div>
-                  <div className="col-span-2 font-medium">{fleet.phone || "—"}</div>
-                </div>
+                {fleet.nip && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">NIP:</div>
+                    <div className="col-span-2 font-medium">{fleet.nip}</div>
+                  </div>
+                )}
+                {(fleet.city || fleet.postal_code || fleet.street || fleet.house_number) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Adres:</div>
+                    <div className="col-span-2 font-medium">
+                      {[fleet.street, fleet.house_number].filter(Boolean).join(" ")}<br/>
+                      {[fleet.postal_code, fleet.city].filter(Boolean).join(" ")}
+                    </div>
+                  </div>
+                )}
+                {fleet.contact_name && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Kontakt:</div>
+                    <div className="col-span-2 font-medium">{fleet.contact_name}</div>
+                  </div>
+                )}
+                {fleet.contact_phone_for_drivers && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Tel. dla kierowcy:</div>
+                    <div className="col-span-2 font-medium">{fleet.contact_phone_for_drivers}</div>
+                  </div>
+                )}
+                {fleet.owner_name && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Właściciel:</div>
+                    <div className="col-span-2 font-medium">{fleet.owner_name}</div>
+                  </div>
+                )}
+                {fleet.owner_phone && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-muted-foreground">Tel. właściciela:</div>
+                    <div className="col-span-2 font-medium">{fleet.owner_phone}</div>
+                  </div>
+                )}
               </div>
             )}
           </div>

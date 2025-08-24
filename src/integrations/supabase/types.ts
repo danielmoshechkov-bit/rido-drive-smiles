@@ -438,30 +438,51 @@ export type Database = {
       fleets: {
         Row: {
           address: string | null
+          city: string | null
           contact_name: string | null
+          contact_phone_for_drivers: string | null
           created_at: string | null
+          house_number: string | null
           id: string
           name: string
           nip: string | null
+          owner_name: string | null
+          owner_phone: string | null
           phone: string | null
+          postal_code: string | null
+          street: string | null
         }
         Insert: {
           address?: string | null
+          city?: string | null
           contact_name?: string | null
+          contact_phone_for_drivers?: string | null
           created_at?: string | null
+          house_number?: string | null
           id?: string
           name: string
           nip?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           phone?: string | null
+          postal_code?: string | null
+          street?: string | null
         }
         Update: {
           address?: string | null
+          city?: string | null
           contact_name?: string | null
+          contact_phone_for_drivers?: string | null
           created_at?: string | null
+          house_number?: string | null
           id?: string
           name?: string
           nip?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           phone?: string | null
+          postal_code?: string | null
+          street?: string | null
         }
         Relationships: []
       }

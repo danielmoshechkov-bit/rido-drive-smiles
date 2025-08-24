@@ -17,6 +17,7 @@ import { FleetTabManagement } from "./FleetTabManagement";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
+import { DriverAssignmentDropdown } from "./DriverAssignmentDropdown";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -44,6 +45,7 @@ type Vehicle = {
     id: string;
     first_name: string;
     last_name: string;
+    email?: string;
     assigned_at: string;
   } | null;
 };
@@ -81,7 +83,7 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
       .select(`
         vehicle_id,
         assigned_at,
-        drivers(id, first_name, last_name)
+        drivers(id, first_name, last_name, email)
       `)
       .eq("status", "active");
     
@@ -96,6 +98,7 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
               id: assignment.drivers.id,
               first_name: assignment.drivers.first_name,
               last_name: assignment.drivers.last_name,
+              email: assignment.drivers.email,
               assigned_at: assignment.assigned_at
             }
           : null
@@ -283,27 +286,14 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                               
                                {/* Drugi rząd - kierowca i daty */}
                                <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                  <div className="min-w-[150px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
-                                    <div className="font-semibold flex items-center gap-2">
-                                      {vehicle.assignedDriver ? (
-                                        <>
-                                          <span>{vehicle.assignedDriver.first_name} {vehicle.assignedDriver.last_name}</span>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              removeDriverAssignment(vehicle.id, vehicle.assignedDriver!.id);
-                                            }}
-                                            className="text-red-500 hover:text-red-700 p-1"
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </button>
-                                        </>
-                                      ) : (
-                                        "Brak przypisania"
-                                      )}
-                                    </div>
-                                  </div>
+                                   <div className="min-w-[150px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
+                                     <DriverAssignmentDropdown
+                                       vehicleId={vehicle.id}
+                                       currentDriver={vehicle.assignedDriver}
+                                       onAssignmentChange={fetchVehicles}
+                                     />
+                                   </div>
                                   <div className="min-w-[200px]">
                                     <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
                                     <div className="font-semibold">
