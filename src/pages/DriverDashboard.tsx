@@ -6,15 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import LanguageSelector from "@/components/LanguageSelector";
 import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
-import { FileText, MessageCircle, X, Send, ChevronDown } from "lucide-react";
 
 const DriverDashboard = () => {
   const { t } = useTranslation();
@@ -125,7 +121,7 @@ const DriverDashboard = () => {
           </div>
           <div className="flex items-center space-x-4">
             <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout} className="rounded-lg">
+            <Button variant="outline" onClick={handleLogout}>
               Wyloguj
             </Button>
           </div>
@@ -134,16 +130,16 @@ const DriverDashboard = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 relative">
-        {/* Kompaktowy chat widget w prawym dolnym rogu */}
+        {/* Zawsze widoczny czat w prawym dolnym rogu */}
         <div className="fixed bottom-4 right-4 z-50">
           <DriverChatButton driverData={driverData} />
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border rounded-lg p-1">
-            <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
-            <TabsTrigger value="cars">Samochód</TabsTrigger>
-            <TabsTrigger value="fleet-info">Informacje flotowe</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="weekly-report">Wynik tygodniowy</TabsTrigger>
+            <TabsTrigger value="cars">Auta</TabsTrigger>
+            <TabsTrigger value="fleet-info">Flota</TabsTrigger>
             <TabsTrigger value="documents">Dokumenty</TabsTrigger>
             <TabsTrigger value="fuel">Paliwo</TabsTrigger>
           </TabsList>
@@ -173,7 +169,7 @@ const DriverDashboard = () => {
   );
 };
 
-// Komponent wyników tygodnia z poprawionym kalendarzem
+// Komponent wyników tygodnia z wyborem roku i tygodnia
 function WeeklyResults({ driverData }: { driverData: any }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
@@ -192,65 +188,35 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
   function getCurrentWeek() {
     const now = new Date();
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    const daysFromJan1 = Math.floor((now.getTime() - jan1.getTime()) / (24 * 60 * 60 * 1000));
-    return Math.ceil((daysFromJan1 + jan1.getDay()) / 7);
+    const firstMondayOfYear = getFirstMondayOfYear(now.getFullYear());
+    const daysSinceFirstMonday = Math.floor((now.getTime() - firstMondayOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.floor(daysSinceFirstMonday / 7) + 1;
   }
 
-  // Funkcja do obliczania tygodni zgodnie z kalendarzem (poniedziałek-niedziela)
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    let currentDate = new Date(year, 0, 1);
-    
-    // Znajdź pierwszy poniedziałek roku lub rozpocznij od 1 stycznia jeśli to poniedziałek
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      // Jeśli doszliśmy do lutego, znaczy że 1 stycznia nie było poniedziałkiem
-      // W takim przypadku pierwszym tygodniem będzie tydzień z 1 stycznia
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
+  function getFirstMondayOfYear(year: number) {
+    const jan1 = new Date(year, 0, 1);
+    const dayOfWeek = jan1.getDay() || 7; // 0=Sunday -> 7, 1=Monday -> 1
+    const daysToAdd = dayOfWeek === 1 ? 0 : 8 - dayOfWeek;
+    return new Date(year, 0, 1 + daysToAdd);
+  }
 
-    let weekNumber = 1;
+  const getWeekDates = (year: number, week: number) => {
+    const firstMonday = getFirstMondayOfYear(year);
+    const monday = new Date(firstMonday.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+    const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
     
-    while (currentDate.getFullYear() === year) {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 6);
-      
-      // Jeśli koniec tygodnia wypada w przyszłym roku, przerwij
-      if (endDate.getFullYear() > year) {
-        break;
-      }
-      
-      weeks.push({
-        week: weekNumber,
-        startDate: startDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-        endDate: endDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-        fromISO: startDate.toISOString().slice(0, 10),
-        toISO: endDate.toISOString().slice(0, 10)
-      });
-      
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-    }
-    
-    return weeks;
+    return {
+      from: monday.toISOString().slice(0, 10),
+      to: sunday.toISOString().slice(0, 10)
+    };
   };
 
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
-  const weekDates = getWeekDates(selectedYear);
-
   const loadWeekData = async () => {
-    const weekInfo = weekDates.find(w => w.week === selectedWeek);
-    if (!weekInfo) return;
-
+    const dates = getWeekDates(selectedYear, selectedWeek);
     setWeekData(prev => ({
       ...prev,
-      from: weekInfo.fromISO,
-      to: weekInfo.toISO
+      from: dates.from,
+      to: dates.to
     }));
 
     // Ładowanie rzeczywistych danych z bazy
@@ -258,8 +224,8 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .from("settlements")
       .select("*")
       .eq("driver_id", driverData.driver_id)
-      .gte("week_start", weekInfo.fromISO)
-      .lte("week_end", weekInfo.toISO);
+      .gte("week_start", dates.from)
+      .lte("week_end", dates.to);
     
     // Pobierz opłatę za wynajem z przypisanego pojazdu
     const { data: assignment } = await supabase
@@ -274,12 +240,14 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
     
     if (settlements && settlements.length > 0) {
+      // Użyj rzeczywistych danych jeśli dostępne
       setWeekData(prev => ({
         ...prev,
         rental: rentalFee
       }));
       console.log("Znaleziono dane rozliczeń:", settlements);
     } else {
+      // Aktualizuj tylko opłatę za wynajem
       setWeekData(prev => ({
         ...prev,
         rental: rentalFee
@@ -311,71 +279,58 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-lg">
+      <Card>
         <CardHeader>
           <CardTitle>Wynik tygodniowy</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Elegancki wybór roku i tygodnia */}
-          <div className="flex gap-4 items-center mb-6">
-            <Card className="p-4 rounded-lg shadow-md">
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-muted-foreground mb-2">Rok</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-24 justify-center rounded-lg">
-                      {selectedYear}
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-32 p-2 rounded-lg">
-                    {years.map(year => (
-                      <Button
-                        key={year}
-                        variant="ghost"
-                        className="w-full justify-start rounded-md"
-                        onClick={() => setSelectedYear(year)}
-                      >
-                        {year}
-                      </Button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </Card>
+          {/* Wybór roku i tygodnia */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Rok:</label>
+              <select 
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="border rounded px-2 py-1"
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
             
-            <Card className="p-4 rounded-lg shadow-md">
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-muted-foreground mb-2">Okres</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-64 justify-between rounded-lg">
-                      <span className="truncate">
-                        {weekDates.find(w => w.week === selectedWeek) 
-                          ? `Tydzień ${selectedWeek}: ${weekDates.find(w => w.week === selectedWeek)?.startDate} - ${weekDates.find(w => w.week === selectedWeek)?.endDate}`
-                          : "Wybierz tydzień"}
-                      </span>
-                      <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-2 rounded-lg max-h-64 overflow-y-auto">
-                    {weekDates.map(({ week, startDate, endDate }) => (
-                      <Button
-                        key={week}
-                        variant="ghost"
-                        className="w-full justify-start text-left rounded-md"
-                        onClick={() => setSelectedWeek(week)}
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">Tydzień {week}</span>
-                          <span className="text-sm text-muted-foreground">{startDate} - {endDate}</span>
-                        </div>
-                      </Button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </Card>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Tydzień:</label>
+              <select 
+                value={selectedWeek} 
+                onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                className="border rounded px-2 py-1"
+                size={4}
+                style={{ maxHeight: '120px', overflowY: 'auto' }}
+              >
+                {Array.from({ length: 52 }, (_, i) => {
+                  const weekNum = i + 1;
+                  const dates = getWeekDates(selectedYear, weekNum);
+                  const weekEndDate = new Date(dates.to);
+                  const today = new Date();
+                  
+                  // Ukryj przyszłe tygodnie (nie zakończone)
+                  if (weekEndDate > today) return null;
+                  
+                  const fromDate = new Date(dates.from).toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
+                  const toDate = weekEndDate.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' });
+                  return (
+                    <option key={weekNum} value={weekNum}>
+                      {weekNum} ({fromDate} - {toDate})
+                    </option>
+                  );
+                }).filter(Boolean)}
+              </select>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              ({weekData.from} - {weekData.to})
+            </div>
           </div>
 
           {/* Plan rozliczenia */}
@@ -385,7 +340,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
       {/* Diagram wyników */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="rounded-lg">
+        <Card>
           <CardHeader>
             <CardTitle>Zarobki według platform</CardTitle>
           </CardHeader>
@@ -407,7 +362,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg">
+        <Card>
           <CardHeader>
             <CardTitle>Podsumowanie tygodnia</CardTitle>
           </CardHeader>
@@ -507,6 +462,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
         .from("driver-documents")
         .getPublicUrl(path);
       
+      // Znajdź lub utwórz typ dokumentu
       let typeId: string;
       const { data: existingType } = await supabase
         .from("document_types")
@@ -546,39 +502,24 @@ function DriverDocuments({ driverData }: { driverData: any }) {
     }
   };
 
-  const types = [
-    "Umowa / RODO",
-    "Prawo jazdy", 
-    "Dowód osobisty",
-    "Legitymacja kierowcy",
-    "Badania lekarskie",
-    "Inny dokument"
-  ];
-
   return (
-    <Card className="rounded-lg">
+    <Card>
       <CardHeader>
         <CardTitle>Dokumenty</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <select
-            className="px-3 py-2 border border-input rounded-lg bg-background"
+          <Input
             value={type}
             onChange={(e) => setType(e.target.value)}
-          >
-            {types.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <Input 
-            type="file" 
-            accept=".pdf,.jpg,.jpeg,.png,.docx" 
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="rounded-lg"
+            placeholder="Typ dokumentu"
           />
-          <Button onClick={upload} disabled={!file || loading} className="rounded-lg">
-            {loading ? "Przesyłanie..." : "Dodaj dokument"}
+          <Input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+          <Button onClick={upload} disabled={!file || loading}>
+            {loading ? "Wysyłanie..." : "Wyślij"}
           </Button>
         </div>
         
@@ -586,22 +527,16 @@ function DriverDocuments({ driverData }: { driverData: any }) {
           <p className="text-muted-foreground">Brak dokumentów.</p>
         ) : (
           <div className="space-y-2">
-            {docs.map(d => (
-              <div key={d.id} className="flex items-center justify-between p-3 border border-border/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium">{d.file_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(d.created_at).toLocaleDateString('pl-PL')}
-                    </div>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" asChild className="rounded-lg">
-                  <a href={d.file_url} target="_blank" rel="noreferrer">
-                    Pobierz
-                  </a>
-                </Button>
+            {docs.map((doc) => (
+              <div key={doc.id} className="border rounded-lg p-3">
+                <a
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {doc.type} • {new Date(doc.created_at).toLocaleString()}
+                </a>
               </div>
             ))}
           </div>
@@ -611,7 +546,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent auta - zmiana tekstu na "Wynajęte auto"
+// Komponent auta
 function DriverCar({ driverData }: { driverData: any }) {
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -621,41 +556,6 @@ function DriverCar({ driverData }: { driverData: any }) {
   const [color, setColor] = useState("");
   const [insp, setInsp] = useState("");
   const [policy, setPolicy] = useState("");
-  const [rentalFee, setRentalFee] = useState<number>(0);
-
-  useEffect(() => {
-    // Pobierz dane o wynajętym aucie
-    const fetchCarData = async () => {
-      const { data: assignment } = await supabase
-        .from("driver_vehicle_assignments")
-        .select(`
-          vehicles(
-            plate, brand, model, year, color, vin,
-            weekly_rental_fee,
-            vehicle_policies(valid_to, type),
-            vehicle_inspections(valid_to)
-          )
-        `)
-        .eq("driver_id", driverData.driver_id)
-        .eq("status", "active")
-        .single();
-      
-      if (assignment?.vehicles) {
-        const vehicle = assignment.vehicles;
-        setPlate(vehicle.plate || "");
-        setBrand(vehicle.brand || "");
-        setModel(vehicle.model || "");
-        setYear(vehicle.year?.toString() || "");
-        setColor(vehicle.color || "");
-        setVin(vehicle.vin || "");
-        setRentalFee(vehicle.weekly_rental_fee || 0);
-      }
-    };
-
-    if (driverData.driver_id) {
-      fetchCarData();
-    }
-  }, [driverData.driver_id]);
 
   const save = async () => {
     if (!plate || !brand || !model) {
@@ -702,8 +602,7 @@ function DriverCar({ driverData }: { driverData: any }) {
         }]);
       }
 
-      toast.success("Auto dodane");
-      // Reset form
+      toast.success("Dane pojazdu zostały zapisane");
       setPlate("");
       setVin("");
       setBrand("");
@@ -718,86 +617,162 @@ function DriverCar({ driverData }: { driverData: any }) {
   };
 
   return (
-    <Card className="rounded-lg">
+    <Card className="rounded-lg border border-border/50">
       <CardHeader>
         <CardTitle>Wynajęte auto</CardTitle>
       </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          placeholder="Nr rejestracyjny"
+          value={plate}
+          onChange={(e) => setPlate(e.target.value.toUpperCase())}
+          className="uppercase"
+        />
+        <Input
+          placeholder="VIN"
+          value={vin}
+          onChange={(e) => setVin(e.target.value.toUpperCase())}
+          className="uppercase"
+        />
+        <Input
+          placeholder="Marka"
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+        />
+        <Input
+          placeholder="Model"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+        />
+        <Input
+          placeholder="Rok produkcji"
+          type="number"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+        />
+        <Input
+          placeholder="Kolor"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+        />
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">
+            Przegląd ważny do
+          </label>
+          <Input
+            type="date"
+            value={insp}
+            onChange={(e) => setInsp(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">
+            Ubezpieczenie ważne do
+          </label>
+          <Input
+            type="date"
+            value={policy}
+            onChange={(e) => setPolicy(e.target.value)}
+          />
+        </div>
+        <Button onClick={save} className="md:col-span-2">
+          Zapisz dane pojazdu
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Komponent paliwa
+function FuelLogs({ driverData }: { driverData: any }) {
+  const [amount, setAmount] = useState("");
+  const [liters, setLiters] = useState("");
+  const [station, setStation] = useState("");
+  const [rows, setRows] = useState<any[]>([]);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("fuel_logs")
+      .select("*")
+      .eq("driver_id", driverData.driver_id)
+      .order("date", { ascending: false });
+    setRows(data || []);
+  };
+
+  useEffect(() => {
+    load();
+  }, [driverData.driver_id]);
+
+  const add = async () => {
+    if (!amount) {
+      toast.error("Podaj kwotę");
+      return;
+    }
+
+    const { error } = await supabase.from("fuel_logs").insert([{
+      driver_id: driverData.driver_id,
+      date: new Date().toISOString().slice(0, 10),
+      amount: Number(amount),
+      liters: liters ? Number(liters) : null,
+      station: station || null
+    }]);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setAmount("");
+    setLiters("");
+    setStation("");
+    load();
+    toast.success("Wpis dodany");
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Wydatki na paliwo</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
-        {plate ? (
-          // Wyświetl dane wynajętego auta
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Numer rejestracyjny</Label>
-                <div className="font-semibold text-lg">{plate}</div>
-              </div>
-              <div>
-                <Label>Marka i model</Label>
-                <div className="font-medium">{brand} {model}</div>
-              </div>
-              {year && (
-                <div>
-                  <Label>Rok produkcji</Label>
-                  <div>{year}</div>
-                </div>
-              )}
-              {color && (
-                <div>
-                  <Label>Kolor</Label>
-                  <div>{color}</div>
-                </div>
-              )}
-              {vin && (
-                <div>
-                  <Label>VIN</Label>
-                  <div className="font-mono text-sm">{vin}</div>
-                </div>
-              )}
-              <div>
-                <Label>Opłata za wynajem</Label>
-                <div className="font-semibold text-primary">{rentalFee} zł/tydzień</div>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Input
+            placeholder="Kwota (zł)"
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+          <Input
+            placeholder="Litry"
+            type="number"
+            value={liters}
+            onChange={(e) => setLiters(e.target.value)}
+          />
+          <Input
+            placeholder="Stacja / Notatka"
+            value={station}
+            onChange={(e) => setStation(e.target.value)}
+          />
+          <Button onClick={add}>Dodaj wpis</Button>
+        </div>
+        
+        {rows.length === 0 ? (
+          <p className="text-muted-foreground">Brak wpisów.</p>
         ) : (
-          // Formularz dodawania nowego auta
-          <div className="space-y-4">
-            <p className="text-muted-foreground">Nie masz przypisanego pojazdu. Dodaj swoje auto:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="plate">Nr rejestracyjny *</Label>
-                <Input id="plate" value={plate} onChange={(e) => setPlate(e.target.value)} className="rounded-lg" />
+          <div className="space-y-2">
+            {rows.map((row) => (
+              <div key={row.id} className="border rounded-lg p-3">
+                <div className="flex justify-between">
+                  <span>{row.date}</span>
+                  <span className="font-semibold">{row.amount} zł</span>
+                </div>
+                {(row.liters || row.station) && (
+                  <div className="text-sm text-muted-foreground">
+                    {row.liters ? `${row.liters} L` : ""} {row.station}
+                  </div>
+                )}
               </div>
-              <div>
-                <Label htmlFor="vin">VIN</Label>
-                <Input id="vin" value={vin} onChange={(e) => setVin(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="brand">Marka *</Label>
-                <Input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="model">Model *</Label>
-                <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="year">Rok</Label>
-                <Input id="year" type="number" value={year} onChange={(e) => setYear(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="color">Kolor</Label>
-                <Input id="color" value={color} onChange={(e) => setColor(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="insp">Przegląd ważny do</Label>
-                <Input id="insp" type="date" value={insp} onChange={(e) => setInsp(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="policy">OC ważne do</Label>
-                <Input id="policy" type="date" value={policy} onChange={(e) => setPolicy(e.target.value)} className="rounded-lg" />
-              </div>
-            </div>
-            <Button onClick={save} className="w-full rounded-lg">Dodaj auto</Button>
+            ))}
           </div>
         )}
       </CardContent>
@@ -805,69 +780,277 @@ function DriverCar({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent informacji flotowych
+// Komponent czatu
+function DriverChat({ driverData }: { driverData: any }) {
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState<any[]>([]);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("driver_id", driverData.driver_id)
+      .order("created_at", { ascending: true });
+    setMessages(data || []);
+  };
+
+  useEffect(() => {
+    load();
+  }, [driverData.driver_id]);
+
+  const send = async () => {
+    if (!text.trim()) return;
+
+    const { error } = await supabase.from("messages").insert([{
+      driver_id: driverData.driver_id,
+      from_role: "driver",
+      content: text.trim()
+    }]);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setText("");
+    load();
+    toast.success("Wiadomość wysłana");
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Czat z administratorem</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="border rounded-lg p-3 h-64 overflow-y-auto space-y-2">
+          {messages.length === 0 ? (
+            <p className="text-muted-foreground">Brak wiadomości.</p>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id} className={`p-2 rounded ${msg.from_role === 'driver' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'}`}>
+                <div className="text-xs text-muted-foreground">
+                  {msg.from_role === 'driver' ? 'Ty' : 'Administrator'} • {new Date(msg.created_at).toLocaleString()}
+                </div>
+                <div>{msg.content}</div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Napisz wiadomość..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && send()}
+          />
+          <Button onClick={send} disabled={!text.trim()}>
+            Wyślij
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Komponent ustawień
+function DriverSettings({ driverData }: { driverData: any }) {
+  const [plan, setPlan] = useState(driverData?.plan_type || '39+8');
+
+  const save = async () => {
+    const { error } = await supabase
+      .from("driver_app_users")
+      .update({ plan_type: plan })
+      .eq("driver_id", driverData.driver_id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Ustawienia zapisane");
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ustawienia rozliczania</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <label className="text-sm text-muted-foreground block mb-1">
+            Plan taryfowy
+          </label>
+          <select
+            value={plan}
+            onChange={(e) => setPlan(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="39+8">39 zł + 8%</option>
+            <option value="59+5">59 zł + 5%</option>
+            <option value="79+3">79 zł + 3%</option>
+          </select>
+        </div>
+        <Button onClick={save}>
+          Zapisz ustawienia
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Komponent informacji o flocie i przypisanym aucie
 function FleetInfo({ driverData }: { driverData: any }) {
+  const [fleetInfo, setFleetInfo] = useState<any>(null);
+  const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
+  const [assignment, setAssignment] = useState<any>(null);
+
+  useEffect(() => {
+    const loadFleetInfo = async () => {
+      if (driverData.drivers.fleet_id) {
+        const { data: fleet } = await supabase
+          .from('fleets')
+          .select('*')
+          .eq('id', driverData.drivers.fleet_id)
+          .single();
+        setFleetInfo(fleet);
+      }
+
+      // Pobierz przypisane auto
+      const { data: activeAssignment } = await supabase
+        .from('driver_vehicle_assignments')
+        .select(`
+          *,
+          vehicles(*)
+        `)
+        .eq('driver_id', driverData.driver_id)
+        .eq('status', 'active')
+        .single();
+
+      if (activeAssignment) {
+        setAssignment(activeAssignment);
+        setAssignedVehicle(activeAssignment.vehicles);
+      }
+    };
+
+    loadFleetInfo();
+  }, [driverData]);
+
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>Informacje flotowe</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Informacje o flocie pojawią się tutaj gdy zostaniesz przypisany do floty.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Informacje o flocie</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fleetInfo ? (
+            <div className="space-y-2">
+              <div className="text-lg font-medium">{fleetInfo.name}</div>
+              <div className="text-sm text-muted-foreground">
+                Data dołączenia: {new Date(fleetInfo.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanej floty</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do floty
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Przypisane auto</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assignedVehicle ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-lg font-medium">
+                  {assignedVehicle.brand} {assignedVehicle.model}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {assignedVehicle.plate}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">VIN:</span>
+                  <div>{assignedVehicle.vin || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Rok:</span>
+                  <div>{assignedVehicle.year || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Kolor:</span>
+                  <div>{assignedVehicle.color || 'Brak'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Wynajem/tydzień:</span>
+                  <div>{assignedVehicle.weekly_rental_fee || 0} zł</div>
+                </div>
+              </div>
+
+
+              {assignment && (
+                <div className="text-xs text-muted-foreground">
+                  Przypisane od: {new Date(assignment.assigned_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">Brak przypisanego auta</div>
+              <div className="text-sm text-muted-foreground">
+                Skontaktuj się z administratorem aby zostać przypisanym do pojazdu
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-// Komponent logów paliwa
-function FuelLogs({ driverData }: { driverData: any }) {
-  return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>Logi paliwa</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Historia tankowania pojawi się tutaj.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Kompaktowy chat widget w prawym dolnym rogu
+// Sidebar czatu w prawym dolnym rogu
 function DriverChatButton({ driverData }: { driverData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   
   return (
     <>
-      {/* Floating chat button */}
       <Button
+        size="lg"
+        className="rounded-full w-14 h-14 shadow-lg"
         onClick={() => setIsOpen(true)}
-        className="rounded-full w-14 h-14 shadow-lg bg-primary hover:bg-primary/90"
       >
-        <MessageCircle className="h-6 w-6" />
+        💬
       </Button>
       
-      {/* Compact chat sidebar */}
+      {/* Sidebar Chat */}
       {isOpen && (
         <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsOpen(false)}
+          />
           
-          {/* Chat sidebar */}
-          <div className="fixed right-0 top-0 h-full w-96 bg-background border-l shadow-xl z-50 flex flex-col rounded-l-lg">
-            <div className="p-4 border-b flex justify-between items-center bg-primary text-primary-foreground rounded-tl-lg">
+          {/* Sidebar */}
+          <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-xl z-50 flex flex-col animate-slide-in-right">
+            <div className="p-4 border-b flex justify-between items-center bg-primary text-white">
               <h3 className="font-medium">Czat z administratorem</h3>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setIsOpen(false)}
-                className="text-primary-foreground hover:bg-primary-foreground/10 rounded-lg"
+                className="text-white hover:bg-white/20 h-8 w-8 p-0"
               >
-                <X className="h-4 w-4" />
+                ✕
               </Button>
             </div>
             
@@ -881,7 +1064,7 @@ function DriverChatButton({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent zawartości czatu
+// Komponent zawartości czatu do użycia w sidebar
 function DriverChatContent({ driverData }: { driverData: any }) {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
@@ -904,8 +1087,8 @@ function DriverChatContent({ driverData }: { driverData: any }) {
 
     const { error } = await supabase.from("messages").insert([{
       driver_id: driverData.driver_id,
-      content: text.trim(),
-      from_role: "driver"
+      from_role: "driver",
+      content: text.trim()
     }]);
 
     if (error) {
@@ -915,67 +1098,37 @@ function DriverChatContent({ driverData }: { driverData: any }) {
 
     setText("");
     load();
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
+    toast.success("Wiadomość wysłana");
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+    <div className="h-full flex flex-col">
+      <div className="flex-1 border rounded-lg p-3 overflow-y-auto space-y-2 mb-4">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Rozpocznij rozmowę z administratorem</p>
-          </div>
+          <p className="text-muted-foreground">Brak wiadomości.</p>
         ) : (
-          messages.map(msg => (
-            <div key={msg.id} className={`flex ${msg.from_role === 'driver' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                msg.from_role === 'driver' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted'
-              }`}>
-                <div>{msg.content}</div>
-                <div className={`text-xs mt-1 opacity-70 ${
-                  msg.from_role === 'driver' ? 'text-primary-foreground' : 'text-muted-foreground'
-                }`}>
-                  {new Date(msg.created_at).toLocaleTimeString('pl-PL', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </div>
+          messages.map((msg) => (
+            <div key={msg.id} className={`p-3 rounded-lg ${msg.from_role === 'driver' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'}`}>
+              <div className="text-xs text-muted-foreground mb-1">
+                {msg.from_role === 'driver' ? 'Ty' : 'Administrator'} • {new Date(msg.created_at).toLocaleString()}
               </div>
+              <div className="text-sm">{msg.content}</div>
             </div>
           ))
         )}
       </div>
-
-      {/* Input area */}
-      <div className="border-t pt-3">
-        <div className="flex gap-2">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Napisz wiadomość..."
-            className="flex-1 min-h-[40px] max-h-[100px] resize-none rounded-lg"
-            rows={1}
-          />
-          <Button 
-            onClick={send} 
-            disabled={!text.trim()}
-            size="sm"
-            className="rounded-lg"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
+      
+      <div className="flex gap-2">
+        <Input
+          placeholder="Napisz wiadomość..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && send()}
+          className="flex-1"
+        />
+        <Button onClick={send} disabled={!text.trim()}>
+          Wyślij
+        </Button>
       </div>
     </div>
   );

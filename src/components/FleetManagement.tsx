@@ -1,25 +1,20 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Plus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car } from "lucide-react";
+import { toast } from "sonner";
 import { AddVehicleModal } from "./AddVehicleModal";
+import { FleetBadgeSelector } from "./FleetBadgeSelector";
+import { ExpiryBadges } from "./ExpiryBadges";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleDriverHistory } from "./VehicleDriverHistory";
 import { VehicleServiceTab } from "./VehicleServiceTab";
 import { VehicleInfoTab } from "./VehicleInfoTab";
-import { FleetTabManagement } from "./FleetTabManagement";
-import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
-
-interface FleetManagementProps {
-  cityId?: string | null;
-  cityName: string;
-}
 
 type Vehicle = {
   id: string;
@@ -35,9 +30,6 @@ type Vehicle = {
   fleet_id?: string | null;
   weekly_rental_fee?: number | null;
   created_at?: string;
-  fleet?: {
-    name: string;
-  } | null;
   assignedDriver?: {
     id: string;
     first_name: string;
@@ -46,55 +38,58 @@ type Vehicle = {
   } | null;
 };
 
-export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
+export function FleetManagement({ cityId, cityName }: { cityId?: string | null; cityName: string }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<"Wszystkie" | Vehicle["status"]>("Wszystkie");
+  const [showAdd, setShowAdd] = useState(false);
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("vehicles");
-  const { openDropdown, setOpenDropdown } = useGlobalDropdown();
 
   const fetchVehicles = async () => {
-    let vehiclesQuery = supabase
+    let q = supabase
       .from("vehicles")
       .select(`
         *,
-        fleets(name)
+        driver_vehicle_assignments!inner(
+          id,
+          assigned_at,
+          status,
+          drivers(id, first_name, last_name)
+        )
       `)
+      .eq("driver_vehicle_assignments.status", "active")
       .order("created_at", { ascending: false });
       
-    if (cityId) vehiclesQuery = vehiclesQuery.eq("city_id", cityId);
+    if (cityId) q = q.eq("city_id", cityId);
     
-    const { data: allVehicles, error: vehiclesError } = await vehiclesQuery;
+    const { data: assignedVehicles, error: assignedError } = await q;
     
-    if (vehiclesError) {
+    // Also get unassigned vehicles
+    let unassignedQuery = supabase
+      .from("vehicles")
+      .select("*")
+      .order("created_at", { ascending: false });
+      
+    if (cityId) unassignedQuery = unassignedQuery.eq("city_id", cityId);
+    
+    const { data: allVehicles, error: allError } = await unassignedQuery;
+    
+    if (assignedError || allError) {
       toast.error("Błąd ładowania pojazdów");
       return;
     }
     
-    // Pobierz aktywne przypisania kierowców
-    const { data: assignments } = await supabase
-      .from("driver_vehicle_assignments")
-      .select(`
-        vehicle_id,
-        assigned_at,
-        drivers(id, first_name, last_name)
-      `)
-      .eq("status", "active");
-    
-    // Połącz dane pojazdów z przypisaniami
+    // Combine data: mark vehicles with assignments
     const vehiclesWithAssignments = allVehicles?.map(vehicle => {
-      const assignment = assignments?.find(a => a.vehicle_id === vehicle.id);
+      const assignment = assignedVehicles?.find(av => av.id === vehicle.id);
       return {
         ...vehicle,
-        fleet: vehicle.fleets,
-        assignedDriver: assignment?.drivers 
+        assignedDriver: assignment?.driver_vehicle_assignments?.[0]?.drivers 
           ? {
-              id: assignment.drivers.id,
-              first_name: assignment.drivers.first_name,
-              last_name: assignment.drivers.last_name,
-              assigned_at: assignment.assigned_at
+              id: assignment.driver_vehicle_assignments[0].drivers.id,
+              first_name: assignment.driver_vehicle_assignments[0].drivers.first_name,
+              last_name: assignment.driver_vehicle_assignments[0].drivers.last_name,
+              assigned_at: assignment.driver_vehicle_assignments[0].assigned_at
             }
           : null
       };
@@ -103,14 +98,12 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
     setVehicles(vehiclesWithAssignments as Vehicle[]);
   };
   
-  useEffect(() => {
-    fetchVehicles();
-  }, [cityId]);
+  useEffect(() => { fetchVehicles(); /* eslint-disable-next-line */ }, [cityId]);
 
   const filtered = vehicles.filter(v => {
     const text = `${v.plate} ${v.brand} ${v.model} ${v.vin ?? ""}`.toLowerCase();
     const okText = text.includes(query.toLowerCase());
-    const okStatus = status === "all" ? true : v.status === status;
+    const okStatus = status === "Wszystkie" ? true : v.status === status;
     return okText && okStatus;
   });
 
@@ -122,8 +115,6 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
       newExpanded.add(vehicleId);
     }
     setExpandedVehicles(newExpanded);
-    // Zamknij wszystkie otwarte dropdowny
-    setOpenDropdown(null);
   };
 
   const removeDriverAssignment = async (vehicleId: string, driverId: string) => {
@@ -144,8 +135,7 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
     }
   };
 
-  const updateWeeklyRentalFee = async (vehicleId: string, feeString: string) => {
-    const fee = parseFloat(feeString) || 0;
+  const updateWeeklyRentalFee = async (vehicleId: string, fee: number) => {
     try {
       const { error } = await supabase
         .from("vehicles")
@@ -161,16 +151,14 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
     }
   };
 
-  const saveVehicleInfo = async (vehicleId: string, field: string, value: string) => {
+  const saveVehicleInfo = async (vehicleId: string, patch: Partial<Vehicle>) => {
     try {
-      let updateData: any = { [field]: value };
-      
-      if (field === 'plate') updateData.plate = value.toUpperCase();
-      if (field === 'vin') updateData.vin = value.toUpperCase();
+      if (patch.plate) patch.plate = patch.plate.toUpperCase();
+      if (patch.vin) patch.vin = patch.vin.toUpperCase();
       
       const { error } = await supabase
         .from("vehicles")
-        .update(updateData)
+        .update(patch)
         .eq("id", vehicleId);
 
       if (error) throw error;
@@ -183,212 +171,144 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
   };
 
   return (
-    <Card className="rounded-lg">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
-            Flota - {cityName}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Zarządzaj flotą w mieście {cityName}
-          </p>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border rounded-lg p-1">
-            <TabsTrigger value="vehicles">Auta</TabsTrigger>
-            <TabsTrigger value="fleets">Floty</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="vehicles" className="space-y-6">
-            {/* Header dla pojazdów */}
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Pojazdy ({filtered.length})</h3>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-lg">
-                <Plus className="h-4 w-4" />
-                Dodaj pojazd
-              </Button>
+    <>
+      <Card className="rounded-lg border border-border/50">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Flota – {cityName}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Znaleziono {filtered.length} z {vehicles.length} pojazdów
+              </p>
             </div>
+            <Button onClick={() => setShowAdd(true)} className="gap-2 rounded-lg">
+              <Plus className="h-4 w-4" /> Dodaj pojazd
+            </Button>
+          </div>
 
-            {/* Filtry */}
-            <div className="flex gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Szukaj po numerze rejestracyjnym, marce, modelu..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-10 rounded-lg"
-                />
-              </div>
-              
-              <div className="relative">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setOpenDropdown(openDropdown === "fleet-status" ? null : "fleet-status")} 
-                  className="gap-2 rounded-lg"
-                >
-                  <Filter className="h-4 w-4" />
-                  Status: {status === "all" ? "Wszystkie" : status}
-                </Button>
-                {openDropdown === "fleet-status" && (
-                  <div className="absolute top-full right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-10 min-w-[150px]">
-                    {["all", "aktywne", "serwis", "sprzedane"].map((s) => (
-                      <button
-                        key={s}
-                        className="w-full text-left px-3 py-2 hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
-                        onClick={() => {
-                          setStatus(s);
-                          setOpenDropdown(null);
-                        }}
-                      >
-                        {s === "all" ? "Wszystkie" : s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Input 
+              value={query} 
+              onChange={(e) => setQuery(e.target.value)} 
+              placeholder="Szukaj po rejestracji, VIN, marce..." 
+              className="max-w-sm rounded-lg" 
+            />
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+            >
+              <option>Wszystkie</option>
+              <option value="aktywne">Aktywne</option>
+              <option value="serwis">Serwis</option>
+              <option value="sprzedane">Sprzedane</option>
+            </select>
+          </div>
+        </CardHeader>
 
-            {/* Lista pojazdów */}
-            <div className="space-y-4">
-              {filtered.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Brak pojazdów spełniających kryteria wyszukiwania
-                </div>
-              ) : (
-                filtered.map((vehicle) => (
-                  <Collapsible
-                    key={vehicle.id}
-                    open={expandedVehicles.has(vehicle.id)}
-                    onOpenChange={() => toggleExpanded(vehicle.id)}
-                  >
-                    <Card className="border rounded-lg">
-                      <CollapsibleTrigger asChild>
-                        <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            {/* Pierwszy rząd - podstawowe info */}
-                            <div className="flex-1 space-y-3">
-                              <div className="flex items-center gap-6">
-                                <div className="min-w-[120px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                  <div className="font-semibold">{vehicle.plate}</div>
-                                </div>
-                                <div className="min-w-[150px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                  <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                  <div className="text-sm">{vehicle.fleet?.name || "Brak"}</div>
-                                </div>
-                                <div className="min-w-[120px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Wynajem:</span>
-                                  <div className="font-semibold text-primary">{vehicle.weekly_rental_fee || 0} zł/tydz.</div>
-                                </div>
-                              </div>
-                              
-                              {/* Drugi rząd - kierowca i daty */}
-                              <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                <div className="min-w-[150px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Kierowca:</span>
-                                  <div className="text-sm">
-                                    {vehicle.assignedDriver ? 
-                                      `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}` : 
-                                      "Brak przypisania"
-                                    }
-                                  </div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">OC:</span>
-                                  <div className="text-sm">Do 12.2024</div>
-                                </div>
-                                <div className="min-w-[100px]">
-                                  <span className="font-medium text-sm text-muted-foreground">Przegląd:</span>
-                                  <div className="text-sm">Do 01.2025</div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Przycisk rozwijania */}
-                            <div className="ml-4">
-                              {expandedVehicles.has(vehicle.id) ? 
-                                <ChevronUp className="h-5 w-5" /> : 
-                                <ChevronDown className="h-5 w-5" />
-                              }
-                            </div>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <div className="text-muted-foreground py-8">Brak pojazdów. Dodaj pierwszy pojazd.</div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map(v => (
+                <Collapsible key={v.id} open={expandedVehicles.has(v.id)} onOpenChange={() => toggleExpanded(v.id)}>
+                  <CollapsibleTrigger asChild>
+                    <div className="border border-border/50 rounded-lg p-4 transition-colors hover:bg-muted/30 cursor-pointer">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 grid grid-cols-3 gap-4 items-center">
+                          <div className="flex items-center gap-2">
+                            {expandedVehicles.has(v.id) ? (
+                              <ChevronDown size={16} className="text-muted-foreground" />
+                            ) : (
+                              <ChevronRight size={16} className="text-muted-foreground" />
+                            )}
+                            <div className="font-medium">{v.brand}</div>
                           </div>
+                          <div className="font-medium text-center">{v.model}</div>
+                          <div className="font-medium text-right">{v.plate}</div>
                         </div>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <div className="border-t p-4">
-                          <Tabs defaultValue="info" className="w-full">
-                            <TabsList className="grid w-full grid-cols-4 rounded-lg">
-                              <TabsTrigger value="info">Info</TabsTrigger>
-                              <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-                              <TabsTrigger value="history">Historia Kierowców</TabsTrigger>
-                              <TabsTrigger value="service">Serwis</TabsTrigger>
-                            </TabsList>
-
-                            <div className="mt-4">
-                              <TabsContent value="info">
-                                <VehicleInfoTab 
-                                  vehicle={vehicle} 
-                                  onSave={(field, value) => saveVehicleInfo(vehicle.id, field, value)}
-                                />
-                              </TabsContent>
-
-                              <TabsContent value="documents">
-                                <VehicleDocuments vehicleId={vehicle.id} />
-                              </TabsContent>
-
-                              <TabsContent value="history">
-                                <VehicleDriverHistory vehicleId={vehicle.id} />
-                              </TabsContent>
-
-                              <TabsContent value="service">
-                                <VehicleServiceTab vehicleId={vehicle.id} />
-                              </TabsContent>
-                            </div>
-                          </Tabs>
-
-                          {/* Edycja wynajmu */}
-                          <div className="mt-4 p-4 bg-muted/30 rounded-lg">
-                            <label className="block text-sm font-medium mb-2">Stawka za wynajem (zł/tydzień)</label>
+                        
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="w-2 h-2 rounded-full bg-green-500" title="Aktywny"></div>
+                          <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Wynajem:</span>
                             <Input
                               type="number"
-                              placeholder="Wprowadź stawkę"
-                              defaultValue={vehicle.weekly_rental_fee || ""}
-                              onBlur={(e) => updateWeeklyRentalFee(vehicle.id, e.target.value)}
-                              className="w-48 rounded-lg"
-                              onClick={(e) => e.stopPropagation()}
+                              value={v.weekly_rental_fee || 0}
+                              onBlur={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
+                              className="w-16 h-6 text-xs rounded-md"
+                              step="1"
+                              min="0"
                             />
+                            <span className="text-xs text-muted-foreground">zł/tyg</span>
                           </div>
+                          <ExpiryBadges vehicleId={v.id} />
                         </div>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                ))
-              )}
+                      </div>
+                      
+                      {v.assignedDriver && (
+                        <div className="flex items-center gap-2 text-sm text-primary mt-2">
+                          <span>Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDriverAssignment(v.id, v.assignedDriver!.id);
+                            }}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                            title="Usuń przypisanie kierowcy"
+                          >
+                            <X size={12} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className="px-4 pb-4">
+                    <div className="mt-3 p-4 bg-muted/30 rounded-lg">
+                      <Tabs defaultValue="info" className="w-full">
+                        <TabsList className="grid w-full grid-cols-4 rounded-lg">
+                          <TabsTrigger value="info" className="rounded-md">Informacje</TabsTrigger>
+                          <TabsTrigger value="docs" className="rounded-md">Dokumenty</TabsTrigger>
+                          <TabsTrigger value="drivers" className="rounded-md">Historia kierowców</TabsTrigger>
+                          <TabsTrigger value="service" className="rounded-md">Serwis</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="info" className="mt-4">
+                          <VehicleInfoTab vehicle={v} onSave={saveVehicleInfo} />
+                        </TabsContent>
+                        
+                        <TabsContent value="docs" className="mt-4">
+                          <VehicleDocuments vehicleId={v.id} />
+                        </TabsContent>
+                        
+                        <TabsContent value="drivers" className="mt-4">
+                          <VehicleDriverHistory vehicleId={v.id} />
+                        </TabsContent>
+                        
+                        <TabsContent value="service" className="mt-4">
+                          <VehicleServiceTab vehicleId={v.id} />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
             </div>
-          </TabsContent>
+          )}
+        </CardContent>
+      </Card>
 
-          <TabsContent value="fleets" className="space-y-6">
-            <FleetTabManagement cityId={cityId} />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-
-      <AddVehicleModal 
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        cityId={cityId}
-        onSuccess={fetchVehicles}
+      <AddVehicleModal
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSuccess={() => { setShowAdd(false); fetchVehicles(); }}
+        cityId={cityId ?? null}
       />
-    </Card>
+    </>
   );
 }
