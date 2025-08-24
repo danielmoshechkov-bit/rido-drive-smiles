@@ -50,7 +50,23 @@ export function DriverAssignmentDropdown({
   const assignDriver = async (driverId: string) => {
     setLoading(true);
     
-    // Zakończ poprzednie przypisania
+    // Zakończ wszystkie poprzednie przypisania dla tego kierowcy
+    const { error: deactivateDriverError } = await supabase
+      .from('driver_vehicle_assignments')
+      .update({ 
+        status: 'inactive',
+        unassigned_at: new Date().toISOString()
+      })
+      .eq('driver_id', driverId)
+      .eq('status', 'active');
+
+    if (deactivateDriverError) {
+      toast.error('Błąd przy dezaktywacji poprzednich przypisań kierowcy');
+      setLoading(false);
+      return;
+    }
+
+    // Zakończ poprzednie przypisania pojazdu
     const { error: updateError } = await supabase
       .from('driver_vehicle_assignments')
       .update({ 

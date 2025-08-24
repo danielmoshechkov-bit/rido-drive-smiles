@@ -73,7 +73,7 @@ export const VehicleFleetSelector = ({ vehicleId, currentFleetId, onFleetUpdate 
           <ChevronDown className="ml-1 h-3 w-3" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2 bg-white border shadow-lg" align="start">
+      <PopoverContent className="w-56 p-2 bg-popover border shadow-lg" align="start">
         <div className="space-y-1">
           <Button
             variant="ghost"

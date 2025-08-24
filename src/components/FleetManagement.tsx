@@ -9,10 +9,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X } from "lucide-react";
 import { AddVehicleModal } from "./AddVehicleModal";
+import { VehicleInfoTab } from "./VehicleInfoTab";
+import { VehicleServiceTab } from "./VehicleServiceTab";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleDriverHistory } from "./VehicleDriverHistory";
-import { VehicleServiceTab } from "./VehicleServiceTab";
-import { VehicleInfoTab } from "./VehicleInfoTab";
+import { VehicleFleetSelector } from "./VehicleFleetSelector";
 import { FleetTabManagement } from "./FleetTabManagement";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { ExpiryBadges } from "./ExpiryBadges";
@@ -268,8 +269,12 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
                                   </div>
                                    <div className="min-w-[100px]">
                                      <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                     <div className="font-semibold cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                       {vehicle.fleet?.name || "Brak"}
+                                     <div onClick={(e) => e.stopPropagation()}>
+                                       <VehicleFleetSelector 
+                                         vehicleId={vehicle.id}
+                                         currentFleetId={vehicle.fleet_id}
+                                         onFleetUpdate={fetchVehicles}
+                                       />
                                      </div>
                                    </div>
                                    <div className="min-w-[120px]">
