@@ -140,12 +140,12 @@ const DriverDashboard = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border rounded-lg p-1">
-            <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
-            <TabsTrigger value="cars">Samochód</TabsTrigger>
-            <TabsTrigger value="fleet-info">Informacje flotowe</TabsTrigger>
-            <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-            <TabsTrigger value="fuel">Paliwo</TabsTrigger>
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple">
+            <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Rozliczenie tygodniowe</TabsTrigger>
+            <TabsTrigger value="cars" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Samochód</TabsTrigger>
+            <TabsTrigger value="fleet-info" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Informacje flotowe</TabsTrigger>
+            <TabsTrigger value="documents" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Dokumenty</TabsTrigger>
+            <TabsTrigger value="fuel" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Paliwo</TabsTrigger>
           </TabsList>
 
           <TabsContent value="weekly-report" className="space-y-6">
@@ -198,8 +198,12 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   }
 
   // Funkcja do obliczania tygodni zgodnie z kalendarzem (poniedziałek-niedziela)
+  // Pokazuje tylko przeszłe tygodnie i obecny tydzień
   const getWeekDates = (year: number) => {
     const weeks = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
     let currentDate = new Date(year, 0, 1);
     
     // Znajdź pierwszy poniedziałek roku lub rozpocznij od 1 stycznia jeśli to poniedziałek
@@ -225,19 +229,23 @@ function WeeklyResults({ driverData }: { driverData: any }) {
         break;
       }
       
-      weeks.push({
-        week: weekNumber,
-        startDate: startDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-        endDate: endDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-        fromISO: startDate.toISOString().slice(0, 10),
-        toISO: endDate.toISOString().slice(0, 10)
-      });
+      // Tylko dodaj tygodnie, które już się skończyły lub obecny tydzień
+      // Nie pokazuj przyszłych tygodni
+      if (year < currentYear || (year === currentYear && startDate <= now)) {
+        weeks.push({
+          week: weekNumber,
+          startDate: startDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
+          endDate: endDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
+          fromISO: startDate.toISOString().slice(0, 10),
+          toISO: endDate.toISOString().slice(0, 10)
+        });
+      }
       
       currentDate.setDate(currentDate.getDate() + 7);
       weekNumber++;
     }
     
-    return weeks;
+    return weeks.reverse(); // Najnowsze tygodnie na górze
   };
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
@@ -316,8 +324,8 @@ function WeeklyResults({ driverData }: { driverData: any }) {
           <CardTitle>Wynik tygodniowy</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Elegancki wybór roku i tygodnia */}
-          <div className="flex gap-4 items-center mb-6">
+          {/* Elegancki wybór roku, tygodnia i planu rozliczenia */}
+          <div className="flex gap-4 items-center mb-6 flex-wrap">
             <Card className="p-4 rounded-lg shadow-md">
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-muted-foreground mb-2">Rok</label>
@@ -376,10 +384,9 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 </Popover>
               </div>
             </Card>
-          </div>
 
-          {/* Plan rozliczenia */}
-          <SettlementPlanSelector driverData={driverData} currentPlan={weekData.plan} onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
+            <SettlementPlanSelector driverData={driverData} currentPlan="" onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
+          </div>
         </CardContent>
       </Card>
 
@@ -611,7 +618,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent auta - zmiana tekstu na "Wynajęte auto"
+// Komponent auta - funkcjonalność dodawania/edycji aut
 function DriverCar({ driverData }: { driverData: any }) {
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -805,19 +812,100 @@ function DriverCar({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent informacji flotowych
+// Komponent informacji flotowych - pokazuje wynajęte auto i informacje o flocie
 function FleetInfo({ driverData }: { driverData: any }) {
+  const [vehicleData, setVehicleData] = useState<any>(null);
+  const [fleetData, setFleetData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchFleetInfo = async () => {
+      // Pobierz dane o wynajętym aucie i flocie
+      const { data: assignment } = await supabase
+        .from("driver_vehicle_assignments")
+        .select(`
+          vehicles(
+            plate, brand, model, year, color, vin,
+            weekly_rental_fee,
+            fleets(name)
+          )
+        `)
+        .eq("driver_id", driverData.driver_id)
+        .eq("status", "active")
+        .single();
+      
+      if (assignment?.vehicles) {
+        setVehicleData(assignment.vehicles);
+        setFleetData(assignment.vehicles.fleets);
+      }
+    };
+
+    fetchFleetInfo();
+  }, [driverData.driver_id]);
+
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>Informacje flotowe</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Informacje o flocie pojawią się tutaj gdy zostaniesz przypisany do floty.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      {/* Wynajęte auto */}
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle>Wynajęte auto</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {vehicleData ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Marka i model</label>
+                  <p className="font-medium">{vehicleData.brand} {vehicleData.model}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Nr rejestracji</label>
+                  <p className="font-medium">{vehicleData.plate}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Rok produkcji</label>
+                  <p className="font-medium">{vehicleData.year}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Kolor</label>
+                  <p className="font-medium">{vehicleData.color}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">VIN</label>
+                  <p className="font-medium text-xs">{vehicleData.vin}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</label>
+                  <p className="font-medium text-green-600">{vehicleData.weekly_rental_fee || 0} zł</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Nie masz przypisanego pojazdu.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Informacje o flocie */}
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle>Informacje o flocie</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fleetData ? (
+            <div className="space-y-2">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Nazwa floty</label>
+                <p className="font-medium">{fleetData.name}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              Nie jesteś przypisany do żadnej floty.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
