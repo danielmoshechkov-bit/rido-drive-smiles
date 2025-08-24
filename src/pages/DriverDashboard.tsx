@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TabsPill } from "@/ridoUiPack";
-import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/TabsPill";
 import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
 import { VehicleList } from "@/components/VehicleList";
@@ -152,32 +151,34 @@ const DriverDashboard = () => {
         
         {/* Slim Pill Tabs */}
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
-          <TabsTrigger value="cars">Samochód</TabsTrigger>
-          <TabsTrigger value="fleet-info">Informacje flotowe</TabsTrigger>
-          <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-          <TabsTrigger value="fuel">Paliwo</TabsTrigger>
+          <TabsPillList>
+            <TabsPillTrigger value="weekly-report">Rozliczenie tygodniowe</TabsPillTrigger>
+            <TabsPillTrigger value="cars">Samochód</TabsPillTrigger>
+            <TabsPillTrigger value="fleet-info">Informacje flotowe</TabsPillTrigger>
+            <TabsPillTrigger value="documents">Dokumenty</TabsPillTrigger>
+            <TabsPillTrigger value="fuel">Paliwo</TabsPillTrigger>
+          </TabsPillList>
 
           {/* Tab Content */}
-          <TabsContent value="weekly-report">
+          <TabsPillContent value="weekly-report">
             <WeeklyResults driverData={driverData} />
-          </TabsContent>
+          </TabsPillContent>
           
-          <TabsContent value="cars">
+          <TabsPillContent value="cars">
             <LeasedCarWrapper driverData={driverData} />
-          </TabsContent>
+          </TabsPillContent>
           
-          <TabsContent value="fleet-info">
+          <TabsPillContent value="fleet-info">
             <FleetInfo driverData={driverData} />
-          </TabsContent>
+          </TabsPillContent>
           
-          <TabsContent value="documents">
+          <TabsPillContent value="documents">
             <DriverDocuments driverData={driverData} />
-          </TabsContent>
+          </TabsPillContent>
           
-          <TabsContent value="fuel">
+          <TabsPillContent value="fuel">
             <FuelLogs driverData={driverData} />
-          </TabsContent>
+          </TabsPillContent>
         </TabsPill>
       </div>
     </div>
