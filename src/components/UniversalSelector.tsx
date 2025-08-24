@@ -93,40 +93,29 @@ export function UniversalSelector({
 
   return (
     <div className={`relative ${className}`} data-selector-id={id}>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          onClick={toggle}
-          disabled={disabled}
-          className="h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2 min-w-[120px] justify-between"
-        >
-          <span className="truncate">{displayValue}</span>
-          <ChevronDown className="h-3 w-3 flex-shrink-0" />
-        </Button>
-        
-        {allowClear && currentValue && (
-          <button
-            onClick={handleClear}
-            className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80 transition-colors"
-            title="Wyczyść wybór"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-2 w-80 bg-popover border border-border rounded-xl shadow-lg p-4">
-          {/* Clear button */}
+      <Button
+        variant="outline"
+        onClick={toggle}
+        disabled={disabled}
+        className="group h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2 min-w-[120px] justify-between"
+      >
+        <span className="truncate">{displayValue}</span>
+        <div className="flex items-center gap-1">
           {allowClear && currentValue && (
             <button
               onClick={handleClear}
-              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80 transition-colors z-10"
+              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80"
               title="Wyczyść wybór"
             >
-              <X className="h-3 w-3" />
+              <X className="h-2.5 w-2.5" />
             </button>
           )}
+          <ChevronDown className="h-3 w-3 flex-shrink-0" />
+        </div>
+      </Button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-2 w-80 bg-popover border border-border rounded-xl shadow-lg p-4">
           {/* Search Bar */}
           {showSearch && (
             <div className="relative mb-3">
