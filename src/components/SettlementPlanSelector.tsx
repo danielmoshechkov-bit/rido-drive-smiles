@@ -23,8 +23,8 @@ export const SettlementPlanSelector = ({
   const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
 
   const plans = [
-    { id: "39+8%", name: "39 zł + 8%", description: "39 zł opłaty stałej + 8% podatek od zarobków" },
-    { id: "tylko 159", name: "Tylko 159 zł", description: "159 zł miesięcznie bez dodatkowych opłat" }
+    { id: "tylko 159", name: "159 zł + 0% VAT", description: "159 zł tygodniowo bez dodatkowych opłat" },
+    { id: "39+8%", name: "39+8% VAT", description: "39 zł + 8% VAT tygodniowo" }
   ];
 
   useEffect(() => {
@@ -87,12 +87,12 @@ export const SettlementPlanSelector = ({
               <ChevronDown className={`ml-2 h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-2 rounded-lg" align="start">
+          <PopoverContent className="w-80 p-2 rounded-lg bg-white border shadow-lg" align="start">
             {plans.map((plan) => (
               <Button
                 key={plan.id}
                 variant="ghost"
-                className="w-full justify-start p-3 h-auto rounded-md"
+                className="w-full justify-start p-3 h-auto rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
                 onClick={() => handlePlanChange(plan.id)}
               >
                 <div className="flex items-center gap-2 w-full">

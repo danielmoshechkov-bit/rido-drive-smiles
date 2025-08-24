@@ -140,12 +140,12 @@ const DriverDashboard = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple">
-            <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Rozliczenie tygodniowe</TabsTrigger>
-            <TabsTrigger value="cars" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Samochód</TabsTrigger>
-            <TabsTrigger value="fleet-info" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Informacje flotowe</TabsTrigger>
-            <TabsTrigger value="documents" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Dokumenty</TabsTrigger>
-            <TabsTrigger value="fuel" className="data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-md">Paliwo</TabsTrigger>
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-2 shadow-purple h-14">
+            <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Rozliczenie tygodniowe</TabsTrigger>
+            <TabsTrigger value="cars" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Samochód</TabsTrigger>
+            <TabsTrigger value="fleet-info" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Informacje flotowe</TabsTrigger>
+            <TabsTrigger value="documents" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Dokumenty</TabsTrigger>
+            <TabsTrigger value="fuel" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/20 hover:text-white transition-all px-6 py-3 text-base font-medium">Paliwo</TabsTrigger>
           </TabsList>
 
           <TabsContent value="weekly-report" className="space-y-6">
