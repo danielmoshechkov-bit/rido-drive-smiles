@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,12 +18,15 @@ export function AddOwnCarModal({
   driverId: string;
   onVehicleAdded?: () => void;
 }) {
+  const [loading, setLoading] = useState(false);
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
+  const [inspValidTo, setInspValidTo] = useState<string>("");
+  const [policyValidTo, setPolicyValidTo] = useState<string>("");
 
   const save = async () => {
     if (!plate || !brand || !model) {
@@ -30,132 +34,196 @@ export function AddOwnCarModal({
       return;
     }
 
-    // Pobierz city_id kierowcy
-    const { data: driverData, error: driverError } = await supabase
-      .from('drivers')
-      .select('city_id')
-      .eq('id', driverId)
-      .single();
-
-    if (driverError || !driverData?.city_id) {
-      toast.error("Błąd pobierania danych kierowcy");
-      return;
-    }
-
-    const payload: any = {
-      plate: plate.toUpperCase().trim(),
-      vin: vin.toUpperCase().trim() || null,
-      brand: brand.trim(),
-      model: model.trim(),
-      year: year || null,
-      color: color || null,
-      status: "aktywne",
-      city_id: driverData.city_id,
-    };
-    
-    const { data: veh, error: e1 } = await supabase
-      .from("vehicles")
-      .insert(payload)
-      .select("id")
-      .single();
+    setLoading(true);
+    try {
+      // Pobierz city_id kierowcy - sprawdź najpierw w drivers, potem w driver_app_users
+      let cityId = null;
       
-    if (e1) {
-      console.error("Error adding vehicle:", e1);
-      toast.error("Błąd dodawania pojazdu");
-      return;
-    }
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('city_id')
+        .eq('id', driverId)
+        .maybeSingle();
 
-    // automatyczne przypisanie do kierowcy od dziś (bez floty)
-    const today = new Date().toISOString().slice(0, 10);
-    const { error: assignError } = await supabase
-      .from("driver_vehicle_assignments")
-      .insert({ 
-        driver_id: driverId, 
-        vehicle_id: veh!.id, 
-        assigned_at: today + "T00:00:00Z",
-        unassigned_at: null,
-        status: "active"
-      });
+      if (driverData?.city_id) {
+        cityId = driverData.city_id;
+      } else {
+        // Fallback: sprawdź w driver_app_users
+        const { data: appUserData } = await supabase
+          .from('driver_app_users')
+          .select('city_id')
+          .eq('driver_id', driverId)
+          .maybeSingle();
+        
+        cityId = appUserData?.city_id;
+      }
+
+      if (!cityId) {
+        toast.error("Nie można określić miasta kierowcy. Skontaktuj się z administratorem.");
+        return;
+      }
+
+      // Dodaj pojazd
+      const { data: veh, error: vehicleError } = await supabase
+        .from("vehicles")
+        .insert({
+          plate: plate.toUpperCase().trim(),
+          vin: vin.toUpperCase().trim() || null,
+          brand: brand.trim(),
+          model: model.trim(),
+          year: year || null,
+          color: color || null,
+          status: "aktywne",
+          city_id: cityId,
+          odometer: 0
+        })
+        .select("id")
+        .single();
+        
+      if (vehicleError || !veh?.id) {
+        throw vehicleError || new Error("Nie udało się dodać pojazdu");
+      }
+
+      // Automatycznie utwórz rekordy przeglądu i polisy jeśli podano daty
+      if (inspValidTo) {
+        const { error: inspError } = await supabase
+          .from("vehicle_inspections")
+          .insert({
+            vehicle_id: veh.id,
+            date: new Date().toISOString().slice(0, 10),
+            valid_to: inspValidTo,
+            result: "pozytywny"
+          });
+        if (inspError) console.warn("Ostrzeżenie: nie zapisano przeglądu:", inspError.message);
+      }
+
+      if (policyValidTo) {
+        const { error: policyError } = await supabase
+          .from("vehicle_policies")
+          .insert({
+            vehicle_id: veh.id,
+            type: "OC",
+            policy_no: "TBA",
+            provider: "TBA",
+            valid_from: new Date().toISOString().slice(0, 10),
+            valid_to: policyValidTo
+          });
+        if (policyError) console.warn("Ostrzeżenie: nie zapisano polisy:", policyError.message);
+      }
+
+      // Automatyczne przypisanie do kierowcy od dziś
+      const today = new Date().toISOString().slice(0, 10);
+      const { error: assignError } = await supabase
+        .from("driver_vehicle_assignments")
+        .insert({ 
+          driver_id: driverId, 
+          vehicle_id: veh.id, 
+          assigned_at: today + "T00:00:00Z",
+          unassigned_at: null,
+          status: "active"
+        });
+        
+      if (assignError) {
+        throw new Error("Błąd przypisywania pojazdu: " + assignError.message);
+      }
       
-    if (assignError) {
-      console.error("Error creating assignment:", assignError);
-      toast.error("Błąd przypisywania pojazdu");
-      return;
+      toast.success("Pojazd dodany i przypisany");
+      onVehicleAdded?.();
+      onClose();
+    } catch (error: any) {
+      console.error("Error adding vehicle:", error);
+      toast.error(error?.message || "Błąd dodawania pojazdu");
+    } finally {
+      setLoading(false);
     }
-    
-    toast.success("Pojazd dodany i przypisany");
-    onVehicleAdded?.();
-    onClose();
   };
 
-  if (!open) return null;
-  
   return (
-    <div className="fixed inset-0 bg-black/30 z-[70] flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Dodaj pojazd</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Dodaj pojazd</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-muted-foreground">
-              Nr rejestracyjny *
-            </label>
-            <Input
-              value={plate}
-              onChange={(e) => setPlate(e.target.value.toUpperCase())}
-              placeholder="np. WX1234A"
+            <Label>Nr rejestracyjny *</Label>
+            <Input 
+              value={plate} 
+              onChange={(e) => setPlate(e.target.value.toUpperCase())} 
+              placeholder="np. WX1234A" 
+              className="uppercase" 
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">VIN</label>
-            <Input
-              value={vin}
-              onChange={(e) => setVin(e.target.value.toUpperCase())}
-              placeholder="17 znaków"
+            <Label>VIN</Label>
+            <Input 
+              value={vin} 
+              onChange={(e) => setVin(e.target.value.toUpperCase())} 
+              placeholder="17 znaków" 
+              className="uppercase" 
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">Marka *</label>
-            <Input
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="np. Toyota"
+            <Label>Marka *</Label>
+            <Input 
+              value={brand} 
+              onChange={(e) => setBrand(e.target.value)} 
+              placeholder="np. Toyota" 
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">Model *</label>
-            <Input
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="np. Auris"
+            <Label>Model *</Label>
+            <Input 
+              value={model} 
+              onChange={(e) => setModel(e.target.value)} 
+              placeholder="np. Auris" 
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">Rok</label>
-            <Input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value ? parseInt(e.target.value) : "")}
-              placeholder="np. 2018"
+            <Label>Rok</Label>
+            <Input 
+              type="number" 
+              value={year} 
+              onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} 
+              placeholder="np. 2018" 
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">Kolor</label>
-            <Input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="np. Biały"
+            <Label>Kolor</Label>
+            <Input 
+              value={color} 
+              onChange={(e) => setColor(e.target.value)} 
+              placeholder="np. biały" 
             />
           </div>
-          <div className="md:col-span-2 flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={onClose}>
-              Anuluj
-            </Button>
-            <Button onClick={save}>Zapisz pojazd</Button>
+          <div>
+            <Label>Przegląd ważny do (opcjonalnie)</Label>
+            <Input 
+              type="date" 
+              value={inspValidTo} 
+              onChange={(e) => setInspValidTo(e.target.value)} 
+            />
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div>
+            <Label>Polisa OC ważna do (opcjonalnie)</Label>
+            <Input 
+              type="date" 
+              value={policyValidTo} 
+              onChange={(e) => setPolicyValidTo(e.target.value)} 
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Anuluj
+          </Button>
+          <Button onClick={save} disabled={loading}>
+            {loading ? "Zapisywanie..." : "Zapisz pojazd"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
