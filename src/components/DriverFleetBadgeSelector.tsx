@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UniversalSelector } from "./UniversalSelector";
 
-export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange }:{
+export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, allowAdd = true }:{
   driverId: string; 
   fleetId?: string|null;
   onFleetChange?: () => void;
+  allowAdd?: boolean;
 }) {
   const [fleets, setFleets] = useState<{id:string;name:string}[]>([]);
 
@@ -69,10 +70,10 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange }:{
       addButtonText="Dodaj"
       noResultsText="Brak flot"
       showSearch={true}
-      showAdd={true}
+      showAdd={allowAdd}
       allowClear={true}
       onSelect={handleSelect}
-      onAdd={handleAdd}
+      onAdd={allowAdd ? handleAdd : undefined}
     />
   );
 }

@@ -117,6 +117,16 @@ export function UniversalSelector({
 
       {isOpen && (
         <div className="absolute z-50 mt-2 w-80 bg-popover border border-border rounded-xl shadow-lg p-4">
+          {/* Clear button */}
+          {allowClear && currentValue && (
+            <button
+              onClick={handleClear}
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80 transition-colors z-10"
+              title="Wyczyść wybór"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
           {/* Search Bar */}
           {showSearch && (
             <div className="relative mb-3">

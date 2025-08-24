@@ -163,26 +163,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-medium">
-                          {driver.first_name} {driver.last_name}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          <DriverStatusBadge 
-                            driverId={driver.id}
-                            currentRole={(driver as any).user_role || 'kierowca'}
-                          />
-                          {driver.registration_date && (
-                            <NewDriverBadge registrationDate={driver.registration_date} />
-                          )}
-                          <DriverRentalBadge 
-                            driverId={driver.id}
-                            driverData={driver}
-                            cityId={cityId}
-                            onUpdate={refetch}
-                          />
-                        </div>
-                      </div>
+                       <div className="flex items-center gap-2 mb-2">
+                         <h3 className="font-medium">
+                           {driver.first_name} {driver.last_name}
+                         </h3>
+                         <div className="flex items-center gap-2">
+                           {driver.registration_date && (
+                             <NewDriverBadge registrationDate={driver.registration_date} />
+                           )}
+                           <DriverStatusBadge 
+                             driverId={driver.id}
+                             currentRole={(driver as any).user_role || 'kierowca'}
+                           />
+                           <DriverVehicleSelector 
+                             driverId={driver.id}
+                             fleetId={(driver as any).fleet_id}
+                             onVehicleUpdate={refetch}
+                           />
+                           <DriverFleetBadgeSelector 
+                             driverId={driver.id}
+                             fleetId={(driver as any).fleet_id}
+                             onFleetChange={refetch}
+                             allowAdd={false}
+                           />
+                         </div>
+                       </div>
 
                       <div className="flex items-center gap-2 mb-2">
                         {driver.platform_ids && driver.platform_ids.map((platform) => (
@@ -196,46 +201,33 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm flex-wrap">
-                         <div className="flex items-center gap-2">
-                           <Phone size={14} />
-                           <ChevronDown className="h-3 w-3 text-primary" />
-                           {driver.phone ? (
-                             <InlineEdit
-                               value={driver.phone}
-                               onSave={(value) => updateDriverField(driver.id, 'phone', value)}
-                             />
-                           ) : (
-                             <span className="text-red-500 text-xs">Brak telefonu</span>
-                           )}
-                         </div>
-                         
-                         <div className="flex items-center gap-2">
-                           <Mail size={14} />
-                           <ChevronDown className="h-3 w-3 text-primary" />
-                           {driver.email ? (
-                             <InlineEdit
-                               value={driver.email}
-                               onSave={(value) => updateDriverField(driver.id, 'email', value)}
-                             />
-                           ) : (
-                             <span className="text-red-500 text-xs">Brak e-maila</span>
-                           )}
-                         </div>
-
-                         <div className="flex items-center gap-3">
-                           <DriverFleetBadgeSelector 
-                             driverId={driver.id}
-                             fleetId={(driver as any).fleet_id}
-                           />
-                           
-                           <DriverVehicleSelector 
-                             driverId={driver.id}
-                             fleetId={(driver as any).fleet_id}
-                             onVehicleUpdate={refetch}
-                           />
-                         </div>
-                       </div>
+                       <div className="flex items-center gap-4 text-sm flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Phone size={14} />
+                            <ChevronDown className="h-3 w-3 text-primary" />
+                            {driver.phone ? (
+                              <InlineEdit
+                                value={driver.phone}
+                                onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                              />
+                            ) : (
+                              <span className="text-red-500 text-xs">Brak telefonu</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Mail size={14} />
+                            <ChevronDown className="h-3 w-3 text-primary" />
+                            {driver.email ? (
+                              <InlineEdit
+                                value={driver.email}
+                                onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                              />
+                            ) : (
+                              <span className="text-red-500 text-xs">Brak e-maila</span>
+                            )}
+                          </div>
+                        </div>
                     </div>
                     
                     <div className="flex items-center gap-2">

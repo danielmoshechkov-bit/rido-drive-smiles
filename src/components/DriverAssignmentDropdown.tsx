@@ -112,6 +112,11 @@ export function DriverAssignmentDropdown({
   const handleSelect = async (item: {id: string; name: string} | null) => {
     if (item) {
       await assignDriver(item.id);
+    } else {
+      // Handle clear selection
+      if (currentDriver) {
+        await removeAssignment();
+      }
     }
   };
 
@@ -151,6 +156,7 @@ export function DriverAssignmentDropdown({
             noResultsText="Brak kierowców"
             showSearch={true}
             showAdd={false}
+            allowClear={false}
             onSelect={handleSelect}
             disabled={loading}
           />
