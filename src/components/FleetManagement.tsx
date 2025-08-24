@@ -14,6 +14,7 @@ import { ExpiryBadges } from "./ExpiryBadges";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleDriverHistory } from "./VehicleDriverHistory";
 import { VehicleServiceTab } from "./VehicleServiceTab";
+import { VehicleInfoTab } from "./VehicleInfoTab";
 
 type Vehicle = {
   id: string;
@@ -96,6 +97,7 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
     
     setVehicles(vehiclesWithAssignments as Vehicle[]);
   };
+  
   useEffect(() => { fetchVehicles(); /* eslint-disable-next-line */ }, [cityId]);
 
   const filtered = vehicles.filter(v => {
@@ -168,13 +170,9 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
     }
   };
 
-  const openDetails = (id: string) => {
-    toggleExpanded(id);
-  };
-
   return (
     <>
-      <Card>
+      <Card className="rounded-lg border border-border/50">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
@@ -183,15 +181,20 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
                 Znaleziono {filtered.length} z {vehicles.length} pojazdów
               </p>
             </div>
-            <Button onClick={() => setShowAdd(true)} className="gap-2">
+            <Button onClick={() => setShowAdd(true)} className="gap-2 rounded-lg">
               <Plus className="h-4 w-4" /> Dodaj pojazd
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
-            <Input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Szukaj po rejestracji, VIN, marce..." className="max-w-sm" />
+            <Input 
+              value={query} 
+              onChange={(e) => setQuery(e.target.value)} 
+              placeholder="Szukaj po rejestracji, VIN, marce..." 
+              className="max-w-sm rounded-lg" 
+            />
             <select
-              className="border rounded-md px-3 py-2 text-sm"
+              className="border rounded-lg px-3 py-2 text-sm"
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
             >
@@ -211,155 +214,72 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
               {filtered.map(v => (
                 <Collapsible key={v.id} open={expandedVehicles.has(v.id)} onOpenChange={() => toggleExpanded(v.id)}>
                   <CollapsibleTrigger asChild>
-                    <div className="border rounded-2xl p-4 transition-colors hover:bg-muted/60 cursor-pointer">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex-1 min-w-[260px]">
-                          <div className="text-lg font-semibold flex items-center gap-2">
+                    <div className="border border-border/50 rounded-lg p-4 transition-colors hover:bg-muted/30 cursor-pointer">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 grid grid-cols-3 gap-4 items-center">
+                          <div className="flex items-center gap-2">
                             {expandedVehicles.has(v.id) ? (
                               <ChevronDown size={16} className="text-muted-foreground" />
                             ) : (
                               <ChevronRight size={16} className="text-muted-foreground" />
                             )}
-                            <span>{v.brand} {v.model}</span>
-                            <span className="text-muted-foreground">• {v.plate}</span>
-                            <div className="flex items-center gap-2 ml-2" onClick={(e) => e.stopPropagation()}>
-                              <span className="text-xs text-muted-foreground">Wynajem za tydzień:</span>
-                              <Input
-                                type="number"
-                                value={v.weekly_rental_fee || 0}
-                                onChange={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
-                                onBlur={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
-                                className="w-20 h-6 text-xs border-border/50 focus:border-primary"
-                                min="0"
-                                step="10"
-                              />
-                              <span className="text-xs text-muted-foreground">zł</span>
-                            </div>
+                            <div className="font-medium">{v.brand}</div>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {v.year ? `${v.year} • ` : ""}{v.color || "—"} • VIN: {v.vin ?? "—"}
-                          </div>
-                          {v.assignedDriver && (
-                            <div className="flex items-center gap-2 text-sm text-primary mt-1">
-                              <span>Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeDriverAssignment(v.id, v.assignedDriver!.id);
-                                }}
-                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                title="Usuń przypisanie kierowcy"
-                              >
-                                <X size={12} />
-                              </Button>
-                            </div>
-                          )}
+                          <div className="font-medium text-center">{v.model}</div>
+                          <div className="font-medium text-right">{v.plate}</div>
                         </div>
-
-                        {/* prawa strona: status, flota, terminy, wynajem */}
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          {/* Zmieniony status na ikonę */}
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-green-500" title={v.status}></div>
-                            <span className="text-xs text-muted-foreground">{v.status}</span>
-                          </div>
+                        
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="w-2 h-2 rounded-full bg-green-500" title="Aktywny"></div>
                           <FleetBadgeSelector vehicleId={v.id} fleetId={v.fleet_id ?? null} ownerName={v.owner_name ?? null} />
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">Wynajem:</span>
                             <Input
                               type="number"
                               value={v.weekly_rental_fee || 0}
                               onBlur={(e) => updateWeeklyRentalFee(v.id, Number(e.target.value))}
-                              className="w-16 h-6 text-xs"
+                              className="w-16 h-6 text-xs rounded-md"
                               step="1"
                               min="0"
                             />
-                            <span className="text-xs">zł/tyg</span>
+                            <span className="text-xs text-muted-foreground">zł/tyg</span>
                           </div>
                           <ExpiryBadges vehicleId={v.id} />
                         </div>
                       </div>
+                      
+                      {v.assignedDriver && (
+                        <div className="flex items-center gap-2 text-sm text-primary mt-2">
+                          <span>Kierowca: {v.assignedDriver.first_name} {v.assignedDriver.last_name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDriverAssignment(v.id, v.assignedDriver!.id);
+                            }}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                            title="Usuń przypisanie kierowcy"
+                          >
+                            <X size={12} />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CollapsibleTrigger>
                   
                   <CollapsibleContent className="px-4 pb-4">
                     <div className="mt-3 p-4 bg-muted/30 rounded-lg">
                       <Tabs defaultValue="info" className="w-full">
-                        <TabsList className="grid w-full grid-cols-4">
-                          <TabsTrigger value="info">Informacje</TabsTrigger>
-                          <TabsTrigger value="docs">Dokumenty</TabsTrigger>
-                          <TabsTrigger value="drivers">Historia kierowców</TabsTrigger>
-                          <TabsTrigger value="service">Serwis</TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-4 rounded-lg">
+                          <TabsTrigger value="info" className="rounded-md">Informacje</TabsTrigger>
+                          <TabsTrigger value="docs" className="rounded-md">Dokumenty</TabsTrigger>
+                          <TabsTrigger value="drivers" className="rounded-md">Historia kierowców</TabsTrigger>
+                          <TabsTrigger value="service" className="rounded-md">Serwis</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="info" className="mt-4">
-                          <Card>
-                            <CardHeader><CardTitle>Dane pojazdu</CardTitle></CardHeader>
-                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Nr rejestracyjny</label>
-                                <Input 
-                                  defaultValue={v.plate} 
-                                  onBlur={e => saveVehicleInfo(v.id, { plate: e.target.value })} 
-                                  className="uppercase" 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">VIN</label>
-                                <Input 
-                                  defaultValue={v.vin ?? ""} 
-                                  onBlur={e => saveVehicleInfo(v.id, { vin: e.target.value })} 
-                                  className="uppercase" 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Marka</label>
-                                <Input 
-                                  defaultValue={v.brand} 
-                                  onBlur={e => saveVehicleInfo(v.id, { brand: e.target.value })} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Model</label>
-                                <Input 
-                                  defaultValue={v.model} 
-                                  onBlur={e => saveVehicleInfo(v.id, { model: e.target.value })} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Rok</label>
-                                <Input 
-                                  type="number" 
-                                  defaultValue={v.year ?? ""} 
-                                  onBlur={e => saveVehicleInfo(v.id, { year: e.target.value ? Number(e.target.value) : null })} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Kolor</label>
-                                <Input 
-                                  defaultValue={v.color ?? ""} 
-                                  onBlur={e => saveVehicleInfo(v.id, { color: e.target.value || null })} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Przebieg</label>
-                                <Input 
-                                  type="number" 
-                                  defaultValue={v.odometer ?? ""} 
-                                  onBlur={e => saveVehicleInfo(v.id, { odometer: e.target.value ? Number(e.target.value) : null })} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Właściciel / Flota</label>
-                                <Input 
-                                  defaultValue={v.owner_name ?? ""} 
-                                  onBlur={e => saveVehicleInfo(v.id, { owner_name: e.target.value || null })} 
-                                />
-                              </div>
-                            </CardContent>
-                          </Card>
+                          <VehicleInfoTab vehicle={v} onSave={saveVehicleInfo} />
                         </TabsContent>
                         
                         <TabsContent value="docs" className="mt-4">
@@ -385,8 +305,8 @@ export function FleetManagement({ cityId, cityName }: { cityId?: string | null; 
 
       <AddVehicleModal
         isOpen={showAdd}
-        onClose={()=>setShowAdd(false)}
-        onSuccess={()=>{ setShowAdd(false); fetchVehicles(); }}
+        onClose={() => setShowAdd(false)}
+        onSuccess={() => { setShowAdd(false); fetchVehicles(); }}
         cityId={cityId ?? null}
       />
     </>

@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import LanguageSelector from "@/components/LanguageSelector";
+import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 
 const DriverDashboard = () => {
   const { t } = useTranslation();
@@ -135,13 +136,12 @@ const DriverDashboard = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="weekly-report">Wynik tygodniowy</TabsTrigger>
             <TabsTrigger value="cars">Auta</TabsTrigger>
             <TabsTrigger value="fleet-info">Flota</TabsTrigger>
             <TabsTrigger value="documents">Dokumenty</TabsTrigger>
             <TabsTrigger value="fuel">Paliwo</TabsTrigger>
-            <TabsTrigger value="chat">Czat</TabsTrigger>
           </TabsList>
 
           <TabsContent value="weekly-report" className="space-y-6">
@@ -162,10 +162,6 @@ const DriverDashboard = () => {
 
           <TabsContent value="fuel" className="space-y-6">
             <FuelLogs driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="chat" className="space-y-6">
-            <DriverChat driverData={driverData} />
           </TabsContent>
         </Tabs>
       </div>
@@ -192,21 +188,22 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
   function getCurrentWeek() {
     const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-    return Math.ceil((days + start.getDay() + 1) / 7);
+    const firstMondayOfYear = getFirstMondayOfYear(now.getFullYear());
+    const daysSinceFirstMonday = Math.floor((now.getTime() - firstMondayOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.floor(daysSinceFirstMonday / 7) + 1;
+  }
+
+  function getFirstMondayOfYear(year: number) {
+    const jan1 = new Date(year, 0, 1);
+    const dayOfWeek = jan1.getDay() || 7; // 0=Sunday -> 7, 1=Monday -> 1
+    const daysToAdd = dayOfWeek === 1 ? 0 : 8 - dayOfWeek;
+    return new Date(year, 0, 1 + daysToAdd);
   }
 
   const getWeekDates = (year: number, week: number) => {
-    const firstDayOfYear = new Date(year, 0, 1);
-    const daysFromFirstWeek = (week - 1) * 7;
-    const firstDayOfWeek = new Date(firstDayOfYear.getTime() + daysFromFirstWeek * 24 * 60 * 60 * 1000);
-    
-    const monday = new Date(firstDayOfWeek);
-    monday.setDate(firstDayOfWeek.getDate() - firstDayOfWeek.getDay() + 1);
-    
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+    const firstMonday = getFirstMondayOfYear(year);
+    const monday = new Date(firstMonday.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+    const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
     
     return {
       from: monday.toISOString().slice(0, 10),
@@ -269,6 +266,16 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   ];
 
   const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
+  
+  const calculateNetAmount = (earnings: number, fuel: number, rental: number, plan: string) => {
+    let deductions = fuel + rental;
+    if (plan === "39+8%") {
+      deductions += 39 + Math.round(earnings * 0.08);
+    } else if (plan === "tylko 159") {
+      deductions += 159;
+    }
+    return earnings - deductions;
+  };
 
   return (
     <div className="space-y-6">
@@ -327,10 +334,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
           </div>
 
           {/* Plan rozliczenia */}
-          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-            <span className="text-sm">Plan rozliczenia:</span>
-            <Badge variant="outline">{weekData.plan}</Badge>
-          </div>
+          <SettlementPlanSelector driverData={driverData} currentPlan={weekData.plan} onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
         </CardContent>
       </Card>
 
@@ -390,10 +394,28 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 <span>Wynajem auta:</span>
                 <span>-{weekData.rental || 0} zł</span>
               </div>
+              {weekData.plan === "39+8%" && (
+                <>
+                  <div className="flex justify-between text-red-600">
+                    <span>Opłata stała:</span>
+                    <span>-39 zł</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Podatek (8%):</span>
+                    <span>-{Math.round(totalEarnings * 0.08)} zł</span>
+                  </div>
+                </>
+              )}
+              {weekData.plan === "tylko 159" && (
+                <div className="flex justify-between text-red-600">
+                  <span>Opłata miesięczna:</span>
+                  <span>-159 zł</span>
+                </div>
+              )}
               <div className="border-t pt-2">
                 <div className="flex justify-between font-bold text-lg text-green-600">
                   <span>Do wypłaty:</span>
-                  <span>{totalEarnings - weekData.fuel - (weekData.rental || 0)} zł</span>
+                  <span>{calculateNetAmount(totalEarnings, weekData.fuel, weekData.rental || 0, weekData.plan)} zł</span>
                 </div>
               </div>
             </div>
@@ -595,9 +617,9 @@ function DriverCar({ driverData }: { driverData: any }) {
   };
 
   return (
-    <Card>
+    <Card className="rounded-lg border border-border/50">
       <CardHeader>
-        <CardTitle>Moje auto</CardTitle>
+        <CardTitle>Wynajęte auto</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
@@ -969,14 +991,11 @@ function FleetInfo({ driverData }: { driverData: any }) {
                   <div>{assignedVehicle.color || 'Brak'}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Przebieg:</span>
-                  <div>{assignedVehicle.odometer || 0} km</div>
+                  <span className="text-muted-foreground">Wynajem/tydzień:</span>
+                  <div>{assignedVehicle.weekly_rental_fee || 0} zł</div>
                 </div>
               </div>
 
-              <Badge variant="outline" className="w-fit">
-                Status: {assignedVehicle.status}
-              </Badge>
 
               {assignment && (
                 <div className="text-xs text-muted-foreground">

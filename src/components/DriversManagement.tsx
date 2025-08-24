@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { InlineEdit } from './InlineEdit';
 import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
 import { DriverRentalBadge } from './DriverRentalBadge';
+import { DriverFilters } from './DriverFilters';
 import { Trash2 } from 'lucide-react';
 
 interface DriversManagementProps {
@@ -128,16 +129,17 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
             </Button>
           </div>
           
-          <div className="flex items-center space-x-2 mt-4">
+          <div className="flex items-center justify-between mt-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Szukaj kierowców..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-lg"
               />
             </div>
+            <DriverFilters onFilterChange={() => {}} />
           </div>
         </CardHeader>
         
