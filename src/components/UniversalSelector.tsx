@@ -102,13 +102,13 @@ export function UniversalSelector({
         <span className="truncate">{displayValue}</span>
         <div className="flex items-center gap-1">
           {allowClear && currentValue && (
-            <button
+            <div
               onClick={handleClear}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80"
+              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:bg-destructive/80 cursor-pointer"
               title="Wyczyść wybór"
             >
               <X className="h-2.5 w-2.5" />
-            </button>
+            </div>
           )}
           <ChevronDown className="h-3 w-3 flex-shrink-0" />
         </div>
