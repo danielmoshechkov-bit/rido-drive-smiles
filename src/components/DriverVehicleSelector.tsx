@@ -110,56 +110,58 @@ export const DriverVehicleSelector = ({
 
   if (!fleetId || vehicles.length === 0) {
     return (
-      <div className="flex items-center gap-1 text-sm text-primary">
+      <Button
+        variant="outline"
+        className="h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2"
+        disabled
+      >
         <Car size={14} />
         <span>Własne auto</span>
         <ChevronDown className="h-3 w-3" />
-      </div>
+      </Button>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <Car size={14} />
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button 
-            variant="ghost" 
-            className="h-auto p-0 text-left font-medium hover:bg-transparent text-sm"
-            disabled={loading}
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="outline"
+          className="h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2"
+          disabled={loading}
+        >
+          <Car size={14} />
+          {selectedVehicleText}
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-3 bg-popover border shadow-lg z-50 rounded-lg" align="start">
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
+            onClick={() => assignVehicle(null, "Własne auto")}
           >
-            {selectedVehicleText}
-            <ChevronDown className="ml-1 h-3 w-3" />
+            Własne auto
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-72 p-3 bg-popover border shadow-lg z-50 rounded-lg" align="start">
-          <div className="space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
-              onClick={() => assignVehicle(null, "Własne auto")}
-            >
-              Własne auto
-            </Button>
-            {vehicles.map((vehicle) => {
-              const fleetName = (vehicle as any).fleets?.name || "Brak floty";
-              return (
-                <Button
-                  key={vehicle.id}
-                  variant="ghost"
-                  className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
-                  onClick={() => assignVehicle(
-                    vehicle.id, 
-                    `${fleetName} • ${vehicle.brand} ${vehicle.model}`
-                  )}
-                >
-                  {fleetName} • {vehicle.brand} {vehicle.model} • {vehicle.plate}
-                </Button>
-              );
-            })}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+          {vehicles.map((vehicle) => {
+            const fleetName = (vehicle as any).fleets?.name || "Brak floty";
+            return (
+              <Button
+                key={vehicle.id}
+                variant="ghost"
+                className="w-full justify-start text-sm h-10 px-3 rounded-lg hover:bg-primary/10"
+                onClick={() => assignVehicle(
+                  vehicle.id, 
+                  `${fleetName} • ${vehicle.brand} ${vehicle.model}`
+                )}
+              >
+                {fleetName} • {vehicle.brand} {vehicle.model} • {vehicle.plate}
+              </Button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };

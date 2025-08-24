@@ -158,7 +158,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
               {filteredDrivers.map((driver) => (
                 <div 
                   key={driver.id} 
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="border rounded-lg p-6 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => toggleDriverExpansion(driver.id)}
                 >
                   <div className="flex items-start justify-between">
@@ -197,41 +197,45 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                       </div>
 
                       <div className="flex items-center gap-4 text-sm flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <Phone size={14} />
-                          {driver.phone ? (
-                            <InlineEdit
-                              value={driver.phone}
-                              onSave={(value) => updateDriverField(driver.id, 'phone', value)}
-                            />
-                          ) : (
-                            <span className="text-red-500 text-xs">Brak telefonu</span>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} />
-                          {driver.email ? (
-                            <InlineEdit
-                              value={driver.email}
-                              onSave={(value) => updateDriverField(driver.id, 'email', value)}
-                            />
-                          ) : (
-                            <span className="text-red-500 text-xs">Brak e-maila</span>
-                          )}
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Phone size={14} />
+                           <ChevronDown className="h-3 w-3 text-primary" />
+                           {driver.phone ? (
+                             <InlineEdit
+                               value={driver.phone}
+                               onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                             />
+                           ) : (
+                             <span className="text-red-500 text-xs">Brak telefonu</span>
+                           )}
+                         </div>
+                         
+                         <div className="flex items-center gap-2">
+                           <Mail size={14} />
+                           <ChevronDown className="h-3 w-3 text-primary" />
+                           {driver.email ? (
+                             <InlineEdit
+                               value={driver.email}
+                               onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                             />
+                           ) : (
+                             <span className="text-red-500 text-xs">Brak e-maila</span>
+                           )}
+                         </div>
 
-                        <DriverFleetBadgeSelector 
-                          driverId={driver.id}
-                          fleetId={(driver as any).fleet_id}
-                        />
-
-                        <DriverVehicleSelector 
-                          driverId={driver.id}
-                          fleetId={(driver as any).fleet_id}
-                          onVehicleUpdate={refetch}
-                        />
-                      </div>
+                         <div className="flex items-center gap-3">
+                           <DriverFleetBadgeSelector 
+                             driverId={driver.id}
+                             fleetId={(driver as any).fleet_id}
+                           />
+                           
+                           <DriverVehicleSelector 
+                             driverId={driver.id}
+                             fleetId={(driver as any).fleet_id}
+                             onVehicleUpdate={refetch}
+                           />
+                         </div>
+                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
