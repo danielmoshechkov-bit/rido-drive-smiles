@@ -1,24 +1,31 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import LanguageSelector from "@/components/LanguageSelector";
-import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
-import { FileText, MessageCircle, X, Send, ChevronDown } from "lucide-react";
+import { UniversalTabBar } from "@/components/UniversalTabBar";
+import { UniversalCard } from "@/components/UniversalCard";
 import { AddCarForm } from "@/components/AddCarForm";
+import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { 
+  MessageCircle, 
+  Send, 
+  X, 
+  FileText, 
+  Calendar, 
+  Car,
+  Building2,
+  ChevronDown
+} from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const DriverDashboard = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
@@ -125,7 +132,6 @@ const DriverDashboard = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <LanguageSelector />
             <Button variant="outline" onClick={handleLogout} className="rounded-lg">
               Wyloguj
             </Button>
@@ -654,201 +660,16 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent auta - funkcjonalność dodawania/edycji aut
+// Komponent auta - używa AddCarForm jako jedynego zawartości
 function DriverCar({ driverData }: { driverData: any }) {
-  const [plate, setPlate] = useState("");
-  const [vin, setVin] = useState("");
-  const [brand, setBrand] = useState("");
-  const [model, setModel] = useState("");
-  const [year, setYear] = useState("");
-  const [color, setColor] = useState("");
-  const [insp, setInsp] = useState("");
-  const [policy, setPolicy] = useState("");
-  const [rentalFee, setRentalFee] = useState<number>(0);
-
-  useEffect(() => {
-    // Pobierz dane o wynajętym aucie
-    const fetchCarData = async () => {
-      const { data: assignment } = await supabase
-        .from("driver_vehicle_assignments")
-        .select(`
-          vehicles(
-            plate, brand, model, year, color, vin,
-            weekly_rental_fee,
-            vehicle_policies(valid_to, type),
-            vehicle_inspections(valid_to)
-          )
-        `)
-        .eq("driver_id", driverData.driver_id)
-        .eq("status", "active")
-        .single();
-      
-      if (assignment?.vehicles) {
-        const vehicle = assignment.vehicles;
-        setPlate(vehicle.plate || "");
-        setBrand(vehicle.brand || "");
-        setModel(vehicle.model || "");
-        setYear(vehicle.year?.toString() || "");
-        setColor(vehicle.color || "");
-        setVin(vehicle.vin || "");
-        setRentalFee(vehicle.weekly_rental_fee || 0);
-      }
-    };
-
-    if (driverData.driver_id) {
-      fetchCarData();
-    }
-  }, [driverData.driver_id]);
-
-  const save = async () => {
-    if (!plate || !brand || !model) {
-      toast.error("Uzupełnij wymagane pola");
-      return;
-    }
-
-    try {
-      const { data: vehicle, error: vehicleError } = await supabase
-        .from("vehicles")
-        .insert([{
-          plate: plate.toUpperCase(),
-          vin: vin ? vin.toUpperCase() : null,
-          brand,
-          model,
-          year: year ? parseInt(year) : null,
-          color: color || null,
-          status: "aktywne",
-          owner_name: "Prywatne",
-          city_id: driverData.city_id
-        }])
-        .select("id")
-        .single();
-
-      if (vehicleError) throw vehicleError;
-
-      if (insp) {
-        await supabase.from("vehicle_inspections").insert([{
-          vehicle_id: vehicle.id,
-          date: new Date().toISOString().slice(0, 10),
-          valid_to: insp,
-          result: "pozytywny"
-        }]);
-      }
-
-      if (policy) {
-        await supabase.from("vehicle_policies").insert([{
-          vehicle_id: vehicle.id,
-          type: "OC",
-          policy_no: "TBA",
-          provider: "TBA",
-          valid_from: new Date().toISOString().slice(0, 10),
-          valid_to: policy
-        }]);
-      }
-
-      toast.success("Auto dodane");
-      // Reset form
-      setPlate("");
-      setVin("");
-      setBrand("");
-      setModel("");
-      setYear("");
-      setColor("");
-      setInsp("");
-      setPolicy("");
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>Wynajęte auto</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {plate ? (
-          // Wyświetl dane wynajętego auta
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Numer rejestracyjny</Label>
-                <div className="font-semibold text-lg">{plate}</div>
-              </div>
-              <div>
-                <Label>Marka i model</Label>
-                <div className="font-medium">{brand} {model}</div>
-              </div>
-              {year && (
-                <div>
-                  <Label>Rok produkcji</Label>
-                  <div>{year}</div>
-                </div>
-              )}
-              {color && (
-                <div>
-                  <Label>Kolor</Label>
-                  <div>{color}</div>
-                </div>
-              )}
-              {vin && (
-                <div>
-                  <Label>VIN</Label>
-                  <div className="font-mono text-sm">{vin}</div>
-                </div>
-              )}
-              <div>
-                <Label>Opłata za wynajem</Label>
-                <div className="font-semibold text-primary">{rentalFee} zł/tydzień</div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          // Formularz dodawania nowego auta
-          <div className="space-y-4">
-            <p className="text-muted-foreground">Nie masz przypisanego pojazdu. Dodaj swoje auto:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="plate">Nr rejestracyjny *</Label>
-                <Input id="plate" value={plate} onChange={(e) => setPlate(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="vin">VIN</Label>
-                <Input id="vin" value={vin} onChange={(e) => setVin(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="brand">Marka *</Label>
-                <Input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="model">Model *</Label>
-                <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="year">Rok</Label>
-                <Input id="year" type="number" value={year} onChange={(e) => setYear(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="color">Kolor</Label>
-                <Input id="color" value={color} onChange={(e) => setColor(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="insp">Przegląd ważny do</Label>
-                <Input id="insp" type="date" value={insp} onChange={(e) => setInsp(e.target.value)} className="rounded-lg" />
-              </div>
-              <div>
-                <Label htmlFor="policy">OC ważne do</Label>
-                <Input id="policy" type="date" value={policy} onChange={(e) => setPolicy(e.target.value)} className="rounded-lg" />
-              </div>
-            </div>
-            <Button onClick={save} className="w-full rounded-lg">Dodaj auto</Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="max-w-4xl">
+      <AddCarForm driverId={driverData.driver_id} />
+    </div>
   );
 }
 
-// Komponent informacji flotowych - pokazuje wynajęte auto i informacje o flocie
+// Komponent informacji flotowych - pokazuje wynajęte auto i informacje o flocie  
 function FleetInfo({ driverData }: { driverData: any }) {
   const [vehicleData, setVehicleData] = useState<any>(null);
   const [fleetData, setFleetData] = useState<any>(null);
@@ -890,80 +711,76 @@ function FleetInfo({ driverData }: { driverData: any }) {
   };
 
   return (
-    <div className="max-w-4xl space-y-4">
-      {/* Wynajęte auto */}
-      <Card className="rounded-lg">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Wynajęte auto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {vehicleData ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Marka i model</Label>
-                  <p className="text-base font-semibold">{vehicleData.brand} {vehicleData.model}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Nr rejestracji</Label>
-                  <p className="text-base font-semibold">{vehicleData.plate}</p>
-                </div>
-                {vehicleData.year && (
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Rok produkcji</Label>
-                    <p className="text-base">{vehicleData.year}</p>
-                  </div>
-                )}
-                {vehicleData.color && (
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Kolor</Label>
-                    <p className="text-base">{vehicleData.color}</p>
-                  </div>
-                )}
-                {assignmentData?.assigned_date && (
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Data wynajmu</Label>
-                    <p className="text-base">{formatDate(assignmentData.assigned_date)}</p>
-                  </div>
-                )}
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</Label>
-                  <p className="text-base font-semibold text-green-600">{vehicleData.weekly_rental_fee || 0} zł</p>
-                </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+      {/* Informacje o flocie - lewa kolumna */}
+      <UniversalCard title="Informacje o flocie">
+        {fleetData ? (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
+              <p className="text-lg font-semibold text-foreground mt-1">{fleetData.name}</p>
+            </div>
+            {assignmentData?.assigned_date && (
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Data dołączenia</Label>
+                <p className="text-base text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
               </div>
-              {vehicleData.vin && (
-                <div className="pt-2 border-t">
-                  <Label className="text-sm font-medium text-muted-foreground">VIN</Label>
-                  <p className="text-sm font-mono mt-1">{vehicleData.vin}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-base text-muted-foreground">
+            Nie jesteś przypisany do żadnej floty.
+          </p>
+        )}
+      </UniversalCard>
+
+      {/* Wynajęte auto - prawa kolumna */}
+      <UniversalCard title="Wynajęte auto">
+        {vehicleData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Marka i model</Label>
+                <p className="text-lg font-semibold text-foreground mt-1">{vehicleData.brand} {vehicleData.model}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Nr rejestracji</Label>
+                <p className="text-base font-medium text-foreground mt-1">{vehicleData.plate}</p>
+              </div>
+              {vehicleData.year && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Rok produkcji</Label>
+                  <p className="text-base text-foreground mt-1">{vehicleData.year}</p>
                 </div>
               )}
-            </div>
-          ) : (
-            <p className="text-base text-muted-foreground">Nie masz przypisanego pojazdu.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Informacje o flocie */}
-      <Card className="rounded-lg">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Informacje o flocie</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {fleetData ? (
-            <div>
+              {vehicleData.color && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Kolor</Label>
+                  <p className="text-base text-foreground mt-1">{vehicleData.color}</p>
+                </div>
+              )}
+              {assignmentData?.assigned_date && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Wynajęte od</Label>
+                  <p className="text-base font-medium text-foreground mt-1">{formatDate(assignmentData.assigned_date)}</p>
+                </div>
+              )}
               <div>
-                <Label className="text-sm font-medium text-muted-foreground">Nazwa floty</Label>
-                <p className="text-base font-semibold">{fleetData.name}</p>
+                <Label className="text-sm font-medium text-muted-foreground">Wynajem tygodniowy</Label>
+                <p className="text-lg font-bold text-green-600 mt-1">{vehicleData.weekly_rental_fee || 0} zł</p>
               </div>
             </div>
-          ) : (
-            <p className="text-base text-muted-foreground">
-              Nie jesteś przypisany do żadnej floty.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            {vehicleData.vin && (
+              <div className="pt-3 border-t border-border">
+                <Label className="text-sm font-medium text-muted-foreground">VIN</Label>
+                <p className="text-sm font-mono text-foreground mt-1">{vehicleData.vin}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-base text-muted-foreground">Nie masz przypisanego pojazdu.</p>
+        )}
+      </UniversalCard>
     </div>
   );
 }
