@@ -243,43 +243,16 @@ export function LeasedCarCard({
                     <div className="col-span-2 font-medium">{fleet.nip}</div>
                   </div>
                 )}
-                {(fleet.city || fleet.postal_code || fleet.street || fleet.house_number) && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="text-muted-foreground">Adres:</div>
-                    <div className="col-span-2 font-medium">
-                      {[fleet.street, fleet.house_number].filter(Boolean).join(" ")}<br/>
-                      {[fleet.postal_code, fleet.city].filter(Boolean).join(" ")}
-                    </div>
-                  </div>
-                )}
                 {fleet.contact_name && (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-muted-foreground">Kontakt:</div>
                     <div className="col-span-2 font-medium">{fleet.contact_name}</div>
                   </div>
                 )}
-                {fleet.phone && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="text-muted-foreground">Tel. biura:</div>
-                    <div className="col-span-2 font-medium">{fleet.phone}</div>
-                  </div>
-                )}
                 {fleet.contact_phone_for_drivers && (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-muted-foreground">Tel. dla kierowcy:</div>
                     <div className="col-span-2 font-medium">{fleet.contact_phone_for_drivers}</div>
-                  </div>
-                )}
-                {fleet.owner_name && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="text-muted-foreground">Właściciel:</div>
-                    <div className="col-span-2 font-medium">{fleet.owner_name}</div>
-                  </div>
-                )}
-                {fleet.owner_phone && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="text-muted-foreground">Tel. właściciela:</div>
-                    <div className="col-span-2 font-medium">{fleet.owner_phone}</div>
                   </div>
                 )}
               </div>
