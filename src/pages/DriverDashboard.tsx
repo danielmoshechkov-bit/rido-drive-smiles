@@ -203,7 +203,7 @@ function CarsSection({ driverData }: { driverData: any }) {
 
 
       {/* Karta wynajętego auta */}
-      <LeasedCarWrapper key={refreshTrigger} driverData={driverData} />
+      <LeasedCarWrapper driverData={driverData} refreshTrigger={refreshTrigger} />
 
       {/* Modal dodawania auta */}
       <AddOwnCarModal 
