@@ -188,10 +188,12 @@ export function LeasedCarCard({
             Wynajęte auto
           </div>
 
-          <h3 className="text-3xl font-extrabold mt-2 tracking-tight">
-            {vehicle.brand} {vehicle.model}
-          </h3>
-          <div className="text-2xl font-bold text-[#6C3CF0]">{vehicle.plate}</div>
+          <div className="flex items-center gap-4 mt-2">
+            <h3 className="text-3xl font-extrabold tracking-tight">
+              {vehicle.brand} {vehicle.model}
+            </h3>
+            <div className="text-2xl font-bold text-[#6C3CF0]">{vehicle.plate}</div>
+          </div>
 
           {/* OC i Przegląd */}
           {vehicle.id && (
@@ -200,13 +202,12 @@ export function LeasedCarCard({
             </div>
           )}
 
-          {/* bardzo zwarte rozmieszczenie - bez odstępów */}
-          <div className="mt-1 space-y-0 text-sm">
-            <div className="flex justify-between items-center">
+          <div className="mt-3 space-y-1 text-sm">
+            <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Rok produkcji:</span>
               <span className="font-medium">{vehicle.year || "—"}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Kolor:</span>
               <span className="font-medium">{vehicle.color || "—"}</span>
             </div>
@@ -251,7 +252,7 @@ export function LeasedCarCard({
                 )}
                 {fleet.contact_phone_for_drivers && (
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="text-muted-foreground">Tel. dla kierowcy:</div>
+                    <div className="text-muted-foreground">Tel:</div>
                     <div className="col-span-2 font-medium">{fleet.contact_phone_for_drivers}</div>
                   </div>
                 )}
