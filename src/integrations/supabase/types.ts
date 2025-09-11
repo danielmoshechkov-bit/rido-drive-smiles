@@ -317,6 +317,51 @@ export type Database = {
           },
         ]
       }
+      driver_settlements: {
+        Row: {
+          bezgotowka: number
+          created_at: string
+          driver_id: string
+          gotowka: number
+          id: string
+          job_id: string
+          platform: string
+          przychod_laczny: number
+          updated_at: string
+          week_end: string
+          week_start: string
+          wyplata: number
+        }
+        Insert: {
+          bezgotowka?: number
+          created_at?: string
+          driver_id: string
+          gotowka?: number
+          id?: string
+          job_id: string
+          platform: string
+          przychod_laczny?: number
+          updated_at?: string
+          week_end: string
+          week_start: string
+          wyplata?: number
+        }
+        Update: {
+          bezgotowka?: number
+          created_at?: string
+          driver_id?: string
+          gotowka?: number
+          id?: string
+          job_id?: string
+          platform?: string
+          przychod_laczny?: number
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+          wyplata?: number
+        }
+        Relationships: []
+      }
       driver_vehicle_assignments: {
         Row: {
           assigned_at: string | null

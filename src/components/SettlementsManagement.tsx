@@ -210,8 +210,9 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, platform: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error('Wybierz plik CSV');
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        toast.error('Wybierz plik CSV lub Excel (.xlsx, .xls)');
         return;
       }
       handleCSVUpload(file, platform);
@@ -369,7 +370,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                       )}
                       <input
                         type="file"
-                        accept=".csv"
+                        accept=".csv,.xlsx,.xls"
                         onChange={(e) => handleFileInput(e, platform.id)}
                         className="hidden"
                         id={`settlement-${platform.id}`}

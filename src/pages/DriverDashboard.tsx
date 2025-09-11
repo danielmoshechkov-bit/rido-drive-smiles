@@ -17,6 +17,7 @@ import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { UniversalSelector } from "@/components/UniversalSelector";
+import { DriverSettlements } from "@/components/DriverSettlements";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -163,7 +164,10 @@ const DriverDashboard = () => {
 
           {/* Tab Content */}
           <TabsContent value="weekly-report">
-            <WeeklyResults driverData={driverData} />
+            <div className="space-y-6">
+              <DriverSettlements driverId={driverData?.id} />
+              <WeeklyResults driverData={driverData} />
+            </div>
           </TabsContent>
           
           <TabsContent value="cars">
