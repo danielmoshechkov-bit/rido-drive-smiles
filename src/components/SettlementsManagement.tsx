@@ -463,7 +463,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/settlement/${period.id}`)}
+                        onClick={() => navigate(`/admin/settlement/${period.id}`)}
                       >
                         Otwórz
                       </Button>

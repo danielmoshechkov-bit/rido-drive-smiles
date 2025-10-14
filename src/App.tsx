@@ -10,6 +10,7 @@ import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import DriverDashboard from "./pages/DriverDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
+import SettlementSheetView from "./pages/SettlementSheetView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
+          <Route path="/admin/settlement/:settlementId" element={<SettlementSheetView />} />
           <Route path="/driver/register" element={<DriverRegister />} />
           <Route path="/driver" element={<DriverDashboard />} />
           <Route path="/settlement/:id" element={<SettlementSheet />} />
