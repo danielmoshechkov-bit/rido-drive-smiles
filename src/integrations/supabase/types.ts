@@ -839,6 +839,39 @@ export type Database = {
         }
         Relationships: []
       }
+      settlement_periods: {
+        Row: {
+          city_id: string
+          created_at: string
+          google_sheet_url: string
+          id: string
+          status: string
+          updated_at: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          city_id: string
+          created_at?: string
+          google_sheet_url?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          city_id?: string
+          created_at?: string
+          google_sheet_url?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       settlements: {
         Row: {
           city_id: string

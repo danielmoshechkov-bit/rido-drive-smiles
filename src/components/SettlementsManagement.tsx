@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format, addDays, startOfWeek, endOfWeek, isMonday } from 'date-fns';
@@ -53,6 +54,15 @@ interface ImportError {
   raw: any;
 }
 
+interface SettlementPeriod {
+  id: string;
+  week_start: string;
+  week_end: string;
+  status: string;
+  google_sheet_url: string;
+  created_at: string;
+}
+
 // Helper function to get Monday of week
 const getMonday = (date: Date): Date => {
   return startOfWeek(date, { weekStartsOn: 1 });
@@ -64,6 +74,7 @@ const getSunday = (date: Date): Date => {
 };
 
 export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagementProps) => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
   const [weekEnd, setWeekEnd] = useState<Date>(getSunday(new Date()));
@@ -75,6 +86,11 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
+  const [settlementPeriods, setSettlementPeriods] = useState<SettlementPeriod[]>([]);
+  const [newSettlementOpen, setNewSettlementOpen] = useState(false);
+  const [newSettlementStart, setNewSettlementStart] = useState<Date | undefined>();
+  const [newSettlementEnd, setNewSettlementEnd] = useState<Date | undefined>();
+  const [creatingSettlement, setCreatingSettlement] = useState(false);
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -94,6 +110,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   useEffect(() => {
     loadSettlements();
     loadImportJobs();
+    loadSettlementPeriods();
   }, [weekStart, weekEnd, cityId]);
 
   const loadSettlements = async () => {
@@ -164,6 +181,60 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
     } catch (error) {
       console.error('Error loading import errors:', error);
       toast.error('Błąd ładowania błędów importu');
+    }
+  };
+
+  const loadSettlementPeriods = async () => {
+    if (!cityId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('settlement_periods')
+        .select('*')
+        .eq('city_id', cityId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSettlementPeriods(data || []);
+    } catch (error) {
+      console.error('Error loading settlement periods:', error);
+      toast.error('Błąd ładowania okresów rozliczeniowych');
+    }
+  };
+
+  const createNewSettlement = async () => {
+    if (!newSettlementStart || !newSettlementEnd) {
+      toast.error('Wybierz daty rozliczenia');
+      return;
+    }
+
+    setCreatingSettlement(true);
+    try {
+      const { data, error } = await supabase
+        .from('settlement_periods')
+        .insert({
+          city_id: cityId,
+          week_start: format(newSettlementStart, 'yyyy-MM-dd'),
+          week_end: format(newSettlementEnd, 'yyyy-MM-dd'),
+          status: 'robocze',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Utworzono nowe rozliczenie');
+      setNewSettlementOpen(false);
+      setNewSettlementStart(undefined);
+      setNewSettlementEnd(undefined);
+      
+      // Navigate to the new settlement sheet
+      navigate(`/settlement/${data.id}`);
+    } catch (error) {
+      console.error('Error creating settlement:', error);
+      toast.error('Błąd tworzenia rozliczenia');
+    } finally {
+      setCreatingSettlement(false);
     }
   };
 
@@ -278,6 +349,133 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
   return (
     <div className="space-y-6">
+      {/* New Settlement Button */}
+      <div className="flex justify-center">
+        <Dialog open={newSettlementOpen} onOpenChange={setNewSettlementOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" className="gap-2 bg-gradient-hero hover:opacity-90 text-white shadow-elegant">
+              <Plus className="h-5 w-5" />
+              + Nowe rozliczenie
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Utwórz nowe rozliczenie</DialogTitle>
+              <DialogDescription>
+                Wybierz zakres dat dla nowego okresu rozliczeniowego
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Data od</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newSettlementStart && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {newSettlementStart ? format(newSettlementStart, 'dd.MM.yyyy', { locale: pl }) : "Wybierz datę"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newSettlementStart}
+                      onSelect={setNewSettlementStart}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label>Data do</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newSettlementEnd && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {newSettlementEnd ? format(newSettlementEnd, 'dd.MM.yyyy', { locale: pl }) : "Wybierz datę"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newSettlementEnd}
+                      onSelect={setNewSettlementEnd}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewSettlementOpen(false)}>
+                Anuluj
+              </Button>
+              <Button onClick={createNewSettlement} disabled={creatingSettlement}>
+                {creatingSettlement ? 'Tworzenie...' : 'Utwórz i otwórz arkusz'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Settlement Periods List */}
+      {settlementPeriods.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Istniejące rozliczenia</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Okres od</TableHead>
+                  <TableHead>Okres do</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data utworzenia</TableHead>
+                  <TableHead className="text-right">Akcje</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {settlementPeriods.map((period) => (
+                  <TableRow key={period.id}>
+                    <TableCell>{new Date(period.week_start).toLocaleDateString('pl-PL')}</TableCell>
+                    <TableCell>{new Date(period.week_end).toLocaleDateString('pl-PL')}</TableCell>
+                    <TableCell>
+                      <Badge variant={period.status === 'opublikowane' ? 'default' : 'secondary'}>
+                        {period.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{new Date(period.created_at).toLocaleDateString('pl-PL')}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/settlement/${period.id}`)}
+                      >
+                        Otwórz
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Week Selection */}
       <Card>
         <CardHeader>
