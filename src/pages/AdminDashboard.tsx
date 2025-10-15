@@ -14,6 +14,7 @@ import { DriversManagement } from "@/components/DriversManagement";
 import { SettlementsManagement } from "@/components/SettlementsManagement";
 import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
+import RidoSettings from "@/components/RidoSettings";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -86,7 +87,7 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-8">
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-9">
             <TabsTrigger 
               value="weekly-report" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
@@ -122,6 +123,12 @@ const AdminDashboard = () => {
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               {t('admin.dataImport')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="rido-settings" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              RIDO CSV
             </TabsTrigger>
             <TabsTrigger 
               value="settings" 
@@ -266,6 +273,10 @@ const AdminDashboard = () => {
                 <CSVUpload cityId={selectedCity.id} onUploadComplete={refetchDrivers} />
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="rido-settings" className="space-y-6">
+            <RidoSettings />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

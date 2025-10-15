@@ -821,6 +821,60 @@ export type Database = {
           },
         ]
       }
+      rido_settings: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      rido_settlements: {
+        Row: {
+          created_at: string
+          id: string
+          period_from: string
+          period_to: string
+          sheet_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_from: string
+          period_to: string
+          sheet_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_from?: string
+          period_to?: string
+          sheet_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       service_types: {
         Row: {
           created_at: string | null
