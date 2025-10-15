@@ -108,7 +108,7 @@ const SettlementSheetView = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden" style={{ height: '90vh' }}>
           <iframe
-            src={settlement.google_sheet_url}
+            src={`${settlement.google_sheet_url}${settlement.google_sheet_url.includes('?') ? '&' : '?'}rm=minimal`}
             className="w-full h-full"
             frameBorder="0"
             title="Google Sheets - Rozliczenie"
