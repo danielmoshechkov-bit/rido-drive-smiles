@@ -91,6 +91,9 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [newSettlementOpen, setNewSettlementOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [creatingSettlement, setCreatingSettlement] = useState(false);
+  const [uberFile, setUberFile] = useState<File | null>(null);
+  const [boltFile, setBoltFile] = useState<File | null>(null);
+  const [freenowFile, setFreenowFile] = useState<File | null>(null);
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -202,6 +205,18 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]); // Remove data:*/*;base64, prefix
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const createNewSettlement = async () => {
     if (!dateRange?.from || !dateRange?.to) {
       toast.error('Wybierz zakres dat rozliczenia');
@@ -210,13 +225,49 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
     // Validate max 7 days
     const daysDiff = differenceInDays(dateRange.to, dateRange.from);
-    if (daysDiff > 7) {
+    if (daysDiff > 6) {
       toast.error('Maksymalny zakres to 7 dni');
+      return;
+    }
+
+    if (!uberFile && !boltFile && !freenowFile) {
+      toast.error('Wybierz przynajmniej jeden plik CSV');
       return;
     }
 
     setCreatingSettlement(true);
     try {
+      // Convert files to base64
+      const uberCsv = uberFile ? await fileToBase64(uberFile) : "";
+      const boltCsv = boltFile ? await fileToBase64(boltFile) : "";
+      const freenowCsv = freenowFile ? await fileToBase64(freenowFile) : "";
+
+      // Send to Google Apps Script
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbw8maRlYQrsSKhdZ9rq4spr80lcCrMY_fb3Nb1rgNLXA6uXAL1p8Ha3wKnw_hP8Dfk/exec",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            secret: "RIDO2025SUPER",
+            period_from: format(dateRange.from, "yyyy-MM-dd"),
+            period_to: format(dateRange.to, "yyyy-MM-dd"),
+            uber_csv: uberCsv,
+            bolt_csv: boltCsv,
+            freenow_csv: freenowCsv,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Błąd podczas importu");
+      }
+
+      // Create settlement period in database
       const { data, error } = await supabase
         .from('settlement_periods')
         .insert({
@@ -230,15 +281,19 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
       if (error) throw error;
 
-      toast.success('Utworzono nowe rozliczenie');
+      toast.success('✅ CSV zaimportowane do arkusza');
       setNewSettlementOpen(false);
       setDateRange(undefined);
+      setUberFile(null);
+      setBoltFile(null);
+      setFreenowFile(null);
+      loadSettlementPeriods();
       
       // Navigate to the new settlement sheet
       navigate(`/admin/settlement/${data.id}`);
     } catch (error) {
       console.error('Error creating settlement:', error);
-      toast.error('Błąd tworzenia rozliczenia');
+      toast.error(error instanceof Error ? error.message : 'Błąd tworzenia rozliczenia');
     } finally {
       setCreatingSettlement(false);
     }
@@ -406,14 +461,16 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                       onSelect={(range) => {
                         if (range?.from && range?.to) {
                           const daysDiff = differenceInDays(range.to, range.from);
-                          if (daysDiff > 7) {
+                          if (daysDiff > 6) {
                             toast.error('Maksymalny zakres to 7 dni');
                             return;
                           }
                         }
                         setDateRange(range);
                       }}
-                      numberOfMonths={2}
+                      numberOfMonths={1}
+                      locale={pl}
+                      weekStartsOn={1}
                       initialFocus
                       className="p-3 pointer-events-auto"
                     />
@@ -428,43 +485,122 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                   Import rozliczeń CSV
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {platforms.map((platform) => (
-                    <Card key={platform.id} className="border-2 border-dashed">
-                      <CardContent className="pt-6">
-                        <div className="space-y-4">
-                          <div className="flex justify-center">
-                            <Badge className={platform.color}>
-                              {platform.name}
-                            </Badge>
-                          </div>
-                          <div className="flex flex-col items-center gap-3 py-6">
-                            <File className="h-12 w-12 text-muted-foreground" />
-                            <p className="text-sm text-center text-muted-foreground">
-                              Rozliczenia {platform.name}
-                            </p>
-                          </div>
-                          <label htmlFor={`file-${platform.id}`}>
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              disabled={uploading[platform.id]}
-                              onClick={() => document.getElementById(`file-${platform.id}`)?.click()}
-                              type="button"
-                            >
-                              {uploading[platform.id] ? 'Wgrywanie...' : 'Wybierz plik'}
-                            </Button>
-                            <input
-                              id={`file-${platform.id}`}
-                              type="file"
-                              accept=".csv,.xlsx,.xls"
-                              className="hidden"
-                              onChange={(e) => handleFileInput(e, platform.id)}
-                            />
-                          </label>
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-black text-white">Uber</Badge>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia Uber
+                          </p>
+                          {uberFile && (
+                            <p className="text-xs text-primary font-medium">{uberFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-uber">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-uber')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-uber"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setUberFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-green-500 text-white">Bolt</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia Bolt
+                          </p>
+                          {boltFile && (
+                            <p className="text-xs text-primary font-medium">{boltFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-bolt">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-bolt')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-bolt"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setBoltFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-red-500 text-white">FreeNow</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia FreeNow
+                          </p>
+                          {freenowFile && (
+                            <p className="text-xs text-primary font-medium">{freenowFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-freenow">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-freenow')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-freenow"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setFreenowFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </div>
