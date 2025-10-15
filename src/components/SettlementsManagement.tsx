@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus } from 'lucide-react';
+import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format, addDays, startOfWeek, endOfWeek, isMonday } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isMonday, differenceInDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,8 +89,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [settlementPeriods, setSettlementPeriods] = useState<SettlementPeriod[]>([]);
   const [newSettlementOpen, setNewSettlementOpen] = useState(false);
-  const [newSettlementStart, setNewSettlementStart] = useState<Date | undefined>();
-  const [newSettlementEnd, setNewSettlementEnd] = useState<Date | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [creatingSettlement, setCreatingSettlement] = useState(false);
 
   const platforms = [
@@ -203,8 +203,15 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   };
 
   const createNewSettlement = async () => {
-    if (!newSettlementStart || !newSettlementEnd) {
-      toast.error('Wybierz daty rozliczenia');
+    if (!dateRange?.from || !dateRange?.to) {
+      toast.error('Wybierz zakres dat rozliczenia');
+      return;
+    }
+
+    // Validate max 7 days
+    const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+    if (daysDiff > 7) {
+      toast.error('Maksymalny zakres to 7 dni');
       return;
     }
 
@@ -214,8 +221,8 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
         .from('settlement_periods')
         .insert({
           city_id: cityId,
-          week_start: format(newSettlementStart, 'yyyy-MM-dd'),
-          week_end: format(newSettlementEnd, 'yyyy-MM-dd'),
+          week_start: format(dateRange.from, 'yyyy-MM-dd'),
+          week_end: format(dateRange.to, 'yyyy-MM-dd'),
           status: 'robocze',
         })
         .select()
@@ -225,11 +232,10 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
       toast.success('Utworzono nowe rozliczenie');
       setNewSettlementOpen(false);
-      setNewSettlementStart(undefined);
-      setNewSettlementEnd(undefined);
+      setDateRange(undefined);
       
       // Navigate to the new settlement sheet
-      navigate(`/settlement/${data.id}`);
+      navigate(`/admin/settlement/${data.id}`);
     } catch (error) {
       console.error('Error creating settlement:', error);
       toast.error('Błąd tworzenia rozliczenia');
@@ -358,72 +364,115 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
               + Nowe rozliczenie
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Utwórz nowe rozliczenie</DialogTitle>
               <DialogDescription>
-                Wybierz zakres dat dla nowego okresu rozliczeniowego
+                Wybierz zakres dat (max 7 dni) i zaimportuj pliki CSV
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
+              {/* Date Range Picker */}
               <div className="space-y-2">
-                <Label>Data od</Label>
+                <Label>Zakres dat rozliczenia</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !newSettlementStart && "text-muted-foreground"
+                        !dateRange?.from && "text-muted-foreground"
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {newSettlementStart ? format(newSettlementStart, 'dd.MM.yyyy', { locale: pl }) : "Wybierz datę"}
+                      {dateRange?.from ? (
+                        dateRange?.to ? (
+                          <>
+                            {format(dateRange.from, 'dd.MM.yyyy', { locale: pl })} -{' '}
+                            {format(dateRange.to, 'dd.MM.yyyy', { locale: pl })}
+                          </>
+                        ) : (
+                          format(dateRange.from, 'dd.MM.yyyy', { locale: pl })
+                        )
+                      ) : (
+                        "Wybierz zakres dat"
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent
-                      mode="single"
-                      selected={newSettlementStart}
-                      onSelect={setNewSettlementStart}
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          const daysDiff = differenceInDays(range.to, range.from);
+                          if (daysDiff > 7) {
+                            toast.error('Maksymalny zakres to 7 dni');
+                            return;
+                          }
+                        }
+                        setDateRange(range);
+                      }}
+                      numberOfMonths={2}
                       initialFocus
                       className="p-3 pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="space-y-2">
-                <Label>Data do</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newSettlementEnd && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {newSettlementEnd ? format(newSettlementEnd, 'dd.MM.yyyy', { locale: pl }) : "Wybierz datę"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={newSettlementEnd}
-                      onSelect={setNewSettlementEnd}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+
+              {/* CSV Import Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <Upload className="h-5 w-5" />
+                  Import rozliczeń CSV
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {platforms.map((platform) => (
+                    <Card key={platform.id} className="border-2 border-dashed">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div className="flex justify-center">
+                            <Badge className={platform.color}>
+                              {platform.name}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-col items-center gap-3 py-6">
+                            <File className="h-12 w-12 text-muted-foreground" />
+                            <p className="text-sm text-center text-muted-foreground">
+                              Rozliczenia {platform.name}
+                            </p>
+                          </div>
+                          <label htmlFor={`file-${platform.id}`}>
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              disabled={uploading[platform.id]}
+                              onClick={() => document.getElementById(`file-${platform.id}`)?.click()}
+                              type="button"
+                            >
+                              {uploading[platform.id] ? 'Wgrywanie...' : 'Wybierz plik'}
+                            </Button>
+                            <input
+                              id={`file-${platform.id}`}
+                              type="file"
+                              accept=".csv,.xlsx,.xls"
+                              className="hidden"
+                              onChange={(e) => handleFileInput(e, platform.id)}
+                            />
+                          </label>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewSettlementOpen(false)}>
                 Anuluj
               </Button>
-              <Button onClick={createNewSettlement} disabled={creatingSettlement}>
+              <Button onClick={createNewSettlement} disabled={creatingSettlement || !dateRange?.from || !dateRange?.to}>
                 {creatingSettlement ? 'Tworzenie...' : 'Utwórz i otwórz arkusz'}
               </Button>
             </DialogFooter>
@@ -524,116 +573,6 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
               <Download className="h-4 w-4" />
               {computing ? 'Generowanie...' : 'Generuj raport'}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* CSV Import */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Import rozliczeń CSV
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {platforms.map((platform) => {
-              const existingJob = importJobs.find(job => job.platform === platform.id);
-              const isUploading = uploading[platform.id];
-              
-              return (
-                <div key={platform.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge className={platform.color}>
-                      {platform.name}
-                    </Badge>
-                    {existingJob && (
-                      <Badge variant={existingJob.status === 'done' ? 'default' : existingJob.status === 'error' ? 'destructive' : 'secondary'}>
-                        {existingJob.status === 'done' ? 'Zaimportowano' : existingJob.status === 'error' ? 'Błąd' : 'W trakcie'}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
-                      <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Rozliczenia {platform.name}
-                      </p>
-                      {existingJob && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {existingJob.filename}
-                        </p>
-                      )}
-                      <input
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        onChange={(e) => handleFileInput(e, platform.id)}
-                        className="hidden"
-                        id={`settlement-${platform.id}`}
-                      />
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => document.getElementById(`settlement-${platform.id}`)?.click()}
-                          disabled={isUploading}
-                          className="flex-1"
-                        >
-                          {isUploading ? 'Importowanie...' : existingJob ? 'Zastąp plik' : 'Wybierz plik'}
-                        </Button>
-                        {existingJob && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => loadImportErrors(existingJob.id)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl">
-                              <DialogHeader>
-                                <DialogTitle>Błędy importu - {platform.name}</DialogTitle>
-                                <DialogDescription>
-                                  Plik: {existingJob.filename}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="max-h-96 overflow-y-auto">
-                                {importErrors.length === 0 ? (
-                                  <p className="text-center text-muted-foreground py-4">Brak błędów</p>
-                                ) : (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Wiersz</TableHead>
-                                        <TableHead>Kod</TableHead>
-                                        <TableHead>Wiadomość</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {importErrors.map((error) => (
-                                        <TableRow key={error.id}>
-                                          <TableCell>{error.row_no || 'N/A'}</TableCell>
-                                          <TableCell>{error.code}</TableCell>
-                                          <TableCell>{error.message}</TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </CardContent>
       </Card>
