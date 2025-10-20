@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.settlements]
 verify_jwt = false
+
+[functions.csv-import]
+verify_jwt = false

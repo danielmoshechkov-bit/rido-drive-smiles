@@ -431,6 +431,7 @@ export type Database = {
           id: string
           last_name: string | null
           phone: string | null
+          platform_ids: Json | null
           registration_date: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
@@ -445,6 +446,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          platform_ids?: Json | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -459,6 +461,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          platform_ids?: Json | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -821,6 +824,39 @@ export type Database = {
           },
         ]
       }
+      rido_dedup_settings: {
+        Row: {
+          allow_match_by_platform_ids: boolean | null
+          created_at: string
+          id: string
+          ignore_empty_email_phone: boolean | null
+          phone_country_default: string | null
+          prefer_match_by_email: boolean | null
+          prefer_match_by_phone: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          allow_match_by_platform_ids?: boolean | null
+          created_at?: string
+          id?: string
+          ignore_empty_email_phone?: boolean | null
+          phone_country_default?: string | null
+          prefer_match_by_email?: boolean | null
+          prefer_match_by_phone?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          allow_match_by_platform_ids?: boolean | null
+          created_at?: string
+          id?: string
+          ignore_empty_email_phone?: boolean | null
+          phone_country_default?: string | null
+          prefer_match_by_email?: boolean | null
+          prefer_match_by_phone?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rido_settings: {
         Row: {
           created_at: string
@@ -871,6 +907,63 @@ export type Database = {
           period_to?: string
           sheet_url?: string | null
           status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rido_visibility_settings: {
+        Row: {
+          created_at: string
+          id: string
+          show_bolt_cash: boolean | null
+          show_bolt_gross: boolean | null
+          show_bolt_net: boolean | null
+          show_commission: boolean | null
+          show_freenow_cash: boolean | null
+          show_freenow_gross: boolean | null
+          show_freenow_net: boolean | null
+          show_fuel: boolean | null
+          show_tax: boolean | null
+          show_uber_card: boolean | null
+          show_uber_cash: boolean | null
+          show_vat_from_fuel: boolean | null
+          show_vat_refund_half: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          show_bolt_cash?: boolean | null
+          show_bolt_gross?: boolean | null
+          show_bolt_net?: boolean | null
+          show_commission?: boolean | null
+          show_freenow_cash?: boolean | null
+          show_freenow_gross?: boolean | null
+          show_freenow_net?: boolean | null
+          show_fuel?: boolean | null
+          show_tax?: boolean | null
+          show_uber_card?: boolean | null
+          show_uber_cash?: boolean | null
+          show_vat_from_fuel?: boolean | null
+          show_vat_refund_half?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          show_bolt_cash?: boolean | null
+          show_bolt_gross?: boolean | null
+          show_bolt_net?: boolean | null
+          show_commission?: boolean | null
+          show_freenow_cash?: boolean | null
+          show_freenow_gross?: boolean | null
+          show_freenow_net?: boolean | null
+          show_fuel?: boolean | null
+          show_tax?: boolean | null
+          show_uber_card?: boolean | null
+          show_uber_cash?: boolean | null
+          show_vat_from_fuel?: boolean | null
+          show_vat_refund_half?: boolean | null
           updated_at?: string
         }
         Relationships: []
