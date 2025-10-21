@@ -127,13 +127,27 @@ export const InlineEdit = ({
 
   return (
     <div 
-      className={`group flex items-center gap-2 cursor-pointer hover:bg-violet-50/70 hover:border-violet-200 rounded px-2 py-1 border border-transparent transition-all ${className}`}
-      onClick={() => setIsEditing(true)}
+      className={`group flex items-center gap-2 rounded px-2 py-1 border border-transparent transition-all ${className}`}
     >
-      <span className="flex-1 text-sm">
+      <span 
+        className="flex-1 text-sm cursor-pointer hover:bg-violet-50/70"
+        onClick={() => setIsEditing(true)}
+      >
         {displayValue || placeholder}
       </span>
-      <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity text-violet-500" />
+      <Button
+        size="sm"
+        onClick={handleCopy}
+        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-70 transition-opacity"
+        variant="ghost"
+        title="Kopiuj"
+      >
+        <Copy className="h-3 w-3" />
+      </Button>
+      <Edit3 
+        className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity text-violet-500 cursor-pointer" 
+        onClick={() => setIsEditing(true)}
+      />
     </div>
   );
 };

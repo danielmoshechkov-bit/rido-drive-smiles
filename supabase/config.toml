@@ -27,3 +27,6 @@ verify_jwt = false
 
 [functions.admin-bootstrap]
 verify_jwt = false
+
+[functions.create-driver-accounts]
+verify_jwt = false
