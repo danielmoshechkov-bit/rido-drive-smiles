@@ -17,16 +17,21 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Pobierz wszystkich kierowców z prawdziwymi emailami (nie @rido.internal)
+    // Pobierz wszystkich kierowców z prawdziwymi emailami (nie @rido.internal, nie puste)
     const { data: drivers, error: driversError } = await supabase
       .from('drivers')
       .select('id, email, first_name, last_name, phone')
       .not('email', 'is', null)
+      .not('email', 'eq', '')
       .not('email', 'like', '%@rido.internal%');
 
     if (driversError) throw driversError;
 
-    console.log(`📊 Znaleziono ${drivers?.length || 0} kierowców z emailami`);
+    console.log(`📊 Znaleziono ${drivers?.length || 0} kierowców z prawdziwymi emailami`);
+    
+    // Pobierz wszystkich istniejących użytkowników Auth
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingEmails = new Set(existingUsers?.users?.map(u => u.email) || []);
 
     const results = {
       total: drivers?.length || 0,
@@ -35,10 +40,17 @@ Deno.serve(async (req) => {
       errors: [] as string[]
     };
 
-    // Dla każdego kierowcy utwórz konto Auth
+    // Dla każdego kierowcy utwórz konto Auth jeśli nie istnieje
     for (const driver of drivers || []) {
       try {
-        // Spróbuj utworzyć konto Auth (ignoruj błędy o istniejącym koncie)
+        // Sprawdź czy konto już istnieje
+        if (existingEmails.has(driver.email)) {
+          console.log(`⏭️ Konto już istnieje: ${driver.email}`);
+          results.already_exists++;
+          continue;
+        }
+
+        // Utwórz nowe konto Auth
         const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
           email: driver.email,
           password: 'Test12345!',
@@ -51,14 +63,8 @@ Deno.serve(async (req) => {
         });
 
         if (authError) {
-          // Jeśli użytkownik już istnieje, to OK
-          if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
-            console.log(`✅ Konto już istnieje: ${driver.email}`);
-            results.already_exists++;
-          } else {
-            console.error(`❌ Błąd dla ${driver.email}:`, authError);
-            results.errors.push(`${driver.email}: ${authError.message}`);
-          }
+          console.error(`❌ Błąd dla ${driver.email}:`, authError);
+          results.errors.push(`${driver.email}: ${authError.message}`);
           continue;
         }
 

@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.reset-driver-password]
 verify_jwt = false
+
+[functions.cleanup-fake-auth-accounts]
+verify_jwt = false

@@ -17,12 +17,17 @@ import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [cleaningAccounts, setCleaningAccounts] = useState(false);
+  const [creatingAccounts, setCreatingAccounts] = useState(false);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
@@ -53,6 +58,52 @@ const AdminDashboard = () => {
       case 'bolt': return 'bg-green-500 text-white';
       case 'freenow': return 'bg-red-500 text-white';
       default: return 'bg-gray-500 text-white';
+    }
+  };
+
+  const handleCleanupFakeAccounts = async () => {
+    setCleaningAccounts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-fake-auth-accounts');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Czyszczenie zakończone",
+        description: `Usunięto ${data.results.deleted} kont z @rido.internal. Błędów: ${data.results.errors.length}`,
+      });
+    } catch (error) {
+      console.error('Error cleaning up accounts:', error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się wyczyścić kont",
+        variant: "destructive",
+      });
+    } finally {
+      setCleaningAccounts(false);
+    }
+  };
+
+  const handleCreateDriverAccounts = async () => {
+    setCreatingAccounts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-driver-accounts');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Tworzenie kont zakończone",
+        description: `Utworzono: ${data.results.created}, Istniało: ${data.results.already_exists}, Błędów: ${data.results.errors.length}`,
+      });
+    } catch (error) {
+      console.error('Error creating accounts:', error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się utworzyć kont",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingAccounts(false);
     }
   };
 
@@ -295,10 +346,63 @@ const AdminDashboard = () => {
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{t('admin.settings')}</CardTitle>
+                <CardTitle>Zarządzanie kontami Auth</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Narzędzia do zarządzania kontami uwierzytelniania kierowców
+                </p>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">Panel ustawień systemu zostanie wkrótce dodany.</p>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
+                    <h3 className="font-semibold text-yellow-800 mb-2">⚠️ Ważne</h3>
+                    <p className="text-sm text-yellow-700">
+                      Najpierw wyczyść stare konta z @rido.internal, a następnie utwórz nowe konta dla kierowców z prawdziwymi emailami.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="font-semibold mb-2">Krok 1: Wyczyść stare konta</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Usuwa wszystkie konta Auth z fałszywymi emailami (@rido.internal)
+                      </p>
+                      <Button 
+                        onClick={handleCleanupFakeAccounts} 
+                        disabled={cleaningAccounts}
+                        variant="destructive"
+                      >
+                        {cleaningAccounts ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Czyszczenie...
+                          </>
+                        ) : (
+                          "🧹 Wyczyść stare konta (@rido.internal)"
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <h4 className="font-semibold mb-2">Krok 2: Utwórz konta dla kierowców</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Tworzy konta Auth dla wszystkich kierowców z prawdziwymi emailami. Hasło: Test12345!
+                      </p>
+                      <Button 
+                        onClick={handleCreateDriverAccounts} 
+                        disabled={creatingAccounts}
+                      >
+                        {creatingAccounts ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Tworzenie...
+                          </>
+                        ) : (
+                          "✨ Utwórz konta dla wszystkich kierowców"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
