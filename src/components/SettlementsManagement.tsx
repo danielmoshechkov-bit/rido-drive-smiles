@@ -312,53 +312,41 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
     setCreatingSettlement(true);
     try {
+      console.log('🚀 Starting settlement creation...');
+      
       // Convert files to base64
       const uberCsv = uberFile ? await fileToBase64(uberFile) : "";
       const boltCsv = boltFile ? await fileToBase64(boltFile) : "";
       const freenowCsv = freenowFile ? await fileToBase64(freenowFile) : "";
       const mainCsv = mainFile ? await fileToBase64(mainFile) : "";
 
-      // Send to Google Apps Script
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbw8maRlYQrsSKhdZ9rq4spr80lcCrMY_fb3Nb1rgNLXA6uXAL1p8Ha3wKnw_hP8Dfk/exec",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            secret: "RIDO2025SUPER",
-            period_from: format(dateRange.from, "yyyy-MM-dd"),
-            period_to: format(dateRange.to, "yyyy-MM-dd"),
-            uber_csv: uberCsv,
-            bolt_csv: boltCsv,
-            freenow_csv: freenowCsv,
-            main_csv: mainCsv,
-          }),
+      console.log('📄 Files converted to base64');
+
+      // Call Supabase edge function instead of Google Apps Script
+      const { data, error } = await supabase.functions.invoke('settlements', {
+        body: {
+          period_from: format(dateRange.from, "yyyy-MM-dd"),
+          period_to: format(dateRange.to, "yyyy-MM-dd"),
+          city_id: cityId,
+          uber_csv: uberCsv,
+          bolt_csv: boltCsv,
+          freenow_csv: freenowCsv,
+          main_csv: mainCsv,
         }
-      );
+      });
 
-      const result = await response.json();
+      console.log('📥 Edge function response:', { data, error });
 
-      if (!result.success) {
-        throw new Error(result.error || "Błąd podczas importu");
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
       }
 
-      // Create settlement period in database
-      const { data, error } = await supabase
-        .from('settlement_periods')
-        .insert({
-          city_id: cityId,
-          week_start: format(dateRange.from, 'yyyy-MM-dd'),
-          week_end: format(dateRange.to, 'yyyy-MM-dd'),
-          status: 'robocze',
-        })
-        .select()
-        .single();
+      if (!data?.success) {
+        throw new Error(data?.error || "Błąd podczas importu");
+      }
 
-      if (error) throw error;
-
-      toast.success('✅ CSV zaimportowane do arkusza');
+      toast.success(`✅ Rozliczenie utworzone! Przetworzono: ${data.stats.processed}, Błędy: ${data.stats.errors}`);
       setNewSettlementOpen(false);
       setDateRange(undefined);
       setUberFile(null);
@@ -368,7 +356,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
       loadSettlementPeriods();
       
       // Navigate to the new settlement sheet
-      navigate(`/admin/settlement/${data.id}`);
+      navigate(`/admin/settlement/${data.settlement_period_id}`);
     } catch (error) {
       console.error('Error creating settlement:', error);
       toast.error(error instanceof Error ? error.message : 'Błąd tworzenia rozliczenia');
