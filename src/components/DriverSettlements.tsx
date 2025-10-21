@@ -12,13 +12,28 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 interface Settlement {
   id: string;
   driver_id: string;
-  platform: string;
-  week_start: string;
-  week_end: string;
-  total_earnings: number;
-  commission_amount: number;
-  net_amount: number;
-  rental_fee: number;
+  source: string;
+  period_from: string;
+  period_to: string;
+  amounts: {
+    total_earnings?: number;
+    commission_amount?: number;
+    rental_fee?: number;
+    net_amount?: number;
+    uberCard?: number;
+    uberCash?: number;
+    boltGross?: number;
+    boltNet?: number;
+    boltCash?: number;
+    freeNowGross?: number;
+    freeNowNet?: number;
+    freeNowCash?: number;
+    fuel?: number;
+    vatFromFuel?: number;
+    vatRefundHalf?: number;
+    commission?: number;
+    tax?: number;
+  };
   created_at: string;
 }
 
@@ -62,13 +77,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
         .eq('driver_id', driverId);
 
       if (dateFrom) {
-        query = query.gte('week_start', format(dateFrom, 'yyyy-MM-dd'));
+        query = query.gte('period_from', format(dateFrom, 'yyyy-MM-dd'));
       }
       if (dateTo) {
-        query = query.lte('week_end', format(dateTo, 'yyyy-MM-dd'));
+        query = query.lte('period_to', format(dateTo, 'yyyy-MM-dd'));
       }
 
-      const { data, error } = await query.order('week_start', { ascending: false });
+      const { data, error } = await query.order('period_from', { ascending: false });
 
       if (error) {
         console.error('Error loading settlements:', error);
@@ -77,7 +92,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       }
 
       console.log('Loaded settlements:', data);
-      setSettlements(data || []);
+      setSettlements((data || []) as Settlement[]);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Błąd podczas ładowania rozliczeń');
@@ -125,31 +140,31 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     loadSettlements();
   }, [driverId, dateFrom, dateTo]);
 
-  // Group settlements by week
+  // Group settlements by period
   const groupedSettlements = settlements.reduce((acc, settlement) => {
-    const key = `${settlement.week_start}_${settlement.week_end}`;
+    const key = `${settlement.period_from}_${settlement.period_to}`;
     if (!acc[key]) {
       acc[key] = {
-        week_start: settlement.week_start,
-        week_end: settlement.week_end,
+        period_from: settlement.period_from,
+        period_to: settlement.period_to,
         settlements: []
       };
     }
     acc[key].settlements.push(settlement);
     return acc;
-  }, {} as Record<string, { week_start: string; week_end: string; settlements: Settlement[] }>);
+  }, {} as Record<string, { period_from: string; period_to: string; settlements: Settlement[] }>);
 
   const periods = Object.values(groupedSettlements).sort((a, b) => 
-    new Date(b.week_start).getTime() - new Date(a.week_start).getTime()
+    new Date(b.period_from).getTime() - new Date(a.period_from).getTime()
   );
 
   // Calculate totals for a period
   const calculateTotals = (settlements: Settlement[]) => {
     return settlements.reduce((acc, s) => ({
-      total_earnings: acc.total_earnings + s.total_earnings,
-      commission: acc.commission + s.commission_amount,
-      rental: acc.rental + s.rental_fee,
-      net: acc.net + s.net_amount,
+      total_earnings: acc.total_earnings + (s.amounts.total_earnings || 0),
+      commission: acc.commission + (s.amounts.commission_amount || 0),
+      rental: acc.rental + (s.amounts.rental_fee || 0),
+      net: acc.net + (s.amounts.net_amount || 0),
     }), { total_earnings: 0, commission: 0, rental: 0, net: 0 });
   };
 
@@ -256,13 +271,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
             <div className="space-y-4">
               {periods.map((period) => {
                 const totals = calculateTotals(period.settlements);
-                const periodKey = `${period.week_start}_${period.week_end}`;
+                const periodKey = `${period.period_from}_${period.period_to}`;
 
                 return (
                   <Card key={periodKey} className="border-l-4 border-l-primary">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">
-                        Okres {format(parseISO(period.week_start), 'dd.MM', { locale: pl })} - {format(parseISO(period.week_end), 'dd.MM.yyyy', { locale: pl })}
+                        Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>

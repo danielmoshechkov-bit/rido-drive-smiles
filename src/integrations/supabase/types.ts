@@ -1021,42 +1021,57 @@ export type Database = {
       }
       settlements: {
         Row: {
+          amounts: Json | null
           city_id: string
           commission_amount: number | null
           created_at: string
           driver_id: string
           id: string
           net_amount: number | null
+          period_from: string | null
+          period_to: string | null
           platform: string
+          raw: Json | null
           rental_fee: number | null
+          source: string | null
           total_earnings: number | null
           updated_at: string
           week_end: string
           week_start: string
         }
         Insert: {
+          amounts?: Json | null
           city_id: string
           commission_amount?: number | null
           created_at?: string
           driver_id: string
           id?: string
           net_amount?: number | null
+          period_from?: string | null
+          period_to?: string | null
           platform: string
+          raw?: Json | null
           rental_fee?: number | null
+          source?: string | null
           total_earnings?: number | null
           updated_at?: string
           week_end: string
           week_start: string
         }
         Update: {
+          amounts?: Json | null
           city_id?: string
           commission_amount?: number | null
           created_at?: string
           driver_id?: string
           id?: string
           net_amount?: number | null
+          period_from?: string | null
+          period_to?: string | null
           platform?: string
+          raw?: Json | null
           rental_fee?: number | null
+          source?: string | null
           total_earnings?: number | null
           updated_at?: string
           week_end?: string
