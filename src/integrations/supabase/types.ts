@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_communication_settings: {
+        Row: {
+          created_at: string
+          email_enabled: boolean | null
+          email_from_address: string | null
+          email_from_name: string | null
+          email_provider: string | null
+          id: string
+          sms_api_key_name: string | null
+          sms_api_url: string | null
+          sms_gateway_enabled: boolean | null
+          smtp_host: string | null
+          smtp_password_name: string | null
+          smtp_port: number | null
+          smtp_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean | null
+          email_from_address?: string | null
+          email_from_name?: string | null
+          email_provider?: string | null
+          id?: string
+          sms_api_key_name?: string | null
+          sms_api_url?: string | null
+          sms_gateway_enabled?: boolean | null
+          smtp_host?: string | null
+          smtp_password_name?: string | null
+          smtp_port?: number | null
+          smtp_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean | null
+          email_from_address?: string | null
+          email_from_name?: string | null
+          email_provider?: string | null
+          id?: string
+          sms_api_key_name?: string | null
+          sms_api_url?: string | null
+          sms_gateway_enabled?: boolean | null
+          smtp_host?: string | null
+          smtp_password_name?: string | null
+          smtp_port?: number | null
+          smtp_username?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           created_at: string
@@ -186,6 +237,59 @@ export type Database = {
           },
           {
             foreignKeyName: "driver_app_users_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_communications: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          delivered_at: string | null
+          driver_id: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          sent_at: string | null
+          status: string
+          subject: string | null
+          type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          driver_id: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          type: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          driver_id?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_communications_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
@@ -658,6 +762,65 @@ export type Database = {
           },
         ]
       }
+      import_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_rows: number
+          filename: string
+          id: string
+          import_job_id: string | null
+          is_first_import: boolean
+          matched_drivers_count: number
+          metadata: Json | null
+          new_drivers_count: number
+          period_from: string
+          period_to: string
+          successful_rows: number
+          total_rows: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_rows?: number
+          filename: string
+          id?: string
+          import_job_id?: string | null
+          is_first_import?: boolean
+          matched_drivers_count?: number
+          metadata?: Json | null
+          new_drivers_count?: number
+          period_from: string
+          period_to: string
+          successful_rows?: number
+          total_rows?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_rows?: number
+          filename?: string
+          id?: string
+          import_job_id?: string | null
+          is_first_import?: boolean
+          matched_drivers_count?: number
+          metadata?: Json | null
+          new_drivers_count?: number
+          period_from?: string
+          period_to?: string
+          successful_rows?: number
+          total_rows?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_history_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_jobs: {
         Row: {
           city_id: string | null
@@ -698,6 +861,44 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_driver_matches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          match_key: string
+          match_value: string
+          platform: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          match_key: string
+          match_value: string
+          platform?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          match_key?: string
+          match_value?: string
+          platform?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_driver_matches_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
         ]
@@ -1154,6 +1355,66 @@ export type Database = {
           {
             foreignKeyName: "settlements_weekly_job_id_fkey"
             columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_alerts: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          driver_id: string | null
+          id: string
+          import_job_id: string | null
+          metadata: Json | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          driver_id?: string | null
+          id?: string
+          import_job_id?: string | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          title: string
+          type: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          driver_id?: string | null
+          id?: string
+          import_job_id?: string | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_alerts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_alerts_import_job_id_fkey"
+            columns: ["import_job_id"]
             isOneToOne: false
             referencedRelation: "import_jobs"
             referencedColumns: ["id"]
