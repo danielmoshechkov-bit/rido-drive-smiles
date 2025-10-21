@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     const headers = parsedRows[0].map(h => h.toLowerCase().trim());
     
     const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
-    const uberIdIdx = headers.findIndex(h => h.includes('id uber'));
+    const uberIdIdx = headers.findIndex(h => h.includes('id uuid')); // ✅ ZMIANA: "ID UUID" to prawdziwy Uber ID
     const phoneIdx = headers.findIndex(h => h.includes('nr tel'));
     const freenowIdIdx = headers.findIndex(h => h.includes('id freenow'));
     const fuelCardIdx = headers.findIndex(h => h.includes('nr karty paliwowej'));
@@ -353,17 +353,18 @@ async function findOrCreateDriver(
   const firstName = nameParts[0] || 'Nieznane';
   const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
   
-  // Email: priorytet prawdziwy email > telefon > FreeNow ID > Uber ID > timestamp
+  // ✅ ZMIANA: Login = Uber ID (jeśli istnieje), fallback do telefonu/FreeNow/timestamp
+  // Email w drivers = prawdziwy email z CSV (jeśli istnieje) LUB null
   const realEmail = rowData.email?.trim();
-  const loginEmail = realEmail && realEmail.includes('@') && !realEmail.includes('@rido.internal')
-    ? realEmail
+  const hasRealEmail = realEmail && realEmail.includes('@');
+  
+  const loginEmail = uberId
+    ? `uber_${uberId}@rido.internal`
     : phone
       ? `tel_${phone.replace(/[^0-9]/g, '')}@rido.internal`
       : freenowId
         ? `freenow_${freenowId}@rido.internal`
-        : uberId
-          ? `uber_${uberId}@rido.internal`
-          : `driver_${Date.now()}@rido.internal`;
+        : `driver_${Date.now()}@rido.internal`;
   
   // Hasło: Test12345! dla wszystkich
   const password = 'Test12345!';
@@ -377,7 +378,7 @@ async function findOrCreateDriver(
       first_name: firstName,
       last_name: lastName,
       phone: phone || '',
-      real_email: rowData.email || ''
+      real_email: hasRealEmail ? realEmail : ''
     }
   });
   
@@ -387,6 +388,7 @@ async function findOrCreateDriver(
   }
   
   // Wstaw do tabeli drivers
+  // ✅ ZMIANA: email = prawdziwy email z CSV LUB null (nie wpisuj Uber ID!)
   const { data: newDriver, error: driverError } = await supabase
     .from('drivers')
     .insert({
@@ -394,7 +396,7 @@ async function findOrCreateDriver(
       city_id,
       first_name: firstName,
       last_name: lastName,
-      email: loginEmail,
+      email: hasRealEmail ? realEmail : null, // ✅ null jeśli brak emaila w CSV
       phone: phone || null,
       fuel_card_number: rowData.fuelCard || null,
       user_role: 'kierowca'

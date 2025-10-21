@@ -536,7 +536,6 @@ export type Database = {
           id: string
           last_name: string | null
           phone: string | null
-          platform_ids: Json | null
           registration_date: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
@@ -552,7 +551,6 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
-          platform_ids?: Json | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -568,7 +566,6 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
-          platform_ids?: Json | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null

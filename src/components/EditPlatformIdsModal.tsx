@@ -23,9 +23,22 @@ export const EditPlatformIdsModal = ({
   currentPlatformIds,
   onSuccess,
 }: EditPlatformIdsModalProps) => {
-  const [uber, setUber] = useState<string[]>(currentPlatformIds?.uber || []);
-  const [bolt, setBolt] = useState<string[]>(currentPlatformIds?.bolt || []);
-  const [freeNow, setFreeNow] = useState<string[]>(currentPlatformIds?.freeNow || []);
+  // ✅ Teraz currentPlatformIds to array z driver_platform_ids
+  const [uber, setUber] = useState<string[]>(
+    Array.isArray(currentPlatformIds) 
+      ? currentPlatformIds.filter(p => p.platform === 'uber').map(p => p.platform_id)
+      : []
+  );
+  const [bolt, setBolt] = useState<string[]>(
+    Array.isArray(currentPlatformIds)
+      ? currentPlatformIds.filter(p => p.platform === 'bolt').map(p => p.platform_id)
+      : []
+  );
+  const [freeNow, setFreeNow] = useState<string[]>(
+    Array.isArray(currentPlatformIds)
+      ? currentPlatformIds.filter(p => p.platform === 'freenow').map(p => p.platform_id)
+      : []
+  );
   
   const [newUber, setNewUber] = useState('');
   const [newBolt, setNewBolt] = useState('');
@@ -58,15 +71,31 @@ export const EditPlatformIdsModal = ({
 
   const handleSave = async () => {
     try {
-      const { error } = await supabase
-        .from('drivers')
-        .update({
-          platform_ids: { uber, bolt, freeNow },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', driverId);
+      // ✅ ZMIANA: Zapisz do tabeli driver_platform_ids zamiast drivers.platform_ids
+      
+      // 1. Usuń wszystkie istniejące platform IDs
+      const { error: deleteError } = await supabase
+        .from('driver_platform_ids')
+        .delete()
+        .eq('driver_id', driverId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // 2. Przygotuj nowe platform IDs
+      const idsToInsert = [
+        ...uber.map(id => ({ driver_id: driverId, platform: 'uber', platform_id: id })),
+        ...bolt.map(id => ({ driver_id: driverId, platform: 'bolt', platform_id: id })),
+        ...freeNow.map(id => ({ driver_id: driverId, platform: 'freenow', platform_id: id }))
+      ];
+
+      // 3. Wstaw nowe IDs (jeśli są jakieś)
+      if (idsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('driver_platform_ids')
+          .insert(idsToInsert);
+
+        if (insertError) throw insertError;
+      }
 
       toast.success('Zaktualizowano identyfikatory platform');
       onSuccess();

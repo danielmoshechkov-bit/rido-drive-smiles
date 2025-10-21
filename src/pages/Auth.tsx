@@ -35,6 +35,12 @@ const Auth = () => {
         return;
       }
 
+      // ADMIN: daniel.moshechkov@gmail.com ma zawsze dostęp do panelu admina
+      if (email === 'daniel.moshechkov@gmail.com') {
+        navigate('/admin/dashboard');
+        return;
+      }
+
       // Sprawdź rolę użytkownika w tabeli drivers
       const { data: driverData, error: driverError } = await supabase
         .from('drivers')
@@ -44,11 +50,6 @@ const Auth = () => {
 
       if (driverError) {
         console.error('Driver lookup error:', driverError);
-        // Jeśli nie ma w drivers, może to być admin (test/test)
-        if (email === 'test' || email === 'daniel.moshechkov@gmail.com') {
-          navigate('/admin/dashboard');
-          return;
-        }
         alert('Nie znaleziono profilu użytkownika!');
         return;
       }
@@ -57,7 +58,7 @@ const Auth = () => {
       if (driverData.user_role === 'admin' || driverData.user_role === 'pracownik') {
         navigate('/admin/dashboard');
       } else {
-        // Kierowca lub partner - zapisz dane do localStorage
+        // Kierowca - zapisz dane do localStorage
         localStorage.setItem('testUser', JSON.stringify({ 
           email: authData.user.email,
           type: 'driver',
@@ -147,9 +148,7 @@ const Auth = () => {
             </div>
 
             <div className="text-center text-xs text-muted-foreground space-y-1">
-              <div>Admin: email "test", password "test"</div>
-              <div>Kierowca: email "test@test.pl", password "12345"</div>
-              <div>Kierowca: email "anastasia.loktionova1991@gmail.com", password "Test12345!"</div>
+              <div>Admin: email "daniel.moshechkov@gmail.com", password "danmos050389"</div>
             </div>
           </CardContent>
         </Card>
