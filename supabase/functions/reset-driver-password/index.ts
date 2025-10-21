@@ -5,34 +5,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const generatePassword = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-};
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email } = await req.json();
+    const { email, password } = await req.json();
 
     if (!email) {
       throw new Error('Email jest wymagany');
     }
 
-    console.log(`🔐 Resetowanie hasła dla: ${email}`);
+    console.log(`🔐 Tworzenie/resetowanie konta dla: ${email}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const tempPassword = generatePassword();
+    // If no password provided, generate one
+    let finalPassword = password;
+    if (!finalPassword) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
+      finalPassword = '';
+      for (let i = 0; i < 12; i++) {
+        finalPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+    }
 
     // Sprawdź czy użytkownik istnieje
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
@@ -42,23 +41,17 @@ Deno.serve(async (req) => {
       // Resetuj hasło dla istniejącego użytkownika
       const { error: updateError } = await supabase.auth.admin.updateUserById(
         existingUser.id,
-        {
-          password: tempPassword,
-          user_metadata: {
-            ...existingUser.user_metadata,
-            require_password_change: true
-          }
-        }
+        { password: finalPassword }
       );
 
       if (updateError) throw updateError;
 
-      console.log(`✅ Hasło zresetowane dla: ${email}`);
+      console.log(`✅ Hasło zmienione dla: ${email}`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          password: tempPassword,
+          password: password ? undefined : finalPassword, // Return password only if auto-generated
           action: 'reset'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -67,11 +60,8 @@ Deno.serve(async (req) => {
       // Utwórz nowe konto
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          require_password_change: true
-        }
+        password: finalPassword,
+        email_confirm: true
       });
 
       if (authError) throw authError;
@@ -81,7 +71,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          password: tempPassword,
+          password: password ? undefined : finalPassword, // Return password only if auto-generated
           action: 'created'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

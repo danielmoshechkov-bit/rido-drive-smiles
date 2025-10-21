@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DriverDocumentStatuses } from "./DriverDocumentStatuses";
 import { PlatformIdEditor } from "./PlatformIdEditor";
 import { Driver } from "@/hooks/useDrivers";
@@ -17,7 +18,8 @@ interface DriverExpandedPanelProps {
 export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelProps) {
   const platforms = ['uber', 'bolt', 'freenow'];
   const [creatingAccount, setCreatingAccount] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [tempPassword, setTempPassword] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const getPlatformId = (platform: string) => {
     return driver.platform_ids?.find(p => p.platform === platform)?.platform_id || '';
@@ -40,17 +42,19 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
       return;
     }
 
-    const confirmed = confirm(
-      `Czy na pewno chcesz utworzyć/zresetować konto Auth dla ${driver.first_name} ${driver.last_name}?\n\nEmail: ${driver.email}\n\nHasło zostanie wygenerowane automatycznie.`
-    );
-
-    if (!confirmed) return;
+    if (!tempPassword || tempPassword.length < 8) {
+      toast.error('Hasło musi mieć minimum 8 znaków');
+      return;
+    }
 
     setCreatingAccount(true);
     try {
-      // Call edge function to reset/create password
+      // Call edge function to create/reset password
       const { data, error } = await supabase.functions.invoke('reset-driver-password', {
-        body: { email: driver.email }
+        body: { 
+          email: driver.email,
+          password: tempPassword 
+        }
       });
 
       if (error) throw error;
@@ -59,14 +63,16 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
         throw new Error(data?.error || 'Błąd podczas tworzenia konta');
       }
 
-      setGeneratedPassword(data.password);
+      setShowSuccess(true);
+      setTempPassword('');
       
       if (data.action === 'created') {
         toast.success(`✅ Konto utworzone dla ${driver.email}`);
       } else {
-        toast.success(`✅ Hasło zresetowane dla ${driver.email}`);
+        toast.success(`✅ Hasło zmienione dla ${driver.email}`);
       }
 
+      setTimeout(() => setShowSuccess(false), 5000);
       onUpdate();
     } catch (error) {
       console.error('Error creating auth account:', error);
@@ -77,8 +83,8 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
   };
 
   const copyPassword = () => {
-    if (generatedPassword) {
-      navigator.clipboard.writeText(generatedPassword);
+    if (tempPassword) {
+      navigator.clipboard.writeText(tempPassword);
       toast.success('Hasło skopiowane do schowka');
     }
   };
@@ -87,43 +93,43 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
 
   return (
     <Card className="mt-2 p-4 bg-muted/20 border-l-4 border-primary/20">
-      {generatedPassword && (
+      {showSuccess && (
         <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1">
-              <p className="font-semibold text-green-800 mb-1">Hasło tymczasowe wygenerowane:</p>
-              <code className="text-lg font-mono bg-white px-3 py-2 rounded border">{generatedPassword}</code>
-              <p className="text-sm text-green-700 mt-2">
-                ⚠️ Kierowca będzie musiał zmienić hasło przy pierwszym logowaniu
-              </p>
-            </div>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={copyPassword}
-              className="gap-2"
-            >
-              <Copy className="h-4 w-4" />
-              Kopiuj
-            </Button>
-          </div>
+          <p className="font-semibold text-green-800">
+            ✅ Konto utworzone pomyślnie! Kierowca może się teraz zalogować.
+          </p>
         </div>
       )}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Button
-              onClick={handleCreateAuthAccount}
-              disabled={creatingAccount || !driver.email}
-              className="w-full gap-2"
-              variant="outline"
-            >
-              <Key className="h-4 w-4" />
-              {creatingAccount ? 'Tworzenie...' : 'Utwórz konto Auth + hasło'}
-            </Button>
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm">Hasło tymczasowe</h4>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Wpisz hasło (min. 8 znaków)"
+                value={tempPassword}
+                onChange={(e) => setTempPassword(e.target.value)}
+                disabled={creatingAccount || !driver.email}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleCreateAuthAccount}
+                disabled={creatingAccount || !driver.email || tempPassword.length < 8}
+                className="gap-2 whitespace-nowrap"
+              >
+                <Key className="h-4 w-4" />
+                {creatingAccount ? 'Tworzenie...' : 'Utwórz konto'}
+              </Button>
+            </div>
             {!driver.email && (
               <p className="text-xs text-muted-foreground">
                 Dodaj email kierowcy aby utworzyć konto
+              </p>
+            )}
+            {tempPassword && tempPassword.length < 8 && (
+              <p className="text-xs text-destructive">
+                Hasło musi mieć minimum 8 znaków
               </p>
             )}
           </div>
