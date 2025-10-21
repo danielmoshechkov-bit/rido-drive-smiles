@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface Settlement {
   id: string;
@@ -44,7 +46,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings | null>(null);
   const [loading, setLoading] = useState(false);
-  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
+  const [dateFrom, setDateFrom] = useState<Date>();
+  const [dateTo, setDateTo] = useState<Date>();
 
   const loadSettlements = async () => {
     if (!driverId) return;
@@ -53,11 +56,19 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     try {
       console.log('Loading settlements for driver:', driverId);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('settlements')
         .select('*')
-        .eq('driver_id', driverId)
-        .order('week_start', { ascending: false });
+        .eq('driver_id', driverId);
+
+      if (dateFrom) {
+        query = query.gte('week_start', format(dateFrom, 'yyyy-MM-dd'));
+      }
+      if (dateTo) {
+        query = query.lte('week_end', format(dateTo, 'yyyy-MM-dd'));
+      }
+
+      const { data, error } = await query.order('week_start', { ascending: false });
 
       if (error) {
         console.error('Error loading settlements:', error);
@@ -107,9 +118,12 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   };
 
   useEffect(() => {
-    loadSettlements();
     loadVisibilitySettings();
-  }, [driverId]);
+  }, []);
+
+  useEffect(() => {
+    loadSettlements();
+  }, [driverId, dateFrom, dateTo]);
 
   // Group settlements by week
   const groupedSettlements = settlements.reduce((acc, settlement) => {
@@ -128,18 +142,6 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const periods = Object.values(groupedSettlements).sort((a, b) => 
     new Date(b.week_start).getTime() - new Date(a.week_start).getTime()
   );
-
-  const toggleWeek = (key: string) => {
-    setExpandedWeeks(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return newSet;
-    });
-  };
 
   // Calculate totals for a period
   const calculateTotals = (settlements: Settlement[]) => {
@@ -176,24 +178,6 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     );
   }
 
-  if (settlements.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Rozliczenia
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            Brak dostępnych rozliczeń. Rozliczenia pojawią się tutaj po wgraniu danych przez administratora.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   if (!visibilitySettings) {
     return (
       <div className="text-center py-8">
@@ -206,48 +190,106 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Rozliczenia
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Rozliczenia
+            </CardTitle>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, 'dd.MM.yyyy', { locale: pl }) : "Od"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                    locale={pl}
+                    weekStartsOn={1}
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, 'dd.MM.yyyy', { locale: pl }) : "Do"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                    locale={pl}
+                    weekStartsOn={1}
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              {(dateFrom || dateTo) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => { 
+                    setDateFrom(undefined); 
+                    setDateTo(undefined); 
+                  }}
+                >
+                  Wyczyść
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {periods.map((period) => {
-              const totals = calculateTotals(period.settlements);
-              const periodKey = `${period.week_start}_${period.week_end}`;
+          {settlements.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              Brak dostępnych rozliczeń. Rozliczenia pojawią się tutaj po wgraniu danych przez administratora.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {periods.map((period) => {
+                const totals = calculateTotals(period.settlements);
+                const periodKey = `${period.week_start}_${period.week_end}`;
 
-              return (
-                <Card key={periodKey} className="border-l-4 border-l-primary">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">
-                      Okres {format(parseISO(period.week_start), 'dd.MM', { locale: pl })} - {format(parseISO(period.week_end), 'dd.MM.yyyy', { locale: pl })}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Przychód</p>
-                        <p className="text-lg font-semibold text-green-600">{totals.total_earnings.toFixed(2)} zł</p>
+                return (
+                  <Card key={periodKey} className="border-l-4 border-l-primary">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">
+                        Okres {format(parseISO(period.week_start), 'dd.MM', { locale: pl })} - {format(parseISO(period.week_end), 'dd.MM.yyyy', { locale: pl })}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Przychód</p>
+                          <p className="text-lg font-semibold text-green-600">{totals.total_earnings.toFixed(2)} zł</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Prowizja</p>
+                          <p className="text-lg font-semibold text-red-600">-{totals.commission.toFixed(2)} zł</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Wynajem</p>
+                          <p className="text-lg font-semibold text-orange-600">-{totals.rental.toFixed(2)} zł</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Do wypłaty</p>
+                          <p className="text-lg font-semibold text-purple-600">{totals.net.toFixed(2)} zł</p>
+                        </div>
                       </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Prowizja</p>
-                        <p className="text-lg font-semibold text-red-600">-{totals.commission.toFixed(2)} zł</p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Wynajem</p>
-                        <p className="text-lg font-semibold text-orange-600">-{totals.rental.toFixed(2)} zł</p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Do wypłaty</p>
-                        <p className="text-lg font-semibold text-purple-600">{totals.net.toFixed(2)} zł</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

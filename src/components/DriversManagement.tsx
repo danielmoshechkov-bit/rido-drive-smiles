@@ -17,6 +17,7 @@ import { DriverFleetBadgeSelector } from './DriverFleetBadgeSelector';
 import { DriverRentalBadge } from './DriverRentalBadge';
 import { DriverFilters } from './DriverFilters';
 import { DriverVehicleSelector } from "./DriverVehicleSelector";
+import { EditPlatformIdsModal } from './EditPlatformIdsModal';
 
 interface DriversManagementProps {
   cityId: string;
@@ -29,6 +30,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
+  const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
   
   const { drivers, loading, refetch } = useDrivers(cityId);
 
@@ -190,15 +192,25 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                        </div>
 
                       <div className="flex items-center gap-2 mb-2">
-                        {driver.platform_ids && driver.platform_ids.map((platform) => (
-                          <Badge
-                            key={platform.platform}
-                            className={getServiceColor(platform.platform)}
-                            variant="outline"
-                          >
-                            {platform.platform.toUpperCase()}
-                          </Badge>
-                        ))}
+                        {driver.platform_ids && (
+                          <>
+                            {((driver.platform_ids as any).uber || []).map((id: string, idx: number) => (
+                              <Badge key={`uber-${idx}`} className="bg-black text-white">
+                                UBER: {id.substring(0, 8)}...
+                              </Badge>
+                            ))}
+                            {((driver.platform_ids as any).bolt || []).map((id: string, idx: number) => (
+                              <Badge key={`bolt-${idx}`} className="bg-green-500 text-white">
+                                BOLT: {id}
+                              </Badge>
+                            ))}
+                            {((driver.platform_ids as any).freeNow || []).map((id: string, idx: number) => (
+                              <Badge key={`freenow-${idx}`} className="bg-red-500 text-white">
+                                FreeNow: {id}
+                              </Badge>
+                            ))}
+                          </>
+                        )}
                       </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">
@@ -231,6 +243,18 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                     </div>
                     
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPlatformIdsDriver(driver);
+                        }}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        title="Edytuj IDs platform"
+                      >
+                        ID
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -287,6 +311,16 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
           onClose={() => setEditingDriver(null)}
           driverId={editingDriver.id}
           onSuccess={handleEditDriver}
+        />
+      )}
+
+      {editingPlatformIdsDriver && (
+        <EditPlatformIdsModal
+          isOpen={true}
+          onClose={() => setEditingPlatformIdsDriver(null)}
+          driverId={editingPlatformIdsDriver.id}
+          currentPlatformIds={editingPlatformIdsDriver.platform_ids}
+          onSuccess={refetch}
         />
       )}
     </>

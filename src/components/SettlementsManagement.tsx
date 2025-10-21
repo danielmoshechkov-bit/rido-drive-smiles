@@ -94,6 +94,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [uberFile, setUberFile] = useState<File | null>(null);
   const [boltFile, setBoltFile] = useState<File | null>(null);
   const [freenowFile, setFreenowFile] = useState<File | null>(null);
+  const [mainFile, setMainFile] = useState<File | null>(null);
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -230,7 +231,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
       return;
     }
 
-    if (!uberFile && !boltFile && !freenowFile) {
+    if (!uberFile && !boltFile && !freenowFile && !mainFile) {
       toast.error('Wybierz przynajmniej jeden plik CSV');
       return;
     }
@@ -241,6 +242,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
       const uberCsv = uberFile ? await fileToBase64(uberFile) : "";
       const boltCsv = boltFile ? await fileToBase64(boltFile) : "";
       const freenowCsv = freenowFile ? await fileToBase64(freenowFile) : "";
+      const mainCsv = mainFile ? await fileToBase64(mainFile) : "";
 
       // Send to Google Apps Script
       const response = await fetch(
@@ -257,6 +259,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
             uber_csv: uberCsv,
             bolt_csv: boltCsv,
             freenow_csv: freenowCsv,
+            main_csv: mainCsv,
           }),
         }
       );
@@ -287,6 +290,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
       setUberFile(null);
       setBoltFile(null);
       setFreenowFile(null);
+      setMainFile(null);
       loadSettlementPeriods();
       
       // Navigate to the new settlement sheet
@@ -484,7 +488,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                   <Upload className="h-5 w-5" />
                   Import rozliczeń CSV
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Card className="border-2 border-dashed">
                     <CardContent className="pt-6">
                       <div className="space-y-4">
@@ -595,6 +599,48 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) setFreenowFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-purple-500 text-white">Główny CSV</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Arkusz rozliczeń (główny)
+                          </p>
+                          <p className="text-xs text-center text-muted-foreground">
+                            Główny CSV z systemu — zawiera pełne wiersze rozliczeń
+                          </p>
+                          {mainFile && (
+                            <p className="text-xs text-primary font-medium">{mainFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-main">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-main')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-main"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setMainFile(file);
                             }}
                           />
                         </label>
