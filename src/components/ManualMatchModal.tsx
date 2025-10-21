@@ -72,11 +72,23 @@ export const ManualMatchModal = ({ open, onOpenChange, alertId, alertMetadata, o
   const handleMatch = async (driverId: string) => {
     setMatching(true);
     try {
+      // Get city_id for the driver
+      const { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('city_id')
+        .eq('id', driverId)
+        .single();
+
+      if (driverError) throw driverError;
+
       // 1. Create settlement for matched driver
       const { error: settlementError } = await supabase
         .from('settlements')
         .insert({
+          city_id: driverData.city_id,
           driver_id: driverId,
+          week_start: alertMetadata.period_from,
+          week_end: alertMetadata.period_to,
           period_from: alertMetadata.period_from,
           period_to: alertMetadata.period_to,
           platform: 'main',
