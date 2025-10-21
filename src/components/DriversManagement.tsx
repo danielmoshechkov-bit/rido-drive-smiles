@@ -192,23 +192,30 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                        </div>
 
                       <div className="flex items-center gap-2 mb-2">
-                        {driver.platform_ids && (
+                        {/* Platform badges - uber (czarny), bolt (zielony), freenow (czerwony) */}
+                        {driver.platform_ids && driver.platform_ids.length > 0 && (
                           <>
-                            {((driver.platform_ids as any).uber || []).map((id: string, idx: number) => (
-                              <Badge key={`uber-${idx}`} className="bg-black text-white">
-                                UBER: {id.substring(0, 8)}...
-                              </Badge>
-                            ))}
-                            {((driver.platform_ids as any).bolt || []).map((id: string, idx: number) => (
-                              <Badge key={`bolt-${idx}`} className="bg-green-500 text-white">
-                                BOLT: {id}
-                              </Badge>
-                            ))}
-                            {((driver.platform_ids as any).freeNow || []).map((id: string, idx: number) => (
-                              <Badge key={`freenow-${idx}`} className="bg-red-500 text-white">
-                                FreeNow: {id}
-                              </Badge>
-                            ))}
+                            {driver.platform_ids
+                              .filter(p => p.platform === 'uber')
+                              .map((p, idx) => (
+                                <Badge key={`uber-${idx}`} className="bg-black text-white">
+                                  <span className="text-xs">🚗</span> UBER
+                                </Badge>
+                              ))}
+                            {driver.platform_ids
+                              .filter(p => p.platform === 'bolt')
+                              .map((p, idx) => (
+                                <Badge key={`bolt-${idx}`} className="bg-green-500 text-white">
+                                  <span className="text-xs">⚡</span> BOLT
+                                </Badge>
+                              ))}
+                            {driver.platform_ids
+                              .filter(p => p.platform === 'freenow')
+                              .map((p, idx) => (
+                                <Badge key={`freenow-${idx}`} className="bg-red-500 text-white">
+                                  <span className="text-xs">🚕</span> FREE NOW
+                                </Badge>
+                              ))}
                           </>
                         )}
                       </div>
