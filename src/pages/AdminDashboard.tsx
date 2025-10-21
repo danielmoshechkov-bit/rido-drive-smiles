@@ -15,6 +15,7 @@ import { SettlementsManagement } from "@/components/SettlementsManagement";
 import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
+import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -68,6 +69,7 @@ const AdminDashboard = () => {
             <h1 className="text-xl font-bold text-primary">{t('admin.dashboard')}</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <SystemAlertsButton />
             <LanguageSelector />
             <Button variant="outline" onClick={handleLogout}>
               {t('admin.logout')}

@@ -11,6 +11,7 @@ import DriverRegister from "./pages/DriverRegister";
 import DriverDashboard from "./pages/DriverDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
 import SettlementSheetView from "./pages/SettlementSheetView";
+import SystemAlerts from "./pages/SystemAlerts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/system-alerts" element={<SystemAlerts />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
           <Route path="/admin/settlement/:settlementId" element={<SettlementSheetView />} />
           <Route path="/driver/register" element={<DriverRegister />} />

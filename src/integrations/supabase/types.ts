@@ -1233,6 +1233,7 @@ export type Database = {
           period_to: string | null
           platform: string
           raw: Json | null
+          raw_row_id: string | null
           rental_fee: number | null
           source: string | null
           total_earnings: number | null
@@ -1252,6 +1253,7 @@ export type Database = {
           period_to?: string | null
           platform: string
           raw?: Json | null
+          raw_row_id?: string | null
           rental_fee?: number | null
           source?: string | null
           total_earnings?: number | null
@@ -1271,6 +1273,7 @@ export type Database = {
           period_to?: string | null
           platform?: string
           raw?: Json | null
+          raw_row_id?: string | null
           rental_fee?: number | null
           source?: string | null
           total_earnings?: number | null
