@@ -328,10 +328,10 @@ async function findOrCreateDriver(
   }
   
   // 3. Email (jeśli jest prawdziwy email)
-  const realEmail = rowData.email?.trim();
-  if (realEmail && realEmail.includes('@') && !realEmail.includes('@rido.internal')) {
+  const csvEmail = rowData.email?.trim();
+  if (csvEmail && csvEmail.includes('@') && !csvEmail.includes('@rido.internal')) {
     const emailMatch = Array.from(existingDriversMap.values()).find(
-      (driver: any) => driver.email === realEmail
+      (driver: any) => driver.email === csvEmail
     );
     if (emailMatch) {
       console.log(`✅ Matched by email: ${fullName}`);
@@ -355,8 +355,8 @@ async function findOrCreateDriver(
   
   // ✅ ZMIANA: Login = Uber ID (jeśli istnieje), fallback do telefonu/FreeNow/timestamp
   // Email w drivers = prawdziwy email z CSV (jeśli istnieje) LUB null
-  const realEmail = rowData.email?.trim();
-  const hasRealEmail = realEmail && realEmail.includes('@');
+  const csvEmail = rowData.email?.trim();
+  const hasRealEmail = csvEmail && csvEmail.includes('@');
   
   const loginEmail = uberId
     ? `uber_${uberId}@rido.internal`
@@ -378,7 +378,7 @@ async function findOrCreateDriver(
       first_name: firstName,
       last_name: lastName,
       phone: phone || '',
-      real_email: hasRealEmail ? realEmail : ''
+      real_email: hasRealEmail ? csvEmail : ''
     }
   });
   
@@ -396,7 +396,7 @@ async function findOrCreateDriver(
       city_id,
       first_name: firstName,
       last_name: lastName,
-      email: hasRealEmail ? realEmail : null, // ✅ null jeśli brak emaila w CSV
+      email: hasRealEmail ? csvEmail : null, // ✅ null jeśli brak emaila w CSV
       phone: phone || null,
       fuel_card_number: rowData.fuelCard || null,
       user_role: 'kierowca'
