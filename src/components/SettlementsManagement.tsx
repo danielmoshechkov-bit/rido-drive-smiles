@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus, File } from 'lucide-react';
+import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus, File, MoreVertical, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -203,6 +204,79 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
     } catch (error) {
       console.error('Error loading settlement periods:', error);
       toast.error('Błąd ładowania okresów rozliczeniowych');
+    }
+  };
+
+  const handleViewSettlement = (settlementId: string) => {
+    navigate(`/admin/settlement/${settlementId}`);
+  };
+
+  const handleDeleteSettlement = async (settlementId: string) => {
+    const confirmed = confirm('❌ Czy na pewno chcesz usunąć to rozliczenie?\n\nTa operacja jest nieodwracalna.');
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from('settlement_periods')
+        .delete()
+        .eq('id', settlementId);
+      
+      if (error) throw error;
+      
+      toast.success('✅ Rozliczenie usunięte');
+      loadSettlementPeriods();
+    } catch (error) {
+      console.error('Error deleting settlement:', error);
+      toast.error('❌ Błąd podczas usuwania rozliczenia');
+    }
+  };
+
+  const handleExportSettlement = async (period: SettlementPeriod) => {
+    try {
+      // Fetch all settlements for this period
+      const { data, error } = await supabase
+        .from('settlements')
+        .select('*, drivers(*)')
+        .eq('period_from', period.week_start)
+        .eq('period_to', period.week_end)
+        .order('drivers(last_name)', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        toast.error('Brak danych do eksportu');
+        return;
+      }
+
+      // Create CSV
+      const headers = ['Kierowca', 'Email', 'Okres od', 'Okres do', 'Platforma', 'Kwoty'];
+      const rows = data.map(settlement => [
+        `${settlement.drivers?.first_name || ''} ${settlement.drivers?.last_name || ''}`.trim(),
+        settlement.drivers?.email || '',
+        settlement.period_from,
+        settlement.period_to,
+        settlement.platform,
+        JSON.stringify(settlement.amounts)
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `rozliczenie_${period.week_start}_${period.week_end}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('✅ Wyeksportowano rozliczenie do CSV');
+    } catch (error) {
+      console.error('Error exporting settlement:', error);
+      toast.error('❌ Błąd podczas eksportu');
     }
   };
 
@@ -691,13 +765,30 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                     </TableCell>
                     <TableCell>{new Date(period.created_at).toLocaleDateString('pl-PL')}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/admin/settlement/${period.id}`)}
-                      >
-                        Otwórz
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewSettlement(period.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Podgląd
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExportSettlement(period)}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Eksportuj CSV
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteSettlement(period.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Usuń
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

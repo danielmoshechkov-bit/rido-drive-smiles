@@ -250,6 +250,8 @@ async function findOrCreateDriver(
   // Create auth account
   let authUserId = null;
   try {
+    console.log(`🔐 Creating auth account for: ${login}`);
+    
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email: login,
       password: 'Test12345!',
@@ -258,22 +260,59 @@ async function findOrCreateDriver(
     });
     
     if (authError) {
-      console.error('Error creating auth account:', authError);
-      await createAlert(
-        supabase,
-        'warning',
-        'system',
-        'Nie utworzono konta auth',
-        `Kierowca ${full_name} będzie dodany, ale nie utworzono konta logowania`,
-        { error: authError },
-        undefined,
-        importJobId
-      );
+      // Check if user already exists
+      if (authError.message?.includes('already registered') || authError.message?.includes('already been registered')) {
+        console.log(`⚠️ User ${login} already exists, trying to find existing user`);
+        
+        // Try to find existing user by email
+        const { data: existingUsers } = await supabase.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === login.toLowerCase());
+        
+        if (existingUser) {
+          console.log(`✅ Found existing user: ${existingUser.id}`);
+          authUserId = existingUser.id;
+        } else {
+          console.error('❌ User exists but could not find it');
+          await createAlert(
+            supabase,
+            'warning',
+            'system',
+            'Nie znaleziono istniejącego użytkownika',
+            `Email ${login} jest już zarejestrowany, ale nie można znaleźć użytkownika`,
+            { error: authError, login },
+            undefined,
+            importJobId
+          );
+        }
+      } else {
+        console.error('❌ Auth error:', authError);
+        await createAlert(
+          supabase,
+          'warning',
+          'system',
+          'Nie utworzono konta auth',
+          `Kierowca ${full_name} będzie dodany, ale nie utworzono konta logowania: ${authError.message}`,
+          { error: authError, login },
+          undefined,
+          importJobId
+        );
+      }
     } else {
       authUserId = authUser.user.id;
+      console.log(`✅ Created auth user: ${authUserId}`);
     }
   } catch (authErr) {
-    console.error('Exception creating auth account:', authErr);
+    console.error('💥 Exception creating auth account:', authErr);
+    await createAlert(
+      supabase,
+      'error',
+      'system',
+      'Wyjątek podczas tworzenia konta',
+      `Nie udało się utworzyć konta dla ${full_name}: ${authErr instanceof Error ? authErr.message : String(authErr)}`,
+      { error: String(authErr), login },
+      undefined,
+      importJobId
+    );
   }
   
   // Create driver record
@@ -421,19 +460,25 @@ serve(async (req) => {
       }
     });
 
-    const { csv_text, period_from, period_to, city_id } = await req.json();
+    const { csv_text, period_from, period_to, city_id, force_first_import } = await req.json();
     
-    console.log('Received CSV import request for period:', period_from, 'to', period_to);
+    console.log('🚀 CSV Import started:', { 
+      period_from, 
+      period_to, 
+      city_id, 
+      force_first_import,
+      csv_length: csv_text?.length 
+    });
     
     if (!csv_text || !period_from || !period_to || !city_id) {
       throw new Error('Missing required fields: csv_text, period_from, period_to, city_id');
     }
     
-    // Check if this is the first import
-    const firstImport = await isFirstImport(supabase);
+    // Use force_first_import parameter or auto-detect
+    const firstImport = force_first_import === true || await isFirstImport(supabase);
     
     if (firstImport) {
-      console.log('⚠️ FIRST IMPORT DETECTED - Database will be reset');
+      console.log('⚠️ FIRST IMPORT - Deleting all drivers from database');
       
       // Delete all drivers (cascade will delete related data)
       const { error: deleteError } = await supabase
@@ -442,17 +487,19 @@ serve(async (req) => {
         .neq('id', '00000000-0000-0000-0000-000000000000');
       
       if (deleteError) {
-        console.error('Error deleting existing drivers:', deleteError);
+        console.error('❌ Error deleting existing drivers:', deleteError);
         throw new Error('Failed to reset database for first import');
       }
+      
+      console.log('✅ All drivers deleted successfully');
       
       await createAlert(
         supabase,
         'info',
         'system',
         'Pierwszy import - baza zresetowana',
-        'Wykryto pierwszy import CSV. Wszyscy istniejący kierowcy zostali usunięci z bazy danych.',
-        { period_from, period_to }
+        `Baza kierowców została wyczyszczona. ${force_first_import ? 'Użytkownik wymusił reset.' : 'Wykryto pustą bazę.'}`,
+        { period_from, period_to, forced: force_first_import }
       );
     }
 
