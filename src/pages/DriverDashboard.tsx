@@ -232,11 +232,11 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     from: "",
     to: "",
     earnings: {
-      uber: 1250,
-      bolt: 890,
-      freenow: 450
+      uber: 0,
+      bolt: 0,
+      freenow: 0
     },
-    fuel: 320,
+    fuel: 0,
     rental: 0,
     plan: "39+8%"
   });
@@ -314,8 +314,10 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .from("settlements")
       .select("*")
       .eq("driver_id", driverData.driver_id)
-      .gte("week_start", weekInfo.fromISO)
-      .lte("week_end", weekInfo.toISO);
+      .gte("period_from", weekInfo.fromISO)
+      .lte("period_to", weekInfo.toISO);
+    
+    console.log("📊 Loaded settlements:", settlements);
     
     // Pobierz opłatę za wynajem z przypisanego pojazdu
     const { data: assignment, error } = await supabase
@@ -331,26 +333,45 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       .limit(1)
       .single();
     
-    console.log("Assignment data:", assignment);
-    console.log("Assignment error:", error);
-    console.log("Driver ID:", driverData.driver_id);
-    
-    if (error) {
-      console.error("Error fetching assignment:", error);
-    }
-    
     const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
-    console.log("Rental fee extracted:", rentalFee);
-    console.log("Full vehicles object:", assignment?.vehicles);
     
+    // Zsumuj dane z CSV (pole amounts)
     if (settlements && settlements.length > 0) {
+      const totals = settlements.reduce((acc, settlement) => {
+        const amounts = (settlement.amounts || {}) as any;
+        return {
+          uber: acc.uber + (amounts.uber || 0),
+          uberCashless: acc.uberCashless + (amounts.uberCashless || 0),
+          bolt: acc.bolt + (amounts.boltGross || 0),
+          boltNet: acc.boltNet + (amounts.boltNet || 0),
+          freenow: acc.freenow + (amounts.freenowGross || 0),
+          freenowNet: acc.freenowNet + (amounts.freenowNet || 0),
+          fuel: acc.fuel + (amounts.fuel || 0)
+        };
+      }, { uber: 0, uberCashless: 0, bolt: 0, boltNet: 0, freenow: 0, freenowNet: 0, fuel: 0 });
+      
+      console.log("💰 Calculated totals:", totals);
+      
       setWeekData(prev => ({
         ...prev,
+        earnings: {
+          uber: totals.uber,
+          bolt: totals.bolt,
+          freenow: totals.freenow
+        },
+        fuel: totals.fuel,
         rental: rentalFee
       }));
     } else {
+      // Reset jeśli brak danych
       setWeekData(prev => ({
         ...prev,
+        earnings: {
+          uber: 0,
+          bolt: 0,
+          freenow: 0
+        },
+        fuel: 0,
         rental: rentalFee
       }));
     }
