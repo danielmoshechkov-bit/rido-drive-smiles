@@ -30,3 +30,6 @@ verify_jwt = false
 
 [functions.create-driver-accounts]
 verify_jwt = false
+
+[functions.reset-driver-password]
+verify_jwt = false
