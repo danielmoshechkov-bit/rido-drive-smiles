@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Upload, FileText } from 'lucide-react';
+import { Upload, FileText, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,358 +12,206 @@ interface CSVUploadProps {
   onUploadComplete: () => void;
 }
 
-type Platform = 'uber' | 'bolt' | 'freenow';
-
-interface CSVData {
-  platform: Platform;
-  data: any[];
-  filename: string;
-}
-
 export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
-  const [uploading, setUploading] = useState<Platform | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<CSVData[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; date: string; stats: any }>>([]);
 
-  const parseCSV = (text: string): string[][] => {
-    return text.split('\n').map(row => 
-      row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
-    ).filter(row => row.some(cell => cell.length > 0));
-  };
-
-  const processUberCSV = (rows: string[][]): any[] => {
-    // Uber: Kol A = ID, B = Imię, C = Nazwisko (od linii 2)
-    return rows.slice(1).map((row, index) => ({
-      platform_id: row[0] || '',
-      first_name: row[1] || '',
-      last_name: row[2] || '',
-      email: null,
-      phone: null,
-      rowIndex: index + 2
-    })).filter(driver => driver.platform_id && (driver.first_name || driver.last_name));
-  };
-
-  const processBoltCSV = (rows: string[][]): any[] => {
-    // Bolt: Kol A = Imię Nazwisko, B = Email, C = Telefon, W = ID (kolumna 22, od linii 2)
-    return rows.slice(1).map((row, index) => {
-      const fullName = row[0] || '';
-      const [first_name, ...lastNameParts] = fullName.split(' ');  
-      const last_name = lastNameParts.join(' ');
-      
-      return {
-        platform_id: row[22] || '', // Zmienione z row[3] na row[22] (kolumna W)
-        first_name: first_name || '',
-        last_name: last_name || '',
-        email: row[1] || null,
-        phone: row[2] || null,
-        rowIndex: index + 2
-      };
-    }).filter(driver => driver.platform_id && driver.first_name);
-  };
-
-  const processFreeNowCSV = (rows: string[][]): any[] => {
-    // FreeNow: Kol A = ID, B = Imię Nazwisko (od linii 2)
-    return rows.slice(1).map((row, index) => {
-      const fullName = row[1] || '';
-      const [first_name, ...lastNameParts] = fullName.split(' ');
-      const last_name = lastNameParts.join(' ');
-      
-      return {
-        platform_id: row[0] || '',
-        first_name: first_name || '',
-        last_name: last_name || '',
-        email: null,
-        phone: null,
-        rowIndex: index + 2
-      };
-    }).filter(driver => driver.platform_id && driver.first_name);
-  };
-
-  const findDriverByEmail = async (email: string, cityId: string) => {
-    if (!email) return null;
-    
-    const { data: existingDriver } = await supabase
-      .from('drivers')
-      .select('*')
-      .eq('city_id', cityId)
-      .eq('email', email)
-      .single();
-
-    return existingDriver || null;
-  };
-
-  const findSimilarDriver = async (firstName: string, lastName: string, cityId: string) => {
-    const { data: existingDrivers } = await supabase
-      .from('drivers')
-      .select('*')
-      .eq('city_id', cityId);
-
-    if (!existingDrivers) return null;
-
-    const fullName = `${firstName} ${lastName}`.toLowerCase().trim();
-    
-    for (const driver of existingDrivers) {
-      const existingName = `${driver.first_name} ${driver.last_name}`.toLowerCase().trim();
-      
-      // Check for exact match first
-      if (existingName === fullName) {
-        return driver;
-      }
-      
-      // Check for similar names (accounting for typos, different spellings)
-      const cleanName = fullName.replace(/[^a-z]/g, '');
-      const cleanExisting = existingName.replace(/[^a-z]/g, '');
-      
-      if (cleanName === cleanExisting && Math.abs(existingName.length - fullName.length) <= 2) {
-        return driver;
-      }
+  const handleFileSelect = useCallback((file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Proszę wybrać plik CSV');
+      return;
     }
-    
-    return null;
-  };
+    setSelectedFile(file);
+  }, []);
 
-  const handleFileUpload = useCallback(async (file: File, platform: Platform) => {
-    try {
-      setUploading(platform);
-      
-      const text = await file.text();
-      const rows = parseCSV(text);
-      
-      if (rows.length < 2) {
-        throw new Error('Plik CSV musi zawierać nagłówki i przynajmniej jeden wiersz danych');
-      }
-
-      let processedData: any[];
-      
-      switch (platform) {
-        case 'uber':
-          processedData = processUberCSV(rows);
-          break;
-        case 'bolt':
-          processedData = processBoltCSV(rows);
-          break;
-        case 'freenow':
-          processedData = processFreeNowCSV(rows);
-          break;
-        default:
-          throw new Error('Nieznana platforma');
-      }
-
-      if (processedData.length === 0) {
-        throw new Error('Nie znaleziono prawidłowych danych w pliku CSV');
-      }
-
-      // Save to database
-      for (const driverData of processedData) {
-        // First, check if driver exists by platform_id
-        const { data: existingPlatformId } = await supabase
-          .from('driver_platform_ids')
-          .select('driver_id')
-          .eq('platform', platform)
-          .eq('platform_id', driverData.platform_id)
-          .single();
-
-        let driverId: string;
-
-        if (existingPlatformId) {
-          // Update existing driver with better data if available
-          driverId = existingPlatformId.driver_id;
-          const updateData: any = { updated_at: new Date().toISOString() };
-          
-          if (driverData.first_name) updateData.first_name = driverData.first_name;
-          if (driverData.last_name) updateData.last_name = driverData.last_name;
-          if (driverData.email) updateData.email = driverData.email;
-          if (driverData.phone) updateData.phone = driverData.phone;
-          
-          await supabase
-            .from('drivers')
-            .update(updateData)
-            .eq('id', driverId);
-        } else {
-          // NAJPIERW sprawdź czy istnieje kierowca o tym samym emailu
-          let existingDriverByEmail = null;
-          if (driverData.email) {
-            existingDriverByEmail = await findDriverByEmail(driverData.email, cityId);
-          }
-          
-          if (existingDriverByEmail) {
-            // Połącz z kierowcą o tym samym emailu
-            driverId = existingDriverByEmail.id;
-            
-            // Update driver data with new info if it's better/more complete
-            const updateData: any = { updated_at: new Date().toISOString() };
-            if (driverData.first_name && !existingDriverByEmail.first_name) updateData.first_name = driverData.first_name;
-            if (driverData.last_name && !existingDriverByEmail.last_name) updateData.last_name = driverData.last_name;
-            if (driverData.phone && !existingDriverByEmail.phone) updateData.phone = driverData.phone;
-            
-            if (Object.keys(updateData).length > 1) {
-              await supabase
-                .from('drivers')
-                .update(updateData)
-                .eq('id', driverId);
-            }
-            
-            // Add new platform ID
-            await supabase
-              .from('driver_platform_ids')
-              .insert({
-                driver_id: driverId,
-                platform: platform,
-                platform_id: driverData.platform_id
-              });
-          } else {
-            // Check for similar driver by name
-            const similarDriver = await findSimilarDriver(driverData.first_name, driverData.last_name, cityId);
-            
-            if (similarDriver) {
-              // Add platform to existing similar driver
-              driverId = similarDriver.id;
-              
-              // Update driver data with new info if it's better/more complete
-              const updateData: any = { updated_at: new Date().toISOString() };
-              if (driverData.email && !similarDriver.email) updateData.email = driverData.email;
-              if (driverData.phone && !similarDriver.phone) updateData.phone = driverData.phone;
-              
-              if (Object.keys(updateData).length > 1) {
-                await supabase
-                  .from('drivers')
-                  .update(updateData)
-                  .eq('id', driverId);
-              }
-              
-              // Add new platform ID
-              await supabase
-                .from('driver_platform_ids')
-                .insert({
-                  driver_id: driverId,
-                  platform: platform,
-                  platform_id: driverData.platform_id
-                });
-            } else {
-              // Create completely new driver
-              const { data: newDriver, error: driverError } = await supabase
-                .from('drivers')
-                .insert({
-                  first_name: driverData.first_name,
-                  last_name: driverData.last_name,
-                  email: driverData.email,
-                  phone: driverData.phone,
-                  city_id: cityId
-                })
-                .select()
-                .single();
-
-              if (driverError) throw driverError;
-              driverId = newDriver.id;
-
-              // Create platform ID record
-              await supabase
-                .from('driver_platform_ids')
-                .insert({
-                  driver_id: driverId,
-                  platform: platform,
-                  platform_id: driverData.platform_id
-                });
-            }
-          }
-        }
-      }
-
-      // Log the import
-      await supabase
-        .from('csv_imports')
-        .insert({
-          city_id: cityId,
-          platform: platform,
-          filename: file.name,
-          records_count: processedData.length
-        });
-
-      setUploadedFiles(prev => [...prev, { platform, data: processedData, filename: file.name }]);
-      toast.success(`Zaimportowano ${processedData.length} kierowców z ${platform.toUpperCase()}`);
-      onUploadComplete();
-      
-    } catch (error) {
-      toast.error(`Błąd podczas importu: ${error instanceof Error ? error.message : 'Nieznany błąd'}`);
-    } finally {
-      setUploading(null);
-    }
-  }, [cityId, onUploadComplete]);
-
-  const handleDrop = useCallback((e: React.DragEvent, platform: Platform) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
     const csvFile = files.find(file => file.name.endsWith('.csv'));
     
     if (csvFile) {
-      handleFileUpload(csvFile, platform);
+      handleFileSelect(csvFile);
     } else {
       toast.error('Proszę wybrać plik CSV');
     }
-  }, [handleFileUpload]);
+  }, [handleFileSelect]);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, platform: Platform) => {
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileUpload(file, platform);
+      handleFileSelect(file);
     }
   };
 
-  const platforms = [
-    { id: 'uber' as Platform, name: 'Uber', color: 'bg-black text-white' },
-    { id: 'bolt' as Platform, name: 'Bolt', color: 'bg-green-500 text-white' },
-    { id: 'freenow' as Platform, name: 'FreeNow', color: 'bg-red-500 text-white' },
-  ];
+  const handleImport = async () => {
+    if (!selectedFile) {
+      toast.error('Proszę wybrać plik CSV');
+      return;
+    }
+
+    if (!periodFrom || !periodTo) {
+      toast.error('Proszę podać okres rozliczeniowy');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // Read CSV file
+      const text = await selectedFile.text();
+      
+      // Call edge function
+      const { data, error } = await supabase.functions.invoke('csv-import', {
+        body: {
+          csv_text: text,
+          period_from: periodFrom,
+          period_to: periodTo,
+          city_id: cityId
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        const stats = data.stats;
+        toast.success(
+          `Import zakończony! Dodano: ${stats.added}, Zaktualizowano: ${stats.updated}, Błędy: ${stats.errors}`
+        );
+        
+        setUploadedFiles(prev => [...prev, {
+          filename: selectedFile.name,
+          date: new Date().toLocaleString('pl-PL'),
+          stats
+        }]);
+        
+        setSelectedFile(null);
+        setPeriodFrom('');
+        setPeriodTo('');
+        onUploadComplete();
+      } else {
+        throw new Error(data?.error || 'Import failed');
+      }
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error(`Błąd podczas importu: ${error instanceof Error ? error.message : 'Nieznany błąd'}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {platforms.map((platform) => (
-        <Card key={platform.id} className="relative">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              {platform.name}
-              <Badge className={platform.color}>
-                {uploadedFiles.filter(f => f.platform === platform.id).length} plików
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors"
-              onDrop={(e) => handleDrop(e, platform.id)}
-              onDragOver={(e) => e.preventDefault()}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Import rozliczeń CSV</CardTitle>
+          <CardDescription>
+            Wgraj plik CSV z Google Sheets (arkusz "SZABLON ROZLICZENIA RIDO")
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* File Drop Zone */}
+          <div
+            className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors"
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-sm text-muted-foreground mb-2">
+              Przeciągnij i upuść plik CSV lub kliknij aby wybrać
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Wymagane kolumny: Email, Bolt ID, Uber UUID, Imię+nazwisko, FreeNow ID, Kwoty
+            </p>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileInput}
+              className="hidden"
+              id="csv-file-input"
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => document.getElementById('csv-file-input')?.click()}
             >
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-4">
-                Przeciągnij i upuść plik CSV lub kliknij aby wybrać
-              </p>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => handleFileInput(e, platform.id)}
-                className="hidden"
-                id={`file-${platform.id}`}
-              />
-              <Button 
-                variant="outline" 
-                onClick={() => document.getElementById(`file-${platform.id}`)?.click()}
-                disabled={uploading === platform.id}
-              >
-                {uploading === platform.id ? 'Importowanie...' : 'Wybierz plik'}
-              </Button>
-            </div>
+              Wybierz plik CSV
+            </Button>
             
-            {uploadedFiles.filter(f => f.platform === platform.id).map((file, index) => (
-              <div key={index} className="mt-4 p-3 bg-muted rounded-lg flex items-center gap-2">
+            {selectedFile && (
+              <div className="mt-4 p-3 bg-muted rounded-lg flex items-center gap-2 justify-center">
                 <FileText className="h-4 w-4" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{file.filename}</p>
-                  <p className="text-xs text-muted-foreground">{file.data.length} rekordów</p>
+                <span className="text-sm font-medium">{selectedFile.name}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Period Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="period-from">
+                <Calendar className="h-4 w-4 inline mr-2" />
+                Okres od
+              </Label>
+              <Input
+                id="period-from"
+                type="date"
+                value={periodFrom}
+                onChange={(e) => setPeriodFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="period-to">
+                <Calendar className="h-4 w-4 inline mr-2" />
+                Okres do
+              </Label>
+              <Input
+                id="period-to"
+                type="date"
+                value={periodTo}
+                onChange={(e) => setPeriodTo(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Import Button */}
+          <Button 
+            className="w-full" 
+            onClick={handleImport}
+            disabled={uploading || !selectedFile || !periodFrom || !periodTo}
+          >
+            {uploading ? 'Importowanie...' : 'Importuj rozliczenia'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Upload History */}
+      {uploadedFiles.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Historia importów</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {uploadedFiles.map((file, index) => (
+              <div key={index} className="p-3 bg-muted rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm font-medium">{file.filename}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{file.date}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Dodano: {file.stats.added} | Zaktualizowano: {file.stats.updated} | 
+                  Nowi kierowcy: {file.stats.newDrivers} | Błędy: {file.stats.errors}
                 </div>
               </div>
             ))}
           </CardContent>
         </Card>
-      ))}
+      )}
     </div>
   );
 };

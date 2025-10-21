@@ -13,12 +13,26 @@ import {
   X,
   Check,
   Eye,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ManualMatchModal } from '@/components/ManualMatchModal';
 
 export default function SystemAlerts() {
   const { alerts, loading, markAsResolved, markAsIgnored } = useSystemAlerts();
   const [filter, setFilter] = useState<'all' | 'pending' | 'resolved' | 'ignored'>('all');
+  const [matchModalOpen, setMatchModalOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+
+  const handleOpenMatchModal = (alert: any) => {
+    setSelectedAlert(alert);
+    setMatchModalOpen(true);
+  };
+
+  const handleMatchComplete = () => {
+    // Refresh alerts after successful match
+    window.location.reload();
+  };
 
   const filteredAlerts = alerts.filter((alert) => {
     if (filter === 'all') return true;
@@ -142,6 +156,16 @@ export default function SystemAlerts() {
                     
                     {alert.status === 'pending' && (
                       <div className="flex items-center gap-2">
+                        {(alert.type === 'error' && (alert.category === 'matching' || alert.category === 'validation')) && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleOpenMatchModal(alert)}
+                          >
+                            <Link2 className="h-4 w-4 mr-1" />
+                            Dopasuj kierowcę
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -194,6 +218,17 @@ export default function SystemAlerts() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Manual Match Modal */}
+      {selectedAlert && (
+        <ManualMatchModal
+          open={matchModalOpen}
+          onOpenChange={setMatchModalOpen}
+          alertId={selectedAlert.id}
+          alertMetadata={selectedAlert.metadata}
+          onMatchComplete={handleMatchComplete}
+        />
+      )}
     </div>
   );
 }
