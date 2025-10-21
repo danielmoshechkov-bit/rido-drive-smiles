@@ -69,8 +69,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ========== KROK 2: PARSOWANIE CSV ==========
-    const csvText = atob(main_csv);
+    // ========== KROK 2: PARSOWANIE CSV (z poprawnym UTF-8) ==========
+    const uint8Array = Uint8Array.from(atob(main_csv), c => c.charCodeAt(0));
+    const csvText = new TextDecoder('utf-8').decode(uint8Array);
     const parsedRows = parseCSV(csvText);
     
     console.log(`📊 Sparsowano ${parsedRows.length} wierszy CSV`);
@@ -313,20 +314,35 @@ async function findOrCreateDriver(
   const phone = rowData.phone;
   const fullName = rowData.fullName;
   
-  // PRIORYTET MATCHOWANIA:
-  // 1. Uber ID
-  if (uberId && existingDriversMap.has(`uber:${uberId}`)) {
-    return existingDriversMap.get(`uber:${uberId}`).id;
+  // PRIORYTET MATCHOWANIA (od najbardziej stabilnego):
+  // 1. Telefon (najbardziej stabilny identyfikator)
+  if (phone && existingDriversMap.has(`phone:${phone}`)) {
+    console.log(`✅ Matched by phone: ${fullName}`);
+    return existingDriversMap.get(`phone:${phone}`).id;
   }
   
   // 2. FreeNow ID
   if (freenowId && existingDriversMap.has(`freenow:${freenowId}`)) {
+    console.log(`✅ Matched by FreeNow ID: ${fullName}`);
     return existingDriversMap.get(`freenow:${freenowId}`).id;
   }
   
-  // 3. Telefon
-  if (phone && existingDriversMap.has(`phone:${phone}`)) {
-    return existingDriversMap.get(`phone:${phone}`).id;
+  // 3. Email (jeśli jest prawdziwy email)
+  const realEmail = rowData.email?.trim();
+  if (realEmail && realEmail.includes('@') && !realEmail.includes('@rido.internal')) {
+    const emailMatch = Array.from(existingDriversMap.values()).find(
+      (driver: any) => driver.email === realEmail
+    );
+    if (emailMatch) {
+      console.log(`✅ Matched by email: ${fullName}`);
+      return emailMatch.id;
+    }
+  }
+  
+  // 4. Uber ID (najmniej stabilny - może być UUID)
+  if (uberId && existingDriversMap.has(`uber:${uberId}`)) {
+    console.log(`✅ Matched by Uber ID: ${fullName}`);
+    return existingDriversMap.get(`uber:${uberId}`).id;
   }
   
   // ========== TWORZENIE NOWEGO KIEROWCY ==========
@@ -337,10 +353,17 @@ async function findOrCreateDriver(
   const firstName = nameParts[0] || 'Nieznane';
   const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
   
-  // Email: użyj Uber ID jako loginu
-  const loginEmail = uberId 
-    ? `${uberId}@rido.internal`
-    : `driver_${Date.now()}@rido.internal`;
+  // Email: priorytet prawdziwy email > telefon > FreeNow ID > Uber ID > timestamp
+  const realEmail = rowData.email?.trim();
+  const loginEmail = realEmail && realEmail.includes('@') && !realEmail.includes('@rido.internal')
+    ? realEmail
+    : phone
+      ? `tel_${phone.replace(/[^0-9]/g, '')}@rido.internal`
+      : freenowId
+        ? `freenow_${freenowId}@rido.internal`
+        : uberId
+          ? `uber_${uberId}@rido.internal`
+          : `driver_${Date.now()}@rido.internal`;
   
   // Hasło: Test12345! dla wszystkich
   const password = 'Test12345!';

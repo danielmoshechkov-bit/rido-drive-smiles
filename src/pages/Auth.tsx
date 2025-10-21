@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import LanguageSelector from "@/components/LanguageSelector";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -13,45 +14,61 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Admin login
-    if (email === 'daniel.moshechkov@gmail.com' && password === 'danmos050389') {
-      navigate('/admin/dashboard');
-      return;
+    try {
+      // Logowanie przez Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        alert('Nieprawidłowy email lub hasło!');
+        return;
+      }
+
+      if (!authData.user) {
+        alert('Błąd logowania!');
+        return;
+      }
+
+      // Sprawdź rolę użytkownika w tabeli drivers
+      const { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('user_role, first_name, last_name')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (driverError) {
+        console.error('Driver lookup error:', driverError);
+        // Jeśli nie ma w drivers, może to być admin (test/test)
+        if (email === 'test' || email === 'daniel.moshechkov@gmail.com') {
+          navigate('/admin/dashboard');
+          return;
+        }
+        alert('Nie znaleziono profilu użytkownika!');
+        return;
+      }
+
+      // Przekieruj na podstawie roli
+      if (driverData.user_role === 'admin' || driverData.user_role === 'pracownik') {
+        navigate('/admin/dashboard');
+      } else {
+        // Kierowca lub partner - zapisz dane do localStorage
+        localStorage.setItem('testUser', JSON.stringify({ 
+          email: authData.user.email,
+          type: 'driver',
+          name: `${driverData.first_name} ${driverData.last_name}`
+        }));
+        navigate('/driver');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Wystąpił błąd podczas logowania!');
     }
-    
-    // Simple test login
-    if (email === 'test' && password === 'test') {
-      navigate('/admin/dashboard');
-      return;
-    }
-    
-    // Test driver login
-    if (email === 'test@test.pl' && password === '12345') {
-      // Store test user info in localStorage for DriverDashboard
-      localStorage.setItem('testUser', JSON.stringify({ 
-        email: 'test@test.pl', 
-        type: 'driver' 
-      }));
-      navigate('/driver');
-      return;
-    }
-    
-    // Test driver login - Anastasia
-    if (email === 'anastasia.loktionova1991@gmail.com' && password === 'Test12345!') {
-      // Store test user info in localStorage for DriverDashboard
-      localStorage.setItem('testUser', JSON.stringify({ 
-        email: 'anastasia.loktionova1991@gmail.com', 
-        type: 'driver' 
-      }));
-      navigate('/driver');
-      return;
-    }
-    
-    // For now, just show error message for invalid credentials
-    alert('Nieprawidłowy email lub hasło!');
   };
 
   return (
