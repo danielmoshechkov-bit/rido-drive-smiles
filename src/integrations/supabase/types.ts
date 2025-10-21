@@ -1223,6 +1223,78 @@ export type Database = {
         }
         Relationships: []
       }
+      settlement_visibility_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          payout_formula: string | null
+          show_bolt_cash: boolean | null
+          show_bolt_commission: boolean | null
+          show_bolt_gross: boolean | null
+          show_bolt_net: boolean | null
+          show_freenow_cash: boolean | null
+          show_freenow_commission: boolean | null
+          show_freenow_gross: boolean | null
+          show_freenow_net: boolean | null
+          show_fuel: boolean | null
+          show_fuel_vat: boolean | null
+          show_fuel_vat_refund: boolean | null
+          show_tax: boolean | null
+          show_total_cash: boolean | null
+          show_total_commission: boolean | null
+          show_uber: boolean | null
+          show_uber_cash: boolean | null
+          show_uber_cashless: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          payout_formula?: string | null
+          show_bolt_cash?: boolean | null
+          show_bolt_commission?: boolean | null
+          show_bolt_gross?: boolean | null
+          show_bolt_net?: boolean | null
+          show_freenow_cash?: boolean | null
+          show_freenow_commission?: boolean | null
+          show_freenow_gross?: boolean | null
+          show_freenow_net?: boolean | null
+          show_fuel?: boolean | null
+          show_fuel_vat?: boolean | null
+          show_fuel_vat_refund?: boolean | null
+          show_tax?: boolean | null
+          show_total_cash?: boolean | null
+          show_total_commission?: boolean | null
+          show_uber?: boolean | null
+          show_uber_cash?: boolean | null
+          show_uber_cashless?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          payout_formula?: string | null
+          show_bolt_cash?: boolean | null
+          show_bolt_commission?: boolean | null
+          show_bolt_gross?: boolean | null
+          show_bolt_net?: boolean | null
+          show_freenow_cash?: boolean | null
+          show_freenow_commission?: boolean | null
+          show_freenow_gross?: boolean | null
+          show_freenow_net?: boolean | null
+          show_fuel?: boolean | null
+          show_fuel_vat?: boolean | null
+          show_fuel_vat_refund?: boolean | null
+          show_tax?: boolean | null
+          show_total_cash?: boolean | null
+          show_total_commission?: boolean | null
+          show_uber?: boolean | null
+          show_uber_cash?: boolean | null
+          show_uber_cashless?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       settlements: {
         Row: {
           amounts: Json | null

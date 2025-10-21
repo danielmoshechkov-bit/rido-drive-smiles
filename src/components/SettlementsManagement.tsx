@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format, addDays, startOfWeek, endOfWeek, isMonday, differenceInDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
@@ -96,6 +97,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [boltFile, setBoltFile] = useState<File | null>(null);
   const [freenowFile, setFreenowFile] = useState<File | null>(null);
   const [mainFile, setMainFile] = useState<File | null>(null);
+  const [isFirstImport, setIsFirstImport] = useState(false);
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -332,6 +334,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
           bolt_csv: boltCsv,
           freenow_csv: freenowCsv,
           main_csv: mainCsv,
+          is_first_import: isFirstImport,
         }
       });
 
@@ -346,17 +349,18 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
         throw new Error(data?.error || "Błąd podczas importu");
       }
 
-      toast.success(`✅ Rozliczenie utworzone! Przetworzono: ${data.stats.processed}, Błędy: ${data.stats.errors}`);
+      toast.success(`✅ Rozliczenie utworzone! Przetworzono: ${data.stats.processed} kierowców (${data.stats.new_drivers || 0} nowych, ${data.stats.matched_drivers || 0} dopasowanych)`);
       setNewSettlementOpen(false);
       setDateRange(undefined);
       setUberFile(null);
       setBoltFile(null);
       setFreenowFile(null);
       setMainFile(null);
+      setIsFirstImport(false);
       loadSettlementPeriods();
       
       // Navigate to the new settlement sheet
-      navigate(`/admin/settlement/${data.settlement_period_id}`);
+      navigate(`/settlement/${data.settlement_period_id}`);
     } catch (error) {
       console.error('Error creating settlement:', error);
       toast.error(error instanceof Error ? error.message : 'Błąd tworzenia rozliczenia');
@@ -710,6 +714,22 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                     </CardContent>
                   </Card>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 bg-destructive/10 border border-destructive rounded-lg">
+                <input 
+                  id="first-import" 
+                  type="checkbox"
+                  checked={isFirstImport}
+                  onChange={(e) => setIsFirstImport(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <label 
+                  htmlFor="first-import" 
+                  className="text-sm text-destructive font-medium cursor-pointer"
+                >
+                  ⚠️ To jest pierwsze wgranie (wykasuje wszystkich kierowców!)
+                </label>
               </div>
             </div>
             <DialogFooter>

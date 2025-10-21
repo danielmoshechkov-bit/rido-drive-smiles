@@ -16,6 +16,7 @@ import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
+import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -89,7 +90,7 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-9">
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-10">
             <TabsTrigger 
               value="weekly-report" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
@@ -119,6 +120,12 @@ const AdminDashboard = () => {
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               Dokumenty
+            </TabsTrigger>
+            <TabsTrigger 
+              value="visibility" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Widoczność
             </TabsTrigger>
             <TabsTrigger 
               value="data-import" 
@@ -253,6 +260,10 @@ const AdminDashboard = () => {
                 cityName={selectedCity.name}
               />
             )}
+          </TabsContent>
+
+          <TabsContent value="visibility" className="space-y-6">
+            <SettlementVisibilitySettings />
           </TabsContent>
 
           <TabsContent value="data-import" className="space-y-6">

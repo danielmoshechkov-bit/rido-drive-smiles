@@ -15,42 +15,29 @@ interface Settlement {
   source: string;
   period_from: string;
   period_to: string;
-  amounts: {
-    total_earnings?: number;
-    commission_amount?: number;
-    rental_fee?: number;
-    net_amount?: number;
-    uberCard?: number;
-    uberCash?: number;
-    boltGross?: number;
-    boltNet?: number;
-    boltCash?: number;
-    freeNowGross?: number;
-    freeNowNet?: number;
-    freeNowCash?: number;
-    fuel?: number;
-    vatFromFuel?: number;
-    vatRefundHalf?: number;
-    commission?: number;
-    tax?: number;
-  };
+  amounts: any;
   created_at: string;
 }
 
 interface VisibilitySettings {
-  show_uber_card: boolean;
+  show_uber: boolean;
+  show_uber_cashless: boolean;
   show_uber_cash: boolean;
   show_bolt_gross: boolean;
   show_bolt_net: boolean;
+  show_bolt_commission: boolean;
   show_bolt_cash: boolean;
   show_freenow_gross: boolean;
   show_freenow_net: boolean;
+  show_freenow_commission: boolean;
   show_freenow_cash: boolean;
-  show_fuel: boolean;
-  show_vat_from_fuel: boolean;
-  show_vat_refund_half: boolean;
-  show_commission: boolean;
+  show_total_cash: boolean;
+  show_total_commission: boolean;
   show_tax: boolean;
+  show_fuel: boolean;
+  show_fuel_vat: boolean;
+  show_fuel_vat_refund: boolean;
+  payout_formula: string;
 }
 
 interface DriverSettlementsProps {
@@ -103,10 +90,10 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
 
   const loadVisibilitySettings = async () => {
     const { data, error } = await supabase
-      .from('rido_visibility_settings')
+      .from('settlement_visibility_settings')
       .select('*')
       .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error loading visibility settings:', error);
@@ -114,21 +101,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     }
 
     if (data) {
-      setVisibilitySettings({
-        show_uber_card: data.show_uber_card,
-        show_uber_cash: data.show_uber_cash,
-        show_bolt_gross: data.show_bolt_gross,
-        show_bolt_net: data.show_bolt_net,
-        show_bolt_cash: data.show_bolt_cash,
-        show_freenow_gross: data.show_freenow_gross,
-        show_freenow_net: data.show_freenow_net,
-        show_freenow_cash: data.show_freenow_cash,
-        show_fuel: data.show_fuel,
-        show_vat_from_fuel: data.show_vat_from_fuel,
-        show_vat_refund_half: data.show_vat_refund_half,
-        show_commission: data.show_commission,
-        show_tax: data.show_tax,
-      });
+      setVisibilitySettings(data as VisibilitySettings);
     }
   };
 
@@ -158,26 +131,53 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     new Date(b.period_from).getTime() - new Date(a.period_from).getTime()
   );
 
-  // Calculate totals for a period
-  const calculateTotals = (settlements: Settlement[]) => {
-    return settlements.reduce((acc, s) => ({
-      total_earnings: acc.total_earnings + (s.amounts.total_earnings || 0),
-      commission: acc.commission + (s.amounts.commission_amount || 0),
-      rental: acc.rental + (s.amounts.rental_fee || 0),
-      net: acc.net + (s.amounts.net_amount || 0),
-    }), { total_earnings: 0, commission: 0, rental: 0, net: 0 });
+  // Calculate payout using formula
+  const calculatePayout = (amounts: any): number => {
+    if (!visibilitySettings?.payout_formula || !amounts) return 0;
+    
+    let formula = visibilitySettings.payout_formula;
+    
+    // Replace variable names with actual values
+    const replacements: Record<string, number> = {
+      uberCashless: amounts.uberCashless || 0,
+      uber: amounts.uber || 0,
+      uberCash: amounts.uberCash || 0,
+      boltNet: amounts.boltNet || 0,
+      boltGross: amounts.boltGross || 0,
+      boltCash: amounts.boltCash || 0,
+      freenowNet: amounts.freenowNet || 0,
+      freenowGross: amounts.freenowGross || 0,
+      freenowCash: amounts.freenowCash || 0,
+      fuel: amounts.fuel || 0,
+      fuelVATRefund: amounts.fuelVATRefund || 0,
+      totalCash: amounts.totalCash || 0,
+      totalCommission: amounts.totalCommission || 0,
+      tax: amounts.tax || 0
+    };
+    
+    Object.entries(replacements).forEach(([key, value]) => {
+      formula = formula.replace(new RegExp(key, 'g'), value.toString());
+    });
+    
+    try {
+      // Use Function constructor for safe evaluation (simple math only)
+      return new Function(`return ${formula}`)();
+    } catch {
+      console.error('Error evaluating formula:', formula);
+      return 0;
+    }
   };
 
-  // Render visible fields
+  // Render visible field
   const renderField = (label: string, value: number, visible: boolean, colorClass: string = "text-foreground") => {
     if (!visible) return null;
     
     return (
-      <div className="text-center p-3 bg-muted/50 rounded-lg">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
-        <p className={`text-lg font-semibold ${colorClass}`}>
+      <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
+        <span className="text-sm text-muted-foreground">{label}:</span>
+        <span className={`text-sm font-medium ${colorClass}`}>
           {value.toFixed(2)} zł
-        </p>
+        </span>
       </div>
     );
   };
@@ -270,8 +270,10 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
           ) : (
             <div className="space-y-4">
               {periods.map((period) => {
-                const totals = calculateTotals(period.settlements);
                 const periodKey = `${period.period_from}_${period.period_to}`;
+                const settlement = period.settlements[0];
+                const amounts = settlement.amounts || {};
+                const payout = calculatePayout(amounts);
 
                 return (
                   <Card key={periodKey} className="border-l-4 border-l-primary">
@@ -280,23 +282,41 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                         Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Przychód</p>
-                          <p className="text-lg font-semibold text-green-600">{totals.total_earnings.toFixed(2)} zł</p>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Prowizja</p>
-                          <p className="text-lg font-semibold text-red-600">-{totals.commission.toFixed(2)} zł</p>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Wynajem</p>
-                          <p className="text-lg font-semibold text-orange-600">-{totals.rental.toFixed(2)} zł</p>
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Do wypłaty</p>
-                          <p className="text-lg font-semibold text-purple-600">{totals.net.toFixed(2)} zł</p>
+                    <CardContent className="space-y-2">
+                      {/* UBER */}
+                      {renderField('Uber (łącznie)', amounts.uber, visibilitySettings.show_uber)}
+                      {renderField('Uber bezgotówka', amounts.uberCashless, visibilitySettings.show_uber_cashless)}
+                      {renderField('Uber gotówka', amounts.uberCash, visibilitySettings.show_uber_cash)}
+                      
+                      {/* BOLT */}
+                      {renderField('Bolt brutto', amounts.boltGross, visibilitySettings.show_bolt_gross)}
+                      {renderField('Bolt netto', amounts.boltNet, visibilitySettings.show_bolt_net)}
+                      {renderField('Bolt prowizja', amounts.boltCommission, visibilitySettings.show_bolt_commission, 'text-destructive')}
+                      {renderField('Bolt gotówka', amounts.boltCash, visibilitySettings.show_bolt_cash)}
+                      
+                      {/* FREENOW */}
+                      {renderField('FreeNow brutto', amounts.freenowGross, visibilitySettings.show_freenow_gross)}
+                      {renderField('FreeNow netto', amounts.freenowNet, visibilitySettings.show_freenow_net)}
+                      {renderField('FreeNow prowizja', amounts.freenowCommission, visibilitySettings.show_freenow_commission, 'text-destructive')}
+                      {renderField('FreeNow gotówka', amounts.freenowCash, visibilitySettings.show_freenow_cash)}
+                      
+                      {/* PODSUMOWANIE */}
+                      {renderField('Razem gotówka', amounts.totalCash, visibilitySettings.show_total_cash)}
+                      {renderField('Razem prowizja', amounts.totalCommission, visibilitySettings.show_total_commission, 'text-destructive')}
+                      {renderField('Podatek 8%/49', amounts.tax, visibilitySettings.show_tax)}
+                      
+                      {/* PALIWO */}
+                      {renderField('Paliwo', amounts.fuel, visibilitySettings.show_fuel, 'text-destructive')}
+                      {renderField('VAT z paliwa', amounts.fuelVAT, visibilitySettings.show_fuel_vat)}
+                      {renderField('Zwrot VAT', amounts.fuelVATRefund, visibilitySettings.show_fuel_vat_refund, 'text-green-600')}
+                      
+                      {/* DO WYPŁATY */}
+                      <div className="pt-3 mt-3 border-t">
+                        <div className="flex justify-between p-3 bg-primary/10 rounded-lg">
+                          <span className="text-base font-semibold">Do wypłaty:</span>
+                          <span className="text-base font-bold text-primary">
+                            {payout.toFixed(2)} zł
+                          </span>
                         </div>
                       </div>
                     </CardContent>

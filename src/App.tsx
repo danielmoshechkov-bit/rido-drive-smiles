@@ -28,7 +28,8 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
-          <Route path="/admin/settlement/:settlementId" element={<SettlementSheetView />} />
+          <Route path="/admin/settlement/:settlementId" element={<SettlementSheet />} />
+          <Route path="/settlement/:id" element={<SettlementSheet />} />
           <Route path="/driver/register" element={<DriverRegister />} />
           <Route path="/driver" element={<DriverDashboard />} />
           <Route path="/settlement/:id" element={<SettlementSheet />} />
