@@ -328,10 +328,10 @@ async function findOrCreateDriver(
   }
   
   // 3. Email (jeśli jest prawdziwy email)
-  const csvEmail = rowData.email?.trim();
-  if (csvEmail && csvEmail.includes('@') && !csvEmail.includes('@rido.internal')) {
+  const emailForMatch = rowData.email?.trim();
+  if (emailForMatch && emailForMatch.includes('@') && !emailForMatch.includes('@rido.internal')) {
     const emailMatch = Array.from(existingDriversMap.values()).find(
-      (driver: any) => driver.email === csvEmail
+      (driver: any) => driver.email === emailForMatch
     );
     if (emailMatch) {
       console.log(`✅ Matched by email: ${fullName}`);
