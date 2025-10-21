@@ -115,12 +115,12 @@ export const EditPlatformIdsModal = ({
         <div className="space-y-4">
           {/* Uber */}
           <div>
-            <Label>Uber UUID</Label>
+            <Label>Uber ID</Label>
             <div className="flex gap-2 mt-2">
               <Input
                 value={newUber}
                 onChange={(e) => setNewUber(e.target.value)}
-                placeholder="Wprowadź UUID"
+                placeholder="Wprowadź Uber ID"
               />
               <Button onClick={() => addId('uber', newUber)}>Dodaj</Button>
             </div>

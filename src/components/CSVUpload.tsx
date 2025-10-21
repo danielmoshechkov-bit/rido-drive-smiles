@@ -147,7 +147,7 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
               Przeciągnij i upuść plik CSV lub kliknij aby wybrać
             </p>
             <p className="text-xs text-muted-foreground mb-4">
-              Wymagane kolumny: Email, Bolt ID, Uber UUID, Imię+nazwisko, FreeNow ID, Kwoty
+              Wymagane kolumny: Email, Bolt ID, Uber ID, Imię+nazwisko, FreeNow ID, Kwoty
             </p>
             <input
               type="file"

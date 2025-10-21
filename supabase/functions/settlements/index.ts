@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     const headers = parsedRows[0].map(h => h.toLowerCase().trim());
     
     const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
-    const uberIdIdx = headers.findIndex(h => h.includes('id uuid')); // ✅ ZMIANA: "ID UUID" to prawdziwy Uber ID
+    const uberIdIdx = headers.findIndex(h => h.includes('id uber')); // ✅ Kolumna "ID Uber" z CSV
     const phoneIdx = headers.findIndex(h => h.includes('nr tel'));
     const freenowIdIdx = headers.findIndex(h => h.includes('id freenow'));
     const fuelCardIdx = headers.findIndex(h => h.includes('nr karty paliwowej'));
