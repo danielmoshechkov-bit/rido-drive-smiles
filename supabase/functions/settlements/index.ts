@@ -60,6 +60,15 @@ Deno.serve(async (req) => {
       main_rows: mainData.length,
     });
 
+    // Debug: Log first 3 rows of main CSV
+    if (mainData.length > 0) {
+      console.log('🔍 First 3 rows of main CSV:', mainData.slice(0, 3).map((row, idx) => ({
+        row_number: idx,
+        columns: row.length,
+        data: row
+      })));
+    }
+
     // BATCH PROCESSING: Fetch all drivers once
     console.log('🔍 Fetching all drivers for city:', city_id);
     const { data: allDrivers, error: driversError } = await supabase
@@ -306,19 +315,50 @@ async function processSettlements(
   const settlementsToInsert: any[] = [];
   const unmatchedRows: any[] = [];
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    
     try {
       // Skip empty rows
       if (row.every(cell => !cell || cell.trim() === '')) {
         continue;
       }
 
-      // Extract data from row (adjust column indices based on CSV format)
-      const driverEmail = row[0]?.toLowerCase().trim();
-      const platformId = row[1]?.trim();
-      const totalEarnings = parseFloat(row[3] || '0') || 0;
-      const commissionAmount = parseFloat(row[4] || '0') || 0;
-      const netAmount = parseFloat(row[5] || '0') || 0;
+      // Extract data from row based on platform
+      let driverEmail = '';
+      let platformId = '';
+      let totalEarnings = 0;
+      let commissionAmount = 0;
+      let netAmount = 0;
+      
+      if (platform === 'main') {
+        // Main CSV format: email, platform_id, ..., total, commission, net
+        driverEmail = row[0]?.toLowerCase().trim() || '';
+        platformId = row[1]?.trim() || '';
+        // Adjust these indices based on your actual CSV structure
+        totalEarnings = parseFloat(row[row.length - 3] || '0') || 0;
+        commissionAmount = parseFloat(row[row.length - 2] || '0') || 0;
+        netAmount = parseFloat(row[row.length - 1] || '0') || 0;
+        
+        // Debug first few rows
+        if (i < 3) {
+          console.log(`🔍 Row ${i} parsing:`, {
+            email: driverEmail,
+            platform_id: platformId,
+            total: totalEarnings,
+            commission: commissionAmount,
+            net: netAmount,
+            row_length: row.length
+          });
+        }
+      } else {
+        // Other platforms format
+        driverEmail = row[0]?.toLowerCase().trim() || '';
+        platformId = row[1]?.trim() || '';
+        totalEarnings = parseFloat(row[3] || '0') || 0;
+        commissionAmount = parseFloat(row[4] || '0') || 0;
+        netAmount = parseFloat(row[5] || '0') || 0;
+      }
 
       // Find driver - PRIORITY: platform_id first, then email
       let driver = null;
@@ -340,7 +380,7 @@ async function processSettlements(
           email: driverEmail,
           platform_id: platformId,
           earnings: totalEarnings,
-          raw: row
+          raw: row.slice(0, 5) // Only first 5 columns for brevity
         });
         continue;
       }
@@ -357,16 +397,18 @@ async function processSettlements(
         net_amount: netAmount,
         week_start: period_from,
         week_end: period_to,
+        rental_fee: 0,
         amounts: {},
-        raw: row,
-        source: 'csv_import'
+        source: 'csv_import',
+        raw_row_id: `${platform}_${i}`
       });
     } catch (err) {
-      console.error(`❌ Error processing row:`, err);
+      console.error(`❌ Error processing row ${i}:`, err);
       unmatchedRows.push({
         platform,
+        row_number: i,
         error: err instanceof Error ? err.message : 'Unknown error',
-        raw: row
+        raw: row.slice(0, 5)
       });
     }
   }
