@@ -41,16 +41,32 @@ const Auth = () => {
         return;
       }
 
-      // Sprawdź rolę użytkownika w tabeli drivers
-      const { data: driverData, error: driverError } = await supabase
-        .from('drivers')
-        .select('user_role, first_name, last_name')
-        .eq('id', authData.user.id)
+      // Spróbuj znaleźć profil kierowcy przez driver_app_users
+      let driverData = null;
+      const { data: appUser } = await supabase
+        .from('driver_app_users')
+        .select('driver_id, drivers(user_role, first_name, last_name)')
+        .eq('user_id', authData.user.id)
         .single();
 
-      if (driverError) {
-        console.error('Driver lookup error:', driverError);
-        alert('Nie znaleziono profilu użytkownika!');
+      if (appUser?.drivers) {
+        driverData = appUser.drivers;
+      } else {
+        // Fallback: szukaj kierowcy po emailu
+        const { data: driverByEmail } = await supabase
+          .from('drivers')
+          .select('user_role, first_name, last_name')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (driverByEmail) {
+          driverData = driverByEmail;
+        }
+      }
+
+      if (!driverData) {
+        alert('Profil kierowcy w trakcie konfiguracji. Skontaktuj się z administratorem.');
+        await supabase.auth.signOut();
         return;
       }
 

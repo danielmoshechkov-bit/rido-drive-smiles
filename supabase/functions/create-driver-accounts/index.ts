@@ -35,19 +35,10 @@ Deno.serve(async (req) => {
       errors: [] as string[]
     };
 
-    // Dla każdego kierowcy sprawdź czy ma konto Auth
+    // Dla każdego kierowcy utwórz konto Auth
     for (const driver of drivers || []) {
       try {
-        // Sprawdź czy użytkownik istnieje w Auth
-        const { data: existingUser } = await supabase.auth.admin.getUserById(driver.id);
-
-        if (existingUser?.user) {
-          console.log(`✅ Konto już istnieje: ${driver.email}`);
-          results.already_exists++;
-          continue;
-        }
-
-        // Utwórz konto Auth z tym samym UUID co w tabeli drivers
+        // Spróbuj utworzyć konto Auth (ignoruj błędy o istniejącym koncie)
         const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
           email: driver.email,
           password: 'Test12345!',
@@ -60,8 +51,14 @@ Deno.serve(async (req) => {
         });
 
         if (authError) {
-          console.error(`❌ Błąd dla ${driver.email}:`, authError);
-          results.errors.push(`${driver.email}: ${authError.message}`);
+          // Jeśli użytkownik już istnieje, to OK
+          if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
+            console.log(`✅ Konto już istnieje: ${driver.email}`);
+            results.already_exists++;
+          } else {
+            console.error(`❌ Błąd dla ${driver.email}:`, authError);
+            results.errors.push(`${driver.email}: ${authError.message}`);
+          }
           continue;
         }
 

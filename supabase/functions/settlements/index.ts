@@ -190,12 +190,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ========== KROK 6: BATCH INSERT SETTLEMENTS ==========
+    // ========== KROK 6: BATCH UPSERT SETTLEMENTS (ignore duplicates) ==========
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
-      const { error } = await supabase.from('settlements').insert(settlementsToInsert);
+      const { error } = await supabase
+        .from('settlements')
+        .upsert(settlementsToInsert, { 
+          onConflict: 'raw_row_id',
+          ignoreDuplicates: true 
+        });
       if (error) {
-        console.error('❌ Błąd insert:', error);
+        console.error('❌ Błąd upsert:', error);
         throw error;
       }
       console.log('✅ Rozliczenia zapisane');
