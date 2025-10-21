@@ -1,11 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Upload, FileText, Calendar, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,8 +18,6 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; date: string; stats: any }>>([]);
-  const [isFirstImport, setIsFirstImport] = useState(false);
-  const [showWarningModal, setShowWarningModal] = useState(false);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.name.endsWith('.csv')) {
@@ -65,8 +61,7 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
       filename: selectedFile.name,
       periodFrom,
       periodTo,
-      cityId,
-      isFirstImport
+      cityId
     });
 
     try {
@@ -83,8 +78,7 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
           csv_text: text,
           period_from: periodFrom,
           period_to: periodTo,
-          city_id: cityId,
-          force_first_import: isFirstImport
+          city_id: cityId
         }
       });
 
@@ -112,7 +106,6 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
         setSelectedFile(null);
         setPeriodFrom('');
         setPeriodTo('');
-        setIsFirstImport(false);
         onUploadComplete();
       } else {
         throw new Error(data?.error || 'Import failed');
@@ -199,28 +192,6 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
             </div>
           </div>
 
-          {/* First Import Checkbox */}
-          <div className="flex items-center gap-3 p-4 border border-destructive/50 rounded-lg bg-destructive/5">
-            <Checkbox 
-              id="firstImport"
-              checked={isFirstImport}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  setShowWarningModal(true);
-                } else {
-                  setIsFirstImport(false);
-                }
-              }}
-            />
-            <Label 
-              htmlFor="firstImport" 
-              className="text-sm cursor-pointer flex items-center gap-2"
-            >
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              Pierwszy import (⚠️ usuń wszystkich kierowców z bazy)
-            </Label>
-          </div>
-
           {/* Import Button */}
           <Button 
             className="w-full" 
@@ -231,55 +202,6 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
           </Button>
         </CardContent>
       </Card>
-
-      {/* Warning Modal */}
-      <Dialog open={showWarningModal} onOpenChange={setShowWarningModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              UWAGA! Czy na pewno?
-            </DialogTitle>
-            <DialogDescription className="space-y-3 pt-4">
-              <p className="font-semibold">
-                Ta opcja usunie <span className="text-destructive">WSZYSTKICH kierowców</span> z bazy danych przed importem.
-              </p>
-              <p className="text-sm">
-                Użyj tej opcji tylko gdy:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-2">
-                <li>Importujesz dane po raz pierwszy</li>
-                <li>Chcesz całkowicie zresetować bazę kierowców</li>
-                <li>Jesteś pewien że poprzednie dane nie są potrzebne</li>
-              </ul>
-              <p className="text-sm font-semibold text-destructive">
-                ⚠️ Ta operacja jest nieodwracalna!
-              </p>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowWarningModal(false);
-                setIsFirstImport(false);
-              }}
-            >
-              Anuluj
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => {
-                setShowWarningModal(false);
-                setIsFirstImport(true);
-                toast.success('Pierwszy import włączony - kierowcy zostaną usunięci');
-              }}
-            >
-              Tak, usuń wszystkich i importuj
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Upload History */}
       {uploadedFiles.length > 0 && (

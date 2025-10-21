@@ -199,21 +199,21 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                               .filter(p => p.platform === 'uber')
                               .map((p, idx) => (
                                 <Badge key={`uber-${idx}`} className="bg-black text-white">
-                                  <span className="text-xs">🚗</span> UBER
+                                  UBER
                                 </Badge>
                               ))}
                             {driver.platform_ids
                               .filter(p => p.platform === 'bolt')
                               .map((p, idx) => (
                                 <Badge key={`bolt-${idx}`} className="bg-green-500 text-white">
-                                  <span className="text-xs">⚡</span> BOLT
+                                  BOLT
                                 </Badge>
                               ))}
                             {driver.platform_ids
                               .filter(p => p.platform === 'freenow')
                               .map((p, idx) => (
                                 <Badge key={`freenow-${idx}`} className="bg-red-500 text-white">
-                                  <span className="text-xs">🚕</span> FREE NOW
+                                  FREE NOW
                                 </Badge>
                               ))}
                           </>

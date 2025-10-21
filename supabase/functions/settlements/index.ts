@@ -10,7 +10,6 @@ interface SettlementRequest {
   period_to: string;
   city_id: string;
   main_csv?: string;
-  is_first_import?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -31,45 +30,16 @@ Deno.serve(async (req) => {
       period_from: body.period_from,
       period_to: body.period_to,
       city_id: body.city_id,
-      has_main_csv: !!body.main_csv,
-      is_first_import: body.is_first_import
+      has_main_csv: !!body.main_csv
     });
 
-    const { period_from, period_to, city_id, main_csv, is_first_import } = body;
+    const { period_from, period_to, city_id, main_csv } = body;
 
     if (!period_from || !period_to || !city_id || !main_csv) {
       throw new Error('Missing required fields');
     }
 
-    // ========== KROK 1: CZYSZCZENIE BAZY (jeśli pierwsze wgranie) ==========
-    if (is_first_import) {
-      console.log('🗑️ CZYSZCZENIE BAZY KIEROWCÓW...');
-      
-      const { data: oldDrivers } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('city_id', city_id);
-      
-      if (oldDrivers && oldDrivers.length > 0) {
-        console.log(`Usuwam ${oldDrivers.length} kierowców...`);
-        
-        // Usuń Auth users
-        for (const driver of oldDrivers) {
-          try {
-            await supabase.auth.admin.deleteUser(driver.id);
-          } catch (err) {
-            console.error(`Błąd usuwania Auth user ${driver.id}:`, err);
-          }
-        }
-        
-        // Usuń z drivers (cascades załatwią resztę)
-        await supabase.from('drivers').delete().eq('city_id', city_id);
-        
-        console.log(`✅ Wykasowano ${oldDrivers.length} kierowców`);
-      }
-    }
-
-    // ========== KROK 2: PARSOWANIE CSV (z poprawnym UTF-8) ==========
+    // ========== KROK 1: PARSOWANIE CSV (z poprawnym UTF-8) ==========
     const uint8Array = Uint8Array.from(atob(main_csv), c => c.charCodeAt(0));
     const csvText = new TextDecoder('utf-8').decode(uint8Array);
     const parsedRows = parseCSV(csvText);
@@ -84,7 +54,7 @@ Deno.serve(async (req) => {
     console.log('🔍 Nagłówki CSV:', parsedRows[0]);
     console.log('🔍 Pierwsze 3 wiersze:', parsedRows.slice(1, 4));
 
-    // ========== KROK 3: MAPOWANIE KOLUMN PO NAZWIE ==========
+    // ========== KROK 2: MAPOWANIE KOLUMN PO NAZWIE ==========
     const headers = parsedRows[0].map(h => h.toLowerCase().trim());
     
     const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
@@ -118,30 +88,28 @@ Deno.serve(async (req) => {
       fullName: fullNameIdx, uber: uberIdx, uberCashless: uberCashlessIdx
     });
 
-    // ========== KROK 4: POBIERZ ISTNIEJĄCYCH KIEROWCÓW (jeśli nie first import) ==========
+    // ========== KROK 3: POBIERZ ISTNIEJĄCYCH KIEROWCÓW ==========
     const existingDriversMap = new Map<string, any>();
     
-    if (!is_first_import) {
-      const { data: existingDrivers } = await supabase
-        .from('drivers')
-        .select('id, email, phone, driver_platform_ids(platform, platform_id)')
-        .eq('city_id', city_id);
-      
-      existingDrivers?.forEach((driver: any) => {
-        if (driver.phone) {
-          existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
-        }
-        if (Array.isArray(driver.driver_platform_ids)) {
-          driver.driver_platform_ids.forEach((pid: any) => {
-            existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
-          });
-        }
-      });
-      
-      console.log(`✅ Załadowano ${existingDriversMap.size} istniejących kierowców`);
-    }
+    const { data: existingDrivers } = await supabase
+      .from('drivers')
+      .select('id, email, phone, driver_platform_ids(platform, platform_id)')
+      .eq('city_id', city_id);
+    
+    existingDrivers?.forEach((driver: any) => {
+      if (driver.phone) {
+        existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
+      }
+      if (Array.isArray(driver.driver_platform_ids)) {
+        driver.driver_platform_ids.forEach((pid: any) => {
+          existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
+        });
+      }
+    });
+    
+    console.log(`✅ Załadowano ${existingDriversMap.size} istniejących kierowców`);
 
-    // ========== KROK 5: PRZETWARZANIE WIERSZY ==========
+    // ========== KROK 4: PRZETWARZANIE WIERSZY ==========
     const settlementsToInsert: any[] = [];
     let newDriversCount = 0;
     let matchedDriversCount = 0;
@@ -353,18 +321,20 @@ async function findOrCreateDriver(
   const firstName = nameParts[0] || 'Nieznane';
   const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
   
-  // ✅ ZMIANA: Login = Uber ID (jeśli istnieje), fallback do telefonu/FreeNow/timestamp
-  // Email w drivers = prawdziwy email z CSV (jeśli istnieje) LUB null
+  // ✅ Email w drivers = prawdziwy email z CSV (jeśli istnieje) LUB null
   const csvEmail = rowData.email?.trim();
-  const hasRealEmail = csvEmail && csvEmail.includes('@');
+  const hasRealEmail = csvEmail && csvEmail.includes('@') && !csvEmail.includes('@rido.internal');
   
-  const loginEmail = uberId
-    ? `uber_${uberId}@rido.internal`
-    : phone
-      ? `tel_${phone.replace(/[^0-9]/g, '')}@rido.internal`
-      : freenowId
-        ? `freenow_${freenowId}@rido.internal`
-        : `driver_${Date.now()}@rido.internal`;
+  // ✅ Login email: jeśli ma prawdziwy email, użyj go, w przeciwnym razie internal
+  const loginEmail = hasRealEmail
+    ? csvEmail
+    : uberId
+      ? `uber_${uberId}@rido.internal`
+      : phone
+        ? `tel_${phone.replace(/[^0-9]/g, '')}@rido.internal`
+        : freenowId
+          ? `freenow_${freenowId}@rido.internal`
+          : `driver_${Date.now()}@rido.internal`;
   
   // Hasło: Test12345! dla wszystkich
   const password = 'Test12345!';
@@ -373,7 +343,7 @@ async function findOrCreateDriver(
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email: loginEmail,
     password: password,
-    email_confirm: true,
+    email_confirm: true, // ✅ Nie wysyłaj maili potwierdzających
     user_metadata: {
       first_name: firstName,
       last_name: lastName,
