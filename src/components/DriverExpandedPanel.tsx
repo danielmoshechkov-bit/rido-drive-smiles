@@ -110,6 +110,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
                 placeholder="Wpisz hasło (min. 8 znaków)"
                 value={tempPassword}
                 onChange={(e) => setTempPassword(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
                 disabled={creatingAccount || !driver.email}
                 className="flex-1"
               />
