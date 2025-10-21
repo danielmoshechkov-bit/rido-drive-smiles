@@ -384,6 +384,22 @@ async function findOrCreateDriver(
     return null;
   }
   
+  // ✅ NOWE: Utwórz wpis w driver_app_users aby kierowca mógł się zalogować
+  const { error: appUserError } = await supabase
+    .from('driver_app_users')
+    .insert({
+      user_id: authUser.user.id,
+      driver_id: newDriver.id,
+      city_id: city_id,
+      phone: phone || null
+    });
+  
+  if (appUserError) {
+    console.error('⚠️ Błąd driver_app_users (nie krytyczny):', appUserError);
+  } else {
+    console.log('✅ Utworzono wpis w driver_app_users');
+  }
+  
   // Wstaw platform IDs
   const platformIds = [];
   if (uberId) {
