@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const startTime = Date.now();
     console.log('🚀 Settlements edge function started');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -59,6 +60,51 @@ Deno.serve(async (req) => {
       main_rows: mainData.length,
     });
 
+    // BATCH PROCESSING: Fetch all drivers once
+    console.log('🔍 Fetching all drivers for city:', city_id);
+    const { data: allDrivers, error: driversError } = await supabase
+      .from('drivers')
+      .select('id, email, driver_platform_ids(platform, platform_id)')
+      .eq('city_id', city_id);
+
+    if (driversError) {
+      console.error('❌ Error fetching drivers:', driversError);
+      throw driversError;
+    }
+
+    console.log('✅ Fetched drivers:', allDrivers?.length || 0);
+
+    // Create maps for fast lookups
+    const driversByEmail = new Map<string, any>();
+    const driversByUberId = new Map<string, any>();
+    const driversByBoltId = new Map<string, any>();
+    const driversByFreeNowId = new Map<string, any>();
+
+    allDrivers?.forEach(driver => {
+      if (driver.email) {
+        driversByEmail.set(driver.email.toLowerCase().trim(), driver);
+      }
+      
+      if (Array.isArray(driver.driver_platform_ids)) {
+        driver.driver_platform_ids.forEach((pid: any) => {
+          if (pid.platform === 'uber' && pid.platform_id) {
+            driversByUberId.set(pid.platform_id.trim(), driver);
+          } else if (pid.platform === 'bolt' && pid.platform_id) {
+            driversByBoltId.set(pid.platform_id.trim(), driver);
+          } else if (pid.platform === 'freenow' && pid.platform_id) {
+            driversByFreeNowId.set(pid.platform_id.trim(), driver);
+          }
+        });
+      }
+    });
+
+    console.log('🗺️ Created lookup maps:', {
+      by_email: driversByEmail.size,
+      by_uber_id: driversByUberId.size,
+      by_bolt_id: driversByBoltId.size,
+      by_freenow_id: driversByFreeNowId.size,
+    });
+
     // Create settlement period in database
     const { data: settlementPeriod, error: periodError } = await supabase
       .from('settlement_periods')
@@ -82,64 +128,102 @@ Deno.serve(async (req) => {
     // Process settlements data and insert into database
     let totalProcessed = 0;
     let totalErrors = 0;
+    const allUnmatched: any[] = [];
 
     // Process Uber data
     if (uberData.length > 0) {
-      const { processed, errors } = await processSettlements(
+      const { processed, errors, unmatched } = await processSettlements(
         supabase,
         uberData,
         'uber',
         city_id,
         period_from,
-        period_to
+        period_to,
+        driversByEmail,
+        driversByUberId
       );
       totalProcessed += processed;
       totalErrors += errors;
+      allUnmatched.push(...unmatched);
     }
 
     // Process Bolt data
     if (boltData.length > 0) {
-      const { processed, errors } = await processSettlements(
+      const { processed, errors, unmatched } = await processSettlements(
         supabase,
         boltData,
         'bolt',
         city_id,
         period_from,
-        period_to
+        period_to,
+        driversByEmail,
+        driversByBoltId
       );
       totalProcessed += processed;
       totalErrors += errors;
+      allUnmatched.push(...unmatched);
     }
 
     // Process FreeNow data
     if (freenowData.length > 0) {
-      const { processed, errors } = await processSettlements(
+      const { processed, errors, unmatched } = await processSettlements(
         supabase,
         freenowData,
         'freenow',
         city_id,
         period_from,
-        period_to
+        period_to,
+        driversByEmail,
+        driversByFreeNowId
       );
       totalProcessed += processed;
       totalErrors += errors;
+      allUnmatched.push(...unmatched);
     }
 
     // Process Main data (combined)
     if (mainData.length > 0) {
-      const { processed, errors } = await processSettlements(
+      const { processed, errors, unmatched } = await processSettlements(
         supabase,
         mainData,
         'main',
         city_id,
         period_from,
-        period_to
+        period_to,
+        driversByEmail,
+        new Map() // No specific platform map for main
       );
       totalProcessed += processed;
       totalErrors += errors;
+      allUnmatched.push(...unmatched);
     }
 
-    console.log('✅ All settlements processed:', { totalProcessed, totalErrors });
+    const duration = Date.now() - startTime;
+    console.log('✅ All settlements processed:', { 
+      totalProcessed, 
+      totalErrors,
+      unmatched: allUnmatched.length,
+      duration_ms: duration
+    });
+
+    // Create alert for unmatched drivers
+    if (allUnmatched.length > 0) {
+      console.log('⚠️ Creating alert for unmatched drivers');
+      await supabase.from('system_alerts').insert({
+        type: 'warning',
+        category: 'import',
+        title: `Nie znaleziono ${allUnmatched.length} kierowców`,
+        description: `Podczas importu rozliczeń ${allUnmatched.length} wierszy nie zostało dopasowanych do kierowców.`,
+        metadata: {
+          period_from,
+          period_to,
+          unmatched_count: allUnmatched.length,
+          unmatched_drivers: allUnmatched.slice(0, 20), // First 20
+          settlement_period_id: settlementPeriod.id
+        },
+        status: 'pending'
+      });
+    }
 
     return new Response(
       JSON.stringify({
@@ -170,7 +254,12 @@ Deno.serve(async (req) => {
 });
 
 function parseCSV(csvText: string): string[][] {
-  const lines = csvText.trim().split('\n');
+  const lines = csvText.trim().split('\n').filter(line => {
+    // Filter out empty lines
+    const trimmed = line.trim();
+    return trimmed.length > 0 && !trimmed.match(/^[;,\s]*$/);
+  });
+  
   return lines.map(line => {
     const values: string[] = [];
     let currentValue = '';
@@ -187,7 +276,7 @@ function parseCSV(csvText: string): string[][] {
         } else {
           insideQuotes = !insideQuotes;
         }
-      } else if (char === ',' && !insideQuotes) {
+      } else if ((char === ',' || char === ';') && !insideQuotes) {
         values.push(currentValue.trim());
         currentValue = '';
       } else {
@@ -205,67 +294,101 @@ async function processSettlements(
   platform: string,
   city_id: string,
   period_from: string,
-  period_to: string
-): Promise<{ processed: number; errors: number }> {
-  let processed = 0;
-  let errors = 0;
-
+  period_to: string,
+  driversByEmail: Map<string, any>,
+  driversByPlatformId: Map<string, any>
+): Promise<{ processed: number; errors: number; unmatched: any[] }> {
   // Skip header row
   const rows = data.slice(1);
 
   console.log(`📝 Processing ${rows.length} rows for platform: ${platform}`);
 
+  const settlementsToInsert: any[] = [];
+  const unmatchedRows: any[] = [];
+
   for (const row of rows) {
     try {
-      // Parse row data (this will vary based on CSV format)
-      // For now, we'll create a basic structure
-      const settlement = {
+      // Skip empty rows
+      if (row.every(cell => !cell || cell.trim() === '')) {
+        continue;
+      }
+
+      // Extract data from row (adjust column indices based on CSV format)
+      const driverEmail = row[0]?.toLowerCase().trim();
+      const platformId = row[1]?.trim();
+      const totalEarnings = parseFloat(row[3] || '0') || 0;
+      const commissionAmount = parseFloat(row[4] || '0') || 0;
+      const netAmount = parseFloat(row[5] || '0') || 0;
+
+      // Find driver - PRIORITY: platform_id first, then email
+      let driver = null;
+
+      // 1. Try to match by platform_id
+      if (platformId && driversByPlatformId.has(platformId)) {
+        driver = driversByPlatformId.get(platformId);
+      }
+
+      // 2. Try to match by email
+      if (!driver && driverEmail && driversByEmail.has(driverEmail)) {
+        driver = driversByEmail.get(driverEmail);
+      }
+
+      // If no driver found, add to unmatched
+      if (!driver) {
+        unmatchedRows.push({
+          platform,
+          email: driverEmail,
+          platform_id: platformId,
+          earnings: totalEarnings,
+          raw: row
+        });
+        continue;
+      }
+
+      // Add to batch insert
+      settlementsToInsert.push({
         city_id,
         platform,
         period_from,
         period_to,
-        driver_id: null, // Will need to be matched
-        total_earnings: parseFloat(row[3] || '0') || 0,
-        commission_amount: parseFloat(row[4] || '0') || 0,
-        net_amount: parseFloat(row[5] || '0') || 0,
+        driver_id: driver.id,
+        total_earnings: totalEarnings,
+        commission_amount: commissionAmount,
+        net_amount: netAmount,
         week_start: period_from,
         week_end: period_to,
         amounts: {},
         raw: row,
-        source: 'csv_import',
-      };
-
-      // Try to find driver by email or platform ID
-      // This is a simplified version - you may need more sophisticated matching
-      const driverEmail = row[0];
-      if (driverEmail) {
-        const { data: driver } = await supabase
-          .from('drivers')
-          .select('id')
-          .eq('email', driverEmail)
-          .single();
-
-        if (driver) {
-          settlement.driver_id = driver.id;
-        }
-      }
-
-      // Insert settlement
-      const { error: insertError } = await supabase
-        .from('settlements')
-        .insert(settlement);
-
-      if (insertError) {
-        console.error(`❌ Error inserting settlement:`, insertError);
-        errors++;
-      } else {
-        processed++;
-      }
+        source: 'csv_import'
+      });
     } catch (err) {
       console.error(`❌ Error processing row:`, err);
-      errors++;
+      unmatchedRows.push({
+        platform,
+        error: err instanceof Error ? err.message : 'Unknown error',
+        raw: row
+      });
     }
   }
 
-  return { processed, errors };
+  // BATCH INSERT
+  let processed = 0;
+  let errors = 0;
+
+  if (settlementsToInsert.length > 0) {
+    console.log(`💾 Batch inserting ${settlementsToInsert.length} settlements for ${platform}`);
+    const { error: insertError } = await supabase
+      .from('settlements')
+      .insert(settlementsToInsert);
+
+    if (insertError) {
+      console.error(`❌ Batch insert error for ${platform}:`, insertError);
+      errors = settlementsToInsert.length;
+    } else {
+      processed = settlementsToInsert.length;
+      console.log(`✅ Successfully inserted ${processed} settlements for ${platform}`);
+    }
+  }
+
+  return { processed, errors, unmatched: unmatchedRows };
 }
