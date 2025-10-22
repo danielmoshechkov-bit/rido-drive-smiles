@@ -22,6 +22,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
   const [showSuccess, setShowSuccess] = useState(false);
   
   const getPlatformId = (platform: string) => {
+    if (platform === 'getrido') return driver.getrido_id || '';
     return driver.platform_ids?.find(p => p.platform === platform)?.platform_id || '';
   };
 

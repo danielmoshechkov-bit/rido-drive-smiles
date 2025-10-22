@@ -38,18 +38,27 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
 
   const savePlatformId = async () => {
     try {
-      const { error } = await supabase
-        .from("driver_platform_ids")
-        .upsert({
-          driver_id: driverId,
-          platform,
-          platform_id: value
-        }, {
-          onConflict: "driver_id,platform"
-        });
-
-      if (error) throw error;
-      
+      if (platform === 'getrido') {
+        const { error } = await supabase
+          .from('drivers')
+          .update({ getrido_id: value || null })
+          .eq('id', driverId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("driver_platform_ids")
+          .upsert(
+            {
+              driver_id: driverId,
+              platform,
+              platform_id: value
+            },
+            {
+              onConflict: "driver_id,platform"
+            }
+          );
+        if (error) throw error;
+      }
       toast.success("ID zaktualizowane!");
       setIsEditing(false);
       onUpdate();
@@ -69,10 +78,8 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
   };
 
   const getPlatformColor = (platform: string) => {
-    switch(platform) {
-      case 'getrido': return 'bg-primary/10 text-primary border-primary/20';
-      default: return 'bg-muted';
-    }
+    // Wszystkie platformy w trybie podglądu mają ten sam, stonowany styl
+    return 'bg-muted';
   };
 
   return (

@@ -306,7 +306,7 @@ async function findOrCreateDriver(
   console.log('No existing driver found, creating new one');
   
   // Determine login
-  const login = email || `driver_${uber_id || bolt_id || freenow_id}@rido.local`;
+  const login = email || `driver_${getrido_id || uber_id || bolt_id || freenow_id}@rido.local`;
   
   // Create auth account
   let authUserId = null;
