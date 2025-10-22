@@ -26,23 +26,33 @@ function extractFields(raw: any): {
   
   // Handle array format (from settlements created via edge function)
   if (Array.isArray(raw)) {
+    // CRITICAL: GetRido ID MUST be at index 23 (column X in Excel)
+    // Column structure: 0=email, 1=uber_id, 2=phone, 3=freenow_id, 4=fuel_card, 5=name,
+    // 6-21=various amounts, 22=zwrot vat (column W), 23=getrido ID (column X)
+    const getridoFromArray = trim(raw[23]); // Explicit index 23 = column X
+    console.log(`[Array Debug] length=${raw.length}, index[22]="${raw[22]}", index[23]="${raw[23]}"`);
+    
     return {
       email: trim(raw[0]),
       uber_id: trim(raw[1]),
       phone: trim(raw[2]),
       freenow_id: trim(raw[3]),
       fuel_card: trim(raw[4]),
-      getrido_id: trim(raw[raw.length - 1]) // Last column is GetRido ID
+      getrido_id: getridoFromArray
     };
   }
   
   // Handle object format (with various key aliases)
-  // Prefer explicit getrido_id, but if it's missing or looks numeric (e.g. "43,2"),
-  // fall back to col_23 which is the last CSV column (GetRido ID)
-  let getrido = trim(raw.getrido_id || raw['getrido ID'] || raw.getRidoId);
-  const col23 = trim(raw['col_23']);
-  if ((!getrido || isNumericLike(getrido)) && hasLetters(col23)) {
-    getrido = col23;
+  // Try header name first: "getrido ID"
+  let getrido = trim(raw['getrido ID'] || raw.getrido_id || raw.getRidoId);
+  
+  // If missing or looks like number (e.g. "43,2" from wrong column), try col_23
+  if (!getrido || isNumericLike(getrido)) {
+    const col23 = trim(raw['col_23']);
+    if (hasLetters(col23)) {
+      console.log(`[Object Debug] Using col_23="${col23}" instead of "${getrido}"`);
+      getrido = col23;
+    }
   }
 
   return {
