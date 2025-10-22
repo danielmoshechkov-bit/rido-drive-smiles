@@ -36,3 +36,6 @@ verify_jwt = false
 
 [functions.cleanup-fake-auth-accounts]
 verify_jwt = false
+
+[functions.sync-driver-ids]
+verify_jwt = false

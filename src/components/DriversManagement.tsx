@@ -125,10 +125,29 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                 Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
               </p>
             </div>
-            <Button onClick={() => setShowAddModal(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Dodaj kierowcę
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
+                  if (error) throw error;
+                  if (data?.success) {
+                    toast.success(`Zaktualizowano kierowców: ${data.stats.updatedDrivers}, ID platform: ${data.stats.upsertedPlatformIds}`);
+                    refetch();
+                    onDriverUpdate();
+                  } else {
+                    throw new Error(data?.error || 'Błąd synchronizacji');
+                  }
+                } catch (e) {
+                  toast.error(`Błąd synchronizacji: ${e instanceof Error ? e.message : 'Nieznany błąd'}`);
+                }
+              }} variant="outline" className="gap-2">
+                Odśwież IDs
+              </Button>
+              <Button onClick={() => setShowAddModal(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Dodaj kierowcę
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center justify-between mt-4">
