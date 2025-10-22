@@ -556,19 +556,28 @@ async function findOrCreateDriver(
 function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
-  
+
+  const clean = (v: string) => v.replace(/^"|"$/g, '').trim();
+
+  // Detect header and the exact index of GetRido ID column
+  const headerValues = lines[0].split(';').map(clean);
+  const headerLower = headerValues.map(h => h.toLowerCase());
+  let getridoIdx = headerLower.findIndex(h => h.includes('getrido') && h.includes('id'));
+  // Fallback: use the last column if specific header not found
+  if (getridoIdx === -1) getridoIdx = headerValues.length - 1;
+
   const rows: CSVRow[] = [];
-  
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
+
     // Split by semicolon and remove quotes
-    const values = line.split(';').map(v => v.replace(/^"|"$/g, '').trim());
-    
+    const values = line.split(';').map(clean);
+
     // Skip empty rows
     if (values.every(v => !v)) continue;
-    
+
     const row: CSVRow = {
       email: values[0] || null,           // Kolumna A - email
       uber_id: values[1] || null,         // Kolumna B - ID Uber
@@ -576,17 +585,17 @@ function parseCSV(csvText: string): CSVRow[] {
       freenow_id: values[3] || null,      // Kolumna D - ID FreeNow
       fuel_card: values[4] || null,       // Kolumna E - karta paliwowa
       full_name: values[5] || '',         // Kolumna F - Imie nazwisko
-      getrido_id: values[values.length - 1] || null,     // Ostatnia kolumna - GetRido ID
+      getrido_id: values[getridoIdx] || null, // Kolumna z nagłówkiem "GetRido ID" lub ostatnia
     };
-    
-    // Add all financial columns for amounts mapping
+
+    // Add all financial columns for amounts mapping (starting from G)
     for (let j = 6; j < values.length; j++) {
       row[`col_${j}`] = values[j];
     }
-    
+
     rows.push(row);
   }
-  
+
   return rows;
 }
 

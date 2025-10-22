@@ -48,20 +48,21 @@ function extractFields(raw: any): {
     };
   }
 
-  // Object format: prefer explicit keys, else use HIGHEST col_*
+  // Object format: prefer explicit keys, else scan col_* from highest to lowest for a valid non-numeric token
   let getrido = trim(raw['getrido ID'] || raw.getrido_id || raw.getRidoId);
   if (!isValidGetrido(getrido, fullName)) {
     const colKeys = Object.keys(raw)
       .filter((k) => /^col_\d+$/.test(k))
       .sort((a, b) => Number(b.split('_')[1]) - Number(a.split('_')[1]));
-    if (colKeys.length) {
-      const maxKey = colKeys[0];
-      const v = trim(raw[maxKey]);
-      console.log(`[Object Extract] Using ${maxKey}="${v}" instead of "${getrido}"`);
-      getrido = isValidGetrido(v, fullName) ? v : null;
-    } else {
-      getrido = null;
+    for (const k of colKeys) {
+      const v = trim(raw[k]);
+      if (isValidGetrido(v, fullName)) {
+        console.log(`[Object Extract] Using ${k}="${v}" instead of "${getrido}"`);
+        getrido = v;
+        break;
+      }
     }
+    if (!isValidGetrido(getrido, fullName)) getrido = null;
   }
 
   return {
