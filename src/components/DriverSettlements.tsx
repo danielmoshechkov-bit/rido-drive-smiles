@@ -169,14 +169,16 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   };
 
   // Render visible field
-  const renderField = (label: string, value: number, visible: boolean, colorClass: string = "text-foreground") => {
+  const renderField = (label: string, value: number | undefined | null, visible: boolean, colorClass: string = "text-foreground") => {
     if (!visible) return null;
+    
+    const safeValue = typeof value === 'number' ? value : 0;
     
     return (
       <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
         <span className="text-sm text-muted-foreground">{label}:</span>
         <span className={`text-sm font-medium ${colorClass}`}>
-          {value.toFixed(2)} zł
+          {safeValue.toFixed(2)} zł
         </span>
       </div>
     );
@@ -315,7 +317,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                         <div className="flex justify-between p-3 bg-primary/10 rounded-lg">
                           <span className="text-base font-semibold">Do wypłaty:</span>
                           <span className="text-base font-bold text-primary">
-                            {payout.toFixed(2)} zł
+                            {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
                         </div>
                       </div>
