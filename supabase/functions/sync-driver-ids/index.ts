@@ -11,6 +11,41 @@ function normalizeEmail(email: string | null): string | null {
   return email.trim().toLowerCase();
 }
 
+function extractFields(raw: any): {
+  getrido_id: string | null;
+  uber_id: string | null;
+  bolt_id: string | null;
+  freenow_id: string | null;
+  email: string | null;
+  phone: string | null;
+  fuel_card: string | null;
+} {
+  const trim = (val: any) => (val ? String(val).trim() : null);
+  
+  // Handle array format (from settlements created via edge function)
+  if (Array.isArray(raw)) {
+    return {
+      email: trim(raw[0]),
+      uber_id: trim(raw[1]),
+      phone: trim(raw[2]),
+      freenow_id: trim(raw[3]),
+      fuel_card: trim(raw[4]),
+      getrido_id: trim(raw[raw.length - 1]) // Last column
+    };
+  }
+  
+  // Handle object format (with various key aliases)
+  return {
+    getrido_id: trim(raw.getrido_id || raw['getrido ID'] || raw.getRidoId || null),
+    uber_id: trim(raw.uber_id || raw['id uber'] || raw.uberId || null),
+    bolt_id: trim(raw.bolt_id || raw['id bolt'] || raw.boltId || null),
+    freenow_id: trim(raw.freenow_id || raw['id freenow'] || raw.freeNowId || null),
+    email: trim(raw.email || raw['adres mailowy'] || null),
+    phone: trim(raw.phone || raw['nr tel'] || raw.telefon || null),
+    fuel_card: trim(raw.fuel_card || raw['nr karty paliwowej'] || null)
+  };
+}
+
 async function upsertPlatformIds(
   supabase: any,
   driverId: string,
@@ -71,40 +106,61 @@ serve(async (req) => {
 
     let updatedDrivers = 0;
     let upsertedPlatformIds = 0;
+    let foundGetridoIds = 0;
+    let foundPlatformIds = 0;
 
     for (const row of rows || []) {
-      const raw = (row.raw || {}) as Record<string, any>;
-      const getrido_id = (raw.getrido_id || '').toString().trim() || null;
-      const uber_id = (raw.uber_id || '').toString().trim() || null;
-      const freenow_id = (raw.freenow_id || '').toString().trim() || null;
-      const bolt_id = (raw.bolt_id || '').toString().trim() || null;
-      const phone = (raw.phone || '').toString().trim() || null;
-      const email = normalizeEmail((raw.email || null) as string | null);
-      const fuel_card = (raw.fuel_card || '').toString().trim() || null;
+      const raw = row.raw || {};
+      const fields = extractFields(raw);
+      
+      // Log found IDs for debugging
+      if (fields.getrido_id) foundGetridoIds++;
+      if (fields.uber_id || fields.bolt_id || fields.freenow_id) foundPlatformIds++;
 
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', row.driver_id).maybeSingle();
       if (!driver) continue;
 
       const update: any = {};
-      if (getrido_id && driver.getrido_id !== getrido_id) update.getrido_id = getrido_id;
-      if (phone && driver.phone !== phone) update.phone = phone;
-      if (email && driver.email?.toLowerCase() !== email) update.email = email;
-      if (fuel_card && driver.fuel_card_number !== fuel_card) update.fuel_card_number = fuel_card;
+      if (fields.getrido_id && driver.getrido_id !== fields.getrido_id) update.getrido_id = fields.getrido_id;
+      if (fields.phone && driver.phone !== fields.phone) update.phone = fields.phone;
+      if (fields.email) {
+        const normalizedEmail = normalizeEmail(fields.email);
+        if (normalizedEmail && driver.email?.toLowerCase() !== normalizedEmail) update.email = normalizedEmail;
+      }
+      if (fields.fuel_card && driver.fuel_card_number !== fields.fuel_card) update.fuel_card_number = fields.fuel_card;
 
       if (Object.keys(update).length) {
         const { error: uErr } = await supabase.from('drivers').update(update).eq('id', driver.id);
-        if (!uErr) updatedDrivers++;
+        if (!uErr) {
+          updatedDrivers++;
+          console.log(`✅ Updated driver ${driver.first_name} ${driver.last_name}:`, Object.keys(update));
+        }
       }
 
-      const beforeCount = upsertedPlatformIds;
-      await upsertPlatformIds(supabase, driver.id, { uber_id, bolt_id, freenow_id });
-      if (uber_id) upsertedPlatformIds++;
-      if (bolt_id) upsertedPlatformIds++;
-      if (freenow_id) upsertedPlatformIds++;
+      await upsertPlatformIds(supabase, driver.id, { 
+        uber_id: fields.uber_id, 
+        bolt_id: fields.bolt_id, 
+        freenow_id: fields.freenow_id 
+      });
+      if (fields.uber_id) upsertedPlatformIds++;
+      if (fields.bolt_id) upsertedPlatformIds++;
+      if (fields.freenow_id) upsertedPlatformIds++;
     }
 
+    console.log(`📊 Sync stats: ${updatedDrivers} drivers updated, ${upsertedPlatformIds} platform IDs upserted, ${foundGetridoIds} GetRido IDs found, ${foundPlatformIds} platform IDs found`);
+
     return new Response(
-      JSON.stringify({ success: true, stats: { updatedDrivers, upsertedPlatformIds, period_from: from, period_to: to } }),
+      JSON.stringify({ 
+        success: true, 
+        stats: { 
+          updatedDrivers, 
+          upsertedPlatformIds, 
+          foundGetridoIds, 
+          foundPlatformIds, 
+          period_from: from, 
+          period_to: to 
+        } 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (e) {

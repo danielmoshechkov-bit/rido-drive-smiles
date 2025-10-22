@@ -97,6 +97,23 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
           `Import zakończony! Dodano: ${stats.added}, Zaktualizowano: ${stats.updated}, Nowi kierowcy: ${stats.newDrivers}, Błędy: ${stats.errors}`
         );
         
+        // Auto-sync driver IDs
+        try {
+          const { data: syncData } = await supabase.functions.invoke('sync-driver-ids', {
+            body: {
+              city_id: cityId,
+              period_from: periodFrom,
+              period_to: periodTo
+            }
+          });
+          
+          if (syncData?.success) {
+            toast.success(`🔄 Zsynchronizowano ID: ${syncData.stats.updatedDrivers} kierowców, ${syncData.stats.upsertedPlatformIds} platform IDs`);
+          }
+        } catch (syncError) {
+          console.error('Sync error:', syncError);
+        }
+        
         setUploadedFiles(prev => [...prev, {
           filename: selectedFile.name,
           date: new Date().toLocaleString('pl-PL'),

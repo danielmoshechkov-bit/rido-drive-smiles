@@ -347,6 +347,24 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
       }
 
       toast.success(`✅ Rozliczenie utworzone! Przetworzono: ${data.stats.processed} kierowców (${data.stats.new_drivers || 0} nowych, ${data.stats.matched_drivers || 0} dopasowanych)`);
+      
+      // Auto-sync driver IDs
+      try {
+        const { data: syncData } = await supabase.functions.invoke('sync-driver-ids', {
+          body: {
+            city_id: cityId,
+            period_from: format(dateRange.from, 'yyyy-MM-dd'),
+            period_to: format(dateRange.to, 'yyyy-MM-dd')
+          }
+        });
+        
+        if (syncData?.success) {
+          toast.success(`🔄 Zsynchronizowano ID: ${syncData.stats.updatedDrivers} kierowców, ${syncData.stats.upsertedPlatformIds} platform IDs`);
+        }
+      } catch (syncError) {
+        console.error('Sync error:', syncError);
+      }
+      
       setNewSettlementOpen(false);
       setDateRange(undefined);
       setUberFile(null);

@@ -63,7 +63,9 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
       setIsEditing(false);
       onUpdate();
     } catch (error) {
-      toast.error("Błąd aktualizacji");
+      console.error('Platform ID update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Nieznany błąd';
+      toast.error(`Błąd aktualizacji: ${errorMessage}`);
     }
   };
 
@@ -78,8 +80,7 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
   };
 
   const getPlatformColor = (platform: string) => {
-    // Wszystkie platformy w trybie podglądu mają ten sam, stonowany styl
-    return 'bg-muted';
+    return 'bg-muted border border-border';
   };
 
   return (
