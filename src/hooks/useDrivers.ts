@@ -13,6 +13,7 @@ export interface Driver {
   registration_date: string | null;
   billing_method: string | null;
   fleet_id?: string | null;
+  getrido_id?: string | null;
   platform_ids?: Array<{
     platform: string;
     platform_id: string;

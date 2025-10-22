@@ -192,6 +192,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                        </div>
 
                       <div className="flex items-center gap-2 mb-2">
+                        {/* GetRido ID Badge - fioletowy */}
+                        {driver.getrido_id && (
+                          <Badge className="bg-primary text-white hover:bg-primary/90">
+                            GetRido: {driver.getrido_id}
+                          </Badge>
+                        )}
+                        
                         {/* Platform badges - uber (czarny), bolt (zielony), freenow (czerwony) */}
                         {driver.platform_ids && driver.platform_ids.length > 0 && (
                           <>
