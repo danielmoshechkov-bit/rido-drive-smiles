@@ -21,49 +21,46 @@ function extractFields(raw: any): {
   fuel_card: string | null;
 } {
   const trim = (val: any) => (val !== undefined && val !== null && String(val).length ? String(val).trim() : null);
-  const hasLetters = (val: string | null) => !!(val && /[A-Za-z]/.test(val));
   const isNumericLike = (val: string | null) => !!(val && /^[0-9.,]+$/.test(val));
+  const validPattern = /^[A-Za-z0-9_-]+$/;
+  const isValidGetrido = (val: string | null, fullName?: string | null) => {
+    if (!val) return false;
+    if (isNumericLike(val)) return false;
+    if (!validPattern.test(val)) return false;
+    if (fullName && val.replace(/\s+/g, '').toLowerCase() === fullName.replace(/\s+/g, '').toLowerCase()) return false;
+    return true;
+  };
 
-  // Handle array format (older imports may store raw as an array)
+  const fullName = trim(raw?.full_name || raw?.['Imię i nazwisko'] || raw?.['Imie nazwisko'] || raw?.['Imię Nazwisko'] || null);
+
+  // Array format: use ONLY last column
   if (Array.isArray(raw)) {
-    // Pick the last non-numeric cell that contains letters (most robust for X column)
-    let pickedIdx: number | null = null;
-    let getridoFromArray: string | null = null;
-    for (let i = raw.length - 1; i >= 0; i--) {
-      const v = trim(raw[i]);
-      if (!v) continue;
-      if (hasLetters(v) && !isNumericLike(v)) {
-        pickedIdx = i;
-        getridoFromArray = v;
-        break;
-      }
-    }
-    console.log(`[Array Debug] len=${raw.length}, picked_idx=${pickedIdx}, idx22="${raw[22]}", last="${raw[raw.length-1]}"`);
-
+    const lastVal = trim(raw[raw.length - 1]);
+    const candidate = isValidGetrido(lastVal, fullName) ? lastVal : null;
+    console.log(`[Array Extract] len=${raw.length}, last="${lastVal}", candidate="${candidate}"`);
     return {
       email: trim(raw[0]),
       uber_id: trim(raw[1]),
       phone: trim(raw[2]),
       freenow_id: trim(raw[3]),
       fuel_card: trim(raw[4]),
-      getrido_id: getridoFromArray
+      getrido_id: candidate
     };
   }
 
-  // Handle object format (newer imports store raw as an object with getrido_id)
+  // Object format: prefer explicit keys, else use HIGHEST col_*
   let getrido = trim(raw['getrido ID'] || raw.getrido_id || raw.getRidoId);
-  if (!getrido || isNumericLike(getrido)) {
-    // Scan col_* keys from highest to lowest to find the last text value with letters
+  if (!isValidGetrido(getrido, fullName)) {
     const colKeys = Object.keys(raw)
-      .filter(k => /^col_\d+$/.test(k))
+      .filter((k) => /^col_\d+$/.test(k))
       .sort((a, b) => Number(b.split('_')[1]) - Number(a.split('_')[1]));
-    for (const k of colKeys) {
-      const v = trim(raw[k]);
-      if (hasLetters(v) && !isNumericLike(v)) {
-        console.log(`[Object Debug] Using ${k}="${v}" instead of "${getrido}"`);
-        getrido = v;
-        break;
-      }
+    if (colKeys.length) {
+      const maxKey = colKeys[0];
+      const v = trim(raw[maxKey]);
+      console.log(`[Object Extract] Using ${maxKey}="${v}" instead of "${getrido}"`);
+      getrido = isValidGetrido(v, fullName) ? v : null;
+    } else {
+      getrido = null;
     }
   }
 
@@ -153,7 +150,19 @@ serve(async (req) => {
       if (!driver) continue;
 
       const update: any = {};
-      if (fields.getrido_id && driver.getrido_id !== fields.getrido_id) update.getrido_id = fields.getrido_id;
+      // Safe update for getrido_id
+      if (fields.getrido_id && driver.getrido_id !== fields.getrido_id) {
+        const candidate = String(fields.getrido_id).trim();
+        const nameConcat = `${driver.first_name || ''} ${driver.last_name || ''}`.trim().toLowerCase().replace(/\s+/g, '');
+        const candNormalized = candidate.toLowerCase().replace(/\s+/g, '');
+        const validPattern = /^[A-Za-z0-9_-]+$/;
+        const numericLike = /^[0-9.,]+$/;
+        if (validPattern.test(candidate) && !numericLike.test(candidate) && candNormalized !== nameConcat) {
+          update.getrido_id = candidate;
+        } else {
+          console.log(`⏭️ Skipping suspicious getrido_id "${candidate}" for driver ${driver.id}`);
+        }
+      }
       if (fields.phone && driver.phone !== fields.phone) update.phone = fields.phone;
       if (fields.email) {
         const normalizedEmail = normalizeEmail(fields.email);

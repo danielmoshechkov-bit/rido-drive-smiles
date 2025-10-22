@@ -179,6 +179,53 @@ async function upsertPlatformIds(
   }
 }
 
+// Ensure driver_app_users mapping between auth user and driver
+async function ensureDriverUserMapping(
+  supabase: any,
+  driverId: string,
+  cityId: string,
+  email?: string | null,
+  authUserId?: string | null
+) {
+  try {
+    const { data: existingMap } = await supabase
+      .from('driver_app_users')
+      .select('user_id')
+      .eq('driver_id', driverId)
+      .maybeSingle();
+    if (existingMap?.user_id) {
+      console.log(`🔗 Mapping already exists for driver ${driverId} -> user ${existingMap.user_id}`);
+      return;
+    }
+
+    let userId = authUserId || null;
+
+    if (!userId && email) {
+      const { data: list } = await supabase.auth.admin.listUsers();
+      const found = list?.users?.find((u: any) => u.email?.toLowerCase() === String(email).toLowerCase());
+      if (found) {
+        userId = found.id;
+      }
+    }
+
+    if (!userId) {
+      console.log(`⚠️ No auth user found to map for driver ${driverId}`);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('driver_app_users')
+      .upsert({ user_id: userId, driver_id: driverId, city_id: cityId }, { onConflict: 'user_id' });
+    if (error) {
+      console.error('❌ Failed to upsert driver_app_users mapping:', error);
+    } else {
+      console.log(`✅ Upserted driver_app_users mapping user ${userId} -> driver ${driverId}`);
+    }
+  } catch (e) {
+    console.error('💥 ensureDriverUserMapping error', e);
+  }
+}
+
 // Find or create driver
 async function findOrCreateDriver(
   supabase: any,
@@ -240,6 +287,7 @@ async function findOrCreateDriver(
       console.log('✅ Matched driver by GetRido ID:', existingDriver.id, getrido_id);
       await updateDriverData(supabase, existingDriver, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, existingDriver.id, uber_id, bolt_id, freenow_id);
+      await ensureDriverUserMapping(supabase, existingDriver.id, cityId, email, null);
       return { driver: existingDriver, isNew: false, matchMethod: 'getrido_id' };
     }
   }
@@ -252,6 +300,7 @@ async function findOrCreateDriver(
         console.log('Matched driver by manual uber_id match:', driver.id);
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
+        await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
         return { driver, isNew: false, matchMethod: 'manual_uber_id' };
       }
     }
@@ -261,6 +310,7 @@ async function findOrCreateDriver(
         console.log('Matched driver by manual bolt_id match:', driver.id);
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
+        await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
         return { driver, isNew: false, matchMethod: 'manual_bolt_id' };
       }
     }
@@ -270,6 +320,7 @@ async function findOrCreateDriver(
         console.log('Matched driver by manual freenow_id match:', driver.id);
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
+        await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
         return { driver, isNew: false, matchMethod: 'manual_freenow_id' };
       }
     }
@@ -279,6 +330,7 @@ async function findOrCreateDriver(
         console.log('Matched driver by manual email match:', driver.id);
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
+        await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
         return { driver, isNew: false, matchMethod: 'manual_email' };
       }
     }
@@ -297,6 +349,7 @@ async function findOrCreateDriver(
       console.log('Found driver by Uber ID:', platformData.drivers.id);
       await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
+      await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
       return { driver: platformData.drivers, isNew: false, matchMethod: 'uber_id' };
     }
   }
@@ -314,6 +367,7 @@ async function findOrCreateDriver(
       console.log('Found driver by FreeNow ID:', platformData.drivers.id);
       await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
+      await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
       return { driver: platformData.drivers, isNew: false, matchMethod: 'freenow_id' };
     }
   }
@@ -330,6 +384,7 @@ async function findOrCreateDriver(
       console.log('Found driver by email:', data[0].id);
       await updateDriverData(supabase, data[0], row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, data[0].id, uber_id, bolt_id, freenow_id);
+      await ensureDriverUserMapping(supabase, data[0].id, cityId, email, null);
       return { driver: data[0], isNew: false, matchMethod: 'email' };
     }
   }
@@ -349,6 +404,7 @@ async function findOrCreateDriver(
           console.log('Found driver by normalized name:', driver.id);
           await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
           await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
+          await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
           return { driver, isNew: false, matchMethod: 'name' };
         }
       }
@@ -460,6 +516,9 @@ async function findOrCreateDriver(
     throw insertError;
   }
   
+  // Ensure driver_app_users mapping for new driver
+  await ensureDriverUserMapping(supabase, newDriver.id, cityId, email, authUserId);
+
   // Add platform IDs to separate table
   if (uber_id) {
     await supabase.from('driver_platform_ids').insert({
