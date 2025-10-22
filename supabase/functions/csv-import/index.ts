@@ -10,6 +10,7 @@ interface CSVRow {
   email?: string;
   uber_id?: string;       // Kolumna B - Uber ID
   phone?: string;         // Kolumna C - nr tel
+  bolt_id?: string;       // Bolt ID (opcjonalnie)
   freenow_id?: string;    // Kolumna D
   fuel_card?: string;     // Kolumna E
   full_name?: string;     // Kolumna F - Imie nazwisko
@@ -145,6 +146,7 @@ async function findOrCreateDriver(
 ): Promise<{ driver: any; isNew: boolean; matchMethod?: string }> {
   const email = normalizeEmail(row.email || '');
   const uber_id = row.uber_id?.trim() || null;
+  const bolt_id = row.bolt_id?.trim() || null;
   const freenow_id = row.freenow_id?.trim() || null;
   const full_name = row.full_name?.trim() || '';
   const fuel_card = row.fuel_card?.trim() || null;
@@ -409,6 +411,11 @@ async function findOrCreateDriver(
   if (uber_id) {
     await supabase.from('driver_platform_ids').insert({
       driver_id: newDriver.id, platform: 'uber', platform_id: uber_id
+    });
+  }
+  if (bolt_id) {
+    await supabase.from('driver_platform_ids').insert({
+      driver_id: newDriver.id, platform: 'bolt', platform_id: bolt_id
     });
   }
   if (freenow_id) {
