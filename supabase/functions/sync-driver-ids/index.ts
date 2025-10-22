@@ -77,7 +77,6 @@ function extractFields(raw: any): {
     fuel_card: trim(raw.fuel_card || raw['nr karty paliwowej'] || null)
   };
 }
-}
 
 async function upsertPlatformIds(
   supabase: any,
