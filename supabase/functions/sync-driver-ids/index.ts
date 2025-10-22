@@ -23,15 +23,23 @@ function extractFields(raw: any): {
   const trim = (val: any) => (val !== undefined && val !== null && String(val).length ? String(val).trim() : null);
   const hasLetters = (val: string | null) => !!(val && /[A-Za-z]/.test(val));
   const isNumericLike = (val: string | null) => !!(val && /^[0-9.,]+$/.test(val));
-  
-  // Handle array format (from settlements created via edge function)
+
+  // Handle array format (older imports may store raw as an array)
   if (Array.isArray(raw)) {
-    // CRITICAL: GetRido ID MUST be at index 23 (column X in Excel)
-    // Column structure: 0=email, 1=uber_id, 2=phone, 3=freenow_id, 4=fuel_card, 5=name,
-    // 6-21=various amounts, 22=zwrot vat (column W), 23=getrido ID (column X)
-    const getridoFromArray = trim(raw[23]); // Explicit index 23 = column X
-    console.log(`[Array Debug] length=${raw.length}, index[22]="${raw[22]}", index[23]="${raw[23]}"`);
-    
+    // Pick the last non-numeric cell that contains letters (most robust for X column)
+    let pickedIdx: number | null = null;
+    let getridoFromArray: string | null = null;
+    for (let i = raw.length - 1; i >= 0; i--) {
+      const v = trim(raw[i]);
+      if (!v) continue;
+      if (hasLetters(v) && !isNumericLike(v)) {
+        pickedIdx = i;
+        getridoFromArray = v;
+        break;
+      }
+    }
+    console.log(`[Array Debug] len=${raw.length}, picked_idx=${pickedIdx}, idx22="${raw[22]}", last="${raw[raw.length-1]}"`);
+
     return {
       email: trim(raw[0]),
       uber_id: trim(raw[1]),
@@ -41,17 +49,21 @@ function extractFields(raw: any): {
       getrido_id: getridoFromArray
     };
   }
-  
-  // Handle object format (with various key aliases)
-  // Try header name first: "getrido ID"
+
+  // Handle object format (newer imports store raw as an object with getrido_id)
   let getrido = trim(raw['getrido ID'] || raw.getrido_id || raw.getRidoId);
-  
-  // If missing or looks like number (e.g. "43,2" from wrong column), try col_23
   if (!getrido || isNumericLike(getrido)) {
-    const col23 = trim(raw['col_23']);
-    if (hasLetters(col23)) {
-      console.log(`[Object Debug] Using col_23="${col23}" instead of "${getrido}"`);
-      getrido = col23;
+    // Scan col_* keys from highest to lowest to find the last text value with letters
+    const colKeys = Object.keys(raw)
+      .filter(k => /^col_\d+$/.test(k))
+      .sort((a, b) => Number(b.split('_')[1]) - Number(a.split('_')[1]));
+    for (const k of colKeys) {
+      const v = trim(raw[k]);
+      if (hasLetters(v) && !isNumericLike(v)) {
+        console.log(`[Object Debug] Using ${k}="${v}" instead of "${getrido}"`);
+        getrido = v;
+        break;
+      }
     }
   }
 
@@ -64,6 +76,7 @@ function extractFields(raw: any): {
     phone: trim(raw.phone || raw['nr tel'] || raw.telefon || null),
     fuel_card: trim(raw.fuel_card || raw['nr karty paliwowej'] || null)
   };
+}
 }
 
 async function upsertPlatformIds(

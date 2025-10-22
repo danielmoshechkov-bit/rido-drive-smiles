@@ -165,7 +165,7 @@ const DriverDashboard = () => {
           {/* Tab Content */}
           <TabsContent value="weekly-report">
             <div className="space-y-6">
-              <DriverSettlements driverId={driverData?.id} />
+              <DriverSettlements driverId={driverData.driver_id} />
               <WeeklyResults driverData={driverData} />
             </div>
           </TabsContent>
@@ -341,11 +341,11 @@ function WeeklyResults({ driverData }: { driverData: any }) {
         const amounts = (settlement.amounts || {}) as any;
         return {
           uber: acc.uber + (amounts.uber || 0),
-          uberCashless: acc.uberCashless + (amounts.uberCashless || 0),
-          bolt: acc.bolt + (amounts.boltGross || 0),
-          boltNet: acc.boltNet + (amounts.boltNet || 0),
-          freenow: acc.freenow + (amounts.freenowGross || 0),
-          freenowNet: acc.freenowNet + (amounts.freenowNet || 0),
+          uberCashless: acc.uberCashless + (amounts.uber_cashless || 0),
+          bolt: acc.bolt + (amounts.bolt_gross || 0),
+          boltNet: acc.boltNet + (amounts.bolt_net || 0),
+          freenow: acc.freenow + (amounts.freenow_gross || 0),
+          freenowNet: acc.freenowNet + (amounts.freenow_net || 0),
           fuel: acc.fuel + (amounts.fuel || 0)
         };
       }, { uber: 0, uberCashless: 0, bolt: 0, boltNet: 0, freenow: 0, freenowNet: 0, fuel: 0 });

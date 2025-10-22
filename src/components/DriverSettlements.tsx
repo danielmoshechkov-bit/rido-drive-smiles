@@ -139,19 +139,19 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     
     // Replace variable names with actual values
     const replacements: Record<string, number> = {
-      uberCashless: amounts.uberCashless || 0,
+      uberCashless: amounts.uber_cashless || 0,
       uber: amounts.uber || 0,
-      uberCash: amounts.uberCash || 0,
-      boltNet: amounts.boltNet || 0,
-      boltGross: amounts.boltGross || 0,
-      boltCash: amounts.boltCash || 0,
-      freenowNet: amounts.freenowNet || 0,
-      freenowGross: amounts.freenowGross || 0,
-      freenowCash: amounts.freenowCash || 0,
+      uberCash: amounts.uber_cash || 0,
+      boltNet: amounts.bolt_net || 0,
+      boltGross: amounts.bolt_gross || 0,
+      boltCash: amounts.bolt_cash || 0,
+      freenowNet: amounts.freenow_net || 0,
+      freenowGross: amounts.freenow_gross || 0,
+      freenowCash: amounts.freenow_cash || 0,
       fuel: amounts.fuel || 0,
-      fuelVATRefund: amounts.fuelVATRefund || 0,
-      totalCash: amounts.totalCash || 0,
-      totalCommission: amounts.totalCommission || 0,
+      fuelVATRefund: amounts.fuel_vat_refund || 0,
+      totalCash: amounts.total_cash || 0,
+      totalCommission: amounts.total_commission || 0,
       tax: amounts.tax || 0
     };
     
@@ -285,30 +285,30 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                     <CardContent className="space-y-2">
                       {/* UBER */}
                       {renderField('Uber (łącznie)', amounts.uber, visibilitySettings.show_uber)}
-                      {renderField('Uber bezgotówka', amounts.uberCashless, visibilitySettings.show_uber_cashless)}
-                      {renderField('Uber gotówka', amounts.uberCash, visibilitySettings.show_uber_cash)}
+                      {renderField('Uber bezgotówka', amounts.uber_cashless, visibilitySettings.show_uber_cashless)}
+                      {renderField('Uber gotówka', amounts.uber_cash, visibilitySettings.show_uber_cash)}
                       
                       {/* BOLT */}
-                      {renderField('Bolt brutto', amounts.boltGross, visibilitySettings.show_bolt_gross)}
-                      {renderField('Bolt netto', amounts.boltNet, visibilitySettings.show_bolt_net)}
-                      {renderField('Bolt prowizja', amounts.boltCommission, visibilitySettings.show_bolt_commission, 'text-destructive')}
-                      {renderField('Bolt gotówka', amounts.boltCash, visibilitySettings.show_bolt_cash)}
+                      {renderField('Bolt brutto', amounts.bolt_gross, visibilitySettings.show_bolt_gross)}
+                      {renderField('Bolt netto', amounts.bolt_net, visibilitySettings.show_bolt_net)}
+                      {renderField('Bolt prowizja', amounts.bolt_commission, visibilitySettings.show_bolt_commission, 'text-destructive')}
+                      {renderField('Bolt gotówka', amounts.bolt_cash, visibilitySettings.show_bolt_cash)}
                       
                       {/* FREENOW */}
-                      {renderField('FreeNow brutto', amounts.freenowGross, visibilitySettings.show_freenow_gross)}
-                      {renderField('FreeNow netto', amounts.freenowNet, visibilitySettings.show_freenow_net)}
-                      {renderField('FreeNow prowizja', amounts.freenowCommission, visibilitySettings.show_freenow_commission, 'text-destructive')}
-                      {renderField('FreeNow gotówka', amounts.freenowCash, visibilitySettings.show_freenow_cash)}
+                      {renderField('FreeNow brutto', amounts.freenow_gross, visibilitySettings.show_freenow_gross)}
+                      {renderField('FreeNow netto', amounts.freenow_net, visibilitySettings.show_freenow_net)}
+                      {renderField('FreeNow prowizja', amounts.freenow_commission, visibilitySettings.show_freenow_commission, 'text-destructive')}
+                      {renderField('FreeNow gotówka', amounts.freenow_cash, visibilitySettings.show_freenow_cash)}
                       
                       {/* PODSUMOWANIE */}
-                      {renderField('Razem gotówka', amounts.totalCash, visibilitySettings.show_total_cash)}
-                      {renderField('Razem prowizja', amounts.totalCommission, visibilitySettings.show_total_commission, 'text-destructive')}
+                      {renderField('Razem gotówka', amounts.total_cash, visibilitySettings.show_total_cash)}
+                      {renderField('Razem prowizja', amounts.total_commission, visibilitySettings.show_total_commission, 'text-destructive')}
                       {renderField('Podatek 8%/49', amounts.tax, visibilitySettings.show_tax)}
                       
                       {/* PALIWO */}
                       {renderField('Paliwo', amounts.fuel, visibilitySettings.show_fuel, 'text-destructive')}
-                      {renderField('VAT z paliwa', amounts.fuelVAT, visibilitySettings.show_fuel_vat)}
-                      {renderField('Zwrot VAT', amounts.fuelVATRefund, visibilitySettings.show_fuel_vat_refund, 'text-green-600')}
+                      {renderField('VAT z paliwa', amounts.fuel_vat, visibilitySettings.show_fuel_vat)}
+                      {renderField('Zwrot VAT', amounts.fuel_vat_refund, visibilitySettings.show_fuel_vat_refund, 'text-green-600')}
                       
                       {/* DO WYPŁATY */}
                       <div className="pt-3 mt-3 border-t">
