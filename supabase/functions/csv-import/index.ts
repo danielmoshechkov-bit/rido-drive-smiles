@@ -8,11 +8,12 @@ const corsHeaders = {
 
 interface CSVRow {
   email?: string;
-  bolt_id?: string;       // Kolumna B - BOLT ID!
-  uber_id?: string;       // Kolumna C
-  full_name?: string;     // Kolumna D
-  freenow_id?: string;    // Kolumna E
-  fuel_card?: string;     // Kolumna F
+  uber_id?: string;       // Kolumna B - Uber ID
+  phone?: string;         // Kolumna C - nr tel
+  freenow_id?: string;    // Kolumna D
+  fuel_card?: string;     // Kolumna E
+  full_name?: string;     // Kolumna F - Imie nazwisko
+  getrido_id?: string;    // Ostatnia kolumna - GetRido ID (główny identyfikator)
   [key: string]: any;
 }
 
@@ -94,10 +95,10 @@ async function findOrCreateDriver(
 ): Promise<{ driver: any; isNew: boolean; matchMethod?: string }> {
   const email = normalizeEmail(row.email || '');
   const uber_id = row.uber_id?.trim() || null;
-  const bolt_id = row.bolt_id?.trim() || null;  // Kolumna B to Bolt ID!
   const freenow_id = row.freenow_id?.trim() || null;
   const full_name = row.full_name?.trim() || '';
   const fuel_card = row.fuel_card?.trim() || null;
+  const getrido_id = row.getrido_id?.trim() || null;
   
   const { first_name, last_name } = parseFullName(full_name);
   
@@ -117,13 +118,13 @@ async function findOrCreateDriver(
   }
   
   // Check if we have any identifier
-  if (!email && !uber_id && !bolt_id && !freenow_id) {
+  if (!email && !uber_id && !freenow_id && !getrido_id) {
     await createAlert(
       supabase,
       'error',
       'validation',
       'Brak danych identyfikacyjnych',
-      `Kierowca ${full_name} nie ma ani emaila ani ID platform (Uber/Bolt/FreeNow)`,
+      `Kierowca ${full_name} nie ma ani emaila ani ID platform (Uber/FreeNow) ani GetRido ID`,
       { row },
       undefined,
       importJobId
@@ -131,7 +132,21 @@ async function findOrCreateDriver(
     return { driver: null, isNew: false, matchMethod: 'validation_failed' };
   }
   
-  // 1. Check manual matches first
+  // 1. NAJPIERW sprawdź GetRido ID - to główny identyfikator!
+  if (getrido_id) {
+    const { data: existingDriver } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('getrido_id', getrido_id)
+      .maybeSingle();
+    
+    if (existingDriver) {
+      console.log('✅ Matched driver by GetRido ID:', existingDriver.id, getrido_id);
+      return { driver: existingDriver, isNew: false, matchMethod: 'getrido_id' };
+    }
+  }
+  
+  // 2. Check manual matches
   for (const match of manualMatches) {
     if (match.match_key === 'uber_id' && uber_id && match.match_value === uber_id) {
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
@@ -163,7 +178,7 @@ async function findOrCreateDriver(
     }
   }
   
-  // 2. Try to match by Uber ID (skip if first import)
+  // 3. Try to match by Uber ID (skip if first import)
   if (!firstImport && uber_id) {
     const { data: platformData } = await supabase
       .from('driver_platform_ids')
@@ -175,21 +190,6 @@ async function findOrCreateDriver(
     if (platformData && platformData.drivers) {
       console.log('Found driver by Uber ID:', platformData.drivers.id);
       return { driver: platformData.drivers, isNew: false, matchMethod: 'uber_id' };
-    }
-  }
-  
-  // 3. Try to match by Bolt ID (skip if first import)
-  if (!firstImport && bolt_id) {
-    const { data: platformData } = await supabase
-      .from('driver_platform_ids')
-      .select('driver_id, drivers(*)')
-      .eq('platform', 'bolt')
-      .eq('platform_id', bolt_id)
-      .maybeSingle();
-    
-    if (platformData && platformData.drivers) {
-      console.log('Found driver by Bolt ID:', platformData.drivers.id);
-      return { driver: platformData.drivers, isNew: false, matchMethod: 'bolt_id' };
     }
   }
   
@@ -323,14 +323,10 @@ async function findOrCreateDriver(
       first_name,
       last_name,
       email: email || null,
-      phone: null,  // NIE używamy telefonu - kolumna B to Bolt ID
+      phone: row.phone || null,
       city_id: cityId,
       fuel_card_number: fuel_card || null,
-      platform_ids: {
-        uber: uber_id ? [uber_id] : [],
-        bolt: bolt_id ? [bolt_id] : [],
-        freenow: freenow_id ? [freenow_id] : []
-      }
+      getrido_id: getrido_id || null
     })
     .select()
     .single();
@@ -356,11 +352,6 @@ async function findOrCreateDriver(
       driver_id: newDriver.id, platform: 'uber', platform_id: uber_id
     });
   }
-  if (bolt_id) {
-    await supabase.from('driver_platform_ids').insert({
-      driver_id: newDriver.id, platform: 'bolt', platform_id: bolt_id
-    });
-  }
   if (freenow_id) {
     await supabase.from('driver_platform_ids').insert({
       driver_id: newDriver.id, platform: 'freenow', platform_id: freenow_id
@@ -373,8 +364,8 @@ async function findOrCreateDriver(
     'new_driver',
     'import',
     'Nowy kierowca utworzony',
-    `${full_name} (${email || login})`,
-    { firstImport, login, uber_id, bolt_id, freenow_id },
+    `${full_name} (${email || login}) - GetRido ID: ${getrido_id || 'brak'}`,
+    { firstImport, login, uber_id, freenow_id, getrido_id },
     newDriver.id,
     importJobId
   );
@@ -383,28 +374,36 @@ async function findOrCreateDriver(
   return { driver: newDriver, isNew: true, matchMethod: 'created' };
 }
 
-// Parse CSV
+// Parse CSV with semicolon delimiter
 function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
   
-  const headers = lines[0].split(',').map(h => h.trim());
   const rows: CSVRow[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    // Split by semicolon and remove quotes
+    const values = line.split(';').map(v => v.replace(/^"|"$/g, '').trim());
+    
+    // Skip empty rows
+    if (values.every(v => !v)) continue;
+    
     const row: CSVRow = {
-      email: values[0] || null,
-      bolt_id: values[1] || null,        // Kolumna B - BOLT ID
-      uber_id: values[2] || null,         // Kolumna C - Uber UUID
-      full_name: values[3] || '',         // Kolumna D
-      freenow_id: values[4] || null,      // Kolumna E
-      fuel_card: values[5] || null,       // Kolumna F
+      email: values[0] || null,           // Kolumna A - email
+      uber_id: values[1] || null,         // Kolumna B - ID Uber
+      phone: values[2] || null,           // Kolumna C - nr tel
+      freenow_id: values[3] || null,      // Kolumna D - ID FreeNow
+      fuel_card: values[4] || null,       // Kolumna E - karta paliwowa
+      full_name: values[5] || '',         // Kolumna F - Imie nazwisko
+      getrido_id: values[23] || null,     // Ostatnia kolumna - GetRido ID
     };
     
-    // Add financial columns (H onwards)
-    for (let j = 7; j < values.length; j++) {
-      row[headers[j] || `col_${j}`] = values[j];
+    // Add all financial columns for amounts mapping
+    for (let j = 6; j < values.length; j++) {
+      row[`col_${j}`] = values[j];
     }
     
     rows.push(row);
@@ -417,25 +416,29 @@ function parseCSV(csvText: string): CSVRow[] {
 function mapRowToAmounts(row: CSVRow): Record<string, number> {
   const parseNum = (val: any): number => {
     if (!val) return 0;
-    const str = String(val).replace(/[^\d.-]/g, '');
+    const str = String(val).replace(/[^\d.-]/g, '').replace(',', '.');
     return parseFloat(str) || 0;
   };
   
-  // Mapowanie kolumn CSV (indeksy od 7 = H, 8 = I, ...)
+  // Mapowanie kolumn z nowego CSV (kolumny 7-22)
   return {
-    uber_card: parseNum(row['col_7']),              // Kolumna H
-    uber_card_cashless: parseNum(row['col_8']),     // Kolumna I
-    bolt_gross: parseNum(row['col_9']),             // Kolumna J
-    bolt_net: parseNum(row['col_10']),              // Kolumna K
-    bolt_commission: parseNum(row['col_11']),       // Kolumna L
-    bolt_cashless: parseNum(row['col_12']),         // Kolumna M
-    freenow_gross: parseNum(row['col_13']),         // Kolumna N
-    freenow_net: parseNum(row['col_14']),           // Kolumna O
-    freenow_commission: parseNum(row['col_15']),    // Kolumna P
-    total_gross: parseNum(row['col_16']),           // Kolumna Q
-    fuel: parseNum(row['col_17']),                  // Kolumna R
-    vat_refund: parseNum(row['col_18']),            // Kolumna S
-    net_payout: parseNum(row['col_19'])             // Kolumna T
+    uber: parseNum(row['col_6']),                    // Kolumna G - Uber
+    uber_cashless: parseNum(row['col_7']),           // Kolumna H - Uber bezgotówka
+    uber_cash: parseNum(row['col_8']),               // Kolumna I - uber gotówka
+    bolt_gross: parseNum(row['col_9']),              // Kolumna J - bolt brutto
+    bolt_net: parseNum(row['col_10']),               // Kolumna K - bolt netto
+    bolt_commission: parseNum(row['col_11']),        // Kolumna L - bolt prowizja
+    bolt_cash: parseNum(row['col_12']),              // Kolumna M - bolt gotówka
+    freenow_gross: parseNum(row['col_13']),          // Kolumna N - freenow brutto
+    freenow_net: parseNum(row['col_14']),            // Kolumna O - freenow netto
+    freenow_commission: parseNum(row['col_15']),     // Kolumna P - freenow prowizja
+    freenow_cash: parseNum(row['col_16']),           // Kolumna Q - freenow gotówka
+    total_cash: parseNum(row['col_17']),             // Kolumna R - razem gotówka
+    total_commission: parseNum(row['col_18']),       // Kolumna S - razem prowizja
+    tax: parseNum(row['col_19']),                    // Kolumna T - podatek
+    fuel: parseNum(row['col_20']),                   // Kolumna U - paliwo
+    fuel_vat: parseNum(row['col_21']),               // Kolumna V - vat z paliwa
+    fuel_vat_refund: parseNum(row['col_22'])         // Kolumna W - zwrot vat
   };
 }
 

@@ -27,7 +27,8 @@ export const EditDriverModal = ({ isOpen, onClose, driverId, onSuccess }: EditDr
     first_name: '',
     last_name: '',
     email: '',
-    phone: ''
+    phone: '',
+    getrido_id: ''
   });
   const [platformIds, setPlatformIds] = useState<PlatformId[]>([]);
   const [newPlatform, setNewPlatform] = useState({ platform: '', platform_id: '' });
@@ -36,6 +37,7 @@ export const EditDriverModal = ({ isOpen, onClose, driverId, onSuccess }: EditDr
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
     { id: 'bolt', name: 'Bolt', color: 'bg-green-500 text-white' },
     { id: 'freenow', name: 'FreeNow', color: 'bg-red-500 text-white' },
+    { id: 'getrido', name: 'GetRido', color: 'bg-blue-600 text-white' },
   ];
 
   useEffect(() => {
@@ -61,7 +63,8 @@ export const EditDriverModal = ({ isOpen, onClose, driverId, onSuccess }: EditDr
         first_name: driver.first_name || '',
         last_name: driver.last_name || '',
         email: driver.email || '',
-        phone: driver.phone || ''
+        phone: driver.phone || '',
+        getrido_id: driver.getrido_id || ''
       });
 
       // Load platform IDs
@@ -140,6 +143,7 @@ export const EditDriverModal = ({ isOpen, onClose, driverId, onSuccess }: EditDr
           last_name: formData.last_name,
           email: formData.email || null,
           phone: formData.phone || null,
+          getrido_id: formData.getrido_id || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', driverId);
@@ -220,6 +224,18 @@ export const EditDriverModal = ({ isOpen, onClose, driverId, onSuccess }: EditDr
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="getrido_id">GetRido ID (unikalne ID kierowcy)</Label>
+            <Input
+              id="getrido_id"
+              value={formData.getrido_id}
+              onChange={(e) => setFormData({ ...formData, getrido_id: e.target.value.toUpperCase() })}
+              className="font-mono font-bold text-blue-600"
+              placeholder="np. W00YMF"
+              maxLength={10}
+            />
           </div>
 
           {/* Platform IDs */}

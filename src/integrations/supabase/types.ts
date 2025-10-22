@@ -533,6 +533,7 @@ export type Database = {
           first_name: string | null
           fleet_id: string | null
           fuel_card_number: string | null
+          getrido_id: string | null
           id: string
           last_name: string | null
           phone: string | null
@@ -548,6 +549,7 @@ export type Database = {
           first_name?: string | null
           fleet_id?: string | null
           fuel_card_number?: string | null
+          getrido_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -563,6 +565,7 @@ export type Database = {
           first_name?: string | null
           fleet_id?: string | null
           fuel_card_number?: string | null
+          getrido_id?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
