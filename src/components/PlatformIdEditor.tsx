@@ -58,10 +58,27 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
     }
   };
 
+  const getPlatformName = (platform: string) => {
+    switch(platform) {
+      case 'uber': return 'Uber';
+      case 'bolt': return 'Bolt';
+      case 'freenow': return 'FreeNow';
+      case 'getrido': return 'GetRido';
+      default: return platform;
+    }
+  };
+
+  const getPlatformColor = (platform: string) => {
+    switch(platform) {
+      case 'getrido': return 'bg-primary/10 text-primary border-primary/20';
+      default: return 'bg-muted';
+    }
+  };
+
   return (
     <div className="space-y-1">
       <div className="text-xs font-medium text-muted-foreground uppercase">
-        {platform} ID
+        {getPlatformName(platform)} ID
       </div>
       
       {isEditing ? (
@@ -86,7 +103,7 @@ export function PlatformIdEditor({ driverId, platform, currentId, onUpdate }: Pl
       ) : (
         <div className="flex items-center gap-2">
           <span 
-            className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1 cursor-pointer hover:bg-muted/70"
+            className={`text-xs font-mono ${getPlatformColor(platform)} px-2 py-1 rounded flex-1 cursor-pointer hover:opacity-70 transition-opacity`}
             onClick={handleTextClick}
             title="Kliknij aby edytować"
           >

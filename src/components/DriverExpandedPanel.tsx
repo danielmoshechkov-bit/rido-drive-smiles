@@ -16,7 +16,7 @@ interface DriverExpandedPanelProps {
 }
 
 export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelProps) {
-  const platforms = ['uber', 'bolt', 'freenow'];
+  const platforms = ['uber', 'bolt', 'freenow', 'getrido'];
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);

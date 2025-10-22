@@ -84,6 +84,56 @@ function normalizeName(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z]/g, '');
 }
 
+// Helper function to update existing driver data
+async function updateDriverData(
+  supabase: any,
+  existingDriver: any,
+  row: CSVRow,
+  getrido_id: string | null,
+  email: string | null,
+  fuel_card: string | null
+): Promise<void> {
+  const updateData: any = {};
+  
+  // Update getrido_id if present in CSV and different
+  if (getrido_id && existingDriver.getrido_id !== getrido_id) {
+    updateData.getrido_id = getrido_id;
+    console.log(`📝 Updating getrido_id: ${existingDriver.getrido_id} -> ${getrido_id}`);
+  }
+  
+  // Update phone if present in CSV and different
+  if (row.phone && existingDriver.phone !== row.phone) {
+    updateData.phone = row.phone;
+    console.log(`📝 Updating phone: ${existingDriver.phone} -> ${row.phone}`);
+  }
+  
+  // Update fuel card if present in CSV and different
+  if (fuel_card && existingDriver.fuel_card_number !== fuel_card) {
+    updateData.fuel_card_number = fuel_card;
+    console.log(`📝 Updating fuel_card: ${existingDriver.fuel_card_number} -> ${fuel_card}`);
+  }
+  
+  // Update email if present in CSV and different
+  if (email && existingDriver.email !== email) {
+    updateData.email = email;
+    console.log(`📝 Updating email: ${existingDriver.email} -> ${email}`);
+  }
+  
+  // Execute update if there are changes
+  if (Object.keys(updateData).length > 0) {
+    const { error } = await supabase
+      .from('drivers')
+      .update(updateData)
+      .eq('id', existingDriver.id);
+    
+    if (error) {
+      console.error('⚠️ Error updating driver:', error);
+    } else {
+      console.log(`✅ Updated driver ${existingDriver.id}:`, updateData);
+    }
+  }
+}
+
 // Find or create driver
 async function findOrCreateDriver(
   supabase: any,
@@ -142,6 +192,7 @@ async function findOrCreateDriver(
     
     if (existingDriver) {
       console.log('✅ Matched driver by GetRido ID:', existingDriver.id, getrido_id);
+      await updateDriverData(supabase, existingDriver, row, getrido_id, email, fuel_card);
       return { driver: existingDriver, isNew: false, matchMethod: 'getrido_id' };
     }
   }
@@ -152,6 +203,7 @@ async function findOrCreateDriver(
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
         console.log('Matched driver by manual uber_id match:', driver.id);
+        await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         return { driver, isNew: false, matchMethod: 'manual_uber_id' };
       }
     }
@@ -159,6 +211,7 @@ async function findOrCreateDriver(
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
         console.log('Matched driver by manual bolt_id match:', driver.id);
+        await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         return { driver, isNew: false, matchMethod: 'manual_bolt_id' };
       }
     }
@@ -166,6 +219,7 @@ async function findOrCreateDriver(
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
         console.log('Matched driver by manual freenow_id match:', driver.id);
+        await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         return { driver, isNew: false, matchMethod: 'manual_freenow_id' };
       }
     }
@@ -173,6 +227,7 @@ async function findOrCreateDriver(
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
         console.log('Matched driver by manual email match:', driver.id);
+        await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         return { driver, isNew: false, matchMethod: 'manual_email' };
       }
     }
@@ -189,6 +244,7 @@ async function findOrCreateDriver(
     
     if (platformData && platformData.drivers) {
       console.log('Found driver by Uber ID:', platformData.drivers.id);
+      await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       return { driver: platformData.drivers, isNew: false, matchMethod: 'uber_id' };
     }
   }
@@ -204,6 +260,7 @@ async function findOrCreateDriver(
     
     if (platformData && platformData.drivers) {
       console.log('Found driver by FreeNow ID:', platformData.drivers.id);
+      await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       return { driver: platformData.drivers, isNew: false, matchMethod: 'freenow_id' };
     }
   }
@@ -218,6 +275,7 @@ async function findOrCreateDriver(
     
     if (data && data.length > 0) {
       console.log('Found driver by email:', data[0].id);
+      await updateDriverData(supabase, data[0], row, getrido_id, email, fuel_card);
       return { driver: data[0], isNew: false, matchMethod: 'email' };
     }
   }
@@ -235,6 +293,7 @@ async function findOrCreateDriver(
         const driverName = `${driver.first_name} ${driver.last_name}`;
         if (normalizeName(driverName) === normalizedName) {
           console.log('Found driver by normalized name:', driver.id);
+          await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
           return { driver, isNew: false, matchMethod: 'name' };
         }
       }
