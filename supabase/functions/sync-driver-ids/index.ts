@@ -20,7 +20,9 @@ function extractFields(raw: any): {
   phone: string | null;
   fuel_card: string | null;
 } {
-  const trim = (val: any) => (val ? String(val).trim() : null);
+  const trim = (val: any) => (val !== undefined && val !== null && String(val).length ? String(val).trim() : null);
+  const hasLetters = (val: string | null) => !!(val && /[A-Za-z]/.test(val));
+  const isNumericLike = (val: string | null) => !!(val && /^[0-9.,]+$/.test(val));
   
   // Handle array format (from settlements created via edge function)
   if (Array.isArray(raw)) {
@@ -30,13 +32,21 @@ function extractFields(raw: any): {
       phone: trim(raw[2]),
       freenow_id: trim(raw[3]),
       fuel_card: trim(raw[4]),
-      getrido_id: trim(raw[raw.length - 1]) // Last column
+      getrido_id: trim(raw[raw.length - 1]) // Last column is GetRido ID
     };
   }
   
   // Handle object format (with various key aliases)
+  // Prefer explicit getrido_id, but if it's missing or looks numeric (e.g. "43,2"),
+  // fall back to col_23 which is the last CSV column (GetRido ID)
+  let getrido = trim(raw.getrido_id || raw['getrido ID'] || raw.getRidoId);
+  const col23 = trim(raw['col_23']);
+  if ((!getrido || isNumericLike(getrido)) && hasLetters(col23)) {
+    getrido = col23;
+  }
+
   return {
-    getrido_id: trim(raw.getrido_id || raw['getrido ID'] || raw.getRidoId || null),
+    getrido_id: getrido,
     uber_id: trim(raw.uber_id || raw['id uber'] || raw.uberId || null),
     bolt_id: trim(raw.bolt_id || raw['id bolt'] || raw.boltId || null),
     freenow_id: trim(raw.freenow_id || raw['id freenow'] || raw.freeNowId || null),
