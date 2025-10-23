@@ -6,6 +6,79 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Column mapping interface
+interface CsvColumnMapping {
+  identification: {
+    email: string;
+    phone: string;
+    full_name: string;
+    uber_id: string;
+    bolt_id: string;
+    freenow_id: string;
+    getrido_id: string;
+    fuel_card: string;
+  };
+  amounts: {
+    uber: string;
+    uber_cashless: string;
+    uber_cash: string;
+    bolt_gross: string;
+    bolt_net: string;
+    bolt_commission: string;
+    bolt_cash: string;
+    freenow_gross: string;
+    freenow_net: string;
+    freenow_commission: string;
+    freenow_cash: string;
+    total_cash: string;
+    total_commission: string;
+    tax: string;
+    fuel: string;
+    fuel_vat: string;
+    fuel_vat_refund: string;
+  };
+}
+
+// Convert column letter (A, B, AA, AB) to 0-based index
+function letterToIndex(letter: string): number {
+  if (!letter || letter === '') return -1;
+  
+  letter = letter.toUpperCase();
+  let result = 0;
+  
+  for (let i = 0; i < letter.length; i++) {
+    result = result * 26 + (letter.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
+  }
+  
+  return result - 1;
+}
+
+// Resolve column mapping value to index
+function resolveColumnIndex(
+  mappingValue: string, 
+  headerValues: string[]
+): number {
+  if (!mappingValue) return -1;
+  
+  // Check if it's a letter (column name like A, B, AA)
+  if (/^[A-Za-z]+$/.test(mappingValue)) {
+    return letterToIndex(mappingValue);
+  }
+  
+  // Check if it's a number (1-based index)
+  if (/^[0-9]+$/.test(mappingValue)) {
+    return parseInt(mappingValue, 10) - 1;
+  }
+  
+  // Otherwise, treat as header name and search for it
+  const searchTerm = mappingValue.toLowerCase();
+  const index = headerValues.findIndex(h => 
+    h.toLowerCase().includes(searchTerm)
+  );
+  
+  return index;
+}
+
 interface CSVRow {
   email?: string;
   uber_id?: string;       // Kolumna B - Uber ID
@@ -552,19 +625,74 @@ async function findOrCreateDriver(
   return { driver: newDriver, isNew: true, matchMethod: 'created' };
 }
 
-// Parse CSV with semicolon delimiter
-function parseCSV(csvText: string): CSVRow[] {
+// Parse CSV with semicolon delimiter and dynamic column mapping
+async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
 
   const clean = (v: string) => v.replace(/^"|"$/g, '').trim();
 
-  // Detect header and the exact index of GetRido ID column
+  // Get header values
   const headerValues = lines[0].split(';').map(clean);
-  const headerLower = headerValues.map(h => h.toLowerCase());
-  let getridoIdx = headerLower.findIndex(h => h.includes('getrido') && h.includes('id'));
-  // Fallback: use the last column if specific header not found
-  if (getridoIdx === -1) getridoIdx = headerValues.length - 1;
+
+  // Load column mapping from database
+  const { data: mappingData } = await supabase
+    .from('rido_settings')
+    .select('value')
+    .eq('key', 'csv_column_mapping')
+    .maybeSingle();
+
+  // Default mapping if not found
+  const defaultMapping: CsvColumnMapping = {
+    identification: {
+      email: 'A',
+      uber_id: 'B',
+      phone: 'C',
+      freenow_id: 'D',
+      fuel_card: 'E',
+      full_name: 'F',
+      bolt_id: '',
+      getrido_id: 'X',
+    },
+    amounts: {
+      uber: 'G',
+      uber_cashless: 'H',
+      uber_cash: 'I',
+      bolt_gross: 'J',
+      bolt_net: 'K',
+      bolt_commission: 'L',
+      bolt_cash: 'M',
+      freenow_gross: 'N',
+      freenow_net: 'O',
+      freenow_commission: 'P',
+      freenow_cash: 'Q',
+      total_cash: 'R',
+      total_commission: 'S',
+      tax: 'T',
+      fuel: 'U',
+      fuel_vat: 'V',
+      fuel_vat_refund: 'W',
+    },
+  };
+
+  const mapping = (mappingData?.value || defaultMapping) as CsvColumnMapping;
+
+  // Resolve all column indexes
+  const indexes = {
+    email: resolveColumnIndex(mapping.identification.email, headerValues),
+    uber_id: resolveColumnIndex(mapping.identification.uber_id, headerValues),
+    phone: resolveColumnIndex(mapping.identification.phone, headerValues),
+    freenow_id: resolveColumnIndex(mapping.identification.freenow_id, headerValues),
+    fuel_card: resolveColumnIndex(mapping.identification.fuel_card, headerValues),
+    full_name: resolveColumnIndex(mapping.identification.full_name, headerValues),
+    bolt_id: resolveColumnIndex(mapping.identification.bolt_id, headerValues),
+    getrido_id: resolveColumnIndex(mapping.identification.getrido_id, headerValues),
+  };
+
+  // Fallback for getrido_id - use last column if not resolved
+  if (indexes.getrido_id === -1) {
+    indexes.getrido_id = headerValues.length - 1;
+  }
 
   const rows: CSVRow[] = [];
 
@@ -579,17 +707,18 @@ function parseCSV(csvText: string): CSVRow[] {
     if (values.every(v => !v)) continue;
 
     const row: CSVRow = {
-      email: values[0] || null,           // Kolumna A - email
-      uber_id: values[1] || null,         // Kolumna B - ID Uber
-      phone: values[2] || null,           // Kolumna C - nr tel
-      freenow_id: values[3] || null,      // Kolumna D - ID FreeNow
-      fuel_card: values[4] || null,       // Kolumna E - karta paliwowa
-      full_name: values[5] || '',         // Kolumna F - Imie nazwisko
-      getrido_id: values[getridoIdx] || null, // Kolumna z nagłówkiem "GetRido ID" lub ostatnia
+      email: indexes.email >= 0 ? (values[indexes.email] || null) : null,
+      uber_id: indexes.uber_id >= 0 ? (values[indexes.uber_id] || null) : null,
+      phone: indexes.phone >= 0 ? (values[indexes.phone] || null) : null,
+      freenow_id: indexes.freenow_id >= 0 ? (values[indexes.freenow_id] || null) : null,
+      fuel_card: indexes.fuel_card >= 0 ? (values[indexes.fuel_card] || null) : null,
+      full_name: indexes.full_name >= 0 ? (values[indexes.full_name] || '') : '',
+      bolt_id: indexes.bolt_id >= 0 ? (values[indexes.bolt_id] || null) : null,
+      getrido_id: indexes.getrido_id >= 0 ? (values[indexes.getrido_id] || null) : null,
     };
 
-    // Add all financial columns for amounts mapping (starting from G)
-    for (let j = 6; j < values.length; j++) {
+    // Add all columns for amounts mapping and fallback access
+    for (let j = 0; j < values.length; j++) {
       row[`col_${j}`] = values[j];
     }
 
@@ -599,34 +728,51 @@ function parseCSV(csvText: string): CSVRow[] {
   return rows;
 }
 
-// Map row to settlement amounts
-function mapRowToAmounts(row: CSVRow): Record<string, number> {
+// Map row to settlement amounts using dynamic column mapping
+async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<string, number>> {
   const parseNum = (val: any): number => {
     if (!val) return 0;
     const str = String(val).replace(/[^\d.-]/g, '').replace(',', '.');
     return parseFloat(str) || 0;
   };
-  
-  // Mapowanie kolumn z nowego CSV (kolumny 7-22)
-  return {
-    uber: parseNum(row['col_6']),                    // Kolumna G - Uber
-    uber_cashless: parseNum(row['col_7']),           // Kolumna H - Uber bezgotówka
-    uber_cash: parseNum(row['col_8']),               // Kolumna I - uber gotówka
-    bolt_gross: parseNum(row['col_9']),              // Kolumna J - bolt brutto
-    bolt_net: parseNum(row['col_10']),               // Kolumna K - bolt netto
-    bolt_commission: parseNum(row['col_11']),        // Kolumna L - bolt prowizja
-    bolt_cash: parseNum(row['col_12']),              // Kolumna M - bolt gotówka
-    freenow_gross: parseNum(row['col_13']),          // Kolumna N - freenow brutto
-    freenow_net: parseNum(row['col_14']),            // Kolumna O - freenow netto
-    freenow_commission: parseNum(row['col_15']),     // Kolumna P - freenow prowizja
-    freenow_cash: parseNum(row['col_16']),           // Kolumna Q - freenow gotówka
-    total_cash: parseNum(row['col_17']),             // Kolumna R - razem gotówka
-    total_commission: parseNum(row['col_18']),       // Kolumna S - razem prowizja
-    tax: parseNum(row['col_19']),                    // Kolumna T - podatek
-    fuel: parseNum(row['col_20']),                   // Kolumna U - paliwo
-    fuel_vat: parseNum(row['col_21']),               // Kolumna V - vat z paliwa
-    fuel_vat_refund: parseNum(row['col_22'])         // Kolumna W - zwrot vat
+
+  // Load column mapping from database
+  const { data: mappingData } = await supabase
+    .from('rido_settings')
+    .select('value')
+    .eq('key', 'csv_column_mapping')
+    .maybeSingle();
+
+  // Default mapping if not found
+  const defaultMapping: CsvColumnMapping = {
+    identification: {
+      email: 'A', uber_id: 'B', phone: 'C', freenow_id: 'D',
+      fuel_card: 'E', full_name: 'F', bolt_id: '', getrido_id: 'X',
+    },
+    amounts: {
+      uber: 'G', uber_cashless: 'H', uber_cash: 'I',
+      bolt_gross: 'J', bolt_net: 'K', bolt_commission: 'L', bolt_cash: 'M',
+      freenow_gross: 'N', freenow_net: 'O', freenow_commission: 'P', freenow_cash: 'Q',
+      total_cash: 'R', total_commission: 'S', tax: 'T',
+      fuel: 'U', fuel_vat: 'V', fuel_vat_refund: 'W',
+    },
   };
+
+  const mapping = (mappingData?.value || defaultMapping) as CsvColumnMapping;
+
+  // Build amounts object dynamically from mapping
+  const amounts: Record<string, number> = {};
+  
+  for (const [key, colLetter] of Object.entries(mapping.amounts)) {
+    const colIndex = letterToIndex(colLetter);
+    if (colIndex >= 0) {
+      amounts[key] = parseNum(row[`col_${colIndex}`]);
+    } else {
+      amounts[key] = 0;
+    }
+  }
+
+  return amounts;
 }
 
 // Generate row ID for idempotency
@@ -722,7 +868,7 @@ serve(async (req) => {
     const importJobId = importJob.id;
     
     // Parse CSV
-    const rows = parseCSV(csv_text);
+    const rows = await parseCSV(csv_text, supabase);
     console.log(`Parsed ${rows.length} rows from CSV`);
     
     let added = 0;
@@ -757,8 +903,8 @@ serve(async (req) => {
           matchedDriversCount++;
         }
         
-        // Map amounts
-        const amounts = mapRowToAmounts(row);
+        // Map amounts using dynamic column mapping
+        const amounts = await mapRowToAmounts(row, supabase);
         
         // Generate row ID for idempotency
         const rawRowId = generateRowId(driver.id, period_from, period_to, i);

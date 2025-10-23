@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 
 interface Settlement {
   id: string;
@@ -50,6 +51,10 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const [loading, setLoading] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
+  const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
+  const [driverPlan, setDriverPlan] = useState<string>('39+8');
+  const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
+  const [rentalFee, setRentalFee] = useState<number>(0);
 
   const loadSettlements = async () => {
     if (!driverId) return;
@@ -105,8 +110,66 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     }
   };
 
+  const loadFeeFormulas = async () => {
+    const { data, error } = await supabase
+      .from('rido_settings')
+      .select('value')
+      .eq('key', 'payout_fees_formulas')
+      .maybeSingle();
+
+    if (!error && data?.value) {
+      setFeeFormulas(data.value as unknown as FeeFormulas);
+    }
+  };
+
+  const loadCsvMapping = async () => {
+    const { data, error } = await supabase
+      .from('rido_settings')
+      .select('value')
+      .eq('key', 'csv_column_mapping')
+      .maybeSingle();
+
+    if (!error && data?.value) {
+      setCsvMapping(data.value as unknown as CsvColumnMapping);
+    }
+  };
+
+  const loadDriverPlan = async () => {
+    if (!driverId) return;
+
+    const { data, error } = await supabase
+      .from('driver_app_users')
+      .select('plan_type')
+      .eq('driver_id', driverId)
+      .maybeSingle();
+
+    if (!error && data?.plan_type) {
+      setDriverPlan(data.plan_type);
+    }
+  };
+
+  const loadRentalFee = async () => {
+    if (!driverId) return;
+
+    const { data, error } = await supabase
+      .from('driver_vehicle_assignments')
+      .select('vehicle_id, vehicles(weekly_rental_fee)')
+      .eq('driver_id', driverId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!error && data?.vehicles) {
+      const vehicleData = data.vehicles as any;
+      setRentalFee(vehicleData.weekly_rental_fee || 0);
+    }
+  };
+
   useEffect(() => {
     loadVisibilitySettings();
+    loadFeeFormulas();
+    loadCsvMapping();
+    loadDriverPlan();
+    loadRentalFee();
   }, []);
 
   useEffect(() => {
@@ -132,12 +195,56 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   );
 
   // Calculate payout using formula
-  const calculatePayout = (amounts: any): number => {
-    if (!visibilitySettings?.payout_formula || !amounts) return 0;
+  const calculatePayout = (amounts: any): { payout: number; fee: number; breakdown: any } => {
+    if (!visibilitySettings?.payout_formula || !amounts) {
+      return { payout: 0, fee: 0, breakdown: {} };
+    }
     
     let formula = visibilitySettings.payout_formula;
     
-    // Replace variable names with actual values
+    // Calculate total earnings for fee calculation
+    const totalEarnings = (amounts.uber || 0) + (amounts.bolt_gross || 0) + (amounts.freenow_gross || 0);
+    
+    // Calculate fee based on driver's plan
+    let fee = 0;
+    if (feeFormulas[driverPlan]) {
+      let feeFormula = feeFormulas[driverPlan];
+      
+      // Replace variables in fee formula
+      feeFormula = feeFormula.replace(/totalEarnings/g, totalEarnings.toString());
+      feeFormula = feeFormula.replace(/uber/g, (amounts.uber || 0).toString());
+      feeFormula = feeFormula.replace(/bolt/g, (amounts.bolt_gross || 0).toString());
+      feeFormula = feeFormula.replace(/freenow/g, (amounts.freenow_gross || 0).toString());
+      
+      // Replace column letters with values if csvMapping is available
+      if (csvMapping) {
+        Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
+          if (letter) {
+            const regex = new RegExp(letter, 'g');
+            feeFormula = feeFormula.replace(regex, (amounts[key] || 0).toString());
+          }
+        });
+      }
+      
+      try {
+        fee = new Function(`return ${feeFormula}`)();
+      } catch {
+        console.error('Error evaluating fee formula:', feeFormula);
+        fee = 0;
+      }
+    }
+    
+    // Replace column letters with amounts values
+    if (csvMapping) {
+      Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
+        if (letter) {
+          const regex = new RegExp(letter, 'g');
+          formula = formula.replace(regex, (amounts[key] || 0).toString());
+        }
+      });
+    }
+    
+    // Replace named variables with actual values
     const replacements: Record<string, number> = {
       uberCashless: amounts.uber_cashless || 0,
       uber: amounts.uber || 0,
@@ -152,20 +259,34 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       fuelVATRefund: amounts.fuel_vat_refund || 0,
       totalCash: amounts.total_cash || 0,
       totalCommission: amounts.total_commission || 0,
-      tax: amounts.tax || 0
+      tax: amounts.tax || 0,
+      rental: rentalFee,
+      fee: fee
     };
     
     Object.entries(replacements).forEach(([key, value]) => {
       formula = formula.replace(new RegExp(key, 'g'), value.toString());
     });
     
+    let payout = 0;
     try {
       // Use Function constructor for safe evaluation (simple math only)
-      return new Function(`return ${formula}`)();
+      payout = new Function(`return ${formula}`)();
     } catch {
       console.error('Error evaluating formula:', formula);
-      return 0;
+      payout = 0;
     }
+    
+    return {
+      payout,
+      fee,
+      breakdown: {
+        totalEarnings,
+        rental: rentalFee,
+        feeBase: driverPlan.includes('+') ? parseFloat(driverPlan.split('+')[0]) : fee,
+        feePercent: driverPlan.includes('+') ? fee - parseFloat(driverPlan.split('+')[0]) : 0
+      }
+    };
   };
 
   // Render visible field
@@ -275,7 +396,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0];
                 const amounts = settlement.amounts || {};
-                const payout = calculatePayout(amounts);
+                const { payout, fee, breakdown } = calculatePayout(amounts);
 
                 return (
                   <Card key={periodKey} className="border-l-4 border-l-primary">
@@ -311,6 +432,33 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                       {renderField('Paliwo', amounts.fuel, visibilitySettings.show_fuel, 'text-destructive')}
                       {renderField('VAT z paliwa', amounts.fuel_vat, visibilitySettings.show_fuel_vat)}
                       {renderField('Zwrot VAT', amounts.fuel_vat_refund, visibilitySettings.show_fuel_vat_refund, 'text-green-600')}
+                      
+                      {/* OPŁATY I WYNAJEM */}
+                      {rentalFee > 0 && (
+                        <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
+                          <span className="text-sm text-muted-foreground">Wynajem auta:</span>
+                          <span className="text-sm font-medium text-destructive">
+                            -{rentalFee.toFixed(2)} zł
+                          </span>
+                        </div>
+                      )}
+                      
+                      {fee > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
+                            <span className="text-sm text-muted-foreground">Opłata ({driverPlan}):</span>
+                            <span className="text-sm font-medium text-destructive">
+                              -{fee.toFixed(2)} zł
+                            </span>
+                          </div>
+                          {breakdown.feeBase > 0 && breakdown.feePercent > 0 && (
+                            <div className="text-xs text-muted-foreground ml-4 space-y-0.5">
+                              <div>• Stała: {breakdown.feeBase.toFixed(2)} zł</div>
+                              <div>• Prowizja: {breakdown.feePercent.toFixed(2)} zł</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       {/* DO WYPŁATY */}
                       <div className="pt-3 mt-3 border-t">

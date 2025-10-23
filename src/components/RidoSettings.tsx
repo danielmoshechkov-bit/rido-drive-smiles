@@ -15,6 +15,8 @@ import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { CsvColumnMapping, FeeFormulas, defaultColumnMapping, defaultFeeFormulas } from "@/lib/csvMapping";
 
 interface RidoEnvSettings {
   active: "test" | "prod";
@@ -110,11 +112,18 @@ export default function RidoSettings() {
     phone_country_default: 'PL',
   });
 
+  const [csvMapping, setCsvMapping] = useState<CsvColumnMapping>(defaultColumnMapping);
+  const [payoutFormula, setPayoutFormula] = useState<string>('H + K + O - U + W - rental - fee');
+  const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>(defaultFeeFormulas);
+
   useEffect(() => {
     loadSettings();
     loadSettlements();
     loadVisibilitySettings();
     loadDedupSettings();
+    loadCsvMapping();
+    loadPayoutFormula();
+    loadFeeFormulas();
   }, []);
 
   const loadSettings = async () => {
@@ -245,6 +254,303 @@ export default function RidoSettings() {
       toast.success("✅ Ustawienia deduplikacji zapisane");
     }
   };
+
+  const loadCsvMapping = async () => {
+    const { data, error } = await supabase
+      .from("rido_settings")
+      .select("value")
+      .eq("key", "csv_column_mapping")
+      .maybeSingle();
+
+    if (!error && data?.value) {
+      setCsvMapping(data.value as unknown as CsvColumnMapping);
+    }
+  };
+
+  const saveCsvMapping = async () => {
+    const { error } = await supabase
+      .from("rido_settings")
+      .upsert({
+        key: "csv_column_mapping",
+        value: csvMapping as any,
+      }, { onConflict: 'key' });
+
+    if (error) {
+      toast.error("Błąd zapisu mapowania CSV");
+      console.error(error);
+    } else {
+      toast.success("✅ Mapowanie CSV zapisane");
+    }
+  };
+
+  const loadPayoutFormula = async () => {
+    const { data, error } = await supabase
+      .from("settlement_visibility_settings")
+      .select("payout_formula")
+      .eq("id", "00000000-0000-0000-0000-000000000001")
+      .maybeSingle();
+
+    if (!error && data?.payout_formula) {
+      setPayoutFormula(data.payout_formula);
+    }
+  };
+
+  const savePayoutFormula = async () => {
+    const { error } = await supabase
+      .from("settlement_visibility_settings")
+      .update({ payout_formula: payoutFormula })
+      .eq("id", "00000000-0000-0000-0000-000000000001");
+
+    if (error) {
+      toast.error("Błąd zapisu formuły wypłaty");
+      console.error(error);
+    } else {
+      toast.success("✅ Formuła wypłaty zapisana");
+    }
+  };
+
+  const loadFeeFormulas = async () => {
+    const { data, error } = await supabase
+      .from("rido_settings")
+      .select("value")
+      .eq("key", "payout_fees_formulas")
+      .maybeSingle();
+
+    if (!error && data?.value) {
+      setFeeFormulas(data.value as unknown as FeeFormulas);
+    }
+  };
+
+  const saveFeeFormulas = async () => {
+    const { error } = await supabase
+      .from("rido_settings")
+      .upsert({
+        key: "payout_fees_formulas",
+        value: feeFormulas as any,
+      }, { onConflict: 'key' });
+
+    if (error) {
+      toast.error("Błąd zapisu wzorów opłat");
+      console.error(error);
+    } else {
+      toast.success("✅ Wzory opłat zapisane");
+    }
+  };
+
+  const CsvColumnMappingSection = () => (
+    <div className="space-y-4">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold mb-2">Mapowanie Kolumn CSV</h3>
+        <p className="text-sm text-muted-foreground">
+          Wpisz literę kolumny (np. H) lub nazwę nagłówka
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <h4 className="font-medium text-sm">Identyfikacja</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="csv-email">Email</Label>
+            <Input
+              id="csv-email"
+              value={csvMapping.identification.email}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, email: e.target.value }
+              })}
+              placeholder="A"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-phone">Nr telefonu</Label>
+            <Input
+              id="csv-phone"
+              value={csvMapping.identification.phone}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, phone: e.target.value }
+              })}
+              placeholder="C"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-fullname">Imię i nazwisko</Label>
+            <Input
+              id="csv-fullname"
+              value={csvMapping.identification.full_name}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, full_name: e.target.value }
+              })}
+              placeholder="F"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-uber">ID Uber</Label>
+            <Input
+              id="csv-uber"
+              value={csvMapping.identification.uber_id}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, uber_id: e.target.value }
+              })}
+              placeholder="B"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-bolt">ID Bolt</Label>
+            <Input
+              id="csv-bolt"
+              value={csvMapping.identification.bolt_id}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, bolt_id: e.target.value }
+              })}
+              placeholder=""
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-freenow">ID FreeNow</Label>
+            <Input
+              id="csv-freenow"
+              value={csvMapping.identification.freenow_id}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, freenow_id: e.target.value }
+              })}
+              placeholder="D"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-getrido">GetRido ID</Label>
+            <Input
+              id="csv-getrido"
+              value={csvMapping.identification.getrido_id}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, getrido_id: e.target.value }
+              })}
+              placeholder="X"
+            />
+          </div>
+          <div>
+            <Label htmlFor="csv-fuel">Karta paliwowa</Label>
+            <Input
+              id="csv-fuel"
+              value={csvMapping.identification.fuel_card}
+              onChange={(e) => setCsvMapping({
+                ...csvMapping,
+                identification: { ...csvMapping.identification, fuel_card: e.target.value }
+              })}
+              placeholder="E"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 mt-6">
+        <h4 className="font-medium text-sm">Kwoty Rozliczeń</h4>
+        <div className="grid grid-cols-3 gap-3">
+          {Object.entries(csvMapping.amounts).map(([key, value]) => (
+            <div key={key}>
+              <Label htmlFor={`csv-${key}`} className="text-xs">
+                {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </Label>
+              <Input
+                id={`csv-${key}`}
+                value={value}
+                onChange={(e) => setCsvMapping({
+                  ...csvMapping,
+                  amounts: { ...csvMapping.amounts, [key]: e.target.value }
+                })}
+                placeholder=""
+                className="h-8"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <Button onClick={saveCsvMapping} className="flex-1">
+          💾 Zapisz mapowanie
+        </Button>
+        <Button 
+          onClick={() => setCsvMapping(defaultColumnMapping)} 
+          variant="outline"
+        >
+          Przywróć domyślne
+        </Button>
+      </div>
+    </div>
+  );
+
+  const PayoutFormulaSection = () => (
+    <div className="space-y-4">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold mb-2">Formuła Wypłaty dla Kierowcy</h3>
+        <p className="text-sm text-muted-foreground">
+          Użyj literek kolumn (H, K, O) lub nazw zmiennych
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor="payout-formula">Formuła</Label>
+        <Textarea
+          id="payout-formula"
+          value={payoutFormula}
+          onChange={(e) => setPayoutFormula(e.target.value)}
+          placeholder="H + K + O - U + W - rental - fee"
+          rows={3}
+        />
+        <p className="text-xs text-muted-foreground mt-2">
+          Dostępne zmienne: rental (wynajem), fee (opłata wg planu), literki kolumn (A-Z)
+        </p>
+      </div>
+
+      <Button onClick={savePayoutFormula} className="w-full">
+        💾 Zapisz formułę
+      </Button>
+    </div>
+  );
+
+  const FeeFormulasSection = () => (
+    <div className="space-y-4">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold mb-2">Wzory Opłat według Planu</h3>
+        <p className="text-sm text-muted-foreground">
+          Definiuj wzory dla różnych planów rozliczenia
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {Object.entries(feeFormulas).map(([planType, formula]) => (
+          <div key={planType}>
+            <Label htmlFor={`fee-${planType}`} className="font-medium">
+              Plan "{planType}"
+            </Label>
+            <Input
+              id={`fee-${planType}`}
+              value={formula}
+              onChange={(e) => setFeeFormulas({
+                ...feeFormulas,
+                [planType]: e.target.value
+              })}
+              placeholder="39 + (totalEarnings * 0.08)"
+            />
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-2">
+        Dostępne zmienne: totalEarnings (suma zarobków), uber, bolt, freenow, lub literki kolumn
+      </p>
+
+      <Button onClick={saveFeeFormulas} className="w-full">
+        💾 Zapisz wzory opłat
+      </Button>
+    </div>
+  );
 
   const currentEnv = settings[settings.active];
 
@@ -859,7 +1165,26 @@ export default function RidoSettings() {
         </CardContent>
       </Card>
 
-      {/* Sekcja 5: Łączenie kierowców (deduplikacja) */}
+      {/* Sekcja 5: Ustawienia CSV i Formuły Wypłaty */}
+      <Card className="shadow-lg border-accent/20">
+        <CardHeader className="bg-gradient-to-r from-accent/10 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-accent">
+            📊 Ustawienia CSV i Formuły Wypłaty
+          </CardTitle>
+          <CardDescription>
+            Konfiguruj mapowanie kolumn CSV oraz formuły wypłaty dla kierowców
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-6">
+          <CsvColumnMappingSection />
+          <Separator />
+          <PayoutFormulaSection />
+          <Separator />
+          <FeeFormulasSection />
+        </CardContent>
+      </Card>
+
+      {/* Sekcja 6: Łączenie kierowców (deduplikacja) */}
       <Card className="shadow-lg border-secondary/20">
         <CardHeader className="bg-gradient-to-r from-secondary/10 to-accent/10">
           <CardTitle className="flex items-center gap-2 text-secondary">
