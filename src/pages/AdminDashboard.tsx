@@ -17,6 +17,7 @@ import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
+import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -28,6 +29,7 @@ const AdminDashboard = () => {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
+  const [showRebuildModal, setShowRebuildModal] = useState(false);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
@@ -397,6 +399,33 @@ const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Rebuild kierowców z CSV</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Przebuduj bazę kierowców z kompletnego arkusza CSV (aktualizuje GetRido ID, nazwy i ID platform)
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+                  <h3 className="font-semibold text-blue-800 mb-2">ℹ️ Informacja</h3>
+                  <p className="text-sm text-blue-700">
+                    Ta funkcja pozwala na pełną rekonstrukcję danych kierowców z CSV. 
+                    Naprawia GetRido ID (kolumna X), aktualizuje imiona/nazwiska (kolumna F) 
+                    i synchronizuje wszystkie ID platform (Uber, Bolt, FreeNow).
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setShowRebuildModal(true)}
+                  disabled={!selectedCity}
+                  variant="default"
+                >
+                  🔧 Rebuild kierowców z CSV
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
@@ -411,6 +440,17 @@ const AdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Rebuild Modal */}
+      {selectedCity && (
+        <RebuildDriversModal
+          isOpen={showRebuildModal}
+          onClose={() => setShowRebuildModal(false)}
+          cityId={selectedCity.id}
+          cityName={selectedCity.name}
+          onSuccess={refetchDrivers}
+        />
+      )}
     </div>
   );
 };

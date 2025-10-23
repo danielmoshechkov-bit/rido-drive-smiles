@@ -11,6 +11,22 @@ function normalizeEmail(email: string | null): string | null {
   return email.trim().toLowerCase();
 }
 
+// Validate GetRido ID to prevent Uber/Bolt/FreeNow IDs from being saved as GetRido
+function isValidGetRidoId(value: string | null, uber_id?: string | null, bolt_id?: string | null, freenow_id?: string | null): boolean {
+  if (!value) return false;
+  const v = value.trim();
+  if (v.length < 4) return false;
+  // Reject UUIDs
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) return false;
+  // Reject purely numeric strings
+  if (/^\d+$/.test(v)) return false;
+  // Reject emails
+  if (v.includes('@')) return false;
+  // Reject if identical to platform IDs
+  if (v === uber_id || v === bolt_id || v === freenow_id) return false;
+  return true;
+}
+
 function extractFields(raw: any): {
   getrido_id: string | null;
   uber_id: string | null;
@@ -75,11 +91,21 @@ function extractFields(raw: any): {
     if (!isValidGetrido(getrido, fullName)) getrido = null;
   }
 
+  // Validate getrido_id using enhanced validation to prevent platform IDs
+  const uber = trim(raw.uber_id || raw['id uber'] || raw.uberId || null);
+  const bolt = trim(raw.bolt_id || raw['id bolt'] || raw.boltId || null);
+  const freenow = trim(raw.freenow_id || raw['id freenow'] || raw.freeNowId || null);
+  
+  if (getrido && !isValidGetRidoId(getrido, uber, bolt, freenow)) {
+    console.log(`⚠️ Invalid getrido_id: "${getrido}", skipping (may be platform ID)`);
+    getrido = null;
+  }
+
   return {
     getrido_id: getrido,
-    uber_id: trim(raw.uber_id || raw['id uber'] || raw.uberId || null),
-    bolt_id: trim(raw.bolt_id || raw['id bolt'] || raw.boltId || null),
-    freenow_id: trim(raw.freenow_id || raw['id freenow'] || raw.freeNowId || null),
+    uber_id: uber,
+    bolt_id: bolt,
+    freenow_id: freenow,
     email: trim(raw.email || raw['adres mailowy'] || null),
     phone: trim(raw.phone || raw['nr tel'] || raw.telefon || null),
     fuel_card: trim(raw.fuel_card || raw['nr karty paliwowej'] || null)

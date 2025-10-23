@@ -176,13 +176,16 @@ Deno.serve(async (req) => {
         fuelVATRefund: parsePLNumber(row[fuelVATRefundIdx])
       };
       
-      // Znajdź lub utwórz kierowcę
+      // Znajdź lub utwórz kierowcę (pass headers, row, and getRidoIdIdx)
       const beforeSize = existingDriversMap.size;
       const driverId = await findOrCreateDriver(
         supabase,
         rowData,
         city_id,
-        existingDriversMap
+        existingDriversMap,
+        headers,
+        row,
+        getRidoIdIdx
       );
       
       if (!driverId) {
@@ -194,6 +197,52 @@ Deno.serve(async (req) => {
         newDriversCount++;
       } else {
         matchedDriversCount++;
+      }
+      
+      // Update GetRido ID and name if needed
+      const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx);
+      const validGetRidoId = extractedGetRidoId && isValidGetRidoId(extractedGetRidoId) ? extractedGetRidoId : null;
+      
+      if (driverId && validGetRidoId) {
+        const { data: currentDriver } = await supabase
+          .from('drivers')
+          .select('getrido_id, first_name, last_name')
+          .eq('id', driverId)
+          .single();
+        
+        const updateData: any = {};
+        
+        // Update GetRido ID if different
+        if (currentDriver?.getrido_id !== validGetRidoId) {
+          updateData.getrido_id = validGetRidoId;
+          console.log(`📝 Updating getrido_id: ${currentDriver?.getrido_id} -> ${validGetRidoId}`);
+        }
+        
+        // Update name from column F if GetRido ID changed
+        if (updateData.getrido_id && rowData.fullName) {
+          const nameParts = rowData.fullName.trim().split(' ');
+          const newFirstName = nameParts[0] || '';
+          const newLastName = nameParts.slice(1).join(' ') || '';
+          
+          if (currentDriver?.first_name !== newFirstName || currentDriver?.last_name !== newLastName) {
+            updateData.first_name = newFirstName;
+            updateData.last_name = newLastName;
+            console.log(`📝 Updating name: ${currentDriver?.first_name} ${currentDriver?.last_name} -> ${newFirstName} ${newLastName}`);
+          }
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          const { error: updateError } = await supabase
+            .from('drivers')
+            .update(updateData)
+            .eq('id', driverId);
+          
+          if (updateError) {
+            console.error('❌ Failed to update driver', driverId, updateError);
+          } else {
+            console.log(`✅ Updated driver ${driverId}:`, updateData);
+          }
+        }
       }
       
       // Przygotuj settlement
@@ -363,14 +412,20 @@ async function findOrCreateDriver(
   supabase: any,
   rowData: any,
   city_id: string,
-  existingDriversMap: Map<string, any>
+  existingDriversMap: Map<string, any>,
+  headers: string[],
+  row: string[],
+  getRidoIdIdx: number
 ): Promise<string | null> {
   
   const uberId = rowData.uberId;
   const freenowId = rowData.freenowId;
   const phone = rowData.phone;
   const fullName = rowData.fullName;
-  const getRidoId = rowData.getRidoId;
+  
+  // Use extractGetRidoFromRow to get GetRido ID reliably
+  const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx);
+  const getRidoId = extractedGetRidoId;
   
   // Waliduj GetRido ID
   const validGetRidoId = isValidGetRidoId(getRidoId) ? getRidoId : null;

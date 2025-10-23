@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
+import { Alert, AlertDescription } from './ui/alert';
 import { X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -39,18 +40,12 @@ export const EditPlatformIdsModal = ({
       ? currentPlatformIds.filter(p => p.platform === 'freenow').map(p => p.platform_id)
       : []
   );
-  const [getRido, setGetRido] = useState<string[]>(
-    Array.isArray(currentPlatformIds)
-      ? currentPlatformIds.filter(p => p.platform === 'getrido').map(p => p.platform_id)
-      : []
-  );
   
   const [newUber, setNewUber] = useState('');
   const [newBolt, setNewBolt] = useState('');
   const [newFreeNow, setNewFreeNow] = useState('');
-  const [newGetRido, setNewGetRido] = useState('');
 
-  const addId = (platform: 'uber' | 'bolt' | 'freeNow' | 'getRido', id: string) => {
+  const addId = (platform: 'uber' | 'bolt' | 'freeNow', id: string) => {
     if (!id.trim()) return;
     
     if (platform === 'uber' && !uber.includes(id)) {
@@ -62,21 +57,16 @@ export const EditPlatformIdsModal = ({
     } else if (platform === 'freeNow' && !freeNow.includes(id)) {
       setFreeNow([...freeNow, id]);
       setNewFreeNow('');
-    } else if (platform === 'getRido' && !getRido.includes(id)) {
-      setGetRido([...getRido, id]);
-      setNewGetRido('');
     }
   };
 
-  const removeId = (platform: 'uber' | 'bolt' | 'freeNow' | 'getRido', id: string) => {
+  const removeId = (platform: 'uber' | 'bolt' | 'freeNow', id: string) => {
     if (platform === 'uber') {
       setUber(uber.filter(x => x !== id));
     } else if (platform === 'bolt') {
       setBolt(bolt.filter(x => x !== id));
     } else if (platform === 'freeNow') {
       setFreeNow(freeNow.filter(x => x !== id));
-    } else if (platform === 'getRido') {
-      setGetRido(getRido.filter(x => x !== id));
     }
   };
 
@@ -92,12 +82,11 @@ export const EditPlatformIdsModal = ({
 
       if (deleteError) throw deleteError;
 
-      // 2. Przygotuj nowe platform IDs
+      // 2. Przygotuj nowe platform IDs (GetRido ID is stored in drivers.getrido_id, not here)
       const idsToInsert = [
         ...uber.map(id => ({ driver_id: driverId, platform: 'uber', platform_id: id })),
         ...bolt.map(id => ({ driver_id: driverId, platform: 'bolt', platform_id: id })),
-        ...freeNow.map(id => ({ driver_id: driverId, platform: 'freenow', platform_id: id })),
-        ...getRido.map(id => ({ driver_id: driverId, platform: 'getrido', platform_id: id }))
+        ...freeNow.map(id => ({ driver_id: driverId, platform: 'freenow', platform_id: id }))
       ];
 
       // 3. Wstaw nowe IDs (jeśli są jakieś)
@@ -200,30 +189,12 @@ export const EditPlatformIdsModal = ({
             </div>
           </div>
 
-          {/* GetRido */}
-          <div>
-            <Label>GetRido ID</Label>
-            <div className="flex gap-2 mt-2">
-              <Input
-                value={newGetRido}
-                onChange={(e) => setNewGetRido(e.target.value)}
-                placeholder="Wprowadź GetRido ID"
-              />
-              <Button onClick={() => addId('getRido', newGetRido)}>Dodaj</Button>
-            </div>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {getRido.map(id => (
-                <Badge key={id} className="bg-primary text-white">
-                  {id}
-                  <X
-                    size={14}
-                    className="ml-2 cursor-pointer"
-                    onClick={() => removeId('getRido', id)}
-                  />
-                </Badge>
-              ))}
-            </div>
-          </div>
+          <Alert>
+            <AlertDescription className="text-sm">
+              <strong>Uwaga:</strong> GetRido ID jest przechowywane w profilu kierowcy, nie w ID platform. 
+              Edytuj go w głównym widoku kierowcy lub użyj funkcji "Rebuild kierowców z CSV".
+            </AlertDescription>
+          </Alert>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={onClose}>Anuluj</Button>
