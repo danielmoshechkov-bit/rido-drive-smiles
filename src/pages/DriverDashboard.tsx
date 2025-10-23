@@ -230,6 +230,7 @@ function CarsSection({ driverData }: { driverData: any }) {
 function WeeklyResults({ driverData }: { driverData: any }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
+  const [initialized, setInitialized] = useState(false);
   const [weekData, setWeekData] = useState({
     from: "",
     to: "",
@@ -384,8 +385,29 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   };
 
   useEffect(() => {
-    loadWeekData();
-  }, [selectedYear, selectedWeek, driverData.driver_id]);
+    // On first mount, jump to the latest available settlement period for this driver
+    if (initialized) return;
+    (async () => {
+      const { data } = await supabase
+        .from('settlements')
+        .select('period_from, period_to')
+        .eq('driver_id', driverData.driver_id)
+        .order('period_from', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        const latest = data[0];
+        const year = new Date(latest.period_from).getFullYear();
+        const weeksForYear = getWeekDates(year);
+        const found = weeksForYear.find(w => latest.period_from >= w.fromISO && latest.period_to <= w.toISO);
+        if (found) {
+          setSelectedYear(year);
+          setSelectedWeek(found.week);
+        }
+      }
+      setInitialized(true);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const chartData = [
     { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
