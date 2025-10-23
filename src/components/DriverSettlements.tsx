@@ -210,17 +210,17 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     if (feeFormulas[driverPlan]) {
       let feeFormula = feeFormulas[driverPlan];
       
-      // Replace variables in fee formula
-      feeFormula = feeFormula.replace(/totalEarnings/g, totalEarnings.toString());
-      feeFormula = feeFormula.replace(/uber/g, (amounts.uber || 0).toString());
-      feeFormula = feeFormula.replace(/bolt/g, (amounts.bolt_gross || 0).toString());
-      feeFormula = feeFormula.replace(/freenow/g, (amounts.freenow_gross || 0).toString());
+      // Replace variables in fee formula with word boundaries
+      feeFormula = feeFormula.replace(/\btotalEarnings\b/g, totalEarnings.toString());
+      feeFormula = feeFormula.replace(/\buber\b/g, (amounts.uber || 0).toString());
+      feeFormula = feeFormula.replace(/\bbolt\b/g, (amounts.bolt_gross || 0).toString());
+      feeFormula = feeFormula.replace(/\bfreenow\b/g, (amounts.freenow_gross || 0).toString());
       
-      // Replace column letters with values if csvMapping is available
+      // Replace column letters with values if csvMapping is available (only standalone letters)
       if (csvMapping) {
         Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
           if (letter) {
-            const regex = new RegExp(letter, 'g');
+            const regex = new RegExp(`\\b${letter}\\b`, 'g');
             feeFormula = feeFormula.replace(regex, (amounts[key] || 0).toString());
           }
         });
@@ -234,11 +234,12 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       }
     }
     
-    // Replace column letters with amounts values
+    // Replace column letters with amounts values (only standalone letters, not within words)
     if (csvMapping) {
       Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
         if (letter) {
-          const regex = new RegExp(letter, 'g');
+          // Use word boundaries to match only standalone letters
+          const regex = new RegExp(`\\b${letter}\\b`, 'g');
           formula = formula.replace(regex, (amounts[key] || 0).toString());
         }
       });
@@ -265,7 +266,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     };
     
     Object.entries(replacements).forEach(([key, value]) => {
-      formula = formula.replace(new RegExp(key, 'g'), value.toString());
+      // Use word boundaries to match whole words only
+      formula = formula.replace(new RegExp(`\\b${key}\\b`, 'g'), value.toString());
     });
     
     let payout = 0;

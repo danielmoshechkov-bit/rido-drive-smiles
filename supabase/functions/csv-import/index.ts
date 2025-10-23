@@ -427,7 +427,25 @@ async function findOrCreateDriver(
     }
   }
   
-  // 4. Try to match by FreeNow ID (skip if first import)
+  // 4. Try to match by Bolt ID (skip if first import)
+  if (!firstImport && bolt_id) {
+    const { data: platformData } = await supabase
+      .from('driver_platform_ids')
+      .select('driver_id, drivers(*)')
+      .eq('platform', 'bolt')
+      .eq('platform_id', bolt_id)
+      .maybeSingle();
+    
+    if (platformData && platformData.drivers) {
+      console.log('Found driver by Bolt ID:', platformData.drivers.id);
+      await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
+      await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
+      await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
+      return { driver: platformData.drivers, isNew: false, matchMethod: 'bolt_id' };
+    }
+  }
+  
+  // 5. Try to match by FreeNow ID (skip if first import)
   if (!firstImport && freenow_id) {
     const { data: platformData } = await supabase
       .from('driver_platform_ids')
@@ -445,7 +463,7 @@ async function findOrCreateDriver(
     }
   }
   
-  // 5. Try to match by email (skip if first import)
+  // 6. Try to match by email (skip if first import)
   if (!firstImport && email) {
     const { data } = await supabase
       .from('drivers')
@@ -462,7 +480,7 @@ async function findOrCreateDriver(
     }
   }
   
-  // 6. Try to match by normalized name (skip if first import)
+  // 7. Try to match by normalized name (skip if first import)
   if (!firstImport && full_name) {
     const normalizedName = normalizeName(full_name);
     const { data: allDrivers } = await supabase
@@ -484,7 +502,7 @@ async function findOrCreateDriver(
     }
   }
   
-  // 7. No match found - create new driver
+  // 8. No match found - create new driver
   console.log('No existing driver found, creating new one');
   
   // Determine login

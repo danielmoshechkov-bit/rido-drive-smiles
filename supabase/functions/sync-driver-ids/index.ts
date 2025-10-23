@@ -33,17 +33,27 @@ function extractFields(raw: any): {
 
   const fullName = trim(raw?.full_name || raw?.['Imię i nazwisko'] || raw?.['Imie nazwisko'] || raw?.['Imię Nazwisko'] || null);
 
-  // Array format: use ONLY last column
+  // Array format: scan from RIGHT to LEFT, skip empty/numeric values
   if (Array.isArray(raw)) {
-    const lastVal = trim(raw[raw.length - 1]);
-    const candidate = isValidGetrido(lastVal, fullName) ? lastVal : null;
-    console.log(`[Array Extract] len=${raw.length}, last="${lastVal}", candidate="${candidate}"`);
+    let candidate: string | null = null;
+    // Start from the end and work backwards
+    for (let i = raw.length - 1; i >= 0; i--) {
+      const val = trim(raw[i]);
+      if (!val) continue; // skip empty
+      if (isNumericLike(val)) continue; // skip numeric (amounts)
+      if (isValidGetrido(val, fullName)) {
+        candidate = val;
+        console.log(`[Array Extract] len=${raw.length}, found at index ${i}: "${val}"`);
+        break;
+      }
+    }
     return {
       email: trim(raw[0]),
       uber_id: trim(raw[1]),
       phone: trim(raw[2]),
       freenow_id: trim(raw[3]),
       fuel_card: trim(raw[4]),
+      bolt_id: null, // Not in old array format
       getrido_id: candidate
     };
   }
