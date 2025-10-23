@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
 
     console.log('📍 Indeksy kolumn:', {
       email: emailIdx, uberId: uberIdIdx, phone: phoneIdx, freenowId: freenowIdIdx,
-      fullName: fullNameIdx, uber: uberIdx, uberCashless: uberCashlessIdx
+      fullName: fullNameIdx, getRidoId: getRidoIdIdx, uber: uberIdx, uberCashless: uberCashlessIdx
     });
 
     // ========== KROK 3: POBIERZ ISTNIEJĄCYCH KIEROWCÓW ==========
@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
         phone: row[phoneIdx]?.trim() || '',
         freenowId: row[freenowIdIdx]?.trim() || '',
         fuelCard: row[fuelCardIdx]?.trim() || '',
-        fullName: row[fullNameIdx]?.trim() || 'Nieznany Kierowca',
-        getRidoId: row[getRidoIdIdx]?.trim() || '',
+        fullName: (fullNameIdx >= 0 ? row[fullNameIdx] : row[5])?.trim() || 'Nieznany Kierowca', // fallback F (index 5)
+        getRidoId: (getRidoIdIdx >= 0 ? row[getRidoIdIdx] : row[23])?.trim() || '', // fallback X (index 23)
         uber: parsePLNumber(row[uberIdx]),
         uberCashless: parsePLNumber(row[uberCashlessIdx]),
         uberCash: parsePLNumber(row[uberCashIdx]),
@@ -325,6 +325,39 @@ function isValidGetRidoId(value: string | null | undefined): boolean {
   return true;
 }
 
+// ========== HELPER: EKSTRAKCJA GETRIDO ID Z WIERSZA ==========
+function extractGetRidoFromRow(headers: string[], row: string[], getRidoIdIdx: number): string {
+  // 1) Bezpośrednio z nazwy kolumny, jeśli istnieje
+  let candidate = (getRidoIdIdx >= 0 ? row[getRidoIdIdx] : '')?.trim() || '';
+  if (isValidGetRidoId(candidate)) {
+    console.log(`🆔 GetRido z kolumny nazwanej (idx ${getRidoIdIdx}): ${candidate}`);
+    return candidate;
+  }
+
+  // 2) Fallbacki po typowych indeksach arkusza: X(23), W(22), C(2), D(3), B(1)
+  const fallbacks = [23, 22, 3, 2, 1];
+  for (const idx of fallbacks) {
+    if (idx < row.length) {
+      const v = row[idx]?.trim();
+      if (isValidGetRidoId(v)) {
+        console.log(`🆔 GetRido z fallback idx ${idx}: ${v}`);
+        return v;
+      }
+    }
+  }
+
+  // 3) Ostatnia próba: przeskanuj pierwsze 25 komórek i weź wartość która wygląda jak GetRido ID
+  const limit = Math.min(25, row.length);
+  for (let i = 0; i < limit; i++) {
+    const v = row[i]?.trim();
+    if (isValidGetRidoId(v)) {
+      console.log(`🆔 GetRido ze skanu (idx ${i}): ${v}`);
+      return v;
+    }
+  }
+
+  return '';
+}
 // ========== HELPER: ZNAJDŹ LUB UTWÓRZ KIEROWCĘ ==========
 async function findOrCreateDriver(
   supabase: any,
@@ -383,6 +416,17 @@ async function findOrCreateDriver(
       // Aktualizuj mapę
       existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
     }
+
+    // Aktualizuj imię/nazwisko jeśli się zmieniły
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Nieznane';
+    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
+    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
+      await supabase
+        .from('drivers')
+        .update({ first_name: firstName, last_name: lastName })
+        .eq('id', existingDriver.id);
+    }
     
     return existingDriver.id;
   }
@@ -401,6 +445,17 @@ async function findOrCreateDriver(
         .eq('id', existingDriver.id);
       
       existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
+    }
+
+    // Aktualizuj imię/nazwisko jeśli się zmieniły
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Nieznane';
+    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
+    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
+      await supabase
+        .from('drivers')
+        .update({ first_name: firstName, last_name: lastName })
+        .eq('id', existingDriver.id);
     }
     
     return existingDriver.id;
@@ -425,6 +480,17 @@ async function findOrCreateDriver(
         
         existingDriversMap.set(`getrido:${validGetRidoId}`, emailMatch);
       }
+
+      // Aktualizuj imię/nazwisko jeśli się zmieniły
+      const nameParts = fullName.split(' ');
+      const firstName = nameParts[0] || 'Nieznane';
+      const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
+      if (emailMatch.first_name !== firstName || emailMatch.last_name !== lastName) {
+        await supabase
+          .from('drivers')
+          .update({ first_name: firstName, last_name: lastName })
+          .eq('id', emailMatch.id);
+      }
       
       return emailMatch.id;
     }
@@ -444,6 +510,17 @@ async function findOrCreateDriver(
         .eq('id', existingDriver.id);
       
       existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
+    }
+
+    // Aktualizuj imię/nazwisko jeśli się zmieniły
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Nieznane';
+    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
+    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
+      await supabase
+        .from('drivers')
+        .update({ first_name: firstName, last_name: lastName })
+        .eq('id', existingDriver.id);
     }
     
     return existingDriver.id;
