@@ -2,12 +2,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { pl } from "date-fns/locale";
+import { pl } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 
 interface Settlement {
@@ -394,16 +393,15 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
           </Select>
         </div>
 
-        {loading && (
+        {loading ? (
           <div className="text-center py-4">Ładowanie...</div>
-        )}
-          {!loading && settlements.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Brak dostępnych rozliczeń dla wybranego okresu.
-            </p>
-          ) : (
-            <div className="space-y-6">
-              {periods.map((period) => {
+        ) : settlements.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            Brak dostępnych rozliczeń dla wybranego okresu.
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {periods.map((period) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0];
                 const amounts = settlement.amounts || {};
@@ -507,11 +505,10 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
