@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
     const freenowIdIdx = headers.findIndex(h => h.includes('id freenow'));
     const fuelCardIdx = headers.findIndex(h => h.includes('nr karty paliwowej'));
     const fullNameIdx = headers.findIndex(h => h.includes('imie nazwisko'));
+    const getRidoIdIdx = headers.findIndex(h => h.includes('getrido id') || h.includes('get rido') || h === 'getrido');
     
     // Wszystkie kolumny kwotowe
     const uberIdx = headers.findIndex(h => h === 'uber');
@@ -118,12 +119,15 @@ Deno.serve(async (req) => {
     
     const { data: existingDrivers } = await supabase
       .from('drivers')
-      .select('id, email, phone, driver_platform_ids(platform, platform_id)')
+      .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
       .eq('city_id', city_id);
     
     existingDrivers?.forEach((driver: any) => {
       if (driver.phone) {
         existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
+      }
+      if (driver.getrido_id) {
+        existingDriversMap.set(`getrido:${driver.getrido_id.trim()}`, driver);
       }
       if (Array.isArray(driver.driver_platform_ids)) {
         driver.driver_platform_ids.forEach((pid: any) => {
@@ -152,6 +156,7 @@ Deno.serve(async (req) => {
         freenowId: row[freenowIdIdx]?.trim() || '',
         fuelCard: row[fuelCardIdx]?.trim() || '',
         fullName: row[fullNameIdx]?.trim() || 'Nieznany Kierowca',
+        getRidoId: row[getRidoIdIdx]?.trim() || '',
         uber: parsePLNumber(row[uberIdx]),
         uberCashless: parsePLNumber(row[uberCashlessIdx]),
         uberCash: parsePLNumber(row[uberCashIdx]),
@@ -299,6 +304,27 @@ function parsePLNumber(value: string): number {
   return parseFloat(value.replace(/\s/g, '').replace(',', '.')) || 0;
 }
 
+// ========== HELPER: WALIDACJA GETRIDO ID ==========
+function isValidGetRidoId(value: string | null | undefined): boolean {
+  if (!value || value.trim().length < 3) return false;
+  
+  const trimmed = value.trim();
+  
+  // Nie jest UUID (zawiera myślniki i jest 36 znaków)
+  if (trimmed.includes('-') && trimmed.length === 36) return false;
+  
+  // Nie jest tylko cyframi
+  if (/^\d+$/.test(trimmed)) return false;
+  
+  // Nie jest emailem
+  if (trimmed.includes('@')) return false;
+  
+  // Nie jest Uber UUID pattern
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
+  
+  return true;
+}
+
 // ========== HELPER: ZNAJDŹ LUB UTWÓRZ KIEROWCĘ ==========
 async function findOrCreateDriver(
   supabase: any,
@@ -311,21 +337,76 @@ async function findOrCreateDriver(
   const freenowId = rowData.freenowId;
   const phone = rowData.phone;
   const fullName = rowData.fullName;
+  const getRidoId = rowData.getRidoId;
+  
+  // Waliduj GetRido ID
+  const validGetRidoId = isValidGetRidoId(getRidoId) ? getRidoId : null;
   
   // PRIORYTET MATCHOWANIA (od najbardziej stabilnego):
-  // 1. Telefon (najbardziej stabilny identyfikator)
+  // 1. GetRido ID (jeśli jest poprawne)
+  if (validGetRidoId && existingDriversMap.has(`getrido:${validGetRidoId}`)) {
+    const existingDriver = existingDriversMap.get(`getrido:${validGetRidoId}`);
+    console.log(`✅ Matched by GetRido ID: ${fullName} (${validGetRidoId})`);
+    
+    // Aktualizuj imię i nazwisko jeśli się zmieniły
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Nieznane';
+    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
+    
+    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
+      console.log(`🔄 Aktualizuję imię/nazwisko dla ${validGetRidoId}: ${existingDriver.first_name} ${existingDriver.last_name} → ${firstName} ${lastName}`);
+      await supabase
+        .from('drivers')
+        .update({ 
+          first_name: firstName, 
+          last_name: lastName 
+        })
+        .eq('id', existingDriver.id);
+    }
+    
+    return existingDriver.id;
+  }
+  
+  // 2. Telefon (bardzo stabilny identyfikator)
   if (phone && existingDriversMap.has(`phone:${phone}`)) {
+    const existingDriver = existingDriversMap.get(`phone:${phone}`);
     console.log(`✅ Matched by phone: ${fullName}`);
-    return existingDriversMap.get(`phone:${phone}`).id;
+    
+    // Aktualizuj GetRido ID jeśli jest poprawne i różne
+    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
+      console.log(`🔄 Aktualizuję GetRido ID dla ${phone}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
+      await supabase
+        .from('drivers')
+        .update({ getrido_id: validGetRidoId })
+        .eq('id', existingDriver.id);
+      
+      // Aktualizuj mapę
+      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
+    }
+    
+    return existingDriver.id;
   }
   
-  // 2. FreeNow ID
+  // 3. FreeNow ID
   if (freenowId && existingDriversMap.has(`freenow:${freenowId}`)) {
+    const existingDriver = existingDriversMap.get(`freenow:${freenowId}`);
     console.log(`✅ Matched by FreeNow ID: ${fullName}`);
-    return existingDriversMap.get(`freenow:${freenowId}`).id;
+    
+    // Aktualizuj GetRido ID jeśli jest poprawne i różne
+    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
+      console.log(`🔄 Aktualizuję GetRido ID dla FreeNow ${freenowId}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
+      await supabase
+        .from('drivers')
+        .update({ getrido_id: validGetRidoId })
+        .eq('id', existingDriver.id);
+      
+      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
+    }
+    
+    return existingDriver.id;
   }
   
-  // 3. Email (jeśli jest prawdziwy email)
+  // 4. Email (jeśli jest prawdziwy email)
   const emailForMatch = rowData.email?.trim();
   if (emailForMatch && emailForMatch.includes('@') && !emailForMatch.includes('@rido.internal')) {
     const emailMatch = Array.from(existingDriversMap.values()).find(
@@ -333,20 +414,45 @@ async function findOrCreateDriver(
     );
     if (emailMatch) {
       console.log(`✅ Matched by email: ${fullName}`);
+      
+      // Aktualizuj GetRido ID jeśli jest poprawne i różne
+      if (validGetRidoId && emailMatch.getrido_id !== validGetRidoId) {
+        console.log(`🔄 Aktualizuję GetRido ID dla email ${emailForMatch}: ${emailMatch.getrido_id} → ${validGetRidoId}`);
+        await supabase
+          .from('drivers')
+          .update({ getrido_id: validGetRidoId })
+          .eq('id', emailMatch.id);
+        
+        existingDriversMap.set(`getrido:${validGetRidoId}`, emailMatch);
+      }
+      
       return emailMatch.id;
     }
   }
   
-  // 4. Uber ID (najmniej stabilny - może być UUID)
+  // 5. Uber ID (najmniej stabilny - może być UUID)
   if (uberId && existingDriversMap.has(`uber:${uberId}`)) {
+    const existingDriver = existingDriversMap.get(`uber:${uberId}`);
     console.log(`✅ Matched by Uber ID: ${fullName}`);
-    return existingDriversMap.get(`uber:${uberId}`).id;
+    
+    // Aktualizuj GetRido ID jeśli jest poprawne i różne
+    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
+      console.log(`🔄 Aktualizuję GetRido ID dla Uber ${uberId}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
+      await supabase
+        .from('drivers')
+        .update({ getrido_id: validGetRidoId })
+        .eq('id', existingDriver.id);
+      
+      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
+    }
+    
+    return existingDriver.id;
   }
   
   // ========== TWORZENIE NOWEGO KIEROWCY ==========
-  console.log(`➕ Tworzę: ${fullName} (Uber: ${uberId})`);
+  console.log(`➕ Tworzę: ${fullName} (GetRido: ${validGetRidoId || 'brak'}, Uber: ${uberId})`);
   
-  // Podziel imię i nazwisko
+  // Podziel imię i nazwisko z kolumny F
   const nameParts = fullName.split(' ');
   const firstName = nameParts[0] || 'Nieznane';
   const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
@@ -399,6 +505,7 @@ async function findOrCreateDriver(
       email: hasRealEmail ? csvEmail : null, // ✅ null jeśli brak emaila w CSV
       phone: phone || null,
       fuel_card_number: rowData.fuelCard || null,
+      getrido_id: validGetRidoId || null, // ✅ Zapisz GetRido ID
       user_role: 'kierowca'
     })
     .select()
@@ -457,8 +564,9 @@ async function findOrCreateDriver(
   existingDriversMap.set(`uber:${uberId}`, newDriver);
   if (freenowId) existingDriversMap.set(`freenow:${freenowId}`, newDriver);
   if (phone) existingDriversMap.set(`phone:${phone}`, newDriver);
+  if (validGetRidoId) existingDriversMap.set(`getrido:${validGetRidoId}`, newDriver);
   
-  console.log(`✅ Utworzono: ${fullName}`);
+  console.log(`✅ Utworzono: ${fullName} (GetRido ID: ${validGetRidoId || 'brak'})`);
   
   return newDriver.id;
 }
