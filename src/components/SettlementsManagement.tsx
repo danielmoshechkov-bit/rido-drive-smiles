@@ -322,18 +322,56 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
 
       console.log('📄 Files converted to base64');
 
-      // Call Supabase edge function instead of Google Apps Script
-      const { data, error } = await supabase.functions.invoke('settlements', {
-        body: {
-          period_from: format(dateRange.from, "yyyy-MM-dd"),
-          period_to: format(dateRange.to, "yyyy-MM-dd"),
-          city_id: cityId,
-          uber_csv: uberCsv,
-          bolt_csv: boltCsv,
-          freenow_csv: freenowCsv,
-          main_csv: mainCsv,
+      // Calculate payload size
+      const payloadSize = {
+        uber: uberCsv.length,
+        bolt: boltCsv.length,
+        freenow: freenowCsv.length,
+        main: mainCsv.length,
+        total: uberCsv.length + boltCsv.length + freenowCsv.length + mainCsv.length
+      };
+
+      console.log('📦 Rozmiar payloadu (base64):', payloadSize);
+      console.log('📦 Łączny rozmiar:', (payloadSize.total / 1024 / 1024).toFixed(2), 'MB');
+
+      if (payloadSize.total > 6 * 1024 * 1024) { // 6MB limit
+        toast.error('❌ Pliki są zbyt duże. Maksymalny rozmiar: 6MB (łącznie)');
+        setCreatingSettlement(false);
+        return;
+      }
+
+      // Call with timeout (60 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      let data, error;
+      try {
+        const response = await supabase.functions.invoke('settlements', {
+          body: {
+            period_from: format(dateRange.from, "yyyy-MM-dd"),
+            period_to: format(dateRange.to, "yyyy-MM-dd"),
+            city_id: cityId,
+            uber_csv: uberCsv,
+            bolt_csv: boltCsv,
+            freenow_csv: freenowCsv,
+            main_csv: mainCsv,
+          },
+          // @ts-ignore - AbortSignal not in types but works
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        data = response.data;
+        error = response.error;
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          toast.error('⏱️ Timeout - przetwarzanie trwa zbyt długo. Spróbuj z mniejszymi plikami.');
+          setCreatingSettlement(false);
+          return;
         }
-      });
+        throw err;
+      }
 
       console.log('📥 Edge function response:', { data, error });
 

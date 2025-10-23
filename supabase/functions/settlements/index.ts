@@ -10,6 +10,9 @@ interface SettlementRequest {
   period_to: string;
   city_id: string;
   main_csv?: string;
+  uber_csv?: string;
+  bolt_csv?: string;
+  freenow_csv?: string;
 }
 
 Deno.serve(async (req) => {
@@ -25,13 +28,35 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const body: SettlementRequest = await req.json();
-    console.log('📥 Request:', {
-      period_from: body.period_from,
-      period_to: body.period_to,
-      city_id: body.city_id,
-      has_main_csv: !!body.main_csv
-    });
+    let body: SettlementRequest;
+    try {
+      const contentType = req.headers.get('content-type');
+      console.log('📨 Content-Type:', contentType);
+      console.log('📨 Request method:', req.method);
+      console.log('📨 Request headers:', Object.fromEntries(req.headers.entries()));
+      
+      const rawBody = await req.text();
+      console.log('📨 Raw body length:', rawBody.length);
+      
+      if (!rawBody || rawBody.length === 0) {
+        throw new Error('Empty request body');
+      }
+      
+      body = JSON.parse(rawBody);
+      console.log('📥 Dane odebrane:', {
+        period_from: body.period_from,
+        period_to: body.period_to,
+        city_id: body.city_id,
+        has_main_csv: !!body.main_csv,
+        main_csv_length: body.main_csv?.length || 0,
+        has_uber_csv: !!(body as any).uber_csv,
+        has_bolt_csv: !!(body as any).bolt_csv,
+        has_freenow_csv: !!(body as any).freenow_csv
+      });
+    } catch (parseError) {
+      console.error('❌ Błąd parsowania JSON:', parseError);
+      throw new Error(`Failed to parse request: ${parseError.message}`);
+    }
 
     const { period_from, period_to, city_id, main_csv } = body;
 
