@@ -934,13 +934,16 @@ serve(async (req) => {
           .eq('raw_row_id', rawRowId)
           .maybeSingle();
         
+        // Store raw with col_X fields for backward compatibility
+        const rawData = { ...row };
+        
         if (existing) {
           // Update existing
           await supabase
             .from('settlements')
             .update({
               amounts,
-              raw: row,
+              raw: rawData,
               updated_at: new Date().toISOString()
             })
             .eq('id', existing.id);

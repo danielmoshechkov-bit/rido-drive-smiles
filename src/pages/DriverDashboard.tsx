@@ -32,7 +32,9 @@ import {
   ChevronDown,
   Plus
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -163,12 +165,12 @@ const DriverDashboard = () => {
           <TabsTrigger value="fuel">Paliwo</TabsTrigger>
 
           {/* Tab Content */}
-          <TabsContent value="weekly-report">
-            <div className="space-y-6">
-              <DriverSettlements driverId={driverData.driver_id} />
-              <WeeklyResults driverData={driverData} />
-            </div>
-          </TabsContent>
+            <TabsContent value="weekly-report">
+              <div className="space-y-6">
+                <WeeklyResults driverData={driverData} />
+                <DriverSettlements driverId={driverData.driver_id} />
+              </div>
+            </TabsContent>
           
           <TabsContent value="cars">
             <CarsSection driverData={driverData} />
@@ -256,10 +258,9 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     
     let currentDate = new Date(year, 0, 1);
     
-    // Znajdź pierwszy poniedziałek roku lub rozpocznij od 1 stycznia jeśli to poniedziałek
+    // Znajdź pierwszy poniedziałek roku
     while (currentDate.getDay() !== 1) {
       currentDate.setDate(currentDate.getDate() + 1);
-      // Jeśli doszliśmy do lutego, znaczy że 1 stycznia nie było poniedziałkiem
       if (currentDate.getMonth() > 0) {
         currentDate = new Date(year, 0, 1);
         break;
@@ -273,21 +274,26 @@ function WeeklyResults({ driverData }: { driverData: any }) {
       const endDate = new Date(currentDate);
       endDate.setDate(endDate.getDate() + 6);
       
-      // Jeśli koniec tygodnia wypada w przyszłym roku, przerwij
       if (endDate.getFullYear() > year) {
         break;
       }
       
-      // Tylko dodaj tygodnie, które już się skończyły lub obecny tydzień
-      if (year < currentYear || (year === currentYear && startDate <= now)) {
-        weeks.push({
-          week: weekNumber,
-          startDate: startDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-          endDate: endDate.toLocaleDateString("pl-PL", { day: "numeric", month: "long" }),
-          fromISO: startDate.toISOString().slice(0, 10),
-          toISO: endDate.toISOString().slice(0, 10)
-        });
+      // Skip future weeks in current year
+      if (year === currentYear && startDate > now) {
+        break;
       }
+      
+      const startDay = format(startDate, 'EEE', { locale: pl });
+      const endDay = format(endDate, 'EEE', { locale: pl });
+      
+      weeks.push({
+        week: weekNumber,
+        startDate: format(startDate, 'd MMM', { locale: pl }),
+        endDate: format(endDate, 'd MMM', { locale: pl }),
+        fromISO: format(startDate, 'yyyy-MM-dd'),
+        toISO: format(endDate, 'yyyy-MM-dd'),
+        label: `Tydz. ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} ${startDay}-${endDay})`
+      });
       
       currentDate.setDate(currentDate.getDate() + 7);
       weekNumber++;
@@ -296,7 +302,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     return weeks.reverse(); // Najnowsze tygodnie na górze
   };
 
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
   const weekDates = getWeekDates(selectedYear);
 
   const loadWeekData = async () => {
@@ -427,9 +433,9 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 <label className="text-xs text-muted-foreground block mb-1">Okres</label>
                 <UniversalSelector
                   id="week-selector"
-                  items={weekDates.map(({ week, startDate, endDate }) => ({
-                    id: week.toString(),
-                    name: `Tydz. ${week} (${startDate} - ${endDate})`
+                  items={weekDates.map((w) => ({
+                    id: w.week.toString(),
+                    name: w.label
                   }))}
                   currentValue={selectedWeek.toString()}
                   placeholder={weekDates.find(w => w.week === selectedWeek) ? `Tydz. ${selectedWeek}` : "Wybierz"}

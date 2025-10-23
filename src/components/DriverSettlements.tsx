@@ -49,33 +49,68 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings | null>(null);
   const [loading, setLoading] = useState(false);
-  const [dateFrom, setDateFrom] = useState<Date>();
-  const [dateTo, setDateTo] = useState<Date>();
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
   const [driverPlan, setDriverPlan] = useState<string>('39+8');
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
 
+  const getWeekDates = (year: number) => {
+    const weeks = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let currentDate = new Date(year, 0, 1);
+
+    while (currentDate.getDay() !== 1) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      if (currentDate.getMonth() > 0) {
+        currentDate = new Date(year, 0, 1);
+        break;
+      }
+    }
+
+    let weekNumber = 1;
+    while (currentDate.getFullYear() === year) {
+      const startDate = new Date(currentDate);
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 6);
+
+      if (endDate.getFullYear() > year) break;
+      if (year === currentYear && startDate > now) break;
+
+      const startDay = format(startDate, 'EEE', { locale: pl });
+      const endDay = format(endDate, 'EEE', { locale: pl });
+
+      weeks.push({
+        number: weekNumber,
+        label: `Tydzień ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} ${startDay}-${endDay})`,
+        start: format(startDate, 'yyyy-MM-dd'),
+        end: format(endDate, 'yyyy-MM-dd')
+      });
+
+      currentDate.setDate(currentDate.getDate() + 7);
+      weekNumber++;
+    }
+
+    return weeks.reverse();
+  };
+
+  const weeks = getWeekDates(selectedYear);
+  const currentWeek = weeks.find(w => w.number === selectedWeek);
+
   const loadSettlements = async () => {
-    if (!driverId) return;
+    if (!driverId || !currentWeek) return;
     
     setLoading(true);
     try {
-      console.log('Loading settlements for driver:', driverId);
-      
-      let query = supabase
+      const { data, error } = await supabase
         .from('settlements')
         .select('*')
-        .eq('driver_id', driverId);
-
-      if (dateFrom) {
-        query = query.gte('period_from', format(dateFrom, 'yyyy-MM-dd'));
-      }
-      if (dateTo) {
-        query = query.lte('period_to', format(dateTo, 'yyyy-MM-dd'));
-      }
-
-      const { data, error } = await query.order('period_from', { ascending: false });
+        .eq('driver_id', driverId)
+        .gte('period_from', currentWeek.start)
+        .lte('period_to', currentWeek.end)
+        .order('period_from', { ascending: false });
 
       if (error) {
         console.error('Error loading settlements:', error);
@@ -83,7 +118,6 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
         return;
       }
 
-      console.log('Loaded settlements:', data);
       setSettlements((data || []) as Settlement[]);
     } catch (error) {
       console.error('Error:', error);
@@ -174,7 +208,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
 
   useEffect(() => {
     loadSettlements();
-  }, [driverId, dateFrom, dateTo]);
+  }, [driverId, selectedYear, selectedWeek]);
 
   // Group settlements by period
   const groupedSettlements = settlements.reduce((acc, settlement) => {
@@ -326,116 +360,116 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     );
   }
 
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Rozliczenia
-            </CardTitle>
-            <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {dateFrom ? format(dateFrom, 'dd.MM.yyyy', { locale: pl }) : "Od"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={setDateFrom}
-                    locale={pl}
-                    weekStartsOn={1}
-                  />
-                </PopoverContent>
-              </Popover>
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {dateTo ? format(dateTo, 'dd.MM.yyyy', { locale: pl }) : "Do"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={setDateTo}
-                    locale={pl}
-                    weekStartsOn={1}
-                  />
-                </PopoverContent>
-              </Popover>
-              
-              {(dateFrom || dateTo) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => { 
-                    setDateFrom(undefined); 
-                    setDateTo(undefined); 
-                  }}
-                >
-                  Wyczyść
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {settlements.length === 0 ? (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Szczegółowe rozliczenia</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex gap-4 items-center">
+          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(year => (
+                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map(week => (
+                <SelectItem key={week.number} value={week.number.toString()}>
+                  {week.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {loading && (
+          <div className="text-center py-4">Ładowanie...</div>
+        )}
+          {!loading && settlements.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              Brak dostępnych rozliczeń. Rozliczenia pojawią się tutaj po wgraniu danych przez administratora.
+              Brak dostępnych rozliczeń dla wybranego okresu.
             </p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {periods.map((period) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0];
                 const amounts = settlement.amounts || {};
                 const { payout, fee, breakdown } = calculatePayout(amounts);
+                
+                const platformData = [
+                  { name: 'Uber', value: amounts.uber || 0, fill: '#000000' },
+                  { name: 'Bolt', value: amounts.bolt_gross || 0, fill: '#34D399' },
+                  { name: 'FreeNow', value: amounts.freenow_gross || 0, fill: '#FFA500' }
+                ].filter(item => item.value > 0);
 
                 return (
-                  <Card key={periodKey} className="border-l-4 border-l-primary">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">
-                        Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {/* UBER */}
-                      {renderField('Uber (łącznie)', amounts.uber, visibilitySettings.show_uber)}
+                  <div key={periodKey} className="border rounded-lg p-4 space-y-4">
+                    <h3 className="font-semibold">
+                      Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
+                    </h3>
+
+                    {platformData.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <h4 className="text-sm font-medium">Zarobki według platform</h4>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={platformData}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                  outerRadius={60}
+                                  dataKey="value"
+                                >
+                                  {platformData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                  ))}
+                                </Pie>
+                                <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <div className="space-y-2">
+                      {renderField('Uber', amounts.uber, visibilitySettings.show_uber)}
                       {renderField('Uber bezgotówka', amounts.uber_cashless, visibilitySettings.show_uber_cashless)}
                       {renderField('Uber gotówka', amounts.uber_cash, visibilitySettings.show_uber_cash)}
-                      
-                      {/* BOLT */}
                       {renderField('Bolt brutto', amounts.bolt_gross, visibilitySettings.show_bolt_gross)}
                       {renderField('Bolt netto', amounts.bolt_net, visibilitySettings.show_bolt_net)}
                       {renderField('Bolt prowizja', amounts.bolt_commission, visibilitySettings.show_bolt_commission, 'text-destructive')}
                       {renderField('Bolt gotówka', amounts.bolt_cash, visibilitySettings.show_bolt_cash)}
-                      
-                      {/* FREENOW */}
                       {renderField('FreeNow brutto', amounts.freenow_gross, visibilitySettings.show_freenow_gross)}
                       {renderField('FreeNow netto', amounts.freenow_net, visibilitySettings.show_freenow_net)}
                       {renderField('FreeNow prowizja', amounts.freenow_commission, visibilitySettings.show_freenow_commission, 'text-destructive')}
                       {renderField('FreeNow gotówka', amounts.freenow_cash, visibilitySettings.show_freenow_cash)}
-                      
-                      {/* PODSUMOWANIE */}
                       {renderField('Razem gotówka', amounts.total_cash, visibilitySettings.show_total_cash)}
                       {renderField('Razem prowizja', amounts.total_commission, visibilitySettings.show_total_commission, 'text-destructive')}
                       {renderField('Podatek 8%/49', amounts.tax, visibilitySettings.show_tax)}
-                      
-                      {/* PALIWO */}
                       {renderField('Paliwo', amounts.fuel, visibilitySettings.show_fuel, 'text-destructive')}
                       {renderField('VAT z paliwa', amounts.fuel_vat, visibilitySettings.show_fuel_vat)}
                       {renderField('Zwrot VAT', amounts.fuel_vat_refund, visibilitySettings.show_fuel_vat_refund, 'text-green-600')}
                       
-                      {/* OPŁATY I WYNAJEM */}
                       {rentalFee > 0 && (
                         <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
                           <span className="text-sm text-muted-foreground">Wynajem auta:</span>
@@ -462,8 +496,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                         </div>
                       )}
                       
-                      {/* DO WYPŁATY */}
-                      <div className="pt-3 mt-3 border-t">
+                      <div className="pt-4 border-t mt-4">
                         <div className="flex justify-between p-3 bg-primary/10 rounded-lg">
                           <span className="text-base font-semibold">Do wypłaty:</span>
                           <span className="text-base font-bold text-primary">
@@ -471,8 +504,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                           </span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
