@@ -117,6 +117,12 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
         return;
       }
 
+      console.log('📊 Loaded settlements for driver:', data);
+      if (data && data.length > 0) {
+        console.log('💰 Amounts from first settlement:', data[0].amounts);
+        console.log('📝 Raw data from first settlement:', data[0].raw);
+      }
+
       setSettlements((data || []) as Settlement[]);
     } catch (error) {
       console.error('Error:', error);
