@@ -250,7 +250,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       feeFormula = feeFormula.replace(/\bfreenow\b/g, (amounts.freenow_gross || 0).toString());
       
       // Replace column letters with values if csvMapping is available (only standalone letters)
-      if (csvMapping) {
+      if (csvMapping && csvMapping.amounts) {
         Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
           if (letter) {
             const regex = new RegExp(`\\b${letter}\\b`, 'g');
@@ -268,7 +268,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     }
     
     // Replace column letters with amounts values (only standalone letters, not within words)
-    if (csvMapping) {
+    if (csvMapping && csvMapping.amounts) {
       Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
         if (letter) {
           // Use word boundaries to match only standalone letters
