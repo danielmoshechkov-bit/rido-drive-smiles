@@ -98,6 +98,30 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const weeks = getWeekDates(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
+  // Normalize amounts from camelCase (old data) to snake_case (expected by UI)
+  const normalizeAmounts = (amounts: any): any => {
+    if (!amounts) return {};
+    return {
+      uber: amounts.uber ?? amounts.Uber ?? 0,
+      uber_cashless: amounts.uber_cashless ?? amounts.uberCashless ?? 0,
+      uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
+      bolt_gross: amounts.bolt_gross ?? amounts.boltGross ?? 0,
+      bolt_net: amounts.bolt_net ?? amounts.boltNet ?? 0,
+      bolt_commission: amounts.bolt_commission ?? amounts.boltCommission ?? 0,
+      bolt_cash: amounts.bolt_cash ?? amounts.boltCash ?? 0,
+      freenow_gross: amounts.freenow_gross ?? amounts.freenowGross ?? 0,
+      freenow_net: amounts.freenow_net ?? amounts.freenowNet ?? 0,
+      freenow_commission: amounts.freenow_commission ?? amounts.freenowCommission ?? 0,
+      freenow_cash: amounts.freenow_cash ?? amounts.freenowCash ?? 0,
+      total_cash: amounts.total_cash ?? amounts.totalCash ?? 0,
+      total_commission: amounts.total_commission ?? amounts.totalCommission ?? 0,
+      tax: amounts.tax ?? 0,
+      fuel: amounts.fuel ?? 0,
+      fuel_vat: amounts.fuel_vat ?? amounts.fuelVAT ?? amounts.fuelVat ?? 0,
+      fuel_vat_refund: amounts.fuel_vat_refund ?? amounts.fuelVATRefund ?? amounts.fuelVatRefund ?? 0,
+    };
+  };
+
   const loadSettlements = async () => {
     if (!driverId || !currentWeek) return;
     
@@ -109,7 +133,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
         .eq('driver_id', driverId)
         .gte('period_from', currentWeek.start)
         .lte('period_to', currentWeek.end)
-        .order('period_from', { ascending: false });
+        .order('period_from', { ascending: false })
+        .order('updated_at', { ascending: false });
 
       if (error) {
         console.error('Error loading settlements:', error);
@@ -229,9 +254,17 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     return acc;
   }, {} as Record<string, { period_from: string; period_to: string; settlements: Settlement[] }>);
 
-  const periods = Object.values(groupedSettlements).sort((a, b) => 
-    new Date(b.period_from).getTime() - new Date(a.period_from).getTime()
-  );
+  const periods = Object.values(groupedSettlements)
+    .map(period => ({
+      ...period,
+      // Sort settlements within each period by updated_at (newest first)
+      settlements: period.settlements.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+    }))
+    .sort((a, b) => 
+      new Date(b.period_from).getTime() - new Date(a.period_from).getTime()
+    );
 
   // Calculate payout using formula
   const calculatePayout = (amounts: any): { payout: number; fee: number; breakdown: any } => {
@@ -409,8 +442,9 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
           <div className="space-y-6">
             {periods.map((period) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
-                const settlement = period.settlements[0];
-                const amounts = settlement.amounts || {};
+                const settlement = period.settlements[0]; // Take newest settlement
+                const rawAmounts = settlement.amounts || {};
+                const amounts = normalizeAmounts(rawAmounts); // Normalize to snake_case
                 const { payout, fee, breakdown } = calculatePayout(amounts);
                 
                 const platformData = [

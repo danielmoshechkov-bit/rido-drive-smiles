@@ -231,6 +231,27 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
     }
   };
 
+  const handleDeleteDriverPortalData = async (period: SettlementPeriod) => {
+    const confirmed = confirm('🗑️ Czy na pewno chcesz usunąć dane portalu kierowcy dla tego okresu?\n\nUsunięte zostaną wszystkie rozliczenia z tabeli settlements dla tego okresu.\nTa operacja jest nieodwracalna.');
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from('settlements')
+        .delete()
+        .eq('period_from', period.week_start)
+        .eq('period_to', period.week_end)
+        .eq('city_id', cityId);
+      
+      if (error) throw error;
+      
+      toast.success('✅ Dane portalu kierowcy usunięte');
+    } catch (error) {
+      console.error('Error deleting driver portal data:', error);
+      toast.error('❌ Błąd podczas usuwania danych portalu kierowcy');
+    }
+  };
+
   const handleExportSettlement = async (period: SettlementPeriod) => {
     try {
       // Fetch all settlements for this period
@@ -825,11 +846,18 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                             Eksportuj CSV
                           </DropdownMenuItem>
                           <DropdownMenuItem 
+                            onClick={() => handleDeleteDriverPortalData(period)}
+                            className="text-orange-600 focus:text-orange-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Usuń dane portalu kierowcy
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
                             onClick={() => handleDeleteSettlement(period.id)}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Usuń
+                            Usuń okres rozliczeniowy
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

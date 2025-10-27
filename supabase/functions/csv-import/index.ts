@@ -816,7 +816,7 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
     .eq('key', 'csv_column_mapping')
     .maybeSingle();
 
-  // Default mapping if not found
+  // Default mapping if not found (snake_case keys)
   const defaultMapping: CsvColumnMapping = {
     identification: {
       email: 'A', uber_id: 'B', phone: 'C', freenow_id: 'D',
@@ -831,12 +831,20 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
     },
   };
 
-  const mapping = (mappingData?.value || defaultMapping) as CsvColumnMapping;
+  // Merge loaded mapping with default to enforce snake_case keys
+  const loaded = mappingData?.value || {};
+  const mapping: CsvColumnMapping = {
+    identification: { ...defaultMapping.identification, ...(loaded.identification || {}) },
+    amounts: { ...defaultMapping.amounts, ...(loaded.amounts || {}) }
+  };
 
-  // Build amounts object dynamically from mapping
+  // Build amounts object dynamically using ONLY snake_case keys from defaultMapping
+  // This ensures all data is stored with canonical snake_case keys
   const amounts: Record<string, number> = {};
   
-  for (const [key, mappingValue] of Object.entries(mapping.amounts)) {
+  // Iterate over defaultMapping.amounts keys (guaranteed snake_case)
+  for (const key of Object.keys(defaultMapping.amounts)) {
+    const mappingValue = mapping.amounts[key as keyof typeof mapping.amounts];
     const headerValues = (row as any).__headers || [];
     const colIndex = resolveColumnIndex(mappingValue, headerValues);
     if (colIndex >= 0) {
