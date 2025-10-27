@@ -240,6 +240,17 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     loadSettlements();
   }, [driverId, selectedYear, selectedWeek]);
 
+  // Helper: Convert 0-based index to Excel-style column letter (0→A, 25→Z, 26→AA)
+  const indexToLetter = (index: number): string => {
+    let letter = '';
+    let num = index;
+    while (num >= 0) {
+      letter = String.fromCharCode((num % 26) + 65) + letter;
+      num = Math.floor(num / 26) - 1;
+    }
+    return letter;
+  };
+
   // Group settlements by period
   const groupedSettlements = settlements.reduce((acc, settlement) => {
     const key = `${settlement.period_from}_${settlement.period_to}`;
@@ -267,12 +278,45 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     );
 
   // Calculate payout using formula
-  const calculatePayout = (amounts: any): { payout: number; fee: number; breakdown: any } => {
+  const calculatePayout = (amounts: any, rawData?: any): { payout: number; fee: number; breakdown: any } => {
     if (!visibilitySettings?.payout_formula || !amounts) {
       return { payout: 0, fee: 0, breakdown: {} };
     }
     
     let formula = visibilitySettings.payout_formula;
+    
+    // Step 1: Build column letter mapping from raw CSV data (A, B, C, ..., Z, AA, AB, ...)
+    const columnLetters: Record<string, number> = {};
+    
+    if (rawData) {
+      // Extract all col_X values from rawData
+      const colKeys = Object.keys(rawData)
+        .filter(k => k.startsWith('col_'))
+        .sort((a, b) => {
+          const numA = parseInt(a.substring(4));
+          const numB = parseInt(b.substring(4));
+          return numA - numB;
+        });
+      
+      colKeys.forEach(colKey => {
+        const index = parseInt(colKey.substring(4));
+        const letter = indexToLetter(index);
+        const value = parseFloat(String(rawData[colKey] || '').replace(/[^\d.-]/g, '').replace(',', '.')) || 0;
+        columnLetters[letter] = value;
+        console.log(`📊 Column ${letter} (index ${index}) = ${value}`);
+      });
+    }
+    
+    // Step 2: Replace column letters in formula (sort by length desc: AA, AB first, then Z, Y, A)
+    const sortedLetters = Object.keys(columnLetters).sort((a, b) => b.length - a.length || b.localeCompare(a));
+    sortedLetters.forEach(letter => {
+      const regex = new RegExp(`\\b${letter}\\b`, 'g');
+      const oldFormula = formula;
+      formula = formula.replace(regex, columnLetters[letter].toString());
+      if (oldFormula !== formula) {
+        console.log(`🔄 Replaced ${letter} with ${columnLetters[letter]}`);
+      }
+    });
     
     // Calculate total earnings for fee calculation
     const totalEarnings = (amounts.uber || 0) + (amounts.bolt_gross || 0) + (amounts.freenow_gross || 0);
@@ -288,15 +332,11 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       feeFormula = feeFormula.replace(/\bbolt\b/g, (amounts.bolt_gross || 0).toString());
       feeFormula = feeFormula.replace(/\bfreenow\b/g, (amounts.freenow_gross || 0).toString());
       
-      // Replace column letters with values if csvMapping is available (only standalone letters)
-      if (csvMapping && csvMapping.amounts) {
-        Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
-          if (letter) {
-            const regex = new RegExp(`\\b${letter}\\b`, 'g');
-            feeFormula = feeFormula.replace(regex, (amounts[key] || 0).toString());
-          }
-        });
-      }
+      // Replace column letters in fee formula (same as main formula)
+      sortedLetters.forEach(letter => {
+        const regex = new RegExp(`\\b${letter}\\b`, 'g');
+        feeFormula = feeFormula.replace(regex, columnLetters[letter].toString());
+      });
       
       try {
         fee = new Function(`return ${feeFormula}`)();
@@ -306,18 +346,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       }
     }
     
-    // Replace column letters with amounts values (only standalone letters, not within words)
-    if (csvMapping && csvMapping.amounts) {
-      Object.entries(csvMapping.amounts).forEach(([key, letter]) => {
-        if (letter) {
-          // Use word boundaries to match only standalone letters
-          const regex = new RegExp(`\\b${letter}\\b`, 'g');
-          formula = formula.replace(regex, (amounts[key] || 0).toString());
-        }
-      });
-    }
-    
-    // Replace named variables with actual values
+    // Step 3: Replace named variables with actual values
     const replacements: Record<string, number> = {
       uberCashless: amounts.uber_cashless || 0,
       uber: amounts.uber || 0,
@@ -342,10 +371,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       formula = formula.replace(new RegExp(`\\b${key}\\b`, 'g'), value.toString());
     });
     
+    console.log(`💰 Final payout formula: ${formula}`);
+    
     let payout = 0;
     try {
       // Use Function constructor for safe evaluation (simple math only)
       payout = new Function(`return ${formula}`)();
+      console.log(`✅ Calculated payout: ${payout.toFixed(2)} PLN`);
     } catch {
       console.error('Error evaluating formula:', formula);
       payout = 0;
@@ -445,7 +477,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                 const settlement = period.settlements[0]; // Take newest settlement
                 const rawAmounts = settlement.amounts || {};
                 const amounts = normalizeAmounts(rawAmounts); // Normalize to snake_case
-                const { payout, fee, breakdown } = calculatePayout(amounts);
+                const rawData = (settlement as any).raw; // Get raw CSV data with col_X fields
+                const { payout, fee, breakdown } = calculatePayout(amounts, rawData);
                 
                 const platformData = [
                   { name: 'Uber', value: amounts.uber || 0, fill: '#000000' },

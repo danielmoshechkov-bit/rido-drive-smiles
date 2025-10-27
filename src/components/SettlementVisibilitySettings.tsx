@@ -237,14 +237,17 @@ export const SettlementVisibilitySettings = () => {
           <div>
             <Label htmlFor="payout_formula">Formuła wypłaty dla kierowcy</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Użyj nazw pól: uberCashless, boltNet, freenowNet, fuel, fuelVATRefund. Przykład: uberCashless + boltNet + freenowNet - fuel
+              Możesz używać <strong>liter kolumn CSV</strong> (A, B, K, M, L) lub <strong>nazw zmiennych</strong> (uberCashless, boltNet, freenowNet, fuel, fuelVATRefund, rental, fee).
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              <strong>Przykłady:</strong> <code>K + M - L - rental</code> lub <code>uberCashless + boltNet + freenowNet - fuel + fuelVATRefund</code>
             </p>
           </div>
           <Textarea 
             id="payout_formula"
             value={settings.payout_formula || ''} 
             onChange={(e) => setSettings({...settings, payout_formula: e.target.value})}
-            placeholder="uberCashless + boltNet + freenowNet - fuel + fuelVATRefund"
+            placeholder="K + M - L - rental"
             rows={3}
           />
           <Button 
