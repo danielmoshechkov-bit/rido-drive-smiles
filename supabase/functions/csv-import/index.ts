@@ -699,36 +699,36 @@ async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
     .eq('key', 'csv_column_mapping')
     .maybeSingle();
 
-  // Default mapping if not found
+  // Default mapping - using Polish column names from CSV
   const defaultMapping: CsvColumnMapping = {
     identification: {
-      email: 'A',
-      uber_id: 'B',
-      phone: 'C',
-      freenow_id: 'D',
-      fuel_card: 'E',
-      full_name: 'F',
+      email: 'adres mailowy',
+      uber_id: 'id uber',
+      phone: 'nr tel',
+      freenow_id: 'id freenow',
+      fuel_card: 'nr karty paliwowej',
+      full_name: 'Imie nazwisko',
       bolt_id: '',
-      getrido_id: 'X',
+      getrido_id: 'getrido ID',
     },
     amounts: {
-      uber: 'G',
-      uber_cashless: 'H',
-      uber_cash: 'I',
-      bolt_gross: 'J',
-      bolt_net: 'K',
-      bolt_commission: 'L',
-      bolt_cash: 'M',
-      freenow_gross: 'N',
-      freenow_net: 'O',
-      freenow_commission: 'P',
-      freenow_cash: 'Q',
-      total_cash: 'R',
-      total_commission: 'S',
-      tax: 'T',
-      fuel: 'U',
-      fuel_vat: 'V',
-      fuel_vat_refund: 'W',
+      uber: 'Uber',
+      uber_cashless: 'Uber bezgotówka',
+      uber_cash: 'uber gotówka',
+      bolt_gross: 'bolt brutto',
+      bolt_net: 'bolt netto',
+      bolt_commission: 'bolt prowizja',
+      bolt_cash: 'bolt gotówka',
+      freenow_gross: 'freenow brutto',
+      freenow_net: 'freenow netto',
+      freenow_commission: 'freenow prowizja',
+      freenow_cash: 'freenow gotówka',
+      total_cash: 'razem gotówka',
+      total_commission: 'razem prowizja',
+      tax: 'podatek 8%/49',
+      fuel: 'paliwo',
+      fuel_vat: 'vat z paliwa',
+      fuel_vat_refund: 'zwrot vat z paliwa',
     },
   };
 
@@ -816,18 +816,36 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
     .eq('key', 'csv_column_mapping')
     .maybeSingle();
 
-  // Default mapping if not found (snake_case keys)
+  // Default mapping - using Polish column names from CSV
   const defaultMapping: CsvColumnMapping = {
     identification: {
-      email: 'A', uber_id: 'B', phone: 'C', freenow_id: 'D',
-      fuel_card: 'E', full_name: 'F', bolt_id: '', getrido_id: 'X',
+      email: 'adres mailowy',
+      uber_id: 'id uber',
+      phone: 'nr tel',
+      freenow_id: 'id freenow',
+      fuel_card: 'nr karty paliwowej',
+      full_name: 'Imie nazwisko',
+      bolt_id: '',
+      getrido_id: 'getrido ID',
     },
     amounts: {
-      uber: 'G', uber_cashless: 'H', uber_cash: 'I',
-      bolt_gross: 'J', bolt_net: 'K', bolt_commission: 'L', bolt_cash: 'M',
-      freenow_gross: 'N', freenow_net: 'O', freenow_commission: 'P', freenow_cash: 'Q',
-      total_cash: 'R', total_commission: 'S', tax: 'T',
-      fuel: 'U', fuel_vat: 'V', fuel_vat_refund: 'W',
+      uber: 'Uber',
+      uber_cashless: 'Uber bezgotówka',
+      uber_cash: 'uber gotówka',
+      bolt_gross: 'bolt brutto',
+      bolt_net: 'bolt netto',
+      bolt_commission: 'bolt prowizja',
+      bolt_cash: 'bolt gotówka',
+      freenow_gross: 'freenow brutto',
+      freenow_net: 'freenow netto',
+      freenow_commission: 'freenow prowizja',
+      freenow_cash: 'freenow gotówka',
+      total_cash: 'razem gotówka',
+      total_commission: 'razem prowizja',
+      tax: 'podatek 8%/49',
+      fuel: 'paliwo',
+      fuel_vat: 'vat z paliwa',
+      fuel_vat_refund: 'zwrot vat z paliwa',
     },
   };
 

@@ -195,3 +195,59 @@ All colors MUST be HSL.
     scrollbar-width: none;
   }
 }
+
+/* --- RIDO: jednolite tło wszystkich widgetów, bez przezroczystości --- */
+.widget,
+.card,
+.section-box,
+[data-type="widget"],
+[data-type="card"],
+.section-content,
+div[class*="widget"],
+div[class*="card"] {
+  background: #F9F7FF !important; /* jasny fiolet RIDO */
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  border-radius: 16px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(120, 80, 255, 0.07) !important;
+}
+
+/* --- nagłówki i teksty w kartach --- */
+.widget h2,
+.widget h3,
+.widget p,
+.card h2,
+.card h3,
+.card p {
+  color: #1A103D !important;
+}
+
+/* --- przyciski (żółte i fioletowe) --- */
+button,
+a.button,
+.button {
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  background-blend-mode: normal !important;
+}
+
+/* --- karty FAQ, wymagania, dokumenty itd. --- */
+.faq-item,
+.requirements-box,
+.documents-box,
+[data-section="faq"],
+[data-section="requirements"],
+[data-section="documents"] {
+  background: #F9F7FF !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  border: 1px solid rgba(120, 80, 255, 0.07) !important;
+}
+
+/* --- responsywność (żeby wszystko wyglądało czysto na mobile) --- */
+@media (max-width: 768px) {
+  .widget, .card {
+    border-radius: 12px !important;
+  }
+}

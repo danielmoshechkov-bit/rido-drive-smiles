@@ -90,6 +90,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [settlementPeriods, setSettlementPeriods] = useState<SettlementPeriod[]>([]);
   const [newSettlementOpen, setNewSettlementOpen] = useState(false);
+  const [updateSettlementOpen, setUpdateSettlementOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [creatingSettlement, setCreatingSettlement] = useState(false);
   const [uberFile, setUberFile] = useState<File | null>(null);
@@ -554,7 +555,7 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
   return (
     <div className="space-y-6">
       {/* New Settlement Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-3">
         <Dialog open={newSettlementOpen} onOpenChange={setNewSettlementOpen}>
           <DialogTrigger asChild>
             <Button size="lg" className="gap-2 bg-gradient-hero hover:opacity-90 text-white shadow-elegant">
@@ -795,6 +796,291 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
               </Button>
               <Button onClick={createNewSettlement} disabled={creatingSettlement || !dateRange?.from || !dateRange?.to}>
                 {creatingSettlement ? 'Tworzenie...' : 'Utwórz i otwórz arkusz'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Update Settlement Button */}
+        <Dialog open={updateSettlementOpen} onOpenChange={setUpdateSettlementOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" variant="outline" className="gap-2">
+              <Upload className="h-5 w-5" />
+              Aktualizuj rozliczenie
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Aktualizuj istniejące rozliczenie</DialogTitle>
+              <DialogDescription>
+                Wybierz okres i prześlij nowe pliki CSV. Stare dane zostaną zastąpione, a kierowcy zobaczą zaktualizowane rozliczenia.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              {/* Date Range Picker */}
+              <div className="space-y-2">
+                <Label>Zakres dat rozliczenia (max 7 dni)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dateRange?.from && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange?.to ? (
+                          <>
+                            {format(dateRange.from, 'dd.MM.yyyy', { locale: pl })} -{' '}
+                            {format(dateRange.to, 'dd.MM.yyyy', { locale: pl })}
+                          </>
+                        ) : (
+                          format(dateRange.from, 'dd.MM.yyyy', { locale: pl })
+                        )
+                      ) : (
+                        "Wybierz zakres dat"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          const daysDiff = differenceInDays(range.to, range.from);
+                          if (daysDiff > 6) {
+                            toast.error('Maksymalny zakres to 7 dni');
+                            return;
+                          }
+                        }
+                        setDateRange(range);
+                      }}
+                      numberOfMonths={1}
+                      locale={pl}
+                      weekStartsOn={1}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* CSV Import Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <Upload className="h-5 w-5" />
+                  Import rozliczeń CSV
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-black text-white">Uber</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia Uber
+                          </p>
+                          {uberFile && (
+                            <p className="text-xs text-primary font-medium">{uberFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-uber-update">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-uber-update')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-uber-update"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setUberFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-green-500 text-white">Bolt</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia Bolt
+                          </p>
+                          {boltFile && (
+                            <p className="text-xs text-primary font-medium">{boltFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-bolt-update">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-bolt-update')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-bolt-update"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setBoltFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-red-500 text-white">FreeNow</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Rozliczenia FreeNow
+                          </p>
+                          {freenowFile && (
+                            <p className="text-xs text-primary font-medium">{freenowFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-freenow-update">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-freenow-update')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-freenow-update"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setFreenowFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-purple-500 text-white">Główny CSV</Badge>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 py-6">
+                          <File className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-sm text-center text-muted-foreground">
+                            Arkusz rozliczeń (główny)
+                          </p>
+                          <p className="text-xs text-center text-muted-foreground">
+                            Główny CSV z systemu — zawiera pełne wiersze rozliczeń
+                          </p>
+                          {mainFile && (
+                            <p className="text-xs text-primary font-medium">{mainFile.name}</p>
+                          )}
+                        </div>
+                        <label htmlFor="file-main-update">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('file-main-update')?.click()}
+                            type="button"
+                          >
+                            Wybierz plik
+                          </Button>
+                          <input
+                            id="file-main-update"
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setMainFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setUpdateSettlementOpen(false);
+                setDateRange(undefined);
+                setUberFile(null);
+                setBoltFile(null);
+                setFreenowFile(null);
+                setMainFile(null);
+              }}>
+                Anuluj
+              </Button>
+              <Button 
+                onClick={async () => {
+                  // First delete old data for this period
+                  if (!dateRange?.from || !dateRange?.to) {
+                    toast.error('Wybierz zakres dat');
+                    return;
+                  }
+                  
+                  const periodFrom = format(dateRange.from, 'yyyy-MM-dd');
+                  const periodTo = format(dateRange.to, 'yyyy-MM-dd');
+                  
+                  // Delete old settlements for this period
+                  const { error: deleteError } = await supabase
+                    .from('settlements')
+                    .delete()
+                    .eq('period_from', periodFrom)
+                    .eq('period_to', periodTo)
+                    .eq('city_id', cityId);
+                  
+                  if (deleteError) {
+                    console.error('Delete error:', deleteError);
+                    toast.error('Błąd usuwania starych danych');
+                    return;
+                  }
+                  
+                  toast.success('Stare dane usunięte, rozpoczynam import...');
+                  
+                  // Now call the same import function
+                  await createNewSettlement();
+                  setUpdateSettlementOpen(false);
+                }} 
+                disabled={creatingSettlement || !dateRange?.from || !dateRange?.to}
+              >
+                {creatingSettlement ? 'Aktualizowanie...' : 'Aktualizuj rozliczenie'}
               </Button>
             </DialogFooter>
           </DialogContent>
