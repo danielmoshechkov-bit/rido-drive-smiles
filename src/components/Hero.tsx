@@ -91,20 +91,14 @@ const Hero = () => {
               </div>
             </Card>
 
-            {/* Model pierwszy - 39 zł (Right) */}
+            {/* Model drugi - 50 zł (Right) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                {t('hero.promotion')}
-              </div>
+              
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
                   {t('hero.model2')}
                 </h3>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 md:gap-3">
-                  <span className="text-2xl md:text-3xl line-through text-accent-foreground/60 font-semibold">50 zł</span>
-                  <span className="text-lg md:text-xl text-accent-foreground">→</span>
-                  <span className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">{t('hero.model2Price')}</span>
-                </div>
+                <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent-foreground">{t('hero.model2Price')}</div>
                 <p className="text-xs md:text-sm text-accent-foreground/80">{t('hero.model2Description')}</p>
               </div>
             </Card>

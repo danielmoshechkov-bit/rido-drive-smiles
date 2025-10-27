@@ -51,7 +51,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
-  const [driverPlan, setDriverPlan] = useState<string>('39+8');
+  const [driverPlan, setDriverPlan] = useState<string>('50+8');
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
 

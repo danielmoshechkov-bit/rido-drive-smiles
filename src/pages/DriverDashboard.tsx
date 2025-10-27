@@ -241,7 +241,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     },
     fuel: 0,
     rental: 0,
-    plan: "39+8%"
+    plan: "50+8%"
   });
 
   function getCurrentWeek() {
@@ -419,8 +419,8 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   
   const calculateNetAmount = (earnings: number, fuel: number, rental: number, plan: string) => {
     let deductions = fuel + rental;
-    if (plan === "39+8%") {
-      deductions += 39 + Math.round(earnings * 0.08);
+    if (plan === "50+8%") {
+      deductions += 50 + Math.round(earnings * 0.08);
     } else if (plan === "tylko 159") {
       deductions += 159;
     }
@@ -532,11 +532,11 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                     <span>Wynajem auta:</span>
                     <span>-{weekData.rental || 0} zł</span>
                   </div>
-                  {weekData.plan === "39+8%" && (
+                  {weekData.plan === "50+8%" && (
                     <>
                       <div className="flex justify-between text-red-600">
                         <span>Opłata stała:</span>
-                        <span>-39 zł</span>
+                        <span>-50 zł</span>
                       </div>
                       <div className="flex justify-between text-red-600">
                         <span>Podatek (8%):</span>

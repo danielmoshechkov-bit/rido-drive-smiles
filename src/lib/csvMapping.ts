@@ -111,7 +111,7 @@ export const defaultColumnMapping: CsvColumnMapping = {
 
 // Default fee formulas by plan type
 export const defaultFeeFormulas: FeeFormulas = {
-  '39+8': '39 + (totalEarnings * 0.08)',
+  '50+8': '50 + (totalEarnings * 0.08)',
   'tylko 159': '159',
   'stała 200': '200',
 };

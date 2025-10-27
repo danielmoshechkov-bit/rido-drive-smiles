@@ -14,10 +14,9 @@
     "cashPayout": "ODBIERZ SWOJĄ WYPŁATĘ GOTÓWKĄ KAŻDY WTOREK U NAS W BIURZE",
     "model1": "MODEL PIERWSZY",
     "model2": "MODEL DRUGI", 
-    "promotion": "PROMOCJA",
     "model1Price": "159 zł + 0% podatku",
     "model1Description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nWarunek: aktywne korzystanie z karty paliwowej",
-    "model2Price": "39 zł + 8% podatku",
+    "model2Price": "50 zł + 8% podatku",
     "model2Description": "Za tygodniowe rozliczenie za jedną i więcej aplikacji\nDla pierwszych 50 kierowców",
     "joinNow": "Dołącz teraz",
     "howToStart": "Jak zacząć"
@@ -48,17 +47,16 @@
     }
   },
   "seo": {
-    "description": "Szukasz zaufanego partnera dla kierowców Uber i Bolt w Polsce? Get RIDO oferuje proste rozliczenia, wypłaty co tydzień oraz wsparcie 7 dni w tygodniu. Wybierz model rozliczeń: 39 zł + 8% podatku (promocja z 50 zł) albo 159 zł + 0% podatku (z kartą paliwową Get RIDO). Dołącz do Get RIDO i zacznij zarabiać więcej w Warszawie, Krakowie i całej Polsce."
+    "description": "Szukasz zaufanego partnera dla kierowców Uber i Bolt w Polsce? Get RIDO oferuje proste rozliczenia, wypłaty co tydzień oraz wsparcie 7 dni w tygodniu. Wybierz model rozliczeń: 50 zł + 8% podatku albo 159 zł + 0% podatku (z kartą paliwową Get RIDO). Dołącz do Get RIDO i zacznij zarabiać więcej w Warszawie, Krakowie i całej Polsce."
   },
   "pricing": {
     "title": "Proste modele rozliczeń — wybierz, co Ci się opłaca",
     "model1": "MODEL PIERWSZY",
     "model2": "MODEL DRUGI",
     "model1Price": "159 zł + 0% podatku",
-    "model2Price": "39 zł + 8% podatku",
+    "model2Price": "50 zł + 8% podatku",
     "model1Subtitle": "z aktywną kartą paliwową E100",
-    "model2Subtitle": "Normalnie: 50 zł + 8% podatku",
-    "promotion": "PROMOCJA!",
+    "model2Subtitle": "Dla pierwszych 50 kierowców",
     "first50": "Dla pierwszych 50 kierowców",
     "chooseModel": "Wybieram ten model",
     "changeInfo": "Model rozliczeń wybierasz przy podpisaniu umowy. Możliwość zmiany raz w miesiącu. Wypłaty: raz w tygodniu.",

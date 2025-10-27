@@ -28,12 +28,12 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
 
   const getBillingMethodDisplay = (method: string) => {
     switch (method) {
-      case '39+8%':
-        return { label: '39zł + 8%', color: 'bg-blue-500/10 text-blue-700 border-blue-500/20' };
+      case '50+8%':
+        return { label: '50zł + 8%', color: 'bg-blue-500/10 text-blue-700 border-blue-500/20' };
       case '159+0%':
         return { label: '159zł + 0%', color: 'bg-purple-500/10 text-purple-700 border-purple-500/20' };
       default:
-        return { label: method || '39zł + 8%', color: 'bg-gray-500/10 text-gray-700 border-gray-500/20' };
+        return { label: method || '50zł + 8%', color: 'bg-gray-500/10 text-gray-700 border-gray-500/20' };
     }
   };
 
@@ -90,7 +90,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
     }
   };
 
-  const billingDisplay = getBillingMethodDisplay(driver.billing_method || '39+8%');
+  const billingDisplay = getBillingMethodDisplay(driver.billing_method || '50+8%');
 
   return (
     <Card className="mt-2 p-4 bg-muted/20 border-l-4 border-primary/20">

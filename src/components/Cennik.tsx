@@ -58,22 +58,15 @@ const Cennik = () => {
             </div>
           </Card>
 
-          {/* Plan 1 - Promocyjny - MODEL DRUGI */}
+          {/* Plan 1 - MODEL DRUGI */}
           <Card className="p-8 relative overflow-hidden bg-white shadow-gold border-accent/20">
-            {/* Promocja Badge */}
-            <div className="absolute -top-4 -right-4 bg-accent text-accent-foreground px-6 py-2 rotate-12 text-sm font-bold shadow-lg my-[4px]">
-              PROMOCJA!
-            </div>
             
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-bold text-primary mb-4">MODEL DRUGI</h3>
                 <div className="flex items-baseline space-x-2 mb-2">
-                  <span className="text-3xl font-bold text-foreground">39 zł</span>
+                  <span className="text-3xl font-bold text-foreground">50 zł</span>
                   <span className="text-lg text-muted-foreground">+ 8% podatku</span>
-                </div>
-                <div className="text-sm text-muted-foreground line-through">
-                  Normalnie: 50 zł + 8% podatku
                 </div>
                 <div className="text-sm font-medium text-accent">
                   Dla pierwszych 50 kierowców

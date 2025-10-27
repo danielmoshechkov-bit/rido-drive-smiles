@@ -19,7 +19,7 @@ export const SettlementPlanSelector = ({
 
   const plans = [
     { id: "tylko 159", name: "159 zł + 0% VAT", description: "159 zł tygodniowo bez dodatkowych opłat" },
-    { id: "39+8%", name: "39+8% VAT", description: "39 zł + 8% VAT tygodniowo" }
+    { id: "50+8%", name: "50+8% VAT", description: "50 zł + 8% VAT tygodniowo" }
   ];
 
   useEffect(() => {
