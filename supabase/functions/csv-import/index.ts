@@ -787,9 +787,12 @@ async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
       getrido_id: getrido_id_val,
     };
 
+    // Attach header values for later mapping by header names
+    ;(row as any).__headers = headerValues;
+
     // Add all columns for amounts mapping and fallback access
     for (let j = 0; j < values.length; j++) {
-      row[`col_${j}`] = values[j];
+      (row as any)[`col_${j}`] = values[j];
     }
 
     rows.push(row);
@@ -833,10 +836,11 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
   // Build amounts object dynamically from mapping
   const amounts: Record<string, number> = {};
   
-  for (const [key, colLetter] of Object.entries(mapping.amounts)) {
-    const colIndex = letterToIndex(colLetter);
+  for (const [key, mappingValue] of Object.entries(mapping.amounts)) {
+    const headerValues = (row as any).__headers || [];
+    const colIndex = resolveColumnIndex(mappingValue, headerValues);
     if (colIndex >= 0) {
-      amounts[key] = parseNum(row[`col_${colIndex}`]);
+      amounts[key] = parseNum((row as any)[`col_${colIndex}`]);
     } else {
       amounts[key] = 0;
     }
