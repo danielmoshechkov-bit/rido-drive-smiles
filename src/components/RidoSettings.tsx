@@ -263,7 +263,18 @@ export default function RidoSettings() {
       .maybeSingle();
 
     if (!error && data?.value) {
-      setCsvMapping(data.value as unknown as CsvColumnMapping);
+      const loadedMapping = data.value as unknown as CsvColumnMapping;
+      // Merge with defaults to ensure all fields exist
+      setCsvMapping({
+        identification: {
+          ...defaultColumnMapping.identification,
+          ...loadedMapping.identification,
+        },
+        amounts: {
+          ...defaultColumnMapping.amounts,
+          ...loadedMapping.amounts,
+        },
+      });
     }
   };
 
