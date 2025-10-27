@@ -79,9 +79,6 @@ const Hero = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
             {/* Model drugi - 159 zł (Left) */}
             <Card className="relative p-6 md:p-8 bg-gradient-accent shadow-gold border-accent/20">
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                {t('hero.promotion')}
-              </div>
               <div className="text-center space-y-3 md:space-y-4">
                 <h3 className="text-lg md:text-xl font-bold text-accent-foreground">
                   {t('hero.model1')}

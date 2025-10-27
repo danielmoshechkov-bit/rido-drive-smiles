@@ -68,9 +68,6 @@ const Cennik = () => {
                   <span className="text-3xl font-bold text-foreground">50 zł</span>
                   <span className="text-lg text-muted-foreground">+ 8% podatku</span>
                 </div>
-                <div className="text-sm font-medium text-accent">
-                  Dla pierwszych 50 kierowców
-                </div>
               </div>
 
               <ul className="space-y-3">

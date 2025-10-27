@@ -59,9 +59,6 @@ const ProsteCenniki = () => {
               <div className="text-5xl font-bold text-foreground mb-2">
                 50 zł + 8% podatku
               </div>
-              <div className="text-yellow-600 font-semibold text-lg">
-                Dla pierwszych 50 kierowców
-              </div>
             </div>
 
             <div className="space-y-4 mb-8">
