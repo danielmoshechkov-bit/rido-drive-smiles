@@ -39,11 +39,15 @@ function extractFields(raw: any): {
   const trim = (val: any) => (val !== undefined && val !== null && String(val).length ? String(val).trim() : null);
   const isNumericLike = (val: string | null) => !!(val && /^[0-9.,]+$/.test(val));
   const validPattern = /^[A-Za-z0-9_-]+$/;
-  const isValidGetrido = (val: string | null, fullName?: string | null) => {
+  const isValidGetrido = (val: string | null, fullName?: string | null, uber?: string | null, bolt?: string | null, freenow?: string | null) => {
     if (!val) return false;
     if (isNumericLike(val)) return false;
     if (!validPattern.test(val)) return false;
     if (fullName && val.replace(/\s+/g, '').toLowerCase() === fullName.replace(/\s+/g, '').toLowerCase()) return false;
+    // Reject if identical to platform IDs
+    if (uber && val === uber) return false;
+    if (bolt && val === bolt) return false;
+    if (freenow && val === freenow) return false;
     return true;
   };
 
@@ -57,7 +61,7 @@ function extractFields(raw: any): {
       const val = trim(raw[i]);
       if (!val) continue; // skip empty
       if (isNumericLike(val)) continue; // skip numeric (amounts)
-      if (isValidGetrido(val, fullName)) {
+      if (isValidGetrido(val, fullName, trim(raw.uber_id), trim(raw.bolt_id), trim(raw.freenow_id))) {
         candidate = val;
         console.log(`[Array Extract] len=${raw.length}, found at index ${i}: "${val}"`);
         break;

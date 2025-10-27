@@ -200,8 +200,12 @@ Deno.serve(async (req) => {
       }
       
       // Update GetRido ID and name if needed
-      const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx);
-      const validGetRidoId = extractedGetRidoId && isValidGetRidoId(extractedGetRidoId) ? extractedGetRidoId : null;
+      const uber_id_val = rowData.uber_id || null;
+      const freenow_id_val = rowData.freenow_id || null;
+      const bolt_id_val = null; // Not in main CSV
+      
+      const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx, uber_id_val, bolt_id_val, freenow_id_val);
+      const validGetRidoId = extractedGetRidoId && isValidGetRidoId(extractedGetRidoId, uber_id_val, bolt_id_val, freenow_id_val) ? extractedGetRidoId : null;
       
       if (driverId && validGetRidoId) {
         const { data: currentDriver } = await supabase
@@ -354,7 +358,12 @@ function parsePLNumber(value: string): number {
 }
 
 // ========== HELPER: WALIDACJA GETRIDO ID ==========
-function isValidGetRidoId(value: string | null | undefined): boolean {
+function isValidGetRidoId(
+  value: string | null | undefined,
+  uber_id?: string | null,
+  bolt_id?: string | null,
+  freenow_id?: string | null
+): boolean {
   if (!value || value.trim().length < 3) return false;
   
   const trimmed = value.trim();
@@ -371,40 +380,40 @@ function isValidGetRidoId(value: string | null | undefined): boolean {
   // Nie jest Uber UUID pattern
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
   
+  // Reject if identical to any platform ID from the same row
+  if (uber_id && trimmed === uber_id) return false;
+  if (bolt_id && trimmed === bolt_id) return false;
+  if (freenow_id && trimmed === freenow_id) return false;
+  
   return true;
 }
 
 // ========== HELPER: EKSTRAKCJA GETRIDO ID Z WIERSZA ==========
-function extractGetRidoFromRow(headers: string[], row: string[], getRidoIdIdx: number): string {
+function extractGetRidoFromRow(
+  headers: string[], 
+  row: string[], 
+  getRidoIdIdx: number,
+  uber_id?: string | null,
+  bolt_id?: string | null,
+  freenow_id?: string | null
+): string {
   // 1) Bezpośrednio z nazwy kolumny, jeśli istnieje
   let candidate = (getRidoIdIdx >= 0 ? row[getRidoIdIdx] : '')?.trim() || '';
-  if (isValidGetRidoId(candidate)) {
+  if (isValidGetRidoId(candidate, uber_id, bolt_id, freenow_id)) {
     console.log(`🆔 GetRido z kolumny nazwanej (idx ${getRidoIdIdx}): ${candidate}`);
     return candidate;
   }
 
-  // 2) Fallbacki po typowych indeksach arkusza: X(23), W(22), C(2), D(3), B(1)
-  const fallbacks = [23, 22, 3, 2, 1];
-  for (const idx of fallbacks) {
-    if (idx < row.length) {
-      const v = row[idx]?.trim();
-      if (isValidGetRidoId(v)) {
-        console.log(`🆔 GetRido z fallback idx ${idx}: ${v}`);
-        return v;
-      }
-    }
-  }
-
-  // 3) Ostatnia próba: przeskanuj pierwsze 25 komórek i weź wartość która wygląda jak GetRido ID
-  const limit = Math.min(25, row.length);
-  for (let i = 0; i < limit; i++) {
-    const v = row[i]?.trim();
-    if (isValidGetRidoId(v)) {
-      console.log(`🆔 GetRido ze skanu (idx ${i}): ${v}`);
+  // 2) Hard fallback: TYLKO kolumna X (index 23)
+  if (row.length > 23) {
+    const v = row[23]?.trim();
+    if (isValidGetRidoId(v, uber_id, bolt_id, freenow_id)) {
+      console.log(`🆔 GetRido z kolumny X (idx 23): ${v}`);
       return v;
     }
   }
 
+  // NO more risky scans - we only use X or named column
   return '';
 }
 // ========== HELPER: ZNAJDŹ LUB UTWÓRZ KIEROWCĘ ==========
@@ -423,12 +432,16 @@ async function findOrCreateDriver(
   const phone = rowData.phone;
   const fullName = rowData.fullName;
   
-  // Use extractGetRidoFromRow to get GetRido ID reliably
-  const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx);
+  // Use extractGetRidoFromRow to get GetRido ID reliably with platform IDs for validation
+  const uber_id_val = rowData.uber_id || null;
+  const freenow_id_val = rowData.freenowId || null;
+  const bolt_id_val = null; // Not in main CSV
+  
+  const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx, uber_id_val, bolt_id_val, freenow_id_val);
   const getRidoId = extractedGetRidoId;
   
   // Waliduj GetRido ID
-  const validGetRidoId = isValidGetRidoId(getRidoId) ? getRidoId : null;
+  const validGetRidoId = isValidGetRidoId(getRidoId, uber_id_val, bolt_id_val, freenow_id_val) ? getRidoId : null;
   
   // PRIORYTET MATCHOWANIA (od najbardziej stabilnego):
   // 1. GetRido ID (jeśli jest poprawne)

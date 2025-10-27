@@ -158,6 +158,40 @@ function normalizeName(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z]/g, '');
 }
 
+// Validate if getrido_id looks valid (not UUID, not email, not purely numeric)
+function isValidGetRidoId(
+  value: string | null | undefined,
+  uber_id?: string | null,
+  bolt_id?: string | null,
+  freenow_id?: string | null
+): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  // Reject UUIDs
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return false;
+  }
+
+  // Reject emails
+  if (trimmed.includes('@')) {
+    return false;
+  }
+
+  // Reject purely numeric
+  if (/^\d+$/.test(trimmed)) {
+    return false;
+  }
+
+  // Reject if identical to any platform ID
+  if (uber_id && trimmed === uber_id) return false;
+  if (bolt_id && trimmed === bolt_id) return false;
+  if (freenow_id && trimmed === freenow_id) return false;
+
+  return true;
+}
+
 // Helper function to update existing driver data
 async function updateDriverData(
   supabase: any,
@@ -169,10 +203,15 @@ async function updateDriverData(
 ): Promise<void> {
   const updateData: any = {};
   
-  // Update getrido_id if present in CSV and different
+  // Update getrido_id if present in CSV and different AND valid
   if (getrido_id && existingDriver.getrido_id !== getrido_id) {
-    updateData.getrido_id = getrido_id;
-    console.log(`📝 Updating getrido_id: ${existingDriver.getrido_id} -> ${getrido_id}`);
+    // Validate before updating
+    if (isValidGetRidoId(getrido_id, row.uber_id, row.bolt_id, row.freenow_id)) {
+      updateData.getrido_id = getrido_id;
+      console.log(`📝 Updating getrido_id: ${existingDriver.getrido_id} -> ${getrido_id}`);
+    } else {
+      console.log(`⚠️ Skipping invalid getrido_id: "${getrido_id}" (UUID/email/numeric/platform ID)`);
+    }
   }
   
   // Update phone if present in CSV and different
@@ -707,10 +746,8 @@ async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
     getrido_id: resolveColumnIndex(mapping.identification.getrido_id, headerValues),
   };
 
-  // Fallback for getrido_id - use last column if not resolved
-  if (indexes.getrido_id === -1) {
-    indexes.getrido_id = headerValues.length - 1;
-  }
+  // NO fallback for getrido_id - if not found in X or named column, leave it null
+  // This prevents accidentally using wrong columns (like last column which might be anything)
 
   const rows: CSVRow[] = [];
 
@@ -724,15 +761,30 @@ async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
     // Skip empty rows
     if (values.every(v => !v)) continue;
 
+    // Extract values with validation for getrido_id
+    const uber_id_val = indexes.uber_id >= 0 ? (values[indexes.uber_id] || null) : null;
+    const bolt_id_val = indexes.bolt_id >= 0 ? (values[indexes.bolt_id] || null) : null;
+    const freenow_id_val = indexes.freenow_id >= 0 ? (values[indexes.freenow_id] || null) : null;
+    const getrido_id_candidate = indexes.getrido_id >= 0 ? (values[indexes.getrido_id] || null) : null;
+    
+    // Validate getrido_id before setting it
+    const getrido_id_val = isValidGetRidoId(getrido_id_candidate, uber_id_val, bolt_id_val, freenow_id_val)
+      ? getrido_id_candidate
+      : null;
+    
+    if (getrido_id_candidate && !getrido_id_val) {
+      console.log(`⚠️ Row ${i}: Rejected invalid getrido_id "${getrido_id_candidate}"`);
+    }
+
     const row: CSVRow = {
       email: indexes.email >= 0 ? (values[indexes.email] || null) : null,
-      uber_id: indexes.uber_id >= 0 ? (values[indexes.uber_id] || null) : null,
+      uber_id: uber_id_val,
       phone: indexes.phone >= 0 ? (values[indexes.phone] || null) : null,
-      freenow_id: indexes.freenow_id >= 0 ? (values[indexes.freenow_id] || null) : null,
+      freenow_id: freenow_id_val,
       fuel_card: indexes.fuel_card >= 0 ? (values[indexes.fuel_card] || null) : null,
       full_name: indexes.full_name >= 0 ? (values[indexes.full_name] || '') : '',
-      bolt_id: indexes.bolt_id >= 0 ? (values[indexes.bolt_id] || null) : null,
-      getrido_id: indexes.getrido_id >= 0 ? (values[indexes.getrido_id] || null) : null,
+      bolt_id: bolt_id_val,
+      getrido_id: getrido_id_val,
     };
 
     // Add all columns for amounts mapping and fallback access

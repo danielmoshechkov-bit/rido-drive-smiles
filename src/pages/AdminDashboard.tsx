@@ -30,6 +30,7 @@ const AdminDashboard = () => {
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
   const [showRebuildModal, setShowRebuildModal] = useState(false);
+  const [sanitizing, setSanitizing] = useState(false);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
@@ -44,6 +45,40 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     navigate('/');
+  };
+
+  const handleSanitizeGetRidoIds = async () => {
+    if (!selectedCity) {
+      toast({ title: "Błąd", description: "Wybierz miasto", variant: "destructive" });
+      return;
+    }
+
+    setSanitizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sanitize-getrido', {
+        body: { city_id: selectedCity.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sukces",
+        description: `Wyczyszczono ${data.sanitized_count} z ${data.total_checked} kierowców. ${
+          data.sanitized_count > 0 
+            ? "Nieprawidłowe GetRido ID (UUID, email, numeryczne, platform ID) zostały wyczyszczone."
+            : "Wszystkie GetRido ID są poprawne."
+        }`,
+      });
+    } catch (error: any) {
+      console.error('Sanitize error:', error);
+      toast({
+        title: "Błąd podczas czyszczenia GetRido ID",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setSanitizing(false);
+    }
   };
 
   // Dynamic stats based on real data
@@ -417,13 +452,27 @@ const AdminDashboard = () => {
                   </p>
                 </div>
 
-                <Button 
-                  onClick={() => setShowRebuildModal(true)}
-                  disabled={!selectedCity}
-                  variant="default"
-                >
-                  🔧 Rebuild kierowców z CSV
-                </Button>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => setShowRebuildModal(true)}
+                    disabled={!selectedCity}
+                    variant="default"
+                  >
+                    🔧 Rebuild kierowców z CSV
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleSanitizeGetRidoIds}
+                    disabled={!selectedCity || sanitizing}
+                    variant="outline"
+                  >
+                    {sanitizing ? "Czyszczenie..." : "🧹 Napraw GetRido ID (sanitize)"}
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  💡 Zalecana kolejność: najpierw użyj "Napraw GetRido ID", potem "Rebuild" z CSV
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
