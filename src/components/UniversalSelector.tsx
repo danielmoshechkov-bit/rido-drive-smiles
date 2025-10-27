@@ -115,7 +115,7 @@ export function UniversalSelector({
       </Button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-80 bg-popover border border-border rounded-xl shadow-lg p-4">
+        <div className="absolute z-[100] mt-2 w-80 bg-popover border border-border rounded-xl shadow-lg p-4">
           {/* Search Bar */}
           {showSearch && (
             <div className="relative mb-3">
