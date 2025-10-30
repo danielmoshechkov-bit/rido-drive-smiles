@@ -196,6 +196,56 @@ export type Database = {
           },
         ]
       }
+      driver_additional_fees: {
+        Row: {
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          description: string
+          driver_id: string
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          start_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          driver_id: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          driver_id?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_additional_fees_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_app_users: {
         Row: {
           city_id: string | null
@@ -204,6 +254,7 @@ export type Database = {
           phone: string | null
           plan_type: string | null
           rodo_accepted_at: string | null
+          settlement_plan_id: string | null
           terms_accepted_at: string | null
           user_id: string
         }
@@ -214,6 +265,7 @@ export type Database = {
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null
+          settlement_plan_id?: string | null
           terms_accepted_at?: string | null
           user_id: string
         }
@@ -224,6 +276,7 @@ export type Database = {
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null
+          settlement_plan_id?: string | null
           terms_accepted_at?: string | null
           user_id?: string
         }
@@ -240,6 +293,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_app_users_settlement_plan_id_fkey"
+            columns: ["settlement_plan_id"]
+            isOneToOne: false
+            referencedRelation: "settlement_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -1220,6 +1280,42 @@ export type Database = {
           updated_at?: string
           week_end?: string
           week_start?: string
+        }
+        Relationships: []
+      }
+      settlement_plans: {
+        Row: {
+          base_fee: number
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          service_fee: number | null
+          tax_percentage: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_fee?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          service_fee?: number | null
+          tax_percentage?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_fee?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          service_fee?: number | null
+          tax_percentage?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }

@@ -5,22 +5,33 @@ import { UniversalSelector } from "./UniversalSelector";
 
 interface SettlementPlanSelectorProps {
   driverData: any;
-  currentPlan: string;
-  onPlanChange: (plan: string) => void;
+  currentPlanId: string | null;
+  onPlanChange: (planId: string) => void;
 }
 
 export const SettlementPlanSelector = ({
   driverData,
-  currentPlan,
+  currentPlanId,
   onPlanChange
 }: SettlementPlanSelectorProps) => {
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan || "");
+  const [selectedPlanId, setSelectedPlanId] = useState(currentPlanId || "");
+  const [plans, setPlans] = useState<any[]>([]);
   const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
 
-  const plans = [
-    { id: "tylko 159", name: "159 zł + 0% VAT", description: "159 zł tygodniowo bez dodatkowych opłat" },
-    { id: "50+8%", name: "50+8% VAT", description: "50 zł + 8% VAT tygodniowo" }
-  ];
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
+  const loadPlans = async () => {
+    const { data, error } = await supabase
+      .from('settlement_plans')
+      .select('*')
+      .eq('is_active', true);
+
+    if (!error && data) {
+      setPlans(data);
+    }
+  };
 
   useEffect(() => {
     fetchLastChangeDate();
@@ -47,10 +58,10 @@ export const SettlementPlanSelector = ({
   const handlePlanChange = async (item: {id: string; name: string} | null) => {
     if (!item) return;
     
-    const newPlan = item.id;
+    const newPlanId = item.id;
     
     // Jeśli nie ma wybranego planu, pozwól wybrać
-    if (selectedPlan && !canChangePlan()) {
+    if (selectedPlanId && !canChangePlan()) {
       toast.error(`Możesz zmienić plan za ${daysUntilNextChange()} dni`);
       return;
     }
@@ -58,13 +69,13 @@ export const SettlementPlanSelector = ({
     try {
       const { error } = await supabase
         .from("driver_app_users")
-        .update({ plan_type: newPlan })
+        .update({ settlement_plan_id: newPlanId })
         .eq("driver_id", driverData.driver_id);
 
       if (error) throw error;
 
-      setSelectedPlan(newPlan);
-      onPlanChange(newPlan);
+      setSelectedPlanId(newPlanId);
+      onPlanChange(newPlanId);
       setLastChangeDate(new Date());
       toast.success("Plan rozliczenia został zmieniony");
     } catch (error: any) {
@@ -72,7 +83,7 @@ export const SettlementPlanSelector = ({
     }
   };
 
-  const currentPlanName = plans.find(p => p.id === selectedPlan)?.name || "Wybierz plan";
+  const currentPlanName = plans.find(p => p.id === selectedPlanId)?.name || "Wybierz plan";
 
   return (
     <div className="flex flex-col">
@@ -83,7 +94,7 @@ export const SettlementPlanSelector = ({
           id: plan.id,
           name: plan.name
         }))}
-        currentValue={selectedPlan}
+        currentValue={selectedPlanId}
         placeholder={currentPlanName}
         showSearch={false}
         showAdd={false}
@@ -91,7 +102,7 @@ export const SettlementPlanSelector = ({
         onSelect={handlePlanChange}
         className="w-48"
       />
-      {selectedPlan && !canChangePlan() && (
+      {selectedPlanId && !canChangePlan() && (
         <div className="mt-1 text-xs text-muted-foreground">
           Zmiana możliwa za {daysUntilNextChange()} dni
         </div>

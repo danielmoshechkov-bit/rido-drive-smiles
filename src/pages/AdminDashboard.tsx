@@ -17,6 +17,7 @@ import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
+import { SettlementPlansManagement } from "@/components/SettlementPlansManagement";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -178,7 +179,7 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-9">
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-10">
             <TabsTrigger 
               value="weekly-report" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
@@ -208,6 +209,12 @@ const AdminDashboard = () => {
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               Dokumenty
+            </TabsTrigger>
+            <TabsTrigger 
+              value="plans" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Plany
             </TabsTrigger>
             <TabsTrigger 
               value="visibility" 
@@ -342,6 +349,10 @@ const AdminDashboard = () => {
                 cityName={selectedCity.name}
               />
             )}
+          </TabsContent>
+
+          <TabsContent value="plans" className="space-y-6">
+            <SettlementPlansManagement />
           </TabsContent>
 
           <TabsContent value="visibility" className="space-y-6">

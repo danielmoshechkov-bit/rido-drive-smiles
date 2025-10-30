@@ -470,7 +470,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
               </div>
 
               <div className="flex-shrink-0">
-                <SettlementPlanSelector driverData={driverData} currentPlan="" onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
+                <SettlementPlanSelector driverData={driverData} currentPlanId={null} onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
               </div>
             </div>
           </div>

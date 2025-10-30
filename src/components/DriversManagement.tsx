@@ -18,6 +18,8 @@ import { DriverRentalBadge } from './DriverRentalBadge';
 import { DriverFilters } from './DriverFilters';
 import { DriverVehicleSelector } from "./DriverVehicleSelector";
 import { EditPlatformIdsModal } from './EditPlatformIdsModal';
+import { DriverAdditionalFees } from './DriverAdditionalFees';
+import { DollarSign } from 'lucide-react';
 
 interface DriversManagementProps {
   cityId: string;
@@ -31,6 +33,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
+  const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   
   const { drivers, loading, refetch } = useDrivers(cityId);
 
@@ -281,6 +284,18 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setFeesModalDriver(driver);
+                        }}
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        title="Dodatkowe opłaty"
+                      >
+                        <DollarSign size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditingPlatformIdsDriver(driver);
                         }}
                         className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
@@ -354,6 +369,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
           driverId={editingPlatformIdsDriver.id}
           currentPlatformIds={editingPlatformIdsDriver.platform_ids}
           onSuccess={refetch}
+        />
+      )}
+
+      {feesModalDriver && (
+        <DriverAdditionalFees
+          isOpen={true}
+          onClose={() => setFeesModalDriver(null)}
+          driverId={feesModalDriver.id}
+          driverName={`${feesModalDriver.first_name} ${feesModalDriver.last_name}`}
         />
       )}
     </>

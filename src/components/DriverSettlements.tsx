@@ -51,9 +51,10 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
-  const [driverPlan, setDriverPlan] = useState<string>('50+8');
+  const [driverPlan, setDriverPlan] = useState<any>(null);
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
+  const [additionalFees, setAdditionalFees] = useState<number>(0);
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -201,14 +202,64 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const loadDriverPlan = async () => {
     if (!driverId) return;
 
-    const { data, error } = await supabase
+    const { data: appUser, error: appUserError } = await supabase
       .from('driver_app_users')
-      .select('plan_type')
+      .select('settlement_plan_id')
       .eq('driver_id', driverId)
       .maybeSingle();
 
-    if (!error && data?.plan_type) {
-      setDriverPlan(data.plan_type);
+    if (appUserError || !appUser?.settlement_plan_id) {
+      console.log('No settlement plan assigned to driver');
+      return;
+    }
+
+    const { data: plan, error: planError } = await supabase
+      .from('settlement_plans')
+      .select('*')
+      .eq('id', appUser.settlement_plan_id)
+      .single();
+
+    if (!planError && plan) {
+      setDriverPlan(plan);
+    }
+  };
+
+  const loadAdditionalFees = async () => {
+    if (!driverId || !currentWeek) return;
+
+    const { data, error } = await supabase
+      .from('driver_additional_fees')
+      .select('*')
+      .eq('driver_id', driverId)
+      .eq('is_active', true)
+      .lte('start_date', currentWeek.end)
+      .or(`end_date.is.null,end_date.gte.${currentWeek.start}`);
+
+    if (error) {
+      console.error('Error loading additional fees:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      // Filter by frequency
+      const weekStart = new Date(currentWeek.start);
+      const isFirstWeekOfMonth = weekStart.getDate() <= 7;
+
+      const applicableFees = data.filter((fee: any) => {
+        if (fee.frequency === 'weekly') return true;
+        if (fee.frequency === 'monthly' && isFirstWeekOfMonth) return true;
+        if (fee.frequency === 'once') {
+          const feeStartDate = new Date(fee.start_date);
+          const feeEndDate = fee.end_date ? new Date(fee.end_date) : new Date(feeStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          return weekStart >= feeStartDate && weekStart <= feeEndDate;
+        }
+        return false;
+      });
+
+      const totalFees = applicableFees.reduce((sum: number, fee: any) => sum + (fee.amount || 0), 0);
+      setAdditionalFees(totalFees);
+    } else {
+      setAdditionalFees(0);
     }
   };
 
@@ -238,6 +289,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
 
   useEffect(() => {
     loadSettlements();
+    loadAdditionalFees();
   }, [driverId, selectedYear, selectedWeek]);
 
   // Helper: Convert 0-based index to Excel-style column letter (0→A, 25→Z, 26→AA)
@@ -279,17 +331,14 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
 
   // Calculate payout using formula
   const calculatePayout = (amounts: any, rawData?: any): { payout: number; fee: number; breakdown: any } => {
-    if (!visibilitySettings?.payout_formula || !amounts) {
+    if (!amounts || !driverPlan) {
       return { payout: 0, fee: 0, breakdown: {} };
     }
     
-    let formula = visibilitySettings.payout_formula;
-    
-    // Step 1: Build column letter mapping from raw CSV data (A, B, C, ..., Z, AA, AB, ...)
+    // Build column letter mapping from raw CSV data
     const columnLetters: Record<string, number> = {};
     
     if (rawData) {
-      // Extract all col_X values from rawData
       const colKeys = Object.keys(rawData)
         .filter(k => k.startsWith('col_'))
         .sort((a, b) => {
@@ -303,94 +352,53 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
         const letter = indexToLetter(index);
         const value = parseFloat(String(rawData[colKey] || '').replace(/[^\d.-]/g, '').replace(',', '.')) || 0;
         columnLetters[letter] = value;
-        console.log(`📊 Column ${letter} (index ${index}) = ${value}`);
       });
     }
     
-    // Step 2: Replace column letters in formula (sort by length desc: AA, AB first, then Z, Y, A)
-    const sortedLetters = Object.keys(columnLetters).sort((a, b) => b.length - a.length || b.localeCompare(a));
-    sortedLetters.forEach(letter => {
-      const regex = new RegExp(`\\b${letter}\\b`, 'g');
-      const oldFormula = formula;
-      formula = formula.replace(regex, columnLetters[letter].toString());
-      if (oldFormula !== formula) {
-        console.log(`🔄 Replaced ${letter} with ${columnLetters[letter]}`);
-      }
-    });
-    
-    // Calculate total earnings for fee calculation
-    const totalEarnings = (amounts.uber || 0) + (amounts.bolt_gross || 0) + (amounts.freenow_gross || 0);
-    
-    // Calculate fee based on driver's plan
-    let fee = 0;
-    if (feeFormulas[driverPlan]) {
-      let feeFormula = feeFormulas[driverPlan];
-      
-      // Replace variables in fee formula with word boundaries
-      feeFormula = feeFormula.replace(/\btotalEarnings\b/g, totalEarnings.toString());
-      feeFormula = feeFormula.replace(/\buber\b/g, (amounts.uber || 0).toString());
-      feeFormula = feeFormula.replace(/\bbolt\b/g, (amounts.bolt_gross || 0).toString());
-      feeFormula = feeFormula.replace(/\bfreenow\b/g, (amounts.freenow_gross || 0).toString());
-      
-      // Replace column letters in fee formula (same as main formula)
-      sortedLetters.forEach(letter => {
-        const regex = new RegExp(`\\b${letter}\\b`, 'g');
-        feeFormula = feeFormula.replace(regex, columnLetters[letter].toString());
-      });
-      
-      try {
-        fee = new Function(`return ${feeFormula}`)();
-      } catch {
-        console.error('Error evaluating fee formula:', feeFormula);
-        fee = 0;
-      }
-    }
-    
-    // Step 3: Replace named variables with actual values
-    const replacements: Record<string, number> = {
-      uberCashless: amounts.uber_cashless || 0,
-      uber: amounts.uber || 0,
-      uberCash: amounts.uber_cash || 0,
-      boltNet: amounts.bolt_net || 0,
-      boltGross: amounts.bolt_gross || 0,
-      boltCash: amounts.bolt_cash || 0,
-      freenowNet: amounts.freenow_net || 0,
-      freenowGross: amounts.freenow_gross || 0,
-      freenowCash: amounts.freenow_cash || 0,
-      fuel: amounts.fuel || 0,
-      fuelVATRefund: amounts.fuel_vat_refund || 0,
-      totalCash: amounts.total_cash || 0,
-      totalCommission: amounts.total_commission || 0,
-      tax: amounts.tax || 0,
-      rental: rentalFee,
-      fee: fee
-    };
-    
-    Object.entries(replacements).forEach(([key, value]) => {
-      // Use word boundaries to match whole words only
-      formula = formula.replace(new RegExp(`\\b${key}\\b`, 'g'), value.toString());
-    });
-    
-    console.log(`💰 Final payout formula: ${formula}`);
+    // Calculate based on plan type
+    const H = columnLetters['H'] || 0; // Uber netto
+    const K = columnLetters['K'] || 0; // Bolt netto
+    const O = columnLetters['O'] || 0; // FreeNow netto
+    const R = columnLetters['R'] || 0; // Gotówka
+    const T = columnLetters['T'] || 0; // Podatek
+    const U = columnLetters['U'] || 0; // Paliwo
+    const V = columnLetters['V'] || 0; // Zwrot VAT
     
     let payout = 0;
-    try {
-      // Use Function constructor for safe evaluation (simple math only)
-      payout = new Function(`return ${formula}`)();
-      console.log(`✅ Calculated payout: ${payout.toFixed(2)} PLN`);
-    } catch {
-      console.error('Error evaluating formula:', formula);
-      payout = 0;
+    let planFee = driverPlan.base_fee || 0;
+    
+    if (driverPlan.tax_percentage !== null) {
+      // Plan with tax (e.g., 50+8%)
+      payout = (H + K + O) - R - T - planFee + V - U - rentalFee - additionalFees;
+    } else {
+      // Plan without tax (e.g., 159)
+      payout = (H + K + O) - R - planFee + V - U - rentalFee - additionalFees;
     }
+    
+    console.log(`💰 Payout calculation:
+      Income (H+K+O): ${(H+K+O).toFixed(2)}
+      Cash (R): -${R.toFixed(2)}
+      ${driverPlan.tax_percentage !== null ? `Tax (T): -${T.toFixed(2)}` : ''}
+      Plan fee: -${planFee.toFixed(2)}
+      Fuel (U): -${U.toFixed(2)}
+      VAT refund (V): +${V.toFixed(2)}
+      Rental: -${rentalFee.toFixed(2)}
+      Additional fees: -${additionalFees.toFixed(2)}
+      = ${payout.toFixed(2)} PLN
+    `);
+    
+    const totalEarnings = H + K + O;
     
     return {
       payout,
-      fee,
+      fee: planFee,
       breakdown: {
         totalEarnings,
         rental: rentalFee,
-        feeBase: driverPlan.includes('+') ? parseFloat(driverPlan.split('+')[0]) : fee,
-        feePercent: driverPlan.includes('+') ? fee - parseFloat(driverPlan.split('+')[0]) : 0
+        planFee: planFee,
+        additionalFees: additionalFees,
+        income: { H, K, O },
+        deductions: { R, T, U, V }
       }
     };
   };
