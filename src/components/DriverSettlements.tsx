@@ -99,27 +99,34 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const weeks = getWeekDates(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
-  // Normalize amounts from camelCase (old data) to snake_case (expected by UI)
+  // Normalize amounts - new structure with 8% tax calculation
   const normalizeAmounts = (amounts: any): any => {
     if (!amounts) return {};
     return {
-      uber: amounts.uber ?? amounts.Uber ?? 0,
-      uber_cashless: amounts.uber_cashless ?? amounts.uberCashless ?? 0,
-      uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
-      bolt_gross: amounts.bolt_gross ?? amounts.boltGross ?? 0,
-      bolt_net: amounts.bolt_net ?? amounts.boltNet ?? 0,
-      bolt_commission: amounts.bolt_commission ?? amounts.boltCommission ?? 0,
-      bolt_cash: amounts.bolt_cash ?? amounts.boltCash ?? 0,
-      freenow_gross: amounts.freenow_gross ?? amounts.freenowGross ?? 0,
-      freenow_net: amounts.freenow_net ?? amounts.freenowNet ?? 0,
-      freenow_commission: amounts.freenow_commission ?? amounts.freenowCommission ?? 0,
-      freenow_cash: amounts.freenow_cash ?? amounts.freenowCash ?? 0,
-      total_cash: amounts.total_cash ?? amounts.totalCash ?? 0,
-      total_commission: amounts.total_commission ?? amounts.totalCommission ?? 0,
-      tax: amounts.tax ?? 0,
+      // Uber
+      uber_payout_d: amounts.uber_payout_d ?? 0,
+      uber_cash_f: amounts.uber_cash_f ?? 0,
+      uber_base: amounts.uber_base ?? 0,
+      uber_tax_8: amounts.uber_tax_8 ?? 0,
+      uber_net: amounts.uber_net ?? 0,
+      
+      // Bolt
+      bolt_projected_d: amounts.bolt_projected_d ?? 0,
+      bolt_payout_s: amounts.bolt_payout_s ?? 0,
+      bolt_tax_8: amounts.bolt_tax_8 ?? 0,
+      bolt_net: amounts.bolt_net ?? 0,
+      
+      // FreeNow
+      freenow_base_s: amounts.freenow_base_s ?? 0,
+      freenow_commission_t: amounts.freenow_commission_t ?? 0,
+      freenow_cash_f: amounts.freenow_cash_f ?? 0,
+      freenow_tax_8: amounts.freenow_tax_8 ?? 0,
+      freenow_net: amounts.freenow_net ?? 0,
+      
+      // Shared
+      total_cash: amounts.total_cash ?? 0,
       fuel: amounts.fuel ?? 0,
-      fuel_vat: amounts.fuel_vat ?? amounts.fuelVAT ?? amounts.fuelVat ?? 0,
-      fuel_vat_refund: amounts.fuel_vat_refund ?? amounts.fuelVATRefund ?? amounts.fuelVatRefund ?? 0,
+      fuel_vat_refund: amounts.fuel_vat_refund ?? 0,
     };
   };
 
@@ -329,76 +336,60 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       new Date(b.period_from).getTime() - new Date(a.period_from).getTime()
     );
 
-  // Calculate payout using formula
-  const calculatePayout = (amounts: any, rawData?: any): { payout: number; fee: number; breakdown: any } => {
+  // Calculate payout using new structure with 8% tax
+  const calculatePayout = (amounts: any): { payout: number; fee: number; totalTax: number; breakdown: any } => {
     if (!amounts || !driverPlan) {
-      return { payout: 0, fee: 0, breakdown: {} };
+      return { payout: 0, fee: 0, totalTax: 0, breakdown: {} };
     }
     
-    // Build column letter mapping from raw CSV data
-    const columnLetters: Record<string, number> = {};
+    // Get calculated net amounts (already have 8% tax deducted)
+    const uberNet = amounts.uber_net || 0;
+    const boltNet = amounts.bolt_net || 0;
+    const freenowNet = amounts.freenow_net || 0;
     
-    if (rawData) {
-      const colKeys = Object.keys(rawData)
-        .filter(k => k.startsWith('col_'))
-        .sort((a, b) => {
-          const numA = parseInt(a.substring(4));
-          const numB = parseInt(b.substring(4));
-          return numA - numB;
-        });
-      
-      colKeys.forEach(colKey => {
-        const index = parseInt(colKey.substring(4));
-        const letter = indexToLetter(index);
-        const value = parseFloat(String(rawData[colKey] || '').replace(/[^\d.-]/g, '').replace(',', '.')) || 0;
-        columnLetters[letter] = value;
-      });
-    }
+    // Get taxes
+    const uberTax = amounts.uber_tax_8 || 0;
+    const boltTax = amounts.bolt_tax_8 || 0;
+    const freenowTax = amounts.freenow_tax_8 || 0;
+    const totalTax = uberTax + boltTax + freenowTax;
     
-    // Calculate based on plan type
-    const H = columnLetters['H'] || 0; // Uber netto
-    const K = columnLetters['K'] || 0; // Bolt netto
-    const O = columnLetters['O'] || 0; // FreeNow netto
-    const R = columnLetters['R'] || 0; // Gotówka
-    const T = columnLetters['T'] || 0; // Podatek
-    const U = columnLetters['U'] || 0; // Paliwo
-    const V = columnLetters['V'] || 0; // Zwrot VAT
+    // Get other values
+    const fuel = amounts.fuel || 0;
+    const fuelVatRefund = amounts.fuel_vat_refund || 0;
     
-    let payout = 0;
-    let planFee = driverPlan.base_fee || 0;
+    const planFee = driverPlan.base_fee || 0;
     
-    if (driverPlan.tax_percentage !== null) {
-      // Plan with tax (e.g., 50+8%)
-      payout = (H + K + O) - R - T - planFee + V - U - rentalFee - additionalFees;
-    } else {
-      // Plan without tax (e.g., 159)
-      payout = (H + K + O) - R - planFee + V - U - rentalFee - additionalFees;
-    }
+    // FORMUŁA WYPŁATY (dla planu "50+8%"):
+    // WYPŁATA = UBER_NET + BOLT_NET + FREENOW_NET + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
+    const payout = uberNet + boltNet + freenowNet + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
     
-    console.log(`💰 Payout calculation:
-      Income (H+K+O): ${(H+K+O).toFixed(2)}
-      Cash (R): -${R.toFixed(2)}
-      ${driverPlan.tax_percentage !== null ? `Tax (T): -${T.toFixed(2)}` : ''}
+    console.log(`💰 Payout calculation (Plan: ${driverPlan.name}):
+      Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})
+      Bolt Net (after 8% tax): ${boltNet.toFixed(2)} (tax: ${boltTax.toFixed(2)})
+      FreeNow Net (after 8% tax): ${freenowNet.toFixed(2)} (tax: ${freenowTax.toFixed(2)})
+      Total Tax 8%: ${totalTax.toFixed(2)}
+      Fuel: -${fuel.toFixed(2)}
+      VAT refund: +${fuelVatRefund.toFixed(2)}
       Plan fee: -${planFee.toFixed(2)}
-      Fuel (U): -${U.toFixed(2)}
-      VAT refund (V): +${V.toFixed(2)}
       Rental: -${rentalFee.toFixed(2)}
       Additional fees: -${additionalFees.toFixed(2)}
       = ${payout.toFixed(2)} PLN
     `);
     
-    const totalEarnings = H + K + O;
+    const totalEarnings = uberNet + boltNet + freenowNet;
     
     return {
       payout,
       fee: planFee,
+      totalTax,
       breakdown: {
         totalEarnings,
         rental: rentalFee,
         planFee: planFee,
         additionalFees: additionalFees,
-        income: { H, K, O },
-        deductions: { R, T, U, V }
+        income: { uber: uberNet, bolt: boltNet, freenow: freenowNet },
+        taxes: { uber: uberTax, bolt: boltTax, freenow: freenowTax, total: totalTax },
+        deductions: { fuel, fuelVatRefund }
       }
     };
   };
@@ -484,14 +475,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0]; // Take newest settlement
                 const rawAmounts = settlement.amounts || {};
-                const amounts = normalizeAmounts(rawAmounts); // Normalize to snake_case
-                const rawData = (settlement as any).raw; // Get raw CSV data with col_X fields
-                const { payout, fee, breakdown } = calculatePayout(amounts, rawData);
+                const amounts = normalizeAmounts(rawAmounts);
+                const { payout, fee, totalTax, breakdown } = calculatePayout(amounts);
                 
                 const platformData = [
-                  { name: 'Uber', value: amounts.uber || 0, fill: '#000000' },
-                  { name: 'Bolt', value: amounts.bolt_gross || 0, fill: '#34D399' },
-                  { name: 'FreeNow', value: amounts.freenow_gross || 0, fill: '#FFA500' }
+                  { name: 'Uber', value: amounts.uber_net || 0, fill: '#000000' },
+                  { name: 'Bolt', value: amounts.bolt_net || 0, fill: '#34D399' },
+                  { name: 'FreeNow', value: amounts.freenow_net || 0, fill: '#FFA500' }
                 ].filter(item => item.value > 0);
 
                 return (
@@ -537,131 +527,87 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                           <thead>
                             <tr className="bg-muted">
                               <th className="text-left p-2 font-medium">Kategoria</th>
-                              {visibilitySettings.show_uber && <th className="text-right p-2 font-medium">Uber</th>}
-                              {visibilitySettings.show_bolt_gross && <th className="text-right p-2 font-medium">Bolt</th>}
-                              {visibilitySettings.show_freenow_gross && <th className="text-right p-2 font-medium">FreeNow</th>}
+                              <th className="text-right p-2 font-medium">Uber</th>
+                              <th className="text-right p-2 font-medium">Bolt</th>
+                              <th className="text-right p-2 font-medium">FreeNow</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {/* Brutto row */}
+                            {/* Podstawa opodatkowania */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">Brutto</td>
-                              {visibilitySettings.show_uber && (
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.uber ? `${amounts.uber.toFixed(2)} zł` : '-'}
-                                </td>
-                              )}
-                              {visibilitySettings.show_bolt_gross && (
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.bolt_gross ? `${amounts.bolt_gross.toFixed(2)} zł` : '-'}
-                                </td>
-                              )}
-                              {visibilitySettings.show_freenow_gross && (
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.freenow_gross ? `${amounts.freenow_gross.toFixed(2)} zł` : '-'}
-                                </td>
-                              )}
+                              <td className="p-2 text-muted-foreground">Podstawa</td>
+                              <td className="p-2 text-right font-medium">
+                                {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium">
+                                {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium">
+                                {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
+                              </td>
                             </tr>
                             
-                            {/* Netto row */}
-                            {(visibilitySettings.show_uber_cashless || visibilitySettings.show_bolt_net || visibilitySettings.show_freenow_net) && (
-                              <tr className="border-t hover:bg-muted/50">
-                                <td className="p-2 text-muted-foreground">Netto</td>
-                                {visibilitySettings.show_uber && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.uber_cashless ? `${amounts.uber_cashless.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                                {visibilitySettings.show_bolt_gross && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.bolt_net ? `${amounts.bolt_net.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                                {visibilitySettings.show_freenow_gross && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.freenow_net ? `${amounts.freenow_net.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                              </tr>
-                            )}
+                            {/* Podatek 8% */}
+                            <tr className="border-t hover:bg-muted/50">
+                              <td className="p-2 text-muted-foreground">Podatek 8%</td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
+                              </td>
+                            </tr>
                             
-                            {/* Gotówka row */}
-                            {(visibilitySettings.show_uber_cash || visibilitySettings.show_bolt_cash || visibilitySettings.show_freenow_cash) && (
-                              <tr className="border-t hover:bg-muted/50">
-                                <td className="p-2 text-muted-foreground">Gotówka</td>
-                                {visibilitySettings.show_uber && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.uber_cash ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                                {visibilitySettings.show_bolt_gross && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.bolt_cash ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                                {visibilitySettings.show_freenow_gross && (
-                                  <td className="p-2 text-right font-medium">
-                                    {amounts.freenow_cash ? `${amounts.freenow_cash.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                              </tr>
-                            )}
+                            {/* Prowizje i gotówka (tylko dla FreeNow) */}
+                            <tr className="border-t hover:bg-muted/50">
+                              <td className="p-2 text-muted-foreground">Prowizja/Gotówka</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {(amounts.freenow_commission_t + amounts.freenow_cash_f) > 0 
+                                  ? `-${(amounts.freenow_commission_t + amounts.freenow_cash_f).toFixed(2)} zł` 
+                                  : '-'}
+                              </td>
+                            </tr>
                             
-                            {/* Prowizja row */}
-                            {(visibilitySettings.show_bolt_commission || visibilitySettings.show_freenow_commission || visibilitySettings.show_total_commission) && (
-                              <tr className="border-t hover:bg-muted/50">
-                                <td className="p-2 text-muted-foreground">Prowizja</td>
-                                {visibilitySettings.show_uber && <td className="p-2 text-right">-</td>}
-                                {visibilitySettings.show_bolt_gross && (
-                                  <td className="p-2 text-right font-medium text-destructive">
-                                    {amounts.bolt_commission ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                                {visibilitySettings.show_freenow_gross && (
-                                  <td className="p-2 text-right font-medium text-destructive">
-                                    {amounts.freenow_commission ? `-${amounts.freenow_commission.toFixed(2)} zł` : '-'}
-                                  </td>
-                                )}
-                              </tr>
-                            )}
+                            {/* Netto (po odliczeniach) */}
+                            <tr className="border-t hover:bg-muted/50 bg-green-50 dark:bg-green-950">
+                              <td className="p-2 font-semibold">Netto (do wypłaty)</td>
+                              <td className="p-2 text-right font-bold text-green-600">
+                                {amounts.uber_net ? `${amounts.uber_net.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-bold text-green-600">
+                                {amounts.bolt_net ? `${amounts.bolt_net.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-bold text-green-600">
+                                {amounts.freenow_net ? `${amounts.freenow_net.toFixed(2)} zł` : '-'}
+                              </td>
+                            </tr>
                           </tbody>
                         </table>
                       </div>
                       
                       {/* Additional rows below table */}
                       <div className="border-t bg-muted/30 p-3 space-y-2">
-                        {visibilitySettings.show_total_cash && amounts.total_cash > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Razem gotówka:</span>
-                            <span className="font-medium">{amounts.total_cash.toFixed(2)} zł</span>
-                          </div>
-                        )}
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-muted-foreground">Razem podatek 8%:</span>
+                          <span className="font-bold text-destructive">-{totalTax.toFixed(2)} zł</span>
+                        </div>
                         
-                        {visibilitySettings.show_tax && amounts.tax > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Podatek 8%:</span>
-                            <span className="font-medium">{amounts.tax.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                        
-                        {visibilitySettings.show_fuel && amounts.fuel > 0 && (
+                        {amounts.fuel > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Paliwo:</span>
                             <span className="font-medium text-destructive">-{amounts.fuel.toFixed(2)} zł</span>
                           </div>
                         )}
                         
-                        {visibilitySettings.show_fuel_vat && amounts.fuel_vat > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">VAT z paliwa:</span>
-                            <span className="font-medium">{amounts.fuel_vat.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                        
-                        {visibilitySettings.show_fuel_vat_refund && amounts.fuel_vat_refund > 0 && (
+                        {amounts.fuel_vat_refund > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Zwrot VAT:</span>
-                            <span className="font-medium text-green-600">{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                            <span className="font-medium text-green-600">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                           </div>
                         )}
                         
@@ -672,9 +618,16 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                           </div>
                         )}
                         
+                        {additionalFees > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Dodatkowe opłaty:</span>
+                            <span className="font-medium text-destructive">-{additionalFees.toFixed(2)} zł</span>
+                          </div>
+                        )}
+                        
                         {fee > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Opłata ({driverPlan}):</span>
+                            <span className="text-muted-foreground">Opłata planu ({driverPlan?.name}):</span>
                             <span className="font-medium text-destructive">-{fee.toFixed(2)} zł</span>
                           </div>
                         )}

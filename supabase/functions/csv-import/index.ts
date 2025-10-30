@@ -19,20 +19,29 @@ interface CsvColumnMapping {
     fuel_card: string;
   };
   amounts: {
-    uber: string;
-    uber_cashless: string;
-    uber_cash: string;
-    bolt_gross: string;
+    // Uber fields
+    uber_payout_d: string;
+    uber_cash_f: string;
+    uber_base: string;
+    uber_tax_8: string;
+    uber_net: string;
+    
+    // Bolt fields
+    bolt_projected_d: string;
+    bolt_payout_s: string;
+    bolt_tax_8: string;
     bolt_net: string;
-    bolt_commission: string;
-    bolt_cash: string;
-    freenow_gross: string;
+    
+    // FreeNow fields
+    freenow_base_s: string;
+    freenow_commission_t: string;
+    freenow_cash_f: string;
+    freenow_tax_8: string;
     freenow_net: string;
-    freenow_commission: string;
-    freenow_cash: string;
+    
+    // Shared fields
     total_cash: string;
     total_commission: string;
-    tax: string;
     fuel: string;
     fuel_vat: string;
     fuel_vat_refund: string;
@@ -816,7 +825,7 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
     .eq('key', 'csv_column_mapping')
     .maybeSingle();
 
-  // Default mapping - using Polish column names from CSV
+  // Default mapping - using column letters from template
   const defaultMapping: CsvColumnMapping = {
     identification: {
       email: 'adres mailowy',
@@ -829,48 +838,109 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
       getrido_id: 'getrido ID',
     },
     amounts: {
-      uber: 'Uber',
-      uber_cashless: 'Uber bezgotówka',
-      uber_cash: 'uber gotówka',
-      bolt_gross: 'bolt brutto',
-      bolt_net: 'bolt netto',
-      bolt_commission: 'bolt prowizja',
-      bolt_cash: 'bolt gotówka',
-      freenow_gross: 'freenow brutto',
-      freenow_net: 'freenow netto',
-      freenow_commission: 'freenow prowizja',
-      freenow_cash: 'freenow gotówka',
-      total_cash: 'razem gotówka',
+      uber_payout_d: 'H',
+      uber_cash_f: 'I',
+      uber_base: '',
+      uber_tax_8: '',
+      uber_net: '',
+      
+      bolt_projected_d: 'J',
+      bolt_payout_s: 'K',
+      bolt_tax_8: '',
+      bolt_net: '',
+      
+      freenow_base_s: 'N',
+      freenow_commission_t: 'O',
+      freenow_cash_f: 'M',
+      freenow_tax_8: '',
+      freenow_net: '',
+      
+      total_cash: 'F',
       total_commission: 'razem prowizja',
-      tax: 'podatek 8%/49',
-      fuel: 'paliwo',
+      fuel: 'P',
       fuel_vat: 'vat z paliwa',
-      fuel_vat_refund: 'zwrot vat z paliwa',
+      fuel_vat_refund: 'U',
     },
   };
 
-  // Merge loaded mapping with default to enforce snake_case keys
+  // Merge loaded mapping with default
   const loaded = mappingData?.value || {};
   const mapping: CsvColumnMapping = {
     identification: { ...defaultMapping.identification, ...(loaded.identification || {}) },
     amounts: { ...defaultMapping.amounts, ...(loaded.amounts || {}) }
   };
 
-  // Build amounts object dynamically using ONLY snake_case keys from defaultMapping
-  // This ensures all data is stored with canonical snake_case keys
-  const amounts: Record<string, number> = {};
-  
-  // Iterate over defaultMapping.amounts keys (guaranteed snake_case)
-  for (const key of Object.keys(defaultMapping.amounts)) {
-    const mappingValue = mapping.amounts[key as keyof typeof mapping.amounts];
+  // Helper to get column value
+  const getColValue = (mappingValue: string): number => {
+    if (!mappingValue) return 0;
     const headerValues = (row as any).__headers || [];
     const colIndex = resolveColumnIndex(mappingValue, headerValues);
-    if (colIndex >= 0) {
-      amounts[key] = parseNum((row as any)[`col_${colIndex}`]);
-    } else {
-      amounts[key] = 0;
-    }
-  }
+    return colIndex >= 0 ? parseNum((row as any)[`col_${colIndex}`]) : 0;
+  };
+
+  // Extract raw values from CSV
+  const uberPayoutD = getColValue(mapping.amounts.uber_payout_d);
+  const uberCashF = getColValue(mapping.amounts.uber_cash_f);
+  
+  const boltProjectedD = getColValue(mapping.amounts.bolt_projected_d);
+  const boltPayoutS = getColValue(mapping.amounts.bolt_payout_s);
+  
+  const freenowBaseS = getColValue(mapping.amounts.freenow_base_s);
+  const freenowCommissionT = getColValue(mapping.amounts.freenow_commission_t);
+  const freenowCashF = getColValue(mapping.amounts.freenow_cash_f);
+  
+  const totalCash = getColValue(mapping.amounts.total_cash);
+  const fuel = getColValue(mapping.amounts.fuel);
+  const fuelVatRefund = getColValue(mapping.amounts.fuel_vat_refund);
+
+  // Calculate Uber with 8% tax
+  const uberBase = uberPayoutD + uberCashF;
+  const uberTax8 = uberBase * 0.08;
+  const uberNet = uberPayoutD - uberTax8;
+
+  // Calculate Bolt with 8% tax
+  const boltTax8 = boltProjectedD * 0.08;
+  const boltNet = boltPayoutS - boltTax8;
+
+  // Calculate FreeNow with 8% tax
+  const freenowTax8 = freenowBaseS * 0.08;
+  const freenowNet = freenowBaseS - freenowTax8 - freenowCommissionT - freenowCashF;
+
+  // Build amounts object with calculated values
+  const amounts: Record<string, number> = {
+    // Uber
+    uber_payout_d: uberPayoutD,
+    uber_cash_f: uberCashF,
+    uber_base: uberBase,
+    uber_tax_8: uberTax8,
+    uber_net: uberNet,
+    
+    // Bolt
+    bolt_projected_d: boltProjectedD,
+    bolt_payout_s: boltPayoutS,
+    bolt_tax_8: boltTax8,
+    bolt_net: boltNet,
+    
+    // FreeNow
+    freenow_base_s: freenowBaseS,
+    freenow_commission_t: freenowCommissionT,
+    freenow_cash_f: freenowCashF,
+    freenow_tax_8: freenowTax8,
+    freenow_net: freenowNet,
+    
+    // Shared
+    total_cash: totalCash,
+    total_commission: 0,
+    fuel: fuel,
+    fuel_vat: 0,
+    fuel_vat_refund: fuelVatRefund,
+  };
+
+  console.log(`💰 Calculated amounts for row:
+    Uber: D=${uberPayoutD}, F=${uberCashF}, Base=${uberBase}, Tax=${uberTax8}, Net=${uberNet}
+    Bolt: D=${boltProjectedD}, S=${boltPayoutS}, Tax=${boltTax8}, Net=${boltNet}
+    FreeNow: S=${freenowBaseS}, T=${freenowCommissionT}, F=${freenowCashF}, Tax=${freenowTax8}, Net=${freenowNet}
+  `);
 
   return amounts;
 }

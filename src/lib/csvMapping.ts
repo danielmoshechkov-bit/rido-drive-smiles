@@ -12,20 +12,29 @@ export interface CsvColumnMapping {
     fuel_card: string;
   };
   amounts: {
-    uber: string;
-    uber_cashless: string;
-    uber_cash: string;
-    bolt_gross: string;
-    bolt_net: string;
-    bolt_commission: string;
-    bolt_cash: string;
-    freenow_gross: string;
-    freenow_net: string;
-    freenow_commission: string;
-    freenow_cash: string;
+    // Uber fields
+    uber_payout_d: string;        // Kolumna D - "Wypłacono ci"
+    uber_cash_f: string;           // Kolumna F - gotówka
+    uber_base: string;             // D + F (podstawa opodatkowania)
+    uber_tax_8: string;            // Podatek 8% od (D + F)
+    uber_net: string;              // D - podatek 8%
+    
+    // Bolt fields
+    bolt_projected_d: string;      // Kolumna D - "Projected payout"
+    bolt_payout_s: string;         // Kolumna S - "Wypłata"
+    bolt_tax_8: string;            // Podatek 8% od Kolumny D
+    bolt_net: string;              // S - podatek 8%
+    
+    // FreeNow fields
+    freenow_base_s: string;        // Kolumna S - podstawa do podatku
+    freenow_commission_t: string;  // Kolumna T - prowizja
+    freenow_cash_f: string;        // Kolumna F - gotówka
+    freenow_tax_8: string;         // Podatek 8% od Kolumny S
+    freenow_net: string;           // S - podatek 8% - prowizja T - gotówka F
+    
+    // Shared fields
     total_cash: string;
     total_commission: string;
-    tax: string;
     fuel: string;
     fuel_vat: string;
     fuel_vat_refund: string;
@@ -89,23 +98,32 @@ export const defaultColumnMapping: CsvColumnMapping = {
     getrido_id: 'getrido ID',
   },
   amounts: {
-    uber: 'Uber',
-    uber_cashless: 'Uber bezgotówka',
-    uber_cash: 'uber gotówka',
-    bolt_gross: 'bolt brutto',
-    bolt_net: 'bolt netto',
-    bolt_commission: 'bolt prowizja',
-    bolt_cash: 'bolt gotówka',
-    freenow_gross: 'freenow brutto',
-    freenow_net: 'freenow netto',
-    freenow_commission: 'freenow prowizja',
-    freenow_cash: 'freenow gotówka',
-    total_cash: 'razem gotówka',
+    // Uber - kolumny z CSV template
+    uber_payout_d: 'H',           // Kolumna H w template = D w Uber CSV
+    uber_cash_f: 'I',              // Kolumna I w template = F w Uber CSV
+    uber_base: '',                 // Obliczane: D + F
+    uber_tax_8: '',                // Obliczane: (D + F) * 0.08
+    uber_net: '',                  // Obliczane: D - podatek
+    
+    // Bolt - kolumny z CSV template
+    bolt_projected_d: 'J',         // Kolumna J w template = D w Bolt CSV
+    bolt_payout_s: 'K',            // Kolumna K w template = S w Bolt CSV
+    bolt_tax_8: '',                // Obliczane: D * 0.08
+    bolt_net: '',                  // Obliczane: S - podatek
+    
+    // FreeNow - kolumny z CSV template
+    freenow_base_s: 'N',           // Kolumna N w template = S w FreeNow CSV
+    freenow_commission_t: 'O',     // Kolumna O w template = T w FreeNow CSV
+    freenow_cash_f: 'M',           // Kolumna M w template = F w FreeNow CSV
+    freenow_tax_8: '',             // Obliczane: S * 0.08
+    freenow_net: '',               // Obliczane: S - podatek - prowizja - gotówka
+    
+    // Shared
+    total_cash: 'F',               // Razem gotówka
     total_commission: 'razem prowizja',
-    tax: 'podatek 8%/49',
-    fuel: 'paliwo',
+    fuel: 'P',                     // Paliwo
     fuel_vat: 'vat z paliwa',
-    fuel_vat_refund: 'zwrot vat z paliwa',
+    fuel_vat_refund: 'U',          // Zwrot VAT
   },
 };
 
