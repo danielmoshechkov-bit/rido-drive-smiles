@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Download, Upload, FileText, AlertCircle, Eye, Trash2, Plus, File, MoreVertical, FileDown } from 'lucide-react';
+import { SettlementImportTabs } from './SettlementImportTabs';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -622,173 +623,18 @@ export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagemen
                 </Popover>
               </div>
 
-              {/* CSV Import Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-lg font-semibold">
-                  <Upload className="h-5 w-5" />
-                  Import rozliczeń CSV
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="border-2 border-dashed">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <Badge className="bg-black text-white">Uber</Badge>
-                        </div>
-                        <div className="flex flex-col items-center gap-3 py-6">
-                          <File className="h-12 w-12 text-muted-foreground" />
-                          <p className="text-sm text-center text-muted-foreground">
-                            Rozliczenia Uber
-                          </p>
-                          {uberFile && (
-                            <p className="text-xs text-primary font-medium">{uberFile.name}</p>
-                          )}
-                        </div>
-                        <label htmlFor="file-uber">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => document.getElementById('file-uber')?.click()}
-                            type="button"
-                          >
-                            Wybierz plik
-                          </Button>
-                          <input
-                            id="file-uber"
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setUberFile(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 border-dashed">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <Badge className="bg-green-500 text-white">Bolt</Badge>
-                        </div>
-                        <div className="flex flex-col items-center gap-3 py-6">
-                          <File className="h-12 w-12 text-muted-foreground" />
-                          <p className="text-sm text-center text-muted-foreground">
-                            Rozliczenia Bolt
-                          </p>
-                          {boltFile && (
-                            <p className="text-xs text-primary font-medium">{boltFile.name}</p>
-                          )}
-                        </div>
-                        <label htmlFor="file-bolt">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => document.getElementById('file-bolt')?.click()}
-                            type="button"
-                          >
-                            Wybierz plik
-                          </Button>
-                          <input
-                            id="file-bolt"
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setBoltFile(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 border-dashed">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <Badge className="bg-red-500 text-white">FreeNow</Badge>
-                        </div>
-                        <div className="flex flex-col items-center gap-3 py-6">
-                          <File className="h-12 w-12 text-muted-foreground" />
-                          <p className="text-sm text-center text-muted-foreground">
-                            Rozliczenia FreeNow
-                          </p>
-                          {freenowFile && (
-                            <p className="text-xs text-primary font-medium">{freenowFile.name}</p>
-                          )}
-                        </div>
-                        <label htmlFor="file-freenow">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => document.getElementById('file-freenow')?.click()}
-                            type="button"
-                          >
-                            Wybierz plik
-                          </Button>
-                          <input
-                            id="file-freenow"
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setFreenowFile(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 border-dashed">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <Badge className="bg-purple-500 text-white">Główny CSV</Badge>
-                        </div>
-                        <div className="flex flex-col items-center gap-3 py-6">
-                          <File className="h-12 w-12 text-muted-foreground" />
-                          <p className="text-sm text-center text-muted-foreground">
-                            Arkusz rozliczeń (główny)
-                          </p>
-                          <p className="text-xs text-center text-muted-foreground">
-                            Główny CSV z systemu — zawiera pełne wiersze rozliczeń
-                          </p>
-                          {mainFile && (
-                            <p className="text-xs text-primary font-medium">{mainFile.name}</p>
-                          )}
-                        </div>
-                        <label htmlFor="file-main">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => document.getElementById('file-main')?.click()}
-                            type="button"
-                          >
-                            Wybierz plik
-                          </Button>
-                          <input
-                            id="file-main"
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setMainFile(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
+              {/* CSV Import Tabs */}
+              <SettlementImportTabs
+                onFilesSelected={() => {}}
+                uberFile={uberFile}
+                boltFile={boltFile}
+                freenowFile={freenowFile}
+                mainFile={mainFile}
+                setUberFile={setUberFile}
+                setBoltFile={setBoltFile}
+                setFreenowFile={setFreenowFile}
+                setMainFile={setMainFile}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewSettlementOpen(false)}>

@@ -15,6 +15,27 @@ interface SettlementRequest {
   freenow_csv?: string;
 }
 
+interface PlatformData {
+  driverId: string;
+  // Uber
+  uber_payout_d: number;
+  uber_cash_f: number;
+  uber_base: number;
+  uber_tax_8: number;
+  uber_net: number;
+  // Bolt
+  bolt_projected_d: number;
+  bolt_payout_s: number;
+  bolt_tax_8: number;
+  bolt_net: number;
+  // FreeNow
+  freenow_base_s: number;
+  freenow_commission_t: number;
+  freenow_cash_f: number;
+  freenow_tax_8: number;
+  freenow_net: number;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -58,222 +79,50 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to parse request: ${parseError.message}`);
     }
 
-    const { period_from, period_to, city_id, main_csv } = body;
+    const { period_from, period_to, city_id, main_csv, uber_csv, bolt_csv, freenow_csv } = body;
 
-    if (!period_from || !period_to || !city_id || !main_csv) {
-      throw new Error('Missing required fields');
+    if (!period_from || !period_to || !city_id) {
+      throw new Error('Missing required fields: period_from, period_to, city_id');
     }
 
-    // ========== KROK 1: PARSOWANIE CSV (z poprawnym UTF-8) ==========
-    const uint8Array = Uint8Array.from(atob(main_csv), c => c.charCodeAt(0));
-    const csvText = new TextDecoder('utf-8').decode(uint8Array);
-    const parsedRows = parseCSV(csvText);
-    
-    console.log(`📊 Sparsowano ${parsedRows.length} wierszy CSV`);
-    
-    if (parsedRows.length < 2) {
-      throw new Error('CSV jest pusty lub ma tylko nagłówki');
+    // Determine import mode
+    const has3Csvs = uber_csv || bolt_csv || freenow_csv;
+    const hasMainCsv = !!main_csv;
+
+    if (!has3Csvs && !hasMainCsv) {
+      throw new Error('No CSV files provided. Upload either 3 platform CSVs or 1 RIDO template CSV');
     }
 
-    // Debug: pokaż nagłówki i pierwsze 3 wiersze
-    console.log('🔍 Nagłówki CSV:', parsedRows[0]);
-    console.log('🔍 Pierwsze 3 wiersze:', parsedRows.slice(1, 4));
+    console.log('📋 Import mode:', has3Csvs ? '3 platform CSVs' : '1 RIDO template');
 
-    // ========== KROK 2: MAPOWANIE KOLUMN PO NAZWIE ==========
-    const headers = parsedRows[0].map(h => h.toLowerCase().trim());
-    
-    const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
-    const uberIdIdx = headers.findIndex(h => h.includes('id uber')); // ✅ Kolumna "ID Uber" z CSV
-    const phoneIdx = headers.findIndex(h => h.includes('nr tel'));
-    const freenowIdIdx = headers.findIndex(h => h.includes('id freenow'));
-    const fuelCardIdx = headers.findIndex(h => h.includes('nr karty paliwowej'));
-    const fullNameIdx = headers.findIndex(h => h.includes('imie nazwisko'));
-    const getRidoIdIdx = headers.findIndex(h => h.includes('getrido id') || h.includes('get rido') || h === 'getrido');
-    
-    // Wszystkie kolumny kwotowe
-    const uberIdx = headers.findIndex(h => h === 'uber');
-    const uberCashlessIdx = headers.findIndex(h => h.includes('uber bezgotówka'));
-    const uberCashIdx = headers.findIndex(h => h.includes('uber gotówka'));
-    const boltGrossIdx = headers.findIndex(h => h.includes('bolt brutto'));
-    const boltNetIdx = headers.findIndex(h => h.includes('bolt netto'));
-    const boltCommissionIdx = headers.findIndex(h => h.includes('bolt prowizja'));
-    const boltCashIdx = headers.findIndex(h => h.includes('bolt gotówka'));
-    const freenowGrossIdx = headers.findIndex(h => h.includes('freenow brutto'));
-    const freenowNetIdx = headers.findIndex(h => h.includes('freenow netto'));
-    const freenowCommissionIdx = headers.findIndex(h => h.includes('freenow prowizja'));
-    const freenowCashIdx = headers.findIndex(h => h.includes('freenow gotówka'));
-    const totalCashIdx = headers.findIndex(h => h.includes('razem gotówka'));
-    const totalCommissionIdx = headers.findIndex(h => h.includes('razem prowizja'));
-    const taxIdx = headers.findIndex(h => h.includes('podatek'));
-    const fuelIdx = headers.findIndex(h => h === 'paliwo');
-    const fuelVATIdx = headers.findIndex(h => h.includes('vat z paliwa'));
-    const fuelVATRefundIdx = headers.findIndex(h => h.includes('zwrot vat'));
-
-    console.log('📍 Indeksy kolumn:', {
-      email: emailIdx, uberId: uberIdIdx, phone: phoneIdx, freenowId: freenowIdIdx,
-      fullName: fullNameIdx, getRidoId: getRidoIdIdx, uber: uberIdx, uberCashless: uberCashlessIdx
-    });
-
-    // ========== KROK 3: POBIERZ ISTNIEJĄCYCH KIEROWCÓW ==========
-    const existingDriversMap = new Map<string, any>();
-    
-    const { data: existingDrivers } = await supabase
-      .from('drivers')
-      .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
-      .eq('city_id', city_id);
-    
-    existingDrivers?.forEach((driver: any) => {
-      if (driver.phone) {
-        existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
-      }
-      if (driver.getrido_id) {
-        existingDriversMap.set(`getrido:${driver.getrido_id.trim()}`, driver);
-      }
-      if (Array.isArray(driver.driver_platform_ids)) {
-        driver.driver_platform_ids.forEach((pid: any) => {
-          existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
-        });
-      }
-    });
-    
-    console.log(`✅ Załadowano ${existingDriversMap.size} istniejących kierowców`);
-
-    // ========== KROK 4: PRZETWARZANIE WIERSZY ==========
-    const settlementsToInsert: any[] = [];
+    let settlementsToInsert: any[] = [];
     let newDriversCount = 0;
     let matchedDriversCount = 0;
 
-    for (let i = 1; i < parsedRows.length; i++) {
-      const row = parsedRows[i];
-      
-      // Pomiń puste wiersze
-      if (row.every(cell => !cell || cell.trim() === '')) continue;
-      
-      const rowData = {
-        email: row[emailIdx] || '',
-        uberId: row[uberIdIdx]?.trim() || '',
-        phone: row[phoneIdx]?.trim() || '',
-        freenowId: row[freenowIdIdx]?.trim() || '',
-        fuelCard: row[fuelCardIdx]?.trim() || '',
-        fullName: (fullNameIdx >= 0 ? row[fullNameIdx] : row[5])?.trim() || 'Nieznany Kierowca', // fallback F (index 5)
-        getRidoId: (getRidoIdIdx >= 0 ? row[getRidoIdIdx] : row[23])?.trim() || '', // fallback X (index 23)
-        uber: parsePLNumber(row[uberIdx]),
-        uberCashless: parsePLNumber(row[uberCashlessIdx]),
-        uberCash: parsePLNumber(row[uberCashIdx]),
-        boltGross: parsePLNumber(row[boltGrossIdx]),
-        boltNet: parsePLNumber(row[boltNetIdx]),
-        boltCommission: parsePLNumber(row[boltCommissionIdx]),
-        boltCash: parsePLNumber(row[boltCashIdx]),
-        freenowGross: parsePLNumber(row[freenowGrossIdx]),
-        freenowNet: parsePLNumber(row[freenowNetIdx]),
-        freenowCommission: parsePLNumber(row[freenowCommissionIdx]),
-        freenowCash: parsePLNumber(row[freenowCashIdx]),
-        totalCash: parsePLNumber(row[totalCashIdx]),
-        totalCommission: parsePLNumber(row[totalCommissionIdx]),
-        tax: parsePLNumber(row[taxIdx]),
-        fuel: parsePLNumber(row[fuelIdx]),
-        fuelVAT: parsePLNumber(row[fuelVATIdx]),
-        fuelVATRefund: parsePLNumber(row[fuelVATRefundIdx])
-      };
-      
-      // Znajdź lub utwórz kierowcę (pass headers, row, and getRidoIdIdx)
-      const beforeSize = existingDriversMap.size;
-      const driverId = await findOrCreateDriver(
+    // ========== MODE 1: 3 PLATFORM CSVs ==========
+    if (has3Csvs) {
+      const result = await process3PlatformCsvs(
         supabase,
-        rowData,
-        city_id,
-        existingDriversMap,
-        headers,
-        row,
-        getRidoIdIdx
+        { uber_csv, bolt_csv, freenow_csv },
+        { period_from, period_to, city_id }
       );
-      
-      if (!driverId) {
-        console.error(`❌ Nie udało się przetworzyć wiersza ${i}: ${rowData.fullName}`);
-        continue;
-      }
-      
-      if (existingDriversMap.size > beforeSize) {
-        newDriversCount++;
-      } else {
-        matchedDriversCount++;
-      }
-      
-      // Update GetRido ID and name if needed
-      const uber_id_val = rowData.uber_id || null;
-      const freenow_id_val = rowData.freenow_id || null;
-      const bolt_id_val = null; // Not in main CSV
-      
-      const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx, uber_id_val, bolt_id_val, freenow_id_val);
-      const validGetRidoId = extractedGetRidoId && isValidGetRidoId(extractedGetRidoId, uber_id_val, bolt_id_val, freenow_id_val) ? extractedGetRidoId : null;
-      
-      if (driverId && validGetRidoId) {
-        const { data: currentDriver } = await supabase
-          .from('drivers')
-          .select('getrido_id, first_name, last_name')
-          .eq('id', driverId)
-          .single();
-        
-        const updateData: any = {};
-        
-        // Update GetRido ID if different
-        if (currentDriver?.getrido_id !== validGetRidoId) {
-          updateData.getrido_id = validGetRidoId;
-          console.log(`📝 Updating getrido_id: ${currentDriver?.getrido_id} -> ${validGetRidoId}`);
-        }
-        
-        // Update name from column F if GetRido ID changed
-        if (updateData.getrido_id && rowData.fullName) {
-          const nameParts = rowData.fullName.trim().split(' ');
-          const newFirstName = nameParts[0] || '';
-          const newLastName = nameParts.slice(1).join(' ') || '';
-          
-          if (currentDriver?.first_name !== newFirstName || currentDriver?.last_name !== newLastName) {
-            updateData.first_name = newFirstName;
-            updateData.last_name = newLastName;
-            console.log(`📝 Updating name: ${currentDriver?.first_name} ${currentDriver?.last_name} -> ${newFirstName} ${newLastName}`);
-          }
-        }
-        
-        if (Object.keys(updateData).length > 0) {
-          const { error: updateError } = await supabase
-            .from('drivers')
-            .update(updateData)
-            .eq('id', driverId);
-          
-          if (updateError) {
-            console.error('❌ Failed to update driver', driverId, updateError);
-          } else {
-            console.log(`✅ Updated driver ${driverId}:`, updateData);
-          }
-        }
-      }
-      
-      // Przygotuj settlement
-      const totalEarnings = rowData.uber + rowData.boltGross + rowData.freenowGross;
-      const commissionAmount = rowData.totalCommission;
-      const netAmount = rowData.uberCashless + rowData.boltNet + rowData.freenowNet 
-                        - rowData.fuel + rowData.fuelVATRefund;
-      
-      settlementsToInsert.push({
-        city_id,
-        driver_id: driverId,
-        platform: 'main',
-        period_from,
-        period_to,
-        week_start: period_from,
-        week_end: period_to,
-        total_earnings: totalEarnings,
-        commission_amount: commissionAmount,
-        net_amount: netAmount,
-        amounts: rowData,
-        raw: row,
-        source: 'csv_import',
-        raw_row_id: `main_${period_from}_row${i}`
-      });
+      settlementsToInsert = result.settlements;
+      newDriversCount = result.newDrivers;
+      matchedDriversCount = result.matchedDrivers;
+    }
+    // ========== MODE 2: 1 RIDO TEMPLATE ==========
+    else if (hasMainCsv) {
+      const result = await processRidoTemplate(
+        supabase,
+        main_csv,
+        { period_from, period_to, city_id }
+      );
+      settlementsToInsert = result.settlements;
+      newDriversCount = result.newDrivers;
+      matchedDriversCount = result.matchedDrivers;
     }
 
-    // ========== KROK 6: BATCH UPSERT SETTLEMENTS (ignore duplicates) ==========
+    // ========== BATCH UPSERT SETTLEMENTS (ignore duplicates) ==========
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
       const { error } = await supabase
@@ -334,6 +183,505 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ========== MODE 1: PROCESS 3 PLATFORM CSVs ==========
+async function process3PlatformCsvs(
+  supabase: any,
+  csvFiles: { uber_csv?: string; bolt_csv?: string; freenow_csv?: string },
+  meta: { period_from: string; period_to: string; city_id: string }
+) {
+  console.log('🎯 Processing 3 platform CSVs...');
+
+  const driverDataMap = new Map<string, PlatformData>();
+  const existingDriversMap = new Map<string, any>();
+
+  // Load existing drivers
+  const { data: existingDrivers } = await supabase
+    .from('drivers')
+    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
+    .eq('city_id', meta.city_id);
+
+  existingDrivers?.forEach((driver: any) => {
+    if (driver.phone) existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
+    if (driver.getrido_id) existingDriversMap.set(`getrido:${driver.getrido_id.trim()}`, driver);
+    if (Array.isArray(driver.driver_platform_ids)) {
+      driver.driver_platform_ids.forEach((pid: any) => {
+        existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
+      });
+    }
+  });
+
+  let newDrivers = 0;
+  let matchedDrivers = 0;
+
+  // Process each platform CSV
+  if (csvFiles.uber_csv) {
+    const result = await parseUberCsv(csvFiles.uber_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    newDrivers += result.newDrivers;
+    matchedDrivers += result.matchedDrivers;
+  }
+
+  if (csvFiles.bolt_csv) {
+    const result = await parseBoltCsv(csvFiles.bolt_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    newDrivers += result.newDrivers;
+    matchedDrivers += result.matchedDrivers;
+  }
+
+  if (csvFiles.freenow_csv) {
+    const result = await parseFreenowCsv(csvFiles.freenow_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    newDrivers += result.newDrivers;
+    matchedDrivers += result.matchedDrivers;
+  }
+
+  // Combine data and create settlements
+  const settlements: any[] = [];
+  for (const [driverId, data] of driverDataMap.entries()) {
+    settlements.push({
+      city_id: meta.city_id,
+      driver_id: driverId,
+      platform: 'combined',
+      period_from: meta.period_from,
+      period_to: meta.period_to,
+      week_start: meta.period_from,
+      week_end: meta.period_to,
+      total_earnings: data.uber_base + data.bolt_projected_d + data.freenow_base_s,
+      commission_amount: data.freenow_commission_t,
+      net_amount: data.uber_net + data.bolt_net + data.freenow_net,
+      amounts: {
+        uber_payout_d: data.uber_payout_d,
+        uber_cash_f: data.uber_cash_f,
+        uber_base: data.uber_base,
+        uber_tax_8: data.uber_tax_8,
+        uber_net: data.uber_net,
+        bolt_projected_d: data.bolt_projected_d,
+        bolt_payout_s: data.bolt_payout_s,
+        bolt_tax_8: data.bolt_tax_8,
+        bolt_net: data.bolt_net,
+        freenow_base_s: data.freenow_base_s,
+        freenow_commission_t: data.freenow_commission_t,
+        freenow_cash_f: data.freenow_cash_f,
+        freenow_tax_8: data.freenow_tax_8,
+        freenow_net: data.freenow_net
+      },
+      source: '3_platform_csvs',
+      raw_row_id: `combined_${meta.period_from}_${driverId}`
+    });
+  }
+
+  return { settlements, newDrivers, matchedDrivers };
+}
+
+// ========== MODE 2: PROCESS RIDO TEMPLATE ==========
+async function processRidoTemplate(
+  supabase: any,
+  main_csv: string,
+  meta: { period_from: string; period_to: string; city_id: string }
+) {
+  console.log('🎯 Processing RIDO template...');
+
+  const uint8Array = Uint8Array.from(atob(main_csv), c => c.charCodeAt(0));
+  const csvText = new TextDecoder('utf-8').decode(uint8Array);
+  const parsedRows = parseCSV(csvText);
+
+  if (parsedRows.length < 2) {
+    throw new Error('CSV jest pusty lub ma tylko nagłówki');
+  }
+
+  const headers = parsedRows[0].map(h => h.toLowerCase().trim());
+  
+  // Column indexes
+  const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
+  const uberIdIdx = headers.findIndex(h => h.includes('id uber'));
+  const phoneIdx = headers.findIndex(h => h.includes('nr tel'));
+  const fullNameIdx = headers.findIndex(h => h.includes('imie nazwisko'));
+  const getRidoIdIdx = headers.findIndex(h => h.includes('getrido id'));
+
+  // Amount columns (H, I, J, K, M, N, O, P, U)
+  const uberPayoutDIdx = headers.findIndex(h => h === 'h' || parsedRows[0][7]); // Column H
+  const uberCashFIdx = headers.findIndex(h => h === 'i' || parsedRows[0][8]); // Column I
+  const boltProjectedDIdx = headers.findIndex(h => h === 'j' || parsedRows[0][9]); // Column J
+  const boltPayoutSIdx = headers.findIndex(h => h === 'k' || parsedRows[0][10]); // Column K
+  const freenowCashFIdx = headers.findIndex(h => h === 'm' || parsedRows[0][12]); // Column M
+  const freenowBaseSIdx = headers.findIndex(h => h === 'n' || parsedRows[0][13]); // Column N
+  const freenowCommissionTIdx = headers.findIndex(h => h === 'o' || parsedRows[0][14]); // Column O
+  const fuelIdx = headers.findIndex(h => h === 'p' || parsedRows[0][15]); // Column P
+  const fuelVATRefundIdx = headers.findIndex(h => h === 'u' || parsedRows[0][20]); // Column U
+
+  // Use actual column letters as fallback
+  const getColValue = (row: string[], idx: number, fallbackIdx: number) => 
+    (idx >= 0 ? row[idx] : row[fallbackIdx]) || '';
+
+  // Load existing drivers
+  const existingDriversMap = new Map<string, any>();
+  const { data: existingDrivers } = await supabase
+    .from('drivers')
+    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
+    .eq('city_id', meta.city_id);
+
+  existingDrivers?.forEach((driver: any) => {
+    if (driver.phone) existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
+    if (driver.getrido_id) existingDriversMap.set(`getrido:${driver.getrido_id.trim()}`, driver);
+    if (Array.isArray(driver.driver_platform_ids)) {
+      driver.driver_platform_ids.forEach((pid: any) => {
+        existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
+      });
+    }
+  });
+
+  const settlements: any[] = [];
+  let newDrivers = 0;
+  let matchedDrivers = 0;
+
+  for (let i = 1; i < parsedRows.length; i++) {
+    const row = parsedRows[i];
+    if (row.every(cell => !cell || cell.trim() === '')) continue;
+
+    const rowData = {
+      email: row[emailIdx] || '',
+      uberId: row[uberIdIdx]?.trim() || '',
+      phone: row[phoneIdx]?.trim() || '',
+      fullName: getColValue(row, fullNameIdx, 5).trim() || 'Nieznany Kierowca',
+      getRidoId: getColValue(row, getRidoIdIdx, 23).trim() || '',
+    };
+
+    // Extract amounts from columns H, I, J, K, M, N, O, P, U
+    const uber_payout_d = parsePLNumber(getColValue(row, uberPayoutDIdx, 7));
+    const uber_cash_f = parsePLNumber(getColValue(row, uberCashFIdx, 8));
+    const bolt_projected_d = parsePLNumber(getColValue(row, boltProjectedDIdx, 9));
+    const bolt_payout_s = parsePLNumber(getColValue(row, boltPayoutSIdx, 10));
+    const freenow_cash_f = parsePLNumber(getColValue(row, freenowCashFIdx, 12));
+    const freenow_base_s = parsePLNumber(getColValue(row, freenowBaseSIdx, 13));
+    const freenow_commission_t = parsePLNumber(getColValue(row, freenowCommissionTIdx, 14));
+    const fuel = parsePLNumber(getColValue(row, fuelIdx, 15));
+    const fuelVATRefund = parsePLNumber(getColValue(row, fuelVATRefundIdx, 20));
+
+    // Calculate 8% tax
+    const uber_base = uber_payout_d + uber_cash_f;
+    const uber_tax_8 = uber_base * 0.08;
+    const uber_net = uber_payout_d - uber_tax_8;
+
+    const bolt_tax_8 = bolt_projected_d * 0.08;
+    const bolt_net = bolt_payout_s - bolt_tax_8;
+
+    const freenow_tax_8 = freenow_base_s * 0.08;
+    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
+
+    const beforeSize = existingDriversMap.size;
+    const driverId = await findOrCreateDriver(
+      supabase,
+      rowData,
+      meta.city_id,
+      existingDriversMap,
+      headers,
+      row,
+      getRidoIdIdx
+    );
+
+    if (!driverId) continue;
+
+    if (existingDriversMap.size > beforeSize) newDrivers++;
+    else matchedDrivers++;
+
+    settlements.push({
+      city_id: meta.city_id,
+      driver_id: driverId,
+      platform: 'main',
+      period_from: meta.period_from,
+      period_to: meta.period_to,
+      week_start: meta.period_from,
+      week_end: meta.period_to,
+      total_earnings: uber_base + bolt_projected_d + freenow_base_s,
+      commission_amount: freenow_commission_t,
+      net_amount: uber_net + bolt_net + freenow_net + fuelVATRefund - fuel,
+      amounts: {
+        uber_payout_d,
+        uber_cash_f,
+        uber_base,
+        uber_tax_8,
+        uber_net,
+        bolt_projected_d,
+        bolt_payout_s,
+        bolt_tax_8,
+        bolt_net,
+        freenow_base_s,
+        freenow_commission_t,
+        freenow_cash_f,
+        freenow_tax_8,
+        freenow_net,
+        fuel,
+        fuelVATRefund
+      },
+      source: 'rido_template',
+      raw_row_id: `main_${meta.period_from}_row${i}`
+    });
+  }
+
+  return { settlements, newDrivers, matchedDrivers };
+}
+
+// ========== PLATFORM CSV PARSERS ==========
+async function parseUberCsv(
+  base64Csv: string,
+  supabase: any,
+  city_id: string,
+  existingDriversMap: Map<string, any>,
+  driverDataMap: Map<string, PlatformData>
+) {
+  const uint8Array = Uint8Array.from(atob(base64Csv), c => c.charCodeAt(0));
+  const csvText = new TextDecoder('utf-8').decode(uint8Array);
+  const rows = parseCSV(csvText);
+
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout'));
+  const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
+  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+
+  let newDrivers = 0;
+  let matchedDrivers = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.every(cell => !cell?.trim())) continue;
+
+    const uber_payout_d = parsePLNumber(row[payoutIdx] || '0');
+    const uber_cash_f = parsePLNumber(row[cashIdx] || '0');
+    const uber_base = uber_payout_d + uber_cash_f;
+    const uber_tax_8 = uber_base * 0.08;
+    const uber_net = uber_payout_d - uber_tax_8;
+
+    const platformId = row[driverIdIdx]?.trim();
+    if (!platformId) continue;
+
+    let driverId: string | null = null;
+
+    // Try to match by platform ID
+    if (existingDriversMap.has(`uber:${platformId}`)) {
+      driverId = existingDriversMap.get(`uber:${platformId}`).id;
+      matchedDrivers++;
+    } else {
+      // Create new driver
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          city_id,
+          first_name: 'Uber',
+          last_name: platformId.substring(0, 8),
+          phone: null,
+          email: null
+        })
+        .select()
+        .single();
+
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        existingDriversMap.set(`uber:${platformId}`, newDriver);
+        
+        // Create platform ID record
+        await supabase
+          .from('driver_platform_ids')
+          .insert({
+            driver_id: driverId,
+            platform: 'uber',
+            platform_id: platformId
+          });
+
+        newDrivers++;
+      }
+    }
+
+    if (driverId) {
+      if (!driverDataMap.has(driverId)) {
+        driverDataMap.set(driverId, {
+          driverId,
+          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
+        });
+      }
+      const data = driverDataMap.get(driverId)!;
+      data.uber_payout_d = uber_payout_d;
+      data.uber_cash_f = uber_cash_f;
+      data.uber_base = uber_base;
+      data.uber_tax_8 = uber_tax_8;
+      data.uber_net = uber_net;
+    }
+  }
+
+  return { newDrivers, matchedDrivers };
+}
+
+async function parseBoltCsv(
+  base64Csv: string,
+  supabase: any,
+  city_id: string,
+  existingDriversMap: Map<string, any>,
+  driverDataMap: Map<string, PlatformData>
+) {
+  const uint8Array = Uint8Array.from(atob(base64Csv), c => c.charCodeAt(0));
+  const csvText = new TextDecoder('utf-8').decode(uint8Array);
+  const rows = parseCSV(csvText);
+
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const projectedIdx = headers.findIndex(h => h.includes('projected'));
+  const payoutIdx = headers.findIndex(h => h.includes('wypłata') || h.includes('payout'));
+  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+
+  let newDrivers = 0;
+  let matchedDrivers = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.every(cell => !cell?.trim())) continue;
+
+    const bolt_projected_d = parsePLNumber(row[projectedIdx] || '0');
+    const bolt_payout_s = parsePLNumber(row[payoutIdx] || '0');
+    const bolt_tax_8 = bolt_projected_d * 0.08;
+    const bolt_net = bolt_payout_s - bolt_tax_8;
+
+    const platformId = row[driverIdIdx]?.trim();
+    if (!platformId) continue;
+
+    let driverId: string | null = null;
+
+    if (existingDriversMap.has(`bolt:${platformId}`)) {
+      driverId = existingDriversMap.get(`bolt:${platformId}`).id;
+      matchedDrivers++;
+    } else {
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          city_id,
+          first_name: 'Bolt',
+          last_name: platformId.substring(0, 8),
+          phone: null,
+          email: null
+        })
+        .select()
+        .single();
+
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        existingDriversMap.set(`bolt:${platformId}`, newDriver);
+        
+        await supabase
+          .from('driver_platform_ids')
+          .insert({
+            driver_id: driverId,
+            platform: 'bolt',
+            platform_id: platformId
+          });
+
+        newDrivers++;
+      }
+    }
+
+    if (driverId) {
+      if (!driverDataMap.has(driverId)) {
+        driverDataMap.set(driverId, {
+          driverId,
+          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
+        });
+      }
+      const data = driverDataMap.get(driverId)!;
+      data.bolt_projected_d = bolt_projected_d;
+      data.bolt_payout_s = bolt_payout_s;
+      data.bolt_tax_8 = bolt_tax_8;
+      data.bolt_net = bolt_net;
+    }
+  }
+
+  return { newDrivers, matchedDrivers };
+}
+
+async function parseFreenowCsv(
+  base64Csv: string,
+  supabase: any,
+  city_id: string,
+  existingDriversMap: Map<string, any>,
+  driverDataMap: Map<string, PlatformData>
+) {
+  const uint8Array = Uint8Array.from(atob(base64Csv), c => c.charCodeAt(0));
+  const csvText = new TextDecoder('utf-8').decode(uint8Array);
+  const rows = parseCSV(csvText);
+
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const baseIdx = headers.findIndex(h => h.includes('revenue') || h.includes('przychód'));
+  const commissionIdx = headers.findIndex(h => h.includes('commission') || h.includes('prowizja'));
+  const cashIdx = headers.findIndex(h => h.includes('cash') || h.includes('gotówka'));
+  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+
+  let newDrivers = 0;
+  let matchedDrivers = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.every(cell => !cell?.trim())) continue;
+
+    const freenow_base_s = parsePLNumber(row[baseIdx] || '0');
+    const freenow_commission_t = parsePLNumber(row[commissionIdx] || '0');
+    const freenow_cash_f = parsePLNumber(row[cashIdx] || '0');
+    const freenow_tax_8 = freenow_base_s * 0.08;
+    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
+
+    const platformId = row[driverIdIdx]?.trim();
+    if (!platformId) continue;
+
+    let driverId: string | null = null;
+
+    if (existingDriversMap.has(`freenow:${platformId}`)) {
+      driverId = existingDriversMap.get(`freenow:${platformId}`).id;
+      matchedDrivers++;
+    } else {
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          city_id,
+          first_name: 'FreeNow',
+          last_name: platformId.substring(0, 8),
+          phone: null,
+          email: null
+        })
+        .select()
+        .single();
+
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        existingDriversMap.set(`freenow:${platformId}`, newDriver);
+        
+        await supabase
+          .from('driver_platform_ids')
+          .insert({
+            driver_id: driverId,
+            platform: 'freenow',
+            platform_id: platformId
+          });
+
+        newDrivers++;
+      }
+    }
+
+    if (driverId) {
+      if (!driverDataMap.has(driverId)) {
+        driverDataMap.set(driverId, {
+          driverId,
+          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
+        });
+      }
+      const data = driverDataMap.get(driverId)!;
+      data.freenow_base_s = freenow_base_s;
+      data.freenow_commission_t = freenow_commission_t;
+      data.freenow_cash_f = freenow_cash_f;
+      data.freenow_tax_8 = freenow_tax_8;
+      data.freenow_net = freenow_net;
+    }
+  }
+
+  return { newDrivers, matchedDrivers };
+}
 
 // ========== HELPER: PARSOWANIE CSV ==========
 function parseCSV(csvText: string): string[][] {

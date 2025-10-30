@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { SettlementPreview } from '@/components/SettlementPreview';
 
 interface SettlementPeriod {
   id: string;
@@ -104,16 +105,13 @@ const SettlementSheetView = () => {
         </div>
       </div>
 
-      {/* Google Sheets Iframe */}
+      {/* Settlement Preview */}
       <div className="container mx-auto px-4 py-4">
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden" style={{ height: '90vh' }}>
-          <iframe
-            src={`${settlement.google_sheet_url}${settlement.google_sheet_url.includes('?') ? '&' : '?'}rm=minimal`}
-            className="w-full h-full"
-            frameBorder="0"
-            title="Google Sheets - Rozliczenie"
-          />
-        </div>
+        <SettlementPreview 
+          periodId={settlementId!}
+          periodFrom={settlement.week_start}
+          periodTo={settlement.week_end}
+        />
       </div>
     </div>
   );
