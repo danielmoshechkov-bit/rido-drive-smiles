@@ -99,34 +99,36 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const weeks = getWeekDates(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
-  // Normalize amounts - new structure with 8% tax calculation
+  // Normalize amounts - supports both old (camelCase) and new (snake_case) formats
   const normalizeAmounts = (amounts: any): any => {
     if (!amounts) return {};
+    
+    // Support both old camelCase and new snake_case formats
     return {
-      // Uber
-      uber_payout_d: amounts.uber_payout_d ?? 0,
-      uber_cash_f: amounts.uber_cash_f ?? 0,
-      uber_base: amounts.uber_base ?? 0,
-      uber_tax_8: amounts.uber_tax_8 ?? 0,
-      uber_net: amounts.uber_net ?? 0,
+      // Uber - support both formats
+      uber_payout_d: amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0,
+      uber_cash_f: amounts.uber_cash_f ?? amounts.uberCashF ?? 0,
+      uber_base: amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
+      uber_tax_8: amounts.uber_tax_8 ?? amounts.uberTax8 ?? amounts.tax ?? 0,
+      uber_net: amounts.uber_net ?? amounts.uberNet ?? amounts.uberCashless ?? 0,
       
-      // Bolt
-      bolt_projected_d: amounts.bolt_projected_d ?? 0,
-      bolt_payout_s: amounts.bolt_payout_s ?? 0,
-      bolt_tax_8: amounts.bolt_tax_8 ?? 0,
-      bolt_net: amounts.bolt_net ?? 0,
+      // Bolt - support both formats  
+      bolt_projected_d: amounts.bolt_projected_d ?? amounts.boltProjectedD ?? amounts.boltGross ?? 0,
+      bolt_payout_s: amounts.bolt_payout_s ?? amounts.boltPayoutS ?? 0,
+      bolt_tax_8: amounts.bolt_tax_8 ?? amounts.boltTax8 ?? 0,
+      bolt_net: amounts.bolt_net ?? amounts.boltNet ?? 0,
       
-      // FreeNow
-      freenow_base_s: amounts.freenow_base_s ?? 0,
-      freenow_commission_t: amounts.freenow_commission_t ?? 0,
-      freenow_cash_f: amounts.freenow_cash_f ?? 0,
-      freenow_tax_8: amounts.freenow_tax_8 ?? 0,
-      freenow_net: amounts.freenow_net ?? 0,
+      // FreeNow - support both formats
+      freenow_base_s: amounts.freenow_base_s ?? amounts.freenowBaseS ?? amounts.freenowGross ?? 0,
+      freenow_commission_t: amounts.freenow_commission_t ?? amounts.freenowCommissionT ?? amounts.freenowCommission ?? 0,
+      freenow_cash_f: amounts.freenow_cash_f ?? amounts.freenowCashF ?? amounts.freenowCash ?? 0,
+      freenow_tax_8: amounts.freenow_tax_8 ?? amounts.freenowTax8 ?? 0,
+      freenow_net: amounts.freenow_net ?? amounts.freenowNet ?? 0,
       
-      // Shared
-      total_cash: amounts.total_cash ?? 0,
+      // Shared - support both formats
+      total_cash: amounts.total_cash ?? amounts.totalCash ?? 0,
       fuel: amounts.fuel ?? 0,
-      fuel_vat_refund: amounts.fuel_vat_refund ?? 0,
+      fuel_vat_refund: amounts.fuel_vat_refund ?? amounts.fuelVATRefund ?? amounts.fuelVatRefund ?? 0,
     };
   };
 
@@ -338,7 +340,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
 
   // Calculate payout using new structure with 8% tax
   const calculatePayout = (amounts: any): { payout: number; fee: number; totalTax: number; breakdown: any } => {
-    if (!amounts || !driverPlan) {
+    if (!amounts) {
       return { payout: 0, fee: 0, totalTax: 0, breakdown: {} };
     }
     
@@ -357,13 +359,15 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     const fuel = amounts.fuel || 0;
     const fuelVatRefund = amounts.fuel_vat_refund || 0;
     
-    const planFee = driverPlan.base_fee || 0;
+    // Use driver plan or default to 50 PLN base fee
+    const planFee = driverPlan?.base_fee ?? 50;
+    const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // FORMUŁA WYPŁATY (dla planu "50+8%"):
     // WYPŁATA = UBER_NET + BOLT_NET + FREENOW_NET + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
     const payout = uberNet + boltNet + freenowNet + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
     
-    console.log(`💰 Payout calculation (Plan: ${driverPlan.name}):
+    console.log(`💰 Payout calculation (Plan: ${planName}):
       Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})
       Bolt Net (after 8% tax): ${boltNet.toFixed(2)} (tax: ${boltTax.toFixed(2)})
       FreeNow Net (after 8% tax): ${freenowNet.toFixed(2)} (tax: ${freenowTax.toFixed(2)})
