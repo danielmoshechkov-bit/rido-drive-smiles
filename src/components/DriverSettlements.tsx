@@ -100,10 +100,25 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   // Normalize amounts - supports both old (camelCase) and new (snake_case) formats
+  // Legacy mode: old data had wrong tax calculation for Bolt
   const normalizeAmounts = (amounts: any): any => {
     if (!amounts) return {};
     
-    // Support both old camelCase and new snake_case formats
+    // Detect legacy format (old camelCase without proper tax calculation)
+    const isLegacyFormat = amounts.boltGross && !amounts.bolt_tax_8;
+    
+    let bolt_tax_8 = amounts.bolt_tax_8 ?? amounts.boltTax8 ?? 0;
+    let bolt_net = amounts.bolt_net ?? amounts.boltNet ?? 0;
+    
+    // Legacy fix: Calculate correct Bolt tax and net for old data
+    if (isLegacyFormat) {
+      const boltGross = amounts.boltGross ?? 0;
+      bolt_tax_8 = boltGross * 0.08;
+      // Old boltNet = driver_earnings + cash (without tax deduction)
+      // Correct bolt_net = old boltNet - 8% tax
+      bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8;
+    }
+    
     return {
       // Uber - support both formats
       uber_payout_d: amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0,
@@ -112,11 +127,11 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       uber_tax_8: amounts.uber_tax_8 ?? amounts.uberTax8 ?? amounts.tax ?? 0,
       uber_net: amounts.uber_net ?? amounts.uberNet ?? amounts.uberCashless ?? 0,
       
-      // Bolt - support both formats  
+      // Bolt - support both formats with legacy fix
       bolt_projected_d: amounts.bolt_projected_d ?? amounts.boltProjectedD ?? amounts.boltGross ?? 0,
       bolt_payout_s: amounts.bolt_payout_s ?? amounts.boltPayoutS ?? 0,
-      bolt_tax_8: amounts.bolt_tax_8 ?? amounts.boltTax8 ?? 0,
-      bolt_net: amounts.bolt_net ?? amounts.boltNet ?? 0,
+      bolt_tax_8,
+      bolt_net,
       
       // FreeNow - support both formats
       freenow_base_s: amounts.freenow_base_s ?? amounts.freenowBaseS ?? amounts.freenowGross ?? 0,
