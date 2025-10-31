@@ -1,31 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
-import Header from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FleetSettlementsView } from '@/components/FleetSettlementsView';
-import { DocumentsManagement } from '@/components/DocumentsManagement';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogOut, Car, Users, FileText, DollarSign } from 'lucide-react';
+import { UnifiedDashboard } from '@/components/UnifiedDashboard';
+import { useState } from 'react';
 
 export default function FleetDashboard() {
   const navigate = useNavigate();
   const { role, roles, fleetId, loading: roleLoading } = useUserRole();
   const [fleetName, setFleetName] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState<{ from: string; to: string } | null>(null);
 
   // Check permissions based on roles
-  const canManageVehicles = roles.includes('admin') || roles.includes('fleet_rental');
-  const canViewSettlements = roles.includes('admin') || roles.includes('fleet_settlement');
-  const canViewDocuments = roles.includes('admin') || roles.includes('fleet_rental');
+  const canAccessFleet = roles.includes('admin') || roles.includes('fleet_rental') || roles.includes('fleet_settlement');
 
   useEffect(() => {
-    if (!roleLoading && (!role || (role !== 'fleet_settlement' && role !== 'fleet_rental' && role !== 'admin'))) {
+    if (!roleLoading && !canAccessFleet) {
       navigate('/auth');
     }
-  }, [role, roleLoading, navigate]);
+  }, [role, roleLoading, navigate, canAccessFleet]);
 
   useEffect(() => {
     if (fleetId) {
@@ -45,7 +37,7 @@ export default function FleetDashboard() {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/auth');
   };
@@ -61,113 +53,22 @@ export default function FleetDashboard() {
     );
   }
 
-  if (!fleetId) {
+  if (!fleetId || !fleetName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Card>
-          <CardHeader>
-            <CardTitle>Błąd dostępu</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">Nie znaleziono przypisanej floty.</p>
-            <Button onClick={handleSignOut}>Wyloguj się</Button>
-          </CardContent>
-        </Card>
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Nie znaleziono przypisanej floty.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Panel Flotowy</h1>
-            <p className="text-muted-foreground mt-1">{fleetName}</p>
-          </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Wyloguj
-          </Button>
-        </div>
-
-        <Tabs defaultValue={canViewSettlements ? "settlements" : "vehicles"} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-            {canManageVehicles && (
-              <TabsTrigger value="vehicles">
-                <Car className="h-4 w-4 mr-2" />
-                Moje auta
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="drivers">
-              <Users className="h-4 w-4 mr-2" />
-              Kierowcy
-            </TabsTrigger>
-            {canViewSettlements && (
-              <TabsTrigger value="settlements">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Rozliczenia
-              </TabsTrigger>
-            )}
-            {canViewDocuments && (
-              <TabsTrigger value="documents">
-                <FileText className="h-4 w-4 mr-2" />
-                Dokumenty
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          {canManageVehicles && (
-            <TabsContent value="vehicles">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Zarządzanie pojazdami</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Panel zarządzania pojazdami floty. Tutaj będziesz mógł dodawać pojazdy i przypisywać kierowców.
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          <TabsContent value="drivers">
-            <Card>
-              <CardHeader>
-                <CardTitle>Kierowcy przypisani do floty</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Lista kierowców będzie dostępna w rozliczeniach oraz przy zarządzaniu pojazdami.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {canViewSettlements && (
-            <TabsContent value="settlements">
-              <FleetSettlementsView
-                fleetId={fleetId!}
-                viewType={role === 'fleet_settlement' ? 'settlement' : 'rental'}
-                periodFrom={selectedPeriod?.from}
-                periodTo={selectedPeriod?.to}
-              />
-            </TabsContent>
-          )}
-
-          {canViewDocuments && (
-            <TabsContent value="documents">
-              <DocumentsManagement 
-                cityId={null}
-                cityName={fleetName}
-              />
-            </TabsContent>
-          )}
-        </Tabs>
-      </main>
-    </div>
+    <UnifiedDashboard
+      userType="fleet"
+      fleetId={fleetId}
+      fleetName={fleetName}
+      onLogout={handleLogout}
+    />
   );
 }

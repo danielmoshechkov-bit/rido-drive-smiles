@@ -22,6 +22,7 @@ import { SettlementPlansManagement } from "@/components/SettlementPlansManagemen
 import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { UserRolesManager } from "@/components/UserRolesManager";
+import { TabVisibilityManager } from "@/components/TabVisibilityManager";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -251,6 +252,12 @@ const AdminDashboard = () => {
               Widoczność
             </TabsTrigger>
             <TabsTrigger 
+              value="tab-visibility" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Widoczność zakładek
+            </TabsTrigger>
+            <TabsTrigger 
               value="data-import" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
@@ -393,6 +400,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="visibility" className="space-y-6">
             <SettlementVisibilitySettings />
+          </TabsContent>
+
+          <TabsContent value="tab-visibility" className="space-y-6">
+            <TabVisibilityManager />
           </TabsContent>
 
           <TabsContent value="data-import" className="space-y-6">

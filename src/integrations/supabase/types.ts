@@ -1711,6 +1711,36 @@ export type Database = {
           },
         ]
       }
+      tab_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_visible: boolean | null
+          parent_tab_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          tab_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean | null
+          parent_tab_id?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          tab_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean | null
+          parent_tab_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          tab_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

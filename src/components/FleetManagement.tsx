@@ -24,6 +24,7 @@ import { UniversalSelector } from "./UniversalSelector";
 interface FleetManagementProps {
   cityId?: string | null;
   cityName: string;
+  fleetId?: string | null;
 }
 
 type Vehicle = {
@@ -52,7 +53,7 @@ type Vehicle = {
   } | null;
 };
 
-export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
+export function FleetManagement({ cityId, cityName, fleetId }: FleetManagementProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<{id: string; name: string}[]>([]);
   const [query, setQuery] = useState("");
@@ -88,7 +89,12 @@ export function FleetManagement({ cityId, cityName }: FleetManagementProps) {
       `)
       .order("created_at", { ascending: false });
       
-    if (cityId) vehiclesQuery = vehiclesQuery.eq("city_id", cityId);
+    // Filter by fleetId if provided (fleet user), otherwise by cityId (admin)
+    if (fleetId) {
+      vehiclesQuery = vehiclesQuery.eq("fleet_id", fleetId);
+    } else if (cityId) {
+      vehiclesQuery = vehiclesQuery.eq("city_id", cityId);
+    }
     
     const { data: allVehicles, error: vehiclesError } = await vehiclesQuery;
     

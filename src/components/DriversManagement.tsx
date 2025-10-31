@@ -22,12 +22,14 @@ import { DriverAdditionalFees } from './DriverAdditionalFees';
 import { DollarSign } from 'lucide-react';
 
 interface DriversManagementProps {
-  cityId: string;
+  cityId?: string | null;
   cityName: string;
   onDriverUpdate: () => void;
+  fleetId?: string | null;
+  mode?: 'admin' | 'fleet';
 }
 
-export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversManagementProps) => {
+export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
@@ -36,17 +38,61 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
   
-  const { drivers, loading, refetch } = useDrivers(cityId);
+  const { drivers, loading, refetch } = useDrivers(cityId || undefined);
+  
+  // Filter drivers by fleet if fleetId is provided
+  const [filteredByFleet, setFilteredByFleet] = useState<Driver[]>([]);
+
+  // Filter drivers assigned to vehicles in this fleet
+  useEffect(() => {
+    const filterByFleet = async () => {
+      if (!fleetId) {
+        setFilteredByFleet(drivers);
+        return;
+      }
+
+      // First get vehicle IDs for this fleet
+      const { data: vehicles } = await supabase
+        .from('vehicles')
+        .select('id')
+        .eq('fleet_id', fleetId);
+
+      if (!vehicles || vehicles.length === 0) {
+        setFilteredByFleet([]);
+        return;
+      }
+
+      const vehicleIds = vehicles.map(v => v.id);
+
+      // Get all drivers assigned to these vehicles
+      const { data: assignments } = await supabase
+        .from('driver_vehicle_assignments')
+        .select('driver_id')
+        .eq('status', 'active')
+        .in('vehicle_id', vehicleIds);
+
+      if (assignments) {
+        const driverIds = new Set(assignments.map(a => a.driver_id));
+        setFilteredByFleet(drivers.filter(d => driverIds.has(d.id)));
+      } else {
+        setFilteredByFleet([]);
+      }
+    };
+
+    filterByFleet();
+  }, [fleetId, drivers]);
+
+  const displayDrivers = fleetId ? filteredByFleet : drivers;
 
   // Check account status for all drivers
   useEffect(() => {
     checkAccountStatuses();
-  }, [drivers]);
+  }, [displayDrivers]);
 
   const checkAccountStatuses = async () => {
     const statuses: Record<string, 'active' | 'partial' | 'none'> = {};
     
-    for (const driver of drivers) {
+    for (const driver of displayDrivers) {
       if (!driver.email) {
         statuses[driver.id] = 'none';
         continue;
@@ -100,7 +146,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
     }
   };
 
-  const filteredDrivers = drivers.filter(driver => 
+  const filteredDrivers = displayDrivers.filter(driver => 
     `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.phone?.includes(searchTerm)
