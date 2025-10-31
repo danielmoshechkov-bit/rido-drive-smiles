@@ -126,12 +126,16 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       uber_base: amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
       uber_tax_8: amounts.uber_tax_8 ?? amounts.uberTax8 ?? amounts.tax ?? 0,
       uber_net: amounts.uber_net ?? amounts.uberNet ?? amounts.uberCashless ?? 0,
+      uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
+      uber_commission: amounts.uber_commission ?? amounts.uberCommission ?? 0,
       
       // Bolt - support both formats with legacy fix
       bolt_projected_d: amounts.bolt_projected_d ?? amounts.boltProjectedD ?? amounts.boltGross ?? 0,
       bolt_payout_s: amounts.bolt_payout_s ?? amounts.boltPayoutS ?? 0,
       bolt_tax_8,
       bolt_net,
+      bolt_cash: amounts.bolt_cash ?? amounts.boltCash ?? 0,
+      bolt_commission: amounts.bolt_commission ?? amounts.boltCommission ?? 0,
       
       // FreeNow - support both formats
       freenow_base_s: amounts.freenow_base_s ?? amounts.freenowBaseS ?? amounts.freenowGross ?? 0,
@@ -580,15 +584,31 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                               </td>
                             </tr>
                             
-                            {/* Prowizje i gotówka (tylko dla FreeNow) */}
+                            {/* Prowizja */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">Prowizja/Gotówka</td>
-                              <td className="p-2 text-right">-</td>
-                              <td className="p-2 text-right">-</td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {(amounts.freenow_commission_t + amounts.freenow_cash_f) > 0 
-                                  ? `-${(amounts.freenow_commission_t + amounts.freenow_cash_f).toFixed(2)} zł` 
-                                  : '-'}
+                              <td className="p-2 text-muted-foreground">Prowizja</td>
+                              <td className="p-2 text-right font-medium text-amber-600">
+                                {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-amber-600">
+                                {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-amber-600">
+                                {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
+                              </td>
+                            </tr>
+                            
+                            {/* Gotówka pobrana (informacyjnie) */}
+                            <tr className="border-t hover:bg-muted/50">
+                              <td className="p-2 text-muted-foreground">Gotówka pobrana</td>
+                              <td className="p-2 text-right font-medium text-blue-600">
+                                {amounts.uber_cash > 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-blue-600">
+                                {amounts.bolt_cash > 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-blue-600">
+                                {amounts.freenow_cash_f > 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
@@ -615,6 +635,15 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                           <span className="text-muted-foreground">Razem podatek 8%:</span>
                           <span className="font-bold text-destructive">-{totalTax.toFixed(2)} zł</span>
                         </div>
+                        
+                        {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Razem gotówka pobrana:</span>
+                            <span className="font-medium text-blue-600">
+                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
+                            </span>
+                          </div>
+                        )}
                         
                         {amounts.fuel > 0 && (
                           <div className="flex justify-between text-sm">
