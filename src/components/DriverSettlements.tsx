@@ -109,14 +109,20 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     
     let bolt_tax_8 = amounts.bolt_tax_8 ?? amounts.boltTax8 ?? 0;
     let bolt_net = amounts.bolt_net ?? amounts.boltNet ?? 0;
+    let uber_tax_8 = amounts.uber_tax_8 ?? amounts.uberTax8 ?? 0;
     
     // Legacy fix: Calculate correct Bolt tax and net for old data
     if (isLegacyFormat) {
       const boltGross = amounts.boltGross ?? 0;
+      const boltCash = amounts.boltCash ?? amounts.bolt_cash ?? 0;
       bolt_tax_8 = boltGross * 0.08;
-      // Old boltNet = driver_earnings + cash (without tax deduction)
-      // Correct bolt_net = old boltNet - 8% tax
-      bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8;
+      // Old boltNet = gross - commission (gotówka NIE odjęta)
+      // Correct bolt_net = old boltNet - tax - cash
+      bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8 - boltCash;
+      
+      // Jeśli nie ma Ubera, nie przypisuj podatku Bolt do Ubera
+      const hasUberData = (amounts.uber ?? amounts.uberBase ?? 0) > 0;
+      uber_tax_8 = hasUberData ? (amounts.tax ?? 0) : 0;
     }
     
     return {
@@ -124,7 +130,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       uber_payout_d: amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0,
       uber_cash_f: amounts.uber_cash_f ?? amounts.uberCashF ?? 0,
       uber_base: amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
-      uber_tax_8: amounts.uber_tax_8 ?? amounts.uberTax8 ?? amounts.tax ?? 0,
+      uber_tax_8,
       uber_net: amounts.uber_net ?? amounts.uberNet ?? amounts.uberCashless ?? 0,
       uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
       uber_commission: amounts.uber_commission ?? amounts.uberCommission ?? 0,
@@ -609,20 +615,6 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                               </td>
                               <td className="p-2 text-right font-medium text-blue-600">
                                 {amounts.freenow_cash_f > 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                            
-                            {/* Netto (po odliczeniach) */}
-                            <tr className="border-t hover:bg-muted/50 bg-green-50 dark:bg-green-950">
-                              <td className="p-2 font-semibold">Netto (do wypłaty)</td>
-                              <td className="p-2 text-right font-bold text-green-600">
-                                {amounts.uber_net ? `${amounts.uber_net.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-bold text-green-600">
-                                {amounts.bolt_net ? `${amounts.bolt_net.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-bold text-green-600">
-                                {amounts.freenow_net ? `${amounts.freenow_net.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                           </tbody>
