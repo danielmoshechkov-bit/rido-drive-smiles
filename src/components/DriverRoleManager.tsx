@@ -94,6 +94,17 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
   };
 
   const saveChanges = async () => {
+    // Validate fleet selection
+    if (roles.fleet_settlement && !fleetForSettlement) {
+      toast.error('Wybierz flotę dla roli "Flotowy - Rozliczenia"');
+      return;
+    }
+    
+    if (roles.fleet_rental && !fleetForRental) {
+      toast.error('Wybierz flotę dla roli "Flotowy - Wynajem"');
+      return;
+    }
+
     setSaving(true);
     try {
       // Delete all existing roles for this user
@@ -134,7 +145,7 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
         if (error) throw error;
       }
 
-      toast.success('Role zaktualizowane pomyślnie');
+      toast.success('Role zaktualizowane pomyślnie. Użytkownik musi się wylogować i zalogować ponownie aby zobaczyć zmiany.');
       onUpdate();
     } catch (error) {
       console.error('Error saving roles:', error);
@@ -153,7 +164,7 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
   }
 
   return (
-    <Card className="p-4 bg-background border-primary/20">
+    <Card className="p-4 bg-background border-primary/20" onClick={(e) => e.stopPropagation()}>
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-3">
           <Shield className="h-4 w-4 text-primary" />
@@ -169,9 +180,13 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
                 setRoles({ ...roles, admin: checked as boolean })
               }
             />
-            <Label htmlFor="role-admin" className="text-sm cursor-pointer">
+            <label 
+              htmlFor="role-admin" 
+              className="text-sm cursor-pointer select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
               Administrator (pełny dostęp do systemu)
-            </Label>
+            </label>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -182,9 +197,13 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
                 setRoles({ ...roles, driver: checked as boolean })
               }
             />
-            <Label htmlFor="role-driver" className="text-sm cursor-pointer">
+            <label 
+              htmlFor="role-driver" 
+              className="text-sm cursor-pointer select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
               Kierowca (panel kierowcy)
-            </Label>
+            </label>
           </div>
 
           <div className="space-y-2">
@@ -197,9 +216,13 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
                   if (!checked) setFleetForSettlement(null);
                 }}
               />
-              <Label htmlFor="role-fleet-settlement" className="text-sm cursor-pointer">
+              <label 
+                htmlFor="role-fleet-settlement" 
+                className="text-sm cursor-pointer select-none"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Flotowy - Rozliczenia
-              </Label>
+              </label>
             </div>
             {roles.fleet_settlement && (
               <div className="ml-6">
@@ -256,9 +279,13 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
                   if (!checked) setFleetForRental(null);
                 }}
               />
-              <Label htmlFor="role-fleet-rental" className="text-sm cursor-pointer">
+              <label 
+                htmlFor="role-fleet-rental" 
+                className="text-sm cursor-pointer select-none"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Flotowy - Wynajem
-              </Label>
+              </label>
             </div>
             {roles.fleet_rental && (
               <div className="ml-6">

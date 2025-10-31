@@ -259,11 +259,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                            {driver.registration_date && (
                              <NewDriverBadge registrationDate={driver.registration_date} />
                            )}
-                           <DriverStatusBadge 
-                             driverId={driver.id}
-                             currentRole={(driver as any).user_role || 'kierowca'}
-                           />
-                           <DriverVehicleSelector 
+                           <DriverVehicleSelector
                              driverId={driver.id}
                              fleetId={(driver as any).fleet_id}
                              onVehicleUpdate={refetch}
