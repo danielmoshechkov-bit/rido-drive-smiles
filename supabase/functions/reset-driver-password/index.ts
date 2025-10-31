@@ -53,6 +53,23 @@ Deno.serve(async (req) => {
 
       if (updateError) throw updateError;
 
+      // Ensure driver role is assigned
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .upsert({
+          user_id: existingUser.id,
+          role: 'driver'
+        }, {
+          onConflict: 'user_id,role',
+          ignoreDuplicates: true
+        });
+
+      if (roleError) {
+        console.error('⚠️ Nie udało się dodać roli driver:', roleError);
+      } else {
+        console.log(`✅ Rola driver przypisana dla: ${email}`);
+      }
+
       console.log(`✅ Hasło zmienione dla: ${email}`);
 
       return new Response(
@@ -74,6 +91,25 @@ Deno.serve(async (req) => {
       if (authError) throw authError;
 
       console.log(`✅ Konto utworzone dla: ${email}`);
+
+      // Ensure driver role is assigned for new user
+      if (authUser.user) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: authUser.user.id,
+            role: 'driver'
+          }, {
+            onConflict: 'user_id,role',
+            ignoreDuplicates: true
+          });
+
+        if (roleError) {
+          console.error('⚠️ Nie udało się dodać roli driver:', roleError);
+        } else {
+          console.log(`✅ Rola driver przypisana dla: ${email}`);
+        }
+      }
 
       return new Response(
         JSON.stringify({
