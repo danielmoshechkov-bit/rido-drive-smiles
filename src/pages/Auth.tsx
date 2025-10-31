@@ -35,21 +35,22 @@ const Auth = () => {
         return;
       }
 
-      // ADMIN: daniel.moshechkov@gmail.com ma zawsze dostęp do panelu admina
-      if (email === 'daniel.moshechkov@gmail.com') {
-        navigate('/admin/dashboard');
-        return;
-      }
-
-      // Check user roles and redirect accordingly
-      const { data: userRoles } = await supabase
+      // Check user roles from user_roles table
+      const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('role, fleet_id')
         .eq('user_id', authData.user.id);
 
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+        alert('Błąd pobierania uprawnień!');
+        return;
+      }
+
       if (userRoles && userRoles.length > 0) {
         const roles = userRoles.map((r: any) => r.role);
         
+        // Priority: admin > fleet_settlement/fleet_rental > driver
         if (roles.includes('admin')) {
           navigate('/admin/dashboard');
           return;
@@ -62,48 +63,9 @@ const Auth = () => {
         }
       }
 
-      // Fallback: Check old system for backwards compatibility
-      // Spróbuj znaleźć profil kierowcy przez driver_app_users
-      let driverData = null;
-      const { data: appUser } = await supabase
-        .from('driver_app_users')
-        .select('driver_id, drivers(user_role, first_name, last_name)')
-        .eq('user_id', authData.user.id)
-        .single();
-
-      if (appUser?.drivers) {
-        driverData = appUser.drivers;
-      } else {
-        // Fallback: szukaj kierowcy po emailu
-        const { data: driverByEmail } = await supabase
-          .from('drivers')
-          .select('user_role, first_name, last_name')
-          .eq('email', email)
-          .maybeSingle();
-
-        if (driverByEmail) {
-          driverData = driverByEmail;
-        }
-      }
-
-      if (!driverData) {
-        alert('Profil kierowcy w trakcie konfiguracji. Skontaktuj się z administratorem.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Przekieruj na podstawie roli
-      if (driverData.user_role === 'admin' || driverData.user_role === 'pracownik') {
-        navigate('/admin/dashboard');
-      } else {
-        // Kierowca - zapisz dane do localStorage
-        localStorage.setItem('testUser', JSON.stringify({ 
-          email: authData.user.email,
-          type: 'driver',
-          name: `${driverData.first_name} ${driverData.last_name}`
-        }));
-        navigate('/driver');
-      }
+      // No roles found - user needs to be configured
+      alert('Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
+      await supabase.auth.signOut();
     } catch (error) {
       console.error('Login error:', error);
       alert('Wystąpił błąd podczas logowania!');
