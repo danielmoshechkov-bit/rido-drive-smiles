@@ -111,6 +111,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     let bolt_net = amounts.bolt_net ?? amounts.boltNet ?? 0;
     let uber_tax_8 = amounts.uber_tax_8 ?? amounts.uberTax8 ?? 0;
     let uber_net = amounts.uber_net ?? amounts.uberNet ?? 0;
+    let uber_base_corrected = null;
+    let uber_cash_corrected = null;
     let freenow_tax_8 = amounts.freenow_tax_8 ?? amounts.freenowTax8 ?? 0;
     let freenow_net = amounts.freenow_net ?? amounts.freenowNet ?? 0;
     
@@ -118,19 +120,41 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     if (isLegacyFormat) {
       const boltGross = amounts.boltGross ?? 0;
       const boltCash = amounts.boltCash ?? amounts.bolt_cash ?? 0;
-      const uberBase = amounts.uber ?? amounts.uberBase ?? 0;
+      let uberBase = amounts.uber ?? amounts.uberBase ?? 0;
       const freenowGross = amounts.freenowGross ?? 0;
+      
+      // Fix for negative Uber balance (column D)
+      // When uber_payout_d < 0, it means Uber owes money to the driver
+      // This amount should be ADDED to the base and cash, not subtracted
+      const uberPayoutD = amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0;
+      const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? 0;
+      
+      if (uberPayoutD < 0) {
+        // Subtract negative number = add positive
+        // Example: 1535.45 - (-7.06) = 1542.51
+        uberBase = uberCashF - uberPayoutD;
+        uber_base_corrected = uberBase;
+        uber_cash_corrected = uberBase; // Both base and cash get the same correction
+        
+        console.log('🔧 Uber negative balance fix:', {
+          uberPayoutD,
+          uberCashF,
+          uberBase_before: amounts.uber ?? amounts.uberBase ?? 0,
+          uberBase_corrected: uberBase,
+          uberCash_corrected: uberBase
+        });
+      }
       
       // Oblicz podatek 8% osobno dla każdej platformy od ich podstawy
       bolt_tax_8 = boltGross * 0.08;
-      uber_tax_8 = uberBase * 0.08;
+      uber_tax_8 = uberBase * 0.08; // Now calculates from corrected base
       freenow_tax_8 = freenowGross * 0.08;
       
       // Oblicz netto dla każdej platformy
       // Old boltNet = gross - commission (gotówka NIE odjęta)
       // Correct bolt_net = old boltNet - tax - cash
       bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8 - boltCash;
-      uber_net = uberBase - uber_tax_8;
+      uber_net = uberBase - uber_tax_8; // Now calculates from corrected base
       freenow_net = (amounts.freenowNet ?? 0) - freenow_tax_8;
       
       console.log('🔧 Legacy mode - calculated taxes:', {
@@ -148,13 +172,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     }
     
     return {
-      // Uber - support both formats
+      // Uber - support both formats + negative balance fix
       uber_payout_d: amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0,
       uber_cash_f: amounts.uber_cash_f ?? amounts.uberCashF ?? 0,
-      uber_base: amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
+      uber_base: uber_base_corrected ?? amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
       uber_tax_8,
       uber_net,
-      uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
+      uber_cash: uber_cash_corrected ?? amounts.uber_cash ?? amounts.uberCash ?? 0,
       uber_commission: amounts.uber_commission ?? amounts.uberCommission ?? 0,
       
       // Bolt - support both formats with legacy fix
