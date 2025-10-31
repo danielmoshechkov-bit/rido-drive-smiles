@@ -42,7 +42,7 @@ export const useUserRole = (): UseUserRoleReturn => {
       const userRoles = data.map(r => r.role as UserRole);
       setRoles(userRoles);
 
-      // Priorytet ról: admin > fleet_settlement > fleet_rental > driver
+      // Priority: admin > fleet_settlement > fleet_rental > driver
       if (userRoles.includes('admin')) {
         setRole('admin');
         setFleetId(null);

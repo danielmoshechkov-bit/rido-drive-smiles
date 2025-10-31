@@ -20,6 +20,7 @@ import { SettlementVisibilitySettings } from "@/components/SettlementVisibilityS
 import { SettlementPlansManagement } from "@/components/SettlementPlansManagement";
 import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
+import { UserRolesManager } from "@/components/UserRolesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -180,7 +181,7 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-10">
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-11">
             <TabsTrigger 
               value="weekly-report" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
@@ -216,6 +217,12 @@ const AdminDashboard = () => {
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               Konta flotowe
+            </TabsTrigger>
+            <TabsTrigger 
+              value="user-roles" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Uprawnienia
             </TabsTrigger>
             <TabsTrigger 
               value="plans" 
@@ -364,6 +371,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="fleet-accounts" className="space-y-6">
             <FleetAccountsManagement />
+          </TabsContent>
+
+          <TabsContent value="user-roles" className="space-y-6">
+            <UserRolesManager />
           </TabsContent>
 
           <TabsContent value="visibility" className="space-y-6">

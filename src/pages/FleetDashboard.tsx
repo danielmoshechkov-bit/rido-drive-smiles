@@ -5,7 +5,6 @@ import { useUserRole } from '@/hooks/useUserRole';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { VehicleList } from '@/components/VehicleList';
 import { FleetSettlementsView } from '@/components/FleetSettlementsView';
 import { DocumentsManagement } from '@/components/DocumentsManagement';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,12 +12,17 @@ import { LogOut, Car, Users, FileText, DollarSign } from 'lucide-react';
 
 export default function FleetDashboard() {
   const navigate = useNavigate();
-  const { role, fleetId, loading: roleLoading } = useUserRole();
+  const { role, roles, fleetId, loading: roleLoading } = useUserRole();
   const [fleetName, setFleetName] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<{ from: string; to: string } | null>(null);
 
+  // Check permissions based on roles
+  const canManageVehicles = roles.includes('admin') || roles.includes('fleet_rental');
+  const canViewSettlements = roles.includes('admin') || roles.includes('fleet_settlement');
+  const canViewDocuments = roles.includes('admin') || roles.includes('fleet_rental');
+
   useEffect(() => {
-    if (!roleLoading && (!role || (role !== 'fleet_settlement' && role !== 'fleet_rental'))) {
+    if (!roleLoading && (!role || (role !== 'fleet_settlement' && role !== 'fleet_rental' && role !== 'admin'))) {
       navigate('/auth');
     }
   }, [role, roleLoading, navigate]);
@@ -89,38 +93,46 @@ export default function FleetDashboard() {
           </Button>
         </div>
 
-        <Tabs defaultValue="vehicles" className="space-y-6">
+        <Tabs defaultValue={canViewSettlements ? "settlements" : "vehicles"} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="vehicles">
-              <Car className="h-4 w-4 mr-2" />
-              Moje auta
-            </TabsTrigger>
+            {canManageVehicles && (
+              <TabsTrigger value="vehicles">
+                <Car className="h-4 w-4 mr-2" />
+                Moje auta
+              </TabsTrigger>
+            )}
             <TabsTrigger value="drivers">
               <Users className="h-4 w-4 mr-2" />
               Kierowcy
             </TabsTrigger>
-            <TabsTrigger value="settlements">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Rozliczenia
-            </TabsTrigger>
-            <TabsTrigger value="documents">
-              <FileText className="h-4 w-4 mr-2" />
-              Dokumenty
-            </TabsTrigger>
+            {canViewSettlements && (
+              <TabsTrigger value="settlements">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Rozliczenia
+              </TabsTrigger>
+            )}
+            {canViewDocuments && (
+              <TabsTrigger value="documents">
+                <FileText className="h-4 w-4 mr-2" />
+                Dokumenty
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="vehicles">
-            <Card>
-              <CardHeader>
-                <CardTitle>Zarządzanie pojazdami</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Panel zarządzania pojazdami floty będzie dostępny wkrótce.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {canManageVehicles && (
+            <TabsContent value="vehicles">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Zarządzanie pojazdami</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Panel zarządzania pojazdami floty. Tutaj będziesz mógł dodawać pojazdy i przypisywać kierowców.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           <TabsContent value="drivers">
             <Card>
@@ -135,27 +147,25 @@ export default function FleetDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settlements">
-            <FleetSettlementsView
-              fleetId={fleetId}
-              viewType={role === 'fleet_settlement' ? 'settlement' : 'rental'}
-              periodFrom={selectedPeriod?.from}
-              periodTo={selectedPeriod?.to}
-            />
-          </TabsContent>
+          {canViewSettlements && (
+            <TabsContent value="settlements">
+              <FleetSettlementsView
+                fleetId={fleetId!}
+                viewType={role === 'fleet_settlement' ? 'settlement' : 'rental'}
+                periodFrom={selectedPeriod?.from}
+                periodTo={selectedPeriod?.to}
+              />
+            </TabsContent>
+          )}
 
-          <TabsContent value="documents">
-            <Card>
-              <CardHeader>
-                <CardTitle>Dokumenty</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Panel zarządzania dokumentami będzie dostępny wkrótce.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {canViewDocuments && (
+            <TabsContent value="documents">
+              <DocumentsManagement 
+                cityId={null}
+                cityName={fleetName}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>

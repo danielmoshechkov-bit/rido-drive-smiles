@@ -13,6 +13,7 @@ import FleetDashboard from "./pages/FleetDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
 import SettlementSheetView from "./pages/SettlementSheetView";
 import SystemAlerts from "./pages/SystemAlerts";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/install" element={<Install />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
