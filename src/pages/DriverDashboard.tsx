@@ -165,11 +165,8 @@ const DriverDashboard = () => {
           <TabsTrigger value="fuel">Paliwo</TabsTrigger>
 
           {/* Tab Content */}
-            <TabsContent value="weekly-report">
-              <div className="space-y-6">
-                <WeeklyResults driverData={driverData} />
-                <DriverSettlements driverId={driverData.driver_id} />
-              </div>
+          <TabsContent value="weekly-report">
+              <WeeklyResults driverData={driverData} />
             </TabsContent>
           
           <TabsContent value="cars">
@@ -409,6 +406,13 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-load data when year/week changes after initialization
+  useEffect(() => {
+    if (initialized && selectedYear && selectedWeek) {
+      loadWeekData();
+    }
+  }, [selectedYear, selectedWeek, initialized]);
+
   const chartData = [
     { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
     { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
@@ -431,47 +435,48 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     <div className="space-y-6">
       <Card className="rounded-xl shadow-soft">
         <CardHeader className="pb-3">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4 mb-4">
             <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
+            <SettlementPlanSelector 
+              driverData={driverData} 
+              currentPlanId={null} 
+              onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} 
+            />
+          </div>
+          
+          {/* Kontrolki rok i okres */}
+          <div className="flex gap-4 items-end flex-wrap">
+            <div className="flex-shrink-0">
+              <label className="text-xs text-muted-foreground block mb-1">Rok</label>
+              <UniversalSelector
+                id="year-selector"
+                items={years.map(year => ({ id: year.toString(), name: year.toString() }))}
+                currentValue={selectedYear.toString()}
+                placeholder={selectedYear.toString()}
+                showSearch={false}
+                showAdd={false}
+                allowClear={false}
+                onSelect={(item) => item && setSelectedYear(parseInt(item.id))}
+                className="w-28"
+              />
+            </div>
             
-            {/* Compact Controls Row */}
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              <div className="flex-shrink-0">
-                <label className="text-xs text-muted-foreground block mb-1">Rok</label>
-                <UniversalSelector
-                  id="year-selector"
-                  items={years.map(year => ({ id: year.toString(), name: year.toString() }))}
-                  currentValue={selectedYear.toString()}
-                  placeholder={selectedYear.toString()}
-                  showSearch={false}
-                  showAdd={false}
-                  allowClear={false}
-                  onSelect={(item) => item && setSelectedYear(parseInt(item.id))}
-                  className="w-24"
-                />
-              </div>
-              
-              <div className="flex-shrink-0">
-                <label className="text-xs text-muted-foreground block mb-1">Okres</label>
-                <UniversalSelector
-                  id="week-selector"
-                  items={weekDates.map((w) => ({
-                    id: w.week.toString(),
-                    name: w.label
-                  }))}
-                  currentValue={selectedWeek.toString()}
-                  placeholder={weekDates.find(w => w.week === selectedWeek) ? `Tydz. ${selectedWeek}` : "Wybierz"}
-                  showSearch={true}
-                  showAdd={false}
-                  allowClear={false}
-                  onSelect={(item) => item && setSelectedWeek(parseInt(item.id))}
-                  className="w-64"
-                />
-              </div>
-
-              <div className="flex-shrink-0">
-                <SettlementPlanSelector driverData={driverData} currentPlanId={null} onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} />
-              </div>
+            <div className="flex-1 min-w-[240px] max-w-md">
+              <label className="text-xs text-muted-foreground block mb-1">Okres</label>
+              <UniversalSelector
+                id="week-selector"
+                items={weekDates.map((w) => ({
+                  id: w.week.toString(),
+                  name: w.label
+                }))}
+                currentValue={selectedWeek.toString()}
+                placeholder={weekDates.find(w => w.week === selectedWeek) ? `Tydz. ${selectedWeek}` : "Wybierz"}
+                showSearch={true}
+                showAdd={false}
+                allowClear={false}
+                onSelect={(item) => item && setSelectedWeek(parseInt(item.id))}
+                className="w-full"
+              />
             </div>
           </div>
         </CardHeader>
@@ -500,65 +505,13 @@ function WeeklyResults({ driverData }: { driverData: any }) {
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl shadow-soft">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-h3">Podsumowanie tygodnia</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>Uber:</span>
-                    <span className="font-medium">{weekData.earnings.uber} zł</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Bolt:</span>
-                    <span className="font-medium">{weekData.earnings.bolt} zł</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>FREE NOW:</span>
-                    <span className="font-medium">{weekData.earnings.freenow} zł</span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between font-medium text-lg">
-                      <span>Razem:</span>
-                      <span>{totalEarnings} zł</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Paliwo:</span>
-                    <span>-{weekData.fuel} zł</span>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Wynajem auta:</span>
-                    <span>-{weekData.rental || 0} zł</span>
-                  </div>
-                  {weekData.plan === "50+8%" && (
-                    <>
-                      <div className="flex justify-between text-red-600">
-                        <span>Opłata stała:</span>
-                        <span>-50 zł</span>
-                      </div>
-                      <div className="flex justify-between text-red-600">
-                        <span>Podatek (8%):</span>
-                        <span>-{Math.round(totalEarnings * 0.08)} zł</span>
-                      </div>
-                    </>
-                  )}
-                  {weekData.plan === "tylko 159" && (
-                    <div className="flex justify-between text-red-600">
-                      <span>Opłata miesięczna:</span>
-                      <span>-159 zł</span>
-                    </div>
-                  )}
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between font-bold text-lg text-green-600">
-                      <span>Do wypłaty:</span>
-                      <span>{calculateNetAmount(totalEarnings, weekData.fuel, weekData.rental || 0, weekData.plan)} zł</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Szczegółowa tabela rozliczeń */}
+            <DriverSettlements 
+              driverId={driverData.driver_id}
+              preSelectedYear={selectedYear}
+              preSelectedWeek={selectedWeek}
+              hideControls={true}
+            />
           </div>
         </CardContent>
       </Card>

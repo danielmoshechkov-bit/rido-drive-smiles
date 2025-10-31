@@ -46,14 +46,22 @@ interface VisibilitySettings {
 
 interface DriverSettlementsProps {
   driverId: string;
+  preSelectedYear?: number;
+  preSelectedWeek?: number;
+  hideControls?: boolean;
 }
 
-export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
+export const DriverSettlements = ({ 
+  driverId, 
+  preSelectedYear, 
+  preSelectedWeek, 
+  hideControls = false 
+}: DriverSettlementsProps) => {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedYear, setSelectedYear] = useState<number>(preSelectedYear ?? new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<number>(preSelectedWeek ?? 1);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
   const [driverPlan, setDriverPlan] = useState<any>(null);
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
@@ -364,6 +372,15 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     }
   };
 
+  // Synchronize with props when they change
+  useEffect(() => {
+    if (preSelectedYear) setSelectedYear(preSelectedYear);
+  }, [preSelectedYear]);
+  
+  useEffect(() => {
+    if (preSelectedWeek) setSelectedWeek(preSelectedWeek);
+  }, [preSelectedWeek]);
+
   useEffect(() => {
     loadVisibilitySettings();
     loadFeeFormulas();
@@ -516,36 +533,40 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle>Szczegółowe rozliczenia</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex gap-4 items-center">
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map(year => (
-                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {weeks.map(week => (
-                <SelectItem key={week.number} value={week.number.toString()}>
-                  {week.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
+      {!hideControls && (
+        <CardHeader>
+          <CardTitle>Szczegółowe rozliczenia</CardTitle>
+        </CardHeader>
+      )}
+      <CardContent className={hideControls ? "p-0" : "space-y-6"}>
+        {!hideControls && (
+          <div className="flex gap-4 items-center">
+            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(year => (
+                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {weeks.map(week => (
+                  <SelectItem key={week.number} value={week.number.toString()}>
+                    {week.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-4">Ładowanie...</div>
