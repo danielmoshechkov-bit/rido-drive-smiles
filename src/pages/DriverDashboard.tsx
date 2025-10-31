@@ -330,7 +330,16 @@ function WeeklyResults({ driverData }: { driverData: any }) {
 
   const loadWeekData = async () => {
     const weekInfo = weekDates.find(w => w.week === selectedWeek);
-    if (!weekInfo) return;
+    if (!weekInfo) {
+      console.log('❌ No week info found for week:', selectedWeek);
+      return;
+    }
+
+    console.log('📅 Loading data for:', { 
+      driverId: driverData.driver_id, 
+      from: weekInfo.fromISO, 
+      to: weekInfo.toISO 
+    });
 
     setWeekData(prev => ({
       ...prev,
@@ -339,14 +348,25 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     }));
 
     // Ładowanie rzeczywistych danych z bazy
-    const { data: settlements } = await supabase
+    const { data: settlements, error: settlementsError } = await supabase
       .from("settlements")
       .select("*")
       .eq("driver_id", driverData.driver_id)
       .gte("period_from", weekInfo.fromISO)
       .lte("period_to", weekInfo.toISO);
     
-    console.log("📊 Loaded settlements:", settlements);
+    if (settlementsError) {
+      console.error('❌ Error loading settlements:', settlementsError);
+      toast.error(`Błąd ładowania rozliczeń: ${settlementsError.message}`);
+      return;
+    }
+    
+    console.log("📊 Loaded settlements:", settlements?.length || 0, "records");
+    
+    if (!settlements || settlements.length === 0) {
+      console.log('⚠️ No settlements found for this week');
+      toast.info('Brak rozliczeń dla wybranego tygodnia');
+    }
     
     // Pobierz opłatę za wynajem z przypisanego pojazdu
     const { data: assignment, error } = await supabase

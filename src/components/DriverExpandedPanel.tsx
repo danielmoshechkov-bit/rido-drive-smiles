@@ -131,22 +131,6 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
       )}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          {/* Status konta */}
-          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-            <UserCircle className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
-              Status konta: {hasAuthAccount ? (
-                <Badge className="bg-green-500/10 text-green-700 border-green-500/20">
-                  🟢 Konto aktywne
-                </Badge>
-              ) : (
-                <Badge className="bg-gray-500/10 text-gray-700 border-gray-500/20">
-                  🔴 Brak konta
-                </Badge>
-              )}
-            </span>
-          </div>
-
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Hasło tymczasowe</h4>
             <div className="flex gap-2">
@@ -179,6 +163,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
               </p>
             )}
           </div>
+
           <div className="space-y-3">
             <h4 className="font-medium text-sm">ID Platform</h4>
             <div className="space-y-3">
@@ -200,6 +185,24 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
               {billingDisplay.label}
             </Badge>
           </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Status konta */}
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+            <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">
+              Status konta: {hasAuthAccount ? (
+                <Badge className="bg-green-500/10 text-green-700 border-green-500/20">
+                  🟢 Konto aktywne
+                </Badge>
+              ) : (
+                <Badge className="bg-gray-500/10 text-gray-700 border-gray-500/20">
+                  🔴 Brak konta
+                </Badge>
+              )}
+            </span>
+          </div>
 
           {/* Role management - tylko gdy ma konto auth */}
           {hasAuthAccount && userAuthId && (
@@ -217,9 +220,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
               </p>
             </Card>
           )}
-        </div>
 
-        <div className="space-y-4">
           <DriverDocumentStatuses documentStatuses={driver.document_statuses || []} />
           
           {driver.vehicle_assignment?.status === 'active' && (

@@ -3,10 +3,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Shield, Loader2 } from "lucide-react";
+import { Shield, Loader2, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DriverRoleManagerProps {
   driverId: string;
@@ -201,21 +203,45 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
             </div>
             {roles.fleet_settlement && (
               <div className="ml-6">
-                <Select
-                  value={fleetForSettlement || ""}
-                  onValueChange={setFleetForSettlement}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Wybierz flotę..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fleets.map((fleet) => (
-                      <SelectItem key={fleet.id} value={fleet.id}>
-                        {fleet.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {fleetForSettlement
+                        ? fleets.find((f) => f.id === fleetForSettlement)?.name
+                        : "Wybierz flotę..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Szukaj floty..." />
+                      <CommandList>
+                        <CommandEmpty>Nie znaleziono floty.</CommandEmpty>
+                        <CommandGroup>
+                          {fleets.map((fleet) => (
+                            <CommandItem
+                              key={fleet.id}
+                              value={fleet.name}
+                              onSelect={() => setFleetForSettlement(fleet.id)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  fleetForSettlement === fleet.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {fleet.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
@@ -236,21 +262,45 @@ export function DriverRoleManager({ driverId, userAuthId, onUpdate }: DriverRole
             </div>
             {roles.fleet_rental && (
               <div className="ml-6">
-                <Select
-                  value={fleetForRental || ""}
-                  onValueChange={setFleetForRental}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Wybierz flotę..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fleets.map((fleet) => (
-                      <SelectItem key={fleet.id} value={fleet.id}>
-                        {fleet.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {fleetForRental
+                        ? fleets.find((f) => f.id === fleetForRental)?.name
+                        : "Wybierz flotę..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Szukaj floty..." />
+                      <CommandList>
+                        <CommandEmpty>Nie znaleziono floty.</CommandEmpty>
+                        <CommandGroup>
+                          {fleets.map((fleet) => (
+                            <CommandItem
+                              key={fleet.id}
+                              value={fleet.name}
+                              onSelect={() => setFleetForRental(fleet.id)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  fleetForRental === fleet.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {fleet.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
