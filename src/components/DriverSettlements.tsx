@@ -110,26 +110,39 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     let bolt_tax_8 = amounts.bolt_tax_8 ?? amounts.boltTax8 ?? 0;
     let bolt_net = amounts.bolt_net ?? amounts.boltNet ?? 0;
     let uber_tax_8 = amounts.uber_tax_8 ?? amounts.uberTax8 ?? 0;
+    let uber_net = amounts.uber_net ?? amounts.uberNet ?? 0;
+    let freenow_tax_8 = amounts.freenow_tax_8 ?? amounts.freenowTax8 ?? 0;
+    let freenow_net = amounts.freenow_net ?? amounts.freenowNet ?? 0;
     
     // Legacy fix: Calculate correct Bolt tax and net for old data
     if (isLegacyFormat) {
       const boltGross = amounts.boltGross ?? 0;
       const boltCash = amounts.boltCash ?? amounts.bolt_cash ?? 0;
       const uberBase = amounts.uber ?? amounts.uberBase ?? 0;
+      const freenowGross = amounts.freenowGross ?? 0;
       
       // Oblicz podatek 8% osobno dla każdej platformy od ich podstawy
       bolt_tax_8 = boltGross * 0.08;
       uber_tax_8 = uberBase * 0.08;
+      freenow_tax_8 = freenowGross * 0.08;
       
+      // Oblicz netto dla każdej platformy
       // Old boltNet = gross - commission (gotówka NIE odjęta)
       // Correct bolt_net = old boltNet - tax - cash
       bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8 - boltCash;
+      uber_net = uberBase - uber_tax_8;
+      freenow_net = (amounts.freenowNet ?? 0) - freenow_tax_8;
       
       console.log('🔧 Legacy mode - calculated taxes:', {
         boltGross,
         bolt_tax_8,
+        bolt_net,
         uberBase,
         uber_tax_8,
+        uber_net,
+        freenowGross,
+        freenow_tax_8,
+        freenow_net,
         tax_field_ignored: amounts.tax
       });
     }
@@ -140,7 +153,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       uber_cash_f: amounts.uber_cash_f ?? amounts.uberCashF ?? 0,
       uber_base: amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
       uber_tax_8,
-      uber_net: amounts.uber_net ?? amounts.uberNet ?? amounts.uberCashless ?? 0,
+      uber_net,
       uber_cash: amounts.uber_cash ?? amounts.uberCash ?? 0,
       uber_commission: amounts.uber_commission ?? amounts.uberCommission ?? 0,
       
@@ -156,8 +169,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       freenow_base_s: amounts.freenow_base_s ?? amounts.freenowBaseS ?? amounts.freenowGross ?? 0,
       freenow_commission_t: amounts.freenow_commission_t ?? amounts.freenowCommissionT ?? amounts.freenowCommission ?? 0,
       freenow_cash_f: amounts.freenow_cash_f ?? amounts.freenowCashF ?? amounts.freenowCash ?? 0,
-      freenow_tax_8: amounts.freenow_tax_8 ?? amounts.freenowTax8 ?? 0,
-      freenow_net: amounts.freenow_net ?? amounts.freenowNet ?? 0,
+      freenow_tax_8,
+      freenow_net,
       
       // Shared - support both formats
       total_cash: amounts.total_cash ?? amounts.totalCash ?? 0,
