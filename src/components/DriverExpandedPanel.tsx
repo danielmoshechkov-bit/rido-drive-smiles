@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DriverDocumentStatuses } from "./DriverDocumentStatuses";
 import { PlatformIdEditor } from "./PlatformIdEditor";
+import { DriverRoleManager } from "./DriverRoleManager";
 import { Driver } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Key, Copy } from "lucide-react";
+import { Key, UserCircle } from "lucide-react";
 
 interface DriverExpandedPanelProps {
   driver: Driver;
@@ -20,6 +21,38 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [userAuthId, setUserAuthId] = useState<string | null>(null);
+  const [hasAuthAccount, setHasAuthAccount] = useState(false);
+
+  useEffect(() => {
+    checkAuthAccount();
+  }, [driver.email]);
+
+  const checkAuthAccount = async () => {
+    if (!driver.email) {
+      setHasAuthAccount(false);
+      setUserAuthId(null);
+      return;
+    }
+
+    try {
+      const { data: driverAppUser } = await supabase
+        .from('driver_app_users')
+        .select('user_id')
+        .eq('driver_id', driver.id)
+        .maybeSingle();
+
+      if (driverAppUser?.user_id) {
+        setUserAuthId(driverAppUser.user_id);
+        setHasAuthAccount(true);
+      } else {
+        setHasAuthAccount(false);
+        setUserAuthId(null);
+      }
+    } catch (error) {
+      console.error('Error checking auth account:', error);
+    }
+  };
   
   const getPlatformId = (platform: string) => {
     if (platform === 'getrido') return driver.getrido_id || '';
@@ -54,7 +87,8 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
       const { data, error } = await supabase.functions.invoke('reset-driver-password', {
         body: { 
           email: driver.email,
-          password: tempPassword 
+          password: tempPassword,
+          driver_id: driver.id
         }
       });
 
@@ -74,19 +108,13 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
       }
 
       setTimeout(() => setShowSuccess(false), 5000);
+      checkAuthAccount(); // Refresh auth account status
       onUpdate();
     } catch (error) {
       console.error('Error creating auth account:', error);
       toast.error(error instanceof Error ? error.message : 'Błąd podczas tworzenia konta');
     } finally {
       setCreatingAccount(false);
-    }
-  };
-
-  const copyPassword = () => {
-    if (tempPassword) {
-      navigator.clipboard.writeText(tempPassword);
-      toast.success('Hasło skopiowane do schowka');
     }
   };
 
@@ -103,6 +131,22 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
       )}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
+          {/* Status konta */}
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+            <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">
+              Status konta: {hasAuthAccount ? (
+                <Badge className="bg-green-500/10 text-green-700 border-green-500/20">
+                  🟢 Konto aktywne
+                </Badge>
+              ) : (
+                <Badge className="bg-gray-500/10 text-gray-700 border-gray-500/20">
+                  🔴 Brak konta
+                </Badge>
+              )}
+            </span>
+          </div>
+
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Hasło tymczasowe</h4>
             <div className="flex gap-2">
@@ -156,6 +200,23 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
               {billingDisplay.label}
             </Badge>
           </div>
+
+          {/* Role management - tylko gdy ma konto auth */}
+          {hasAuthAccount && userAuthId && (
+            <DriverRoleManager
+              driverId={driver.id}
+              userAuthId={userAuthId}
+              onUpdate={onUpdate}
+            />
+          )}
+
+          {!hasAuthAccount && driver.email && (
+            <Card className="p-4 bg-muted/20 border-primary/20">
+              <p className="text-sm text-muted-foreground">
+                💡 Utwórz konto aby zarządzać rolami i dostępami
+              </p>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-4">

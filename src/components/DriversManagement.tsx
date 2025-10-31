@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -34,8 +34,71 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
+  const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
   
   const { drivers, loading, refetch } = useDrivers(cityId);
+
+  // Check account status for all drivers
+  useEffect(() => {
+    checkAccountStatuses();
+  }, [drivers]);
+
+  const checkAccountStatuses = async () => {
+    const statuses: Record<string, 'active' | 'partial' | 'none'> = {};
+    
+    for (const driver of drivers) {
+      if (!driver.email) {
+        statuses[driver.id] = 'none';
+        continue;
+      }
+
+      try {
+        const { data: driverAppUser } = await supabase
+          .from('driver_app_users')
+          .select('user_id')
+          .eq('driver_id', driver.id)
+          .maybeSingle();
+
+        if (driverAppUser?.user_id) {
+          statuses[driver.id] = 'active';
+        } else {
+          statuses[driver.id] = 'none';
+        }
+      } catch (error) {
+        statuses[driver.id] = 'none';
+      }
+    }
+    
+    setAccountStatuses(statuses);
+  };
+
+  const getAccountStatusBadge = (driverId: string) => {
+    const status = accountStatuses[driverId] || 'none';
+    
+    switch (status) {
+      case 'active':
+        return (
+          <Badge className="bg-green-500/10 text-green-700 border-green-500/20" variant="outline">
+            <UserCircle className="h-3 w-3 mr-1" />
+            Konto aktywne
+          </Badge>
+        );
+      case 'partial':
+        return (
+          <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20" variant="outline">
+            <UserCircle className="h-3 w-3 mr-1" />
+            Konto częściowe
+          </Badge>
+        );
+      case 'none':
+        return (
+          <Badge className="bg-gray-500/10 text-gray-700 border-gray-500/20" variant="outline">
+            <UserCircle className="h-3 w-3 mr-1" />
+            Brak konta
+          </Badge>
+        );
+    }
+  };
 
   const filteredDrivers = drivers.filter(driver => 
     `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -186,12 +249,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate }: DriversM
                   onClick={() => toggleDriverExpansion(driver.id)}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                     <div className="flex-1">
                        <div className="flex items-center gap-2 mb-2">
                          <h3 className="font-medium">
                            {driver.first_name} {driver.last_name}
                          </h3>
-                         <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 flex-wrap">
+                           {getAccountStatusBadge(driver.id)}
                            {driver.registration_date && (
                              <NewDriverBadge registrationDate={driver.registration_date} />
                            )}

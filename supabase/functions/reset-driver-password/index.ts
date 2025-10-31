@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password } = await req.json();
+    const { email, password, driver_id } = await req.json();
 
     if (!email) {
       throw new Error('Email jest wymagany');
@@ -53,21 +53,35 @@ Deno.serve(async (req) => {
 
       if (updateError) throw updateError;
 
-      // Ensure driver role is assigned
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: existingUser.id,
-          role: 'driver'
-        }, {
-          onConflict: 'user_id,role',
-          ignoreDuplicates: true
+      // Link auth user to driver profile and ensure driver role
+      if (driver_id) {
+        const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
+          p_user_id: existingUser.id,
+          p_driver_id: driver_id
         });
 
-      if (roleError) {
-        console.error('⚠️ Nie udało się dodać roli driver:', roleError);
+        if (linkError) {
+          console.error('⚠️ Nie udało się połączyć konta z kierowcą:', linkError);
+        } else {
+          console.log(`✅ Konto połączone z kierowcą i rola przypisana dla: ${email}`);
+        }
       } else {
-        console.log(`✅ Rola driver przypisana dla: ${email}`);
+        // Fallback: tylko przypisz rolę driver jeśli nie ma driver_id
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: existingUser.id,
+            role: 'driver'
+          }, {
+            onConflict: 'user_id,role',
+            ignoreDuplicates: true
+          });
+
+        if (roleError) {
+          console.error('⚠️ Nie udało się dodać roli driver:', roleError);
+        } else {
+          console.log(`✅ Rola driver przypisana dla: ${email}`);
+        }
       }
 
       console.log(`✅ Hasło zmienione dla: ${email}`);
@@ -92,8 +106,20 @@ Deno.serve(async (req) => {
 
       console.log(`✅ Konto utworzone dla: ${email}`);
 
-      // Ensure driver role is assigned for new user
-      if (authUser.user) {
+      // Link auth user to driver profile and ensure driver role
+      if (authUser.user && driver_id) {
+        const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
+          p_user_id: authUser.user.id,
+          p_driver_id: driver_id
+        });
+
+        if (linkError) {
+          console.error('⚠️ Nie udało się połączyć konta z kierowcą:', linkError);
+        } else {
+          console.log(`✅ Konto połączone z kierowcą i rola przypisana dla: ${email}`);
+        }
+      } else if (authUser.user) {
+        // Fallback: tylko przypisz rolę driver jeśli nie ma driver_id
         const { error: roleError } = await supabase
           .from('user_roles')
           .upsert({
