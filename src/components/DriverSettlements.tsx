@@ -17,6 +17,10 @@ interface Settlement {
   period_to: string;
   amounts: any;
   created_at: string;
+  debt_before?: number;
+  debt_payment?: number;
+  debt_after?: number;
+  actual_payout?: number;
 }
 
 interface VisibilitySettings {
@@ -727,12 +731,71 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                       {/* Payout summary */}
                       <div className="border-t bg-primary/10 p-3">
                         <div className="flex justify-between">
-                          <span className="font-semibold">Do wypłaty:</span>
+                          <span className="font-semibold">Wyliczona wypłata:</span>
                           <span className="font-bold text-primary text-lg">
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Debt information */}
+                      {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
+                        <div className="border-t bg-red-50 p-3">
+                          <div className="space-y-2">
+                            <div className="font-semibold text-red-800 mb-2">💳 Zadłużenie</div>
+                            
+                            {settlement.debt_before && settlement.debt_before > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Dług z poprzednich tygodni:</span>
+                                <span className="font-semibold text-red-600">
+                                  -{settlement.debt_before.toFixed(2)} zł
+                                </span>
+                              </div>
+                            )}
+                            
+                            {settlement.debt_payment && settlement.debt_payment > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Spłata długu:</span>
+                                <span className="font-semibold text-green-600">
+                                  -{settlement.debt_payment.toFixed(2)} zł
+                                </span>
+                              </div>
+                            )}
+                            
+                            {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
+                              <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
+                                <span className="text-muted-foreground">Pozostały dług:</span>
+                                <span className="font-semibold text-red-600">
+                                  -{settlement.debt_after.toFixed(2)} zł
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
+                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className={`font-bold text-lg ${(settlement.actual_payout || 0) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                                {(settlement.actual_payout || 0).toFixed(2)} zł
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : payout < 0 ? (
+                        <div className="border-t bg-red-50 p-3">
+                          <div className="space-y-2">
+                            <div className="font-semibold text-red-800 mb-2">⚠️ Uwaga: Ujemna wypłata</div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Kwota zostanie dodana do długu:</span>
+                              <span className="font-bold text-red-600">
+                                {Math.abs(payout).toFixed(2)} zł
+                              </span>
+                            </div>
+                            <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
+                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className="font-bold text-lg text-gray-600">0.00 zł</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );

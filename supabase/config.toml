@@ -39,3 +39,12 @@ verify_jwt = false
 
 [functions.sync-driver-ids]
 verify_jwt = false
+
+[functions.update-driver-debt]
+verify_jwt = false
+
+[functions.rebuild-drivers]
+verify_jwt = false
+
+[functions.sanitize-getrido]
+verify_jwt = false

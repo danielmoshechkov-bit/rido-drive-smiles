@@ -357,6 +357,101 @@ export type Database = {
           },
         ]
       }
+      driver_debt_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at: string
+          description: string | null
+          driver_id: string
+          id: string
+          metadata: Json | null
+          period_from: string
+          period_to: string
+          settlement_id: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at?: string
+          description?: string | null
+          driver_id: string
+          id?: string
+          metadata?: Json | null
+          period_from: string
+          period_to: string
+          settlement_id?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          description?: string | null
+          driver_id?: string
+          id?: string
+          metadata?: Json | null
+          period_from?: string
+          period_to?: string
+          settlement_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_debt_transactions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_debt_transactions_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_debts: {
+        Row: {
+          created_at: string
+          current_balance: number
+          driver_id: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_balance?: number
+          driver_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_balance?: number
+          driver_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_debts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_document_statuses: {
         Row: {
           created_at: string
@@ -1393,10 +1488,14 @@ export type Database = {
       }
       settlements: {
         Row: {
+          actual_payout: number | null
           amounts: Json | null
           city_id: string
           commission_amount: number | null
           created_at: string
+          debt_after: number | null
+          debt_before: number | null
+          debt_payment: number | null
           driver_id: string
           id: string
           net_amount: number | null
@@ -1413,10 +1512,14 @@ export type Database = {
           week_start: string
         }
         Insert: {
+          actual_payout?: number | null
           amounts?: Json | null
           city_id: string
           commission_amount?: number | null
           created_at?: string
+          debt_after?: number | null
+          debt_before?: number | null
+          debt_payment?: number | null
           driver_id: string
           id?: string
           net_amount?: number | null
@@ -1433,10 +1536,14 @@ export type Database = {
           week_start: string
         }
         Update: {
+          actual_payout?: number | null
           amounts?: Json | null
           city_id?: string
           commission_amount?: number | null
           created_at?: string
+          debt_after?: number | null
+          debt_before?: number | null
+          debt_payment?: number | null
           driver_id?: string
           id?: string
           net_amount?: number | null
@@ -1857,7 +1964,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_driver_payout_with_debt: {
+        Args: { p_calculated_payout: number; p_driver_id: string }
+        Returns: {
+          actual_payout: number
+          current_debt: number
+          debt_payment: number
+          remaining_debt: number
+        }[]
+      }
     }
     Enums: {
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"

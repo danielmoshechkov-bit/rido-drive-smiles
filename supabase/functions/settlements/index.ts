@@ -125,17 +125,75 @@ Deno.serve(async (req) => {
     // ========== BATCH UPSERT SETTLEMENTS (ignore duplicates) ==========
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
-      const { error } = await supabase
+      const { data: insertedSettlements, error } = await supabase
         .from('settlements')
         .upsert(settlementsToInsert, { 
           onConflict: 'raw_row_id',
           ignoreDuplicates: true 
-        });
+        })
+        .select('id, driver_id, period_from, period_to');
       if (error) {
         console.error('❌ Błąd upsert:', error);
         throw error;
       }
       console.log('✅ Rozliczenia zapisane');
+      
+      // ========== UPDATE DRIVER DEBTS ==========
+      if (insertedSettlements && insertedSettlements.length > 0) {
+        console.log('💳 Aktualizuję zadłużenia kierowców...');
+        
+        // Grupuj settlements według kierowcy
+        const settlementsByDriver = new Map<string, any[]>();
+        for (const settlement of insertedSettlements) {
+          if (!settlementsByDriver.has(settlement.driver_id)) {
+            settlementsByDriver.set(settlement.driver_id, []);
+          }
+          settlementsByDriver.get(settlement.driver_id)!.push(settlement);
+        }
+        
+        // Dla każdego kierowcy, zaktualizuj dług
+        for (const [driverId, driverSettlements] of settlementsByDriver.entries()) {
+          for (const settlement of driverSettlements) {
+            // Pobierz pełne dane settlement aby obliczyć payout
+            const { data: fullSettlement } = await supabase
+              .from('settlements')
+              .select('*')
+              .eq('id', settlement.id)
+              .single();
+            
+            if (fullSettlement) {
+              // Oblicz calculated_payout (tu musimy zreplikować logikę z DriverSettlements)
+              const amounts = fullSettlement.amounts || {};
+              const calculatedPayout = (amounts.uberNet || 0) + (amounts.boltNet || 0) + (amounts.freenowNet || 0);
+              
+              try {
+                const debtResponse = await fetch(`${supabaseUrl}/functions/v1/update-driver-debt`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseServiceKey}`
+                  },
+                  body: JSON.stringify({
+                    driver_id: driverId,
+                    settlement_id: settlement.id,
+                    period_from: settlement.period_from,
+                    period_to: settlement.period_to,
+                    calculated_payout: calculatedPayout
+                  })
+                });
+                
+                if (!debtResponse.ok) {
+                  console.error(`⚠️ Nie udało się zaktualizować długu dla kierowcy ${driverId}`);
+                }
+              } catch (debtError) {
+                console.error(`⚠️ Błąd aktualizacji długu dla kierowcy ${driverId}:`, debtError);
+              }
+            }
+          }
+        }
+        
+        console.log('✅ Zadłużenia zaktualizowane');
+      }
     }
 
     // ========== KROK 7: UTWÓRZ SETTLEMENT PERIOD ==========
