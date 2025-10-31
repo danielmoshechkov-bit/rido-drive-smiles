@@ -416,8 +416,11 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   const chartData = [
     { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
     { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
-    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#FFA500" }
+    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#EF4444" }
   ];
+
+  console.log('📊 Chart data:', chartData);
+  console.log('💰 Week earnings:', weekData.earnings);
 
   const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
   
@@ -483,31 +486,28 @@ function WeeklyResults({ driverData }: { driverData: any }) {
         <CardContent className="pt-0">
           {/* Diagram wyników */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="rounded-xl shadow-soft">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-h3">Zarobki według platform</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ width: "100%", height: 300 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={100}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Wykres kołowy bez dodatkowego Card */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Zarobki według platform</h3>
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={100}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
             {/* Szczegółowa tabela rozliczeń */}
             <DriverSettlements 
