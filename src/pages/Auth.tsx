@@ -41,6 +41,28 @@ const Auth = () => {
         return;
       }
 
+      // Check user roles and redirect accordingly
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role, fleet_id')
+        .eq('user_id', authData.user.id);
+
+      if (userRoles && userRoles.length > 0) {
+        const roles = userRoles.map((r: any) => r.role);
+        
+        if (roles.includes('admin')) {
+          navigate('/admin/dashboard');
+          return;
+        } else if (roles.includes('fleet_settlement') || roles.includes('fleet_rental')) {
+          navigate('/fleet/dashboard');
+          return;
+        } else if (roles.includes('driver')) {
+          navigate('/driver');
+          return;
+        }
+      }
+
+      // Fallback: Check old system for backwards compatibility
       // Spróbuj znaleźć profil kierowcy przez driver_app_users
       let driverData = null;
       const { data: appUser } = await supabase

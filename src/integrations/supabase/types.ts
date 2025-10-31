@@ -1385,10 +1385,13 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_visible: boolean | null
           name: string
           service_fee: number | null
           tax_percentage: number | null
           updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Insert: {
           base_fee?: number
@@ -1396,10 +1399,13 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_visible?: boolean | null
           name: string
           service_fee?: number | null
           tax_percentage?: number | null
           updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Update: {
           base_fee?: number
@@ -1407,10 +1413,13 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_visible?: boolean | null
           name?: string
           service_fee?: number | null
           tax_percentage?: number | null
           updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -1702,6 +1711,41 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          fleet_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          fleet_id?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          fleet_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_damages: {
         Row: {
           cost: number | null
@@ -1973,8 +2017,18 @@ export type Database = {
           remaining_debt: number
         }[]
       }
+      get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
     }
     Enums: {
+      app_role: "admin" | "fleet_settlement" | "fleet_rental" | "driver"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -2103,6 +2157,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "fleet_settlement", "fleet_rental", "driver"],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
   },

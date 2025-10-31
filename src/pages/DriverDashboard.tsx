@@ -440,14 +440,9 @@ function WeeklyResults({ driverData }: { driverData: any }) {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2 mb-4">
             <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
-            <SettlementPlanSelector 
-              driverData={driverData} 
-              currentPlanId={null} 
-              onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} 
-            />
           </div>
           
-          {/* Kontrolki rok i okres */}
+          {/* Kontrolki rok, okres i plan */}
           <div className="flex gap-4 items-end flex-wrap">
             <div className="flex-shrink-0">
               <label className="text-xs text-muted-foreground block mb-1">Rok</label>
@@ -481,6 +476,12 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                 className="w-full"
               />
             </div>
+            
+            <SettlementPlanSelector 
+              driverData={driverData} 
+              currentPlanId={null} 
+              onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} 
+            />
           </div>
         </CardHeader>
         <CardContent className="pt-0">

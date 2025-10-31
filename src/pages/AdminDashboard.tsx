@@ -18,6 +18,7 @@ import RidoSettings from "@/components/RidoSettings";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
 import { SettlementPlansManagement } from "@/components/SettlementPlansManagement";
+import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -211,6 +212,12 @@ const AdminDashboard = () => {
               Dokumenty
             </TabsTrigger>
             <TabsTrigger 
+              value="fleet-accounts" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Konta flotowe
+            </TabsTrigger>
+            <TabsTrigger 
               value="plans" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
@@ -353,6 +360,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="plans" className="space-y-6">
             <SettlementPlansManagement />
+          </TabsContent>
+
+          <TabsContent value="fleet-accounts" className="space-y-6">
+            <FleetAccountsManagement />
           </TabsContent>
 
           <TabsContent value="visibility" className="space-y-6">

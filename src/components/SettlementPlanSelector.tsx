@@ -23,10 +23,15 @@ export const SettlementPlanSelector = ({
   }, []);
 
   const loadPlans = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
     const { data, error } = await supabase
       .from('settlement_plans')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('is_visible', true)
+      .or(`valid_from.is.null,valid_from.lte.${today}`)
+      .or(`valid_to.is.null,valid_to.gte.${today}`);
 
     if (!error && data) {
       setPlans(data);

@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import DriverDashboard from "./pages/DriverDashboard";
+import FleetDashboard from "./pages/FleetDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
 import SettlementSheetView from "./pages/SettlementSheetView";
 import SystemAlerts from "./pages/SystemAlerts";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
           <Route path="/admin/settlement/:id" element={<SettlementSheet />} />
