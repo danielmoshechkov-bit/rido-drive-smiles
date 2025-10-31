@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import theme and chat styles - must be before other CSS rules */
+@import './styles/theme.css';
+@import './styles/chat.css';
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -119,10 +123,6 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
-
-/* Import theme and chat styles */
-@import './styles/theme.css';
-@import './styles/chat.css';
 
 /* Floating animations for background elements and mascots */
 @keyframes float-slow {
