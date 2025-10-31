@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +29,7 @@ import { Loader2 } from "lucide-react";
 const AdminDashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
@@ -37,6 +39,18 @@ const AdminDashboard = () => {
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
+
+  // Admin role guard - redirect if not admin
+  useEffect(() => {
+    if (!roleLoading && !isAdmin) {
+      toast({
+        title: "Brak dostępu",
+        description: "Nie masz uprawnień administratora",
+        variant: "destructive"
+      });
+      navigate('/auth');
+    }
+  }, [roleLoading, isAdmin, navigate]);
 
   // Auto-select Warszawa or first city when cities load
   useEffect(() => {
@@ -370,11 +384,11 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="fleet-accounts" className="space-y-6">
-            <FleetAccountsManagement />
+            {activeTab === 'fleet-accounts' && <FleetAccountsManagement />}
           </TabsContent>
 
           <TabsContent value="user-roles" className="space-y-6">
-            <UserRolesManager />
+            {activeTab === 'user-roles' && <UserRolesManager />}
           </TabsContent>
 
           <TabsContent value="visibility" className="space-y-6">

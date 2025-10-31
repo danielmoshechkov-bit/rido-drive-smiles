@@ -38,6 +38,7 @@ import { pl } from 'date-fns/locale';
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
@@ -86,19 +87,43 @@ const DriverDashboard = () => {
       }
       setUser(session.user);
       
-      // Standardowe pobieranie dla autentycznych użytkowników
-      const { data } = await supabase
+      // Pobierz driver_app_users BEZ inner join - to pozwoli załadować stronę nawet gdy RLS blokuje drivers
+      const { data: driverAppUser, error: dauError } = await supabase
         .from("driver_app_users")
-        .select(`
-          *,
-          drivers!inner(*)
-        `)
+        .select("driver_id, city_id")
         .eq("user_id", session.user.id)
-        .single();
-        
-      if (data) {
-        setDriverData(data);
+        .maybeSingle();
+      
+      if (dauError) {
+        console.error("Błąd ładowania driver_app_users:", dauError);
+        toast({
+          title: "Błąd",
+          description: "Nie można załadować danych użytkownika",
+        });
+        return;
       }
+        
+      if (!driverAppUser) {
+        toast({
+          title: "Brak powiązania",
+          description: "Twoje konto nie jest połączone z profilem kierowcy. Skontaktuj się z administratorem.",
+        });
+        return;
+      }
+
+      // Osobno spróbuj pobrać dane z drivers - jeśli RLS zablokuje, ustaw pusty obiekt
+      const { data: driverDetails } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("id", driverAppUser.driver_id)
+        .maybeSingle();
+      
+      // Ustaw dane nawet jeśli drivers jest puste - dzięki temu strona się załaduje
+      setDriverData({
+        driver_id: driverAppUser.driver_id,
+        drivers: driverDetails || {},
+        city_id: driverAppUser.city_id
+      });
     };
 
     checkAuth();
@@ -139,7 +164,7 @@ const DriverDashboard = () => {
             />
             <h1 className="text-xl font-bold text-primary">Panel Kierowcy</h1>
             <span className="text-muted-foreground">
-              - {driverData.drivers.first_name} {driverData.drivers.last_name}
+              - {driverData.drivers?.first_name || 'Kierowca'} {driverData.drivers?.last_name || ''}
             </span>
           </div>
           <div className="flex items-center space-x-4">
