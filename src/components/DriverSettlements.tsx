@@ -595,8 +595,9 @@ export const DriverSettlements = ({
                       Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
 
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {platformData.length > 0 && (
-                      <Card>
+                      <Card className="h-full">
                         <CardHeader className="pb-2">
                           <h4 className="text-sm font-medium">Zarobki według platform</h4>
                         </CardHeader>
@@ -818,6 +819,7 @@ export const DriverSettlements = ({
                         </div>
                       ) : null}
                     </div>
+                  </div>
                   </div>
                 );
             })}
