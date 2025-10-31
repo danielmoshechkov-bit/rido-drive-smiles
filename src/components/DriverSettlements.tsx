@@ -115,14 +115,23 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     if (isLegacyFormat) {
       const boltGross = amounts.boltGross ?? 0;
       const boltCash = amounts.boltCash ?? amounts.bolt_cash ?? 0;
+      const uberBase = amounts.uber ?? amounts.uberBase ?? 0;
+      
+      // Oblicz podatek 8% osobno dla każdej platformy od ich podstawy
       bolt_tax_8 = boltGross * 0.08;
+      uber_tax_8 = uberBase * 0.08;
+      
       // Old boltNet = gross - commission (gotówka NIE odjęta)
       // Correct bolt_net = old boltNet - tax - cash
       bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8 - boltCash;
       
-      // Jeśli nie ma Ubera, nie przypisuj podatku Bolt do Ubera
-      const hasUberData = (amounts.uber ?? amounts.uberBase ?? 0) > 0;
-      uber_tax_8 = hasUberData ? (amounts.tax ?? 0) : 0;
+      console.log('🔧 Legacy mode - calculated taxes:', {
+        boltGross,
+        bolt_tax_8,
+        uberBase,
+        uber_tax_8,
+        tax_field_ignored: amounts.tax
+      });
     }
     
     return {
