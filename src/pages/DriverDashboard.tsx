@@ -416,7 +416,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
   const chartData = [
     { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
     { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
-    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#EF4444" }
+    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#FFA500" }
   ];
 
   const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
@@ -435,7 +435,7 @@ function WeeklyResults({ driverData }: { driverData: any }) {
     <div className="space-y-6">
       <Card className="rounded-xl shadow-soft">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center justify-between gap-2 mb-4">
             <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
             <SettlementPlanSelector 
               driverData={driverData} 
@@ -496,8 +496,12 @@ function WeeklyResults({ driverData }: { driverData: any }) {
                         dataKey="value"
                         nameKey="name"
                         outerRadius={100}
-                        label={({ name, value }) => `${name}: ${value} zł`}
-                      />
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
                       <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
                     </PieChart>
                   </ResponsiveContainer>
