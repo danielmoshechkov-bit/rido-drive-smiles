@@ -130,18 +130,19 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? amounts.uberCash ?? 0;
       
       if (uberPayoutD < 0) {
-        // Subtract negative number = add positive
+        // Subtract negative number = add positive to the base
         // Example: 1535.45 - (-7.06) = 1542.51
         uberBase = uberCashF - uberPayoutD;
         uber_base_corrected = uberBase;
-        uber_cash_corrected = uberBase; // Both base and cash get the same correction
+        // Cash actually collected by driver should DECREASE payout → keep it negative
+        uber_cash_corrected = -uberCashF;
         
-        console.log('🔧 Uber negative balance fix:', {
+        console.log('🔧 Uber negative balance fix (legacy):', {
           uberPayoutD,
           uberCashF,
           uberBase_before: amounts.uber ?? amounts.uberBase ?? 0,
           uberBase_corrected: uberBase,
-          uberCash_corrected: uberBase
+          uberCash_corrected: uber_cash_corrected
         });
       }
       
@@ -153,7 +154,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       // Oblicz netto dla każdej platformy
       // Old boltNet = gross - commission (gotówka NIE odjęta)
       // Correct bolt_net = old boltNet - tax - cash
-      bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8 - boltCash;
+      bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8;
       uber_net = uberBase - uber_tax_8; // Now calculates from corrected base
       freenow_net = (amounts.freenowNet ?? 0) - freenow_tax_8;
       
@@ -430,19 +431,23 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
     const fuel = amounts.fuel || 0;
     const fuelVatRefund = amounts.fuel_vat_refund || 0;
     
+    // Cash collected on platforms (always reduce payout)
+    const cashTotal = Math.abs(amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
+    
     // Use driver plan or default to 50 PLN base fee
     const planFee = driverPlan?.base_fee ?? 50;
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // FORMUŁA WYPŁATY (dla planu "50+8%"):
-    // WYPŁATA = UBER_NET + BOLT_NET + FREENOW_NET + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
-    const payout = uberNet + boltNet + freenowNet + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
+    // WYPŁATA = (UBER_NET + BOLT_NET + FREENOW_NET) - GOTÓWKA_POBRANA + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
+    const payout = uberNet + boltNet + freenowNet - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
     
     console.log(`💰 Payout calculation (Plan: ${planName}):
       Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})
       Bolt Net (after 8% tax): ${boltNet.toFixed(2)} (tax: ${boltTax.toFixed(2)})
       FreeNow Net (after 8% tax): ${freenowNet.toFixed(2)} (tax: ${freenowTax.toFixed(2)})
       Total Tax 8%: ${totalTax.toFixed(2)}
+      Cash collected (reduces payout): -${cashTotal.toFixed(2)}
       Fuel: -${fuel.toFixed(2)}
       VAT refund: +${fuelVatRefund.toFixed(2)}
       Plan fee: -${planFee.toFixed(2)}
@@ -654,13 +659,13 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">Gotówka pobrana</td>
                               <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.uber_cash > 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                                {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.bolt_cash > 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                                {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.freenow_cash_f > 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                                {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                           </tbody>
@@ -674,7 +679,7 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
                           <span className="font-bold text-destructive">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
-                        {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) > 0 && (
+                        {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Razem gotówka pobrana:</span>
                             <span className="font-medium text-blue-600">
