@@ -484,39 +484,13 @@ function WeeklyResults({ driverData }: { driverData: any }) {
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {/* Diagram wyników */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Wykres kołowy bez dodatkowego Card */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Zarobki według platform</h3>
-              <div style={{ width: "100%", height: 300 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={100}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [`${value} zł`, 'Zarobki']} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Szczegółowa tabela rozliczeń */}
-            <DriverSettlements 
-              driverId={driverData.driver_id}
-              preSelectedYear={selectedYear}
-              preSelectedWeek={selectedWeek}
-              hideControls={true}
-            />
-          </div>
+          {/* Szczegółowa tabela rozliczeń z wbudowanym wykresem */}
+          <DriverSettlements 
+            driverId={driverData.driver_id}
+            preSelectedYear={selectedYear}
+            preSelectedWeek={selectedWeek}
+            hideControls={true}
+          />
         </CardContent>
       </Card>
     </div>

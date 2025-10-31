@@ -586,7 +586,7 @@ export const DriverSettlements = ({
                 const platformData = [
                   { name: 'Uber', value: amounts.uber_net || 0, fill: '#000000' },
                   { name: 'Bolt', value: amounts.bolt_net || 0, fill: '#34D399' },
-                  { name: 'FreeNow', value: amounts.freenow_net || 0, fill: '#FFA500' }
+                  { name: 'FreeNow', value: amounts.freenow_net || 0, fill: '#EF4444' }
                 ].filter(item => item.value > 0);
 
                 return (
