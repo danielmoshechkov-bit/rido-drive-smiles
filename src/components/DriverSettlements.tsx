@@ -126,8 +126,8 @@ export const DriverSettlements = ({ driverId }: DriverSettlementsProps) => {
       // Fix for negative Uber balance (column D)
       // When uber_payout_d < 0, it means Uber owes money to the driver
       // This amount should be ADDED to the base and cash, not subtracted
-      const uberPayoutD = amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0;
-      const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? 0;
+      const uberPayoutD = amounts.uber_payout_d ?? amounts.uberPayoutD ?? amounts.uberCashless ?? 0;
+      const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? amounts.uberCash ?? 0;
       
       if (uberPayoutD < 0) {
         // Subtract negative number = add positive
