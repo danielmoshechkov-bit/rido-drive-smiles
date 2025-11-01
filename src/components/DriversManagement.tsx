@@ -344,13 +344,14 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             {driver.registration_date && (
                               <NewDriverBadge registrationDate={driver.registration_date} />
                             )}
-                              <div className="flex items-center gap-2">
-                               <DriverVehicleSelector
-                                 driverId={driver.id}
-                                 fleetId={(driver as any).fleet_id}
-                                 onVehicleUpdate={refetch}
-                                 hideFleetName={mode === 'fleet'}
-                               />
+                               <div className="flex items-center gap-2">
+                                <DriverVehicleSelector
+                                  driverId={driver.id}
+                                  currentVehicleId={driver.vehicle_assignment?.status === 'active' && !driver.vehicle_assignment?.unassigned_at ? driver.vehicle_assignment?.vehicle_id : null}
+                                  fleetId={(driver as any).fleet_id}
+                                  onVehicleUpdate={refetch}
+                                  hideFleetName={mode === 'fleet'}
+                                />
                                {driver.vehicle_assignment?.assigned_at && (
                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
                                    <span>od:</span>

@@ -93,25 +93,42 @@ export const useDrivers = (params?: { cityId?: string; fleetId?: string }) => {
 
       if (error) throw error;
       
-      const driversWithPlatforms = (data || []).map(driver => ({
-        ...driver,
-        platform_ids: driver.driver_platform_ids || [],
-        document_statuses: driver.driver_document_statuses || [],
-        vehicle_assignment: driver.driver_vehicle_assignments?.[0] ? {
-          vehicle_id: driver.driver_vehicle_assignments[0].vehicle_id,
-          fleet_id: driver.driver_vehicle_assignments[0].fleet_id,
-          fleet_name: driver.driver_vehicle_assignments[0].fleets?.name || null,
-          status: driver.driver_vehicle_assignments[0].status,
-          assigned_at: driver.driver_vehicle_assignments[0].assigned_at,
-          unassigned_at: driver.driver_vehicle_assignments[0].unassigned_at,
-          vehicle: driver.driver_vehicle_assignments[0].vehicles ? {
-            plate: driver.driver_vehicle_assignments[0].vehicles.plate,
-            brand: driver.driver_vehicle_assignments[0].vehicles.brand,
-            model: driver.driver_vehicle_assignments[0].vehicles.model,
-            fleet_id: driver.driver_vehicle_assignments[0].vehicles.fleet_id
+      const driversWithPlatforms = (data || []).map(driver => {
+        const assignments = driver.driver_vehicle_assignments || [];
+        
+        // Sort assignments by assigned_at descending
+        const sorted = [...assignments].sort((a, b) => 
+          new Date(b.assigned_at || 0).getTime() - new Date(a.assigned_at || 0).getTime()
+        );
+        
+        // Find active assignment (status='active' AND unassigned_at IS NULL)
+        const activeAssignment = sorted.find(a => 
+          a.status === 'active' && (a.unassigned_at === null || a.unassigned_at === undefined)
+        );
+        
+        // Use active assignment, or fallback to most recent historical
+        const chosenAssignment = activeAssignment || sorted[0] || null;
+        
+        return {
+          ...driver,
+          platform_ids: driver.driver_platform_ids || [],
+          document_statuses: driver.driver_document_statuses || [],
+          vehicle_assignment: chosenAssignment ? {
+            vehicle_id: chosenAssignment.vehicle_id,
+            fleet_id: chosenAssignment.fleet_id,
+            fleet_name: chosenAssignment.fleets?.name || null,
+            status: chosenAssignment.status,
+            assigned_at: chosenAssignment.assigned_at,
+            unassigned_at: chosenAssignment.unassigned_at,
+            vehicle: chosenAssignment.vehicles ? {
+              plate: chosenAssignment.vehicles.plate,
+              brand: chosenAssignment.vehicles.brand,
+              model: chosenAssignment.vehicles.model,
+              fleet_id: chosenAssignment.vehicles.fleet_id
+            } : null
           } : null
-        } : null
-      }));
+        };
+      });
 
       setDrivers(driversWithPlatforms);
     } catch (err) {
