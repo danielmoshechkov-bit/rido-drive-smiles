@@ -72,11 +72,6 @@ export const DriverSettlements = ({
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
-  const [driverInfo, setDriverInfo] = useState<{
-    firstName: string | null;
-    lastName: string | null;
-    fleetName: string | null;
-  }>({ firstName: null, lastName: null, fleetName: null });
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -401,26 +396,6 @@ export const DriverSettlements = ({
     }
   };
 
-  const loadDriverInfo = async () => {
-    if (!driverId) return;
-
-    const { data, error } = await supabase
-      .from('drivers')
-      .select('first_name, last_name, fleet_id, fleets(name)')
-      .eq('id', driverId)
-      .maybeSingle();
-
-    if (!error && data) {
-      const fleetData = data.fleets as any;
-      setDriverInfo({
-        firstName: data.first_name || null,
-        lastName: data.last_name || null,
-        fleetName: fleetData?.name || null
-      });
-    } else {
-      setDriverInfo({ firstName: null, lastName: null, fleetName: null });
-    }
-  };
 
   const loadSettlementPlans = async () => {
     const { data, error } = await supabase
@@ -484,7 +459,6 @@ export const DriverSettlements = ({
     loadDriverPlan();
     loadRentalFee();
     loadSettlementPlans();
-    loadDriverInfo();
   }, [driverId]);
 
   useEffect(() => {
@@ -632,20 +606,6 @@ export const DriverSettlements = ({
 
   return (
     <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
-      {!hideControls && driverInfo.firstName && (
-        <div className="bg-muted/50 border-b px-6 py-2">
-          <div className="flex items-center justify-center gap-2 text-sm">
-            <span className="font-semibold">Panel kierowcy -</span>
-            <span>{driverInfo.firstName} {driverInfo.lastName}</span>
-            {driverInfo.fleetName && (
-              <>
-                <span>-</span>
-                <span className="font-semibold">Flota: {driverInfo.fleetName}</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
       {!hideControls && (
         <CardHeader className="py-3">
           <div className="flex items-center gap-4 flex-nowrap">

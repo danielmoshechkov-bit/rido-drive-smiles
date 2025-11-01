@@ -24,6 +24,7 @@ const DriverDashboard = () => {
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
+  const [fleetName, setFleetName] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -96,7 +97,7 @@ const DriverDashboard = () => {
       // Osobno spróbuj pobrać dane z drivers - jeśli RLS zablokuje, ustaw pusty obiekt
       const { data: driverDetails } = await supabase
         .from("drivers")
-        .select("*")
+        .select("*, fleets(name)")
         .eq("id", driverAppUser.driver_id)
         .maybeSingle();
       
@@ -106,6 +107,19 @@ const DriverDashboard = () => {
         drivers: driverDetails || {},
         city_id: driverAppUser.city_id
       });
+
+      // Load fleet name if driver has a fleet
+      if (driverDetails?.fleet_id) {
+        const { data: fleetData } = await supabase
+          .from("fleets")
+          .select("name")
+          .eq("id", driverDetails.fleet_id)
+          .single();
+        
+        if (fleetData) {
+          setFleetName(fleetData.name);
+        }
+      }
     };
 
     checkAuth();
@@ -144,10 +158,23 @@ const DriverDashboard = () => {
               alt="Get RIDO Logo" 
               className="h-8 w-8"
             />
-            <h1 className="text-xl font-bold text-primary">Panel Kierowcy</h1>
-            <span className="text-muted-foreground">
-              - {driverData.drivers?.first_name || 'Kierowca'} {driverData.drivers?.last_name || ''}
-            </span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-primary">Panel kierowcy</span>
+              {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
+                <>
+                  <span className="text-muted-foreground">-</span>
+                  <span className="font-medium text-foreground">
+                    {driverData.drivers.first_name} {driverData.drivers.last_name}
+                  </span>
+                </>
+              )}
+              {fleetName && (
+                <>
+                  <span className="text-muted-foreground">-</span>
+                  <span className="font-medium text-primary">Flota: {fleetName}</span>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             {driverData?.driver_id && (

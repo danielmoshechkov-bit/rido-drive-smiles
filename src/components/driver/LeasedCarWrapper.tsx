@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LeasedCarCard } from "./LeasedCarCard";
+import { VehicleAssignmentHistory } from "./VehicleAssignmentHistory";
 
 interface LeasedCarWrapperProps {
   driverData: any;
@@ -10,6 +11,7 @@ interface VehicleAssignment {
   vehicle_id: string;
   assigned_at: string;
   unassigned_at?: string;
+  status: string;
   vehicles: {
     brand: string;
     model: string;
@@ -24,25 +26,29 @@ interface VehicleAssignment {
       address?: string;
       contact_name?: string;
       phone?: string;
+      contact_phone_for_drivers?: string;
     };
   };
 }
 
 export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
-  const [assignment, setAssignment] = useState<VehicleAssignment | null>(null);
+  const [activeAssignment, setActiveAssignment] = useState<VehicleAssignment | null>(null);
+  const [historicalAssignments, setHistoricalAssignments] = useState<VehicleAssignment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadVehicleAssignment = async () => {
+    const loadVehicleAssignments = async () => {
       try {
-        console.log('🚗 [LeasedCarWrapper] Loading vehicle assignment for driver_id:', driverData.driver_id);
+        console.log('🚗 [LeasedCarWrapper] Loading vehicle assignments for driver_id:', driverData.driver_id);
         
+        // Load ALL assignments (active and historical)
         const { data, error } = await supabase
           .from("driver_vehicle_assignments")
           .select(`
             vehicle_id,
             assigned_at,
             unassigned_at,
+            status,
             vehicles (
               brand,
               model,
@@ -68,22 +74,29 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
             )
           `)
           .eq("driver_id", driverData.driver_id)
-          .is("unassigned_at", null)
-          .eq("status", "active")
-          .order("assigned_at", { ascending: false })
-          .limit(1)
-          .single();
+          .order("assigned_at", { ascending: false });
 
         console.log('🚗 [LeasedCarWrapper] Query result:', { data, error });
 
-        if (error && error.code !== 'PGRST116') {
-          console.error("❌ [LeasedCarWrapper] Error loading vehicle assignment:", error);
-        } else if (data) {
-          console.log('✅ [LeasedCarWrapper] Found assignment:', data);
-          setAssignment(data as VehicleAssignment);
+        if (error) {
+          console.error("❌ [LeasedCarWrapper] Error loading vehicle assignments:", error);
+        } else if (data && data.length > 0) {
+          console.log('✅ [LeasedCarWrapper] Found assignments:', data);
+          
+          // Separate active and historical assignments
+          const active = data.find(
+            (a: VehicleAssignment) => a.status === 'active' && a.unassigned_at === null
+          );
+          const historical = data.filter(
+            (a: VehicleAssignment) => a.status === 'inactive' || a.unassigned_at !== null
+          );
+
+          setActiveAssignment(active || null);
+          setHistoricalAssignments(historical);
         } else {
-          console.log('ℹ️ [LeasedCarWrapper] No active assignment found');
-          setAssignment(null);
+          console.log('ℹ️ [LeasedCarWrapper] No assignments found');
+          setActiveAssignment(null);
+          setHistoricalAssignments([]);
         }
       } catch (error) {
         console.error("❌ [LeasedCarWrapper] Exception:", error);
@@ -93,10 +106,10 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
     };
 
     if (driverData.driver_id) {
-      loadVehicleAssignment();
+      loadVehicleAssignments();
       
       // Poll every 5 seconds to check for new assignments
-      const interval = setInterval(loadVehicleAssignment, 5000);
+      const interval = setInterval(loadVehicleAssignments, 5000);
       return () => clearInterval(interval);
     }
   }, [driverData.driver_id]);
@@ -114,11 +127,17 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
   }
 
   return (
-    <LeasedCarCard
-      vehicle={assignment?.vehicles || null}
-      assignment={assignment}
-      fleet={assignment?.vehicles?.fleets}
-      readOnlyRent={true}
-    />
+    <>
+      <LeasedCarCard
+        vehicle={activeAssignment?.vehicles || null}
+        assignment={activeAssignment}
+        fleet={activeAssignment?.vehicles?.fleets}
+        readOnlyRent={true}
+      />
+      
+      {historicalAssignments.length > 0 && (
+        <VehicleAssignmentHistory assignments={historicalAssignments} />
+      )}
+    </>
   );
 };
