@@ -1657,6 +1657,7 @@ export type Database = {
           created_at: string
           description: string | null
           driver_id: string | null
+          fleet_id: string | null
           id: string
           import_job_id: string | null
           metadata: Json | null
@@ -1671,6 +1672,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           driver_id?: string | null
+          fleet_id?: string | null
           id?: string
           import_job_id?: string | null
           metadata?: Json | null
@@ -1685,6 +1687,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           driver_id?: string | null
+          fleet_id?: string | null
           id?: string
           import_job_id?: string | null
           metadata?: Json | null
@@ -1700,6 +1703,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_alerts_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
             referencedColumns: ["id"]
           },
           {

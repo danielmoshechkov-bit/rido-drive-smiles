@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface SettlementsManagementProps {
   cityId: string;
   cityName: string;
+  userType?: 'admin' | 'fleet';
 }
 
 interface Settlement {
@@ -76,7 +77,8 @@ const getSunday = (date: Date): Date => {
   return endOfWeek(date, { weekStartsOn: 1 });
 };
 
-export const SettlementsManagement = ({ cityId, cityName }: SettlementsManagementProps) => {
+export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: SettlementsManagementProps) => {
+  const isFleetUser = userType === 'fleet';
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));

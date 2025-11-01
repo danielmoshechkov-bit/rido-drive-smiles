@@ -11,9 +11,13 @@ type Props = {
   onClose: () => void;
   onSuccess: (vehicleId: string) => void;
   cityId?: string | null;
+  fleetId?: string | null;
+  fleetName?: string;
+  userType?: 'admin' | 'fleet';
 };
 
-export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
+export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, fleetName, userType = 'admin' }: Props) {
+  const isFleetUser = userType === 'fleet' && fleetId;
   const [loading, setLoading] = useState(false);
 
   const [plate, setPlate] = useState("");
@@ -23,7 +27,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
   const [odometer, setOdometer] = useState<number | "">("");
-  const [ownerName, setOwnerName] = useState("");
+  const [ownerName, setOwnerName] = useState(fleetName || "");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
 
@@ -47,6 +51,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
           odometer: 0,
           status: "aktywne",
           owner_name: ownerName || null,
+          fleet_id: isFleetUser ? fleetId : null,
           ...(cityId ? { city_id: cityId } : {})
         }])
         .select("id")
@@ -121,7 +126,18 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId }: Props) {
           </div>
           <div>
             <Label>Właściciel / Flota (nazwa spółki)</Label>
-            <Input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="np. RIDO Sp. z o.o." />
+            <Input 
+              value={ownerName} 
+              onChange={(e) => setOwnerName(e.target.value)} 
+              placeholder="np. RIDO Sp. z o.o."
+              disabled={isFleetUser}
+              className={isFleetUser ? 'bg-muted cursor-not-allowed' : ''}
+            />
+            {isFleetUser && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Auto zostanie automatycznie przypisane do Twojej floty
+              </p>
+            )}
           </div>
 
           <div>

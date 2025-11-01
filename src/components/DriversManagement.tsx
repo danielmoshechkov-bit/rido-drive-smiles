@@ -32,6 +32,8 @@ interface DriversManagementProps {
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showFleetAddModal, setShowFleetAddModal] = useState(false);
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);

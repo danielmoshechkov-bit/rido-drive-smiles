@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent } from "@/components/ui/tabs";
+import { UniversalTabBar } from "@/components/UniversalTabBar";
+import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { CitySelector } from "@/components/CitySelector";
 import { CSVUpload } from "@/components/CSVUpload";
 import { useCities, City } from "@/hooks/useCities";
@@ -445,7 +447,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
               </Card>
             </TabsContent>
           )}
-        </Tabs>
+        </UniversalTabBar>
       </div>
     </div>
   );
