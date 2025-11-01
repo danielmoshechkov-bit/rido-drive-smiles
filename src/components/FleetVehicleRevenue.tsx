@@ -31,21 +31,39 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
   const [customPeriodTo, setCustomPeriodTo] = useState<string>('');
 
   const getWeekDates = (weekOffset: number = 0) => {
-    const today = new Date();
-    const targetDate = subWeeks(today, weekOffset);
-    const start = startOfWeek(targetDate, { weekStartsOn: 1 });
-    const end = endOfWeek(targetDate, { weekStartsOn: 1 });
-    return {
-      from: format(start, 'yyyy-MM-dd'),
-      to: format(end, 'yyyy-MM-dd')
-    };
+    try {
+      const today = new Date();
+      const targetDate = subWeeks(today, weekOffset);
+      const start = startOfWeek(targetDate, { weekStartsOn: 1 });
+      const end = endOfWeek(targetDate, { weekStartsOn: 1 });
+      
+      // Validate dates before formatting
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new Error('Invalid date');
+      }
+      
+      return {
+        from: format(start, 'yyyy-MM-dd'),
+        to: format(end, 'yyyy-MM-dd')
+      };
+    } catch (error) {
+      console.error('Error calculating week dates:', error);
+      // Fallback to current week
+      const today = new Date();
+      const start = startOfWeek(today, { weekStartsOn: 1 });
+      const end = endOfWeek(today, { weekStartsOn: 1 });
+      return {
+        from: format(start, 'yyyy-MM-dd'),
+        to: format(end, 'yyyy-MM-dd')
+      };
+    }
   };
 
   const getPeriodDates = () => {
     if (selectedWeek === 'custom' && customPeriodFrom && customPeriodTo) {
       return { from: customPeriodFrom, to: customPeriodTo };
     }
-    const weekOffset = selectedWeek === 'current' ? 0 : parseInt(selectedWeek);
+    const weekOffset = selectedWeek === 'current' ? 0 : (parseInt(selectedWeek) || 0);
     return getWeekDates(weekOffset);
   };
 
@@ -129,7 +147,20 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
     return 'text-muted-foreground';
   };
 
-  const { from, to } = getPeriodDates();
+  const periodDates = getPeriodDates();
+  const from = periodDates.from;
+  const to = periodDates.to;
+
+  // Safe date formatting with validation
+  const formatPeriodDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return format(date, 'dd MMM yyyy', { locale: pl });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <Card>
@@ -172,7 +203,7 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
           </div>
         )}
         <p className="text-sm text-muted-foreground mt-2">
-          Okres: {format(new Date(from), 'dd MMM yyyy', { locale: pl })} - {format(new Date(to), 'dd MMM yyyy', { locale: pl })}
+          Okres: {formatPeriodDate(from)} - {formatPeriodDate(to)}
         </p>
       </CardHeader>
       <CardContent>
