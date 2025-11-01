@@ -19,6 +19,7 @@ import { pl } from "date-fns/locale";
 
 interface VehicleListProps {
   driverId: string;
+  fleetId?: string | null;
 }
 
 interface Vehicle {
@@ -46,7 +47,7 @@ interface Vehicle {
   }>;
 }
 
-export const VehicleList = ({ driverId }: VehicleListProps) => {
+export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);

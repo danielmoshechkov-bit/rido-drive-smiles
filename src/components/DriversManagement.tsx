@@ -363,14 +363,18 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                       </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">
-                          <div className="flex items-center gap-2">
+                           <div className="flex items-center gap-2">
                             <Phone size={14} />
                             <ChevronDown className="h-3 w-3 text-primary" />
                             {driver.phone ? (
-                              <InlineEdit
-                                value={driver.phone}
-                                onSave={(value) => updateDriverField(driver.id, 'phone', value)}
-                              />
+                              mode === 'admin' ? (
+                                <InlineEdit
+                                  value={driver.phone}
+                                  onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                                />
+                              ) : (
+                                <span>{driver.phone}</span>
+                              )
                             ) : (
                               <span className="text-red-500 text-xs">Brak telefonu</span>
                             )}
@@ -380,10 +384,14 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             <Mail size={14} />
                             <ChevronDown className="h-3 w-3 text-primary" />
                             {driver.email ? (
-                              <InlineEdit
-                                value={driver.email}
-                                onSave={(value) => updateDriverField(driver.id, 'email', value)}
-                              />
+                              mode === 'admin' ? (
+                                <InlineEdit
+                                  value={driver.email}
+                                  onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                                />
+                              ) : (
+                                <span>{driver.email}</span>
+                              )
                             ) : (
                               <span className="text-red-500 text-xs">Brak e-maila</span>
                             )}
@@ -404,40 +412,44 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                       >
                         <DollarSign size={14} />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingPlatformIdsDriver(driver);
-                        }}
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                        title="Edytuj IDs platform"
-                      >
-                        ID
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingDriver(driver);
-                        }}
-                        className="text-primary hover:text-primary/80 hover:bg-primary/10"
-                      >
-                        <Edit size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
-                        }}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+                      {mode === 'admin' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingPlatformIdsDriver(driver);
+                            }}
+                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                            title="Edytuj IDs platform"
+                          >
+                            ID
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingDriver(driver);
+                            }}
+                            className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                          >
+                            <Edit size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </>
+                      )}
                       {expandedDrivers.has(driver.id) ? (
                         <ChevronUp size={16} className="text-muted-foreground" />
                       ) : (

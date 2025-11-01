@@ -167,20 +167,29 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
             )}
           </div>
 
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">ID Platform</h4>
-            <div className="space-y-3">
-              {platforms.map(platform => (
-                <PlatformIdEditor
-                  key={platform}
-                  driverId={driver.id}
-                  platform={platform}
-                  currentId={getPlatformId(platform)}
-                  onUpdate={onUpdate}
-                />
-              ))}
-            </div>
-          </div>
+      <div className="space-y-3">
+        <h4 className="font-medium text-sm">ID Platform</h4>
+        <div className="space-y-3">
+          {mode === 'admin' ? (
+            platforms.map(platform => (
+              <PlatformIdEditor
+                key={platform}
+                driverId={driver.id}
+                platform={platform}
+                currentId={getPlatformId(platform)}
+                onUpdate={onUpdate}
+              />
+            ))
+          ) : (
+            platforms.map(platform => (
+              <div key={platform} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                <span className="text-sm font-medium uppercase w-20">{platform}:</span>
+                <span className="text-sm">{getPlatformId(platform) || '—'}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Sposób rozliczenia</h4>

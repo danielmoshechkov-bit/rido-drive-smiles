@@ -11,6 +11,7 @@ interface AssignDriverModalProps {
   onClose: () => void;
   vehicleId: string;
   onAssigned: () => void;
+  fleetId?: string | null;
 }
 
 interface Driver {
@@ -22,7 +23,7 @@ interface Driver {
   getrido_id: string | null;
 }
 
-export function AssignDriverModal({ isOpen, onClose, vehicleId, onAssigned }: AssignDriverModalProps) {
+export function AssignDriverModal({ isOpen, onClose, vehicleId, onAssigned, fleetId }: AssignDriverModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,11 +37,17 @@ export function AssignDriverModal({ isOpen, onClose, vehicleId, onAssigned }: As
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('drivers')
         .select('id, first_name, last_name, email, phone, getrido_id')
-        .or(`phone.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,getrido_id.ilike.%${searchQuery}%`)
-        .limit(10);
+        .or(`phone.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,getrido_id.ilike.%${searchQuery}%`);
+
+      // Filter by fleet if fleetId is provided (for fleet users)
+      if (fleetId) {
+        query = query.eq('fleet_id', fleetId);
+      }
+
+      const { data, error } = await query.limit(10);
 
       if (error) throw error;
       setDrivers(data || []);
