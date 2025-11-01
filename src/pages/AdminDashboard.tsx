@@ -13,6 +13,7 @@ import { useCities, City } from "@/hooks/useCities";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriversManagement } from "@/components/DriversManagement";
 import { SettlementsManagement } from "@/components/SettlementsManagement";
+import { AdminSettlementsView } from "@/components/AdminSettlementsView";
 import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
@@ -333,7 +334,7 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
             ) : (
-              <SettlementsManagement 
+              <AdminSettlementsView 
                 cityId={selectedCity.id}
                 cityName={selectedCity.name}
               />
