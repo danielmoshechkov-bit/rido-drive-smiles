@@ -134,38 +134,41 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
       )}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">Hasło tymczasowe</h4>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                placeholder="Wpisz hasło (min. 8 znaków)"
-                value={tempPassword}
-                onChange={(e) => setTempPassword(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                disabled={creatingAccount || !driver.email}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleCreateAuthAccount}
-                disabled={creatingAccount || !driver.email || tempPassword.length < 8}
-                className="gap-2 whitespace-nowrap"
-              >
-                <Key className="h-4 w-4" />
-                {creatingAccount ? 'Tworzenie...' : 'Utwórz konto'}
-              </Button>
+          {/* Temporary Password Section - Only for admin */}
+          {mode === 'admin' && (
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm">Hasło tymczasowe</h4>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  placeholder="Wpisz hasło (min. 8 znaków)"
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={creatingAccount || !driver.email}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleCreateAuthAccount}
+                  disabled={creatingAccount || !driver.email || tempPassword.length < 8}
+                  className="gap-2 whitespace-nowrap"
+                >
+                  <Key className="h-4 w-4" />
+                  {creatingAccount ? 'Tworzenie...' : 'Utwórz konto'}
+                </Button>
+              </div>
+              {!driver.email && (
+                <p className="text-xs text-muted-foreground">
+                  Dodaj email kierowcy aby utworzyć konto
+                </p>
+              )}
+              {tempPassword && tempPassword.length < 8 && (
+                <p className="text-xs text-destructive">
+                  Hasło musi mieć minimum 8 znaków
+                </p>
+              )}
             </div>
-            {!driver.email && (
-              <p className="text-xs text-muted-foreground">
-                Dodaj email kierowcy aby utworzyć konto
-              </p>
-            )}
-            {tempPassword && tempPassword.length < 8 && (
-              <p className="text-xs text-destructive">
-                Hasło musi mieć minimum 8 znaków
-              </p>
-            )}
-          </div>
+          )}
 
       <div className="space-y-3">
         <h4 className="font-medium text-sm">ID Platform</h4>
