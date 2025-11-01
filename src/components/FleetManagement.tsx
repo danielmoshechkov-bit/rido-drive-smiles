@@ -263,6 +263,24 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     }
   };
 
+  const updateAssignedDate = async (vehicleId: string, newDate: Date) => {
+    try {
+      const { error } = await supabase
+        .from("driver_vehicle_assignments")
+        .update({ assigned_at: newDate.toISOString() })
+        .eq("vehicle_id", vehicleId)
+        .eq("status", "active");
+
+      if (error) throw error;
+
+      toast.success("Zaktualizowano datę wynajmu");
+      fetchVehicles();
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji daty wynajmu:", error);
+      toast.error("Nie udało się zaktualizować daty wynajmu");
+    }
+  };
+
   const saveVehicleInfo = async (vehicleId: string, field: string, value: string) => {
     try {
       let updateData: any = { [field]: value };
@@ -424,12 +442,15 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                        )}
                                      </div>
                                    </div>
-                                    <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
-                                      <VehicleRentBlock
-                                        value={vehicle.weekly_rental_fee}
-                                        onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
-                                      />
-                                    </div>
+                                     <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                       <VehicleRentBlock
+                                         value={vehicle.weekly_rental_fee}
+                                         onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
+                                         assignedAt={vehicle.assignedDriver?.assigned_at}
+                                         onAssignedAtChange={(date) => updateAssignedDate(vehicle.id, date)}
+                                         userRole={userType}
+                                       />
+                                     </div>
                                </div>
                               
                                {/* Drugi rząd - kierowca i daty */}

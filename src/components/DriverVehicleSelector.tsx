@@ -45,14 +45,23 @@ export const DriverVehicleSelector = ({
         `)
         .eq("status", "aktywne")
         .order("brand", { ascending: true });
+
+      // Pobierz aktywne przypisania pojazdów (oprócz obecnego kierowcy)
+      const { data: assignmentsData } = await supabase
+        .from("driver_vehicle_assignments")
+        .select("vehicle_id, driver_id")
+        .eq("status", "active")
+        .neq("driver_id", driverId);
+
+      // Filtruj pojazdy - pokaż tylko te, które nie są przypisane do innych kierowców
+      const assignedVehicleIds = new Set(assignmentsData?.map(a => a.vehicle_id) || []);
+      const availableVehicles = data?.filter(v => !assignedVehicleIds.has(v.id)) || [];
       
-      if (data) {
-        setVehicles(data);
-      }
+      setVehicles(availableVehicles);
     };
 
     fetchVehicles();
-  }, []); // Usuń dependency na fleetId żeby ładować wszystkie pojazdy
+  }, [driverId]); // Usuń dependency na fleetId żeby ładować wszystkie pojazdy
 
   useEffect(() => {
     if (currentVehicleId && vehicles.length > 0) {

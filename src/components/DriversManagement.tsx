@@ -325,24 +325,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                          </h3>
                          <div className="flex items-center gap-2 flex-wrap">
                            {getAccountStatusBadge(driver.id)}
-                           {driver.registration_date && (
-                             <NewDriverBadge registrationDate={driver.registration_date} />
-                           )}
-                            <DriverVehicleSelector
-                              driverId={driver.id}
-                              fleetId={(driver as any).fleet_id}
-                              onVehicleUpdate={refetch}
-                              hideFleetName={mode === 'fleet'}
-                            />
-                            {/* Fleet badge - tylko w trybie admin */}
-                            {mode === 'admin' && (
-                              <DriverFleetBadgeSelector 
-                                driverId={driver.id}
-                                fleetId={(driver as any).fleet_id}
-                                onFleetChange={refetch}
-                                allowAdd={false}
-                              />
+                            {driver.registration_date && (
+                              <NewDriverBadge registrationDate={driver.registration_date} />
                             )}
+                            <div className="flex items-center gap-2">
+                             <DriverVehicleSelector
+                               driverId={driver.id}
+                               fleetId={(driver as any).fleet_id}
+                               onVehicleUpdate={refetch}
+                               hideFleetName={mode === 'fleet'}
+                             />
+                             {driver.vehicle_assignment?.assigned_at && (
+                               <span className="text-xs text-muted-foreground">
+                                 od: {format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}
+                               </span>
+                             )}
+                            </div>
+                             {/* Fleet badge - tylko w trybie admin */}
+                             {mode === 'admin' && (
+                               <DriverFleetBadgeSelector 
+                                 driverId={driver.id}
+                                 fleetId={(driver as any).fleet_id}
+                                 onFleetChange={refetch}
+                                 allowAdd={false}
+                               />
+                             )}
                          </div>
                        </div>
 
