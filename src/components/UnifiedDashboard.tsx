@@ -24,7 +24,7 @@ import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3 } from "lucide-react";
 import LanguageSelector from "@/components/LanguageSelector";
 
 interface UnifiedDashboardProps {
@@ -284,6 +284,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
             )}
             {canViewTab('reports') && (
               <TabsTrigger value="reports" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+                <BarChart3 className="h-4 w-4 mr-2" />
                 {t('admin.reports')}
               </TabsTrigger>
             )}

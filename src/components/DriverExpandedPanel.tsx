@@ -14,9 +14,10 @@ import { Key, UserCircle } from "lucide-react";
 interface DriverExpandedPanelProps {
   driver: Driver;
   onUpdate: () => void;
+  mode?: 'admin' | 'fleet';
 }
 
-export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelProps) {
+export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: DriverExpandedPanelProps) {
   const platforms = ['uber', 'bolt', 'freenow', 'getrido'];
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
@@ -204,8 +205,8 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
             </span>
           </div>
 
-          {/* Role management - tylko gdy ma konto auth */}
-          {hasAuthAccount && userAuthId && (
+          {/* Role management - tylko w trybie admin i gdy ma konto auth */}
+          {mode === 'admin' && hasAuthAccount && userAuthId && (
             <DriverRoleManager
               driverId={driver.id}
               userAuthId={userAuthId}
@@ -213,7 +214,7 @@ export function DriverExpandedPanel({ driver, onUpdate }: DriverExpandedPanelPro
             />
           )}
 
-          {!hasAuthAccount && driver.email && (
+          {mode === 'admin' && !hasAuthAccount && driver.email && (
             <Card className="p-4 bg-muted/20 border-primary/20">
               <p className="text-sm text-muted-foreground">
                 💡 Utwórz konto aby zarządzać rolami i dostępami

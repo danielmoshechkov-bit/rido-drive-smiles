@@ -54,31 +54,46 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         return;
       }
 
-      // First get vehicle IDs for this fleet
-      const { data: vehicles } = await supabase
-        .from('vehicles')
-        .select('id')
-        .eq('fleet_id', fleetId);
+      try {
+        // Get all vehicles for this fleet
+        const { data: vehicles } = await supabase
+          .from('vehicles')
+          .select('id')
+          .eq('fleet_id', fleetId);
 
-      if (!vehicles || vehicles.length === 0) {
-        setFilteredByFleet([]);
-        return;
-      }
+        const vehicleIds = vehicles?.map(v => v.id) || [];
+        
+        let driverIds = new Set<string>();
 
-      const vehicleIds = vehicles.map(v => v.id);
+        // Get drivers assigned to vehicles
+        if (vehicleIds.length > 0) {
+          const { data: assignments } = await supabase
+            .from('driver_vehicle_assignments')
+            .select('driver_id')
+            .eq('status', 'active')
+            .in('vehicle_id', vehicleIds);
 
-      // Get all drivers assigned to these vehicles
-      const { data: assignments } = await supabase
-        .from('driver_vehicle_assignments')
-        .select('driver_id')
-        .eq('status', 'active')
-        .in('vehicle_id', vehicleIds);
+          if (assignments) {
+            assignments.forEach(a => driverIds.add(a.driver_id));
+          }
+        }
 
-      if (assignments) {
-        const driverIds = new Set(assignments.map(a => a.driver_id));
+        // ALSO get drivers with accepted invitations to this fleet
+        const { data: acceptedInvitations } = await supabase
+          .from('fleet_invitations')
+          .select('driver_id')
+          .eq('fleet_id', fleetId)
+          .eq('status', 'accepted');
+
+        if (acceptedInvitations) {
+          acceptedInvitations.forEach(inv => driverIds.add(inv.driver_id));
+        }
+
+        // Filter drivers by combined set
         setFilteredByFleet(drivers.filter(d => driverIds.has(d.id)));
-      } else {
-        setFilteredByFleet([]);
+      } catch (error) {
+        console.error('Error filtering drivers by fleet:', error);
+        toast.error('Błąd podczas filtrowania kierowców');
       }
     };
 
@@ -346,12 +361,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                              fleetId={(driver as any).fleet_id}
                              onVehicleUpdate={refetch}
                            />
-                           <DriverFleetBadgeSelector 
-                             driverId={driver.id}
-                             fleetId={(driver as any).fleet_id}
-                             onFleetChange={refetch}
-                             allowAdd={false}
-                           />
+                            {/* Fleet badge - tylko w trybie admin */}
+                            {mode === 'admin' && (
+                              <DriverFleetBadgeSelector 
+                                driverId={driver.id}
+                                fleetId={(driver as any).fleet_id}
+                                onFleetChange={refetch}
+                                allowAdd={false}
+                              />
+                            )}
                          </div>
                        </div>
 
@@ -475,12 +493,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                     </div>
                   </div>
 
-                  {expandedDrivers.has(driver.id) && (
-                    <DriverExpandedPanel 
-                      driver={driver} 
-                      onUpdate={refetch}
-                    />
-                  )}
+              {expandedDrivers.has(driver.id) && (
+                <DriverExpandedPanel
+                  driver={driver}
+                  onUpdate={refetch}
+                  mode={mode}
+                />
+              )}
                 </div>
               ))}
             </div>
