@@ -45,7 +45,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
   const [creatingAccounts, setCreatingAccounts] = useState(false);
   
   const { cities } = useCities();
-  const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
+  const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
   const { canViewTab, loading: permissionsLoading } = useTabPermissions();
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);

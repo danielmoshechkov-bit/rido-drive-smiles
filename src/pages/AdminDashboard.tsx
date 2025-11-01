@@ -39,7 +39,7 @@ const AdminDashboard = () => {
   const [sanitizing, setSanitizing] = useState(false);
   
   const { cities } = useCities();
-  const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
+  const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
 
   // Admin role guard - redirect if not admin
   useEffect(() => {
