@@ -268,6 +268,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={async () => {
+                if (!cityId) {
+                  toast.error("Wybierz miasto przed synchronizacją");
+                  return;
+                }
                 try {
                   const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
                   if (error) throw error;

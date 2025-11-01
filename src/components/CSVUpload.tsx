@@ -98,20 +98,22 @@ export const CSVUpload = ({ cityId, onUploadComplete }: CSVUploadProps) => {
         );
         
         // Auto-sync driver IDs
-        try {
-          const { data: syncData } = await supabase.functions.invoke('sync-driver-ids', {
-            body: {
-              city_id: cityId,
-              period_from: periodFrom,
-              period_to: periodTo
-            }
-          });
+        if (cityId) {
+          try {
+            const { data: syncData } = await supabase.functions.invoke('sync-driver-ids', {
+              body: {
+                city_id: cityId,
+                period_from: periodFrom,
+                period_to: periodTo
+              }
+            });
           
-          if (syncData?.success) {
-            toast.success(`🔄 Zsynchronizowano ID: ${syncData.stats.updatedDrivers} kierowców, ${syncData.stats.upsertedPlatformIds} platform IDs`);
+            if (syncData?.success) {
+              toast.success(`🔄 Zsynchronizowano ID: ${syncData.stats.updatedDrivers} kierowców, ${syncData.stats.upsertedPlatformIds} platform IDs`);
+            }
+          } catch (syncError) {
+            console.error('Sync error:', syncError);
           }
-        } catch (syncError) {
-          console.error('Sync error:', syncError);
         }
         
         setUploadedFiles(prev => [...prev, {
