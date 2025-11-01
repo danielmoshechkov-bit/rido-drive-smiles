@@ -64,6 +64,7 @@ export const SettlementPlanSelector = ({
     if (!item) return;
     
     const newPlanId = item.id;
+    const newPlanName = item.name;
     
     // Jeśli nie ma wybranego planu, pozwól wybrać
     if (selectedPlanId && !canChangePlan()) {
@@ -72,12 +73,21 @@ export const SettlementPlanSelector = ({
     }
 
     try {
-      const { error } = await supabase
+      // 1. Zaktualizuj settlement_plan_id w driver_app_users
+      const { error: appUserError } = await supabase
         .from("driver_app_users")
         .update({ settlement_plan_id: newPlanId })
         .eq("driver_id", driverData.driver_id);
 
-      if (error) throw error;
+      if (appUserError) throw appUserError;
+
+      // 2. Zaktualizuj billing_method w drivers
+      const { error: driverError } = await supabase
+        .from("drivers")
+        .update({ billing_method: newPlanName })
+        .eq("id", driverData.driver_id);
+
+      if (driverError) throw driverError;
 
       setSelectedPlanId(newPlanId);
       onPlanChange(newPlanId);

@@ -25,21 +25,26 @@ interface FleetSettlementsViewProps {
 interface DriverSettlement {
   driver_id: string;
   driver_name: string;
-  vehicle: string;
-  weekly_rental_fee: number;
-  uber_cashless: number;
-  bolt_net: number;
-  freenow_net: number;
-  total_earnings: number;
-  fuel: number;
-  rental: number;
-  commission: number;
-  tax: number;
-  net_result: number;
-  cash: number;
-  debt_current: number;
-  debt_previous: number;
-  covered_rental: boolean;
+  uber_base: number;
+  bolt_base: number;
+  freenow_base: number;
+  total_base: number;
+  uber_commission: number;
+  bolt_commission: number;
+  freenow_commission: number;
+  total_commission: number;
+  total_cash: number;
+  tax_8_percent: number;
+  service_fee: number;
+  net_without_commission: number;
+  final_payout: number;
+  // For rental view
+  vehicle?: string;
+  weekly_rental_fee?: number;
+  rental?: number;
+  debt_current?: number;
+  debt_previous?: number;
+  covered_rental?: boolean;
 }
 
 export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }: FleetSettlementsViewProps) {
@@ -126,46 +131,28 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const fetchSettlements = async () => {
     setLoading(true);
     try {
-      // Pobierz kierowców przypisanych do floty
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('driver_vehicle_assignments')
-        .select(`
-          driver_id,
-          vehicle_id,
-          drivers!inner(
-            id,
-            first_name,
-            last_name
-          ),
-          vehicles!inner(
-            id,
-            brand,
-            model,
-            plate,
-            weekly_rental_fee,
-            fleet_id
-          )
-        `)
-        .eq('status', 'active')
-        .eq('vehicles.fleet_id', fleetId);
+      // Pobierz WSZYSTKICH kierowców z floty
+      const { data: driversData, error: driversError } = await supabase
+        .from('drivers')
+        .select('id, first_name, last_name')
+        .eq('fleet_id', fleetId);
 
-      if (assignmentsError) throw assignmentsError;
+      if (driversError) throw driversError;
 
-      if (!assignments || assignments.length === 0) {
+      if (!driversData || driversData.length === 0) {
         setSettlements([]);
         setLoading(false);
         return;
       }
 
-      const driverIds = assignments.map(a => a.driver_id);
+      const driverIds = driversData.map(d => d.id);
 
-      // Pobierz rozliczenia dla tych kierowców
+      // Pobierz rozliczenia dla wybranego okresu
       let query = supabase
         .from('settlements')
         .select('*')
         .in('driver_id', driverIds);
 
-      // Use week selection if available, otherwise use periodFrom/periodTo props
       if (currentWeek) {
         query = query
           .gte('period_from', currentWeek.start)
@@ -179,63 +166,67 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       if (settlementsError) throw settlementsError;
 
-      // Agreguj dane
-      const aggregated = assignments.map(assignment => {
-        const driver = assignment.drivers as any;
-        const vehicle = assignment.vehicles as any;
-        
-        const driverSettlements = settlementsData?.filter(s => s.driver_id === assignment.driver_id) || [];
-        
-        const uber_cashless = driverSettlements.reduce((sum, s) => {
-          const amounts = typeof s.amounts === 'object' && s.amounts !== null ? s.amounts as any : {};
-          return sum + (parseFloat(amounts.uber_cashless || '0'));
-        }, 0);
-        const bolt_net = driverSettlements.reduce((sum, s) => {
-          const amounts = typeof s.amounts === 'object' && s.amounts !== null ? s.amounts as any : {};
-          return sum + (parseFloat(amounts.bolt_net || '0'));
-        }, 0);
-        const freenow_net = driverSettlements.reduce((sum, s) => {
-          const amounts = typeof s.amounts === 'object' && s.amounts !== null ? s.amounts as any : {};
-          return sum + (parseFloat(amounts.freenow_net || '0'));
-        }, 0);
-        const fuel = driverSettlements.reduce((sum, s) => {
-          const amounts = typeof s.amounts === 'object' && s.amounts !== null ? s.amounts as any : {};
-          return sum + (parseFloat(amounts.fuel || '0'));
-        }, 0);
-        const cash = driverSettlements.reduce((sum, s) => {
-          const amounts = typeof s.amounts === 'object' && s.amounts !== null ? s.amounts as any : {};
+      // Agreguj rozliczenia per kierowca
+      const aggregated = driversData.map(driver => {
+        const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
+
+        const uber_base = driverSettlements
+          .filter(s => s.platform === 'uber')
+          .reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + (parseFloat(amounts.uber_total || '0'));
+          }, 0);
+
+        const bolt_base = driverSettlements
+          .filter(s => s.platform === 'bolt')
+          .reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + (parseFloat(amounts.bolt_gross || '0'));
+          }, 0);
+
+        const freenow_base = driverSettlements
+          .filter(s => s.platform === 'freenow')
+          .reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + (parseFloat(amounts.freenow_gross || '0'));
+          }, 0);
+
+        const total_base = uber_base + bolt_base + freenow_base;
+
+        const total_commission = driverSettlements.reduce(
+          (sum, s) => sum + (parseFloat(s.commission_amount as any || '0')), 0
+        );
+
+        const total_cash = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
           return sum + (parseFloat(amounts.total_cash || '0'));
         }, 0);
 
-        const total_earnings = uber_cashless + bolt_net + freenow_net;
-        const rental = parseFloat(vehicle.weekly_rental_fee || '0') * driverSettlements.length;
-        const net_result = total_earnings - fuel - rental;
-
-        const debt_current = driverSettlements[driverSettlements.length - 1]?.debt_after || 0;
-        const debt_previous = driverSettlements[0]?.debt_before || 0;
+        const tax_8_percent = total_base * 0.08;
+        const service_fee = 50;
+        const net_without_commission = total_base - tax_8_percent - total_commission;
+        const final_payout = net_without_commission - service_fee;
 
         return {
-          driver_id: assignment.driver_id,
+          driver_id: driver.id,
           driver_name: `${driver.first_name} ${driver.last_name}`,
-          vehicle: `${vehicle.brand} ${vehicle.model} (${vehicle.plate})`,
-          weekly_rental_fee: parseFloat(vehicle.weekly_rental_fee || '0'),
-          uber_cashless,
-          bolt_net,
-          freenow_net,
-          total_earnings,
-          fuel,
-          rental,
-          commission: 0,
-          tax: 0,
-          net_result,
-          cash,
-          debt_current,
-          debt_previous,
-          covered_rental: total_earnings >= rental,
+          uber_base,
+          bolt_base,
+          freenow_base,
+          total_base,
+          uber_commission: 0,
+          bolt_commission: 0,
+          freenow_commission: 0,
+          total_commission,
+          total_cash,
+          tax_8_percent,
+          service_fee,
+          net_without_commission,
+          final_payout,
         };
       });
 
-      setSettlements(aggregated);
+      setSettlements(aggregated.filter(a => a.total_base > 0));
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
@@ -441,11 +432,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <TableHead className="text-right">Uber</TableHead>
                 <TableHead className="text-right">Bolt</TableHead>
                 <TableHead className="text-right">FreeNow</TableHead>
-                <TableHead className="text-right">Suma</TableHead>
-                <TableHead className="text-right">Paliwo</TableHead>
-                <TableHead className="text-right">Wynajem</TableHead>
-                <TableHead className="text-right font-bold">Netto</TableHead>
-                <TableHead className="text-right">Gotówka</TableHead>
+                <TableHead className="text-right font-bold">Podstawa</TableHead>
+                <TableHead className="text-right text-red-600">Podatek 8%</TableHead>
+                <TableHead className="text-right text-red-600">Prowizja</TableHead>
+                <TableHead className="text-right text-blue-600">Gotówka</TableHead>
+                <TableHead className="text-right font-bold text-green-600">Bez prowizji</TableHead>
+                <TableHead className="text-right font-bold text-red-600">Opłata</TableHead>
+                <TableHead className="text-right font-bold text-purple-600">Wypłata</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -453,28 +446,34 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <TableRow key={settlement.driver_id}>
                   <TableCell className="font-medium">{settlement.driver_name}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {settlement.uber_cashless.toFixed(2)} zł
+                    {settlement.uber_base.toFixed(2)} zł
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {settlement.bolt_net.toFixed(2)} zł
+                    {settlement.bolt_base.toFixed(2)} zł
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {settlement.freenow_net.toFixed(2)} zł
+                    {settlement.freenow_base.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono font-semibold">
-                    {settlement.total_earnings.toFixed(2)} zł
+                  <TableCell className="text-right font-mono font-bold">
+                    {settlement.total_base.toFixed(2)} zł
                   </TableCell>
                   <TableCell className="text-right font-mono text-red-600">
-                    -{settlement.fuel.toFixed(2)} zł
+                    -{settlement.tax_8_percent.toFixed(2)} zł
                   </TableCell>
                   <TableCell className="text-right font-mono text-red-600">
-                    -{settlement.rental.toFixed(2)} zł
+                    -{settlement.total_commission.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${settlement.net_result >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {settlement.net_result.toFixed(2)} zł
+                  <TableCell className="text-right font-mono text-blue-600">
+                    {settlement.total_cash.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.cash.toFixed(2)} zł
+                  <TableCell className="text-right font-mono font-bold text-green-600">
+                    {settlement.net_without_commission.toFixed(2)} zł
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-red-600">
+                    -{settlement.service_fee.toFixed(2)} zł
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-purple-600">
+                    {settlement.final_payout.toFixed(2)} zł
                   </TableCell>
                 </TableRow>
               ))}

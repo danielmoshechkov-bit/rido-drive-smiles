@@ -65,13 +65,17 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
 
   const loadDrivers = async () => {
-    if (!cityId) return;
-    
     let query = supabase
       .from('drivers')
       .select('id, first_name, last_name, email')
-      .eq('city_id', cityId)
       .order('first_name');
+
+    // Dla flotowych - filtruj po fleet_id, dla adminów - po city_id
+    if (userType === 'fleet' && fleetId) {
+      query = query.eq('fleet_id', fleetId);
+    } else if (cityId) {
+      query = query.eq('city_id', cityId);
+    }
 
     const { data } = await query;
     const driverItems = (data || []).map(driver => ({
@@ -138,7 +142,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   useEffect(() => {
     fetchVehicles();
     loadDrivers();
-  }, [cityId]);
+  }, [cityId, fleetId]);
 
   const filtered = vehicles.filter(v => {
     const text = `${v.plate} ${v.brand} ${v.model} ${v.vin ?? ""}`.toLowerCase();

@@ -16,13 +16,15 @@ interface DriverVehicleSelectorProps {
   currentVehicleId?: string | null;
   fleetId?: string | null;
   onVehicleUpdate?: () => void;
+  hideFleetName?: boolean;
 }
 
 export const DriverVehicleSelector = ({ 
   driverId, 
   currentVehicleId, 
   fleetId, 
-  onVehicleUpdate 
+  onVehicleUpdate,
+  hideFleetName = false
 }: DriverVehicleSelectorProps) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,13 +58,19 @@ export const DriverVehicleSelector = ({
     if (currentVehicleId && vehicles.length > 0) {
       const currentVehicle = vehicles.find(v => v.id === currentVehicleId);
       if (currentVehicle) {
-        const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
-        setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
+        if (hideFleetName) {
+          // Dla flotowych: Nr rej • Marka Model
+          setSelectedVehicleText(`${currentVehicle.plate} • ${currentVehicle.brand} ${currentVehicle.model}`);
+        } else {
+          // Dla adminów: Flota • Marka Model
+          const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
+          setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
+        }
         return;
       }
     }
     setSelectedVehicleText("Własne auto");
-  }, [currentVehicleId, vehicles]);
+  }, [currentVehicleId, vehicles, hideFleetName]);
 
   const assignVehicle = async (vehicleId: string | null, vehicleText: string) => {
     setLoading(true);
@@ -91,7 +99,12 @@ export const DriverVehicleSelector = ({
           });
 
         if (error) throw error;
-        toast.success(`Przypisano pojazd flotowy`);
+        
+        if (hideFleetName) {
+          toast.success(`Przypisano pojazd: ${vehicle?.plate}`);
+        } else {
+          toast.success(`Przypisano pojazd flotowy`);
+        }
       } else {
         toast.success(`Ustawiono własne auto`);
       }
@@ -122,11 +135,20 @@ export const DriverVehicleSelector = ({
 
   // Transform vehicles for UniversalSelector
   const vehicleItems = vehicles.map(v => {
-    const fleetName = (v as any).fleets?.name || "Brak floty";
-    return {
-      id: v.id,
-      name: `${fleetName} • ${v.brand} ${v.model} • ${v.plate}`
-    };
+    if (hideFleetName) {
+      // Dla flotowych: Nr rej • Marka Model
+      return {
+        id: v.id,
+        name: `${v.plate} • ${v.brand} ${v.model}`
+      };
+    } else {
+      // Dla adminów: Flota • Marka Model • Nr rej
+      const fleetName = (v as any).fleets?.name || "Brak floty";
+      return {
+        id: v.id,
+        name: `${fleetName} • ${v.brand} ${v.model} • ${v.plate}`
+      };
+    }
   });
 
   // Add "Własne auto" option

@@ -328,11 +328,12 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                            {driver.registration_date && (
                              <NewDriverBadge registrationDate={driver.registration_date} />
                            )}
-                           <DriverVehicleSelector
-                             driverId={driver.id}
-                             fleetId={(driver as any).fleet_id}
-                             onVehicleUpdate={refetch}
-                           />
+                            <DriverVehicleSelector
+                              driverId={driver.id}
+                              fleetId={(driver as any).fleet_id}
+                              onVehicleUpdate={refetch}
+                              hideFleetName={mode === 'fleet'}
+                            />
                             {/* Fleet badge - tylko w trybie admin */}
                             {mode === 'admin' && (
                               <DriverFleetBadgeSelector 
