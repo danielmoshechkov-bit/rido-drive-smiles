@@ -14,6 +14,8 @@ import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
 import { VehicleFleetSelector } from "./VehicleFleetSelector";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 
 interface VehicleListProps {
   driverId: string;
@@ -29,6 +31,7 @@ interface Vehicle {
   color: string | null;
   status: string;
   weekly_rental_fee: number | null;
+  assigned_at?: string;
   vehicle_inspections?: Array<{
     date: string;
     valid_to: string;
@@ -68,6 +71,24 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
     }
   };
 
+  const updateAssignedDate = async (vehicleId: string, driverId: string, newDate: string) => {
+    try {
+      const { error } = await supabase
+        .from("driver_vehicle_assignments")
+        .update({ assigned_at: newDate })
+        .eq("vehicle_id", vehicleId)
+        .eq("driver_id", driverId)
+        .eq("status", "active");
+
+      if (error) throw error;
+      
+      toast.success("Zaktualizowano datę wynajmu");
+      loadVehicles();
+    } catch (error) {
+      toast.error("Błąd podczas aktualizacji daty wynajmu");
+    }
+  };
+
   const loadVehicles = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -76,12 +97,17 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
         *,
         vehicle_inspections(date, valid_to, result),
         vehicle_policies(type, valid_from, valid_to, policy_no, provider),
-        driver_vehicle_assignments!inner(driver_id, status)
+        driver_vehicle_assignments!inner(driver_id, status, assigned_at)
       `)
       .eq("driver_vehicle_assignments.driver_id", driverId)
       .eq("driver_vehicle_assignments.status", "active");
     
-    setVehicles(data || []);
+    const transformedData = data?.map(vehicle => ({
+      ...vehicle,
+      assigned_at: vehicle.driver_vehicle_assignments?.[0]?.assigned_at
+    }));
+    
+    setVehicles(transformedData || []);
     setLoading(false);
   };
 
@@ -263,6 +289,17 @@ export const VehicleList = ({ driverId }: VehicleListProps) => {
                                 vehicleId={vehicle.id}
                                 currentFleetId={(vehicle as any).fleet_id}
                                 onFleetUpdate={loadVehicles}
+                              />
+                            </div>
+                          </div>
+                          <div className="min-w-[160px]">
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-sm text-muted-foreground">Wynajem od:</span>
+                              <input
+                                type="date"
+                                value={vehicle.assigned_at ? format(new Date(vehicle.assigned_at), 'yyyy-MM-dd') : ''}
+                                onChange={(e) => updateAssignedDate(vehicle.id, driverId, e.target.value)}
+                                className="border rounded px-2 py-1 text-sm"
                               />
                             </div>
                           </div>

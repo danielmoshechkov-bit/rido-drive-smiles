@@ -10,6 +10,8 @@ import { Driver } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Key, UserCircle } from "lucide-react";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 
 interface DriverExpandedPanelProps {
   driver: Driver;
@@ -230,6 +232,14 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
               <Badge className="bg-orange-500/10 text-orange-700 border-orange-500/20">
                 WYNAJMUJE
               </Badge>
+              {driver.vehicle_assignment.assigned_at && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Od: </span>
+                  <span className="font-medium">
+                    {format(new Date(driver.vehicle_assignment.assigned_at), 'dd MMM yyyy', { locale: pl })}
+                  </span>
+                </p>
+              )}
               {driver.vehicle_assignment.fleet_name && (
                 <p className="text-sm text-muted-foreground">
                   Flota: {driver.vehicle_assignment.fleet_name}

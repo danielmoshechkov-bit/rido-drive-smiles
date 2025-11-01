@@ -21,6 +21,8 @@ import { DriverVehicleSelector } from "./DriverVehicleSelector";
 import { EditPlatformIdsModal } from './EditPlatformIdsModal';
 import { DriverAdditionalFees } from './DriverAdditionalFees';
 import { DollarSign } from 'lucide-react';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 interface DriversManagementProps {
   cityId?: string | null;
@@ -445,11 +447,50 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                   </div>
 
               {expandedDrivers.has(driver.id) && (
-                <DriverExpandedPanel
-                  driver={driver}
-                  onUpdate={refetch}
-                  mode={mode}
-                />
+                <>
+                  <DriverExpandedPanel
+                    driver={driver}
+                    onUpdate={refetch}
+                    mode={mode}
+                  />
+                  
+                  {driver.vehicle_assignment?.status === 'active' && driver.vehicle_assignment.assigned_at && (
+                    <Card className="mt-2 p-3 bg-blue-50 border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-muted-foreground">Wynajem pojazdu od: </span>
+                          <span className="font-semibold">
+                            {format(new Date(driver.vehicle_assignment.assigned_at), 'dd MMMM yyyy', { locale: pl })}
+                          </span>
+                        </div>
+                        
+                        {mode === 'admin' && (
+                          <input
+                            type="date"
+                            value={format(new Date(driver.vehicle_assignment.assigned_at), 'yyyy-MM-dd')}
+                            onChange={async (e) => {
+                              try {
+                                const { error } = await supabase
+                                  .from('driver_vehicle_assignments')
+                                  .update({ assigned_at: e.target.value })
+                                  .eq('driver_id', driver.id)
+                                  .eq('status', 'active');
+                                  
+                                if (error) throw error;
+                                toast.success('Data wynajmu zaktualizowana');
+                                refetch();
+                              } catch (error) {
+                                toast.error('Błąd aktualizacji daty');
+                              }
+                            }}
+                            className="border rounded px-2 py-1 text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  )}
+                </>
               )}
                 </div>
               ))}

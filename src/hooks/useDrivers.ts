@@ -28,6 +28,7 @@ export interface Driver {
     fleet_id: string | null;
     fleet_name: string | null;
     status: string;
+    assigned_at?: string;
   } | null;
 }
 
@@ -86,7 +87,8 @@ export const useDrivers = (params?: { cityId?: string; fleetId?: string }) => {
           vehicle_id: driver.driver_vehicle_assignments[0].vehicle_id,
           fleet_id: driver.driver_vehicle_assignments[0].fleet_id,
           fleet_name: driver.driver_vehicle_assignments[0].fleets?.name || null,
-          status: driver.driver_vehicle_assignments[0].status
+          status: driver.driver_vehicle_assignments[0].status,
+          assigned_at: driver.driver_vehicle_assignments[0].assigned_at
         } : null
       }));
 
