@@ -18,6 +18,7 @@ import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { UniversalSelector } from "@/components/UniversalSelector";
 import { DriverSettlements } from "@/components/DriverSettlements";
+import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -168,6 +169,9 @@ const DriverDashboard = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4">
+            {driverData?.driver_id && (
+              <DriverNotificationBell driverId={driverData.driver_id} />
+            )}
             <Button variant="outline" onClick={handleLogout} className="rounded-lg">
               Wyloguj
             </Button>

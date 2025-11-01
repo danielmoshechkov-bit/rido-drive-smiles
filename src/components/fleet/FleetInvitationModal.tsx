@@ -114,18 +114,13 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
       return;
     }
 
-    if (!selectedVehicleId) {
-      toast.error("Wybierz pojazd");
-      return;
-    }
-
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("fleet-invitations/send", {
         body: {
           driver_id: selectedDriver.id,
           fleet_id: fleetId,
-          vehicle_id: selectedVehicleId
+          vehicle_id: selectedVehicleId || null
         }
       });
 
@@ -336,13 +331,14 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
           {selectedDriver && (
             <div className="space-y-2">
               <Label>
-                Wybierz pojazd <span className="text-destructive">*</span>
+                Wybierz pojazd <span className="text-muted-foreground">(opcjonalne)</span>
               </Label>
               <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Wybierz pojazd..." />
+                  <SelectValue placeholder="Przydziel później..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">Bez pojazdu (przydziel później)</SelectItem>
                   {availableVehicles.map((vehicle) => (
                     <SelectItem key={vehicle.id} value={vehicle.id}>
                       {vehicle.plate} - {vehicle.brand} {vehicle.model}
@@ -359,7 +355,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
             Anuluj
           </Button>
           {selectedDriver && (
-            <Button onClick={sendInvitation} disabled={sending || !selectedVehicleId}>
+            <Button onClick={sendInvitation} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Wyślij zaproszenie
             </Button>

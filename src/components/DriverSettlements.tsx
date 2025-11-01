@@ -600,7 +600,7 @@ export const DriverSettlements = ({
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
         {!hideControls && (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[100px_minmax(280px,300px)_1fr_minmax(180px,220px)]">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[100px_minmax(250px,270px)_1fr_minmax(180px,220px)]">
             {/* Rok - po lewej, małe okienko */}
             <div>
               <Label htmlFor="year-select" className="text-sm font-medium mb-2 block">Rok</Label>
@@ -788,6 +788,16 @@ export const DriverSettlements = ({
                       
                       {/* Additional rows below table */}
                       <div className="border-t bg-muted/30 p-3 space-y-2">
+                        {/* Razem bez prowizji */}
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-muted-foreground">Razem bez prowizji:</span>
+                          <span className="font-bold text-green-600">
+                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
+                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
+                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
+                          </span>
+                        </div>
+                        
                         <div className="flex justify-between text-sm font-semibold">
                           <span className="text-muted-foreground">Razem podatek 8%:</span>
                           <span className="font-bold text-destructive">-{totalTax.toFixed(2)} zł</span>
@@ -795,7 +805,7 @@ export const DriverSettlements = ({
                         
                         {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Razem gotówka pobrana:</span>
+                            <span className="text-muted-foreground">Razem gotówka:</span>
                             <span className="font-medium text-blue-600">
                               {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                             </span>
@@ -832,7 +842,7 @@ export const DriverSettlements = ({
                         
                         {fee > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Opłata planu ({driverPlan?.name}):</span>
+                            <span className="text-muted-foreground">Opłata za rozliczenie ({driverPlan?.name}):</span>
                             <span className="font-medium text-destructive">-{fee.toFixed(2)} zł</span>
                           </div>
                         )}
@@ -841,7 +851,7 @@ export const DriverSettlements = ({
                       {/* Payout summary */}
                       <div className="border-t bg-primary/10 p-3">
                         <div className="flex justify-between">
-                          <span className="font-semibold">Wyliczona wypłata:</span>
+                          <span className="font-semibold">Wypłata:</span>
                           <span className="font-bold text-primary text-lg">
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
