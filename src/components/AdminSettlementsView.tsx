@@ -4,9 +4,8 @@ import { SettlementsManagement } from './SettlementsManagement';
 import { Card, CardContent } from './ui/card';
 import { CompanyRevenueView } from './CompanyRevenueView';
 import { DriverSettlementsView } from './DriverSettlementsView';
-import { Button } from './ui/button';
-import { Plus } from 'lucide-react';
-import { CSVImportModal } from './CSVImportModal';
+import { FuelCSVUpload } from './FuelCSVUpload';
+import { SettlementCSVUploadCard } from './SettlementCSVUploadCard';
 
 interface AdminSettlementsViewProps {
   cityId: string;
@@ -15,7 +14,6 @@ interface AdminSettlementsViewProps {
 
 export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewProps) {
   const [activeSubTab, setActiveSubTab] = useState("manage");
-  const [showCSVImport, setShowCSVImport] = useState(false);
 
   const subTabs = [
     { value: "manage", label: "Rozlicz tydzień", visible: true },
@@ -53,8 +51,28 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
     );
   }
 
-  // Placeholder for other tabs
-  if (activeSubTab === "vehicles" || activeSubTab === "fuel") {
+  // Fuel view
+  if (activeSubTab === "fuel") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <Card>
+          <CardContent className="py-6">
+            <FuelCSVUpload onUploadComplete={() => {
+              // Optionally refresh data or show success
+            }} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Placeholder for vehicles tab
+  if (activeSubTab === "vehicles") {
     return (
       <div>
         <UniversalSubTabBar
@@ -80,24 +98,16 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
         onTabChange={setActiveSubTab}
         tabs={subTabs}
       />
-      <div className="mb-4">
-        <Button onClick={() => setShowCSVImport(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Dodaj rozliczenie CSV
-        </Button>
-      </div>
-      <SettlementsManagement 
-        cityId={cityId} 
-        cityName={cityName}
-      />
-      <CSVImportModal
-        open={showCSVImport}
-        onOpenChange={setShowCSVImport}
+      <SettlementCSVUploadCard 
         cityId={cityId}
         onSuccess={() => {
           // Refresh settlements
           window.location.reload();
         }}
+      />
+      <SettlementsManagement 
+        cityId={cityId} 
+        cityName={cityName}
       />
     </div>
   );
