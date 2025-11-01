@@ -6,6 +6,7 @@ import { pl } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 
@@ -67,6 +68,9 @@ export const DriverSettlements = ({
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
   const [additionalFees, setAdditionalFees] = useState<number>(0);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
+  const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -386,6 +390,48 @@ export const DriverSettlements = ({
     }
   };
 
+  const loadSettlementPlans = async () => {
+    const { data, error } = await supabase
+      .from('settlement_plans')
+      .select('*')
+      .eq('is_active', true)
+      .eq('is_visible', true)
+      .order('name');
+
+    if (!error && data) {
+      setSettlementPlans(data);
+    }
+  };
+
+  const fetchLatestSettlement = async () => {
+    if (!driverId || !initialLoad) return;
+    
+    const { data, error } = await supabase
+      .from('settlements')
+      .select('period_from')
+      .eq('driver_id', driverId)
+      .order('period_from', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (data && !preSelectedYear && !preSelectedWeek) {
+      const periodDate = new Date(data.period_from);
+      const year = periodDate.getFullYear();
+      setSelectedYear(year);
+      
+      // Calculate week number from date
+      const weekData = getWeekDates(year);
+      const foundWeek = weekData.find(w => 
+        data.period_from >= w.start && data.period_from <= w.end
+      );
+      if (foundWeek) {
+        setSelectedWeek(foundWeek.number);
+      }
+    }
+    
+    setInitialLoad(false);
+  };
+
   // Synchronize with props when they change
   useEffect(() => {
     if (preSelectedYear) setSelectedYear(preSelectedYear);
@@ -401,7 +447,9 @@ export const DriverSettlements = ({
     loadCsvMapping();
     loadDriverPlan();
     loadRentalFee();
-  }, []);
+    loadSettlementPlans();
+    fetchLatestSettlement();
+  }, [driverId]);
 
   useEffect(() => {
     loadSettlements();
@@ -555,30 +603,53 @@ export const DriverSettlements = ({
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
         {!hideControls && (
-          <div className="flex gap-4 items-center">
-            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map(year => (
-                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="year-select" className="text-sm font-medium mb-2 block">Rok</Label>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger id="year-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             
-            <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {weeks.map(week => (
-                  <SelectItem key={week.number} value={week.number.toString()}>
-                    {week.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label htmlFor="week-select" className="text-sm font-medium mb-2 block">Okres</Label>
+              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <SelectTrigger id="week-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="plan-select" className="text-sm font-medium mb-2 block">Plan rozliczenia</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger id="plan-select">
+                  <SelectValue placeholder="Wszystkie plany" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie plany</SelectItem>
+                  {settlementPlans.map(plan => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 

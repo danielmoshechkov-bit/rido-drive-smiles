@@ -9,7 +9,6 @@ import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
 import { NewDriverBadge } from './NewDriverBadge';
 import { DriverExpandedPanel } from './DriverExpandedPanel';
-import { AddFleetDriverModal } from './fleet/AddFleetDriverModal';
 import { FleetInvitationModal } from './fleet/FleetInvitationModal';
 import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';

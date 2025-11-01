@@ -272,7 +272,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
               onClick={searchDrivers} 
               disabled={searching}
               className="w-full"
-              variant="secondary"
+              size="lg"
             >
               {searching ? (
                 <>
@@ -282,7 +282,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
               ) : (
                 <>
                   <Search className="h-4 w-4 mr-2" />
-                  Szukaj w bazie
+                  Szukaj
                 </>
               )}
             </Button>
