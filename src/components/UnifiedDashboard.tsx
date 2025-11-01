@@ -233,12 +233,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                 {t('admin.settlements')}
               </TabsTrigger>
             )}
-            {userType === 'fleet' && canViewTab('settlements') && (
-              <TabsTrigger value="vehicle-revenue" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
-                <Car className="h-4 w-4 mr-2" />
-                Przychody aut
-              </TabsTrigger>
-            )}
             {canViewTab('drivers-list') && (
               <TabsTrigger value="drivers-list" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
                 <Users className="h-4 w-4 mr-2" />
@@ -358,12 +352,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                   userType="admin"
                 />
               )}
-            </TabsContent>
-          )}
-
-          {userType === 'fleet' && fleetId && (
-            <TabsContent value="vehicle-revenue" className="space-y-6">
-              <FleetVehicleRevenue fleetId={fleetId} />
             </TabsContent>
           )}
 

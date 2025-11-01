@@ -248,27 +248,29 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={async () => {
-                if (!cityId) {
-                  toast.error("Wybierz miasto przed synchronizacją");
-                  return;
-                }
-                try {
-                  const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
-                  if (error) throw error;
-                  if (data?.success) {
-                    toast.success(`Zaktualizowano kierowców: ${data.stats.updatedDrivers}, ID platform: ${data.stats.upsertedPlatformIds}`);
-                    refetch();
-                    onDriverUpdate();
-                  } else {
-                    throw new Error(data?.error || 'Błąd synchronizacji');
+              {mode === 'admin' && (
+                <Button onClick={async () => {
+                  if (!cityId) {
+                    toast.error("Wybierz miasto przed synchronizacją");
+                    return;
                   }
-                } catch (e) {
-                  toast.error(`Błąd synchronizacji: ${e instanceof Error ? e.message : 'Nieznany błąd'}`);
-                }
-              }} variant="outline" className="gap-2">
-                Odśwież IDs
-              </Button>
+                  try {
+                    const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
+                    if (error) throw error;
+                    if (data?.success) {
+                      toast.success(`Zaktualizowano kierowców: ${data.stats.updatedDrivers}, ID platform: ${data.stats.upsertedPlatformIds}`);
+                      refetch();
+                      onDriverUpdate();
+                    } else {
+                      throw new Error(data?.error || 'Błąd synchronizacji');
+                    }
+                  } catch (e) {
+                    toast.error(`Błąd synchronizacji: ${e instanceof Error ? e.message : 'Nieznany błąd'}`);
+                  }
+                }} variant="outline" className="gap-2">
+                  Odśwież IDs
+                </Button>
+              )}
               <Button 
                 onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
                 className="gap-2"

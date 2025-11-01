@@ -10,6 +10,7 @@ import { Check, X, AlertCircle } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
+import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface FleetSettlementsViewProps {
@@ -199,6 +200,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   if (loading) {
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
+  }
+
+  // Render "Przychody aut" tab
+  if (activeSubTab === "vehicles") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetVehicleRevenue 
+          fleetId={fleetId} 
+          mode={roles.includes('admin') ? 'admin' : 'fleet'}
+        />
+      </div>
+    );
   }
 
   // Render "Paliwo" tab

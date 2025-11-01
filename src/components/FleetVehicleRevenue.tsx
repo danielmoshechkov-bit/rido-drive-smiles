@@ -3,27 +3,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { toast } from 'sonner';
+import { CalendarIcon } from 'lucide-react';
 
 interface VehicleRevenue {
   driver_id: string;
   driver_name: string;
   vehicle_plate: string;
+  vehicle_brand: string;
   vehicle_model: string;
-  total_revenue: number;
+  assigned_date: string;
   rental_fee: number;
-  net_revenue: number;
   debt_balance: number;
 }
 
 interface FleetVehicleRevenueProps {
   fleetId: string;
+  mode?: 'admin' | 'fleet';
 }
 
-export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
+export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRevenueProps) {
   const [revenues, setRevenues] = useState<VehicleRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
@@ -74,64 +76,86 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
   const fetchRevenues = async () => {
     setLoading(true);
     try {
-      const { from, to } = getPeriodDates();
-
-      // Get active driver-vehicle assignments for this fleet
-      const { data: assignments } = await supabase
+      // Fetch active driver-vehicle assignments for this fleet
+      const { data: assignments, error: assignmentsError } = await supabase
         .from('driver_vehicle_assignments')
         .select(`
           driver_id,
-          vehicle_id,
-          drivers(first_name, last_name),
-          vehicles(plate, brand, model, weekly_rental_fee)
+          assigned_at,
+          drivers!inner(
+            id,
+            first_name,
+            last_name
+          ),
+          vehicles!inner(
+            id,
+            brand,
+            model,
+            plate,
+            weekly_rental_fee,
+            fleet_id
+          )
         `)
-        .eq('fleet_id', fleetId)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .eq('vehicles.fleet_id', fleetId);
 
-      if (!assignments) {
+      if (assignmentsError) throw assignmentsError;
+
+      if (!assignments || assignments.length === 0) {
         setRevenues([]);
         setLoading(false);
         return;
       }
 
-      // For each assignment, fetch settlements for the period
-      const revenueData: VehicleRevenue[] = await Promise.all(
-        assignments.map(async (assignment: any) => {
-          const { data: settlements } = await supabase
-            .from('settlements')
-            .select('net_amount, rental_fee')
-            .eq('driver_id', assignment.driver_id)
-            .gte('period_from', from)
-            .lte('period_to', to);
+      // Fetch current debt balance for each driver
+      const driverIds = assignments.map(a => a.driver_id);
+      const { data: debts } = await supabase
+        .from('driver_debts')
+        .select('driver_id, current_balance')
+        .in('driver_id', driverIds);
 
-          const totalRevenue = settlements?.reduce((sum, s) => sum + (Number(s.net_amount) || 0), 0) || 0;
-          const totalRentalFee = settlements?.reduce((sum, s) => sum + (Number(s.rental_fee) || 0), 0) || 0;
+      const debtMap = new Map(debts?.map(d => [d.driver_id, d.current_balance]) || []);
 
-          // Get driver debt balance
-          const { data: debt } = await supabase
-            .from('driver_debts')
-            .select('current_balance')
-            .eq('driver_id', assignment.driver_id)
-            .single();
+      // Map assignments to revenue data
+      const revenueData: VehicleRevenue[] = assignments.map(assignment => {
+        const driver = assignment.drivers as any;
+        const vehicle = assignment.vehicles as any;
 
-          return {
-            driver_id: assignment.driver_id,
-            driver_name: `${assignment.drivers?.first_name || ''} ${assignment.drivers?.last_name || ''}`.trim(),
-            vehicle_plate: assignment.vehicles?.plate || 'N/A',
-            vehicle_model: `${assignment.vehicles?.brand || ''} ${assignment.vehicles?.model || ''}`.trim(),
-            total_revenue: totalRevenue,
-            rental_fee: totalRentalFee,
-            net_revenue: totalRevenue - totalRentalFee,
-            debt_balance: Number(debt?.current_balance) || 0
-          };
-        })
-      );
+        return {
+          driver_id: assignment.driver_id,
+          driver_name: `${driver.first_name} ${driver.last_name}`,
+          vehicle_plate: vehicle.plate,
+          vehicle_brand: vehicle.brand,
+          vehicle_model: vehicle.model,
+          assigned_date: assignment.assigned_at || new Date().toISOString(),
+          rental_fee: parseFloat(vehicle.weekly_rental_fee || '0'),
+          debt_balance: debtMap.get(assignment.driver_id) || 0,
+        };
+      });
 
       setRevenues(revenueData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching vehicle revenues:', error);
+      toast.error('Błąd ładowania przychodów: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateAssignedDate = async (driverId: string, newDate: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ assigned_at: newDate })
+        .eq('driver_id', driverId)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      toast.success('Data wynajmu została zaktualizowana');
+      fetchRevenues();
+    } catch (error: any) {
+      toast.error('Błąd aktualizacji daty: ' + error.message);
     }
   };
 
@@ -147,11 +171,6 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
     return 'text-muted-foreground';
   };
 
-  const periodDates = getPeriodDates();
-  const from = periodDates.from;
-  const to = periodDates.to;
-
-  // Safe date formatting with validation
   const formatPeriodDate = (dateStr: string) => {
     try {
       const date = new Date(dateStr);
@@ -165,53 +184,51 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Przychody aut</CardTitle>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current">Bieżący tydzień</SelectItem>
-                <SelectItem value="1">Poprzedni tydzień</SelectItem>
-                <SelectItem value="2">2 tygodnie temu</SelectItem>
-                <SelectItem value="3">3 tygodnie temu</SelectItem>
-                <SelectItem value="4">4 tygodnie temu</SelectItem>
-                <SelectItem value="custom">Własny okres</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <CardTitle>Przychody aut</CardTitle>
+        <div className="flex items-center gap-4 mt-4">
+          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Wybierz okres" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Bieżący tydzień</SelectItem>
+              <SelectItem value="1">Poprzedni tydzień</SelectItem>
+              <SelectItem value="2">2 tygodnie temu</SelectItem>
+              <SelectItem value="3">3 tygodnie temu</SelectItem>
+              <SelectItem value="4">4 tygodnie temu</SelectItem>
+              <SelectItem value="custom">Własny zakres</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {selectedWeek === 'custom' && (
-          <div className="flex gap-2 mt-2">
-            <input
-              type="date"
-              value={customPeriodFrom}
-              onChange={(e) => setCustomPeriodFrom(e.target.value)}
-              className="border rounded px-2 py-1"
-            />
-            <span className="py-1">-</span>
-            <input
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={customPeriodFrom}
+                onChange={(e) => setCustomPeriodFrom(e.target.value)}
+                className="w-[150px]"
+              />
+            </div>
+            <span className="text-muted-foreground">do</span>
+            <Input
               type="date"
               value={customPeriodTo}
               onChange={(e) => setCustomPeriodTo(e.target.value)}
-              className="border rounded px-2 py-1"
+              className="w-[150px]"
             />
-            <Button onClick={fetchRevenues} size="sm">Zastosuj</Button>
           </div>
         )}
-        <p className="text-sm text-muted-foreground mt-2">
-          Okres: {formatPeriodDate(from)} - {formatPeriodDate(to)}
-        </p>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="text-center py-8">Ładowanie...</div>
+          <div className="text-center py-8 text-muted-foreground">
+            Ładowanie danych...
+          </div>
         ) : revenues.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Brak przychodów w tym okresie
+            Brak przypisanych pojazdów dla tej floty
           </div>
         ) : (
           <Table>
@@ -219,32 +236,39 @@ export function FleetVehicleRevenue({ fleetId }: FleetVehicleRevenueProps) {
               <TableRow>
                 <TableHead>Kierowca</TableHead>
                 <TableHead>Pojazd</TableHead>
-                <TableHead className="text-right">Przychód całkowity</TableHead>
+                <TableHead>Wynajem od</TableHead>
                 <TableHead className="text-right">Wynajem</TableHead>
-                <TableHead className="text-right">Netto</TableHead>
                 <TableHead className="text-right">Zadłużenie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {revenues.map((rev) => (
-                <TableRow key={rev.driver_id} className="hover:bg-yellow-50">
-                  <TableCell className="font-medium">{rev.driver_name}</TableCell>
+                <TableRow key={rev.driver_id}>
+                  <TableCell className="font-medium">
+                    {rev.driver_name}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {rev.vehicle_brand} {rev.vehicle_model}
+                    <div className="text-xs text-muted-foreground">{rev.vehicle_plate}</div>
+                  </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">{rev.vehicle_plate}</div>
-                      <div className="text-muted-foreground">{rev.vehicle_model}</div>
-                    </div>
+                    {mode === 'admin' ? (
+                      <input 
+                        type="date" 
+                        value={format(new Date(rev.assigned_date), 'yyyy-MM-dd')}
+                        onChange={(e) => updateAssignedDate(rev.driver_id, e.target.value)}
+                        className="border rounded px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      <span className="text-sm">
+                        {formatPeriodDate(rev.assigned_date)}
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {rev.total_revenue.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className={`text-right ${getRentalFeeColor(rev.rental_fee)}`}>
+                  <TableCell className={`text-right font-mono ${getRentalFeeColor(rev.rental_fee)}`}>
                     {rev.rental_fee.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-bold">
-                    {rev.net_revenue.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className={`text-right ${getDebtColor(rev.debt_balance)}`}>
+                  <TableCell className={`text-right font-mono ${getDebtColor(rev.debt_balance)}`}>
                     {rev.debt_balance === 0 ? '—' : `${rev.debt_balance.toFixed(2)} zł`}
                   </TableCell>
                 </TableRow>
