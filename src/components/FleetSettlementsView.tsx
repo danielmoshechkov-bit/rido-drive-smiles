@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Check, X, AlertCircle } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
+import { FleetFuelView } from './FleetFuelView';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface FleetSettlementsViewProps {
@@ -202,7 +203,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Render "Paliwo" tab
   if (activeSubTab === "fuel") {
-    const FleetFuelView = require('./FleetFuelView').FleetFuelView;
     return (
       <div>
         <UniversalSubTabBar
