@@ -72,7 +72,11 @@ export const DriverSettlements = ({
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
-  const [fleetName, setFleetName] = useState<string | null>(null);
+  const [driverInfo, setDriverInfo] = useState<{
+    firstName: string | null;
+    lastName: string | null;
+    fleetName: string | null;
+  }>({ firstName: null, lastName: null, fleetName: null });
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -397,20 +401,24 @@ export const DriverSettlements = ({
     }
   };
 
-  const loadFleetName = async () => {
+  const loadDriverInfo = async () => {
     if (!driverId) return;
 
     const { data, error } = await supabase
       .from('drivers')
-      .select('fleet_id, fleets(name)')
+      .select('first_name, last_name, fleet_id, fleets(name)')
       .eq('id', driverId)
       .maybeSingle();
 
-    if (!error && data?.fleets) {
+    if (!error && data) {
       const fleetData = data.fleets as any;
-      setFleetName(fleetData.name || null);
+      setDriverInfo({
+        firstName: data.first_name || null,
+        lastName: data.last_name || null,
+        fleetName: fleetData?.name || null
+      });
     } else {
-      setFleetName(null);
+      setDriverInfo({ firstName: null, lastName: null, fleetName: null });
     }
   };
 
@@ -476,7 +484,7 @@ export const DriverSettlements = ({
     loadDriverPlan();
     loadRentalFee();
     loadSettlementPlans();
-    loadFleetName();
+    loadDriverInfo();
   }, [driverId]);
 
   useEffect(() => {
@@ -624,6 +632,20 @@ export const DriverSettlements = ({
 
   return (
     <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
+      {!hideControls && driverInfo.firstName && (
+        <div className="bg-muted/50 border-b px-6 py-3">
+          <div className="flex items-center justify-center gap-2 text-sm">
+            <span className="font-semibold">Panel kierowcy -</span>
+            <span>{driverInfo.firstName} {driverInfo.lastName}</span>
+            {driverInfo.fleetName && (
+              <>
+                <span>-</span>
+                <span className="font-semibold">Flota: {driverInfo.fleetName}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {!hideControls && (
         <CardHeader>
           <div className="flex items-center gap-6 flex-nowrap">
@@ -655,13 +677,8 @@ export const DriverSettlements = ({
                   ))}
                 </SelectContent>
               </Select>
-              {fleetName && (
-                <span className="text-sm text-muted-foreground ml-2">
-                  ({fleetName})
-                </span>
-              )}
             </div>
-            <div className="flex items-center gap-2 ml-4">
+            <div className="flex items-center gap-2 ml-2">
               <Label className="text-sm whitespace-nowrap">Plan:</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                 <SelectTrigger className="w-[200px]">
@@ -716,7 +733,7 @@ export const DriverSettlements = ({
                           <h4 className="text-sm font-medium">Zarobki według platform</h4>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-64">
+                          <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
@@ -725,7 +742,7 @@ export const DriverSettlements = ({
                                   cy="50%"
                                   labelLine={false}
                                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={60}
+                                  outerRadius={100}
                                   dataKey="value"
                                 >
                                   {platformData.map((entry, index) => (
@@ -767,20 +784,6 @@ export const DriverSettlements = ({
                               </td>
                             </tr>
                             
-                            {/* Podatek 8% */}
-                            <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Podatek 8%</td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                            
                             {/* Prowizja */}
                             <tr className="border-t hover:bg-yellow-200">
                               <td className="p-2 text-muted-foreground">Prowizja</td>
@@ -806,6 +809,20 @@ export const DriverSettlements = ({
                               </td>
                               <td className="p-2 text-right font-medium text-blue-600">
                                 {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                              </td>
+                            </tr>
+                            
+                            {/* Podatek 8% */}
+                            <tr className="border-t hover:bg-yellow-200">
+                              <td className="p-2 text-muted-foreground">Podatek 8%</td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
+                              </td>
+                              <td className="p-2 text-right font-medium text-destructive">
+                                {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                           </tbody>
@@ -845,6 +862,22 @@ export const DriverSettlements = ({
                           <div className="flex justify-between text-base font-bold">
                             <span className="font-bold">Opłata za rozliczenie:</span>
                             <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
+                          </div>
+                        )}
+                        
+                        {/* Paliwo - DUŻA CZCIONKA */}
+                        {amounts.fuel > 0 && (
+                          <div className="flex justify-between text-base font-bold">
+                            <span className="font-bold">Paliwo:</span>
+                            <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
+                          </div>
+                        )}
+                        
+                        {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
+                        {amounts.fuel_vat_refund > 0 && (
+                          <div className="flex justify-between text-base font-bold">
+                            <span className="font-bold">Zwrot VAT paliwo:</span>
+                            <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                           </div>
                         )}
                         
