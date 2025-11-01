@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +12,7 @@ import { Check, X, AlertCircle } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
+import { FuelCSVUpload } from './FuelCSVUpload';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -416,13 +417,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   // Render "Paliwo" tab
   if (activeSubTab === "fuel") {
     return (
-      <div>
+      <div className="space-y-6">
         <UniversalSubTabBar
           activeTab={activeSubTab}
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetFuelView fleetId={fleetId} periodFrom={periodFrom} periodTo={periodTo} />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Import danych paliwowych z CSV</CardTitle>
+            <CardDescription>
+              Wgraj plik CSV z transakcjami paliwowymi (separator ";", format UTF-8)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FuelCSVUpload onUploadComplete={() => {
+              // Trigger refresh of fuel view
+              fetchSettlements();
+            }} />
+          </CardContent>
+        </Card>
+
+        <FleetFuelView 
+          fleetId={fleetId} 
+          periodFrom={currentWeek?.start}
+          periodTo={currentWeek?.end}
+        />
       </div>
     );
   }

@@ -54,3 +54,6 @@ verify_jwt = false
 
 [functions.fleet-invitations]
 verify_jwt = false
+
+[functions.fuel-import]
+verify_jwt = false

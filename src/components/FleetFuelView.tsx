@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 interface FleetFuelViewProps {
@@ -12,150 +12,230 @@ interface FleetFuelViewProps {
   periodTo?: string;
 }
 
-interface FuelLog {
+interface FuelTransaction {
   id: string;
-  driver_id: string;
-  date: string;
-  amount: number;
-  liters: number | null;
-  station: string | null;
-  notes: string | null;
+  card_number: string;
+  transaction_date: string;
+  transaction_time: string;
+  brand: string;
+  liters: number;
+  price_per_liter: number;
+  total_amount: number;
+  fuel_type: string;
+  driver_name?: string;
+}
+
+interface CardSummary {
+  card_number: string;
   driver_name: string;
+  transaction_count: number;
+  total_liters: number;
+  total_amount: number;
+  transactions: FuelTransaction[];
 }
 
 export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewProps) {
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
+  const [cardSummaries, setCardSummaries] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (fleetId) {
-      fetchFuelLogs();
+    if (periodFrom && periodTo) {
+      fetchFuelTransactions();
     }
-  }, [fleetId, periodFrom, periodTo]);
+  }, [periodFrom, periodTo]);
 
-  const fetchFuelLogs = async () => {
-    setLoading(true);
+  const fetchFuelTransactions = async () => {
     try {
-      // Get drivers assigned to fleet
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('driver_vehicle_assignments')
-        .select(`
-          driver_id,
-          drivers!inner(
-            id,
-            first_name,
-            last_name
-          ),
-          vehicles!inner(
-            fleet_id
-          )
-        `)
-        .eq('status', 'active')
-        .eq('vehicles.fleet_id', fleetId);
+      setLoading(true);
 
-      if (assignmentsError) throw assignmentsError;
-      if (!assignments || assignments.length === 0) {
-        setFuelLogs([]);
-        setLoading(false);
-        return;
-      }
+      // Fetch drivers with fuel cards from the fleet
+      const { data: drivers, error: driversError } = await supabase
+        .from('drivers')
+        .select('id, first_name, last_name, fuel_card_number, fleet_id')
+        .eq('fleet_id', fleetId)
+        .not('fuel_card_number', 'is', null);
 
-      const driverIds = assignments.map(a => a.driver_id);
+      if (driversError) throw driversError;
 
-      // Fetch fuel logs for those drivers
-      let query = supabase
-        .from('fuel_logs')
+      // Create map of card_number to driver name
+      const cardToDriverMap = new Map(
+        drivers?.map(d => [
+          d.fuel_card_number,
+          `${d.first_name} ${d.last_name}`
+        ]) || []
+      );
+
+      // Fetch fuel transactions for the period
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('fuel_transactions')
         .select('*')
-        .in('driver_id', driverIds);
+        .gte('transaction_date', periodFrom)
+        .lte('transaction_date', periodTo)
+        .order('transaction_date', { ascending: false });
 
-      if (periodFrom) query = query.gte('date', periodFrom);
-      if (periodTo) query = query.lte('date', periodTo);
+      if (transactionsError) throw transactionsError;
 
-      const { data: logsData, error: logsError } = await query.order('date', { ascending: false });
+      // Group transactions by card_number
+      const grouped = (transactions || []).reduce((acc, transaction) => {
+        const cardNumber = transaction.card_number;
+        if (!acc[cardNumber]) {
+          acc[cardNumber] = {
+            card_number: cardNumber,
+            driver_name: cardToDriverMap.get(cardNumber) || 'Nieprzypisany',
+            transaction_count: 0,
+            total_liters: 0,
+            total_amount: 0,
+            transactions: []
+          };
+        }
+        acc[cardNumber].transaction_count++;
+        acc[cardNumber].total_liters += Number(transaction.liters || 0);
+        acc[cardNumber].total_amount += Number(transaction.total_amount || 0);
+        acc[cardNumber].transactions.push(transaction);
+        return acc;
+      }, {} as Record<string, CardSummary>);
 
-      if (logsError) throw logsError;
+      const summaries = Object.values(grouped);
+      setCardSummaries(summaries);
 
-      // Merge driver names
-      const logsWithNames = (logsData || []).map(log => {
-        const assignment = assignments.find(a => a.driver_id === log.driver_id);
-        const driver = assignment?.drivers as any;
-        return {
-          ...log,
-          driver_name: driver ? `${driver.first_name} ${driver.last_name}` : 'Nieznany'
-        };
-      });
-
-      setFuelLogs(logsWithNames);
     } catch (error: any) {
-      toast.error('Błąd ładowania danych paliwa: ' + error.message);
+      console.error('Error fetching fuel transactions:', error);
+      toast.error('Nie udało się pobrać danych paliwowych');
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleCard = (cardNumber: string) => {
+    const newExpanded = new Set(expandedCards);
+    if (newExpanded.has(cardNumber)) {
+      newExpanded.delete(cardNumber);
+    } else {
+      newExpanded.add(cardNumber);
+    }
+    setExpandedCards(newExpanded);
+  };
+
   if (loading) {
-    return <div className="text-center py-8">Ładowanie danych paliwa...</div>;
+    return <div className="text-center py-8">Ładowanie danych paliwowych...</div>;
   }
 
-  const totalAmount = fuelLogs.reduce((sum, log) => sum + log.amount, 0);
-  const totalLiters = fuelLogs.reduce((sum, log) => sum + (log.liters || 0), 0);
+  if (cardSummaries.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Brak danych paliwowych dla wybranego okresu
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totalAmount = cardSummaries.reduce((sum, card) => sum + card.total_amount, 0);
+  const totalLiters = cardSummaries.reduce((sum, card) => sum + card.total_liters, 0);
+  const totalTransactions = cardSummaries.reduce((sum, card) => sum + card.transaction_count, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Zużycie paliwa</CardTitle>
+        <CardTitle>Rozliczenie paliwa</CardTitle>
+        <CardDescription>
+          Szczegółowe rozliczenie paliwa dla okresu {periodFrom} - {periodTo}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {fuelLogs.length === 0 ? (
-          <div className="text-center text-muted-foreground py-6">
-            Brak danych o paliwie dla wybranego okresu
-          </div>
-        ) : (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Kierowca</TableHead>
-                  <TableHead>Stacja</TableHead>
-                  <TableHead className="text-right">Litry</TableHead>
-                  <TableHead className="text-right">Kwota</TableHead>
-                  <TableHead>Notatki</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Numer karty</TableHead>
+              <TableHead>Kierowca</TableHead>
+              <TableHead className="text-right">Transakcje</TableHead>
+              <TableHead className="text-right">Litry</TableHead>
+              <TableHead className="text-right">Kwota</TableHead>
+              <TableHead className="text-center">Szczegóły</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {cardSummaries.map((card) => (
+              <>
+                <TableRow key={card.card_number} className="hover:bg-muted/50">
+                  <TableCell className="font-mono">{card.card_number}</TableCell>
+                  <TableCell>{card.driver_name}</TableCell>
+                  <TableCell className="text-right">{card.transaction_count}</TableCell>
+                  <TableCell className="text-right">
+                    {card.total_liters.toFixed(2)} L
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {card.total_amount.toFixed(2)} zł
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleCard(card.card_number)}
+                    >
+                      {expandedCards.has(card.card_number) ? 'Ukryj' : 'Pokaż'}
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fuelLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      {format(new Date(log.date), 'd MMM yyyy', { locale: pl })}
-                    </TableCell>
-                    <TableCell className="font-medium">{log.driver_name}</TableCell>
-                    <TableCell>{log.station || '-'}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {log.liters ? `${log.liters.toFixed(2)} L` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {log.amount.toFixed(2)} zł
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {log.notes || '-'}
+                {expandedCards.has(card.card_number) && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="bg-muted/20 p-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium mb-2">Szczegóły transakcji:</p>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Data</TableHead>
+                              <TableHead className="text-xs">Godzina</TableHead>
+                              <TableHead className="text-xs">Stacja</TableHead>
+                              <TableHead className="text-xs">Paliwo</TableHead>
+                              <TableHead className="text-xs text-right">Litry</TableHead>
+                              <TableHead className="text-xs text-right">Cena/L</TableHead>
+                              <TableHead className="text-xs text-right">Kwota</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {card.transactions.map((transaction) => (
+                              <TableRow key={transaction.id}>
+                                <TableCell className="text-xs">
+                                  {format(new Date(transaction.transaction_date), 'dd.MM.yyyy')}
+                                </TableCell>
+                                <TableCell className="text-xs">{transaction.transaction_time}</TableCell>
+                                <TableCell className="text-xs">{transaction.brand}</TableCell>
+                                <TableCell className="text-xs">{transaction.fuel_type}</TableCell>
+                                <TableCell className="text-xs text-right">
+                                  {transaction.liters.toFixed(2)} L
+                                </TableCell>
+                                <TableCell className="text-xs text-right">
+                                  {transaction.price_per_liter.toFixed(2)} zł
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-medium">
+                                  {transaction.total_amount.toFixed(2)} zł
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
-                <TableRow className="font-bold bg-muted/50">
-                  <TableCell colSpan={3}>SUMA</TableCell>
-                  <TableCell className="text-right">
-                    {totalLiters.toFixed(2)} L
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {totalAmount.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </>
-        )}
+                )}
+              </>
+            ))}
+            <TableRow className="font-bold bg-muted/50">
+              <TableCell colSpan={2}>SUMA</TableCell>
+              <TableCell className="text-right">{totalTransactions}</TableCell>
+              <TableCell className="text-right">
+                {totalLiters.toFixed(2)} L
+              </TableCell>
+              <TableCell className="text-right">
+                {totalAmount.toFixed(2)} zł
+              </TableCell>
+              <TableCell></TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
