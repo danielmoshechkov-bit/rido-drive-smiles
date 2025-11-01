@@ -333,12 +333,12 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
               <Label>
                 Wybierz pojazd <span className="text-muted-foreground">(opcjonalne)</span>
               </Label>
-              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+              <Select value={selectedVehicleId || "no-vehicle"} onValueChange={(value) => setSelectedVehicleId(value === "no-vehicle" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Przydziel później..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Bez pojazdu (przydziel później)</SelectItem>
+                  <SelectItem value="no-vehicle">Bez pojazdu (przydziel później)</SelectItem>
                   {availableVehicles.map((vehicle) => (
                     <SelectItem key={vehicle.id} value={vehicle.id}>
                       {vehicle.plate} - {vehicle.brand} {vehicle.model}
