@@ -2,40 +2,21 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TabsPill, useDriverId } from "@/ridoUiPack";
+import { TabsPill } from "@/ridoUiPack";
 import { AddOwnCarModal } from "@/components/driver/AddOwnCarModal";
 import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
-import { UniversalCard } from "@/components/UniversalCard";
-import { AddCarForm } from "@/components/AddCarForm";
-import { VehicleList } from "@/components/VehicleList";
-import { SettlementPlanSelector } from "@/components/SettlementPlanSelector";
 import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
-import { UniversalSelector } from "@/components/UniversalSelector";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
+import { FleetFuelView } from "@/components/FleetFuelView";
+import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
-import { 
-  MessageCircle, 
-  Send, 
-  X, 
-  FileText, 
-  Calendar, 
-  Car,
-  Building2,
-  ChevronDown,
-  Plus
-} from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { FileText, Plus } from "lucide-react";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -191,11 +172,10 @@ const DriverDashboard = () => {
           <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
           <TabsTrigger value="cars">Samochód</TabsTrigger>
           <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-          <TabsTrigger value="fuel">Paliwo</TabsTrigger>
 
           {/* Tab Content */}
           <TabsContent value="weekly-report">
-              <WeeklyResults driverData={driverData} />
+              <SettlementsWithSubTabs driverData={driverData} />
             </TabsContent>
           
           <TabsContent value="cars">
@@ -204,10 +184,6 @@ const DriverDashboard = () => {
           
           <TabsContent value="documents">
             <DriverDocuments driverData={driverData} />
-          </TabsContent>
-          
-          <TabsContent value="fuel">
-            <FuelLogs driverData={driverData} />
           </TabsContent>
         </TabsPill>
       </div>
@@ -252,297 +228,43 @@ function CarsSection({ driverData }: { driverData: any }) {
   );
 }
 
-// Komponent wyników tygodnia z poprawionym kalendarzem
-function WeeklyResults({ driverData }: { driverData: any }) {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
-  const [initialized, setInitialized] = useState(false);
-  const [weekData, setWeekData] = useState({
-    from: "",
-    to: "",
-    earnings: {
-      uber: 0,
-      bolt: 0,
-      freenow: 0
-    },
-    fuel: 0,
-    rental: 0,
-    plan: "50+8%"
-  });
-
-  function getCurrentWeek() {
-    const now = new Date();
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    const daysFromJan1 = Math.floor((now.getTime() - jan1.getTime()) / (24 * 60 * 60 * 1000));
-    return Math.ceil((daysFromJan1 + jan1.getDay()) / 7);
-  }
-
-  // Funkcja do obliczania tygodni zgodnie z kalendarzem (poniedziałek-niedziela)
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    
-    let currentDate = new Date(year, 0, 1);
-    
-    // Znajdź pierwszy poniedziałek roku
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
-
-    let weekNumber = 1;
-    
-    while (currentDate.getFullYear() === year) {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 6);
-      
-      if (endDate.getFullYear() > year) {
-        break;
-      }
-      
-      // Skip future weeks in current year
-      if (year === currentYear && startDate > now) {
-        break;
-      }
-      
-      const startDay = format(startDate, 'EEE', { locale: pl });
-      const endDay = format(endDate, 'EEE', { locale: pl });
-      
-      weeks.push({
-        week: weekNumber,
-        startDate: format(startDate, 'd MMM', { locale: pl }),
-        endDate: format(endDate, 'd MMM', { locale: pl }),
-        fromISO: format(startDate, 'yyyy-MM-dd'),
-        toISO: format(endDate, 'yyyy-MM-dd'),
-        label: `Tydz. ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} ${startDay}-${endDay})`
-      });
-      
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-    }
-    
-    return weeks.reverse(); // Najnowsze tygodnie na górze
-  };
-
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
-  const weekDates = getWeekDates(selectedYear);
-
-  const loadWeekData = async () => {
-    const weekInfo = weekDates.find(w => w.week === selectedWeek);
-    if (!weekInfo) {
-      console.log('❌ No week info found for week:', selectedWeek);
-      return;
-    }
-
-    console.log('📅 Loading data for:', { 
-      driverId: driverData.driver_id, 
-      from: weekInfo.fromISO, 
-      to: weekInfo.toISO 
-    });
-
-    setWeekData(prev => ({
-      ...prev,
-      from: weekInfo.fromISO,
-      to: weekInfo.toISO
-    }));
-
-    // Ładowanie rzeczywistych danych z bazy
-    const { data: settlements, error: settlementsError } = await supabase
-      .from("settlements")
-      .select("*")
-      .eq("driver_id", driverData.driver_id)
-      .gte("period_from", weekInfo.fromISO)
-      .lte("period_to", weekInfo.toISO);
-    
-    if (settlementsError) {
-      console.error('❌ Error loading settlements:', settlementsError);
-      toast.error(`Błąd ładowania rozliczeń: ${settlementsError.message}`);
-      return;
-    }
-    
-    console.log("📊 Loaded settlements:", settlements?.length || 0, "records");
-    
-    if (!settlements || settlements.length === 0) {
-      console.log('⚠️ No settlements found for this week');
-      toast.info('Brak rozliczeń dla wybranego tygodnia');
-    }
-    
-    // Pobierz opłatę za wynajem z przypisanego pojazdu
-    const { data: assignment, error } = await supabase
-      .from("driver_vehicle_assignments")
-      .select(`
-        id,
-        vehicle_id,
-        vehicles(weekly_rental_fee)
-      `)
-      .eq("driver_id", driverData.driver_id)
-      .eq("status", "active")
-      .order('assigned_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    const rentalFee = assignment?.vehicles?.weekly_rental_fee || 0;
-    
-    // Zsumuj dane z CSV (pole amounts)
-    if (settlements && settlements.length > 0) {
-      const totals = settlements.reduce((acc, settlement) => {
-        const amounts = (settlement.amounts || {}) as any;
-        return {
-          uber: acc.uber + (amounts.uber || 0),
-          uberCashless: acc.uberCashless + (amounts.uber_cashless || 0),
-          bolt: acc.bolt + (amounts.bolt_gross || 0),
-          boltNet: acc.boltNet + (amounts.bolt_net || 0),
-          freenow: acc.freenow + (amounts.freenow_gross || 0),
-          freenowNet: acc.freenowNet + (amounts.freenow_net || 0),
-          fuel: acc.fuel + (amounts.fuel || 0)
-        };
-      }, { uber: 0, uberCashless: 0, bolt: 0, boltNet: 0, freenow: 0, freenowNet: 0, fuel: 0 });
-      
-      console.log("💰 Calculated totals:", totals);
-      
-      setWeekData(prev => ({
-        ...prev,
-        earnings: {
-          uber: totals.uber,
-          bolt: totals.bolt,
-          freenow: totals.freenow
-        },
-        fuel: totals.fuel,
-        rental: rentalFee
-      }));
-    } else {
-      // Reset jeśli brak danych
-      setWeekData(prev => ({
-        ...prev,
-        earnings: {
-          uber: 0,
-          bolt: 0,
-          freenow: 0
-        },
-        fuel: 0,
-        rental: rentalFee
-      }));
-    }
-  };
-
-  useEffect(() => {
-    // On first mount, jump to the latest available settlement period for this driver
-    if (initialized) return;
-    (async () => {
-      const { data } = await supabase
-        .from('settlements')
-        .select('period_from, period_to')
-        .eq('driver_id', driverData.driver_id)
-        .order('period_from', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        const latest = data[0];
-        const year = new Date(latest.period_from).getFullYear();
-        const weeksForYear = getWeekDates(year);
-        const found = weeksForYear.find(w => latest.period_from >= w.fromISO && latest.period_to <= w.toISO);
-        if (found) {
-          setSelectedYear(year);
-          setSelectedWeek(found.week);
-        }
-      }
-      setInitialized(true);
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-load data when year/week changes after initialization
-  useEffect(() => {
-    if (initialized && selectedYear && selectedWeek) {
-      loadWeekData();
-    }
-  }, [selectedYear, selectedWeek, initialized]);
-
-  const chartData = [
-    { name: "Uber", value: weekData.earnings.uber, fill: "#000000" },
-    { name: "Bolt", value: weekData.earnings.bolt, fill: "#34D399" },
-    { name: "FREE NOW", value: weekData.earnings.freenow, fill: "#EF4444" }
+// Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
+function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
+  const [activeSubTab, setActiveSubTab] = useState("my");
+  
+  const subTabs = [
+    { value: "my", label: "Moje rozliczenia", visible: true },
+    { value: "fuel", label: "Paliwo", visible: true }
   ];
 
-  console.log('📊 Chart data:', chartData);
-  console.log('💰 Week earnings:', weekData.earnings);
-
-  const totalEarnings = weekData.earnings.uber + weekData.earnings.bolt + weekData.earnings.freenow;
-  
-  const calculateNetAmount = (earnings: number, fuel: number, rental: number, plan: string) => {
-    let deductions = fuel + rental;
-    if (plan === "50+8%") {
-      deductions += 50 + Math.round(earnings * 0.08);
-    } else if (plan === "tylko 159") {
-      deductions += 159;
-    }
-    return earnings - deductions;
-  };
+  if (activeSubTab === "fuel") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetFuelView 
+          fleetId={driverData.drivers?.fleet_id || ""} 
+          periodFrom={undefined} 
+          periodTo={undefined}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <Card className="rounded-xl shadow-soft">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <CardTitle className="text-h2">Wynik tygodniowy</CardTitle>
-          </div>
-          
-          {/* Kontrolki rok, okres i plan */}
-          <div className="flex gap-4 items-end flex-wrap">
-            <div className="flex-shrink-0">
-              <label className="text-xs text-muted-foreground block mb-1">Rok</label>
-              <UniversalSelector
-                id="year-selector"
-                items={years.map(year => ({ id: year.toString(), name: year.toString() }))}
-                currentValue={selectedYear.toString()}
-                placeholder={selectedYear.toString()}
-                showSearch={false}
-                showAdd={false}
-                allowClear={false}
-                onSelect={(item) => item && setSelectedYear(parseInt(item.id))}
-                className="w-28"
-              />
-            </div>
-            
-            <div className="flex-1 min-w-[240px] max-w-md">
-              <label className="text-xs text-muted-foreground block mb-1">Okres</label>
-              <UniversalSelector
-                id="week-selector"
-                items={weekDates.map((w) => ({
-                  id: w.week.toString(),
-                  name: w.label
-                }))}
-                currentValue={selectedWeek.toString()}
-                placeholder={weekDates.find(w => w.week === selectedWeek) ? `Tydz. ${selectedWeek}` : "Wybierz"}
-                showSearch={true}
-                showAdd={false}
-                allowClear={false}
-                onSelect={(item) => item && setSelectedWeek(parseInt(item.id))}
-                className="w-full"
-              />
-            </div>
-            
-            <SettlementPlanSelector 
-              driverData={driverData} 
-              currentPlanId={null} 
-              onPlanChange={(plan) => setWeekData(prev => ({ ...prev, plan }))} 
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {/* Szczegółowa tabela rozliczeń z wbudowanym wykresem */}
-          <DriverSettlements 
-            driverId={driverData.driver_id}
-            preSelectedYear={selectedYear}
-            preSelectedWeek={selectedWeek}
-            hideControls={true}
-          />
-        </CardContent>
-      </Card>
+    <div>
+      <UniversalSubTabBar
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+        tabs={subTabs}
+      />
+      <DriverSettlements 
+        driverId={driverData.driver_id} 
+        hideControls={false}
+      />
     </div>
   );
 }
@@ -682,24 +404,6 @@ function DriverDocuments({ driverData }: { driverData: any }) {
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// Function removed - fleet info is now integrated into the car section
-
-// Komponent logów paliwa
-function FuelLogs({ driverData }: { driverData: any }) {
-  return (
-    <Card className="rounded-xl shadow-soft">
-      <CardHeader>
-        <CardTitle>Logi paliwa</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Historia tankowania pojawi się tutaj.
-        </p>
       </CardContent>
     </Card>
   );
