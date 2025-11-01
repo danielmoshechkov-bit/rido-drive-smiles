@@ -130,7 +130,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
               value={ownerName} 
               onChange={(e) => setOwnerName(e.target.value)} 
               placeholder="np. RIDO Sp. z o.o."
-              disabled={isFleetUser}
+              disabled={!!isFleetUser}
               className={isFleetUser ? 'bg-muted cursor-not-allowed' : ''}
             />
             {isFleetUser && (

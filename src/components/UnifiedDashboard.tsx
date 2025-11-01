@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TabsContent } from "@/components/ui/tabs";
-import { UniversalTabBar } from "@/components/UniversalTabBar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { CitySelector } from "@/components/CitySelector";
 import { CSVUpload } from "@/components/CSVUpload";
@@ -14,7 +13,6 @@ import { SettlementsManagement } from "@/components/SettlementsManagement";
 import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
-import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
 import { SettlementPlansManagement } from "@/components/SettlementPlansManagement";
 import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
@@ -447,7 +445,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
               </Card>
             </TabsContent>
           )}
-        </UniversalTabBar>
+        </Tabs>
       </div>
     </div>
   );
