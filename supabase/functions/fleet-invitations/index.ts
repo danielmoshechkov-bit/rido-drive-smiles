@@ -134,26 +134,39 @@ Deno.serve(async (req) => {
 
       if (updateError) throw updateError;
 
-      // If accepted, create driver_vehicle_assignment
-      if (status === 'accepted' && invitation.vehicle_id) {
-        // Unassign any existing assignments for this vehicle
-        await supabase
-          .from('driver_vehicle_assignments')
-          .update({ status: 'inactive', unassigned_at: new Date().toISOString() })
-          .eq('vehicle_id', invitation.vehicle_id)
-          .eq('status', 'active');
+      // If accepted, update driver fleet_id and create assignments
+      if (status === 'accepted') {
+        // Always update driver's fleet_id
+        const { error: updateFleetError } = await supabase
+          .from('drivers')
+          .update({ fleet_id: invitation.fleet_id })
+          .eq('id', invitation.driver_id);
 
-        // Create new assignment
-        const { error: assignError } = await supabase
-          .from('driver_vehicle_assignments')
-          .insert({
-            driver_id: invitation.driver_id,
-            vehicle_id: invitation.vehicle_id,
-            fleet_id: invitation.fleet_id,
-            status: 'active'
-          });
+        if (updateFleetError) {
+          console.error('Error updating driver fleet_id:', updateFleetError);
+        }
 
-        if (assignError) throw assignError;
+        // If vehicle assigned, create vehicle assignment
+        if (invitation.vehicle_id) {
+          // Unassign any existing assignments for this vehicle
+          await supabase
+            .from('driver_vehicle_assignments')
+            .update({ status: 'inactive', unassigned_at: new Date().toISOString() })
+            .eq('vehicle_id', invitation.vehicle_id)
+            .eq('status', 'active');
+
+          // Create new assignment
+          const { error: assignError } = await supabase
+            .from('driver_vehicle_assignments')
+            .insert({
+              driver_id: invitation.driver_id,
+              vehicle_id: invitation.vehicle_id,
+              fleet_id: invitation.fleet_id,
+              status: 'active'
+            });
+
+          if (assignError) throw assignError;
+        }
 
         // Create alert for fleet
         await supabase
@@ -162,7 +175,9 @@ Deno.serve(async (req) => {
             type: 'info',
             category: 'invitation',
             title: 'Kierowca dołączył do floty',
-            description: `Kierowca zaakceptował zaproszenie i został przypisany do pojazdu ${invitation.vehicles?.plate}`,
+            description: invitation.vehicle_id 
+              ? `Kierowca zaakceptował zaproszenie i został przypisany do pojazdu ${invitation.vehicles?.plate}`
+              : 'Kierowca zaakceptował zaproszenie do floty',
             fleet_id: invitation.fleet_id,
             driver_id: invitation.driver_id
           });

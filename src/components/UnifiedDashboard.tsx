@@ -31,10 +31,11 @@ interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
   fleetId?: string | null;
   fleetName?: string;
+  userName?: string;
   onLogout: () => void;
 }
 
-export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: UnifiedDashboardProps) {
+export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLogout }: UnifiedDashboardProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
@@ -189,7 +190,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
               className="h-8 w-8"
             />
             <h1 className="text-xl font-bold text-primary">
-              {userType === 'admin' ? t('admin.dashboard') : `Panel Flotowy - ${fleetName}`}
+              {userType === 'admin' ? t('admin.dashboard') : `Panel Flotowy - ${userName || fleetName}`}
             </h1>
           </div>
           <div className="flex items-center space-x-4">

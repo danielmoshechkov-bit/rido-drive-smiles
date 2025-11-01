@@ -55,42 +55,9 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       }
 
       try {
-        // Get all vehicles for this fleet
-        const { data: vehicles } = await supabase
-          .from('vehicles')
-          .select('id')
-          .eq('fleet_id', fleetId);
-
-        const vehicleIds = vehicles?.map(v => v.id) || [];
-        
-        let driverIds = new Set<string>();
-
-        // Get drivers assigned to vehicles
-        if (vehicleIds.length > 0) {
-          const { data: assignments } = await supabase
-            .from('driver_vehicle_assignments')
-            .select('driver_id')
-            .eq('status', 'active')
-            .in('vehicle_id', vehicleIds);
-
-          if (assignments) {
-            assignments.forEach(a => driverIds.add(a.driver_id));
-          }
-        }
-
-        // ALSO get drivers with accepted invitations to this fleet
-        const { data: acceptedInvitations } = await supabase
-          .from('fleet_invitations')
-          .select('driver_id')
-          .eq('fleet_id', fleetId)
-          .eq('status', 'accepted');
-
-        if (acceptedInvitations) {
-          acceptedInvitations.forEach(inv => driverIds.add(inv.driver_id));
-        }
-
-        // Filter drivers by combined set
-        setFilteredByFleet(drivers.filter(d => driverIds.has(d.id)));
+        // Filter drivers by fleet_id (set when invitation accepted)
+        const filtered = drivers.filter(d => (d as any).fleet_id === fleetId);
+        setFilteredByFleet(filtered);
       } catch (error) {
         console.error('Error filtering drivers by fleet:', error);
         toast.error('Błąd podczas filtrowania kierowców');

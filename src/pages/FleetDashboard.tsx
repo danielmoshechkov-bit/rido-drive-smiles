@@ -9,6 +9,7 @@ export default function FleetDashboard() {
   const navigate = useNavigate();
   const { role, roles, fleetId, loading: roleLoading } = useUserRole();
   const [fleetName, setFleetName] = useState('');
+  const [userName, setUserName] = useState('');
 
   // Check permissions based on roles
   const canAccessFleet = roles.includes('admin') || roles.includes('fleet_rental') || roles.includes('fleet_settlement');
@@ -22,6 +23,7 @@ export default function FleetDashboard() {
   useEffect(() => {
     if (fleetId) {
       fetchFleetName();
+      fetchUserName();
     }
   }, [fleetId]);
 
@@ -34,6 +36,15 @@ export default function FleetDashboard() {
 
     if (!error && data) {
       setFleetName(data.name);
+    }
+  };
+
+  const fetchUserName = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const firstName = user.user_metadata?.first_name || '';
+      const lastName = user.user_metadata?.last_name || '';
+      setUserName(`${firstName} ${lastName}`.trim());
     }
   };
 
@@ -68,6 +79,7 @@ export default function FleetDashboard() {
       userType="fleet"
       fleetId={fleetId}
       fleetName={fleetName}
+      userName={userName}
       onLogout={handleLogout}
     />
   );
