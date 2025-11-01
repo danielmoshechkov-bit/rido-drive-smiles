@@ -603,11 +603,12 @@ export const DriverSettlements = ({
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
         {!hideControls && (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(120px,150px)_minmax(300px,1fr)_20px_minmax(200px,250px)]">
+            {/* Rok - po lewej, małe okienko */}
             <div>
               <Label htmlFor="year-select" className="text-sm font-medium mb-2 block">Rok</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger id="year-select">
+                <SelectTrigger id="year-select" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -618,10 +619,11 @@ export const DriverSettlements = ({
               </Select>
             </div>
             
+            {/* Okres - obok roku, duże elastyczne okienko */}
             <div>
               <Label htmlFor="week-select" className="text-sm font-medium mb-2 block">Okres</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger id="week-select">
+                <SelectTrigger id="week-select" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -634,10 +636,14 @@ export const DriverSettlements = ({
               </Select>
             </div>
 
+            {/* Separator - wizualna przerwa */}
+            <div className="hidden lg:block"></div>
+
+            {/* Plan rozliczenia - po prawej przy krawędzi */}
             <div>
               <Label htmlFor="plan-select" className="text-sm font-medium mb-2 block">Plan rozliczenia</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                <SelectTrigger id="plan-select">
+                <SelectTrigger id="plan-select" className="w-full">
                   <SelectValue placeholder="Wszystkie plany" />
                 </SelectTrigger>
                 <SelectContent>
