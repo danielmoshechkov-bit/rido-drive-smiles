@@ -97,7 +97,7 @@ export const DriverSettlements = ({
 
       weeks.push({
         number: weekNumber,
-        label: `Tydzień ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.)`,
+        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
         start: format(startDate, 'yyyy-MM-dd'),
         end: format(endDate, 'yyyy-MM-dd')
       });
@@ -561,7 +561,7 @@ export const DriverSettlements = ({
     const safeValue = typeof value === 'number' ? value : 0;
     
     return (
-      <div className="flex justify-between p-2 hover:bg-muted/50 rounded">
+      <div className="flex justify-between p-2 hover:bg-yellow-200 rounded">
         <span className="text-sm text-muted-foreground">{label}:</span>
         <span className={`text-sm font-medium ${colorClass}`}>
           {safeValue.toFixed(2)} zł
@@ -600,7 +600,7 @@ export const DriverSettlements = ({
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
         {!hideControls && (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(120px,150px)_minmax(320px,360px)_1fr_minmax(200px,250px)]">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[100px_minmax(280px,300px)_1fr_minmax(180px,220px)]">
             {/* Rok - po lewej, małe okienko */}
             <div>
               <Label htmlFor="year-select" className="text-sm font-medium mb-2 block">Rok</Label>
@@ -728,7 +728,7 @@ export const DriverSettlements = ({
                           </thead>
                           <tbody>
                             {/* Podstawa opodatkowania */}
-                            <tr className="border-t hover:bg-muted/50">
+                            <tr className="border-t hover:bg-yellow-200">
                               <td className="p-2 text-muted-foreground">Podstawa</td>
                               <td className="p-2 text-right font-medium">
                                 {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
@@ -742,7 +742,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Podatek 8% */}
-                            <tr className="border-t hover:bg-muted/50">
+                            <tr className="border-t hover:bg-yellow-200">
                               <td className="p-2 text-muted-foreground">Podatek 8%</td>
                               <td className="p-2 text-right font-medium text-destructive">
                                 {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
@@ -756,7 +756,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Prowizja */}
-                            <tr className="border-t hover:bg-muted/50">
+                            <tr className="border-t hover:bg-yellow-200">
                               <td className="p-2 text-muted-foreground">Prowizja</td>
                               <td className="p-2 text-right font-medium text-amber-600">
                                 {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
@@ -770,7 +770,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Gotówka pobrana (informacyjnie) */}
-                            <tr className="border-t hover:bg-muted/50">
+                            <tr className="border-t hover:bg-yellow-200">
                               <td className="p-2 text-muted-foreground">Gotówka pobrana</td>
                               <td className="p-2 text-right font-medium text-blue-600">
                                 {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
