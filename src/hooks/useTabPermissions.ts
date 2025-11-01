@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, UserRole } from './useUserRole';
+import { DelegatedRolePermissions } from './useDelegatedRole';
 
 interface TabPermissions {
   [tabId: string]: boolean;
 }
 
 export const useTabPermissions = () => {
-  const { roles, isAdmin } = useUserRole();
+  const { roles, isAdmin, delegatedRole } = useUserRole();
   const [permissions, setPermissions] = useState<TabPermissions>({});
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +33,38 @@ export const useTabPermissions = () => {
           'settings': true,
           'reports': true,
         });
+        setLoading(false);
+        return;
+      }
+
+      // Check for delegated role permissions first
+      if (delegatedRole?.permissions) {
+        const delegatedPerms: TabPermissions = {};
+        const perms = delegatedRole.permissions.tabs;
+
+        if (perms.settlements?.enabled) {
+          delegatedPerms['settlements'] = true;
+          if (perms.settlements.subtabs) {
+            Object.entries(perms.settlements.subtabs).forEach(([key, value]) => {
+              if (value) delegatedPerms[`settlements.${key}`] = true;
+            });
+          }
+        }
+
+        if (perms['drivers-list']?.enabled) {
+          delegatedPerms['drivers-list'] = true;
+        }
+
+        if (perms.fleet?.enabled) {
+          delegatedPerms['fleet'] = true;
+          if (perms.fleet.subtabs) {
+            Object.entries(perms.fleet.subtabs).forEach(([key, value]) => {
+              if (value) delegatedPerms[`fleet.${key}`] = true;
+            });
+          }
+        }
+
+        setPermissions(delegatedPerms);
         setLoading(false);
         return;
       }
@@ -68,7 +101,7 @@ export const useTabPermissions = () => {
     };
 
     fetchPermissions();
-  }, [roles, isAdmin]);
+  }, [roles, isAdmin, delegatedRole]);
 
   const canViewTab = (tabId: string): boolean => {
     return permissions[tabId] ?? false;

@@ -222,79 +222,79 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-auto w-full flex flex-wrap gap-1">
             {canViewTab('weekly-report') && (
-              <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <BarChart className="h-4 w-4 mr-2" />
                 {t('admin.weeklyReport')}
               </TabsTrigger>
             )}
             {canViewTab('settlements') && (
-              <TabsTrigger value="settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <DollarSign className="h-4 w-4 mr-2" />
                 {t('admin.settlements')}
               </TabsTrigger>
             )}
             {canViewTab('drivers-list') && (
-              <TabsTrigger value="drivers-list" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="drivers-list" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <Users className="h-4 w-4 mr-2" />
                 {t('admin.driversList')}
               </TabsTrigger>
             )}
             {canViewTab('fleet') && (
-              <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <Car className="h-4 w-4 mr-2" />
                 Flota
               </TabsTrigger>
             )}
             {canViewTab('documents') && (
-              <TabsTrigger value="documents" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="documents" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <FileText className="h-4 w-4 mr-2" />
                 Dokumenty
               </TabsTrigger>
             )}
             {canViewTab('fleet-accounts') && (
-              <TabsTrigger value="fleet-accounts" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="fleet-accounts" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Konta flotowe
               </TabsTrigger>
             )}
             {canViewTab('user-roles') && (
-              <TabsTrigger value="user-roles" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="user-roles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Uprawnienia
               </TabsTrigger>
             )}
             {canViewTab('plans') && (
-              <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Plany
               </TabsTrigger>
             )}
             {canViewTab('visibility') && (
-              <TabsTrigger value="visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Widoczność
               </TabsTrigger>
             )}
             {canViewTab('tab-visibility') && (
-              <TabsTrigger value="tab-visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="tab-visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Widoczność zakładek
               </TabsTrigger>
             )}
             {canViewTab('data-import') && (
-              <TabsTrigger value="data-import" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="data-import" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 {t('admin.dataImport')}
               </TabsTrigger>
             )}
             {canViewTab('settings') && (
-              <TabsTrigger value="settings" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="settings" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <Settings className="h-4 w-4 mr-2" />
                 {t('admin.settings')}
               </TabsTrigger>
             )}
             {canViewTab('reports') && (
-              <TabsTrigger value="reports" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="reports" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 {t('admin.reports')}
               </TabsTrigger>
             )}
             {roles.includes('driver') && myDriverId && !roles.includes('fleet_rental') && !roles.includes('fleet_settlement') && (
-              <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+              <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <DollarSign className="h-4 w-4 mr-2" />
                 Moje rozliczenia
               </TabsTrigger>

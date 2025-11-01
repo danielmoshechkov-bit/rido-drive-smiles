@@ -748,6 +748,57 @@ export type Database = {
           },
         ]
       }
+      fleet_delegated_roles: {
+        Row: {
+          assigned_to_driver_id: string
+          assigned_to_user_id: string | null
+          created_at: string | null
+          created_by: string
+          fleet_id: string
+          id: string
+          permissions: Json
+          role_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to_driver_id: string
+          assigned_to_user_id?: string | null
+          created_at?: string | null
+          created_by: string
+          fleet_id: string
+          id?: string
+          permissions?: Json
+          role_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to_driver_id?: string
+          assigned_to_user_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          fleet_id?: string
+          id?: string
+          permissions?: Json
+          role_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_delegated_roles_assigned_to_driver_id_fkey"
+            columns: ["assigned_to_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_delegated_roles_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_invitations: {
         Row: {
           created_at: string | null

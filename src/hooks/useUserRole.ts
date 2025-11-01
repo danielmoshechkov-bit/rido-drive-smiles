@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { DelegatedRolePermissions } from './useDelegatedRole';
 
 export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | null;
 
@@ -13,6 +14,12 @@ interface UseUserRoleReturn {
   isFleetRental: boolean;
   isDriver: boolean;
   refetch: () => Promise<void>;
+  delegatedRole?: {
+    fleet_id: string;
+    role_name: string;
+    permissions: DelegatedRolePermissions;
+  } | null;
+  isDelegatedFleetManager: boolean;
 }
 
 export const useUserRole = (): UseUserRoleReturn => {
@@ -20,6 +27,11 @@ export const useUserRole = (): UseUserRoleReturn => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [fleetId, setFleetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [delegatedRole, setDelegatedRole] = useState<{
+    fleet_id: string;
+    role_name: string;
+    permissions: DelegatedRolePermissions;
+  } | null>(null);
 
   const fetchUserRole = async () => {
     try {
@@ -58,6 +70,21 @@ export const useUserRole = (): UseUserRoleReturn => {
         setRole('driver');
         setFleetId(null);
       }
+
+      // Check for delegated fleet role
+      const { data: delegatedData } = await supabase
+        .from('fleet_delegated_roles')
+        .select('fleet_id, role_name, permissions')
+        .eq('assigned_to_user_id', user.id)
+        .maybeSingle();
+
+      if (delegatedData) {
+        setDelegatedRole({
+          fleet_id: delegatedData.fleet_id,
+          role_name: delegatedData.role_name,
+          permissions: delegatedData.permissions as unknown as DelegatedRolePermissions,
+        });
+      }
     } catch (error) {
       console.error('Error fetching user role:', error);
     } finally {
@@ -79,5 +106,7 @@ export const useUserRole = (): UseUserRoleReturn => {
     isFleetRental: roles.includes('fleet_rental'),
     isDriver: role === 'driver',
     refetch: fetchUserRole,
+    delegatedRole,
+    isDelegatedFleetManager: !!delegatedRole,
   };
 };

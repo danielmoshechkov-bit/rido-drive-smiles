@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
 import { NewDriverBadge } from './NewDriverBadge';
 import { DriverExpandedPanel } from './DriverExpandedPanel';
 import { FleetInvitationModal } from './fleet/FleetInvitationModal';
+import { FleetRoleDelegationModal } from './FleetRoleDelegationModal';
 import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,6 +37,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFleetInviteModal, setShowFleetInviteModal] = useState(false);
+  const [showDelegateRoleModal, setShowDelegateRoleModal] = useState(false);
+  const [delegatedRoles, setDelegatedRoles] = useState<Record<string, { role_name: string; id: string }>>({});
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; plate: string; brand: string; model: string }>>([]);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
@@ -52,8 +55,33 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   useEffect(() => {
     if (mode === 'fleet' && fleetId) {
       loadAvailableVehicles();
+      loadDelegatedRoles();
     }
   }, [mode, fleetId]);
+
+  const loadDelegatedRoles = async () => {
+    if (!fleetId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('fleet_delegated_roles')
+        .select('id, assigned_to_driver_id, role_name')
+        .eq('fleet_id', fleetId);
+
+      if (error) throw error;
+
+      const rolesMap: Record<string, { role_name: string; id: string }> = {};
+      data?.forEach(role => {
+        rolesMap[role.assigned_to_driver_id] = {
+          role_name: role.role_name,
+          id: role.id,
+        };
+      });
+      setDelegatedRoles(rolesMap);
+    } catch (error) {
+      console.error('Error loading delegated roles:', error);
+    }
+  };
 
   const loadAvailableVehicles = async () => {
     if (!fleetId) return;
@@ -287,6 +315,16 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                   Odśwież IDs
                 </Button>
               )}
+              {mode === 'fleet' && (
+                <Button 
+                  onClick={() => setShowDelegateRoleModal(true)}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  Przyznaj rolę
+                </Button>
+              )}
               <Button 
                 onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
                 className="gap-2"
@@ -396,7 +434,22 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                          </div>
                        </div>
 
-                      <div className="flex items-center gap-2 mb-2">
+                       <div className="flex items-center gap-2 mb-2">
+                        {/* Delegated Role Badge */}
+                        {mode === 'fleet' && delegatedRoles[driver.id] && (
+                          <Badge 
+                            variant="secondary" 
+                            className="cursor-pointer hover:bg-secondary/80"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toast.info(`Zarządca: ${delegatedRoles[driver.id].role_name}`);
+                            }}
+                          >
+                            <Shield className="h-3 w-3 mr-1" />
+                            {delegatedRoles[driver.id].role_name}
+                          </Badge>
+                        )}
+                        
                         {/* GetRido ID Badge - fioletowy */}
                         {driver.getrido_id && (
                           <Badge className="bg-primary text-white hover:bg-primary/90">
@@ -664,6 +717,18 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
           onClose={() => setFeesModalDriver(null)}
           driverId={feesModalDriver.id}
           driverName={`${feesModalDriver.first_name} ${feesModalDriver.last_name}`}
+        />
+      )}
+
+      {mode === 'fleet' && fleetId && (
+        <FleetRoleDelegationModal
+          open={showDelegateRoleModal}
+          onClose={() => setShowDelegateRoleModal(false)}
+          fleetId={fleetId}
+          onSuccess={() => {
+            loadDelegatedRoles();
+            refetch();
+          }}
         />
       )}
     </>

@@ -7,12 +7,12 @@ import { useState } from 'react';
 
 export default function FleetDashboard() {
   const navigate = useNavigate();
-  const { role, roles, fleetId, loading: roleLoading } = useUserRole();
+  const { role, roles, fleetId, loading: roleLoading, delegatedRole } = useUserRole();
   const [fleetName, setFleetName] = useState('');
   const [userName, setUserName] = useState('');
 
   // Check permissions based on roles
-  const canAccessFleet = roles.includes('admin') || roles.includes('fleet_rental') || roles.includes('fleet_settlement');
+  const canAccessFleet = roles.includes('admin') || roles.includes('fleet_rental') || roles.includes('fleet_settlement') || !!delegatedRole;
 
   useEffect(() => {
     if (!roleLoading && !canAccessFleet) {
@@ -21,17 +21,20 @@ export default function FleetDashboard() {
   }, [role, roleLoading, navigate, canAccessFleet]);
 
   useEffect(() => {
-    if (fleetId) {
+    if (fleetId || delegatedRole?.fleet_id) {
       fetchFleetName();
       fetchUserName();
     }
-  }, [fleetId]);
+  }, [fleetId, delegatedRole]);
 
   const fetchFleetName = async () => {
+    const targetFleetId = fleetId || delegatedRole?.fleet_id;
+    if (!targetFleetId) return;
+
     const { data, error } = await supabase
       .from('fleets')
       .select('name')
-      .eq('id', fleetId)
+      .eq('id', targetFleetId)
       .single();
 
     if (!error && data) {
@@ -44,7 +47,8 @@ export default function FleetDashboard() {
     if (user) {
       const firstName = user.user_metadata?.first_name || '';
       const lastName = user.user_metadata?.last_name || '';
-      setUserName(`${firstName} ${lastName}`.trim());
+      const name = `${firstName} ${lastName}`.trim();
+      setUserName(delegatedRole ? `${name} - ${delegatedRole.role_name}` : name);
     }
   };
 
@@ -64,7 +68,7 @@ export default function FleetDashboard() {
     );
   }
 
-  if (!fleetId || !fleetName) {
+  if (!fleetId && !delegatedRole?.fleet_id) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -77,7 +81,7 @@ export default function FleetDashboard() {
   return (
     <UnifiedDashboard
       userType="fleet"
-      fleetId={fleetId}
+      fleetId={fleetId || delegatedRole?.fleet_id || null}
       fleetName={fleetName}
       userName={userName}
       onLogout={handleLogout}
