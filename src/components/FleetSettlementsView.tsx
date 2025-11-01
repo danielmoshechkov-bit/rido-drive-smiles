@@ -14,7 +14,6 @@ import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useTabPermissions } from '@/hooks/useTabPermissions';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -53,7 +52,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState("drivers");
   const { roles } = useUserRole();
-  const { canViewTab } = useTabPermissions();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
@@ -377,10 +375,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   const subTabs = [
-    ...(isDriver && myDriverId && canViewTab('settlements.my') ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
-    ...(canViewTab('settlements.drivers') ? [{ value: "drivers", label: "Rozliczenia kierowców", visible: true }] : []),
-    ...(canViewTab('settlements.vehicles') ? [{ value: "vehicles", label: "Przychody aut", visible: true }] : []),
-    ...(canViewTab('settlements.fuel') ? [{ value: "fuel", label: "Paliwo", visible: true }] : [])
+    ...(isDriver && myDriverId ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
+    { value: "drivers", label: "Rozliczenia kierowców", visible: true },
+    { value: "vehicles", label: "Przychody aut", visible: true },
+    { value: "fuel", label: "Paliwo", visible: true }
   ];
 
   if (loading) {
