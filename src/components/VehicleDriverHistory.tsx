@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -12,6 +14,7 @@ export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const loadDrivers = async () => {
     const { data } = await supabase.from('drivers').select('*').order('first_name');
@@ -75,12 +78,30 @@ export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
     loadAssignments();
   };
 
+  const deleteAssignment = async (assignmentId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten wpis z historii?')) return;
+    
+    const { error } = await supabase
+      .from('driver_vehicle_assignments')
+      .delete()
+      .eq('id', assignmentId);
+
+    if (error) {
+      toast.error('Błąd usuwania: ' + error.message);
+      return;
+    }
+
+    toast.success('Wpis został usunięty z historii');
+    loadAssignments();
+  };
+
   const filteredDrivers = drivers.filter(driver => 
     `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const activeAssignment = assignments.find(a => a.status === 'active');
+  const inactiveAssignments = assignments.filter(a => a.status !== 'active');
 
   return (
     <div className="space-y-4">
@@ -168,35 +189,102 @@ export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Historia przypisań</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Historia przypisań</CardTitle>
+            {inactiveAssignments.length > 0 && (
+              <Collapsible open={historyExpanded} onOpenChange={setHistoryExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    {historyExpanded ? (
+                      <>
+                        Ukryj <ChevronUp className="ml-2 h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Pokaż wszystkie ({inactiveAssignments.length}) <ChevronDown className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           {assignments.length === 0 ? (
             <p className="text-muted-foreground">Brak historii przypisań.</p>
           ) : (
             <div className="space-y-2">
-              {assignments.map(assignment => (
-                <div key={assignment.id} className="border rounded-lg p-3">
-                  <div className="flex justify-between items-start">
+              {/* Show most recent inactive assignment */}
+              {!historyExpanded && inactiveAssignments.length > 0 && (
+                <div key={inactiveAssignments[0].id} className="border rounded-lg p-3 relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50 w-7 h-7 p-0"
+                    onClick={() => deleteAssignment(inactiveAssignments[0].id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <div className="flex justify-between items-start pr-10">
                     <div>
                       <div className="font-medium">
-                        {assignment.drivers.first_name} {assignment.drivers.last_name}
+                        {inactiveAssignments[0].drivers.first_name} {inactiveAssignments[0].drivers.last_name}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {assignment.drivers.email}
+                        {inactiveAssignments[0].drivers.email}
                       </div>
                     </div>
-                    <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
-                      {assignment.status === 'active' ? 'Aktywne' : 'Zakończone'}
-                    </Badge>
+                    <Badge variant="secondary">Zakończone</Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Od: {new Date(assignment.assigned_at).toLocaleString()}
-                    {assignment.unassigned_at && 
-                      ` • Do: ${new Date(assignment.unassigned_at).toLocaleString()}`
+                    Od: {new Date(inactiveAssignments[0].assigned_at).toLocaleString()}
+                    {inactiveAssignments[0].unassigned_at && 
+                      ` • Do: ${new Date(inactiveAssignments[0].unassigned_at).toLocaleString()}`
                     }
                   </div>
                 </div>
-              ))}
+              )}
+              
+              {/* Show all inactive assignments when expanded */}
+              {historyExpanded && (
+                <Collapsible open={historyExpanded}>
+                  <CollapsibleContent>
+                    <div className="space-y-2">
+                      {inactiveAssignments.map(assignment => (
+                        <div key={assignment.id} className="border rounded-lg p-3 relative">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50 w-7 h-7 p-0"
+                            onClick={() => deleteAssignment(assignment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <div className="flex justify-between items-start pr-10">
+                            <div>
+                              <div className="font-medium">
+                                {assignment.drivers.first_name} {assignment.drivers.last_name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {assignment.drivers.email}
+                              </div>
+                            </div>
+                            <Badge variant="secondary">Zakończone</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2">
+                            Od: {new Date(assignment.assigned_at).toLocaleString()}
+                            {assignment.unassigned_at && 
+                              ` • Do: ${new Date(assignment.unassigned_at).toLocaleString()}`
+                            }
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
           )}
         </CardContent>

@@ -13,6 +13,7 @@ import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
 import { FuelCSVUpload } from './FuelCSVUpload';
+import { CompanyRevenueSummary } from './CompanyRevenueSummary';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -130,10 +131,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek]);
 
   useEffect(() => {
-    if (isDriver) {
+    // For admin, default to "my" (Przychód firmy)
+    if (roles.includes('admin')) {
+      setActiveSubTab("my");
+    } else if (isDriver) {
       fetchMyDriverId();
     }
-  }, [isDriver]);
+  }, [isDriver, roles]);
 
   const fetchMyDriverId = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -148,19 +152,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (data) {
       setMyDriverId(data.driver_id);
       
-      // Check if this driver has any settlements
-      const { data: hasSettlements } = await supabase
-        .from('settlements')
-        .select('id')
-        .eq('driver_id', data.driver_id)
-        .limit(1)
-        .single();
-      
-      // If has settlements, default to "my", otherwise "drivers"
-      if (hasSettlements) {
-        setActiveSubTab("my");
-      } else {
-        setActiveSubTab("drivers");
+      // Only set default tab if not admin (admins default to "my" for company revenue)
+      if (!roles.includes('admin')) {
+        // Check if this driver has any settlements
+        const { data: hasSettlements } = await supabase
+          .from('settlements')
+          .select('id')
+          .eq('driver_id', data.driver_id)
+          .limit(1)
+          .single();
+        
+        // If has settlements, default to "my", otherwise "drivers"
+        if (hasSettlements) {
+          setActiveSubTab("my");
+        } else {
+          setActiveSubTab("drivers");
+        }
       }
     }
   };
@@ -387,7 +394,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   const subTabs = [
-    ...(isDriver && myDriverId ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
+    ...(roles.includes('admin') 
+      ? [{ value: "my", label: "Przychód firmy", visible: true }] 
+      : isDriver && myDriverId 
+        ? [{ value: "my", label: "Moje rozliczenia", visible: true }] 
+        : []
+    ),
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
     { value: "vehicles", label: "Przychody aut", visible: true },
     { value: "fuel", label: "Paliwo", visible: true }
@@ -449,17 +461,34 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   }
 
   // Render based on active sub-tab
-  if (isDriver && myDriverId && activeSubTab === "my") {
-    return (
-      <div>
-        <UniversalSubTabBar
-          activeTab={activeSubTab}
-          onTabChange={setActiveSubTab}
-          tabs={subTabs}
-        />
-        <DriverSettlements driverId={myDriverId} hideControls={false} />
-      </div>
-    );
+  if (activeSubTab === "my") {
+    // For admin: show company revenue summary
+    if (roles.includes('admin')) {
+      return (
+        <div>
+          <UniversalSubTabBar
+            activeTab={activeSubTab}
+            onTabChange={setActiveSubTab}
+            tabs={subTabs}
+          />
+          <CompanyRevenueSummary fleetId={fleetId} />
+        </div>
+      );
+    }
+    
+    // For drivers: show their own settlements
+    if (isDriver && myDriverId) {
+      return (
+        <div>
+          <UniversalSubTabBar
+            activeTab={activeSubTab}
+            onTabChange={setActiveSubTab}
+            tabs={subTabs}
+          />
+          <DriverSettlements driverId={myDriverId} hideControls={false} />
+        </div>
+      );
+    }
   }
 
   if (settlements.length === 0) {
