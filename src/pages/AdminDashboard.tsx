@@ -17,6 +17,7 @@ import { DocumentsManagement } from "@/components/DocumentsManagement";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { AdminSettingsView } from "@/components/AdminSettingsView";
+import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -32,6 +33,24 @@ const AdminDashboard = () => {
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
+
+  // Read tab from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (activeTab) {
+      params.set('tab', activeTab);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    }
+  }, [activeTab]);
 
   // Admin role guard - redirect if not admin
   useEffect(() => {
@@ -142,7 +161,7 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-7">
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-8">
             <TabsTrigger 
               value="weekly-report" 
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
@@ -184,6 +203,12 @@ const AdminDashboard = () => {
               className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
             >
               {t('admin.reports')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="system-alerts" 
+              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
+            >
+              Informacje
             </TabsTrigger>
           </TabsList>
 
@@ -309,6 +334,10 @@ const AdminDashboard = () => {
                 <p className="text-muted-foreground">Dodatkowe raporty i analizy zostaną wkrótce dodane.</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="system-alerts" className="space-y-6">
+            <SystemAlerts />
           </TabsContent>
         </Tabs>
       </div>

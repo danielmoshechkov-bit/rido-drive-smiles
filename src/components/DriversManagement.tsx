@@ -450,7 +450,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-2">
+                           <div className="flex items-center gap-2">
                             <Mail size={14} />
                             <ChevronDown className="h-3 w-3 text-primary" />
                             {driver.email ? (
@@ -464,6 +464,32 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               )
                             ) : (
                               <span className="text-red-500 text-xs">Brak e-maila</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Karta:</span>
+                            {mode === 'admin' || mode === 'fleet' ? (
+                              <InlineEdit
+                                value={driver.fuel_card_number || ''}
+                                onSave={(value) => updateDriverField(driver.id, 'fuel_card_number', value)}
+                                placeholder="Nr karty"
+                              />
+                            ) : (
+                              <span>{driver.fuel_card_number || '-'}</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">PIN:</span>
+                            {mode === 'admin' || mode === 'fleet' ? (
+                              <InlineEdit
+                                value={(driver as any).fuel_card_pin || ''}
+                                onSave={(value) => updateDriverField(driver.id, 'fuel_card_pin', value)}
+                                placeholder="PIN"
+                              />
+                            ) : (
+                              <span>{(driver as any).fuel_card_pin || '-'}</span>
                             )}
                           </div>
                         </div>

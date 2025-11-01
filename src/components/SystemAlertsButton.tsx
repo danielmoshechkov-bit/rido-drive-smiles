@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSystemAlerts } from '@/hooks/useSystemAlerts';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface SystemAlertsButtonProps {
@@ -20,7 +19,6 @@ interface SystemAlertsButtonProps {
 
 export function SystemAlertsButton({ userType = 'admin', fleetId }: SystemAlertsButtonProps) {
   const { alerts, unreadCount, markAsResolved } = useSystemAlerts({ fleetId });
-  const navigate = useNavigate();
 
   const pendingAlerts = alerts.filter(a => a.status === 'pending').slice(0, 5);
 
@@ -84,8 +82,9 @@ export function SystemAlertsButton({ userType = 'admin', fleetId }: SystemAlerts
           <>
             {pendingAlerts.map((alert) => (
               <DropdownMenuItem
-                key={alert.id}
-                onClick={() => navigate('/admin/system-alerts')}
+                onClick={() => {
+                  window.location.href = '/admin/dashboard?tab=system-alerts';
+                }}
                 className="flex flex-col items-start gap-1 p-3 cursor-pointer"
               >
                 <div className="flex items-center gap-2 w-full">
@@ -107,7 +106,9 @@ export function SystemAlertsButton({ userType = 'admin', fleetId }: SystemAlerts
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => navigate('/admin/system-alerts')}
+                  onClick={() => {
+                    window.location.href = '/admin/dashboard?tab=system-alerts';
+                  }}
                   className="justify-center font-medium text-primary"
                 >
                   Zobacz wszystkie

@@ -12,6 +12,8 @@ export interface Driver {
   updated_at: string;
   registration_date: string | null;
   billing_method: string | null;
+  fuel_card_number: string | null;
+  fuel_card_pin: string | null;
   fleet_id?: string | null;
   getrido_id?: string | null;
   platform_ids?: Array<{
