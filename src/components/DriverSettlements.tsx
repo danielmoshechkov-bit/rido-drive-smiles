@@ -7,8 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface Settlement {
   id: string;
@@ -72,6 +74,9 @@ export const DriverSettlements = ({
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
+  const [canChangePlan, setCanChangePlan] = useState(true);
+  const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
+  const { role } = useUserRole();
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -459,7 +464,26 @@ export const DriverSettlements = ({
     loadDriverPlan();
     loadRentalFee();
     loadSettlementPlans();
+    checkPlanChangePermission();
   }, [driverId]);
+
+  const checkPlanChangePermission = async () => {
+    if (!driverId) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { data } = await supabase.rpc('can_change_settlement_plan', {
+      _driver_id: driverId,
+      _user_id: user.id
+    });
+    
+    if (data && typeof data === 'object') {
+      const permission = data as any;
+      setCanChangePlan(permission.can_change ?? true);
+      setPlanChangeInfo(permission.reason ?? '');
+    }
+  };
 
   useEffect(() => {
     loadSettlements();
@@ -640,7 +664,11 @@ export const DriverSettlements = ({
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <Label className="text-sm whitespace-nowrap">Plan:</Label>
-              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+              <Select 
+                value={selectedPlanId} 
+                onValueChange={setSelectedPlanId}
+                disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Wszystkie plany" />
                 </SelectTrigger>
@@ -653,6 +681,16 @@ export const DriverSettlements = ({
                   ))}
                 </SelectContent>
               </Select>
+              {role === 'admin' && (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  Admin
+                </Badge>
+              )}
+              {!canChangePlan && role !== 'admin' && selectedPlanId !== "all" && planChangeInfo && (
+                <span className="text-xs text-orange-600 font-medium">
+                  {planChangeInfo}
+                </span>
+              )}
             </div>
           </div>
         </CardHeader>

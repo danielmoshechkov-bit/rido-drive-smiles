@@ -16,11 +16,19 @@ export const SettlementPlanSelector = ({
 }: SettlementPlanSelectorProps) => {
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlanId || "");
   const [plans, setPlans] = useState<any[]>([]);
-  const [lastChangeDate, setLastChangeDate] = useState<Date | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | null>(null);
+  const [changePermission, setChangePermission] = useState<any>(null);
 
   useEffect(() => {
     loadPlans();
+    fetchUserRole();
   }, []);
+
+  useEffect(() => {
+    if (driverData.driver_id) {
+      fetchChangePermission();
+    }
+  }, [driverData.driver_id]);
 
   const loadPlans = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -38,26 +46,38 @@ export const SettlementPlanSelector = ({
     }
   };
 
-  useEffect(() => {
-    fetchLastChangeDate();
-  }, [driverData.driver_id]);
-
-  const fetchLastChangeDate = async () => {
-    // W przyszłości można dodać tabelę do śledzenia zmian planu
-    // Na razie symulujemy ostatnią zmianę
-    setLastChangeDate(new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)); // 15 dni temu
+  const fetchUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+    
+    if (roles?.some(r => r.role === 'admin')) {
+      setUserRole('admin');
+    } else if (roles?.some(r => r.role === 'fleet_settlement')) {
+      setUserRole('fleet_settlement');
+    } else if (roles?.some(r => r.role === 'fleet_rental')) {
+      setUserRole('fleet_rental');
+    } else {
+      setUserRole('driver');
+    }
   };
 
-  const canChangePlan = () => {
-    if (!lastChangeDate) return true;
-    const daysSinceChange = Math.floor((Date.now() - lastChangeDate.getTime()) / (24 * 60 * 60 * 1000));
-    return daysSinceChange >= 30;
-  };
-
-  const daysUntilNextChange = () => {
-    if (!lastChangeDate || canChangePlan()) return 0;
-    const daysSinceChange = Math.floor((Date.now() - lastChangeDate.getTime()) / (24 * 60 * 60 * 1000));
-    return 30 - daysSinceChange;
+  const fetchChangePermission = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { data, error } = await supabase.rpc('can_change_settlement_plan', {
+      _driver_id: driverData.driver_id,
+      _user_id: user.id
+    });
+    
+    if (!error && data) {
+      setChangePermission(data);
+    }
   };
 
   const handlePlanChange = async (item: {id: string; name: string} | null) => {
@@ -66,14 +86,30 @@ export const SettlementPlanSelector = ({
     const newPlanId = item.id;
     const newPlanName = item.name;
     
-    // Jeśli nie ma wybranego planu, pozwól wybrać
-    if (selectedPlanId && !canChangePlan()) {
-      toast.error(`Możesz zmienić plan za ${daysUntilNextChange()} dni`);
+    // Sprawdź uprawnienia
+    if (!changePermission?.can_change) {
+      toast.error(changePermission?.reason || 'Nie możesz zmienić planu');
       return;
     }
 
     try {
-      // 1. Zaktualizuj settlement_plan_id w driver_app_users
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Brak autoryzacji');
+      
+      // 1. Zapisz historię zmiany
+      const { error: historyError } = await supabase
+        .from('settlement_plan_changes')
+        .insert({
+          driver_id: driverData.driver_id,
+          old_plan_id: selectedPlanId || null,
+          new_plan_id: newPlanId,
+          changed_by: user.id,
+          changed_by_role: userRole
+        });
+      
+      if (historyError) throw historyError;
+
+      // 2. Zaktualizuj settlement_plan_id w driver_app_users
       const { error: appUserError } = await supabase
         .from("driver_app_users")
         .update({ settlement_plan_id: newPlanId })
@@ -81,7 +117,7 @@ export const SettlementPlanSelector = ({
 
       if (appUserError) throw appUserError;
 
-      // 2. Zaktualizuj billing_method w drivers
+      // 3. Zaktualizuj billing_method w drivers
       const { error: driverError } = await supabase
         .from("drivers")
         .update({ billing_method: newPlanName })
@@ -91,7 +127,10 @@ export const SettlementPlanSelector = ({
 
       setSelectedPlanId(newPlanId);
       onPlanChange(newPlanId);
-      setLastChangeDate(new Date());
+      
+      // Odśwież uprawnienia
+      await fetchChangePermission();
+      
       toast.success("Plan rozliczenia został zmieniony");
     } catch (error: any) {
       toast.error("Błąd przy zmianie planu: " + error.message);
@@ -116,10 +155,16 @@ export const SettlementPlanSelector = ({
         allowClear={false}
         onSelect={handlePlanChange}
         className="w-48"
+        disabled={!changePermission?.can_change}
       />
-      {selectedPlanId && !canChangePlan() && (
-        <div className="mt-1 text-xs text-muted-foreground">
-          Zmiana możliwa za {daysUntilNextChange()} dni
+      {changePermission && !changePermission.can_change && (
+        <div className="mt-1 text-xs text-orange-600 font-medium">
+          {changePermission.reason}
+        </div>
+      )}
+      {changePermission && changePermission.is_admin && (
+        <div className="mt-1 text-xs text-green-600 font-medium">
+          Administrator - bez ograniczeń
         </div>
       )}
     </div>

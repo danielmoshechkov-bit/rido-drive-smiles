@@ -1433,6 +1433,61 @@ export type Database = {
         }
         Relationships: []
       }
+      settlement_plan_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          changed_by_role: Database["public"]["Enums"]["app_role"]
+          driver_id: string
+          id: string
+          new_plan_id: string
+          notes: string | null
+          old_plan_id: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          changed_by_role: Database["public"]["Enums"]["app_role"]
+          driver_id: string
+          id?: string
+          new_plan_id: string
+          notes?: string | null
+          old_plan_id?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          changed_by_role?: Database["public"]["Enums"]["app_role"]
+          driver_id?: string
+          id?: string
+          new_plan_id?: string
+          notes?: string | null
+          old_plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_plan_changes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_plan_changes_new_plan_id_fkey"
+            columns: ["new_plan_id"]
+            isOneToOne: false
+            referencedRelation: "settlement_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_plan_changes_old_plan_id_fkey"
+            columns: ["old_plan_id"]
+            isOneToOne: false
+            referencedRelation: "settlement_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settlement_plans: {
         Row: {
           base_fee: number
@@ -2111,6 +2166,10 @@ export type Database = {
           debt_payment: number
           remaining_debt: number
         }[]
+      }
+      can_change_settlement_plan: {
+        Args: { _driver_id: string; _user_id: string }
+        Returns: Json
       }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
