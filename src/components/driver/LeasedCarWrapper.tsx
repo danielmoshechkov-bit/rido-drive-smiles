@@ -35,6 +35,8 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
   useEffect(() => {
     const loadVehicleAssignment = async () => {
       try {
+        console.log('🚗 [LeasedCarWrapper] Loading vehicle assignment for driver_id:', driverData.driver_id);
+        
         const { data, error } = await supabase
           .from("driver_vehicle_assignments")
           .select(`
@@ -72,15 +74,19 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
           .limit(1)
           .single();
 
+        console.log('🚗 [LeasedCarWrapper] Query result:', { data, error });
+
         if (error && error.code !== 'PGRST116') {
-          console.error("Error loading vehicle assignment:", error);
+          console.error("❌ [LeasedCarWrapper] Error loading vehicle assignment:", error);
         } else if (data) {
+          console.log('✅ [LeasedCarWrapper] Found assignment:', data);
           setAssignment(data as VehicleAssignment);
         } else {
+          console.log('ℹ️ [LeasedCarWrapper] No active assignment found');
           setAssignment(null);
         }
       } catch (error) {
-        console.error("Error loading vehicle assignment:", error);
+        console.error("❌ [LeasedCarWrapper] Exception:", error);
       } finally {
         setLoading(false);
       }

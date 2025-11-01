@@ -633,7 +633,7 @@ export const DriverSettlements = ({
   return (
     <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
       {!hideControls && driverInfo.firstName && (
-        <div className="bg-muted/50 border-b px-6 py-3">
+        <div className="bg-muted/50 border-b px-6 py-2">
           <div className="flex items-center justify-center gap-2 text-sm">
             <span className="font-semibold">Panel kierowcy -</span>
             <span>{driverInfo.firstName} {driverInfo.lastName}</span>
@@ -647,8 +647,8 @@ export const DriverSettlements = ({
         </div>
       )}
       {!hideControls && (
-        <CardHeader>
-          <div className="flex items-center gap-6 flex-nowrap">
+        <CardHeader className="py-3">
+          <div className="flex items-center gap-4 flex-nowrap">
             <CardTitle className="whitespace-nowrap">Wynik tygodniowy</CardTitle>
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Rok:</Label>
@@ -678,7 +678,7 @@ export const DriverSettlements = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2 ml-2">
+            <div className="flex items-center gap-2 ml-auto">
               <Label className="text-sm whitespace-nowrap">Plan:</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                 <SelectTrigger className="w-[200px]">
@@ -739,7 +739,7 @@ export const DriverSettlements = ({
                                 <Pie
                                   data={platformData}
                                   cx="50%"
-                                  cy="50%"
+                                  cy="55%"
                                   labelLine={false}
                                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                   outerRadius={100}

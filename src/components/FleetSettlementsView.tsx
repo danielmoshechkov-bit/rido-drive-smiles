@@ -134,11 +134,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
     if (data) {
       setMyDriverId(data.driver_id);
-      // For users with both driver and fleet roles, keep "drivers" as default
-      // Only switch to "my" if user is ONLY a driver (not fleet user)
-      const hasFleetRole = roles.includes('fleet_settlement') || roles.includes('fleet_rental');
-      if (!hasFleetRole) {
+      
+      // Check if this driver has any settlements
+      const { data: hasSettlements } = await supabase
+        .from('settlements')
+        .select('id')
+        .eq('driver_id', data.driver_id)
+        .limit(1)
+        .single();
+      
+      // If has settlements, default to "my", otherwise "drivers"
+      if (hasSettlements) {
         setActiveSubTab("my");
+      } else {
+        setActiveSubTab("drivers");
       }
     }
   };
