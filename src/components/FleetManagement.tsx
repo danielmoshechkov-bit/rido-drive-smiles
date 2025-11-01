@@ -521,6 +521,9 @@ export function FleetManagement({ cityId, cityName, fleetId }: FleetManagementPr
         onClose={() => setShowAddModal(false)}
         cityId={cityId}
         onSuccess={fetchVehicles}
+        userType={fleetId ? 'fleet' : 'admin'}
+        fleetId={fleetId}
+        fleetName={cityName}
       />
     </Card>
   );

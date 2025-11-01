@@ -9,6 +9,7 @@ import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
 import { NewDriverBadge } from './NewDriverBadge';
 import { DriverExpandedPanel } from './DriverExpandedPanel';
+import { AddFleetDriverModal } from './fleet/AddFleetDriverModal';
 import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -83,6 +84,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
 
     filterByFleet();
   }, [fleetId, drivers]);
+
+  // Load available vehicles for fleet modal
+  useEffect(() => {
+    if (mode === 'fleet' && fleetId) {
+      loadAvailableVehicles();
+    }
+  }, [mode, fleetId]);
+
+  const loadAvailableVehicles = async () => {
+    if (!fleetId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('id, plate, brand, model')
+        .eq('fleet_id', fleetId)
+        .eq('status', 'aktywne')
+        .order('plate');
+
+      if (error) throw error;
+      setAvailableVehicles(data || []);
+    } catch (error) {
+      console.error('Error loading available vehicles:', error);
+    }
+  };
 
   const displayDrivers = fleetId ? filteredByFleet : drivers;
 
@@ -257,7 +283,11 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
               }} variant="outline" className="gap-2">
                 Odśwież IDs
               </Button>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2">
+              <Button 
+                onClick={() => mode === 'fleet' ? setShowFleetAddModal(true) : setShowAddModal(true)} 
+                className="gap-2"
+                disabled={!cityId && mode !== 'fleet'}
+              >
                 <Plus className="h-4 w-4" />
                 Dodaj kierowcę
               </Button>
@@ -459,6 +489,17 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         onClose={() => setShowAddModal(false)}
         cityId={cityId}
         onSuccess={handleAddDriver}
+      />
+
+      <AddFleetDriverModal
+        isOpen={showFleetAddModal}
+        onClose={() => setShowFleetAddModal(false)}
+        onSuccess={() => {
+          refetch();
+          onDriverUpdate();
+        }}
+        fleetId={fleetId || ''}
+        availableVehicles={availableVehicles}
       />
 
       {editingDriver && (

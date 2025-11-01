@@ -13,8 +13,13 @@ import { useSystemAlerts } from '@/hooks/useSystemAlerts';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-export function SystemAlertsButton() {
-  const { alerts, unreadCount, markAsResolved } = useSystemAlerts();
+interface SystemAlertsButtonProps {
+  userType?: 'admin' | 'fleet';
+  fleetId?: string;
+}
+
+export function SystemAlertsButton({ userType = 'admin', fleetId }: SystemAlertsButtonProps) {
+  const { alerts, unreadCount, markAsResolved } = useSystemAlerts({ fleetId });
   const navigate = useNavigate();
 
   const pendingAlerts = alerts.filter(a => a.status === 'pending').slice(0, 5);
@@ -98,13 +103,17 @@ export function SystemAlertsButton() {
               </DropdownMenuItem>
             ))}
             
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => navigate('/admin/system-alerts')}
-              className="justify-center font-medium text-primary"
-            >
-              Zobacz wszystkie
-            </DropdownMenuItem>
+            {userType === 'admin' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => navigate('/admin/system-alerts')}
+                  className="justify-center font-medium text-primary"
+                >
+                  Zobacz wszystkie
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
       </DropdownMenuContent>

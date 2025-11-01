@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+interface UseSystemAlertsOptions {
+  fleetId?: string | null;
+}
+
 export interface SystemAlert {
   id: string;
   type: 'error' | 'warning' | 'new_driver' | 'info';
@@ -16,18 +20,25 @@ export interface SystemAlert {
   resolved_by: string | null;
 }
 
-export function useSystemAlerts() {
+export function useSystemAlerts(options: UseSystemAlertsOptions = {}) {
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchAlerts = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('system_alerts')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
+
+      // Filter by fleet_id if provided
+      if (options.fleetId) {
+        query = query.eq('fleet_id', options.fleetId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching system alerts:', error);

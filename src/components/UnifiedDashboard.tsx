@@ -18,7 +18,10 @@ import { SettlementPlansManagement } from "@/components/SettlementPlansManagemen
 import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
 import { UserRolesManager } from "@/components/UserRolesManager";
 import { TabVisibilityManager } from "@/components/TabVisibilityManager";
+import { FleetSettlementsView } from "@/components/FleetSettlementsView";
+import { DriverSettlements } from "@/components/DriverSettlements";
 import { useTabPermissions } from "@/hooks/useTabPermissions";
+import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings } from "lucide-react";
@@ -42,6 +45,8 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers(selectedCity?.id);
   const { canViewTab, loading: permissionsLoading } = useTabPermissions();
+  const { roles } = useUserRole();
+  const [myDriverId, setMyDriverId] = useState<string | null>(null);
 
   // Set initial tab based on permissions
   useEffect(() => {
@@ -62,6 +67,27 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
       setSelectedCity(warszawa || cities[0]);
     }
   }, [cities, selectedCity, userType]);
+
+  // Fetch my driver_id if I'm also a driver
+  useEffect(() => {
+    if (roles.includes('driver')) {
+      const fetchMyDriverId = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from('driver_app_users')
+            .select('driver_id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (data?.driver_id) {
+            setMyDriverId(data.driver_id);
+          }
+        }
+      };
+      fetchMyDriverId();
+    }
+  }, [roles]);
 
   const handleSanitizeGetRidoIds = async () => {
     if (!selectedCity) {
@@ -167,7 +193,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
             </h1>
           </div>
           <div className="flex items-center space-x-4">
-            {userType === 'admin' && <SystemAlertsButton />}
+            <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
             <LanguageSelector />
             <Button variant="outline" onClick={onLogout}>
               {t('admin.logout')}
@@ -261,6 +287,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
                 {t('admin.reports')}
               </TabsTrigger>
             )}
+            {roles.includes('driver') && myDriverId && (
+              <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Moje rozliczenia
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {canViewTab('weekly-report') && (
@@ -296,7 +328,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
 
           {canViewTab('settlements') && (
             <TabsContent value="settlements" className="space-y-6">
-              {userType === 'admin' && !selectedCity ? (
+              {userType === 'fleet' ? (
+                <FleetSettlementsView 
+                  fleetId={fleetId!}
+                  viewType="settlement"
+                />
+              ) : userType === 'admin' && !selectedCity ? (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <p className="text-muted-foreground">Wybierz miasto aby zobaczyć rozliczenia</p>
@@ -304,10 +341,20 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
                 </Card>
               ) : (
                 <SettlementsManagement 
-                  cityId={userType === 'admin' ? selectedCity?.id : null}
-                  cityName={userType === 'admin' ? selectedCity?.name || '' : fleetName || ''}
+                  cityId={selectedCity?.id || null}
+                  cityName={selectedCity?.name || ''}
+                  userType="admin"
                 />
               )}
+            </TabsContent>
+          )}
+
+          {roles.includes('driver') && myDriverId && (
+            <TabsContent value="my-settlements" className="space-y-6">
+              <DriverSettlements 
+                driverId={myDriverId}
+                hideControls={true}
+              />
             </TabsContent>
           )}
 
