@@ -16,7 +16,7 @@ import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, DollarSign, Car, File } from "lucide-react";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -169,9 +169,18 @@ const DriverDashboard = () => {
         
         {/* Slim Pill Tabs */}
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsTrigger value="weekly-report">Rozliczenie tygodniowe</TabsTrigger>
-          <TabsTrigger value="cars">Samochód</TabsTrigger>
-          <TabsTrigger value="documents">Dokumenty</TabsTrigger>
+          <TabsTrigger value="weekly-report">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Rozliczenie tygodniowe
+          </TabsTrigger>
+          <TabsTrigger value="cars">
+            <Car className="h-4 w-4 mr-2" />
+            Samochód
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            <File className="h-4 w-4 mr-2" />
+            Dokumenty
+          </TabsTrigger>
 
           {/* Tab Content */}
           <TabsContent value="weekly-report">

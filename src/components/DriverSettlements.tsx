@@ -72,6 +72,7 @@ export const DriverSettlements = ({
   const [initialLoad, setInitialLoad] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
+  const [fleetName, setFleetName] = useState<string | null>(null);
 
   const getWeekDates = (year: number) => {
     const weeks = [];
@@ -396,6 +397,23 @@ export const DriverSettlements = ({
     }
   };
 
+  const loadFleetName = async () => {
+    if (!driverId) return;
+
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('fleet_id, fleets(name)')
+      .eq('id', driverId)
+      .maybeSingle();
+
+    if (!error && data?.fleets) {
+      const fleetData = data.fleets as any;
+      setFleetName(fleetData.name || null);
+    } else {
+      setFleetName(null);
+    }
+  };
+
   const loadSettlementPlans = async () => {
     const { data, error } = await supabase
       .from('settlement_plans')
@@ -458,6 +476,7 @@ export const DriverSettlements = ({
     loadDriverPlan();
     loadRentalFee();
     loadSettlementPlans();
+    loadFleetName();
   }, [driverId]);
 
   useEffect(() => {
@@ -607,7 +626,7 @@ export const DriverSettlements = ({
     <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
       {!hideControls && (
         <CardHeader>
-          <div className="flex items-center gap-4 flex-nowrap">
+          <div className="flex items-center gap-6 flex-nowrap">
             <CardTitle className="whitespace-nowrap">Wynik tygodniowy</CardTitle>
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Rok:</Label>
@@ -636,8 +655,13 @@ export const DriverSettlements = ({
                   ))}
                 </SelectContent>
               </Select>
+              {fleetName && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  ({fleetName})
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-4">
               <Label className="text-sm whitespace-nowrap">Plan:</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                 <SelectTrigger className="w-[200px]">
@@ -692,7 +716,7 @@ export const DriverSettlements = ({
                           <h4 className="text-sm font-medium">Zarobki według platform</h4>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-48">
+                          <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
