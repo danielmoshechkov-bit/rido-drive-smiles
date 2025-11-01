@@ -287,7 +287,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
                 {t('admin.reports')}
               </TabsTrigger>
             )}
-            {roles.includes('driver') && myDriverId && (
+            {roles.includes('driver') && myDriverId && !roles.includes('fleet_rental') && !roles.includes('fleet_settlement') && (
               <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
                 <DollarSign className="h-4 w-4 mr-2" />
                 Moje rozliczenia
@@ -387,11 +387,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, onLogout }: Uni
                   </CardContent>
                 </Card>
               ) : (
-                <FleetManagement 
-                  cityId={userType === 'admin' ? selectedCity?.id : null}
-                  cityName={userType === 'admin' ? selectedCity?.name || '' : fleetName || ''}
-                  fleetId={userType === 'fleet' ? fleetId : null}
-                />
+              <FleetManagement 
+                cityId={userType === 'admin' ? selectedCity?.id : null}
+                cityName={userType === 'admin' ? selectedCity?.name || '' : fleetName || ''}
+                fleetId={userType === 'fleet' ? fleetId : null}
+                userType={userType}
+              />
               )}
             </TabsContent>
           )}

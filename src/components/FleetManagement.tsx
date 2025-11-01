@@ -25,6 +25,7 @@ interface FleetManagementProps {
   cityId?: string | null;
   cityName: string;
   fleetId?: string | null;
+  userType?: 'admin' | 'fleet';
 }
 
 type Vehicle = {
@@ -53,7 +54,7 @@ type Vehicle = {
   } | null;
 };
 
-export function FleetManagement({ cityId, cityName, fleetId }: FleetManagementProps) {
+export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' }: FleetManagementProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<{id: string; name: string}[]>([]);
   const [query, setQuery] = useState("");
@@ -325,9 +326,11 @@ export function FleetManagement({ cityId, cityName, fleetId }: FleetManagementPr
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="vehicles">Auta</TabsTrigger>
-            <TabsTrigger value="fleets">Floty</TabsTrigger>
+            {userType === 'admin' && (
+              <TabsTrigger value="fleets">Floty</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-4">
@@ -404,11 +407,17 @@ export function FleetManagement({ cityId, cityName, fleetId }: FleetManagementPr
                                    <div className="min-w-[100px]">
                                      <span className="font-medium text-sm text-muted-foreground">Flota:</span>
                                      <div onClick={(e) => e.stopPropagation()}>
-                                       <VehicleFleetSelector 
-                                         vehicleId={vehicle.id}
-                                         currentFleetId={vehicle.fleet_id}
-                                         onFleetUpdate={fetchVehicles}
-                                       />
+                                       {userType === 'admin' ? (
+                                         <VehicleFleetSelector 
+                                           vehicleId={vehicle.id}
+                                           currentFleetId={vehicle.fleet_id}
+                                           onFleetUpdate={fetchVehicles}
+                                         />
+                                       ) : (
+                                         <div className="font-semibold text-sm">
+                                           {vehicle.fleet?.name || 'Brak floty'}
+                                         </div>
+                                       )}
                                      </div>
                                    </div>
                                     <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>

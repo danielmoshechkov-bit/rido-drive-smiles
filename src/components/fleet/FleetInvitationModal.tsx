@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, CheckCircle2 } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -22,7 +23,7 @@ interface Driver {
   email: string | null;
   phone: string | null;
   getrido_id: string | null;
-  platform_ids?: Array<{ platform: string; platform_id: string }>;
+  driver_platform_ids?: Array<{ platform: string; platform_id: string }>;
 }
 
 interface FleetInvitationModalProps {
@@ -34,41 +35,122 @@ interface FleetInvitationModalProps {
 }
 
 export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, availableVehicles }: FleetInvitationModalProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  // Form fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [getridoId, setGetridoId] = useState("");
+  const [uberId, setUberId] = useState("");
+  const [boltId, setBoltId] = useState("");
+  const [freenowId, setFreenowId] = useState("");
+  
+  // Search results
   const [foundDrivers, setFoundDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
   const searchDrivers = async () => {
-    if (!searchQuery.trim()) {
-      toast.error("Wpisz dane kierowcy do wyszukania");
+    // Validate required fields
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Imię i nazwisko są wymagane");
+      return;
+    }
+
+    // At least one contact/ID field
+    if (!email.trim() && !phone.trim() && !getridoId.trim() && !uberId.trim() && !boltId.trim() && !freenowId.trim()) {
+      toast.error("Podaj przynajmniej jeden kontakt lub ID platformy");
       return;
     }
 
     setSearching(true);
+    setSearchPerformed(true);
     try {
-      console.log('Searching for drivers:', searchQuery);
-      
-      const { data, error } = await supabase.functions.invoke('drivers-search', {
-        body: { q: searchQuery }
-      });
+      // Search using multiple criteria
+      let query = supabase
+        .from("drivers")
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          getrido_id,
+          driver_platform_ids(platform, platform_id)
+        `);
 
-      if (error) {
-        console.error('Search error:', error);
-        throw error;
+      // Build query with OR conditions
+      const orConditions = [];
+      
+      if (firstName.trim() && lastName.trim()) {
+        orConditions.push(`first_name.ilike.%${firstName.trim()}%`);
+        orConditions.push(`last_name.ilike.%${lastName.trim()}%`);
+      }
+      if (email.trim()) {
+        orConditions.push(`email.ilike.%${email.trim()}%`);
+      }
+      if (phone.trim()) {
+        orConditions.push(`phone.ilike.%${phone.trim()}%`);
+      }
+      if (getridoId.trim()) {
+        orConditions.push(`getrido_id.ilike.%${getridoId.trim()}%`);
       }
 
-      console.log('Search results:', data);
-      setFoundDrivers(data?.drivers || []);
-      
-      if (!data?.drivers || data.drivers.length === 0) {
-        toast.info("Nie znaleziono kierowcy");
+      if (orConditions.length > 0) {
+        query = query.or(orConditions.join(","));
       }
-    } catch (error: any) {
-      console.error('Error searching drivers:', error);
-      toast.error("Błąd wyszukiwania: " + error.message);
+
+      const { data, error } = await query.limit(10);
+
+      if (error) throw error;
+
+      // Also check platform IDs
+      let platformMatches: any[] = [];
+      if (uberId.trim() || boltId.trim() || freenowId.trim()) {
+        const platformQuery = supabase
+          .from("driver_platform_ids")
+          .select(`
+            driver_id,
+            platform,
+            platform_id,
+            drivers(id, first_name, last_name, email, phone, getrido_id)
+          `);
+        
+        const platformOrConditions = [];
+        if (uberId.trim()) platformOrConditions.push(`platform.eq.uber,platform_id.ilike.%${uberId.trim()}%`);
+        if (boltId.trim()) platformOrConditions.push(`platform.eq.bolt,platform_id.ilike.%${boltId.trim()}%`);
+        if (freenowId.trim()) platformOrConditions.push(`platform.eq.freenow,platform_id.ilike.%${freenowId.trim()}%`);
+
+        if (platformOrConditions.length > 0) {
+          const { data: platformData } = await platformQuery.or(platformOrConditions.join(","));
+
+          if (platformData) {
+            platformMatches = platformData
+              .filter((p: any) => p.drivers)
+              .map((p: any) => p.drivers);
+          }
+        }
+      }
+
+      // Merge results
+      const allDrivers = [...(data || []), ...platformMatches];
+      const uniqueDrivers = Array.from(
+        new Map(allDrivers.map((d) => [d.id, d])).values()
+      );
+
+      setFoundDrivers(uniqueDrivers);
+      
+      if (uniqueDrivers.length > 0) {
+        toast.success(`Znaleziono ${uniqueDrivers.length} kierowców`);
+      } else {
+        toast.info("Nie znaleziono kierowców pasujących do kryteriów");
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("Błąd podczas wyszukiwania");
     } finally {
       setSearching(false);
     }
@@ -87,13 +169,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
 
     setSending(true);
     try {
-      console.log('Sending invitation:', {
-        driver_id: selectedDriver.id,
-        fleet_id: fleetId,
-        vehicle_id: selectedVehicleId
-      });
-
-      const { data, error } = await supabase.functions.invoke('fleet-invitations/send', {
+      const { data, error } = await supabase.functions.invoke("fleet-invitations/send", {
         body: {
           driver_id: selectedDriver.id,
           fleet_id: fleetId,
@@ -101,17 +177,13 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
         }
       });
 
-      if (error) {
-        console.error('Invitation error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Invitation sent:', data);
       toast.success("Wysłano zaproszenie do kierowcy");
       handleClose();
       onSuccess();
     } catch (error: any) {
-      console.error('Error sending invitation:', error);
+      console.error("Error sending invitation:", error);
       toast.error("Błąd wysyłania zaproszenia: " + error.message);
     } finally {
       setSending(false);
@@ -119,118 +191,232 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
   };
 
   const handleClose = () => {
-    setSearchQuery("");
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhone("");
+    setGetridoId("");
+    setUberId("");
+    setBoltId("");
+    setFreenowId("");
     setFoundDrivers([]);
     setSelectedDriver(null);
     setSelectedVehicleId("");
+    setSearchPerformed(false);
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Zaproś kierowcę do floty</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {!selectedDriver ? (
-            <>
-              <div className="space-y-2">
-                <Label>Wyszukaj kierowcę</Label>
-                <div className="flex gap-2">
+        <div className="space-y-6">
+          {/* Personal Data Section */}
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Dane osobowe:</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">
+                    Imię <span className="text-destructive">*</span>
+                  </Label>
                   <Input
-                    placeholder="Imię, nazwisko, GetRido ID, email, telefon, ID platformy..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && searchDrivers()}
+                    id="firstName"
+                    placeholder="Jan"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                   />
-                  <Button onClick={searchDrivers} disabled={searching}>
-                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  </Button>
+                </div>
+                <div>
+                  <Label htmlFor="lastName">
+                    Nazwisko <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Kowalski"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
               </div>
+            </div>
 
-              {foundDrivers.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Znalezieni kierowcy:</Label>
-                  <div className="max-h-60 overflow-y-auto space-y-2">
+            {/* Contact Data */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Dane kontaktowe (opcjonalne):</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="jan.kowalski@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Telefon</Label>
+                  <Input
+                    id="phone"
+                    placeholder="+48 123 456 789"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Platform IDs */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">ID platform (opcjonalne, co najmniej 1):</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="getridoId">GetRido ID</Label>
+                  <Input
+                    id="getridoId"
+                    placeholder="123456"
+                    value={getridoId}
+                    onChange={(e) => setGetridoId(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="uberId">Uber ID</Label>
+                  <Input
+                    id="uberId"
+                    placeholder="abc123"
+                    value={uberId}
+                    onChange={(e) => setUberId(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="boltId">Bolt ID</Label>
+                  <Input
+                    id="boltId"
+                    placeholder="bolt456"
+                    value={boltId}
+                    onChange={(e) => setBoltId(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="freenowId">FreeNow ID</Label>
+                  <Input
+                    id="freenowId"
+                    placeholder="fn789"
+                    value={freenowId}
+                    onChange={(e) => setFreenowId(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Search Button */}
+            <Button 
+              onClick={searchDrivers} 
+              disabled={searching}
+              className="w-full"
+              variant="secondary"
+            >
+              {searching ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Szukam...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Szukaj w bazie
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Found Drivers List */}
+          {searchPerformed && (
+            <div className="space-y-2">
+              {foundDrivers.length > 0 ? (
+                <>
+                  <Label>Znalezieni kierowcy - wybierz jednego:</Label>
+                  <div className="border rounded-lg divide-y max-h-60 overflow-y-auto">
                     {foundDrivers.map((driver) => (
-                      <div
+                      <Card
                         key={driver.id}
-                        className="p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                        className={`p-4 cursor-pointer transition-all ${
+                          selectedDriver?.id === driver.id 
+                            ? "border-primary bg-accent shadow-sm" 
+                            : "hover:bg-accent/50 border-transparent"
+                        }`}
                         onClick={() => setSelectedDriver(driver)}
                       >
-                        <div className="font-medium">
-                          {driver.first_name} {driver.last_name}
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          {driver.email && <div>Email: {driver.email}</div>}
-                          {driver.phone && <div>Tel: {driver.phone}</div>}
-                          {driver.getrido_id && <div>GetRido ID: {driver.getrido_id}</div>}
-                          {driver.platform_ids && driver.platform_ids.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {driver.platform_ids.map((pid, idx) => (
-                                <span key={idx} className="text-xs bg-secondary px-2 py-1 rounded">
-                                  {pid.platform}: {pid.platform_id}
-                                </span>
-                              ))}
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="font-semibold flex items-center gap-2">
+                              {driver.first_name} {driver.last_name}
+                              {selectedDriver?.id === driver.id && (
+                                <CheckCircle2 className="h-4 w-4 text-primary" />
+                              )}
                             </div>
-                          )}
+                            <div className="text-sm text-muted-foreground space-y-0.5">
+                              {driver.email && <div>📧 {driver.email}</div>}
+                              {driver.phone && <div>📱 {driver.phone}</div>}
+                              {driver.getrido_id && <div>🚗 GetRido: {driver.getrido_id}</div>}
+                              {driver.driver_platform_ids && driver.driver_platform_ids.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {driver.driver_platform_ids.map((pid: any, idx: number) => (
+                                    <span key={idx} className="text-xs bg-secondary px-2 py-0.5 rounded">
+                                      {pid.platform}: {pid.platform_id}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
+                </>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground border rounded-lg">
+                  <p>Nie znaleziono kierowców pasujących do kryteriów</p>
+                  <p className="text-sm mt-2">Sprawdź dane i spróbuj ponownie</p>
                 </div>
               )}
-            </>
-          ) : (
-            <>
-              <div className="p-4 border rounded-lg bg-accent/50">
-                <Label>Wybrany kierowca:</Label>
-                <div className="mt-2 font-medium">
-                  {selectedDriver.first_name} {selectedDriver.last_name}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {selectedDriver.email && <div>{selectedDriver.email}</div>}
-                  {selectedDriver.phone && <div>{selectedDriver.phone}</div>}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDriver(null)}
-                  className="mt-2"
-                >
-                  Zmień kierowcę
-                </Button>
-              </div>
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <Label>Wybierz pojazd</Label>
-                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wybierz pojazd..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableVehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id}>
-                        {vehicle.plate} - {vehicle.brand} {vehicle.model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
+          {/* Vehicle Selection */}
+          {selectedDriver && (
+            <div className="space-y-2">
+              <Label>
+                Wybierz pojazd <span className="text-destructive">*</span>
+              </Label>
+              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz pojazd..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.plate} - {vehicle.brand} {vehicle.model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={handleClose}>
             Anuluj
           </Button>
           {selectedDriver && (
             <Button onClick={sendInvitation} disabled={sending || !selectedVehicleId}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Wyślij zaproszenie
             </Button>
           )}

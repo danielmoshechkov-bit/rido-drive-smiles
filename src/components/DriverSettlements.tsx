@@ -217,16 +217,30 @@ export const DriverSettlements = ({
   };
 
   const loadSettlements = async () => {
-    if (!driverId || !currentWeek) return;
+    if (!driverId) return;
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('settlements')
         .select('*')
-        .eq('driver_id', driverId)
-        .gte('period_from', currentWeek.start)
-        .lte('period_to', currentWeek.end)
+        .eq('driver_id', driverId);
+
+      // If hideControls is true (fleet view), show all settlements for the year
+      // Otherwise filter by specific week
+      if (hideControls) {
+        const yearStart = `${selectedYear}-01-01`;
+        const yearEnd = `${selectedYear}-12-31`;
+        query = query
+          .gte('period_from', yearStart)
+          .lte('period_to', yearEnd);
+      } else if (currentWeek) {
+        query = query
+          .gte('period_from', currentWeek.start)
+          .lte('period_to', currentWeek.end);
+      }
+
+      const { data, error } = await query
         .order('period_from', { ascending: false })
         .order('updated_at', { ascending: false });
 
