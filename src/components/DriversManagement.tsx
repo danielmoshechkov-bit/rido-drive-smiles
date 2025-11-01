@@ -46,9 +46,23 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
   
-  const { drivers, loading, refetch } = useDrivers({ 
+  const { drivers, loading, error, refetch } = useDrivers({ 
     cityId: cityId || undefined, 
     fleetId: fleetId || undefined 
+  });
+
+  // Debug logging
+  console.log('DriversManagement - Drivers loaded:', {
+    count: drivers.length,
+    loading,
+    error,
+    selectedCity: cityId,
+    selectedFleet: fleetId,
+    drivers: drivers.map(d => ({ 
+      id: d.id, 
+      name: `${d.first_name} ${d.last_name}`,
+      email: d.email 
+    }))
   });
 
   // Load available vehicles for fleet modal
@@ -275,6 +289,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       <Card>
         <CardContent className="p-8 text-center">
           <p className="text-muted-foreground">Ładowanie kierowców...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-destructive">Błąd: {error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (drivers.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">
+            {mode === 'fleet' 
+              ? "Brak kierowców w tej flocie. Zaproś kierowcę do floty lub dodaj go ręcznie."
+              : "Brak kierowców dla wybranego miasta/floty. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
+            }
+          </p>
         </CardContent>
       </Card>
     );

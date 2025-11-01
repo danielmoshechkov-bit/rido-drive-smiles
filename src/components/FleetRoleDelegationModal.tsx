@@ -132,12 +132,11 @@ export const FleetRoleDelegationModal = ({
     try {
       setLoadingDrivers(true);
       
-      // Pobierz kierowców przypisanych do floty
+      // Pobierz kierowców przypisanych do floty (wszystkich, nie tylko active)
       const { data: assignments, error: assignmentsError } = await supabase
         .from('driver_vehicle_assignments')
         .select('driver_id, drivers(id, first_name, last_name, email)')
-        .eq('fleet_id', fleetId)
-        .eq('status', 'active');
+        .eq('fleet_id', fleetId);
 
       if (assignmentsError) throw assignmentsError;
 

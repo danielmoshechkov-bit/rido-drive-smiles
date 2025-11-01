@@ -32,7 +32,17 @@ interface CardSummary {
 
 export const AdminFuelView = () => {
   const [year, setYear] = useState(new Date().getFullYear().toString());
-  const [selectedWeek, setSelectedWeek] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    // Ustaw domyślnie obecny tydzień
+    const now = new Date();
+    const weeks = getWeekDates(now.getFullYear());
+    const currentWeek = weeks.find(w => {
+      const start = new Date(w.start);
+      const end = new Date(w.end);
+      return now >= start && now <= end;
+    });
+    return currentWeek?.number.toString() || "1";
+  });
   const [cardSummaries, setCardSummaries] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
