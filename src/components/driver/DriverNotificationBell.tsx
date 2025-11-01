@@ -100,7 +100,7 @@ export function DriverNotificationBell({ driverId }: DriverNotificationBellProps
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Zaproszenia do flot</DialogTitle>
+            <DialogTitle>Powiadomienia</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">

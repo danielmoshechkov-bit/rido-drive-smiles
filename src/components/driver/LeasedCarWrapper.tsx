@@ -76,6 +76,8 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
           console.error("Error loading vehicle assignment:", error);
         } else if (data) {
           setAssignment(data as VehicleAssignment);
+        } else {
+          setAssignment(null);
         }
       } catch (error) {
         console.error("Error loading vehicle assignment:", error);
@@ -86,6 +88,10 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
 
     if (driverData.driver_id) {
       loadVehicleAssignment();
+      
+      // Poll every 5 seconds to check for new assignments
+      const interval = setInterval(loadVehicleAssignment, 5000);
+      return () => clearInterval(interval);
     }
   }, [driverData.driver_id]);
 

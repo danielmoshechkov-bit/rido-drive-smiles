@@ -270,46 +270,55 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const aggregated = driversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
 
-        // Parsuj amounts JSONB - używamy poprawnych kluczy z settlements edge function
+        // Parsuj amounts JSONB - obsługuj STARE klucze camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // uber_payout_d zawiera payout bez gotówki, uber_cash_f to gotówka
-          return sum + (parseFloat(amounts.uber_payout_d || amounts.uber_base || '0'));
+          // Stary format: uber (lub uberBase, uberCashless)
+          const uber = parseFloat(amounts.uber || amounts.uberBase || amounts.uberCashless || '0');
+          return sum + uber;
         }, 0);
 
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // bolt_projected_d to kwota brutto
-          return sum + (parseFloat(amounts.bolt_projected_d || amounts.bolt_gross || '0'));
+          // Stary format: boltGross
+          const bolt = parseFloat(amounts.boltGross || amounts.bolt_projected_d || '0');
+          return sum + bolt;
         }, 0);
 
         const freenow_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // freenow_base_s to kwota bazowa
-          return sum + (parseFloat(amounts.freenow_base_s || amounts.freenow_gross || '0'));
+          // Stary format: freenowGross
+          const freenow = parseFloat(amounts.freenowGross || amounts.freenow_base_s || '0');
+          return sum + freenow;
         }, 0);
 
         const total_commission = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // freenow_commission_t to prowizja FreeNow, inne platformy mają komisję wliczoną
-          return sum + (parseFloat(amounts.freenow_commission_t || '0'));
+          // Stary format: boltCommission + freenowCommission
+          const boltComm = parseFloat(amounts.boltCommission || '0');
+          const freenowComm = parseFloat(amounts.freenowCommission || amounts.freenow_commission_t || '0');
+          return sum + boltComm + freenowComm;
         }, 0);
 
         const total_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // uber_cash_f + bolt_cash + freenow_cash_f
-          const uberCash = parseFloat(amounts.uber_cash_f || '0');
-          const boltCash = parseFloat(amounts.bolt_cash || '0');
-          const freenowCash = parseFloat(amounts.freenow_cash_f || '0');
+          // Stary format: uberCash + boltCash + freenowCash
+          const uberCash = parseFloat(amounts.uberCash || amounts.uber_cash_f || '0');
+          const boltCash = parseFloat(amounts.boltCash || amounts.bolt_cash || '0');
+          const freenowCash = parseFloat(amounts.freenowCash || amounts.freenow_cash_f || '0');
           return sum + uberCash + boltCash + freenowCash;
         }, 0);
 
         const tax = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // *_tax_8 zawiera podatek 8%
-          const uberTax = parseFloat(amounts.uber_tax_8 || '0');
-          const boltTax = parseFloat(amounts.bolt_tax_8 || '0');
-          const freenowTax = parseFloat(amounts.freenow_tax_8 || '0');
+          // Stary format: tax (pole zbiorowe) lub osobne *Tax8
+          const taxTotal = parseFloat(amounts.tax || '0');
+          if (taxTotal > 0) return sum + taxTotal;
+          
+          // Fallback: oblicz z poszczególnych platform (nowy format)
+          const uberTax = parseFloat(amounts.uberTax8 || amounts.uber_tax_8 || '0');
+          const boltTax = parseFloat(amounts.boltTax8 || amounts.bolt_tax_8 || '0');
+          const freenowTax = parseFloat(amounts.freenowTax8 || amounts.freenow_tax_8 || '0');
           return sum + uberTax + boltTax + freenowTax;
         }, 0);
 
