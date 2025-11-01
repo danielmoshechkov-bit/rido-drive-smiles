@@ -38,10 +38,10 @@ interface DriverSettlement {
   service_fee: number;
   net_without_commission: number;
   final_payout: number;
+  rental?: number;
   // For rental view
   vehicle?: string;
   weekly_rental_fee?: number;
-  rental?: number;
   debt_current?: number;
   debt_previous?: number;
   covered_rental?: boolean;
@@ -55,6 +55,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
+
+  // Fetch latest settlement week on mount
+  useEffect(() => {
+    if (fleetId) {
+      fetchLatestSettlement();
+    }
+  }, [fleetId]);
 
   // Check if user is also a driver
   const isDriver = roles.includes('driver');
@@ -133,13 +140,60 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  const fetchLatestSettlement = async () => {
+    try {
+      // Get all drivers from fleet
+      const { data: driversData } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('fleet_id', fleetId);
+
+      if (!driversData || driversData.length === 0) return;
+
+      const driverIds = driversData.map(d => d.id);
+
+      // Get latest settlement
+      const { data: latestSettlement } = await supabase
+        .from('settlements')
+        .select('period_from')
+        .in('driver_id', driverIds)
+        .order('period_from', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestSettlement?.period_from) {
+        const latestDate = new Date(latestSettlement.period_from);
+        const year = latestDate.getFullYear();
+        
+        // Calculate week number
+        const weeks = getWeekDates(year);
+        const matchingWeek = weeks.find(w => {
+          const weekStart = new Date(w.start);
+          return weekStart.getTime() === latestDate.getTime();
+        });
+
+        if (matchingWeek) {
+          setSelectedYear(year);
+          setSelectedWeek(matchingWeek.number);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching latest settlement:', error);
+    }
+  };
+
   const fetchSettlements = async () => {
     setLoading(true);
     try {
-      // Pobierz WSZYSTKICH kierowców z floty
+      // Pobierz kierowców z floty wraz z danymi o pojazdach i planach
       const { data: driversData, error: driversError } = await supabase
         .from('drivers')
-        .select('id, first_name, last_name')
+        .select(`
+          id, 
+          first_name, 
+          last_name,
+          driver_app_users!inner(settlement_plan_id)
+        `)
         .eq('fleet_id', fleetId);
 
       if (driversError) throw driversError;
@@ -152,7 +206,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       const driverIds = driversData.map(d => d.id);
 
-      // Pobierz rozliczenia dla wybranego okresu
+      // Pobierz rozliczenia dla wybranego okresu (bez filtrowania po platform!)
       let query = supabase
         .from('settlements')
         .select('*')
@@ -171,46 +225,68 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       if (settlementsError) throw settlementsError;
 
+      // Pobierz plany rozliczeniowe
+      const { data: plansData } = await supabase
+        .from('settlement_plans')
+        .select('*');
+
+      // Pobierz aktywne przypisania pojazdów z opłatą wynajmu
+      const { data: assignmentsData } = await supabase
+        .from('driver_vehicle_assignments')
+        .select(`
+          driver_id,
+          vehicle_id,
+          vehicles(weekly_rental_fee)
+        `)
+        .in('driver_id', driverIds)
+        .eq('status', 'active');
+
       // Agreguj rozliczenia per kierowca
       const aggregated = driversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
 
-        const uber_base = driverSettlements
-          .filter(s => s.platform === 'uber')
-          .reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + (parseFloat(amounts.uber_total || '0'));
-          }, 0);
+        // Parsuj amounts JSONB - teraz bez filtrowania po platform!
+        const uber_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + (parseFloat(amounts.uber_total || '0'));
+        }, 0);
 
-        const bolt_base = driverSettlements
-          .filter(s => s.platform === 'bolt')
-          .reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + (parseFloat(amounts.bolt_gross || '0'));
-          }, 0);
+        const bolt_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + (parseFloat(amounts.bolt_gross || '0'));
+        }, 0);
 
-        const freenow_base = driverSettlements
-          .filter(s => s.platform === 'freenow')
-          .reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + (parseFloat(amounts.freenow_gross || '0'));
-          }, 0);
+        const freenow_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + (parseFloat(amounts.freenow_gross || '0'));
+        }, 0);
 
-        const total_base = uber_base + bolt_base + freenow_base;
-
-        const total_commission = driverSettlements.reduce(
-          (sum, s) => sum + (parseFloat(s.commission_amount as any || '0')), 0
-        );
+        const total_commission = driverSettlements.reduce((sum, s) => {
+          return sum + (parseFloat(s.commission_amount as any || '0'));
+        }, 0);
 
         const total_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           return sum + (parseFloat(amounts.total_cash || '0'));
         }, 0);
 
-        const tax_8_percent = total_base * 0.08;
-        const service_fee = 50;
-        const net_without_commission = total_base - tax_8_percent - total_commission;
-        const final_payout = net_without_commission - service_fee;
+        const tax = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + (parseFloat(amounts.tax || '0'));
+        }, 0);
+
+        // Pobierz service_fee z planu rozliczeniowego
+        const driverAppUser = (driver as any).driver_app_users;
+        const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
+        const service_fee = plan?.service_fee || 50;
+
+        // Pobierz wynajem z przypisanego pojazdu
+        const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
+        const rental = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+
+        // Oblicz wypłatę
+        const total_base = uber_base + bolt_base + freenow_base;
+        const payout = total_base - total_commission - tax - service_fee - rental + total_cash;
 
         return {
           driver_id: driver.id,
@@ -224,10 +300,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           freenow_commission: 0,
           total_commission,
           total_cash,
-          tax_8_percent,
+          tax_8_percent: tax,
           service_fee,
-          net_without_commission,
-          final_payout,
+          rental,
+          net_without_commission: total_base - total_commission - tax,
+          final_payout: payout,
         };
       });
 
@@ -305,37 +382,35 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         />
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
               <CardTitle>Rozliczenia kierowców</CardTitle>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">Rok:</Label>
-                  <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[2024, 2025, 2026].map(year => (
-                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">Okres:</Label>
-                  <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                    <SelectTrigger className="w-[280px]">
-                      <SelectValue placeholder="Wybierz okres" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {weeks.map(week => (
-                        <SelectItem key={week.number} value={week.number.toString()}>
-                          {week.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Rok:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026].map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Okres:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Wybierz okres" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -429,37 +504,35 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       />
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
             <CardTitle>Rozliczenia kierowców</CardTitle>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Rok:</Label>
-                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[2024, 2025, 2026].map(year => (
-                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Okres:</Label>
-                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Wybierz okres" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weeks.map(week => (
-                      <SelectItem key={week.number} value={week.number.toString()}>
-                        {week.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Rok:</Label>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026].map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Okres:</Label>
+              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Wybierz okres" />
+                </SelectTrigger>
+                <SelectContent>
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -472,13 +545,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <TableHead className="text-right">Uber</TableHead>
                 <TableHead className="text-right">Bolt</TableHead>
                 <TableHead className="text-right">FreeNow</TableHead>
-                <TableHead className="text-right font-bold">Podstawa</TableHead>
-                <TableHead className="text-right text-red-600">Podatek 8%</TableHead>
-                <TableHead className="text-right text-red-600">Prowizja</TableHead>
-                <TableHead className="text-right text-blue-600">Gotówka</TableHead>
-                <TableHead className="text-right font-bold text-green-600">Bez prowizji</TableHead>
-                <TableHead className="text-right font-bold text-red-600">Opłata</TableHead>
-                <TableHead className="text-right font-bold text-purple-600">Wypłata</TableHead>
+                <TableHead className="text-right">Prowizja</TableHead>
+                <TableHead className="text-right">Gotówka</TableHead>
+                <TableHead className="text-right">Podatek</TableHead>
+                <TableHead className="text-right">Opłata</TableHead>
+                <TableHead className="text-right">Wynajem</TableHead>
+                <TableHead className="text-right font-bold">Wypłata</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -494,25 +566,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableCell className="text-right font-mono">
                     {settlement.freenow_base.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono font-bold">
-                    {settlement.total_base.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-red-600">
-                    -{settlement.tax_8_percent.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-red-600">
+                  <TableCell className="text-right font-mono">
                     -{settlement.total_commission.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono text-blue-600">
+                  <TableCell className="text-right font-mono">
                     {settlement.total_cash.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-green-600">
-                    {settlement.net_without_commission.toFixed(2)} zł
+                  <TableCell className="text-right font-mono">
+                    -{settlement.tax_8_percent.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-red-600">
+                  <TableCell className="text-right font-mono">
                     -{settlement.service_fee.toFixed(2)} zł
                   </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-purple-600">
+                  <TableCell className="text-right font-mono">
+                    -{settlement.rental?.toFixed(2) || '0.00'} zł
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold">
                     {settlement.final_payout.toFixed(2)} zł
                   </TableCell>
                 </TableRow>
