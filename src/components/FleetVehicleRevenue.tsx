@@ -33,9 +33,17 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   const [revenues, setRevenues] = useState<VehicleRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+
+  // Format currency in Polish style
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('pl-PL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount) + ' zł';
+  };
 
   // Generate week options for the selected year
   const getWeekDates = (year: number) => {
@@ -78,9 +86,77 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   const weeks = getWeekDates(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
+  // Fetch latest assignment week on mount
   useEffect(() => {
-    fetchRevenues();
+    if (fleetId) {
+      fetchLatestAssignment();
+    }
+  }, [fleetId]);
+
+  useEffect(() => {
+    if (selectedWeek !== null) {
+      fetchRevenues();
+    }
   }, [fleetId, selectedYear, selectedWeek]);
+
+  const fetchLatestAssignment = async () => {
+    try {
+      const { data: vehicles } = await supabase
+        .from('vehicles')
+        .select('id')
+        .eq('fleet_id', fleetId)
+        .eq('status', 'aktywne');
+      
+      if (!vehicles?.length) {
+        // Set to first week if no vehicles
+        const weeks = getWeekDates(selectedYear);
+        if (weeks.length > 0) {
+          setSelectedWeek(weeks[0].number);
+        }
+        return;
+      }
+      
+      const vehicleIds = vehicles.map(v => v.id);
+      
+      const { data: latestAssignment } = await supabase
+        .from('driver_vehicle_assignments')
+        .select('assigned_at')
+        .in('vehicle_id', vehicleIds)
+        .order('assigned_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (latestAssignment?.assigned_at) {
+        const latestDate = new Date(latestAssignment.assigned_at);
+        const year = latestDate.getFullYear();
+        const weeks = getWeekDates(year);
+        const matchingWeek = weeks.find(w => {
+          const weekStart = new Date(w.start);
+          const weekEnd = new Date(w.end);
+          const assignmentDate = new Date(latestAssignment.assigned_at);
+          return assignmentDate >= weekStart && assignmentDate <= weekEnd;
+        });
+        
+        if (matchingWeek) {
+          setSelectedYear(year);
+          setSelectedWeek(matchingWeek.number);
+        } else if (weeks.length > 0) {
+          setSelectedWeek(weeks[0].number);
+        }
+      } else {
+        const weeks = getWeekDates(selectedYear);
+        if (weeks.length > 0) {
+          setSelectedWeek(weeks[0].number);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching latest assignment:', error);
+      const weeks = getWeekDates(selectedYear);
+      if (weeks.length > 0) {
+        setSelectedWeek(weeks[0].number);
+      }
+    }
+  };
 
   const fetchRevenues = async () => {
     setLoading(true);
@@ -100,8 +176,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         return;
       }
 
-      // Fetch active assignments for these vehicles
+      // Fetch assignments active during selected week
       const vehicleIds = vehicles.map(v => v.id);
+      
+      if (!currentWeek) {
+        setRevenues([]);
+        setLoading(false);
+        return;
+      }
+
+      const weekStart = currentWeek.start;
+      const weekEnd = currentWeek.end;
+
       const { data: assignments } = await supabase
         .from('driver_vehicle_assignments')
         .select(`
@@ -115,7 +201,8 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           )
         `)
         .in('vehicle_id', vehicleIds)
-        .eq('status', 'active');
+        .lte('assigned_at', weekEnd)
+        .or(`unassigned_at.is.null,unassigned_at.gte.${weekStart}`);
 
       // Map assignments by vehicle_id
       const assignmentMap = new Map(assignments?.map(a => [a.vehicle_id, a]) || []);
@@ -249,7 +336,11 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Okres:</Label>
-                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <Select 
+                  value={selectedWeek?.toString() || ''} 
+                  onValueChange={(v) => setSelectedWeek(parseInt(v))}
+                  disabled={selectedWeek === null}
+                >
                   <SelectTrigger className="w-[280px]">
                     <SelectValue placeholder="Wybierz okres" />
                   </SelectTrigger>
@@ -328,12 +419,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className={`text-right font-mono ${getRentalFeeColor(rev.rental_fee)}`}>
-                    {rev.rental_fee.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className={`text-right font-mono ${getDebtColor(rev.debt_balance)}`}>
-                    {rev.debt_balance === 0 ? '—' : `${rev.debt_balance.toFixed(2)} zł`}
-                  </TableCell>
+                   <TableCell className={`text-right ${getRentalFeeColor(rev.rental_fee)}`}>
+                     {formatCurrency(rev.rental_fee)}
+                   </TableCell>
+                   <TableCell className={`text-right ${getDebtColor(rev.debt_balance)}`}>
+                     {rev.debt_balance === 0 ? '—' : formatCurrency(rev.debt_balance)}
+                   </TableCell>
                   <TableCell>
                     {rev.driver_id && (
                       <Button
@@ -353,11 +444,11 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             <TableFooter>
               <TableRow className="bg-muted/50 font-bold">
                 <TableCell colSpan={3} className="text-right">RAZEM:</TableCell>
-                <TableCell className="text-right font-mono">
-                  {revenues.reduce((sum, r) => sum + r.rental_fee, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(revenues.reduce((sum, r) => sum + r.rental_fee, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0))}
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>

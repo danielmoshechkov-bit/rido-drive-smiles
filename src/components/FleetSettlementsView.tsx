@@ -54,7 +54,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+
+  // Format currency in Polish style
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('pl-PL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount) + ' zł';
+  };
+
+  // Color amounts based on value
+  const getAmountColor = (amount: number) => {
+    if (amount > 0) return 'text-green-600 font-semibold';
+    if (amount < 0) return 'text-red-600 font-semibold';
+    return 'text-muted-foreground';
+  };
 
   // Fetch latest settlement week on mount
   useEffect(() => {
@@ -108,7 +123,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {
-    if (fleetId) {
+    if (fleetId && selectedWeek !== null) {
       fetchSettlements();
     }
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek]);
@@ -186,10 +201,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         if (matchingWeek) {
           setSelectedYear(year);
           setSelectedWeek(matchingWeek.number);
+        } else if (weeks.length > 0) {
+          setSelectedWeek(weeks[0].number); // najnowszy
+        }
+      } else {
+        const weeks = getWeekDates(selectedYear);
+        if (weeks.length > 0) {
+          setSelectedWeek(weeks[0].number);
         }
       }
     } catch (error) {
       console.error('Error fetching latest settlement:', error);
+      // Fallback to newest week
+      const weeks = getWeekDates(selectedYear);
+      if (weeks.length > 0) {
+        setSelectedWeek(weeks[0].number);
+      }
     }
   };
 
@@ -442,7 +469,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">Okres:</Label>
-                  <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <Select 
+                    value={selectedWeek?.toString() || ''} 
+                    onValueChange={(v) => setSelectedWeek(parseInt(v))}
+                    disabled={selectedWeek === null}
+                  >
                     <SelectTrigger className="w-[280px]">
                       <SelectValue placeholder="Wybierz okres" />
                     </SelectTrigger>
@@ -498,8 +529,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <TableRow key={settlement.driver_id}>
                   <TableCell className="font-medium">{settlement.driver_name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{settlement.vehicle}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.rental.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.rental)}
                   </TableCell>
                   <TableCell className="text-center">
                     {settlement.covered_rental ? (
@@ -508,11 +539,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <X className="h-5 w-5 text-red-500 mx-auto" />
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.debt_previous.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.debt_previous)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.debt_current.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.debt_current)}
                   </TableCell>
                   <TableCell>
                     {settlement.debt_current === 0 ? (
@@ -525,7 +556,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/20">
-                        Ma dług {settlement.debt_current.toFixed(2)} zł
+                        Ma dług {formatCurrency(settlement.debt_current)}
                       </Badge>
                     )}
                   </TableCell>
@@ -566,7 +597,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Okres:</Label>
-                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <Select 
+                  value={selectedWeek?.toString() || ''} 
+                  onValueChange={(v) => setSelectedWeek(parseInt(v))}
+                  disabled={selectedWeek === null}
+                >
                   <SelectTrigger className="w-[280px]">
                     <SelectValue placeholder="Wybierz okres" />
                   </SelectTrigger>
@@ -603,32 +638,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               {settlements.map((settlement) => (
                 <TableRow key={settlement.driver_id}>
                   <TableCell className="font-medium">{settlement.driver_name}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.uber_base.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.uber_base)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.bolt_base.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.bolt_base)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.freenow_base.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.freenow_base)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    -{settlement.total_commission.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    -{formatCurrency(settlement.total_commission)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {settlement.total_cash.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    {formatCurrency(settlement.total_cash)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    -{settlement.tax_8_percent.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    -{formatCurrency(settlement.tax_8_percent)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    -{settlement.service_fee.toFixed(2)} zł
+                  <TableCell className="text-right">
+                    -{formatCurrency(settlement.service_fee)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    -{settlement.rental?.toFixed(2) || '0.00'} zł
+                  <TableCell className="text-right">
+                    -{formatCurrency(settlement.rental || 0)}
                   </TableCell>
-                  <TableCell className="text-right font-mono font-bold">
-                    {settlement.final_payout.toFixed(2)} zł
+                  <TableCell className={`text-right font-bold ${getAmountColor(settlement.final_payout)}`}>
+                    {formatCurrency(settlement.final_payout)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -636,32 +671,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             <TableFooter>
               <TableRow className="bg-muted/50 font-bold">
                 <TableCell>RAZEM</TableCell>
-                <TableCell className="text-right font-mono">
-                  {settlements.reduce((sum, s) => sum + s.uber_base, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(settlements.reduce((sum, s) => sum + s.uber_base, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {settlements.reduce((sum, s) => sum + s.bolt_base, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(settlements.reduce((sum, s) => sum + s.bolt_base, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {settlements.reduce((sum, s) => sum + s.freenow_base, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(settlements.reduce((sum, s) => sum + s.freenow_base, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  -{settlements.reduce((sum, s) => sum + s.total_commission, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.total_commission, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {settlements.reduce((sum, s) => sum + s.total_cash, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  {formatCurrency(settlements.reduce((sum, s) => sum + s.total_cash, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  -{settlements.reduce((sum, s) => sum + s.tax_8_percent, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.tax_8_percent, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  -{settlements.reduce((sum, s) => sum + s.service_fee, 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.service_fee, 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  -{settlements.reduce((sum, s) => sum + (s.rental || 0), 0).toFixed(2)} zł
+                <TableCell className="text-right">
+                  -{formatCurrency(settlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">
-                  {settlements.reduce((sum, s) => sum + s.final_payout, 0).toFixed(2)} zł
+                <TableCell className={`text-right font-bold ${getAmountColor(settlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                  {formatCurrency(settlements.reduce((sum, s) => sum + s.final_payout, 0))}
                 </TableCell>
               </TableRow>
             </TableFooter>
