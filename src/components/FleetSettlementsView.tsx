@@ -192,11 +192,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const subTabs = [
     ...(isDriver && myDriverId ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
-    { value: "vehicles", label: "Przychody aut", visible: true }
+    { value: "vehicles", label: "Przychody aut", visible: true },
+    { value: "fuel", label: "Paliwo", visible: true }
   ];
 
   if (loading) {
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
+  }
+
+  // Render "Paliwo" tab
+  if (activeSubTab === "fuel") {
+    const FleetFuelView = require('./FleetFuelView').FleetFuelView;
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetFuelView fleetId={fleetId} periodFrom={periodFrom} periodTo={periodTo} />
+      </div>
+    );
   }
 
   // Render based on active sub-tab
@@ -208,7 +224,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <DriverSettlements driverId={myDriverId} hideControls />
+        <DriverSettlements driverId={myDriverId} hideControls={false} />
       </div>
     );
   }

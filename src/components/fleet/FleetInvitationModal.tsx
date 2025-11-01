@@ -69,82 +69,36 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     setSearching(true);
     setSearchPerformed(true);
     try {
-      // Search using multiple criteria
-      let query = supabase
-        .from("drivers")
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          getrido_id,
-          driver_platform_ids(platform, platform_id)
-        `);
+      // Build search string from all fields
+      const searchTerms = [
+        firstName.trim(),
+        lastName.trim(),
+        email.trim(),
+        phone.trim(),
+        getridoId.trim(),
+        uberId.trim(),
+        boltId.trim(),
+        freenowId.trim()
+      ].filter(Boolean).join(' ');
 
-      // Build query with OR conditions
-      const orConditions = [];
-      
-      if (firstName.trim() && lastName.trim()) {
-        orConditions.push(`first_name.ilike.%${firstName.trim()}%`);
-        orConditions.push(`last_name.ilike.%${lastName.trim()}%`);
-      }
-      if (email.trim()) {
-        orConditions.push(`email.ilike.%${email.trim()}%`);
-      }
-      if (phone.trim()) {
-        orConditions.push(`phone.ilike.%${phone.trim()}%`);
-      }
-      if (getridoId.trim()) {
-        orConditions.push(`getrido_id.ilike.%${getridoId.trim()}%`);
-      }
-
-      if (orConditions.length > 0) {
-        query = query.or(orConditions.join(","));
-      }
-
-      const { data, error } = await query.limit(10);
+      const { data, error } = await supabase.functions.invoke("drivers-search", {
+        body: { q: searchTerms }
+      });
 
       if (error) throw error;
 
-      // Also check platform IDs
-      let platformMatches: any[] = [];
-      if (uberId.trim() || boltId.trim() || freenowId.trim()) {
-        const platformQuery = supabase
-          .from("driver_platform_ids")
-          .select(`
-            driver_id,
-            platform,
-            platform_id,
-            drivers(id, first_name, last_name, email, phone, getrido_id)
-          `);
-        
-        const platformOrConditions = [];
-        if (uberId.trim()) platformOrConditions.push(`platform.eq.uber,platform_id.ilike.%${uberId.trim()}%`);
-        if (boltId.trim()) platformOrConditions.push(`platform.eq.bolt,platform_id.ilike.%${boltId.trim()}%`);
-        if (freenowId.trim()) platformOrConditions.push(`platform.eq.freenow,platform_id.ilike.%${freenowId.trim()}%`);
-
-        if (platformOrConditions.length > 0) {
-          const { data: platformData } = await platformQuery.or(platformOrConditions.join(","));
-
-          if (platformData) {
-            platformMatches = platformData
-              .filter((p: any) => p.drivers)
-              .map((p: any) => p.drivers);
-          }
-        }
-      }
-
-      // Merge results
-      const allDrivers = [...(data || []), ...platformMatches];
-      const uniqueDrivers = Array.from(
-        new Map(allDrivers.map((d) => [d.id, d])).values()
-      );
-
-      setFoundDrivers(uniqueDrivers);
+      const drivers = data?.drivers || [];
       
-      if (uniqueDrivers.length > 0) {
-        toast.success(`Znaleziono ${uniqueDrivers.length} kierowców`);
+      // Map platform_ids to driver_platform_ids for compatibility
+      const driversFormatted = drivers.map((d: any) => ({
+        ...d,
+        driver_platform_ids: d.platform_ids || []
+      }));
+      
+      setFoundDrivers(driversFormatted);
+      
+      if (driversFormatted.length > 0) {
+        toast.success(`Znaleziono ${driversFormatted.length} kierowców`);
       } else {
         toast.info("Nie znaleziono kierowców pasujących do kryteriów");
       }
