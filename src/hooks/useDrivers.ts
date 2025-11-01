@@ -31,21 +31,16 @@ export interface Driver {
   } | null;
 }
 
-export const useDrivers = (cityId?: string) => {
+export const useDrivers = (params?: { cityId?: string; fleetId?: string }) => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchDrivers = async () => {
-    if (!cityId) {
-      setDrivers([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('drivers')
         .select(`
           *,
@@ -62,13 +57,24 @@ export const useDrivers = (cityId?: string) => {
             vehicle_id,
             fleet_id,
             status,
+            assigned_at,
             fleets(
               name
             )
           )
         `)
-        .eq('city_id', cityId)
         .order('first_name');
+      
+      // Apply filters based on provided params
+      if (params?.cityId) {
+        query = query.eq('city_id', params.cityId);
+      }
+      
+      if (params?.fleetId) {
+        query = query.eq('fleet_id', params.fleetId);
+      }
+      
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -94,7 +100,7 @@ export const useDrivers = (cityId?: string) => {
 
   useEffect(() => {
     fetchDrivers();
-  }, [cityId]);
+  }, [params?.cityId, params?.fleetId]);
 
   return {
     drivers,

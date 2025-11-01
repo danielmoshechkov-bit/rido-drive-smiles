@@ -41,31 +41,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
   
-  const { drivers, loading, refetch } = useDrivers(cityId || undefined);
-  
-  // Filter drivers by fleet if fleetId is provided
-  const [filteredByFleet, setFilteredByFleet] = useState<Driver[]>([]);
-
-  // Filter drivers assigned to vehicles in this fleet
-  useEffect(() => {
-    const filterByFleet = async () => {
-      if (!fleetId) {
-        setFilteredByFleet(drivers);
-        return;
-      }
-
-      try {
-        // Filter drivers by fleet_id (set when invitation accepted)
-        const filtered = drivers.filter(d => (d as any).fleet_id === fleetId);
-        setFilteredByFleet(filtered);
-      } catch (error) {
-        console.error('Error filtering drivers by fleet:', error);
-        toast.error('Błąd podczas filtrowania kierowców');
-      }
-    };
-
-    filterByFleet();
-  }, [fleetId, drivers]);
+  const { drivers, loading, refetch } = useDrivers({ 
+    cityId: cityId || undefined, 
+    fleetId: fleetId || undefined 
+  });
 
   // Load available vehicles for fleet modal
   useEffect(() => {
@@ -92,7 +71,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
-  const displayDrivers = fleetId ? filteredByFleet : drivers;
+  const displayDrivers = drivers;
 
   // Check account status for all drivers
   useEffect(() => {
@@ -301,7 +280,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 {drivers.length === 0 
-                  ? "Brak kierowców w tym mieście. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
+                  ? (mode === 'fleet' 
+                      ? "Brak kierowców w tej flocie. Zaproś kierowcę do floty lub dodaj go ręcznie."
+                      : "Brak kierowców w tym mieście. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
+                    )
                   : "Nie znaleziono kierowców pasujących do wyszukiwania."
                 }
               </p>
