@@ -344,33 +344,45 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             {driver.registration_date && (
                               <NewDriverBadge registrationDate={driver.registration_date} />
                             )}
-                             <div className="flex items-center gap-2">
-                              <DriverVehicleSelector
-                                driverId={driver.id}
-                                fleetId={(driver as any).fleet_id}
-                                onVehicleUpdate={refetch}
-                                hideFleetName={mode === 'fleet'}
-                              />
-                              {driver.vehicle_assignment?.assigned_at && (
-                                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <span>od:</span>
-                                  {mode === 'admin' ? (
-                                    <input
-                                      type="date"
-                                      value={format(new Date(driver.vehicle_assignment.assigned_at), 'yyyy-MM-dd')}
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        updateAssignedDate(driver.id, e.target.value);
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="border rounded px-1 py-0.5 text-xs cursor-pointer hover:border-primary transition-colors"
-                                    />
-                                  ) : (
-                                    <span>{format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
-                                  )}
-                                </div>
-                              )}
-                             </div>
+                              <div className="flex items-center gap-2">
+                               <DriverVehicleSelector
+                                 driverId={driver.id}
+                                 fleetId={(driver as any).fleet_id}
+                                 onVehicleUpdate={refetch}
+                                 hideFleetName={mode === 'fleet'}
+                               />
+                               {driver.vehicle_assignment?.assigned_at && (
+                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                   <span>od:</span>
+                                   {mode === 'admin' ? (
+                                     <input
+                                       type="date"
+                                       value={format(new Date(driver.vehicle_assignment.assigned_at), 'yyyy-MM-dd')}
+                                       onChange={(e) => {
+                                         e.stopPropagation();
+                                         updateAssignedDate(driver.id, e.target.value);
+                                       }}
+                                       onClick={(e) => e.stopPropagation()}
+                                       className="border rounded px-1 py-0.5 text-xs cursor-pointer hover:border-primary transition-colors"
+                                     />
+                                   ) : (
+                                     <span>{format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
+                                   )}
+                                   {driver.vehicle_assignment?.unassigned_at && (
+                                     <>
+                                       <span>do:</span>
+                                       <span>{format(new Date(driver.vehicle_assignment.unassigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
+                                     </>
+                                   )}
+                                 </div>
+                               )}
+                               {!driver.vehicle_assignment?.fleet_id && driver.vehicle_assignment?.vehicle?.fleet_id === null && driver.vehicle_assignment?.vehicle && (
+                                 <Badge variant="outline" className="text-xs">
+                                   Własne auto: {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
+                                   {driver.vehicle_assignment.assigned_at && ` od ${format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}`}
+                                 </Badge>
+                               )}
+                              </div>
                              {/* Fleet badge - tylko w trybie admin */}
                              {mode === 'admin' && (
                                <DriverFleetBadgeSelector 

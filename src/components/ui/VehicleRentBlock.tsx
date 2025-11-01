@@ -14,6 +14,7 @@ export function VehicleRentBlock({
   readOnly = false,
   className,
   assignedAt,
+  unassignedAt,
   onAssignedAtChange,
   userRole = "fleet",
 }: {
@@ -22,6 +23,7 @@ export function VehicleRentBlock({
   readOnly?: boolean;
   className?: string;
   assignedAt?: string | null;
+  unassignedAt?: string | null;
   onAssignedAtChange?: (date: Date) => void;
   userRole?: "admin" | "fleet";
 }) {
@@ -68,7 +70,7 @@ export function VehicleRentBlock({
         {/* Data "Wynajęte od" - edytowalna dla admina, tylko widok dla fleet */}
         {assignedAt && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Wynajęte od:</span>
+            <span className="text-xs text-muted-foreground">od:</span>
             {userRole === "admin" && onAssignedAtChange ? (
               <Popover>
                 <PopoverTrigger asChild>
@@ -94,6 +96,14 @@ export function VehicleRentBlock({
               <span className="text-xs font-medium">
                 {format(new Date(assignedAt), "dd.MM.yyyy", { locale: pl })}
               </span>
+            )}
+            {unassignedAt && (
+              <>
+                <span className="text-xs text-muted-foreground">do:</span>
+                <span className="text-xs font-medium">
+                  {format(new Date(unassignedAt), "dd.MM.yyyy", { locale: pl })}
+                </span>
+              </>
             )}
           </div>
         )}

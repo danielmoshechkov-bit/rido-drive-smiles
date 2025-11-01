@@ -359,7 +359,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
             <TabsContent value="my-settlements" className="space-y-6">
               <DriverSettlements 
                 driverId={myDriverId}
-                hideControls={true}
+                hideControls={false}
               />
             </TabsContent>
           )}

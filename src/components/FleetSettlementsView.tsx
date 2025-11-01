@@ -14,6 +14,7 @@ import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTabPermissions } from '@/hooks/useTabPermissions';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -52,14 +53,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState("drivers");
   const { roles } = useUserRole();
+  const { canViewTab } = useTabPermissions();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
+  const [settlementPlans, setSettlementPlans] = useState<Array<{ id: string; name: string }>>([]);
 
   // Fetch latest settlement week on mount
   useEffect(() => {
     if (fleetId) {
       fetchLatestSettlement();
+      fetchSettlementPlans();
     }
   }, [fleetId]);
 
@@ -140,6 +145,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  const fetchSettlementPlans = async () => {
+    const { data } = await supabase
+      .from('settlement_plans')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name');
+    
+    if (data) {
+      setSettlementPlans(data);
+    }
+  };
+
   const fetchLatestSettlement = async () => {
     try {
       // Get all drivers from fleet
@@ -155,7 +172,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Get latest settlement
       const { data: latestSettlement } = await supabase
         .from('settlements')
-        .select('period_from')
+        .select('period_from, period_to')
         .in('driver_id', driverIds)
         .order('period_from', { ascending: false })
         .limit(1)
@@ -165,11 +182,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const latestDate = new Date(latestSettlement.period_from);
         const year = latestDate.getFullYear();
         
-        // Calculate week number
+        // Calculate week number by finding matching week range
         const weeks = getWeekDates(year);
         const matchingWeek = weeks.find(w => {
           const weekStart = new Date(w.start);
-          return weekStart.getTime() === latestDate.getTime();
+          const weekEnd = new Date(w.end);
+          const settlementStart = new Date(latestSettlement.period_from);
+          return settlementStart >= weekStart && settlementStart <= weekEnd;
         });
 
         if (matchingWeek) {
@@ -251,34 +270,47 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const aggregated = driversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
 
-        // Parsuj amounts JSONB - teraz bez filtrowania po platform!
+        // Parsuj amounts JSONB - używamy poprawnych kluczy z settlements edge function
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + (parseFloat(amounts.uber_total || '0'));
+          // uber_payout_d zawiera payout bez gotówki, uber_cash_f to gotówka
+          return sum + (parseFloat(amounts.uber_payout_d || amounts.uber_base || '0'));
         }, 0);
 
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + (parseFloat(amounts.bolt_gross || '0'));
+          // bolt_projected_d to kwota brutto
+          return sum + (parseFloat(amounts.bolt_projected_d || amounts.bolt_gross || '0'));
         }, 0);
 
         const freenow_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + (parseFloat(amounts.freenow_gross || '0'));
+          // freenow_base_s to kwota bazowa
+          return sum + (parseFloat(amounts.freenow_base_s || amounts.freenow_gross || '0'));
         }, 0);
 
         const total_commission = driverSettlements.reduce((sum, s) => {
-          return sum + (parseFloat(s.commission_amount as any || '0'));
+          const amounts = s.amounts as any || {};
+          // freenow_commission_t to prowizja FreeNow, inne platformy mają komisję wliczoną
+          return sum + (parseFloat(amounts.freenow_commission_t || '0'));
         }, 0);
 
         const total_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + (parseFloat(amounts.total_cash || '0'));
+          // uber_cash_f + bolt_cash + freenow_cash_f
+          const uberCash = parseFloat(amounts.uber_cash_f || '0');
+          const boltCash = parseFloat(amounts.bolt_cash || '0');
+          const freenowCash = parseFloat(amounts.freenow_cash_f || '0');
+          return sum + uberCash + boltCash + freenowCash;
         }, 0);
 
         const tax = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + (parseFloat(amounts.tax || '0'));
+          // *_tax_8 zawiera podatek 8%
+          const uberTax = parseFloat(amounts.uber_tax_8 || '0');
+          const boltTax = parseFloat(amounts.bolt_tax_8 || '0');
+          const freenowTax = parseFloat(amounts.freenow_tax_8 || '0');
+          return sum + uberTax + boltTax + freenowTax;
         }, 0);
 
         // Pobierz service_fee z planu rozliczeniowego
@@ -315,9 +347,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
 
       console.log('📈 Aggregated settlements:', aggregated.length);
-      console.log('✅ Settlements with data (total_base > 0):', aggregated.filter(a => a.total_base > 0).length);
+      console.log('✅ Sample settlement:', aggregated[0]);
       
-      setSettlements(aggregated.filter(a => a.total_base > 0));
+      // Filter by plan if selected
+      let filtered = aggregated;
+      if (selectedPlanId !== 'all') {
+        filtered = aggregated.filter(a => {
+          const driverData = driversData.find(d => d.id === a.driver_id);
+          const planId = (driverData as any)?.driver_app_users?.settlement_plan_id;
+          return planId === selectedPlanId;
+        });
+      }
+      
+      setSettlements(filtered);
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
@@ -326,10 +368,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   const subTabs = [
-    ...(isDriver && myDriverId ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
-    { value: "drivers", label: "Rozliczenia kierowców", visible: true },
-    { value: "vehicles", label: "Przychody aut", visible: true },
-    { value: "fuel", label: "Paliwo", visible: true }
+    ...(isDriver && myDriverId && canViewTab('settlements.my') ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
+    ...(canViewTab('settlements.drivers') ? [{ value: "drivers", label: "Rozliczenia kierowców", visible: true }] : []),
+    ...(canViewTab('settlements.vehicles') ? [{ value: "vehicles", label: "Przychody aut", visible: true }] : []),
+    ...(canViewTab('settlements.fuel') ? [{ value: "fuel", label: "Paliwo", visible: true }] : [])
   ];
 
   if (loading) {
@@ -391,35 +433,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         />
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-6">
-              <CardTitle>Rozliczenia kierowców</CardTitle>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Rok:</Label>
-                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[2024, 2025, 2026].map(year => (
-                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Okres:</Label>
-                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Wybierz okres" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weeks.map(week => (
-                      <SelectItem key={week.number} value={week.number.toString()}>
-                        {week.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex items-center justify-between">
+              <CardTitle>Wyniki tygodniowe</CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Rok:</Label>
+                  <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(year => (
+                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Okres:</Label>
+                  <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Wybierz okres" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weeks.map(week => (
+                        <SelectItem key={week.number} value={week.number.toString()}>
+                          {week.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Plan:</Label>
+                  <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie plany</SelectItem>
+                      {settlementPlans.map(plan => (
+                        <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -513,35 +571,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       />
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-6">
-            <CardTitle>Rozliczenia kierowców</CardTitle>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm">Rok:</Label>
-              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[2024, 2025, 2026].map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm">Okres:</Label>
-              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Wybierz okres" />
-                </SelectTrigger>
-                <SelectContent>
-                  {weeks.map(week => (
-                    <SelectItem key={week.number} value={week.number.toString()}>
-                      {week.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center justify-between">
+            <CardTitle>Wyniki tygodniowe</CardTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Rok:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026].map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Okres:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Wybierz okres" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Plan:</Label>
+                <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie plany</SelectItem>
+                    {settlementPlans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>

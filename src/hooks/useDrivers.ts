@@ -29,6 +29,13 @@ export interface Driver {
     fleet_name: string | null;
     status: string;
     assigned_at?: string;
+    unassigned_at?: string | null;
+    vehicle?: {
+      plate: string;
+      brand: string;
+      model: string;
+      fleet_id: string | null;
+    } | null;
   } | null;
 }
 
@@ -59,8 +66,15 @@ export const useDrivers = (params?: { cityId?: string; fleetId?: string }) => {
             fleet_id,
             status,
             assigned_at,
+            unassigned_at,
             fleets(
               name
+            ),
+            vehicles(
+              plate,
+              brand,
+              model,
+              fleet_id
             )
           )
         `)
@@ -88,7 +102,14 @@ export const useDrivers = (params?: { cityId?: string; fleetId?: string }) => {
           fleet_id: driver.driver_vehicle_assignments[0].fleet_id,
           fleet_name: driver.driver_vehicle_assignments[0].fleets?.name || null,
           status: driver.driver_vehicle_assignments[0].status,
-          assigned_at: driver.driver_vehicle_assignments[0].assigned_at
+          assigned_at: driver.driver_vehicle_assignments[0].assigned_at,
+          unassigned_at: driver.driver_vehicle_assignments[0].unassigned_at,
+          vehicle: driver.driver_vehicle_assignments[0].vehicles ? {
+            plate: driver.driver_vehicle_assignments[0].vehicles.plate,
+            brand: driver.driver_vehicle_assignments[0].vehicles.brand,
+            model: driver.driver_vehicle_assignments[0].vehicles.model,
+            fleet_id: driver.driver_vehicle_assignments[0].vehicles.fleet_id
+          } : null
         } : null
       }));
 
