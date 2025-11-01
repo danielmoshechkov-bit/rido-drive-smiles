@@ -20,6 +20,7 @@ import { UserRolesManager } from "@/components/UserRolesManager";
 import { TabVisibilityManager } from "@/components/TabVisibilityManager";
 import { FleetSettlementsView } from "@/components/FleetSettlementsView";
 import { DriverSettlements } from "@/components/DriverSettlements";
+import { FleetVehicleRevenue } from "@/components/FleetVehicleRevenue";
 import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
@@ -190,7 +191,10 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
               className="h-8 w-8"
             />
             <h1 className="text-xl font-bold text-primary">
-              {userType === 'admin' ? t('admin.dashboard') : `Panel Flotowy - ${userName || fleetName}`}
+              {userType === 'admin' 
+                ? t('admin.dashboard') 
+                : `Panel Flotowy - ${fleetName}${userName ? ` - ${userName}` : ''}`
+              }
             </h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -227,6 +231,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
               <TabsTrigger value="settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
                 <DollarSign className="h-4 w-4 mr-2" />
                 {t('admin.settlements')}
+              </TabsTrigger>
+            )}
+            {userType === 'fleet' && canViewTab('settlements') && (
+              <TabsTrigger value="vehicle-revenue" className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium">
+                <Car className="h-4 w-4 mr-2" />
+                Przychody aut
               </TabsTrigger>
             )}
             {canViewTab('drivers-list') && (
@@ -348,6 +358,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                   userType="admin"
                 />
               )}
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="vehicle-revenue" className="space-y-6">
+              <FleetVehicleRevenue fleetId={fleetId} />
             </TabsContent>
           )}
 
