@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { CalendarIcon, X, Calendar } from 'lucide-react';
+import { CalendarIcon, X, Calendar, Info } from 'lucide-react';
 import { AssignDriverModal } from './AssignDriverModal';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface VehicleRevenue {
   driver_id: string | null;
@@ -158,6 +159,35 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
     }
   };
 
+  // Calculate proportional rental fee based on actual days used in the week
+  const calculateProportionalRent = (
+    assignedAt: string, 
+    weekStart: string, 
+    weekEnd: string,
+    weeklyFee: number
+  ): number => {
+    const assignDate = new Date(assignedAt);
+    const startDate = new Date(weekStart);
+    const endDate = new Date(weekEnd);
+    
+    // Start counting from the day AFTER assignment (assignment day doesn't count)
+    const startCounting = new Date(assignDate);
+    startCounting.setDate(startCounting.getDate() + 1);
+    
+    // If start counting is after week end, no rental for this week
+    if (startCounting > endDate) return 0;
+    
+    // If start counting is before week start, count from week start (full week)
+    const effectiveStart = startCounting < startDate ? startDate : startCounting;
+    
+    // Calculate number of days from effectiveStart to weekEnd (inclusive)
+    const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Daily rate and proportional rental
+    const dailyRate = weeklyFee / 7;
+    return dailyRate * Math.min(days, 7);
+  };
+
   const fetchRevenues = async () => {
     setLoading(true);
     try {
@@ -221,23 +251,28 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
       const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
 
-      // Map vehicles to revenue data (including unassigned ones)
-      const revenueData: VehicleRevenue[] = vehicles.map(vehicle => {
-        const assignment = assignmentMap.get(vehicle.id);
-        const driver = assignment?.drivers as any;
+      // Map vehicles to revenue data and filter only those with assigned drivers
+      const revenueData: VehicleRevenue[] = vehicles
+        .map(vehicle => {
+          const assignment = assignmentMap.get(vehicle.id);
+          const driver = assignment?.drivers as any;
+          const weeklyFee = parseFloat(vehicle.weekly_rental_fee?.toString() || '0');
 
-        return {
-          driver_id: assignment?.driver_id || null,
-          driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '—',
-          vehicle_id: vehicle.id,
-          vehicle_plate: vehicle.plate,
-          vehicle_brand: vehicle.brand,
-          vehicle_model: vehicle.model,
-          assigned_date: assignment?.assigned_at || '',
-          rental_fee: parseFloat(vehicle.weekly_rental_fee?.toString() || '0'),
-          debt_balance: assignment?.driver_id ? (debtMap.get(assignment.driver_id) || 0) : 0,
-        };
-      });
+          return {
+            driver_id: assignment?.driver_id || null,
+            driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '—',
+            vehicle_id: vehicle.id,
+            vehicle_plate: vehicle.plate,
+            vehicle_brand: vehicle.brand,
+            vehicle_model: vehicle.model,
+            assigned_date: assignment?.assigned_at || '',
+            rental_fee: assignment?.assigned_at 
+              ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
+              : weeklyFee,
+            debt_balance: assignment?.driver_id ? (debtMap.get(assignment.driver_id) || 0) : 0,
+          };
+        })
+        .filter(revenue => revenue.driver_id !== null); // Only show vehicles with assigned drivers
 
       setRevenues(revenueData);
     } catch (error: any) {
@@ -319,7 +354,22 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Przychody aut</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>Przychody aut</CardTitle>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-xs">
+                      Wynajem jest liczony proporcjonalnie. Dzień przypisania nie jest liczony.
+                      Stawka dzienna = wynajem tygodniowy ÷ 7 dni.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rok:</Label>

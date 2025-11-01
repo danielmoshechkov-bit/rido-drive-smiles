@@ -259,9 +259,11 @@ export const DriverSettlements = ({
         .order('period_from', { ascending: false })
         .order('updated_at', { ascending: false });
 
+      console.log('[DEBUG] Settlements query result:', { data, error, driverId });
+
       if (error) {
-        console.error('Error loading settlements:', error);
-        toast.error('Błąd podczas ładowania rozliczeń');
+        console.error('[ERROR] Failed to load settlements:', error);
+        toast.error('Błąd podczas ładowania rozliczeń: ' + error.message);
         return;
       }
 
@@ -272,9 +274,9 @@ export const DriverSettlements = ({
       }
 
       setSettlements((data || []) as Settlement[]);
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Błąd podczas ładowania rozliczeń');
+    } catch (error: any) {
+      console.error('[ERROR] loadSettlements exception:', error);
+      toast.error('Błąd podczas ładowania rozliczeń: ' + (error?.message || 'Nieznany błąd'));
     } finally {
       setLoading(false);
     }
@@ -464,7 +466,6 @@ export const DriverSettlements = ({
     loadDriverPlan();
     loadRentalFee();
     loadSettlementPlans();
-    checkPlanChangePermission();
   }, [driverId]);
 
   const checkPlanChangePermission = async () => {
@@ -473,17 +474,38 @@ export const DriverSettlements = ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    const { data } = await supabase.rpc('can_change_settlement_plan', {
+    const { data, error } = await supabase.rpc('can_change_settlement_plan', {
       _driver_id: driverId,
       _user_id: user.id
     });
+
+    if (error) {
+      console.error('Error checking plan change permission:', error);
+      return;
+    }
     
     if (data && typeof data === 'object') {
       const permission = data as any;
       setCanChangePlan(permission.can_change ?? true);
-      setPlanChangeInfo(permission.reason ?? '');
+      
+      if (!permission.can_change && !permission.is_admin) {
+        if (permission.days_until_next_change > 0) {
+          setPlanChangeInfo(`Następna zmiana możliwa za ${permission.days_until_next_change} dni`);
+        } else {
+          setPlanChangeInfo(permission.reason || 'Brak uprawnień do zmiany planu');
+        }
+      } else {
+        setPlanChangeInfo('');
+      }
     }
   };
+
+  // Check plan change permission when driver or plan changes
+  useEffect(() => {
+    if (driverId) {
+      checkPlanChangePermission();
+    }
+  }, [driverId, selectedPlanId]);
 
   useEffect(() => {
     loadSettlements();
@@ -686,7 +708,7 @@ export const DriverSettlements = ({
                   Admin
                 </Badge>
               )}
-              {!canChangePlan && role !== 'admin' && selectedPlanId !== "all" && planChangeInfo && (
+              {!canChangePlan && role !== 'admin' && planChangeInfo && (
                 <span className="text-xs text-orange-600 font-medium">
                   {planChangeInfo}
                 </span>
@@ -700,9 +722,17 @@ export const DriverSettlements = ({
         {loading ? (
           <div className="text-center py-4">Ładowanie...</div>
         ) : settlements.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            Brak dostępnych rozliczeń dla wybranego okresu.
-          </p>
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground mb-2">
+              Brak dostępnych rozliczeń dla wybranego okresu.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Jeśli problem się powtarza, skontaktuj się z administratorem.
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">
+              ID kierowcy: {driverId}
+            </p>
+          </Card>
         ) : (
           <div className="space-y-6">
             {periods.map((period) => {
