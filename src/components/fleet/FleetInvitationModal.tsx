@@ -69,20 +69,18 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     setSearching(true);
     setSearchPerformed(true);
     try {
-      // Build search string from all fields
-      const searchTerms = [
-        firstName.trim(),
-        lastName.trim(),
-        email.trim(),
-        phone.trim(),
-        getridoId.trim(),
-        uberId.trim(),
-        boltId.trim(),
-        freenowId.trim()
-      ].filter(Boolean).join(' ');
-
+      // Send separate fields to edge function
       const { data, error } = await supabase.functions.invoke("drivers-search", {
-        body: { q: searchTerms }
+        body: { 
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          getrido_id: getridoId.trim() || undefined,
+          uber_id: uberId.trim() || undefined,
+          bolt_id: boltId.trim() || undefined,
+          freenow_id: freenowId.trim() || undefined
+        }
       });
 
       if (error) throw error;
@@ -168,125 +166,117 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Personal Data Section */}
-          <div className="space-y-4">
+          {/* Personal + Contact Data - 2x2 grid */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <h3 className="text-sm font-semibold mb-3">Dane osobowe:</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">
-                    Imię <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="firstName"
-                    placeholder="Jan"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">
-                    Nazwisko <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Kowalski"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
-              </div>
+              <Label htmlFor="firstName">
+                Imię <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="firstName"
+                placeholder="Jan"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
             </div>
-
-            {/* Contact Data */}
             <div>
-              <h3 className="text-sm font-semibold mb-3">Dane kontaktowe (opcjonalne):</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="jan.kowalski@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Telefon</Label>
-                  <Input
-                    id="phone"
-                    placeholder="+48 123 456 789"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
-              </div>
+              <Label htmlFor="lastName">
+                Nazwisko <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="lastName"
+                placeholder="Kowalski"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
             </div>
-
-            {/* Platform IDs */}
             <div>
-              <h3 className="text-sm font-semibold mb-3">ID platform (opcjonalne, co najmniej 1):</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="getridoId">GetRido ID</Label>
-                  <Input
-                    id="getridoId"
-                    placeholder="123456"
-                    value={getridoId}
-                    onChange={(e) => setGetridoId(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="uberId">Uber ID</Label>
-                  <Input
-                    id="uberId"
-                    placeholder="abc123"
-                    value={uberId}
-                    onChange={(e) => setUberId(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="boltId">Bolt ID</Label>
-                  <Input
-                    id="boltId"
-                    placeholder="bolt456"
-                    value={boltId}
-                    onChange={(e) => setBoltId(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="freenowId">FreeNow ID</Label>
-                  <Input
-                    id="freenowId"
-                    placeholder="fn789"
-                    value={freenowId}
-                    onChange={(e) => setFreenowId(e.target.value)}
-                  />
-                </div>
-              </div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="jan.kowalski@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
-
-            {/* Search Button */}
-            <Button 
-              onClick={searchDrivers} 
-              disabled={searching}
-              className="w-full"
-              size="lg"
-            >
-              {searching ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Szukam...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Szukaj
-                </>
-              )}
-            </Button>
+            <div>
+              <Label htmlFor="phone">Telefon</Label>
+              <Input
+                id="phone"
+                placeholder="+48 123 456 789"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
           </div>
+
+          {/* Platform IDs with badges */}
+          <div className="space-y-4">
+            <Label>Identyfikatory platform (opcjonalne)</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* GetRido */}
+              <div>
+                <Label htmlFor="getridoId" className="text-sm mb-2 block">GetRido ID</Label>
+                <Input
+                  id="getridoId"
+                  placeholder="123456"
+                  value={getridoId}
+                  onChange={(e) => setGetridoId(e.target.value)}
+                />
+              </div>
+              {/* Uber */}
+              <div>
+                <Label htmlFor="uberId" className="text-sm mb-2 block">Uber ID</Label>
+                <Input
+                  id="uberId"
+                  placeholder="abc123"
+                  value={uberId}
+                  onChange={(e) => setUberId(e.target.value)}
+                />
+              </div>
+              {/* Bolt */}
+              <div>
+                <Label htmlFor="boltId" className="text-sm mb-2 block">Bolt ID</Label>
+                <Input
+                  id="boltId"
+                  placeholder="bolt456"
+                  value={boltId}
+                  onChange={(e) => setBoltId(e.target.value)}
+                />
+              </div>
+              {/* FreeNow */}
+              <div>
+                <Label htmlFor="freenowId" className="text-sm mb-2 block">FreeNow ID</Label>
+                <Input
+                  id="freenowId"
+                  placeholder="fn789"
+                  value={freenowId}
+                  onChange={(e) => setFreenowId(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Search Button */}
+          <Button 
+            onClick={searchDrivers} 
+            disabled={searching}
+            className="w-full"
+            size="lg"
+          >
+            {searching ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Szukam...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4 mr-2" />
+                Szukaj
+              </>
+            )}
+          </Button>
 
           {/* Found Drivers List */}
           {searchPerformed && (

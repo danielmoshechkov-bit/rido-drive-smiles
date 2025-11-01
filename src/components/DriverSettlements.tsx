@@ -95,12 +95,9 @@ export const DriverSettlements = ({
       if (endDate.getFullYear() > year) break;
       if (year === currentYear && startDate > now) break;
 
-      const startDay = format(startDate, 'EEE', { locale: pl });
-      const endDay = format(endDate, 'EEE', { locale: pl });
-
       weeks.push({
         number: weekNumber,
-        label: `Tydzień ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} ${startDay}-${endDay})`,
+        label: `Tydzień ${weekNumber} (${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.)`,
         start: format(startDate, 'yyyy-MM-dd'),
         end: format(endDate, 'yyyy-MM-dd')
       });
@@ -603,7 +600,7 @@ export const DriverSettlements = ({
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
         {!hideControls && (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(120px,150px)_minmax(350px,400px)_1fr_minmax(200px,250px)]">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(120px,150px)_minmax(320px,360px)_1fr_minmax(200px,250px)]">
             {/* Rok - po lewej, małe okienko */}
             <div>
               <Label htmlFor="year-select" className="text-sm font-medium mb-2 block">Rok</Label>
