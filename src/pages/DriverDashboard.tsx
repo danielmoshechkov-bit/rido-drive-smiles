@@ -12,6 +12,8 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { FleetFuelView } from "@/components/FleetFuelView";
+import { getWeekDates } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -275,11 +277,27 @@ function CarsSection({ driverData }: { driverData: any }) {
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
 function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const [activeSubTab, setActiveSubTab] = useState("my");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const now = new Date();
+    const weeks = getWeekDates(now.getFullYear());
+    const currentWeek = weeks.find(w => {
+      const start = new Date(w.start);
+      const end = new Date(w.end);
+      return now >= start && now <= end;
+    });
+    return currentWeek?.number.toString() || '1';
+  });
   
   const subTabs = [
     { value: "my", label: "Moje rozliczenia", visible: true },
     { value: "fuel", label: "Paliwo", visible: true }
   ];
+
+  const weeks = getWeekDates(selectedYear);
+  const selectedWeekData = weeks.find(w => w.number.toString() === selectedWeek);
+  const periodFrom = selectedWeekData?.start;
+  const periodTo = selectedWeekData?.end;
 
   if (activeSubTab === "fuel") {
     return (
@@ -289,11 +307,44 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetFuelView 
-          fleetId={driverData.drivers?.fleet_id || ""} 
-          periodFrom={undefined} 
-          periodTo={undefined}
-        />
+        <div className="space-y-4 mt-4">
+          <div className="flex gap-4 items-center">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Rok</label>
+              <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2023, 2024, 2025, 2026].map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Tydzień</label>
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <FleetFuelView 
+            fleetId={driverData.drivers?.fleet_id || ""} 
+            periodFrom={periodFrom} 
+            periodTo={periodTo}
+          />
+        </div>
       </div>
     );
   }
