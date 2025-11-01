@@ -4,7 +4,8 @@ import { SettlementsManagement } from './SettlementsManagement';
 import { Card, CardContent } from './ui/card';
 import { CompanyRevenueView } from './CompanyRevenueView';
 import { DriverSettlementsView } from './DriverSettlementsView';
-import { FuelCSVUpload } from './FuelCSVUpload';
+import { FuelCSVUploadCard } from './FuelCSVUploadCard';
+import { AdminFuelView } from './AdminFuelView';
 import { SettlementCSVUploadCard } from './SettlementCSVUploadCard';
 
 interface AdminSettlementsViewProps {
@@ -60,13 +61,11 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <Card>
-          <CardContent className="py-6">
-            <FuelCSVUpload onUploadComplete={() => {
-              // Optionally refresh data or show success
-            }} />
-          </CardContent>
-        </Card>
+        <FuelCSVUploadCard onUploadComplete={() => {
+          // Refresh the fuel view after upload
+          window.location.reload();
+        }} />
+        <AdminFuelView />
       </div>
     );
   }
