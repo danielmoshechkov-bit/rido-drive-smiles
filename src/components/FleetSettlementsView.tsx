@@ -3,7 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Check, X, AlertCircle } from 'lucide-react';
@@ -46,15 +48,58 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [activeSubTab, setActiveSubTab] = useState("drivers");
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
   // Check if user is also a driver
   const isDriver = roles.includes('driver');
+
+  // Generate week options for the selected year
+  const getWeekDates = (year: number) => {
+    const weeks = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let currentDate = new Date(year, 0, 1);
+
+    while (currentDate.getDay() !== 1) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      if (currentDate.getMonth() > 0) {
+        currentDate = new Date(year, 0, 1);
+        break;
+      }
+    }
+
+    let weekNumber = 1;
+    while (currentDate.getFullYear() === year) {
+      const startDate = new Date(currentDate);
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 6);
+
+      if (endDate.getFullYear() > year) break;
+      if (year === currentYear && startDate > now) break;
+
+      weeks.push({
+        number: weekNumber,
+        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
+        start: format(startDate, 'yyyy-MM-dd'),
+        end: format(endDate, 'yyyy-MM-dd')
+      });
+
+      currentDate.setDate(currentDate.getDate() + 7);
+      weekNumber++;
+    }
+
+    return weeks.reverse();
+  };
+
+  const weeks = getWeekDates(selectedYear);
+  const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {
     if (fleetId) {
       fetchSettlements();
     }
-  }, [fleetId, periodFrom, periodTo]);
+  }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek]);
 
   useEffect(() => {
     if (isDriver) {
@@ -120,8 +165,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .select('*')
         .in('driver_id', driverIds);
 
-      if (periodFrom) query = query.gte('period_from', periodFrom);
-      if (periodTo) query = query.lte('period_to', periodTo);
+      // Use week selection if available, otherwise use periodFrom/periodTo props
+      if (currentWeek) {
+        query = query
+          .gte('period_from', currentWeek.start)
+          .lte('period_to', currentWeek.end);
+      } else {
+        if (periodFrom) query = query.gte('period_from', periodFrom);
+        if (periodTo) query = query.lte('period_to', periodTo);
+      }
 
       const { data: settlementsData, error: settlementsError } = await query;
 
@@ -346,7 +398,39 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       />
       <Card>
         <CardHeader>
-          <CardTitle>Rozliczenia kierowców</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Rozliczenia kierowców</CardTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Rok:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026].map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Okres:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Wybierz okres" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -207,6 +207,25 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
+  const removeFromFleet = async (driverId: string, driverName: string) => {
+    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName} z floty? Kierowca pozostanie w systemie, ale nie będzie już przypisany do tej floty.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ fleet_id: null })
+        .eq('id', driverId);
+
+      if (error) throw error;
+
+      toast.success(`Kierowca ${driverName} został usunięty z floty`);
+      refetch();
+      onDriverUpdate();
+    } catch (error) {
+      toast.error('Błąd podczas usuwania kierowcy z floty');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -399,7 +418,21 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2">
+                      {mode === 'fleet' && driver.fleet_id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFromFleet(driver.id, `${driver.first_name} ${driver.last_name}`);
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          title="Usuń z floty"
+                        >
+                          <X size={14} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

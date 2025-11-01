@@ -4,14 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, X, Calendar } from 'lucide-react';
+import { AssignDriverModal } from './AssignDriverModal';
 
 interface VehicleRevenue {
-  driver_id: string;
+  driver_id: string | null;
   driver_name: string;
+  vehicle_id: string;
   vehicle_plate: string;
   vehicle_brand: string;
   vehicle_model: string;
@@ -28,108 +32,123 @@ interface FleetVehicleRevenueProps {
 export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRevenueProps) {
   const [revenues, setRevenues] = useState<VehicleRevenue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedWeek, setSelectedWeek] = useState<string>('current');
-  const [customPeriodFrom, setCustomPeriodFrom] = useState<string>('');
-  const [customPeriodTo, setCustomPeriodTo] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
 
-  const getWeekDates = (weekOffset: number = 0) => {
-    try {
-      const today = new Date();
-      const targetDate = subWeeks(today, weekOffset);
-      const start = startOfWeek(targetDate, { weekStartsOn: 1 });
-      const end = endOfWeek(targetDate, { weekStartsOn: 1 });
-      
-      // Validate dates before formatting
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        throw new Error('Invalid date');
+  // Generate week options for the selected year
+  const getWeekDates = (year: number) => {
+    const weeks = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let currentDate = new Date(year, 0, 1);
+
+    while (currentDate.getDay() !== 1) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      if (currentDate.getMonth() > 0) {
+        currentDate = new Date(year, 0, 1);
+        break;
       }
-      
-      return {
-        from: format(start, 'yyyy-MM-dd'),
-        to: format(end, 'yyyy-MM-dd')
-      };
-    } catch (error) {
-      console.error('Error calculating week dates:', error);
-      // Fallback to current week
-      const today = new Date();
-      const start = startOfWeek(today, { weekStartsOn: 1 });
-      const end = endOfWeek(today, { weekStartsOn: 1 });
-      return {
-        from: format(start, 'yyyy-MM-dd'),
-        to: format(end, 'yyyy-MM-dd')
-      };
     }
+
+    let weekNumber = 1;
+    while (currentDate.getFullYear() === year) {
+      const startDate = new Date(currentDate);
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 6);
+
+      if (endDate.getFullYear() > year) break;
+      if (year === currentYear && startDate > now) break;
+
+      weeks.push({
+        number: weekNumber,
+        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
+        start: format(startDate, 'yyyy-MM-dd'),
+        end: format(endDate, 'yyyy-MM-dd')
+      });
+
+      currentDate.setDate(currentDate.getDate() + 7);
+      weekNumber++;
+    }
+
+    return weeks.reverse();
   };
 
-  const getPeriodDates = () => {
-    if (selectedWeek === 'custom' && customPeriodFrom && customPeriodTo) {
-      return { from: customPeriodFrom, to: customPeriodTo };
-    }
-    const weekOffset = selectedWeek === 'current' ? 0 : (parseInt(selectedWeek) || 0);
-    return getWeekDates(weekOffset);
-  };
+  const weeks = getWeekDates(selectedYear);
+  const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {
     fetchRevenues();
-  }, [fleetId, selectedWeek, customPeriodFrom, customPeriodTo]);
+  }, [fleetId, selectedYear, selectedWeek]);
 
   const fetchRevenues = async () => {
     setLoading(true);
     try {
-      // Fetch active driver-vehicle assignments for this fleet
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('driver_vehicle_assignments')
-        .select(`
-          driver_id,
-          assigned_at,
-          drivers!inner(
-            id,
-            first_name,
-            last_name
-          ),
-          vehicles!inner(
-            id,
-            brand,
-            model,
-            plate,
-            weekly_rental_fee,
-            fleet_id
-          )
-        `)
-        .eq('status', 'active')
-        .eq('vehicles.fleet_id', fleetId);
+      // Fetch ALL vehicles for this fleet (not just assigned ones)
+      const { data: vehicles, error: vehiclesError } = await supabase
+        .from('vehicles')
+        .select('id, brand, model, plate, weekly_rental_fee')
+        .eq('fleet_id', fleetId)
+        .eq('status', 'aktywne');
 
-      if (assignmentsError) throw assignmentsError;
+      if (vehiclesError) throw vehiclesError;
 
-      if (!assignments || assignments.length === 0) {
+      if (!vehicles || vehicles.length === 0) {
         setRevenues([]);
         setLoading(false);
         return;
       }
 
-      // Fetch current debt balance for each driver
-      const driverIds = assignments.map(a => a.driver_id);
-      const { data: debts } = await supabase
-        .from('driver_debts')
-        .select('driver_id, current_balance')
-        .in('driver_id', driverIds);
+      // Fetch active assignments for these vehicles
+      const vehicleIds = vehicles.map(v => v.id);
+      const { data: assignments } = await supabase
+        .from('driver_vehicle_assignments')
+        .select(`
+          driver_id,
+          vehicle_id,
+          assigned_at,
+          drivers(
+            id,
+            first_name,
+            last_name
+          )
+        `)
+        .in('vehicle_id', vehicleIds)
+        .eq('status', 'active');
 
-      const debtMap = new Map(debts?.map(d => [d.driver_id, d.current_balance]) || []);
+      // Map assignments by vehicle_id
+      const assignmentMap = new Map(assignments?.map(a => [a.vehicle_id, a]) || []);
 
-      // Map assignments to revenue data
-      const revenueData: VehicleRevenue[] = assignments.map(assignment => {
-        const driver = assignment.drivers as any;
-        const vehicle = assignment.vehicles as any;
+      // Fetch debts for assigned drivers
+      const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
+      let debts: Array<{ driver_id: string; current_balance: number }> = [];
+      
+      if (assignedDriverIds.length > 0) {
+        const { data } = await supabase
+          .from('driver_debts')
+          .select('driver_id, current_balance')
+          .in('driver_id', assignedDriverIds);
+        debts = data || [];
+      }
+
+      const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
+
+      // Map vehicles to revenue data (including unassigned ones)
+      const revenueData: VehicleRevenue[] = vehicles.map(vehicle => {
+        const assignment = assignmentMap.get(vehicle.id);
+        const driver = assignment?.drivers as any;
 
         return {
-          driver_id: assignment.driver_id,
-          driver_name: `${driver.first_name} ${driver.last_name}`,
+          driver_id: assignment?.driver_id || null,
+          driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '—',
+          vehicle_id: vehicle.id,
           vehicle_plate: vehicle.plate,
           vehicle_brand: vehicle.brand,
           vehicle_model: vehicle.model,
-          assigned_date: assignment.assigned_at || new Date().toISOString(),
-          rental_fee: parseFloat(vehicle.weekly_rental_fee || '0'),
-          debt_balance: debtMap.get(assignment.driver_id) || 0,
+          assigned_date: assignment?.assigned_at || '',
+          rental_fee: parseFloat(vehicle.weekly_rental_fee?.toString() || '0'),
+          debt_balance: assignment?.driver_id ? (debtMap.get(assignment.driver_id) || 0) : 0,
         };
       });
 
@@ -142,12 +161,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
     }
   };
 
-  const updateAssignedDate = async (driverId: string, newDate: string) => {
+  const updateAssignedDate = async (vehicleId: string, newDate: string) => {
     try {
       const { error } = await supabase
         .from('driver_vehicle_assignments')
         .update({ assigned_at: newDate })
-        .eq('driver_id', driverId)
+        .eq('vehicle_id', vehicleId)
         .eq('status', 'active');
 
       if (error) throw error;
@@ -157,6 +176,33 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
     } catch (error: any) {
       toast.error('Błąd aktualizacji daty: ' + error.message);
     }
+  };
+
+  const handleUnassignDriver = async (vehicleId: string) => {
+    if (!confirm('Czy na pewno chcesz odpisać kierowcę od tego pojazdu? Przypisanie zostanie zapisane w historii.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ 
+          status: 'inactive',
+          unassigned_at: new Date().toISOString()
+        })
+        .eq('vehicle_id', vehicleId)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      toast.success('Kierowca został odpisany od pojazdu');
+      fetchRevenues();
+    } catch (error: any) {
+      toast.error('Błąd podczas odpisywania kierowcy: ' + error.message);
+    }
+  };
+
+  const handleAssignDriver = (vehicleId: string) => {
+    setSelectedVehicleId(vehicleId);
+    setShowAssignModal(true);
   };
 
   const getRentalFeeColor = (rentalFee: number) => {
@@ -182,45 +228,43 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Przychody aut</CardTitle>
-        <div className="flex items-center gap-4 mt-4">
-          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Wybierz okres" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Bieżący tydzień</SelectItem>
-              <SelectItem value="1">Poprzedni tydzień</SelectItem>
-              <SelectItem value="2">2 tygodnie temu</SelectItem>
-              <SelectItem value="3">3 tygodnie temu</SelectItem>
-              <SelectItem value="4">4 tygodnie temu</SelectItem>
-              <SelectItem value="custom">Własny zakres</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {selectedWeek === 'custom' && (
-          <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <Input
-                type="date"
-                value={customPeriodFrom}
-                onChange={(e) => setCustomPeriodFrom(e.target.value)}
-                className="w-[150px]"
-              />
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Przychody aut</CardTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Rok:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026].map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Okres:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Wybierz okres" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <span className="text-muted-foreground">do</span>
-            <Input
-              type="date"
-              value={customPeriodTo}
-              onChange={(e) => setCustomPeriodTo(e.target.value)}
-              className="w-[150px]"
-            />
           </div>
-        )}
-      </CardHeader>
+        </CardHeader>
       <CardContent>
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -239,30 +283,49 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 <TableHead>Wynajem od</TableHead>
                 <TableHead className="text-right">Wynajem</TableHead>
                 <TableHead className="text-right">Zadłużenie</TableHead>
+                <TableHead>Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {revenues.map((rev) => (
-                <TableRow key={rev.driver_id}>
+                <TableRow key={rev.vehicle_id}>
                   <TableCell className="font-medium">
-                    {rev.driver_name}
+                    {rev.driver_id ? (
+                      <div className="flex items-center gap-2">
+                        {rev.driver_name}
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAssignDriver(rev.vehicle_id)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Przypisz kierowcę
+                      </Button>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {rev.vehicle_brand} {rev.vehicle_model}
                     <div className="text-xs text-muted-foreground">{rev.vehicle_plate}</div>
                   </TableCell>
                   <TableCell>
-                    {mode === 'admin' ? (
-                      <input 
-                        type="date" 
-                        value={format(new Date(rev.assigned_date), 'yyyy-MM-dd')}
-                        onChange={(e) => updateAssignedDate(rev.driver_id, e.target.value)}
-                        className="border rounded px-2 py-1 text-sm"
-                      />
-                    ) : (
-                      <span className="text-sm">
-                        {formatPeriodDate(rev.assigned_date)}
-                      </span>
+                    {rev.driver_id && rev.assigned_date && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3 w-3 text-muted-foreground" />
+                        {mode === 'admin' ? (
+                          <input 
+                            type="date" 
+                            value={format(new Date(rev.assigned_date), 'yyyy-MM-dd')}
+                            onChange={(e) => updateAssignedDate(rev.vehicle_id, e.target.value)}
+                            className="border rounded px-2 py-1 text-sm"
+                          />
+                        ) : (
+                          <span className="text-sm">
+                            {formatPeriodDate(rev.assigned_date)}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className={`text-right font-mono ${getRentalFeeColor(rev.rental_fee)}`}>
@@ -271,6 +334,19 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   <TableCell className={`text-right font-mono ${getDebtColor(rev.debt_balance)}`}>
                     {rev.debt_balance === 0 ? '—' : `${rev.debt_balance.toFixed(2)} zł`}
                   </TableCell>
+                  <TableCell>
+                    {rev.driver_id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleUnassignDriver(rev.vehicle_id)}
+                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        title="Odpisz kierowcę"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -278,5 +354,21 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         )}
       </CardContent>
     </Card>
+
+    <AssignDriverModal
+      isOpen={showAssignModal}
+      onClose={() => {
+        setShowAssignModal(false);
+        setSelectedVehicleId('');
+      }}
+      onAssigned={() => {
+        setShowAssignModal(false);
+        setSelectedVehicleId('');
+        fetchRevenues();
+      }}
+      vehicleId={selectedVehicleId}
+      fleetId={fleetId}
+    />
+    </>
   );
 }
