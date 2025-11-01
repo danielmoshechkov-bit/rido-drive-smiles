@@ -21,7 +21,9 @@ interface VehicleRevenue {
   vehicle_brand: string;
   vehicle_model: string;
   assigned_date: string;
+  weekly_rate: number;
   rental_fee: number;
+  paid_amount: number;
   debt_balance: number;
 }
 
@@ -251,12 +253,36 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
       const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
 
+      // Fetch rental payments from settlements for this week
+      let rentalPayments: Array<{ driver_id: string; rental_fee: number }> = [];
+
+      if (assignedDriverIds.length > 0) {
+        const { data: paymentsData } = await supabase
+          .from('settlements')
+          .select('driver_id, rental_fee')
+          .in('driver_id', assignedDriverIds)
+          .eq('week_start', weekStart)
+          .eq('week_end', weekEnd);
+        
+        rentalPayments = paymentsData || [];
+      }
+
+      const rentalPaymentMap = new Map<string, number>(
+        rentalPayments.map(p => [p.driver_id, parseFloat(p.rental_fee?.toString() || '0')])
+      );
+
       // Map vehicles to revenue data and filter only those with assigned drivers
       const revenueData: VehicleRevenue[] = vehicles
         .map(vehicle => {
           const assignment = assignmentMap.get(vehicle.id);
           const driver = assignment?.drivers as any;
           const weeklyFee = parseFloat(vehicle.weekly_rental_fee?.toString() || '0');
+          const proportionalRent = assignment?.assigned_at 
+            ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
+            : 0;
+          const paidAmount = assignment?.driver_id 
+            ? (rentalPaymentMap.get(assignment.driver_id) || 0) 
+            : 0;
 
           return {
             driver_id: assignment?.driver_id || null,
@@ -266,9 +292,9 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             vehicle_brand: vehicle.brand,
             vehicle_model: vehicle.model,
             assigned_date: assignment?.assigned_at || '',
-            rental_fee: assignment?.assigned_at 
-              ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
-              : weeklyFee,
+            weekly_rate: weeklyFee,
+            rental_fee: proportionalRent,
+            paid_amount: paidAmount,
             debt_balance: assignment?.driver_id ? (debtMap.get(assignment.driver_id) || 0) : 0,
           };
         })
@@ -337,6 +363,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
     if (debt > 0) return 'text-red-600 font-bold';
     if (debt < 0) return 'text-green-600 font-bold';
     return 'text-muted-foreground';
+  };
+
+  const getPaidAmountColor = (paidAmount: number, rentalFee: number) => {
+    if (paidAmount === 0) return 'text-muted-foreground';
+    if (paidAmount >= rentalFee) return 'text-green-600 font-bold';
+    return 'text-orange-600 font-bold';
   };
 
   const formatPeriodDate = (dateStr: string) => {
@@ -417,16 +449,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           </div>
         ) : (
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kierowca</TableHead>
-                <TableHead>Pojazd</TableHead>
-                <TableHead>Wynajem od</TableHead>
-                <TableHead className="text-right">Wynajem</TableHead>
-                <TableHead className="text-right">Zadłużenie</TableHead>
-                <TableHead>Akcje</TableHead>
-              </TableRow>
-            </TableHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kierowca</TableHead>
+                  <TableHead>Pojazd</TableHead>
+                  <TableHead>Wynajem od</TableHead>
+                  <TableHead className="text-right">Stawka</TableHead>
+                  <TableHead className="text-right">Wynajem</TableHead>
+                  <TableHead className="text-right">Opłacone</TableHead>
+                  <TableHead className="text-right">Zadłużenie</TableHead>
+                  <TableHead>Akcje</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {revenues.map((rev) => (
                 <TableRow key={rev.vehicle_id}>
@@ -469,12 +503,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                       </div>
                     )}
                   </TableCell>
-                   <TableCell className={`text-right ${getRentalFeeColor(rev.rental_fee)}`}>
-                     {formatCurrency(rev.rental_fee)}
-                   </TableCell>
-                   <TableCell className={`text-right ${getDebtColor(rev.debt_balance)}`}>
-                     {rev.debt_balance === 0 ? '—' : formatCurrency(rev.debt_balance)}
-                   </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatCurrency(rev.weekly_rate)}
+                  </TableCell>
+                  <TableCell className={`text-right ${getRentalFeeColor(rev.rental_fee)}`}>
+                    {formatCurrency(rev.rental_fee)}
+                  </TableCell>
+                  <TableCell className={`text-right ${getPaidAmountColor(rev.paid_amount, rev.rental_fee)}`}>
+                    {formatCurrency(rev.paid_amount)}
+                  </TableCell>
+                  <TableCell className={`text-right ${getDebtColor(rev.debt_balance)}`}>
+                    {rev.debt_balance === 0 ? '—' : formatCurrency(rev.debt_balance)}
+                  </TableCell>
                   <TableCell>
                     {rev.driver_id && (
                       <Button
@@ -491,18 +531,24 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </TableRow>
               ))}
             </TableBody>
-            <TableFooter>
-              <TableRow className="bg-muted/50 font-bold">
-                <TableCell colSpan={3} className="text-right">RAZEM:</TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(revenues.reduce((sum, r) => sum + r.rental_fee, 0))}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0))}
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-            </TableFooter>
+              <TableFooter>
+                <TableRow className="bg-muted/50 font-bold">
+                  <TableCell colSpan={3} className="text-right">RAZEM:</TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + r.weekly_rate, 0))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + r.rental_fee, 0))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + r.paid_amount, 0))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0))}
+                  </TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableFooter>
           </Table>
         )}
       </CardContent>
