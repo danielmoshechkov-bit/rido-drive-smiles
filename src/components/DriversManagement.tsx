@@ -10,6 +10,7 @@ import { DriverStatusBadge } from './DriverStatusBadge';
 import { NewDriverBadge } from './NewDriverBadge';
 import { DriverExpandedPanel } from './DriverExpandedPanel';
 import { AddFleetDriverModal } from './fleet/AddFleetDriverModal';
+import { FleetInvitationModal } from './fleet/FleetInvitationModal';
 import { useDrivers, Driver } from '@/hooks/useDrivers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -33,8 +34,8 @@ interface DriversManagementProps {
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showFleetAddModal, setShowFleetAddModal] = useState(false);
-  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [showFleetInviteModal, setShowFleetInviteModal] = useState(false);
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; plate: string; brand: string; model: string }>>([]);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
@@ -284,7 +285,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                 Odśwież IDs
               </Button>
               <Button 
-                onClick={() => mode === 'fleet' ? setShowFleetAddModal(true) : setShowAddModal(true)} 
+                onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
                 className="gap-2"
                 disabled={!cityId && mode !== 'fleet'}
               >
@@ -491,9 +492,9 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         onSuccess={handleAddDriver}
       />
 
-      <AddFleetDriverModal
-        isOpen={showFleetAddModal}
-        onClose={() => setShowFleetAddModal(false)}
+      <FleetInvitationModal
+        isOpen={showFleetInviteModal}
+        onClose={() => setShowFleetInviteModal(false)}
         onSuccess={() => {
           refetch();
           onDriverUpdate();

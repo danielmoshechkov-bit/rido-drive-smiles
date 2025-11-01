@@ -7,6 +7,9 @@ import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Check, X, AlertCircle } from 'lucide-react';
+import { UniversalSubTabBar } from './UniversalSubTabBar';
+import { DriverSettlements } from './DriverSettlements';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -38,12 +41,40 @@ interface DriverSettlement {
 export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }: FleetSettlementsViewProps) {
   const [settlements, setSettlements] = useState<DriverSettlement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState("drivers");
+  const { roles } = useUserRole();
+  const [myDriverId, setMyDriverId] = useState<string | null>(null);
+
+  // Check if user is also a driver
+  const isDriver = roles.includes('driver');
 
   useEffect(() => {
     if (fleetId) {
       fetchSettlements();
     }
   }, [fleetId, periodFrom, periodTo]);
+
+  useEffect(() => {
+    if (isDriver) {
+      fetchMyDriverId();
+    }
+  }, [isDriver]);
+
+  const fetchMyDriverId = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('driver_app_users')
+      .select('driver_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (data) {
+      setMyDriverId(data.driver_id);
+      setActiveSubTab("my"); // Default to "my" settlements if user is driver
+    }
+  };
 
   const fetchSettlements = async () => {
     setLoading(true);
@@ -158,28 +189,61 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  const subTabs = [
+    ...(isDriver && myDriverId ? [{ value: "my", label: "Moje rozliczenia", visible: true }] : []),
+    { value: "drivers", label: "Rozliczenia kierowców", visible: true },
+    { value: "vehicles", label: "Przychody aut", visible: true }
+  ];
+
   if (loading) {
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
   }
 
+  // Render based on active sub-tab
+  if (isDriver && myDriverId && activeSubTab === "my") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <DriverSettlements driverId={myDriverId} hideControls />
+      </div>
+    );
+  }
+
   if (settlements.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center text-muted-foreground">
-            Brak rozliczeń dla wybranego okresu
-          </div>
-        </CardContent>
-      </Card>
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              Brak rozliczeń dla wybranego okresu
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   if (viewType === 'rental') {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Zestawienie wynajmu</CardTitle>
-        </CardHeader>
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Zestawienie wynajmu</CardTitle>
+          </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -235,14 +299,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </Table>
         </CardContent>
       </Card>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Rozliczenia kierowców</CardTitle>
-      </CardHeader>
+    <div>
+      <UniversalSubTabBar
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+        tabs={subTabs}
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Rozliczenia kierowców</CardTitle>
+        </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
@@ -294,5 +365,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

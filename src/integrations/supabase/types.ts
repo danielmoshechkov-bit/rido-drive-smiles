@@ -745,6 +745,61 @@ export type Database = {
           },
         ]
       }
+      fleet_invitations: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          fleet_id: string
+          id: string
+          invited_by: string | null
+          responded_at: string | null
+          status: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          fleet_id: string
+          id?: string
+          invited_by?: string | null
+          responded_at?: string | null
+          status?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          fleet_id?: string
+          id?: string
+          invited_by?: string | null
+          responded_at?: string | null
+          status?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_invitations_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_invitations_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_invitations_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleets: {
         Row: {
           address: string | null

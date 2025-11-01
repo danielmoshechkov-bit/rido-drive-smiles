@@ -63,62 +63,30 @@ export function AddFleetDriverModal({ isOpen, onClose, onSuccess, fleetId, avail
     setSelectedDriver(null);
 
     try {
-      const query = searchQuery.trim();
-      const phoneVariants = normalizePhone(query);
+      console.log('Searching for drivers:', searchQuery);
       
-      // Search by getrido_id, email, phone, or platform IDs
-      const { data: drivers, error } = await supabase
-        .from('drivers')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          getrido_id,
-          driver_platform_ids(platform, platform_id)
-        `)
-        .or(`getrido_id.ilike.%${query}%,email.ilike.%${query}%,phone.in.(${phoneVariants.join(',')}),first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+      // Use Edge Function to search drivers (bypasses RLS)
+      const { data, error } = await supabase.functions.invoke('drivers-search', {
+        body: { q: searchQuery.trim() }
+      });
 
-      if (error) throw error;
-
-      // Also search by platform IDs
-      const { data: platformMatches, error: platformError } = await supabase
-        .from('driver_platform_ids')
-        .select('driver_id, platform, platform_id, drivers!inner(id, first_name, last_name, email, phone, getrido_id)')
-        .ilike('platform_id', `%${query}%`);
-
-      if (platformError) throw platformError;
-
-      // Combine results
-      const allDrivers = [...(drivers || [])];
-      
-      if (platformMatches) {
-        platformMatches.forEach(match => {
-          if (!allDrivers.find(d => d.id === match.driver_id)) {
-            allDrivers.push({
-              id: match.driver_id,
-              ...(match.drivers as any),
-            });
-          }
-        });
+      if (error) {
+        console.error('Search error:', error);
+        throw error;
       }
 
-      if (allDrivers.length === 0) {
+      console.log('Search results:', data);
+      const drivers = data?.drivers || [];
+
+      if (drivers.length === 0) {
         toast.error('Kierowca nie znaleziony w bazie');
       } else {
-        // Format platform IDs for display
-        const driversWithPlatforms = allDrivers.map(driver => ({
-          ...driver,
-          platform_ids: (driver as any).driver_platform_ids || []
-        }));
-        
-        setFoundDrivers(driversWithPlatforms);
-        toast.success(`Znaleziono ${driversWithPlatforms.length} kierowców`);
+        setFoundDrivers(drivers);
+        toast.success(`Znaleziono ${drivers.length} kierowców`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search error:', error);
-      toast.error('Błąd podczas wyszukiwania');
+      toast.error('Błąd podczas wyszukiwania: ' + error.message);
     } finally {
       setSearching(false);
     }

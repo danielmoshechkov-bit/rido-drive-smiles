@@ -51,3 +51,6 @@ verify_jwt = false
 
 [functions.sanitize-getrido]
 verify_jwt = false
+
+[functions.fleet-invitations]
+verify_jwt = false
