@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -55,14 +55,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
-  const [settlementPlans, setSettlementPlans] = useState<Array<{ id: string; name: string }>>([]);
 
   // Fetch latest settlement week on mount
   useEffect(() => {
     if (fleetId) {
       fetchLatestSettlement();
-      fetchSettlementPlans();
     }
   }, [fleetId]);
 
@@ -149,18 +146,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       } else {
         setActiveSubTab("drivers");
       }
-    }
-  };
-
-  const fetchSettlementPlans = async () => {
-    const { data } = await supabase
-      .from('settlement_plans')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
-    
-    if (data) {
-      setSettlementPlans(data);
     }
   };
 
@@ -365,17 +350,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('📈 Aggregated settlements:', aggregated.length);
       console.log('✅ Sample settlement:', aggregated[0]);
       
-      // Filter by plan if selected
-      let filtered = aggregated;
-      if (selectedPlanId !== 'all') {
-        filtered = aggregated.filter(a => {
-          const driverData = driversData.find(d => d.id === a.driver_id);
-          const planId = (driverData as any)?.driver_app_users?.settlement_plan_id;
-          return planId === selectedPlanId;
-        });
-      }
-      
-      setSettlements(filtered);
+      setSettlements(aggregated);
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
@@ -476,20 +451,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <SelectItem key={week.number} value={week.number.toString()}>
                           {week.label}
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">Plan:</Label>
-                  <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Wszystkie plany</SelectItem>
-                      {settlementPlans.map(plan => (
-                        <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -618,20 +579,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Plan:</Label>
-                <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Wszystkie plany</SelectItem>
-                    {settlementPlans.map(plan => (
-                      <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
         </CardHeader>
@@ -686,6 +633,38 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+              <TableRow className="bg-muted/50 font-bold">
+                <TableCell>RAZEM</TableCell>
+                <TableCell className="text-right font-mono">
+                  {settlements.reduce((sum, s) => sum + s.uber_base, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {settlements.reduce((sum, s) => sum + s.bolt_base, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {settlements.reduce((sum, s) => sum + s.freenow_base, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  -{settlements.reduce((sum, s) => sum + s.total_commission, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {settlements.reduce((sum, s) => sum + s.total_cash, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  -{settlements.reduce((sum, s) => sum + s.tax_8_percent, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  -{settlements.reduce((sum, s) => sum + s.service_fee, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  -{settlements.reduce((sum, s) => sum + (s.rental || 0), 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold">
+                  {settlements.reduce((sum, s) => sum + s.final_payout, 0).toFixed(2)} zł
+                </TableCell>
+              </TableRow>
+            </TableFooter>
           </Table>
         </div>
       </CardContent>

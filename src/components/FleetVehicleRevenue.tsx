@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -350,6 +350,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+              <TableRow className="bg-muted/50 font-bold">
+                <TableCell colSpan={3} className="text-right">RAZEM:</TableCell>
+                <TableCell className="text-right font-mono">
+                  {revenues.reduce((sum, r) => sum + r.rental_fee, 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0).toFixed(2)} zł
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </TableFooter>
           </Table>
         )}
       </CardContent>
