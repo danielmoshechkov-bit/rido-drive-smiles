@@ -443,7 +443,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Wyniki tygodniowe</CardTitle>
+              <CardTitle>Rozliczenia kierowców</CardTitle>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">Rok:</Label>
@@ -581,7 +581,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Wyniki tygodniowe</CardTitle>
+            <CardTitle>Rozliczenia kierowców</CardTitle>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rok:</Label>
