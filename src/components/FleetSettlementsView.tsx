@@ -185,6 +185,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const fetchSettlements = async () => {
     setLoading(true);
     try {
+      console.log('🔍 Fetching settlements for fleetId:', fleetId);
+      console.log('📅 Selected period:', { year: selectedYear, week: selectedWeek, currentWeek });
+
       // Pobierz kierowców z floty wraz z danymi o pojazdach i planach
       const { data: driversData, error: driversError } = await supabase
         .from('drivers')
@@ -197,6 +200,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .eq('fleet_id', fleetId);
 
       if (driversError) throw driversError;
+      console.log('👥 Drivers found:', driversData?.length || 0);
 
       if (!driversData || driversData.length === 0) {
         setSettlements([]);
@@ -224,6 +228,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const { data: settlementsData, error: settlementsError } = await query;
 
       if (settlementsError) throw settlementsError;
+      console.log('💰 Settlements found:', settlementsData?.length || 0);
+      console.log('📊 Settlement sample:', settlementsData?.[0]);
 
       // Pobierz plany rozliczeniowe
       const { data: plansData } = await supabase
@@ -308,6 +314,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         };
       });
 
+      console.log('📈 Aggregated settlements:', aggregated.length);
+      console.log('✅ Settlements with data (total_base > 0):', aggregated.filter(a => a.total_base > 0).length);
+      
       setSettlements(aggregated.filter(a => a.total_base > 0));
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);

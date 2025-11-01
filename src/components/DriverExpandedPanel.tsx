@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { DriverDocumentStatuses } from "./DriverDocumentStatuses";
 import { PlatformIdEditor } from "./PlatformIdEditor";
 import { DriverRoleManager } from "./DriverRoleManager";
+import { VehicleHistorySection } from "./VehicleHistorySection";
 import { Driver } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -259,6 +260,12 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
               )}
             </div>
           )}
+
+          {/* Vehicle History Section */}
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">Historia pojazdów</h4>
+            <VehicleHistorySection driverId={driver.id} onUpdate={onUpdate} />
+          </div>
         </div>
       </div>
     </Card>

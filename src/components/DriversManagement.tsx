@@ -226,6 +226,22 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
+  const updateAssignedDate = async (driverId: string, newDate: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_vehicle_assignments')
+        .update({ assigned_at: new Date(newDate).toISOString() })
+        .eq('driver_id', driverId)
+        .eq('status', 'active');
+      
+      if (error) throw error;
+      toast.success('Data wynajmu została zaktualizowana');
+      refetch();
+    } catch (error) {
+      toast.error('Błąd podczas aktualizacji daty wynajmu');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -328,19 +344,33 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             {driver.registration_date && (
                               <NewDriverBadge registrationDate={driver.registration_date} />
                             )}
-                            <div className="flex items-center gap-2">
-                             <DriverVehicleSelector
-                               driverId={driver.id}
-                               fleetId={(driver as any).fleet_id}
-                               onVehicleUpdate={refetch}
-                               hideFleetName={mode === 'fleet'}
-                             />
-                             {driver.vehicle_assignment?.assigned_at && (
-                               <span className="text-xs text-muted-foreground">
-                                 od: {format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}
-                               </span>
-                             )}
-                            </div>
+                             <div className="flex items-center gap-2">
+                              <DriverVehicleSelector
+                                driverId={driver.id}
+                                fleetId={(driver as any).fleet_id}
+                                onVehicleUpdate={refetch}
+                                hideFleetName={mode === 'fleet'}
+                              />
+                              {driver.vehicle_assignment?.assigned_at && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <span>od:</span>
+                                  {mode === 'admin' ? (
+                                    <input
+                                      type="date"
+                                      value={format(new Date(driver.vehicle_assignment.assigned_at), 'yyyy-MM-dd')}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        updateAssignedDate(driver.id, e.target.value);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="border rounded px-1 py-0.5 text-xs cursor-pointer hover:border-primary transition-colors"
+                                    />
+                                  ) : (
+                                    <span>{format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
+                                  )}
+                                </div>
+                              )}
+                             </div>
                              {/* Fleet badge - tylko w trybie admin */}
                              {mode === 'admin' && (
                                <DriverFleetBadgeSelector 
