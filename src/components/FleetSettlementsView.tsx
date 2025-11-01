@@ -124,7 +124,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
     if (data) {
       setMyDriverId(data.driver_id);
-      setActiveSubTab("my"); // Default to "my" settlements if user is driver
+      // For users with both driver and fleet roles, keep "drivers" as default
+      // Only switch to "my" if user is ONLY a driver (not fleet user)
+      const hasFleetRole = roles.includes('fleet_settlement') || roles.includes('fleet_rental');
+      if (!hasFleetRole) {
+        setActiveSubTab("my");
+      }
     }
   };
 
@@ -299,6 +304,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           tabs={subTabs}
         />
         <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Rozliczenia kierowców</CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Rok:</Label>
+                  <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(year => (
+                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Okres:</Label>
+                  <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Wybierz okres" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weeks.map(week => (
+                        <SelectItem key={week.number} value={week.number.toString()}>
+                          {week.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
               Brak rozliczeń dla wybranego okresu
