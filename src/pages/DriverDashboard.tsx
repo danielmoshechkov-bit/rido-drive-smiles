@@ -24,7 +24,7 @@ const DriverDashboard = () => {
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
-  const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
+  const [fleetName, setFleetName] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -108,16 +108,16 @@ const DriverDashboard = () => {
         city_id: driverAppUser.city_id
       });
 
-      // Load fleet info if driver has a fleet
+      // Load fleet name if driver has a fleet
       if (driverDetails?.fleet_id) {
         const { data: fleetData } = await supabase
           .from("fleets")
-          .select("name, contact_name, contact_phone_for_drivers")
+          .select("name")
           .eq("id", driverDetails.fleet_id)
           .single();
         
         if (fleetData) {
-          setFleetInfo(fleetData);
+          setFleetName(fleetData.name);
         }
       }
     };
@@ -168,18 +168,10 @@ const DriverDashboard = () => {
                   </span>
                 </>
               )}
-              {fleetInfo && (
+              {fleetName && (
                 <>
                   <span className="text-muted-foreground">-</span>
-                  <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
-                  {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-sm text-muted-foreground">
-                        Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
-                      </span>
-                    </>
-                  )}
+                  <span className="font-medium text-primary">Flota: {fleetName}</span>
                 </>
               )}
             </div>

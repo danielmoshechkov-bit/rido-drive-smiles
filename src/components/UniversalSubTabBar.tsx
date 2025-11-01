@@ -18,7 +18,7 @@ export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSu
   if (visibleTabs.length === 0) return null;
 
   return (
-    <div className="flex justify-start ml-[10%] gap-2 border-b border-border pb-2 mb-4">
+    <div className="flex justify-start ml-[20%] gap-2 border-b border-border pb-2 mb-4">
       {visibleTabs.map((tab) => (
         <Button
           key={tab.value}
