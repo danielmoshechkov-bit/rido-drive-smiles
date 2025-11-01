@@ -279,14 +279,9 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const [activeSubTab, setActiveSubTab] = useState("my");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
-    const now = new Date();
-    const weeks = getWeekDates(now.getFullYear());
-    const currentWeek = weeks.find(w => {
-      const start = new Date(w.start);
-      const end = new Date(w.end);
-      return now >= start && now <= end;
-    });
-    return currentWeek?.number.toString() || '1';
+    // Set the newest week (first in reversed array) as default
+    const weeks = getWeekDates(new Date().getFullYear());
+    return weeks.length > 0 ? weeks[0].number.toString() : '1';
   });
   
   const subTabs = [
@@ -329,11 +324,24 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {weeks.map(week => (
-                    <SelectItem key={week.number} value={week.number.toString()}>
-                      {week.label}
-                    </SelectItem>
-                  ))}
+                  {weeks.map(week => {
+                    const isCurrentWeek = (() => {
+                      const now = new Date();
+                      const weekStart = new Date(week.start);
+                      const weekEnd = new Date(week.end);
+                      return now >= weekStart && now <= weekEnd;
+                    })();
+
+                    return (
+                      <SelectItem 
+                        key={week.number} 
+                        value={week.number.toString()}
+                        className={isCurrentWeek ? "bg-yellow-100 dark:bg-yellow-900/30" : ""}
+                      >
+                        {week.displayLabel}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

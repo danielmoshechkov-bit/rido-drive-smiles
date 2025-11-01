@@ -59,12 +59,17 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
       if (driversError) throw driversError;
 
       // Create map of card_number to driver name
-      const cardToDriverMap = new Map(
-        drivers?.map(d => [
-          d.fuel_card_number,
-          `${d.first_name} ${d.last_name}`
-        ]) || []
-      );
+      // Handle both formats: with and without leading zeros
+      const cardToDriverMap = new Map<string, string>();
+      drivers?.forEach(d => {
+        const cardNum = d.fuel_card_number;
+        const driverName = `${d.first_name} ${d.last_name}`;
+        
+        // Map both formats: original and with leading zeros
+        cardToDriverMap.set(cardNum, driverName);
+        cardToDriverMap.set(`00${cardNum}`, driverName);
+        cardToDriverMap.set(`0${cardNum}`, driverName);
+      });
 
       // Fetch fuel transactions for the period
       const { data: transactions, error: transactionsError } = await supabase
@@ -76,8 +81,19 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
 
       if (transactionsError) throw transactionsError;
 
+      // Filter transactions to only include cards from this fleet
+      const fleetCardNumbers = new Set(
+        drivers?.map(d => d.fuel_card_number) || []
+      );
+
+      const fleetTransactions = (transactions || []).filter(t => {
+        // Remove leading zeros for comparison
+        const normalizedCardNumber = t.card_number.replace(/^0+/, '');
+        return fleetCardNumbers.has(normalizedCardNumber);
+      });
+
       // Group transactions by card_number
-      const grouped = (transactions || []).reduce((acc, transaction) => {
+      const grouped = fleetTransactions.reduce((acc, transaction) => {
         const cardNumber = transaction.card_number;
         if (!acc[cardNumber]) {
           acc[cardNumber] = {

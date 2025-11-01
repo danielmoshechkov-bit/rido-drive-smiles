@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus } from "lucide-react";
+import { Plus, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 
 interface SettlementCSVImportModalProps {
   cityId: string;
@@ -151,17 +153,35 @@ export const SettlementCSVImportModal = ({ cityId, onSuccess }: SettlementCSVImp
           {/* Date Range Selector */}
           <div>
             <Label className="mb-2 block">Wybierz zakres dat (automatycznie zaznacza pełny tydzień)</Label>
-            <div className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={dateRange?.from}
-                onSelect={handleDateSelect}
-                className={cn("rounded-md border pointer-events-auto")}
-              />
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from && dateRange?.to ? (
+                    `${format(dateRange.from, "dd.MM.yyyy", { locale: pl })} - ${format(dateRange.to, "dd.MM.yyyy", { locale: pl })}`
+                  ) : (
+                    <span>Wybierz zakres dat</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateRange?.from}
+                  onSelect={handleDateSelect}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
             {dateRange && (
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                Wybrany okres: {dateRange.from.toLocaleDateString('pl-PL')} - {dateRange.to.toLocaleDateString('pl-PL')}
+              <p className="text-sm text-muted-foreground mt-2">
+                Wybrany okres: {format(dateRange.from, "dd.MM.yyyy", { locale: pl })} - {format(dateRange.to, "dd.MM.yyyy", { locale: pl })}
               </p>
             )}
           </div>

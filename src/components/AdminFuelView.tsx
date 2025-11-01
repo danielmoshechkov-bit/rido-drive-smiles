@@ -33,15 +33,9 @@ interface CardSummary {
 export const AdminFuelView = () => {
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [selectedWeek, setSelectedWeek] = useState(() => {
-    // Ustaw domyślnie obecny tydzień
-    const now = new Date();
-    const weeks = getWeekDates(now.getFullYear());
-    const currentWeek = weeks.find(w => {
-      const start = new Date(w.start);
-      const end = new Date(w.end);
-      return now >= start && now <= end;
-    });
-    return currentWeek?.number.toString() || "1";
+    // Set the newest week (first in reversed array) as default
+    const weeks = getWeekDates(new Date().getFullYear());
+    return weeks.length > 0 ? weeks[0].number.toString() : "1";
   });
   const [cardSummaries, setCardSummaries] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,11 +66,17 @@ export const AdminFuelView = () => {
       if (driversError) throw driversError;
 
       // Create a map of card numbers to driver names
+      // Handle both formats: with and without leading zeros
       const cardToDriver = new Map<string, string>();
       drivers?.forEach(driver => {
         if (driver.fuel_card_number) {
           const fullName = `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
-          cardToDriver.set(driver.fuel_card_number, fullName || 'Nieznany kierowca');
+          const driverName = fullName || 'Nieznany kierowca';
+          
+          // Map all possible formats
+          cardToDriver.set(driver.fuel_card_number, driverName);
+          cardToDriver.set(`00${driver.fuel_card_number}`, driverName);
+          cardToDriver.set(`0${driver.fuel_card_number}`, driverName);
         }
       });
 
@@ -180,11 +180,24 @@ export const AdminFuelView = () => {
                 <SelectValue placeholder="Wybierz tydzień" />
               </SelectTrigger>
               <SelectContent>
-                {weeks.map((week) => (
-                  <SelectItem key={week.number} value={week.number.toString()}>
-                    {week.label}
-                  </SelectItem>
-                ))}
+                {weeks.map((week) => {
+                  const isCurrentWeek = (() => {
+                    const now = new Date();
+                    const weekStart = new Date(week.start);
+                    const weekEnd = new Date(week.end);
+                    return now >= weekStart && now <= weekEnd;
+                  })();
+
+                  return (
+                    <SelectItem 
+                      key={week.number} 
+                      value={week.number.toString()}
+                      className={isCurrentWeek ? "bg-yellow-100 dark:bg-yellow-900/30" : ""}
+                    >
+                      {week.displayLabel}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
