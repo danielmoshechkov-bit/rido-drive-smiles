@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LeasedCarCard } from "./LeasedCarCard";
 import { VehicleAssignmentHistory } from "./VehicleAssignmentHistory";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 
 interface LeasedCarWrapperProps {
   driverData: any;
@@ -35,6 +38,7 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
   const [activeAssignment, setActiveAssignment] = useState<VehicleAssignment | null>(null);
   const [historicalAssignments, setHistoricalAssignments] = useState<VehicleAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     const loadVehicleAssignments = async () => {
@@ -147,7 +151,17 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
       />
       
       {historicalAssignments.length > 0 && (
-        <VehicleAssignmentHistory assignments={historicalAssignments} />
+        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen} className="mt-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span>Historia wynajmów ({historicalAssignments.length})</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <VehicleAssignmentHistory assignments={historicalAssignments} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </>
   );

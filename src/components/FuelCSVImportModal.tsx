@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Upload, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getWeekDates, getCurrentWeekNumber } from "@/lib/utils";
+import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 
 interface FuelCSVImportModalProps {
   onUploadComplete?: () => void;
@@ -13,15 +13,15 @@ interface FuelCSVImportModalProps {
 
 export const FuelCSVImportModal = ({ onUploadComplete }: FuelCSVImportModalProps) => {
   const [open, setOpen] = useState(false);
-  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [year, setYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const currentYear = new Date().getFullYear();
-    return getCurrentWeekNumber(currentYear).toString();
+    return getCurrentWeekNumber(currentYear);
   });
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const weeks = getWeekDates(parseInt(year));
+  const weeks = getAvailableWeeks(year);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -42,7 +42,7 @@ export const FuelCSVImportModal = ({ onUploadComplete }: FuelCSVImportModalProps
       return;
     }
 
-    const week = weeks.find(w => w.number.toString() === selectedWeek);
+    const week = weeks.find(w => w.number === selectedWeek);
     if (!week) return;
 
     setImporting(true);
@@ -96,8 +96,8 @@ export const FuelCSVImportModal = ({ onUploadComplete }: FuelCSVImportModalProps
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Rok</label>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-auto min-w-[100px]">
+              <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
+                <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -112,22 +112,13 @@ export const FuelCSVImportModal = ({ onUploadComplete }: FuelCSVImportModalProps
 
             <div>
               <label className="text-sm font-medium mb-2 block">Tydzień</label>
-              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                <SelectTrigger>
+              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <SelectTrigger className="h-9 px-3 w-auto max-w-[280px]">
                   <SelectValue placeholder="Wybierz tydzień" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[300px]">
                   {weeks.map((week) => {
-                    const isCurrentWeek = (() => {
-                      const now = new Date();
-                      const dayOfWeek = now.getDay();
-                      const adjustedDate = new Date(now);
-                      if (dayOfWeek === 0) adjustedDate.setDate(now.getDate() - 1);
-                      
-                      const weekStart = new Date(week.start);
-                      const weekEnd = new Date(week.end);
-                      return adjustedDate >= weekStart && adjustedDate <= weekEnd;
-                    })();
+                    const isCurrentWeek = week.number === getCurrentWeekNumber(year);
 
                     return (
                       <SelectItem 

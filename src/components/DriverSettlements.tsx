@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
+import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
 
 interface Settlement {
   id: string;
@@ -65,7 +66,7 @@ export const DriverSettlements = ({
   const [loading, setLoading] = useState(false);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(preSelectedYear ?? currentYear);
-  const [selectedWeek, setSelectedWeek] = useState<number>(preSelectedWeek ?? 1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(preSelectedWeek ?? getCurrentWeekNumber(currentYear));
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
   const [driverPlan, setDriverPlan] = useState<any>(null);
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
@@ -78,44 +79,7 @@ export const DriverSettlements = ({
   const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
   const { role } = useUserRole();
 
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentDate = new Date(year, 0, 1);
-
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
-
-    let weekNumber = 1;
-    while (currentDate.getFullYear() === year) {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 6);
-
-      if (endDate.getFullYear() > year) break;
-      if (year === currentYear && startDate > now) break;
-
-      weeks.push({
-        number: weekNumber,
-        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
-        start: format(startDate, 'yyyy-MM-dd'),
-        end: format(endDate, 'yyyy-MM-dd')
-      });
-
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-    }
-
-    return weeks.reverse();
-  };
-
-  const weeks = getWeekDates(selectedYear);
+  const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   // Normalize amounts - supports both old (camelCase) and new (snake_case) formats
@@ -659,7 +623,7 @@ export const DriverSettlements = ({
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Rok:</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -672,13 +636,13 @@ export const DriverSettlements = ({
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Okres:</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="w-[280px]">
+                <SelectTrigger className="h-9 px-3 w-auto max-w-[320px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[300px]">
                   {weeks.map(week => (
                     <SelectItem key={week.number} value={week.number.toString()}>
-                      {week.label}
+                      {week.displayLabel}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -691,7 +655,7 @@ export const DriverSettlements = ({
                 onValueChange={setSelectedPlanId}
                 disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[200px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
                   <SelectValue placeholder="Wszystkie plany" />
                 </SelectTrigger>
                 <SelectContent>

@@ -9,6 +9,14 @@ import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ChatFab } from "@/components/chat/ChatFab";
 import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
+import { supabase } from "@/integrations/supabase/client";
+import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
+import { FleetFuelView } from "@/components/FleetFuelView";
+import { Plus, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DriverSettlements } from "@/components/DriverSettlements";
+import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
+import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { FleetFuelView } from "@/components/FleetFuelView";
@@ -280,7 +288,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const currentYear = new Date().getFullYear();
-    return getCurrentWeekNumber(currentYear).toString();
+    return getCurrentWeekNumber(currentYear);
   });
   
   const subTabs = [
@@ -288,8 +296,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
     { value: "fuel", label: "Paliwo", visible: true }
   ];
 
-  const weeks = getWeekDates(selectedYear);
-  const selectedWeekData = weeks.find(w => w.number.toString() === selectedWeek);
+  const weeks = getAvailableWeeks(selectedYear);
+  const selectedWeekData = weeks.find(w => w.number === selectedWeek);
   const periodFrom = selectedWeekData?.start;
   const periodTo = selectedWeekData?.end;
 
@@ -306,7 +314,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger className="w-auto min-w-[100px]">
+                <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -318,29 +326,16 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             </div>
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">Tydzień</label>
-              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                <SelectTrigger>
+              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                <SelectTrigger className="h-9 px-3 w-auto max-w-[280px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {weeks.map(week => {
-                    const isCurrentWeek = (() => {
-                      const now = new Date();
-                      const weekStart = new Date(week.start);
-                      const weekEnd = new Date(week.end);
-                      return now >= weekStart && now <= weekEnd;
-                    })();
-
-                    return (
-                      <SelectItem 
-                        key={week.number} 
-                        value={week.number.toString()}
-                        className={isCurrentWeek ? "bg-yellow-100 dark:bg-yellow-900/30" : ""}
-                      >
-                        {week.displayLabel}
-                      </SelectItem>
-                    );
-                  })}
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.displayLabel}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

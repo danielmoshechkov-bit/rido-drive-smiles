@@ -16,6 +16,7 @@ import { FuelCSVUpload } from './FuelCSVUpload';
 import { CompanyRevenueSummary } from './CompanyRevenueSummary';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { useUserRole } from '@/hooks/useUserRole';
+import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -56,7 +57,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
 
   // Format currency in Polish style
   const formatCurrency = (amount: number): string => {
@@ -75,8 +76,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Fetch latest settlement week on mount
   useEffect(() => {
-    if (fleetId) {
-      fetchLatestSettlement();
+    if (fleetId && selectedWeek !== getCurrentWeekNumber(selectedYear)) {
+      // Week already set by getCurrentWeekNumber, fetch data
+      fetchSettlements();
     }
   }, [fleetId]);
 
@@ -84,44 +86,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const isDriver = roles.includes('driver');
 
   // Generate week options for the selected year
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentDate = new Date(year, 0, 1);
-
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
-
-    let weekNumber = 1;
-    while (currentDate.getFullYear() === year) {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 6);
-
-      if (endDate.getFullYear() > year) break;
-      if (year === currentYear && startDate > now) break;
-
-      weeks.push({
-        number: weekNumber,
-        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
-        start: format(startDate, 'yyyy-MM-dd'),
-        end: format(endDate, 'yyyy-MM-dd')
-      });
-
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-    }
-
-    return weeks.reverse();
-  };
-
-  const weeks = getWeekDates(selectedYear);
+  const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {

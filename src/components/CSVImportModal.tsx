@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { getWeekDates } from '@/lib/utils';
+import { getAvailableWeeks, getCurrentWeekNumber } from '@/lib/utils';
 
 interface CSVImportModalProps {
   open: boolean;
@@ -18,12 +18,12 @@ interface CSVImportModalProps {
 
 export function CSVImportModal({ open, onOpenChange, cityId, onSuccess }: CSVImportModalProps) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<string>('');
+  const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [platform, setPlatform] = useState<'uber' | 'bolt' | 'freenow'>('uber');
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const weeks = getWeekDates(selectedYear);
+  const weeks = getAvailableWeeks(selectedYear);
 
   const handleImport = async () => {
     if (!file || !selectedWeek) {
@@ -33,7 +33,7 @@ export function CSVImportModal({ open, onOpenChange, cityId, onSuccess }: CSVImp
 
     setImporting(true);
     try {
-      const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+      const weekData = weeks.find(w => w.number === selectedWeek);
       if (!weekData) throw new Error('Nieprawidłowy tydzień');
 
       const text = await file.text();
@@ -56,7 +56,7 @@ export function CSVImportModal({ open, onOpenChange, cityId, onSuccess }: CSVImp
       
       // Reset form
       setFile(null);
-      setSelectedWeek('');
+      setSelectedWeek(getCurrentWeekNumber(selectedYear));
     } catch (error) {
       console.error('Import error:', error);
       toast.error('Błąd podczas importu CSV');
@@ -79,7 +79,7 @@ export function CSVImportModal({ open, onOpenChange, cityId, onSuccess }: CSVImp
           <div className="space-y-2">
             <Label>Rok</Label>
             <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger>
+              <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -92,14 +92,14 @@ export function CSVImportModal({ open, onOpenChange, cityId, onSuccess }: CSVImp
 
           <div className="space-y-2">
             <Label>Tydzień</Label>
-            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-              <SelectTrigger>
+            <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+              <SelectTrigger className="h-9 px-3 w-auto max-w-[320px]">
                 <SelectValue placeholder="Wybierz tydzień" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px]">
                 {weeks.map(week => (
                   <SelectItem key={week.number} value={week.number.toString()}>
-                    {week.label}
+                    {week.displayLabel}
                   </SelectItem>
                 ))}
               </SelectContent>

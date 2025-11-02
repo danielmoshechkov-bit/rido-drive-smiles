@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { getAvailableWeeks, getCurrentWeekNumber } from '@/lib/utils';
 
 interface RevenueData {
   serviceFeesTotal: number;
@@ -22,49 +23,11 @@ interface CompanyRevenueViewProps {
 
 export function CompanyRevenueView({ fleetId }: CompanyRevenueViewProps) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<string>('');
+  const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [loading, setLoading] = useState(false);
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
 
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const startDate = new Date(year, 0, 1);
-    
-    while (startDate.getDay() !== 1) {
-      startDate.setDate(startDate.getDate() + 1);
-    }
-
-    for (let week = 1; week <= 52; week++) {
-      const weekStart = new Date(startDate);
-      const weekEnd = new Date(startDate);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-
-      weeks.push({
-        number: week,
-        start: weekStart.toISOString().split('T')[0],
-        end: weekEnd.toISOString().split('T')[0],
-        label: `Tydzień ${week} (${weekStart.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' })})`
-      });
-
-      startDate.setDate(startDate.getDate() + 7);
-    }
-
-    return weeks;
-  };
-
-  const weeks = getWeekDates(selectedYear);
-
-  useEffect(() => {
-    const currentWeek = weeks.find(w => {
-      const now = new Date();
-      const start = new Date(w.start);
-      const end = new Date(w.end);
-      return now >= start && now <= end;
-    });
-    if (currentWeek) {
-      setSelectedWeek(currentWeek.number.toString());
-    }
-  }, [selectedYear]);
+  const weeks = getAvailableWeeks(selectedYear);
 
   useEffect(() => {
     if (selectedWeek) {
@@ -75,7 +38,7 @@ export function CompanyRevenueView({ fleetId }: CompanyRevenueViewProps) {
   const fetchRevenueData = async () => {
     setLoading(true);
     try {
-      const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+      const weekData = weeks.find(w => w.number === selectedWeek);
       if (!weekData) return;
 
       // Fetch settlements for the period
@@ -188,7 +151,7 @@ export function CompanyRevenueView({ fleetId }: CompanyRevenueViewProps) {
         <CardTitle>Przychód firmy</CardTitle>
         <div className="flex gap-4 mt-4">
           <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -198,14 +161,14 @@ export function CompanyRevenueView({ fleetId }: CompanyRevenueViewProps) {
             </SelectContent>
           </Select>
 
-          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-[300px]">
+          <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+            <SelectTrigger className="h-9 px-3 w-auto max-w-[320px]">
               <SelectValue placeholder="Wybierz tydzień" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
               {weeks.map(week => (
                 <SelectItem key={week.number} value={week.number.toString()}>
-                  {week.label}
+                  {week.displayLabel}
                 </SelectItem>
               ))}
             </SelectContent>

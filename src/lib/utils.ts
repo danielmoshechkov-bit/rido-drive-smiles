@@ -5,6 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Get available weeks up to current week (no future weeks)
+export function getAvailableWeeks(year: number) {
+  const allWeeks = getWeekDates(year);
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  
+  // If today is Sunday (0), adjust to Saturday (previous week)
+  const adjustedDate = new Date(now);
+  if (dayOfWeek === 0) {
+    adjustedDate.setDate(now.getDate() - 1);
+  }
+  
+  // Filter out future weeks
+  return allWeeks.filter(w => {
+    const weekStart = new Date(w.start);
+    return weekStart <= adjustedDate;
+  });
+}
+
 export function getCurrentWeekNumber(year: number): number {
   const now = new Date();
   const dayOfWeek = now.getDay();
@@ -16,7 +35,7 @@ export function getCurrentWeekNumber(year: number): number {
     adjustedDate.setDate(now.getDate() - 1); // Go back to Saturday
   }
   
-  const weeks = getWeekDates(year);
+  const weeks = getAvailableWeeks(year);
   const currentWeek = weeks.find(w => {
     const start = new Date(w.start);
     const end = new Date(w.end);

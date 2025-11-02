@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { CalendarIcon, X, Calendar, Info } from 'lucide-react';
 import { AssignDriverModal } from './AssignDriverModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getAvailableWeeks, getCurrentWeekNumber } from '@/lib/utils';
 
 interface VehicleRevenue {
   driver_id: string | null;
@@ -36,7 +37,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   const [revenues, setRevenues] = useState<VehicleRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
 
@@ -49,50 +50,14 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   };
 
   // Generate week options for the selected year
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentDate = new Date(year, 0, 1);
-
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
-
-    let weekNumber = 1;
-    while (currentDate.getFullYear() === year) {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 6);
-
-      if (endDate.getFullYear() > year) break;
-      if (year === currentYear && startDate > now) break;
-
-      weeks.push({
-        number: weekNumber,
-        label: `${format(startDate, 'd MMM', { locale: pl })} - ${format(endDate, 'd MMM', { locale: pl })} pon.-ndz.`,
-        start: format(startDate, 'yyyy-MM-dd'),
-        end: format(endDate, 'yyyy-MM-dd')
-      });
-
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-    }
-
-    return weeks.reverse();
-  };
-
-  const weeks = getWeekDates(selectedYear);
+  const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   // Fetch latest assignment week on mount
   useEffect(() => {
-    if (fleetId) {
-      fetchLatestAssignment();
+    // Week already set by getCurrentWeekNumber, fetch data when ready
+    if (fleetId && selectedWeek !== null) {
+      fetchRevenues();
     }
   }, [fleetId]);
 
@@ -101,65 +66,6 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       fetchRevenues();
     }
   }, [fleetId, selectedYear, selectedWeek]);
-
-  const fetchLatestAssignment = async () => {
-    try {
-      const { data: vehicles } = await supabase
-        .from('vehicles')
-        .select('id')
-        .eq('fleet_id', fleetId)
-        .eq('status', 'aktywne');
-      
-      if (!vehicles?.length) {
-        // Set to first week if no vehicles
-        const weeks = getWeekDates(selectedYear);
-        if (weeks.length > 0) {
-          setSelectedWeek(weeks[0].number);
-        }
-        return;
-      }
-      
-      const vehicleIds = vehicles.map(v => v.id);
-      
-      const { data: latestAssignment } = await supabase
-        .from('driver_vehicle_assignments')
-        .select('assigned_at')
-        .in('vehicle_id', vehicleIds)
-        .order('assigned_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (latestAssignment?.assigned_at) {
-        const latestDate = new Date(latestAssignment.assigned_at);
-        const year = latestDate.getFullYear();
-        const weeks = getWeekDates(year);
-        const matchingWeek = weeks.find(w => {
-          const weekStart = new Date(w.start);
-          const weekEnd = new Date(w.end);
-          const assignmentDate = new Date(latestAssignment.assigned_at);
-          return assignmentDate >= weekStart && assignmentDate <= weekEnd;
-        });
-        
-        if (matchingWeek) {
-          setSelectedYear(year);
-          setSelectedWeek(matchingWeek.number);
-        } else if (weeks.length > 0) {
-          setSelectedWeek(weeks[0].number);
-        }
-      } else {
-        const weeks = getWeekDates(selectedYear);
-        if (weeks.length > 0) {
-          setSelectedWeek(weeks[0].number);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching latest assignment:', error);
-      const weeks = getWeekDates(selectedYear);
-      if (weeks.length > 0) {
-        setSelectedWeek(weeks[0].number);
-      }
-    }
-  };
 
   // Calculate proportional rental fee based on actual days used in the week
   const calculateProportionalRent = (

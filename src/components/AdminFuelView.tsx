@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { getWeekDates, getCurrentWeekNumber } from "@/lib/utils";
+import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 
 interface FuelTransaction {
   id: string;
@@ -31,17 +31,17 @@ interface CardSummary {
 }
 
 export const AdminFuelView = () => {
-  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [year, setYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const currentYear = new Date().getFullYear();
-    return getCurrentWeekNumber(currentYear).toString();
+    return getCurrentWeekNumber(currentYear);
   });
   const [cardSummaries, setCardSummaries] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const weeks = getWeekDates(parseInt(year));
+  const weeks = getAvailableWeeks(year);
 
   useEffect(() => {
     if (selectedWeek) {
@@ -50,7 +50,7 @@ export const AdminFuelView = () => {
   }, [selectedWeek, year]);
 
   const fetchFuelTransactions = async () => {
-    const week = weeks.find(w => w.number.toString() === selectedWeek);
+    const week = weeks.find(w => w.number === selectedWeek);
     if (!week) return;
 
     setLoading(true);
@@ -158,8 +158,8 @@ export const AdminFuelView = () => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Rok</label>
-            <Select value={year} onValueChange={setYear}>
-              <SelectTrigger className="w-auto min-w-[100px]">
+            <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
+              <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -174,19 +174,14 @@ export const AdminFuelView = () => {
 
           <div>
             <label className="text-sm font-medium mb-2 block">Tydzień</label>
-            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-              <SelectTrigger>
+            <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+              <SelectTrigger className="h-9 px-3 w-auto max-w-[280px]">
                 <SelectValue placeholder="Wybierz tydzień" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px]">
                 {weeks.map((week) => {
-                  const isCurrentWeek = (() => {
-                    const now = new Date();
-                    const weekStart = new Date(week.start);
-                    const weekEnd = new Date(week.end);
-                    return now >= weekStart && now <= weekEnd;
-                  })();
-
+                  const isCurrentWeek = week.number === getCurrentWeekNumber(year);
+                  
                   return (
                     <SelectItem 
                       key={week.number} 
