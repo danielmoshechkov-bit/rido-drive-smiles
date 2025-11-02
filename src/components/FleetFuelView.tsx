@@ -59,16 +59,18 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
       if (driversError) throw driversError;
 
       // Create map of card_number to driver name
-      // Handle both formats: with and without leading zeros
+      // Handle multiple formats: original, with leading 0, with leading 00, and without leading zeros
       const cardToDriverMap = new Map<string, string>();
       drivers?.forEach(d => {
         const cardNum = d.fuel_card_number;
+        const normalized = cardNum.replace(/^0+/, '');
         const driverName = `${d.first_name} ${d.last_name}`;
         
-        // Map both formats: original and with leading zeros
+        // Map all variants to same driver name
         cardToDriverMap.set(cardNum, driverName);
         cardToDriverMap.set(`00${cardNum}`, driverName);
         cardToDriverMap.set(`0${cardNum}`, driverName);
+        cardToDriverMap.set(normalized, driverName);
       });
 
       // Fetch fuel transactions for the period
@@ -85,12 +87,14 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
       const fleetCardNumbers = new Set<string>();
       drivers?.forEach(d => {
         if (d.fuel_card_number) {
-          // Dodaj wszystkie warianty numeru karty
-          fleetCardNumbers.add(d.fuel_card_number);
-          fleetCardNumbers.add(`00${d.fuel_card_number}`);
-          fleetCardNumbers.add(`0${d.fuel_card_number}`);
-          // Usuń wiodące zera i dodaj też tę wersję
-          fleetCardNumbers.add(d.fuel_card_number.replace(/^0+/, ''));
+          const cardNum = d.fuel_card_number;
+          const normalized = cardNum.replace(/^0+/, '');
+          
+          // Add all variants to the set
+          fleetCardNumbers.add(cardNum);
+          fleetCardNumbers.add(`00${cardNum}`);
+          fleetCardNumbers.add(`0${cardNum}`);
+          fleetCardNumbers.add(normalized);
         }
       });
 

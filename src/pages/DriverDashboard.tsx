@@ -407,7 +407,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Tydzień</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[280px]">
+                <SelectTrigger className="h-9 px-3 w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">

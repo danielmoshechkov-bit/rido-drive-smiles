@@ -623,7 +623,7 @@ export const DriverSettlements = ({
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Rok:</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
+                <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -636,7 +636,7 @@ export const DriverSettlements = ({
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Okres:</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[280px]">
+                <SelectTrigger className="h-9 px-3 w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -655,7 +655,7 @@ export const DriverSettlements = ({
                 onValueChange={setSelectedPlanId}
                 disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
               >
-                <SelectTrigger className="w-[200px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
+                <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
                   <SelectValue placeholder="Wszystkie plany" />
                 </SelectTrigger>
                 <SelectContent>
