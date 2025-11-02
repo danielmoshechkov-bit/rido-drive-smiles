@@ -647,7 +647,7 @@ export const DriverSettlements = ({
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
 
   return (
-    <Card className={hideControls ? "border-0 shadow-none" : ""}>
+    <Card className={hideControls ? "border-0 shadow-none mt-8" : "mt-8"}>
       {!hideControls && (
         <Collapsible open={isControlsOpen} onOpenChange={setIsControlsOpen}>
           <CardHeader className="py-3">

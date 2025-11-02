@@ -33,6 +33,7 @@ const DriverDashboard = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('weekly-report');
+  const [activeSubTab, setActiveSubTab] = useState('my');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
   const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
@@ -298,63 +299,90 @@ const DriverDashboard = () => {
           </TabsPill>
         </div>
 
-        {/* Mobile Hamburger Menu */}
+        {/* Mobile Hamburger Menu - Redesigned */}
         <div className="md:hidden mb-6">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64">
-              <div className="space-y-2 mt-4">
-                <SheetTrigger asChild>
-                  <Button 
-                    variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab('weekly-report')}
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    {t('driver.tabs.settlements')}
+          <div className="flex items-center gap-3">
+            {/* Hamburger w zaokrąglonym kontenerze */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <div className="rounded-xl bg-white shadow-sm p-2 border border-gray-100">
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Menu className="h-5 w-5 text-primary" />
                   </Button>
-                </SheetTrigger>
-                <SheetTrigger asChild>
-                  <Button 
-                    variant={activeTab === 'cars' ? 'default' : 'ghost'} 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab('cars')}
-                  >
-                    <Car className="h-4 w-4 mr-2" />
-                    {t('driver.tabs.cars')}
-                  </Button>
-                </SheetTrigger>
-                <SheetTrigger asChild>
-                  <Button 
-                    variant={activeTab === 'documents' ? 'default' : 'ghost'} 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab('documents')}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {t('driver.tabs.documents')}
-                  </Button>
-                </SheetTrigger>
-                <SheetTrigger asChild>
-                  <Button 
-                    variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
-                    className="w-full justify-start"
-                    onClick={() => setActiveTab('informacje')}
-                  >
-                    <Info className="h-4 w-4 mr-2" />
-                    {t('driver.tabs.information')}
-                  </Button>
-                </SheetTrigger>
+                </div>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                <div className="space-y-2 mt-4">
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('weekly-report')}
+                    >
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.settlements')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'cars' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('cars')}
+                    >
+                      <Car className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.cars')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('documents')}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.documents')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('informacje')}
+                    >
+                      <Info className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.information')}
+                    </Button>
+                  </SheetTrigger>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Sub-tab buttons obok hamburgera - tylko dla zakładki rozliczenia */}
+            {activeTab === 'weekly-report' && (
+              <div className="flex gap-2 flex-1">
+                <Button
+                  variant={activeSubTab === 'my' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('my')}
+                >
+                  Moje rozliczenia
+                </Button>
+                <Button
+                  variant={activeSubTab === 'fuel' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('fuel')}
+                >
+                  Paliwo
+                </Button>
               </div>
-            </SheetContent>
-          </Sheet>
+            )}
+          </div>
         </div>
 
         {/* Tab Content - rendered based on activeTab state */}
-        {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} />}
+        {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}
         {activeTab === 'cars' && <CarsSection driverData={driverData} />}
         {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
         {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
@@ -371,7 +399,7 @@ function CarsSection({ driverData }: { driverData: any }) {
   const driverId = driverData.driver_id;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {/* Przycisk Dodaj auto */}
                 <div className="flex justify-start px-8">
                   <Button 
@@ -403,9 +431,16 @@ function CarsSection({ driverData }: { driverData: any }) {
 
 
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
-function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
+function SettlementsWithSubTabs({ 
+  driverData, 
+  activeSubTab, 
+  setActiveSubTab 
+}: { 
+  driverData: any;
+  activeSubTab: string;
+  setActiveSubTab: (tab: string) => void;
+}) {
   const { t } = useTranslation();
-  const [activeSubTab, setActiveSubTab] = useState("my");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const currentYear = new Date().getFullYear();
@@ -424,11 +459,14 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
 
   return (
     <div>
-      <UniversalSubTabBar
-        activeTab={activeSubTab}
-        onTabChange={setActiveSubTab}
-        tabs={subTabs}
-      />
+      {/* Sub-tab bar - ukryty na mobile bo pokazuje się przy hamburgerze */}
+      <div className="hidden md:block">
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+      </div>
       
       <div className="pt-0 md:pt-0 mt-4 md:mt-0">
         {activeSubTab === "fuel" ? (
