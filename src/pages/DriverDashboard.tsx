@@ -276,24 +276,96 @@ const DriverDashboard = () => {
           <ChatFab driverData={driverData} />
         </div>
         
-        {/* Slim Pill Tabs */}
-        <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsTrigger value="weekly-report">
-            <DollarSign className="h-4 w-4 mr-2" />
-            {t('driver.tabs.settlements')}
-          </TabsTrigger>
-          <TabsTrigger value="cars">
-            <Car className="h-4 w-4 mr-2" />
-            {t('driver.tabs.cars')}
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            <FileText className="h-4 w-4 mr-2" />
-            {t('driver.tabs.documents')}
-          </TabsTrigger>
-          <TabsTrigger value="informacje">
-            <Info className="h-4 w-4 mr-2" />
-            {t('driver.tabs.information')}
-          </TabsTrigger>
+        {/* Desktop Tabs */}
+        <div className="hidden md:block">
+          <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsTrigger value="weekly-report">
+              <DollarSign className="h-4 w-4 mr-2" />
+              {t('driver.tabs.settlements')}
+            </TabsTrigger>
+            <TabsTrigger value="cars">
+              <Car className="h-4 w-4 mr-2" />
+              {t('driver.tabs.cars')}
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              <FileText className="h-4 w-4 mr-2" />
+              {t('driver.tabs.documents')}
+            </TabsTrigger>
+            <TabsTrigger value="informacje">
+              <Info className="h-4 w-4 mr-2" />
+              {t('driver.tabs.information')}
+            </TabsTrigger>
+          </TabsPill>
+        </div>
+
+        {/* Mobile Hamburger Menu */}
+        <div className="md:hidden mb-6">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="default" className="w-full justify-between">
+                <span className="flex items-center gap-2">
+                  {activeTab === 'weekly-report' && <><DollarSign className="h-4 w-4" /> {t('driver.tabs.settlements')}</>}
+                  {activeTab === 'cars' && <><Car className="h-4 w-4" /> {t('driver.tabs.cars')}</>}
+                  {activeTab === 'documents' && <><FileText className="h-4 w-4" /> {t('driver.tabs.documents')}</>}
+                  {activeTab === 'informacje' && <><Info className="h-4 w-4" /> {t('driver.tabs.information')}</>}
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto">
+              <div className="space-y-2 mt-4">
+                <SheetTrigger asChild>
+                  <Button 
+                    variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab('weekly-report')}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    {t('driver.tabs.settlements')}
+                  </Button>
+                </SheetTrigger>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant={activeTab === 'cars' ? 'default' : 'ghost'} 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab('cars')}
+                  >
+                    <Car className="h-4 w-4 mr-2" />
+                    {t('driver.tabs.cars')}
+                  </Button>
+                </SheetTrigger>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab('documents')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t('driver.tabs.documents')}
+                  </Button>
+                </SheetTrigger>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab('informacje')}
+                  >
+                    <Info className="h-4 w-4 mr-2" />
+                    {t('driver.tabs.information')}
+                  </Button>
+                </SheetTrigger>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        <TabsPill value={activeTab} onValueChange={setActiveTab} className="hidden">
+          <TabsTrigger value="weekly-report" className="hidden" />
+          <TabsTrigger value="cars" className="hidden" />
+          <TabsTrigger value="documents" className="hidden" />
+          <TabsTrigger value="informacje" className="hidden" />
 
           {/* Tab Content */}
           <TabsContent value="weekly-report">

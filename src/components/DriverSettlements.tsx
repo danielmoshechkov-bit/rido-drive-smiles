@@ -654,9 +654,16 @@ export const DriverSettlements = ({
             {/* Mobile: collapsed header with expand button */}
             <div className="md:hidden">
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full flex items-center justify-between p-2">
-                  <span className="font-semibold">{t('weekly.title')}</span>
-                  {isControlsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                <Button variant="ghost" className="w-full flex flex-col items-start p-3">
+                  <div className="w-full flex items-center justify-between">
+                    <span className="font-semibold text-lg">{t('weekly.title')}</span>
+                    {isControlsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </div>
+                  {currentWeek && (
+                    <span className="text-sm text-muted-foreground mt-1">
+                      {format(new Date(currentWeek.start), 'd MMM', { locale: pl })} - {format(new Date(currentWeek.end), 'd MMM yyyy', { locale: pl })}
+                    </span>
+                  )}
                 </Button>
               </CollapsibleTrigger>
             </div>
