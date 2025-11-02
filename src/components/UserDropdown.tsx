@@ -10,6 +10,7 @@ import {
 import { ChevronDown, User, Shield, Building, LogOut, Globe } from "lucide-react";
 import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { useTranslation } from 'react-i18next';
+import { useEffect } from 'react';
 
 interface UserDropdownProps {
   userName: string;
@@ -36,6 +37,22 @@ export const UserDropdown = ({
   const handleOpenChange = (open: boolean) => {
     setOpenDropdown(open ? dropdownId : null);
   };
+
+  // Close this dropdown when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-radix-popper-content-wrapper]') && 
+          !target.closest('button[data-state]')) {
+        setOpenDropdown(null);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, setOpenDropdown]);
 
   const languages = [
     { code: "pl", name: "Polski", flag: "🇵🇱" },
@@ -88,7 +105,11 @@ export const UserDropdown = ({
             {languages.map((language) => (
               <DropdownMenuItem
                 key={language.code}
-                onClick={() => i18n.changeLanguage(language.code)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  i18n.changeLanguage(language.code);
+                }}
                 className={i18n.language === language.code ? "bg-muted" : ""}
               >
                 <span className="mr-2">{language.flag}</span>
@@ -102,7 +123,15 @@ export const UserDropdown = ({
         {onLogout && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout} className="text-destructive">
+            <DropdownMenuItem 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpenDropdown(null);
+                onLogout();
+              }} 
+              className="text-destructive"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span className="text-xs">{t('userDropdown.logout')}</span>
             </DropdownMenuItem>

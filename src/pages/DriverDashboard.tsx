@@ -260,6 +260,70 @@ const DriverDashboard = () => {
           </TabsPill>
         </div>
 
+        {/* Mobile Navigation Menu */}
+        <div className="md:hidden mb-6">
+          <div className="bg-primary rounded-2xl p-4 shadow-lg">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => setActiveTab('weekly-report')}
+                variant={activeTab === 'weekly-report' ? 'secondary' : 'ghost'}
+                className={`h-auto py-3 px-4 rounded-xl ${
+                  activeTab === 'weekly-report' 
+                    ? 'bg-white text-primary' 
+                    : 'text-white hover:bg-primary-dark'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  <span className="text-sm font-medium">{t('driver.tabs.settlements')}</span>
+                </div>
+              </Button>
+              <Button
+                onClick={() => setActiveTab('cars')}
+                variant={activeTab === 'cars' ? 'secondary' : 'ghost'}
+                className={`h-auto py-3 px-4 rounded-xl ${
+                  activeTab === 'cars' 
+                    ? 'bg-white text-primary' 
+                    : 'text-white hover:bg-primary-dark'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Car className="h-4 w-4" />
+                  <span className="text-sm font-medium">{t('driver.tabs.cars')}</span>
+                </div>
+              </Button>
+              <Button
+                onClick={() => setActiveTab('documents')}
+                variant={activeTab === 'documents' ? 'secondary' : 'ghost'}
+                className={`h-auto py-3 px-4 rounded-xl ${
+                  activeTab === 'documents' 
+                    ? 'bg-white text-primary' 
+                    : 'text-white hover:bg-primary-dark'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm font-medium">{t('driver.tabs.documents')}</span>
+                </div>
+              </Button>
+              <Button
+                onClick={() => setActiveTab('informacje')}
+                variant={activeTab === 'informacje' ? 'secondary' : 'ghost'}
+                className={`h-auto py-3 px-4 rounded-xl ${
+                  activeTab === 'informacje' 
+                    ? 'bg-white text-primary' 
+                    : 'text-white hover:bg-primary-dark'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  <span className="text-sm font-medium">{t('driver.tabs.information')}</span>
+                </div>
+              </Button>
+            </div>
+          </div>
+        </div>
+
 
         {/* Tab Content - rendered based on activeTab state */}
         {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}
