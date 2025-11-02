@@ -37,6 +37,7 @@ const DriverDashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
   const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
+  const [showAddOwnCarModal, setShowAddOwnCarModal] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -300,14 +301,14 @@ const DriverDashboard = () => {
         </div>
 
         {/* Mobile Hamburger Menu - Redesigned */}
-        <div className="md:hidden mb-6">
+        <div className="md:hidden mb-3">
           <div className="flex items-center gap-3">
             {/* Hamburger w zaokrąglonym kontenerze */}
             <Sheet>
               <SheetTrigger asChild>
-                <div className="rounded-xl bg-white shadow-sm p-2 border border-gray-100">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Menu className="h-5 w-5 text-primary" />
+                <div className="rounded-xl bg-primary shadow-sm p-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/90">
+                    <Menu className="h-5 w-5 text-white" />
                   </Button>
                 </div>
               </SheetTrigger>
@@ -378,12 +379,23 @@ const DriverDashboard = () => {
                 </Button>
               </div>
             )}
+
+            {/* Przycisk Dodaj auto obok hamburgera - dla zakładki cars */}
+            {activeTab === 'cars' && (
+              <Button 
+                className="flex-1 rounded-full"
+                onClick={() => setShowAddOwnCarModal(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj auto
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Tab Content - rendered based on activeTab state */}
         {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}
-        {activeTab === 'cars' && <CarsSection driverData={driverData} />}
+        {activeTab === 'cars' && <CarsSection driverData={driverData} showAddModal={showAddOwnCarModal} setShowAddModal={setShowAddOwnCarModal} />}
         {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
         {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
       </div>
@@ -392,9 +404,8 @@ const DriverDashboard = () => {
 };
 
 // Komponent sekcji samochodów z przyciskiem dodaj auto
-function CarsSection({ driverData }: { driverData: any }) {
+function CarsSection({ driverData, showAddModal, setShowAddModal }: { driverData: any; showAddModal: boolean; setShowAddModal: (show: boolean) => void }) {
   const { t } = useTranslation();
-  const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const driverId = driverData.driver_id;
 
