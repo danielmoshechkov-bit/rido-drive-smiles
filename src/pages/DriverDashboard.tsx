@@ -345,73 +345,73 @@ const DriverDashboard = () => {
               <Info className="h-4 w-4 mr-2" />
               {t('driver.tabs.info')}
             </TabsTrigger>
-          </TabsPill>
 
-          {/* Desktop Context Bar - drugi rząd */}
-          <div className="mt-4">
-            {activeTab === 'weekly-report' && (
-              <div className="flex gap-3">
-                <Button
-                  variant={weeklySubTab === 'my' ? "default" : "outline"}
-                  size="default"
-                  onClick={() => setWeeklySubTab('my')}
-                  className={weeklySubTab === 'my'
-                    ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
-                    : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
-                >
-                  Moje rozliczenia
-                </Button>
-                
-                <Button
-                  variant={weeklySubTab === 'fuel' ? "default" : "outline"}
-                  size="default"
-                  onClick={() => setWeeklySubTab('fuel')}
-                  className={weeklySubTab === 'fuel'
-                    ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
-                    : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
-                >
-                  Paliwo
-                </Button>
-              </div>
-            )}
-            
-            {activeTab === 'cars' && (
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => {
-                    const addCarBtn = document.querySelector('[data-add-car-btn]') as HTMLButtonElement;
-                    addCarBtn?.click();
-                  }}
-                  className="px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"
-                >
-                  + Dodaj auto
-                </Button>
-              </div>
-            )}
-          </div>
+            {/* Desktop Context Bar - drugi rząd - INSIDE TabsPill */}
+            <div className="mt-4">
+              {activeTab === 'weekly-report' && (
+                <div className="flex gap-3">
+                  <Button
+                    variant={weeklySubTab === 'my' ? "default" : "outline"}
+                    size="default"
+                    onClick={() => setWeeklySubTab('my')}
+                    className={weeklySubTab === 'my'
+                      ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
+                      : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
+                  >
+                    Moje rozliczenia
+                  </Button>
+                  
+                  <Button
+                    variant={weeklySubTab === 'fuel' ? "default" : "outline"}
+                    size="default"
+                    onClick={() => setWeeklySubTab('fuel')}
+                    className={weeklySubTab === 'fuel'
+                      ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
+                      : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
+                  >
+                    Paliwo
+                  </Button>
+                </div>
+              )}
+              
+              {activeTab === 'cars' && (
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => {
+                      const addCarBtn = document.querySelector('[data-add-car-btn]') as HTMLButtonElement;
+                      addCarBtn?.click();
+                    }}
+                    className="px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"
+                  >
+                    + Dodaj auto
+                  </Button>
+                </div>
+              )}
+            </div>
 
-          {/* Tab Content - Desktop */}
-          <TabsContent value="weekly-report" className="mt-6">
-            <SettlementsWithSubTabs 
-              driverData={driverData} 
-              activeSubTab={weeklySubTab}
-              onSubTabChange={setWeeklySubTab}
-            />
-          </TabsContent>
-        
-          <TabsContent value="cars" className="mt-6">
-            <CarsSection driverData={driverData} />
-          </TabsContent>
+            {/* Tab Content - Desktop - INSIDE TabsPill */}
+            <TabsContent value="weekly-report" className="mt-6">
+              <SettlementsWithSubTabs 
+                driverData={driverData} 
+                activeSubTab={weeklySubTab}
+                onSubTabChange={setWeeklySubTab}
+              />
+            </TabsContent>
           
-          <TabsContent value="documents" className="mt-6">
-            <DriverDocuments driverData={driverData} />
-          </TabsContent>
+            <TabsContent value="cars" className="mt-6">
+              <CarsSection driverData={driverData} />
+            </TabsContent>
+            
+            <TabsContent value="documents" className="mt-6">
+              <DriverDocuments driverData={driverData} />
+            </TabsContent>
 
-          <TabsContent value="informacje" className="mt-6">
-            <DriverNotifications driverId={driverData.driver_id} />
-          </TabsContent>
+            <TabsContent value="informacje" className="mt-6">
+              <DriverNotifications driverId={driverData.driver_id} />
+            </TabsContent>
+          </TabsPill>
         </div>
 
         {/* Tab Content - Mobile only (outside TabsPill) */}
