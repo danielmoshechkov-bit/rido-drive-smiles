@@ -689,7 +689,7 @@ export const DriverSettlements = ({
                 return (
                   <div key={periodKey} className="space-y-0">
                      {/* 1. PODSUMOWANIE - fioletowe tło z białymi separatorami */}
-                     <div className="lg:hidden bg-[hsl(259_65%_48%)] rounded-t-lg overflow-hidden">
+                     <div className="lg:hidden bg-[hsl(259_52%_58%)] rounded-t-lg overflow-hidden">
                        <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
                          <span className="text-xs font-medium text-white">
                            Bez prowizji
@@ -761,77 +761,77 @@ export const DriverSettlements = ({
                      {/* 3. TABELA SZCZEGÓŁÓW - osobna sekcja z marginesem */}
                      <div className="lg:hidden mt-3 bg-white rounded-lg overflow-hidden shadow-sm">
                        <div className="overflow-x-auto">
-                          <table className="w-full text-[11px] sm:text-sm">
+                          <table className="w-full text-[11px] sm:text-sm lg:text-sm">
                             <thead>
                               <tr className="bg-gray-50">
-                               <th className="text-left p-2 sm:p-3 font-medium text-[11px] sm:text-sm">{t('weekly.table.category')}</th>
-                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.uber')}</th>
-                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.bolt')}</th>
-                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.freenow')}</th>
+                               <th className="text-left p-2 sm:p-3 lg:py-2 lg:px-3 font-medium text-[11px] sm:text-sm lg:text-sm">{t('weekly.table.category')}</th>
+                               <th className="text-right p-2 sm:p-3 lg:py-2 lg:px-3 font-medium text-[11px] sm:text-sm lg:text-sm w-[70px] sm:w-auto">{t('weekly.table.uber')}</th>
+                               <th className="text-right p-2 sm:p-3 lg:py-2 lg:px-3 font-medium text-[11px] sm:text-sm lg:text-sm w-[70px] sm:w-auto">{t('weekly.table.bolt')}</th>
+                               <th className="text-right p-2 sm:p-3 lg:py-2 lg:px-3 font-medium text-[11px] sm:text-sm lg:text-sm w-[70px] sm:w-auto">{t('weekly.table.freenow')}</th>
                               </tr>
                             </thead>
-                             <tbody>
+                             <tbody className="lg:text-sm">
                                {/* Podstawa opodatkowania */}
-                               <tr className="border-t hover:bg-gray-50">
-                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50 lg:h-9">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-gray-700 text-[11px] sm:text-sm lg:text-sm">
                                    <span className="hidden sm:inline">{t('weekly.row.base')}</span>
                                    <span className="sm:hidden">Podstawa</span>
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                                
                                {/* Prowizja */}
-                               <tr className="border-t hover:bg-gray-50">
-                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">{t('weekly.row.commission')}</td>
-                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50 lg:h-9">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-gray-700 text-[11px] sm:text-sm lg:text-sm">{t('weekly.row.commission')}</td>
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                                
                                {/* Gotówka pobrana (informacyjnie) */}
-                               <tr className="border-t hover:bg-gray-50">
-                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50 lg:h-9">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-gray-700 text-[11px] sm:text-sm lg:text-sm">
                                    <span className="hidden sm:inline">{t('weekly.row.cashCollected')}</span>
                                    <span className="sm:hidden">Gotówka</span>
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                    {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                               
                               {/* Podatek 8% */}
-                              <tr className="border-t hover:bg-gray-50">
-                                <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
+                              <tr className="border-t hover:bg-gray-50 lg:h-9">
+                                <td className="p-2 lg:py-2 lg:px-3 text-gray-700 text-[11px] sm:text-sm lg:text-sm">
                                   <span className="hidden sm:inline">{t('weekly.row.tax8')}</span>
                                   <span className="sm:hidden">Podatek</span>
                                 </td>
-                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                   {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
-                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                   {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
-                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 lg:py-2 lg:px-3 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm lg:text-sm">
                                   {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
                               </tr>

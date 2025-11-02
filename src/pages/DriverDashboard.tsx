@@ -15,7 +15,7 @@ import { DriverFuelView } from "@/components/DriverFuelView";
 import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info, Menu, ChevronDown, LogOut } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
-import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
+import { getAvailableWeeks, getCurrentWeekNumber, cn } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { useSystemAlerts } from "@/hooks/useSystemAlerts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -217,7 +217,7 @@ const DriverDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-3 sm:px-4 pt-3 pb-20 relative">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-10 pt-3 pb-20 relative max-w-[1440px]">
         {/* Floating Chat Widget */}
         <div className="fixed bottom-6 right-6 z-50">
           <ChatFab driverData={driverData} />
@@ -326,46 +326,93 @@ const DriverDashboard = () => {
         </div>
         </div>
 
-        {/* Desktop Tabs */}
-        <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6 hidden lg:flex">
-          <TabsTrigger value="weekly-report">
-            <DollarSign className="h-4 w-4 mr-2" />
-            {t('driver.tabs.weekly')}
-          </TabsTrigger>
-          <TabsTrigger value="cars">
-            <Car className="h-4 w-4 mr-2" />
-            {t('driver.tabs.cars')}
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            <FileText className="h-4 w-4 mr-2" />
-            {t('driver.tabs.documents')}
-          </TabsTrigger>
-          <TabsTrigger value="informacje">
-            <Info className="h-4 w-4 mr-2" />
-            {t('driver.tabs.info')}
-          </TabsTrigger>
+        {/* Desktop Navigation */}
+        <div className="hidden lg:block mb-6">
+          <TabsPill value={activeTab} onValueChange={setActiveTab}>
+            <TabsTrigger value="weekly-report">
+              <DollarSign className="h-4 w-4 mr-2" />
+              {t('driver.tabs.weekly')}
+            </TabsTrigger>
+            <TabsTrigger value="cars">
+              <Car className="h-4 w-4 mr-2" />
+              {t('driver.tabs.cars')}
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              <FileText className="h-4 w-4 mr-2" />
+              {t('driver.tabs.documents')}
+            </TabsTrigger>
+            <TabsTrigger value="informacje">
+              <Info className="h-4 w-4 mr-2" />
+              {t('driver.tabs.info')}
+            </TabsTrigger>
+          </TabsPill>
 
-          {/* Tab Content - Desktop only (wrapped in TabsPill) */}
-          <TabsContent value="weekly-report">
-              <SettlementsWithSubTabs 
-                driverData={driverData} 
-                activeSubTab={weeklySubTab}
-                onSubTabChange={setWeeklySubTab}
-              />
-            </TabsContent>
-          
-          <TabsContent value="cars">
+          {/* Desktop Context Bar - drugi rząd */}
+          <div className="mt-4">
+            {activeTab === 'weekly-report' && (
+              <div className="flex gap-3">
+                <Button
+                  variant={weeklySubTab === 'my' ? "default" : "outline"}
+                  size="default"
+                  onClick={() => setWeeklySubTab('my')}
+                  className={weeklySubTab === 'my'
+                    ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
+                    : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
+                >
+                  Moje rozliczenia
+                </Button>
+                
+                <Button
+                  variant={weeklySubTab === 'fuel' ? "default" : "outline"}
+                  size="default"
+                  onClick={() => setWeeklySubTab('fuel')}
+                  className={weeklySubTab === 'fuel'
+                    ? "px-6 py-2.5 rounded-full font-medium text-sm bg-primary text-white shadow-md transition-all"
+                    : "px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"}
+                >
+                  Paliwo
+                </Button>
+              </div>
+            )}
+            
+            {activeTab === 'cars' && (
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    const addCarBtn = document.querySelector('[data-add-car-btn]') as HTMLButtonElement;
+                    addCarBtn?.click();
+                  }}
+                  className="px-6 py-2.5 rounded-full font-medium text-sm border-2 border-primary text-primary bg-white hover:bg-primary/10 transition-all"
+                >
+                  + Dodaj auto
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Tab Content - Desktop */}
+          <TabsContent value="weekly-report" className="mt-6">
+            <SettlementsWithSubTabs 
+              driverData={driverData} 
+              activeSubTab={weeklySubTab}
+              onSubTabChange={setWeeklySubTab}
+            />
+          </TabsContent>
+        
+          <TabsContent value="cars" className="mt-6">
             <CarsSection driverData={driverData} />
           </TabsContent>
           
-          <TabsContent value="documents">
+          <TabsContent value="documents" className="mt-6">
             <DriverDocuments driverData={driverData} />
           </TabsContent>
 
-          <TabsContent value="informacje">
+          <TabsContent value="informacje" className="mt-6">
             <DriverNotifications driverId={driverData.driver_id} />
           </TabsContent>
-        </TabsPill>
+        </div>
 
         {/* Tab Content - Mobile only (outside TabsPill) */}
         <div className="lg:hidden">

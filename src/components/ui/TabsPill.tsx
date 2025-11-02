@@ -7,16 +7,16 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
     <Tabs {...props}>
       <TabsList
         className="
-          w-full flex gap-2 overflow-x-auto scrollbar-hide
-          bg-primary text-white rounded-full p-1 shadow-soft h-12
+          w-full flex gap-3 overflow-x-auto scrollbar-hide
+          bg-primary text-white rounded-full p-1.5 shadow-lg h-[56px]
         "
       >
         {React.Children.map(props.children as any, (child: any) => {
           if (child?.type?.displayName === "TabsTrigger") {
             return React.cloneElement(child, {
               className:
-                "px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 " +
-                "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold " +
+                "px-6 py-3 rounded-full text-base whitespace-nowrap transition-all duration-150 font-medium " +
+                "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-md " +
                 "hover:bg-white/90 hover:text-primary focus-visible:outline-none",
             });
           }
