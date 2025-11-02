@@ -330,7 +330,7 @@ function PinDisplay({ pin }: { pin: string }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <p className="text-lg font-mono font-bold text-orange-600">
+        <p className="text-lg font-semibold text-primary">
           {revealed ? pin : "••••"}
         </p>
         <Button 
@@ -404,7 +404,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger className="h-9 px-2 w-[90px]">
+                <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,7 +419,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Tydzień</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-2 w-[220px]">
+                <SelectTrigger className="h-9 px-3 w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -439,7 +439,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             {driverData.drivers?.fuel_card_number ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Karta:</span>
-                <span className="text-sm font-mono font-semibold">{driverData.drivers.fuel_card_number}</span>
+                <span className="text-sm font-medium">{driverData.drivers.fuel_card_number}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground">

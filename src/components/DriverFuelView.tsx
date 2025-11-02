@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
@@ -26,6 +27,7 @@ interface FuelTransaction {
 export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverFuelViewProps) {
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (periodFrom && periodTo && fuelCardNumber) {
@@ -37,15 +39,8 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     try {
       setLoading(true);
 
-      // Create all possible variants of the card number
-      const cardVariants = new Set<string>();
-      cardVariants.add(fuelCardNumber);                           // Original
-      cardVariants.add('0' + fuelCardNumber);                     // With 0
-      cardVariants.add('00' + fuelCardNumber);                    // With 00
-      const normalized = fuelCardNumber.replace(/^0+/, '');
-      if (normalized !== fuelCardNumber) {
-        cardVariants.add(normalized);                             // Without leading zeros
-      }
+      // Normalize driver's card number (remove leading zeros)
+      const normalizedDriverCard = fuelCardNumber.replace(/^0+/, '');
 
       // Fetch all fuel transactions for the period
       const { data: allTransactions, error: transactionsError } = await supabase
@@ -57,15 +52,10 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
 
       if (transactionsError) throw transactionsError;
 
-      // Filter transactions that match any variant of the driver's card
+      // Filter transactions where the normalized card number matches
       const driverTransactions = (allTransactions || []).filter(t => {
-        const transactionCard = t.card_number;
-        const transactionNormalized = transactionCard.replace(/^0+/, '');
-        
-        return cardVariants.has(transactionCard) || 
-               cardVariants.has(transactionNormalized) ||
-               cardVariants.has('0' + transactionCard) ||
-               cardVariants.has('00' + transactionCard);
+        const normalizedTransactionCard = t.card_number.replace(/^0+/, '');
+        return normalizedTransactionCard === normalizedDriverCard;
       });
 
       setTransactions(driverTransactions);
@@ -79,7 +69,11 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   };
 
   if (loading) {
-    return <div className="text-center py-8">Ładowanie danych paliwowych...</div>;
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   if (transactions.length === 0) {
@@ -104,64 +98,64 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* Summary */}
-          <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-            <div>
-              <p className="text-sm text-muted-foreground">Łączna ilość litrów</p>
-              <p className="text-2xl font-bold">{totalLiters.toFixed(2)} L</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Łączna kwota</p>
-              <p className="text-2xl font-bold">{totalAmount.toFixed(2)} zł</p>
-            </div>
+        <div className="space-y-2">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-2 text-sm font-medium">Nr karty</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Transakcje</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Litry</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Kwota</th>
+                  <th className="text-center py-2 px-2 text-sm font-medium">Szczegóły</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b hover:bg-muted/50">
+                  <td className="py-2 px-2 text-sm">{fuelCardNumber}</td>
+                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-sm text-right font-medium">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-2 px-2 text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setExpanded(!expanded)}
+                    >
+                      {expanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </td>
+                </tr>
+                {expanded && (
+                  <tr>
+                    <td colSpan={5} className="py-2 px-2 bg-muted/30">
+                      <div className="space-y-1 text-sm">
+                        {transactions.map((trans) => (
+                          <div key={trans.id} className="flex justify-between py-1 px-2 border-b border-border/50">
+                            <span>{trans.transaction_date} {trans.transaction_time}</span>
+                            <span>{trans.brand} - {trans.fuel_type}</span>
+                            <span>{trans.liters.toFixed(2)} L</span>
+                            <span className="font-medium">{trans.total_amount.toFixed(2)} zł</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                <tr className="font-bold border-t-2">
+                  <td className="py-2 px-2 text-sm">SUMA</td>
+                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-
-          {/* Transactions Table */}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Godzina</TableHead>
-                <TableHead>Stacja</TableHead>
-                <TableHead>Paliwo</TableHead>
-                <TableHead className="text-right">Litry</TableHead>
-                <TableHead className="text-right">Cena/L</TableHead>
-                <TableHead className="text-right">Kwota</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>
-                    {format(new Date(transaction.transaction_date), 'dd.MM.yyyy')}
-                  </TableCell>
-                  <TableCell>{transaction.transaction_time}</TableCell>
-                  <TableCell>{transaction.brand}</TableCell>
-                  <TableCell>{transaction.fuel_type}</TableCell>
-                  <TableCell className="text-right">
-                    {transaction.liters.toFixed(2)} L
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {transaction.price_per_liter.toFixed(2)} zł
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {transaction.total_amount.toFixed(2)} zł
-                  </TableCell>
-                </TableRow>
-              ))}
-              <TableRow className="font-bold bg-muted/50">
-                <TableCell colSpan={4}>SUMA</TableCell>
-                <TableCell className="text-right">
-                  {totalLiters.toFixed(2)} L
-                </TableCell>
-                <TableCell></TableCell>
-                <TableCell className="text-right">
-                  {totalAmount.toFixed(2)} zł
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
         </div>
       </CardContent>
     </Card>

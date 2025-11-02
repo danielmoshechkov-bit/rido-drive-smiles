@@ -303,6 +303,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                 {t('admin.reports')}
               </TabsTrigger>
             )}
+            {userType === 'fleet' && (
+              <TabsTrigger value="informacje" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
+                <Info className="h-4 w-4 mr-2" />
+                Informacje
+              </TabsTrigger>
+            )}
             {roles.includes('driver') && myDriverId && !roles.includes('fleet_rental') && !roles.includes('fleet_settlement') && (
               <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 <DollarSign className="h-4 w-4 mr-2" />
@@ -519,6 +525,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                   <p className="text-muted-foreground">Moduł raportów w budowie</p>
                 </CardContent>
               </Card>
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="informacje" className="space-y-6">
+              <FleetSystemAlerts fleetId={fleetId} />
             </TabsContent>
           )}
         </Tabs>
