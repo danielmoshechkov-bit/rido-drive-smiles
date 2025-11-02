@@ -4,7 +4,7 @@
     "pricing": "Pricing",
     "howToStart": "How to Start",
     "requirements": "Requirements",
-    "fuelCards": "Fuel Cards", 
+    "fuelCards": "Fuel Cards",
     "faq": "FAQ",
     "contact": "Contact",
     "joinNow": "Join Now"
@@ -14,10 +14,9 @@
     "cashPayout": "COLLECT YOUR CASH PAYOUT EVERY TUESDAY AT OUR OFFICE",
     "model1": "MODEL ONE",
     "model2": "MODEL TWO",
-    "promotion": "PROMOTION", 
     "model1Price": "159 PLN + 0% tax",
     "model1Description": "For weekly settlement for one or more applications\nCondition: active use of fuel card",
-    "model2Price": "39 PLN + 8% tax",
+    "model2Price": "50 PLN + 8% tax",
     "model2Description": "For weekly settlement for one or more applications\nFor the first 50 drivers",
     "joinNow": "Join Now",
     "howToStart": "How to Start"
@@ -38,7 +37,7 @@
         "description": "possibility to collect your payout in cash every Tuesday at our office"
       },
       "support": {
-        "title": "24/7 Support",
+        "title": "Support 7 Days a Week",
         "description": "you can always count on us"
       },
       "fuelCard": {
@@ -48,28 +47,243 @@
     }
   },
   "seo": {
-    "description": "Looking for a trusted partner for Uber and Bolt drivers in Poland? Get RIDO offers simple settlements, weekly payouts and 24/7 support. Choose a settlement model: 39 PLN + 8% tax (promotion from 50 PLN) or 159 PLN + 0% tax (with Get RIDO fuel card). Join Get RIDO and start earning more in Warsaw, Krakow and all over Poland."
+    "description": "Looking for a trusted partner for Uber and Bolt drivers in Poland? Get RIDO offers simple settlements, weekly payouts and support 7 days a week. Choose a settlement model: 50 PLN + 8% tax or 159 PLN + 0% tax (with Get RIDO fuel card). Join Get RIDO and start earning more in Warsaw, Krakow and all over Poland."
+  },
+  "pricing": {
+    "title": "Simple Settlement Models — Choose What Works for You",
+    "model1": "MODEL ONE",
+    "model2": "MODEL TWO",
+    "model1Price": "159 PLN + 0% tax",
+    "model2Price": "50 PLN + 8% tax",
+    "model1Subtitle": "with active E100 fuel card",
+    "model2Subtitle": "For the first 50 drivers",
+    "first50": "For the first 50 drivers",
+    "chooseModel": "Choose this model",
+    "changeInfo": "You choose the settlement model when signing the contract. You can change once a month. Payouts: once a week.",
+    "noHiddenFees": "Are there any other fees?",
+    "noHiddenFeesAnswer": "No. Zero hidden fees.",
+    "switchPartner": "Can I switch from another partner?",
+    "switchPartnerAnswer": "Yes, we'll help within 24h.",
+    "benefits159": [
+      "Fixed amount, 0% tax",
+      "Fuel discounts (E100 card)",
+      "Maximum cost predictability",
+      "All basic plan benefits"
+    ],
+    "benefits39": [
+      "Full settlement service",
+      "No hidden costs",
+      "Weekly payouts",
+      "Support 7 days a week"
+    ]
+  },
+  "simplePricing": {
+    "title": "Simple Settlement Models",
+    "subtitle": "Choose the model that best suits your needs",
+    "benefits159": [
+      "Weekly payouts",
+      "Transfers on Monday by 12:00 PM",
+      "Support 7 days a week",
+      "Transparent pricing",
+      "Simple settlements",
+      "E100 fuel card",
+      "Real fuel discounts",
+      "0% tax"
+    ],
+    "benefits39": [
+      "Weekly payouts",
+      "Transfers on Monday by 12:00 PM",
+      "Support 7 days a week",
+      "Transparent pricing",
+      "Simple settlements",
+      "No hidden costs"
+    ],
+    "whatYouGet": "What you get:"
+  },
+  "howToStart": {
+    "title": "How to Join Get RIDO and Start Driving?",
+    "steps": [
+      {
+        "number": "1",
+        "title": "Online Application",
+        "description": "fill out the form (name, phone, email, city, do you have a car)"
+      },
+      {
+        "number": "2",
+        "title": "Documents",
+        "description": "send scans; we'll help you gather everything"
+      },
+      {
+        "number": "3",
+        "title": "Verification and Signature",
+        "description": "electronic contract, no running around to offices"
+      },
+      {
+        "number": "4",
+        "title": "Activation on Uber/Bolt",
+        "description": "start even within 24h"
+      }
+    ],
+    "joinNow": "Apply Now",
+    "documents": "Document List → Requirements"
+  },
+  "requirements": {
+    "title": "What Do You Need to Get Started?",
+    "driverDocs": "Driver Documents",
+    "carRequirements": "Car Requirements",
+    "driverDocsList": [
+      "Polish driver's license",
+      "Clean criminal record certificate",
+      "Medical and psychotechnical certificate",
+      "Photo 4.5x3.5"
+    ],
+    "carDocsList": [
+      "TAXI inspection",
+      "Third party insurance",
+      "Labeled according to regulations"
+    ],
+    "noCar": "Don't have a car?",
+    "noCarDesc": "Let us know, we'll help you find a solution.",
+    "joinButton": "I want to join",
+    "chatButton": "Ask us on chat"
+  },
+  "fuelCards": {
+    "title": "E100 Fuel Cards — Fuel Up Cheaper",
+    "subtitle": "For Get RIDO drivers, we prepared E100 fuel cards with real discounts at selected stations.",
+    "benefitsTitle": "E100 Fuel Card Benefits",
+    "benefits": [
+      "Fuel discounts",
+      "Easy to use",
+      "Additional partner benefits"
+    ],
+    "partnerStations": "Partner Gas Stations",
+    "discountInfo": "Discounts in PLN gross per liter of fuel",
+    "requirementTitle": "Requirement for 159 PLN + 0% tax model",
+    "requirementDesc": "Access to the 159 PLN + 0% tax model requires an active E100 fuel card.",
+    "orderCard": "Order Fuel Card"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "questions": [
+      {
+        "question": "When are the payouts?",
+        "answer": "We make payouts once a week (we plan daily payouts in the future)."
+      },
+      {
+        "question": "Are there any hidden fees?",
+        "answer": "No. You have transparent pricing and zero hidden costs."
+      },
+      {
+        "question": "Do I need a business?",
+        "answer": "No. You drive through Get RIDO — we settle you as a partner."
+      },
+      {
+        "question": "Can I switch from another partner?",
+        "answer": "Yes. We'll help you transfer settlements and activation within 24h."
+      },
+      {
+        "question": "What documents are required?",
+        "answer": "Driver's license (min. 1 year), clean record (≤30 days), medical and psychotechnical tests, photo. Car with TAXI inspection (if required)."
+      },
+      {
+        "question": "Can I change the settlement model?",
+        "answer": "Yes — once a month."
+      },
+      {
+        "question": "What is the Get RIDO fuel card?",
+        "answer": "It's a card with fuel discount at partner stations. It's required to use the 159 PLN + 0% tax model."
+      },
+      {
+        "question": "Does Get RIDO help with formalities?",
+        "answer": "Yes — we'll guide you through the entire process, step by step."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contact Us",
+    "name": "Full Name",
+    "phone": "Phone",
+    "email": "E-mail",
+    "city": "City",
+    "message": "Message",
+    "sendMessage": "Send Message",
+    "quickContact": "Quick Contact",
+    "phoneLabel": "Phone",
+    "whatsAppLabel": "WhatsApp",
+    "emailLabel": "E-mail",
+    "liveChat": "Live Chat",
+    "liveChatDesc": "Use live chat - we answer 24/7! FAQ-bot responds immediately, and a consultant will join when you need.",
+    "startChat": "Start Chat",
+    "formSent": "Form Sent!",
+    "formSentDesc": "We'll contact you within 24 hours.",
+    "placeholders": {
+      "name": "John Smith",
+      "phone": "+48 519 474 583",
+      "email": "john@example.com",
+      "city": "Warsaw",
+      "message": "I want to become a Get RIDO driver..."
+    }
+  },
+  "footer": {
+    "description": "Partner for Uber and Bolt drivers. Simple settlements, transparent pricing, weekly payouts, support 7 days a week.",
+    "menu": "Menu",
+    "home": "Home",
+    "pricing": "Pricing",
+    "howToStart": "How to Start",
+    "contact": "Contact",
+    "info": "Information",
+    "privacy": "Privacy Policy",
+    "gdpr": "GDPR",
+    "terms": "Terms of Service",
+    "copyright": "getrido.pl - Get RIDO. All rights reserved."
   },
   "auth": {
     "login": "Log In",
-    "register": "Sign Up", 
-    "email": "Email",
+    "register": "Sign Up",
+    "email": "Email Address",
     "password": "Password",
     "confirmPassword": "Confirm Password",
-    "acceptTerms": "I accept the terms",
+    "acceptTerms": "I accept the terms and privacy policy",
     "loginButton": "Log In",
-    "registerButton": "Sign Up"
+    "registerButton": "Sign Up",
+    "passwordRequirements": "Password must contain:",
+    "passwordMinLength": "At least 8 characters",
+    "passwordUppercase": "An uppercase letter",
+    "passwordLowercase": "A lowercase letter",
+    "passwordNumber": "A digit",
+    "passwordSpecial": "A special character",
+    "strongPassword": "Strong password",
+    "weakPassword": "Weak password",
+    "passwordsMatch": "Passwords match",
+    "passwordsDontMatch": "Passwords don't match"
   },
   "admin": {
     "dashboard": "Admin Dashboard",
+    "logout": "Logout",
     "weeklyReport": "Weekly Report",
     "driversList": "Drivers List",
     "dataImport": "Data Import",
     "settings": "Settings",
-    "reports": "Reports", 
+    "reports": "Reports",
+    "totalDrivers": "Total Drivers",
+    "totalEarnings": "Total Earnings",
+    "totalTrips": "Total Trips",
+    "averageRating": "Average Rating",
+    "earnings": "Earnings",
+    "trips": "trips",
     "uber": "Uber",
     "bolt": "Bolt",
     "freenow": "FreeNow",
-    "logout": "Logout"
+    "settlements": "Settlements",
+    "transfers": "Transfers",
+    "roles": "Roles",
+    "assignRole": "Assign Role",
+    "administrator": "Administrator",
+    "moderator": "Moderator",
+    "uploadCsv": "Upload CSV",
+    "calendar": "Calendar",
+    "weeklySettlement": "Weekly Settlement",
+    "mondayToSunday": "Monday - Sunday",
+    "nextMondaySettlement": "Settlement on next Monday"
   }
 }
