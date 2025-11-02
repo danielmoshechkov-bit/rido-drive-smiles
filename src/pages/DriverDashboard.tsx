@@ -12,12 +12,14 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info, Menu, ChevronDown, LogOut } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { useSystemAlerts } from "@/hooks/useSystemAlerts";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -26,14 +28,13 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from "@/components/LanguageSelector";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('weekly-report');
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
   const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
@@ -160,100 +161,107 @@ const DriverDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      {/* Header - responsive with mobile wrap */}
+    <div className="min-h-screen bg-background">
+      {/* Header - compact with dropdown */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="Get RIDO Logo" 
-              className="h-8 w-8 flex-shrink-0"
-            />
-            <div className="flex flex-col gap-1 max-w-full overflow-hidden">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-semibold text-primary text-xs sm:text-sm whitespace-nowrap">
-                  {t('driver.panel')}
-                </span>
-                
-                {driverData?.drivers?.first_name && (
-                  <span className="font-medium text-xs sm:text-sm truncate max-w-[200px] sm:max-w-none">
-                    {driverData.drivers.first_name} {driverData.drivers.last_name}
-                  </span>
-                )}
-              </div>
+        <div className="container mx-auto px-4 py-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-8 w-8 flex-shrink-0"
+              />
               
-              {fleetInfo && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs">
-                  <span className="font-medium text-primary whitespace-nowrap">
-                    {t('driver.fleet')}: {fleetInfo.name}
-                  </span>
-                  {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
-                    <span className="text-muted-foreground whitespace-nowrap">
-                      {t('driver.caretaker')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
-                    </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-9 px-3 font-medium text-sm hover:bg-muted">
+                    {driverData?.drivers?.first_name || t('driver.loading')} {driverData?.drivers?.last_name || ''} 
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {fleetInfo && (
+                    <>
+                      <DropdownMenuItem disabled className="flex-col items-start">
+                        <span className="text-xs text-muted-foreground">{t('driver.fleet')}</span>
+                        <span className="font-medium">{fleetInfo.name}</span>
+                      </DropdownMenuItem>
+                      {fleetInfo.contact_name && (
+                        <DropdownMenuItem disabled className="flex-col items-start">
+                          <span className="text-xs text-muted-foreground">{t('driver.caretaker')}</span>
+                          <span className="font-medium">{fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}</span>
+                        </DropdownMenuItem>
+                      )}
+                    </>
                   )}
-                </div>
-              )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {t('driver.logout')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </div>
-          <div className="flex items-center space-x-2 md:space-x-3">
-            {driverData?.driver_id && (
-              <DriverNotificationBell driverId={driverData.driver_id} />
-            )}
-            <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout} className="rounded-lg text-xs md:text-sm px-2 md:px-4">
-              {t('driver.logout')}
-            </Button>
+
+            <div className="flex items-center gap-2">
+              {driverData?.driver_id && (
+                <DriverNotificationBell driverId={driverData.driver_id} />
+              )}
+              <LanguageSelector />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 pt-4 pb-24 relative">
+      <div className="container mx-auto px-3 sm:px-4 pt-3 pb-20 relative">
         {/* Floating Chat Widget */}
         <div className="fixed bottom-6 right-6 z-50">
           <ChatFab driverData={driverData} />
         </div>
         
-        {/* Hamburger Menu for Mobile */}
-        <div className="md:hidden mb-4">
-          <Sheet>
+        {/* Mobile: Hamburger menu + Section buttons in one line */}
+        <div className="flex items-center gap-2 mb-4 md:hidden">
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10">
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full flex-shrink-0">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px]">
-              <div className="flex flex-col gap-3 mt-8">
+              <SheetHeader>
+                <SheetTitle>{t('driver.panel')}</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 flex flex-col gap-2">
                 <Button
                   variant={activeTab === 'weekly-report' ? 'default' : 'ghost'}
-                  className="w-full justify-start gap-2"
-                  onClick={() => setActiveTab('weekly-report')}
+                  onClick={() => { setActiveTab('weekly-report'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
                 >
                   <DollarSign className="h-4 w-4" />
                   {t('driver.tabs.weekly')}
                 </Button>
                 <Button
                   variant={activeTab === 'cars' ? 'default' : 'ghost'}
-                  className="w-full justify-start gap-2"
-                  onClick={() => setActiveTab('cars')}
+                  onClick={() => { setActiveTab('cars'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
                 >
                   <Car className="h-4 w-4" />
                   {t('driver.tabs.cars')}
                 </Button>
                 <Button
                   variant={activeTab === 'documents' ? 'default' : 'ghost'}
-                  className="w-full justify-start gap-2"
-                  onClick={() => setActiveTab('documents')}
+                  onClick={() => { setActiveTab('documents'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
                 >
                   <FileText className="h-4 w-4" />
                   {t('driver.tabs.documents')}
                 </Button>
                 <Button
                   variant={activeTab === 'informacje' ? 'default' : 'ghost'}
-                  className="w-full justify-start gap-2"
-                  onClick={() => setActiveTab('informacje')}
+                  onClick={() => { setActiveTab('informacje'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
                 >
                   <Info className="h-4 w-4" />
                   {t('driver.tabs.info')}
@@ -261,6 +269,21 @@ const DriverDashboard = () => {
               </div>
             </SheetContent>
           </Sheet>
+
+          <Button
+            variant={activeTab === 'weekly-report' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('weekly-report')}
+            className="flex-1 h-10 rounded-full text-xs sm:text-sm"
+          >
+            {t('driver.tabs.weekly')}
+          </Button>
+          <Button
+            variant={activeTab === 'documents' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('documents')}
+            className="flex-1 h-10 rounded-full text-xs sm:text-sm"
+          >
+            {t('driver.tabs.documents')}
+          </Button>
         </div>
 
         {/* Desktop Tabs - Hidden on Mobile */}

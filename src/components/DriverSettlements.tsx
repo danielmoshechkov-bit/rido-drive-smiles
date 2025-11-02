@@ -636,9 +636,11 @@ export const DriverSettlements = ({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">{t('weekly.period')}:</Label>
+              <Label htmlFor="week-select" className="text-sm font-medium whitespace-nowrap">
+                {t('weekly.period')}:
+              </Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 min-w-[220px] max-w-[280px] shrink-0">
+                <SelectTrigger id="week-select" className="h-9 min-w-[180px] sm:min-w-[240px] max-w-[280px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] z-[60]" position="popper" sideOffset={6}>
@@ -670,7 +672,7 @@ export const DriverSettlements = ({
             </p>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {periods.map((period) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0]; // Take newest settlement
@@ -685,7 +687,7 @@ export const DriverSettlements = ({
                 ].filter(item => item.value > 0);
 
                 return (
-                  <div key={periodKey} className="border rounded-lg p-4 space-y-4">
+                  <div key={periodKey} className="border border-border/40 rounded-xl p-4 space-y-4 shadow-md bg-card">
                     <h3 className="font-semibold">
                       {t('weekly.period')} {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
@@ -694,7 +696,7 @@ export const DriverSettlements = ({
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                      
                      {/* Compact settlement table - FIRST in JSX = appears first on mobile */}
-                     <div className="border rounded-lg overflow-hidden w-full">
+                     <div className="border border-border/50 rounded-lg overflow-hidden w-full shadow-sm">
                        <div className="overflow-x-auto">
                           <table className="w-full text-xs sm:text-sm">
                             <thead>
@@ -707,7 +709,7 @@ export const DriverSettlements = ({
                             </thead>
                              <tbody>
                                {/* Podstawa opodatkowania */}
-                               <tr className="border-t hover:bg-yellow-200">
+                               <tr className="border-t hover:bg-muted/50">
                                  <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.base')}</td>
                                  <td className="p-2.5 sm:p-3 text-right font-medium">
                                    {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
@@ -721,7 +723,7 @@ export const DriverSettlements = ({
                                </tr>
                                
                                {/* Prowizja */}
-                               <tr className="border-t hover:bg-yellow-200">
+                               <tr className="border-t hover:bg-muted/50">
                                  <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.commission')}</td>
                                  <td className="p-2.5 sm:p-3 text-right font-medium text-amber-600">
                                    {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
@@ -735,7 +737,7 @@ export const DriverSettlements = ({
                                </tr>
                                
                                {/* Gotówka pobrana (informacyjnie) */}
-                               <tr className="border-t hover:bg-yellow-200">
+                               <tr className="border-t hover:bg-muted/50">
                                  <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.cashCollected')}</td>
                                  <td className="p-2.5 sm:p-3 text-right font-medium text-blue-600">
                                    {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
@@ -749,8 +751,8 @@ export const DriverSettlements = ({
                                </tr>
                               
                               {/* Podatek 8% */}
-                              <tr className="border-t hover:bg-yellow-200">
-                                <td className="p-2 text-muted-foreground">{t('weekly.row.tax8')}</td>
+                              <tr className="border-t hover:bg-muted/50">
+                                <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.tax8')}</td>
                                 <td className="p-2 text-right font-medium text-destructive">
                                   {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
@@ -901,7 +903,7 @@ export const DriverSettlements = ({
                            <h4 className="text-[10px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                          </CardHeader>
                          <CardContent>
-                            <div className="h-[200px] sm:h-[280px] lg:h-[320px]">
+                            <div className="h-[240px] sm:h-[320px] lg:h-[360px]">
                               <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                   <Pie

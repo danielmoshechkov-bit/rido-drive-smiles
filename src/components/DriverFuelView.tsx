@@ -84,10 +84,9 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm sm:text-base lg:text-lg break-words">
-          <span className="hidden sm:inline">{t('fuel.title')}</span>
-          <span className="sm:hidden">{t('fuel.titleShort')}</span>
-        </CardTitle>
+            <CardTitle className="text-sm sm:text-base lg:text-lg">
+              {t('fuel.title')}
+            </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
           {t('fuel.transactionsForPeriod')} {periodFrom} - {periodTo}
         </CardDescription>
