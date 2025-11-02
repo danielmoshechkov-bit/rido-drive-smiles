@@ -687,69 +687,69 @@ export const DriverSettlements = ({
                 ].filter(item => item.value > 0);
 
                 return (
-                  <div key={periodKey} className="space-y-3">
-                     {/* 1. PODSUMOWANIE - tylko mobile, pełna szerokość z separatorami */}
-                     <div className="lg:hidden bg-white rounded-lg shadow-sm overflow-hidden">
-                       <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                         <span className="text-xs font-medium text-gray-700">
+                  <div key={periodKey} className="space-y-0">
+                     {/* 1. PODSUMOWANIE - fioletowe tło z białymi separatorami */}
+                     <div className="lg:hidden bg-primary rounded-t-lg overflow-hidden">
+                       <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                         <span className="text-xs font-medium text-white">
                            Bez prowizji
                          </span>
-                         <span className="font-bold text-gray-900 text-sm whitespace-nowrap">
+                         <span className="font-bold text-white text-sm whitespace-nowrap">
                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
                          </span>
                        </div>
                        {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
-                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                           <span className="text-xs font-medium text-gray-700">
+                         <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                           <span className="text-xs font-medium text-white">
                              Gotówka
                            </span>
-                           <span className="font-bold text-gray-900 text-sm whitespace-nowrap">
+                           <span className="font-bold text-white text-sm whitespace-nowrap">
                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                            </span>
                          </div>
                        )}
-                       <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                         <span className="text-xs font-medium text-gray-700">
+                       <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                         <span className="text-xs font-medium text-white">
                            Podatek 8%
                          </span>
-                         <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{totalTax.toFixed(2)} zł</span>
+                         <span className="font-bold text-white text-sm whitespace-nowrap">-{totalTax.toFixed(2)} zł</span>
                        </div>
                        {fee > 0 && (
-                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                           <span className="text-xs font-medium text-gray-700">
+                         <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                           <span className="text-xs font-medium text-white">
                              Opłata
                            </span>
-                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{fee.toFixed(2)} zł</span>
+                           <span className="font-bold text-white text-sm whitespace-nowrap">-{fee.toFixed(2)} zł</span>
                          </div>
                        )}
                        {amounts.fuel > 0 && (
-                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                           <span className="text-xs font-medium text-gray-700">Paliwo</span>
-                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{amounts.fuel.toFixed(2)} zł</span>
+                         <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                           <span className="text-xs font-medium text-white">Paliwo</span>
+                           <span className="font-bold text-white text-sm whitespace-nowrap">-{amounts.fuel.toFixed(2)} zł</span>
                          </div>
                        )}
                        {amounts.fuel_vat_refund > 0 && (
-                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
-                           <span className="text-xs font-medium text-gray-700">
+                         <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
+                           <span className="text-xs font-medium text-white">
                              Zwrot VAT
                            </span>
-                           <span className="font-bold text-gray-900 text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                           <span className="font-bold text-white text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                          </div>
                        )}
                        {rentalFee > 0 && (
-                         <div className="flex justify-between items-center px-3 py-2">
-                           <span className="text-xs font-medium text-gray-700">
+                         <div className="flex justify-between items-center px-3 py-2.5">
+                           <span className="text-xs font-medium text-white">
                              Wynajem
                            </span>
-                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{rentalFee.toFixed(2)} zł</span>
+                           <span className="font-bold text-white text-sm whitespace-nowrap">-{rentalFee.toFixed(2)} zł</span>
                          </div>
                        )}
                        </div>
 
-                     {/* 2. WYPŁATA - przed tabelą */}
-                     <div className="lg:hidden bg-white border border-gray-300 rounded-lg p-3 shadow-sm">
+                     {/* 2. WYPŁATA - biała na dole bez dodatkowej ramki */}
+                     <div className="lg:hidden bg-white rounded-b-lg p-3 shadow-sm">
                        <div className="flex justify-between items-center">
                          <span className="text-base font-bold text-gray-900">{t('weekly.sum.payout')}:</span>
                          <span className="text-xl font-bold text-primary">
@@ -758,8 +758,8 @@ export const DriverSettlements = ({
                        </div>
                      </div>
 
-                     {/* 3. TABELA SZCZEGÓŁÓW */}
-                     <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+                     {/* 3. TABELA SZCZEGÓŁÓW - osobna sekcja z marginesem */}
+                     <div className="lg:hidden mt-3 bg-white rounded-lg overflow-hidden shadow-sm">
                        <div className="overflow-x-auto">
                           <table className="w-full text-[11px] sm:text-sm">
                             <thead>
@@ -1012,9 +1012,9 @@ export const DriverSettlements = ({
                        </div>
                       )}
                      
-                     {/* 4. WYKRES - kompaktowy, na końcu */}
+                     {/* 4. WYKRES - kompaktowy, osobna sekcja */}
                      {platformData.length > 0 && (
-                       <div className="lg:hidden bg-white rounded-lg p-2 shadow-sm">
+                       <div className="lg:hidden mt-3 bg-white rounded-lg p-2 shadow-sm">
                          <div className="h-[140px]">
                            <ResponsiveContainer width="100%" height="100%">
                              <PieChart>
