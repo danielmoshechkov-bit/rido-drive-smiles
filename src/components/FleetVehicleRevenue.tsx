@@ -357,20 +357,20 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Kierowca</TableHead>
-                  <TableHead>Pojazd</TableHead>
-                  <TableHead>Wynajem od</TableHead>
-                  <TableHead className="text-right">Stawka</TableHead>
-                  <TableHead className="text-right">Wynajem</TableHead>
-                  <TableHead className="text-right">Opłacone</TableHead>
-                  <TableHead className="text-right">Zadłużenie</TableHead>
-                  <TableHead>Akcje</TableHead>
+                  <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
+                  <TableHead className="p-1.5 text-xs">Pojazd</TableHead>
+                  <TableHead className="p-1.5 text-xs">Wynajem od</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs">Stawka</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs">Opłacone</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs">Zadłużenie</TableHead>
+                  <TableHead className="p-1.5 text-xs">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
             <TableBody>
               {revenues.map((rev) => (
                 <TableRow key={rev.vehicle_id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium p-1.5 text-xs">
                     {rev.driver_id ? (
                       <div className="flex items-center gap-2">
                         {rev.driver_name}
@@ -380,17 +380,17 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                         variant="outline"
                         size="sm"
                         onClick={() => handleAssignDriver(rev.vehicle_id)}
-                        className="text-blue-600 hover:text-blue-700"
+                        className="text-blue-600 hover:text-blue-700 text-xs"
                       >
                         Przypisz kierowcę
                       </Button>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-muted-foreground p-1.5 text-xs">
                     {rev.vehicle_brand} {rev.vehicle_model}
-                    <div className="text-xs text-muted-foreground">{rev.vehicle_plate}</div>
+                    <div className="text-[10px] text-muted-foreground">{rev.vehicle_plate}</div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="p-1.5 text-xs">
                     {rev.driver_id && rev.assigned_date && (
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
@@ -399,38 +399,38 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                             type="date" 
                             value={format(new Date(rev.assigned_date), 'yyyy-MM-dd')}
                             onChange={(e) => updateAssignedDate(rev.vehicle_id, e.target.value)}
-                            className="border rounded px-2 py-1 text-sm"
+                            className="border rounded px-2 py-1 text-xs"
                           />
                         ) : (
-                          <span className="text-sm">
+                          <span className="text-xs">
                             {formatPeriodDate(rev.assigned_date)}
                           </span>
                         )}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell className="text-right text-muted-foreground p-1.5 text-xs">
                     {formatCurrency(rev.weekly_rate)}
                   </TableCell>
-                  <TableCell className={`text-right ${getRentalFeeColor(rev.rental_fee)}`}>
+                  <TableCell className={`text-right p-1.5 text-xs ${getRentalFeeColor(rev.rental_fee)}`}>
                     {formatCurrency(rev.rental_fee)}
                   </TableCell>
-                  <TableCell className={`text-right ${getPaidAmountColor(rev.paid_amount, rev.rental_fee)}`}>
+                  <TableCell className={`text-right p-1.5 text-xs ${getPaidAmountColor(rev.paid_amount, rev.rental_fee)}`}>
                     {formatCurrency(rev.paid_amount)}
                   </TableCell>
-                  <TableCell className={`text-right ${getDebtColor(rev.debt_balance)}`}>
+                  <TableCell className={`text-right p-1.5 text-xs ${getDebtColor(rev.debt_balance)}`}>
                     {rev.debt_balance === 0 ? '—' : formatCurrency(rev.debt_balance)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="p-1.5 text-xs">
                     {rev.driver_id && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleUnassignDriver(rev.vehicle_id)}
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
                         title="Odpisz kierowcę"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3 w-3" />
                       </Button>
                     )}
                   </TableCell>
@@ -439,20 +439,20 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             </TableBody>
               <TableFooter>
                 <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={3} className="text-right">RAZEM:</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell colSpan={3} className="text-right p-1.5 text-xs">RAZEM:</TableCell>
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(revenues.reduce((sum, r) => sum + r.weekly_rate, 0))}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(revenues.reduce((sum, r) => sum + r.rental_fee, 0))}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(revenues.reduce((sum, r) => sum + r.paid_amount, 0))}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0))}
                   </TableCell>
-                  <TableCell></TableCell>
+                  <TableCell className="p-1.5 text-xs"></TableCell>
                 </TableRow>
               </TableFooter>
           </Table>

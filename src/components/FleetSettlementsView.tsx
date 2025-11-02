@@ -530,37 +530,37 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kierowca</TableHead>
-                <TableHead>Auto</TableHead>
-                <TableHead className="text-right">Wynajem</TableHead>
-                <TableHead className="text-center">Pokrył?</TableHead>
-                <TableHead className="text-right">Dług poprzedni</TableHead>
-                <TableHead className="text-right">Dług bieżący</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
+                <TableHead className="p-1.5 text-xs">Auto</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
+                <TableHead className="text-center p-1.5 text-xs">Pokrył?</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Dług poprzedni</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Dług bieżący</TableHead>
+                <TableHead className="p-1.5 text-xs">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {settlements.map((settlement) => (
                 <TableRow key={settlement.driver_id}>
-                  <TableCell className="font-medium">{settlement.driver_name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{settlement.vehicle}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="font-medium p-1.5 text-xs">{settlement.driver_name}</TableCell>
+                  <TableCell className="text-muted-foreground p-1.5 text-xs">{settlement.vehicle}</TableCell>
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.rental)}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center p-1.5 text-xs">
                     {settlement.covered_rental ? (
-                      <Check className="h-5 w-5 text-green-500 mx-auto" />
+                      <Check className="h-4 w-4 text-green-500 mx-auto" />
                     ) : (
-                      <X className="h-5 w-5 text-red-500 mx-auto" />
+                      <X className="h-4 w-4 text-red-500 mx-auto" />
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.debt_previous)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.debt_current)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="p-1.5 text-xs">
                     {settlement.debt_current === 0 ? (
                       <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20">
                         Bez długu
@@ -637,47 +637,47 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kierowca</TableHead>
-                <TableHead className="text-right">Uber</TableHead>
-                <TableHead className="text-right">Bolt</TableHead>
-                <TableHead className="text-right">FreeNow</TableHead>
-                <TableHead className="text-right">Prowizja</TableHead>
-                <TableHead className="text-right">Gotówka</TableHead>
-                <TableHead className="text-right">Podatek</TableHead>
-                <TableHead className="text-right">Opłata</TableHead>
-                <TableHead className="text-right">Wynajem</TableHead>
-                <TableHead className="text-right font-bold">Wypłata</TableHead>
+                <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Uber</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Bolt</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">FreeNow</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Prowizja</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Gotówka</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Podatek</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Opłata</TableHead>
+                <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
+                <TableHead className="text-right font-bold p-1.5 text-xs">Wypłata</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {settlements.map((settlement) => (
                 <TableRow key={settlement.driver_id}>
-                  <TableCell className="font-medium">{settlement.driver_name}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="font-medium p-1.5 text-xs">{settlement.driver_name}</TableCell>
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.uber_base)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.bolt_base)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.freenow_base)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     -{formatCurrency(settlement.total_commission)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.total_cash)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     -{formatCurrency(settlement.tax_8_percent)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     -{formatCurrency(settlement.service_fee)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right p-1.5 text-xs">
                     -{formatCurrency(settlement.rental || 0)}
                   </TableCell>
-                  <TableCell className={`text-right font-bold ${getAmountColor(settlement.final_payout)}`}>
+                  <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlement.final_payout)}`}>
                     {formatCurrency(settlement.final_payout)}
                   </TableCell>
                 </TableRow>
@@ -685,32 +685,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             </TableBody>
             <TableFooter>
               <TableRow className="bg-muted/50 font-bold">
-                <TableCell>RAZEM</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="p-1.5 text-xs">RAZEM</TableCell>
+                <TableCell className="text-right p-1.5 text-xs">
                   {formatCurrency(settlements.reduce((sum, s) => sum + s.uber_base, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   {formatCurrency(settlements.reduce((sum, s) => sum + s.bolt_base, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   {formatCurrency(settlements.reduce((sum, s) => sum + s.freenow_base, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   -{formatCurrency(settlements.reduce((sum, s) => sum + s.total_commission, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   {formatCurrency(settlements.reduce((sum, s) => sum + s.total_cash, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   -{formatCurrency(settlements.reduce((sum, s) => sum + s.tax_8_percent, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   -{formatCurrency(settlements.reduce((sum, s) => sum + s.service_fee, 0))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right p-1.5 text-xs">
                   -{formatCurrency(settlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
                 </TableCell>
-                <TableCell className={`text-right font-bold ${getAmountColor(settlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
                   {formatCurrency(settlements.reduce((sum, s) => sum + s.final_payout, 0))}
                 </TableCell>
               </TableRow>
