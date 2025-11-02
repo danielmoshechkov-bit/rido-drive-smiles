@@ -4,7 +4,7 @@ import { SettlementsManagement } from './SettlementsManagement';
 import { Card, CardContent } from './ui/card';
 import { CompanyRevenueView } from './CompanyRevenueView';
 import { DriverSettlementsView } from './DriverSettlementsView';
-import { FuelCSVUploadCard } from './FuelCSVUploadCard';
+import { FuelCSVImportModal } from './FuelCSVImportModal';
 import { AdminFuelView } from './AdminFuelView';
 import { SettlementCSVImportModal } from './SettlementCSVImportModal';
 
@@ -61,10 +61,12 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FuelCSVUploadCard onUploadComplete={() => {
-          // Refresh the fuel view after upload
-          window.location.reload();
-        }} />
+        <div className="flex justify-end mb-4">
+          <FuelCSVImportModal onUploadComplete={() => {
+            // Refresh the fuel view after upload
+            window.location.reload();
+          }} />
+        </div>
         <AdminFuelView />
       </div>
     );

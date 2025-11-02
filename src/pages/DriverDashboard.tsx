@@ -12,7 +12,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { FleetFuelView } from "@/components/FleetFuelView";
-import { getWeekDates } from "@/lib/utils";
+import { getWeekDates, getCurrentWeekNumber } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { supabase } from "@/integrations/supabase/client";
@@ -279,9 +279,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const [activeSubTab, setActiveSubTab] = useState("my");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
-    // Set the newest week (first in reversed array) as default
-    const weeks = getWeekDates(new Date().getFullYear());
-    return weeks.length > 0 ? weeks[0].number.toString() : '1';
+    const currentYear = new Date().getFullYear();
+    return getCurrentWeekNumber(currentYear).toString();
   });
   
   const subTabs = [
@@ -307,7 +306,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger>
+                <SelectTrigger className="w-auto min-w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

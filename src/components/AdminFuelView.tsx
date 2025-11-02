@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { getWeekDates } from "@/lib/utils";
+import { getWeekDates, getCurrentWeekNumber } from "@/lib/utils";
 
 interface FuelTransaction {
   id: string;
@@ -33,9 +33,8 @@ interface CardSummary {
 export const AdminFuelView = () => {
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [selectedWeek, setSelectedWeek] = useState(() => {
-    // Set the newest week (first in reversed array) as default
-    const weeks = getWeekDates(new Date().getFullYear());
-    return weeks.length > 0 ? weeks[0].number.toString() : "1";
+    const currentYear = new Date().getFullYear();
+    return getCurrentWeekNumber(currentYear).toString();
   });
   const [cardSummaries, setCardSummaries] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,7 +159,7 @@ export const AdminFuelView = () => {
           <div>
             <label className="text-sm font-medium mb-2 block">Rok</label>
             <Select value={year} onValueChange={setYear}>
-              <SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[100px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

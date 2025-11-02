@@ -5,6 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function getCurrentWeekNumber(year: number): number {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  
+  // If today is Sunday (0), we still want to show the previous week
+  // New week starts on Monday
+  const adjustedDate = new Date(now);
+  if (dayOfWeek === 0) {
+    adjustedDate.setDate(now.getDate() - 1); // Go back to Saturday
+  }
+  
+  const weeks = getWeekDates(year);
+  const currentWeek = weeks.find(w => {
+    const start = new Date(w.start);
+    const end = new Date(w.end);
+    return adjustedDate >= start && adjustedDate <= end;
+  });
+  
+  return currentWeek ? currentWeek.number : (weeks[0]?.number || 1);
+}
+
 export function getWeekDates(year: number) {
   const weeks = [];
   const startDate = new Date(year, 0, 1);

@@ -158,7 +158,7 @@ export const SettlementCSVImportModal = ({ cityId, onSuccess }: SettlementCSVImp
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-auto min-w-[300px] justify-start text-left font-normal",
                     !dateRange && "text-muted-foreground"
                   )}
                 >
