@@ -100,7 +100,12 @@
     },
     "period": "Period",
     "driverId": "Driver ID",
-    "periodRange": "Period"
+    "periodRange": "Period",
+    "platforms": {
+      "uber": "Uber",
+      "bolt": "Bolt",
+      "freenow": "FreeNow"
+    }
   },
   "fuel": {
     "card": "Card",
@@ -108,6 +113,7 @@
     "noCard": "No fuel card",
     "noPinYet": "PIN not set yet",
     "title": "Your Fuel Settlement",
+    "titleShort": "Fuel Settlement",
     "transactionsForPeriod": "Fuel transactions for period",
     "noDataForPeriod": "No fuel transactions for selected period",
     "cardNumber": "Card No.",
@@ -115,7 +121,8 @@
     "liters": "Liters",
     "amount": "Amount",
     "details": "Details",
-    "total": "TOTAL"
+    "total": "TOTAL",
+    "errorLoading": "Failed to load fuel data"
   },
   "common": {
     "loading": "Loading...",

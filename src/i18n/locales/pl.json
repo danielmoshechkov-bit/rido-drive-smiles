@@ -100,7 +100,12 @@
     },
     "period": "Okres",
     "driverId": "ID kierowcy",
-    "periodRange": "Okres"
+    "periodRange": "Okres",
+    "platforms": {
+      "uber": "Uber",
+      "bolt": "Bolt",
+      "freenow": "FreeNow"
+    }
   },
   "fuel": {
     "card": "Karta",
@@ -108,6 +113,7 @@
     "noCard": "Brak karty paliwowej",
     "noPinYet": "PIN nie został jeszcze ustawiony",
     "title": "Twoje rozliczenie paliwa",
+    "titleShort": "Rozliczenie paliwa",
     "transactionsForPeriod": "Transakcje paliwowe za okres",
     "noDataForPeriod": "Brak transakcji paliwowych dla wybranego okresu",
     "cardNumber": "Nr karty",
@@ -115,7 +121,8 @@
     "liters": "Litry",
     "amount": "Kwota",
     "details": "Szczegóły",
-    "total": "SUMA"
+    "total": "SUMA",
+    "errorLoading": "Nie udało się pobrać danych paliwowych"
   },
   "common": {
     "loading": "Ładowanie...",

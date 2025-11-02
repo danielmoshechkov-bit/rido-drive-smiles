@@ -100,7 +100,12 @@
     },
     "period": "Кезең",
     "driverId": "Жүргізуші ID",
-    "periodRange": "Кезең"
+    "periodRange": "Кезең",
+    "platforms": {
+      "uber": "Uber",
+      "bolt": "Bolt",
+      "freenow": "FreeNow"
+    }
   },
   "fuel": {
     "card": "Карта",
@@ -108,6 +113,7 @@
     "noCard": "Жанармай картасы жоқ",
     "noPinYet": "PIN әлі орнатылмаған",
     "title": "Сіздің жанармай есебіңіз",
+    "titleShort": "Жанармай есебі",
     "transactionsForPeriod": "Кезең бойынша жанармай транзакциялары",
     "noDataForPeriod": "Таңдалған кезең үшін жанармай транзакциялары жоқ",
     "cardNumber": "Карта №",
@@ -115,7 +121,8 @@
     "liters": "Литр",
     "amount": "Сома",
     "details": "Толығырақ",
-    "total": "ЖАЛПЫ"
+    "total": "ЖАЛПЫ",
+    "errorLoading": "Жанармай деректерін жүктеу мүмкін болмады"
   },
   "common": {
     "loading": "Жүктелуде...",

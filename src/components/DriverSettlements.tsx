@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell, Legend } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
@@ -696,57 +696,57 @@ export const DriverSettlements = ({
                      {/* Compact settlement table - FIRST in JSX = appears first on mobile */}
                      <div className="border rounded-lg overflow-hidden w-full">
                        <div className="overflow-x-auto">
-                         <table className="w-full text-[10px] sm:text-sm">
-                           <thead>
-                             <tr className="bg-muted">
-                               <th className="text-left p-2 font-medium">{t('weekly.table.category')}</th>
-                               <th className="text-right p-2 font-medium">{t('weekly.table.uber')}</th>
-                               <th className="text-right p-2 font-medium">{t('weekly.table.bolt')}</th>
-                               <th className="text-right p-2 font-medium">{t('weekly.table.freenow')}</th>
-                             </tr>
-                           </thead>
-                            <tbody>
-                              {/* Podstawa opodatkowania */}
-                              <tr className="border-t hover:bg-yellow-200">
-                                <td className="p-2 text-muted-foreground">{t('weekly.row.base')}</td>
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium">
-                                  {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
-                                </td>
+                          <table className="w-full text-xs sm:text-sm">
+                            <thead>
+                              <tr className="bg-muted">
+                                <th className="text-left p-3 sm:p-4 font-medium text-xs sm:text-sm">{t('weekly.table.category')}</th>
+                                <th className="text-right p-3 sm:p-4 font-medium text-xs sm:text-sm">{t('weekly.table.uber')}</th>
+                                <th className="text-right p-3 sm:p-4 font-medium text-xs sm:text-sm">{t('weekly.table.bolt')}</th>
+                                <th className="text-right p-3 sm:p-4 font-medium text-xs sm:text-sm">{t('weekly.table.freenow')}</th>
                               </tr>
-                              
-                              {/* Prowizja */}
-                              <tr className="border-t hover:bg-yellow-200">
-                                <td className="p-2 text-muted-foreground">{t('weekly.row.commission')}</td>
-                                <td className="p-2 text-right font-medium text-amber-600">
-                                  {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium text-amber-600">
-                                  {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium text-amber-600">
-                                  {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
-                                </td>
-                              </tr>
-                              
-                              {/* Gotówka pobrana (informacyjnie) */}
-                              <tr className="border-t hover:bg-yellow-200">
-                                <td className="p-2 text-muted-foreground">{t('weekly.row.cashCollected')}</td>
-                                <td className="p-2 text-right font-medium text-blue-600">
-                                  {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium text-blue-600">
-                                  {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
-                                </td>
-                                <td className="p-2 text-right font-medium text-blue-600">
-                                  {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
-                                </td>
-                              </tr>
+                            </thead>
+                             <tbody>
+                               {/* Podstawa opodatkowania */}
+                               <tr className="border-t hover:bg-yellow-200">
+                                 <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.base')}</td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium">
+                                   {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium">
+                                   {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium">
+                                   {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
+                                 </td>
+                               </tr>
+                               
+                               {/* Prowizja */}
+                               <tr className="border-t hover:bg-yellow-200">
+                                 <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.commission')}</td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-amber-600">
+                                   {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-amber-600">
+                                   {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-amber-600">
+                                   {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
+                                 </td>
+                               </tr>
+                               
+                               {/* Gotówka pobrana (informacyjnie) */}
+                               <tr className="border-t hover:bg-yellow-200">
+                                 <td className="p-2.5 sm:p-3 text-muted-foreground">{t('weekly.row.cashCollected')}</td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-blue-600">
+                                   {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-blue-600">
+                                   {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="p-2.5 sm:p-3 text-right font-medium text-blue-600">
+                                   {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                                 </td>
+                               </tr>
                               
                               {/* Podatek 8% */}
                               <tr className="border-t hover:bg-yellow-200">
@@ -766,73 +766,73 @@ export const DriverSettlements = ({
                         </div>
                         
                         {/* Additional rows below table */}
-                        <div className="border-t bg-muted/30 p-4 space-y-3">
-                          {/* Razem bez prowizji - DUŻA CZCIONKA */}
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">{t('weekly.sum.withoutCommission')}:</span>
-                            <span className="font-bold text-green-600 text-lg">
+                        <div className="border-t bg-muted/30 p-3 sm:p-4 space-y-2">
+                          {/* Razem bez prowizji */}
+                          <div className="flex justify-between text-sm sm:text-base font-bold">
+                            <span>{t('weekly.sum.withoutCommission')}:</span>
+                            <span className="text-green-600">
                               {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                                 (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
                                 (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
                             </span>
                           </div>
                           
-                          {/* Razem gotówka - DUŻA CZCIONKA */}
+                          {/* Razem gotówka */}
                           {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
-                            <div className="flex justify-between text-base font-bold">
-                              <span className="font-bold">{t('weekly.sum.totalCash')}:</span>
-                              <span className="font-bold text-blue-600 text-lg">
+                            <div className="flex justify-between text-sm sm:text-base font-bold">
+                              <span>{t('weekly.sum.totalCash')}:</span>
+                              <span className="text-blue-600">
                                 {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                               </span>
                             </div>
                           )}
                           
-                          {/* Razem podatek 8% - DUŻA CZCIONKA */}
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">{t('weekly.sum.totalTax8')}:</span>
-                            <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
+                          {/* Razem podatek 8% */}
+                          <div className="flex justify-between text-sm sm:text-base font-bold">
+                            <span>{t('weekly.sum.totalTax8')}:</span>
+                            <span className="text-destructive">-{totalTax.toFixed(2)} zł</span>
                           </div>
                           
-                          {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
+                          {/* Opłata za rozliczenie */}
                           {fee > 0 && (
-                            <div className="flex justify-between text-base font-bold">
-                              <span className="font-bold">{t('weekly.sum.settlementFee')}:</span>
-                              <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
+                            <div className="flex justify-between text-sm sm:text-base font-bold">
+                              <span>{t('weekly.sum.settlementFee')}:</span>
+                              <span className="text-destructive">-{fee.toFixed(2)} zł</span>
                             </div>
                           )}
                           
-                          {/* Paliwo - DUŻA CZCIONKA */}
+                          {/* Paliwo */}
                           {amounts.fuel > 0 && (
-                            <div className="flex justify-between text-base font-bold">
-                              <span className="font-bold">{t('weekly.sum.fuel')}:</span>
-                              <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
+                            <div className="flex justify-between text-sm sm:text-base font-bold">
+                              <span>{t('weekly.sum.fuel')}:</span>
+                              <span className="text-destructive">-{amounts.fuel.toFixed(2)} zł</span>
                             </div>
                           )}
                           
-                          {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
+                          {/* Zwrot VAT paliwo */}
                           {amounts.fuel_vat_refund > 0 && (
-                            <div className="flex justify-between text-base font-bold">
-                              <span className="font-bold">{t('weekly.sum.fuelVatRefund')}:</span>
-                              <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                            <div className="flex justify-between text-sm sm:text-base font-bold">
+                              <span>{t('weekly.sum.fuelVatRefund')}:</span>
+                              <span className="text-green-600">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                             </div>
                           )}
                           
-                          {/* Wynajem auta - WARUNKOWO, DUŻA CZCIONKA */}
+                          {/* Wynajem auta - WARUNKOWO */}
                           {rentalFee > 0 && (
-                            <div className="flex justify-between text-base font-bold">
-                              <span className="font-bold">{t('weekly.sum.rental')}:</span>
-                              <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
+                            <div className="flex justify-between text-sm sm:text-base font-bold">
+                              <span>{t('weekly.sum.rental')}:</span>
+                              <span className="text-destructive">-{rentalFee.toFixed(2)} zł</span>
                             </div>
                           )}
                         </div>
-                       <div className="border-t bg-primary/10 p-4">
-                         <div className="flex justify-between">
-                           <span className="font-extrabold text-lg">{t('weekly.sum.payout')}:</span>
-                           <span className="font-extrabold text-primary text-2xl">
-                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
-                           </span>
-                         </div>
-                       </div>
+            <div className="border-t bg-primary/10 p-3 sm:p-4">
+              <div className="flex justify-between">
+                <span className="font-extrabold text-base sm:text-lg">{t('weekly.sum.payout')}:</span>
+                <span className="font-extrabold text-primary text-lg sm:text-xl">
+                  {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
+                </span>
+              </div>
+            </div>
                       
                         {/* Debt information */}
                         {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
@@ -901,26 +901,37 @@ export const DriverSettlements = ({
                            <h4 className="text-[10px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                          </CardHeader>
                          <CardContent>
-                           <div className="h-36 sm:h-48 lg:h-64">
-                             <ResponsiveContainer width="100%" height="100%">
-                               <PieChart>
-                                 <Pie
-                                   data={platformData}
-                                   cx="50%"
-                                   cy="55%"
-                                   labelLine={false}
-                                   label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                   outerRadius={80}
-                                   dataKey="value"
-                                 >
-                                   {platformData.map((entry, index) => (
-                                     <Cell key={`cell-${index}`} fill={entry.fill} />
-                                   ))}
-                                 </Pie>
-                                 <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
-                               </PieChart>
-                             </ResponsiveContainer>
-                           </div>
+                            <div className="h-[200px] sm:h-[280px] lg:h-[320px]">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={platformData}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }) => 
+                                      percent > 0.1 ? `${name}\n${(percent * 100).toFixed(0)}%` : ''
+                                    }
+                                    outerRadius="70%"
+                                    dataKey="value"
+                                  >
+                                    {platformData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                                    ))}
+                                  </Pie>
+                                  <Legend 
+                                    verticalAlign="bottom" 
+                                    height={36}
+                                    formatter={(value: string) => 
+                                      value === 'Uber' ? t('weekly.platforms.uber') :
+                                      value === 'Bolt' ? t('weekly.platforms.bolt') :
+                                      value === 'FreeNow' ? t('weekly.platforms.freenow') : value
+                                    }
+                                  />
+                                  <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
                          </CardContent>
                        </Card>
                       )}

@@ -54,7 +54,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
 
     } catch (error: any) {
       console.error('Error fetching fuel transactions:', error);
-      toast.error('Nie udało się pobrać danych paliwowych');
+      toast.error(t('fuel.errorLoading'));
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Brak transakcji paliwowych dla wybranego okresu
+          {t('fuel.noDataForPeriod')}
         </CardContent>
       </Card>
     );
@@ -84,9 +84,12 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Twoje rozliczenie paliwa</CardTitle>
-        <CardDescription>
-          Transakcje paliwowe za okres {periodFrom} - {periodTo}
+        <CardTitle className="text-sm sm:text-base lg:text-lg break-words">
+          <span className="hidden sm:inline">{t('fuel.title')}</span>
+          <span className="sm:hidden">{t('fuel.titleShort')}</span>
+        </CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
+          {t('fuel.transactionsForPeriod')} {periodFrom} - {periodTo}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -95,11 +98,11 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-2 text-sm font-medium">Nr karty</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Transakcje</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Litry</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Kwota</th>
-                  <th className="text-center py-2 px-2 text-sm font-medium">Szczegóły</th>
+                  <th className="text-left py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.cardNumber')}</th>
+                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.transactions')}</th>
+                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.liters')}</th>
+                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.amount')}</th>
+                  <th className="text-center py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.details')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -139,10 +142,10 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                   </tr>
                 )}
                 <tr className="font-bold border-t-2">
-                  <td className="py-2 px-2 text-sm">SUMA</td>
-                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-2 px-2 text-xs sm:text-sm">{t('fuel.total')}</td>
+                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{totalAmount.toFixed(2)} zł</td>
                   <td></td>
                 </tr>
               </tbody>

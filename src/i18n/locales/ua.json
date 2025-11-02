@@ -110,7 +110,12 @@
     },
     "period": "Період",
     "driverId": "ID водія",
-    "periodRange": "Період"
+    "periodRange": "Період",
+    "platforms": {
+      "uber": "Uber",
+      "bolt": "Bolt",
+      "freenow": "FreeNow"
+    }
   },
   "fuel": {
     "card": "Картка",
@@ -118,6 +123,7 @@
     "noCard": "Немає паливної картки",
     "noPinYet": "PIN ще не встановлено",
     "title": "Ваш розрахунок палива",
+    "titleShort": "Розрахунок палива",
     "transactionsForPeriod": "Транзакції з палива за період",
     "noDataForPeriod": "Немає транзакцій з палива за вибраний період",
     "cardNumber": "№ картки",
@@ -125,7 +131,8 @@
     "liters": "Літри",
     "amount": "Сума",
     "details": "Деталі",
-    "total": "УСЬОГО"
+    "total": "УСЬОГО",
+    "errorLoading": "Не вдалося завантажити дані палива"
   },
   "common": {
     "loading": "Завантаження...",

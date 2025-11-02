@@ -170,29 +170,28 @@ const DriverDashboard = () => {
               alt="Get RIDO Logo" 
               className="h-8 w-8 flex-shrink-0"
             />
-            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <span className="font-semibold text-primary">{t('driver.panel')}</span>
-              {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
-                <>
-                  <span className="hidden md:inline text-muted-foreground">-</span>
-                  <span className="font-medium text-foreground">
+            <div className="flex flex-col gap-1 max-w-full overflow-hidden">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-semibold text-primary text-xs sm:text-sm whitespace-nowrap">
+                  {t('driver.panel')}
+                </span>
+                
+                {driverData?.drivers?.first_name && (
+                  <span className="font-medium text-xs sm:text-sm truncate max-w-[200px] sm:max-w-none">
                     {driverData.drivers.first_name} {driverData.drivers.last_name}
                   </span>
-                </>
-              )}
+                )}
+              </div>
+              
               {fleetInfo && (
-                <div className="flex flex-col md:flex-row md:items-center gap-1">
-                  <div className="flex items-center gap-1">
-                    <span className="hidden md:inline text-muted-foreground">-</span>
-                    <span className="font-medium text-primary">{t('driver.fleet')}: {fleetInfo.name}</span>
-                  </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs">
+                  <span className="font-medium text-primary whitespace-nowrap">
+                    {t('driver.fleet')}: {fleetInfo.name}
+                  </span>
                   {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
-                    <div className="flex items-center gap-1">
-                      <span className="hidden md:inline text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('driver.caretaker')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
-                      </span>
-                    </div>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {t('driver.caretaker')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
+                    </span>
                   )}
                 </div>
               )}
