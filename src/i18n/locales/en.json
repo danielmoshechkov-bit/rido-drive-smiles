@@ -1,4 +1,112 @@
 {
+  "driver": {
+    "panel": "Driver Panel",
+    "logout": "Logout",
+    "fleet": "Fleet",
+    "caretaker": "Supervisor",
+    "loading": "Loading...",
+    "tabs": {
+      "weekly": "Weekly Settlement",
+      "cars": "Car",
+      "documents": "Documents",
+      "info": "Information"
+    },
+    "cars": {
+      "addCar": "Add Car"
+    },
+    "pin": {
+      "confirm": "Confirm Your Identity",
+      "enterPassword": "Enter your account password to view the fuel card PIN",
+      "password": "Password",
+      "cancel": "Cancel",
+      "confirmBtn": "Confirm",
+      "incorrectPassword": "Incorrect password",
+      "cannotVerify": "Cannot verify user"
+    },
+    "notifications": {
+      "systemAlerts": "System Alerts",
+      "noAlerts": "No alerts to display",
+      "markResolved": "Mark as resolved"
+    },
+    "documents": {
+      "title": "My Documents",
+      "selectType": "Select document type",
+      "upload": "Upload file",
+      "uploadBtn": "Upload Document",
+      "noDocuments": "You don't have any documents yet",
+      "uploadedDocuments": "Uploaded Documents",
+      "download": "Download",
+      "uploadSuccess": "Document uploaded successfully",
+      "uploadError": "Error uploading document",
+      "selectTypeError": "Select document type",
+      "selectFileError": "Select file to upload"
+    }
+  },
+  "weekly": {
+    "title": "Weekly Results",
+    "year": "Year",
+    "period": "Period",
+    "week": "Week",
+    "plan": "Plan",
+    "allPlans": "All Plans",
+    "admin": "Admin",
+    "earningsByPlatform": "Earnings by Platform",
+    "table": {
+      "category": "Category",
+      "uber": "Uber",
+      "bolt": "Bolt",
+      "freenow": "FreeNow"
+    },
+    "row": {
+      "base": "Base",
+      "commission": "Commission",
+      "cashCollected": "Cash Collected",
+      "tax8": "8% Tax"
+    },
+    "sum": {
+      "withoutCommission": "Total w/o Commission",
+      "totalCash": "Total Cash",
+      "totalTax8": "Total 8% Tax",
+      "settlementFee": "Settlement Fee",
+      "fuel": "Fuel",
+      "fuelVatRefund": "Fuel VAT Refund",
+      "rental": "Car Rental",
+      "payout": "Payout"
+    },
+    "debt": {
+      "title": "Debt",
+      "previous": "Previous Weeks Debt",
+      "payment": "Debt Payment",
+      "remaining": "Remaining Debt",
+      "actualPayout": "Actual Payout",
+      "warning": "Warning: Negative Payout",
+      "addedToDebt": "Amount will be added to debt"
+    },
+    "noSettlements": "No settlements available for selected period.",
+    "contactAdmin": "If the problem persists, contact the administrator.",
+    "driverId": "Driver ID",
+    "loadingSettings": "Loading settings...",
+    "periodRange": "Period"
+  },
+  "fuel": {
+    "card": "Card",
+    "pin": "PIN",
+    "noCard": "No fuel card",
+    "noPinYet": "PIN not set yet",
+    "title": "Your Fuel Settlement",
+    "transactionsForPeriod": "Fuel transactions for period",
+    "noDataForPeriod": "No fuel transactions for selected period",
+    "cardNumber": "Card No.",
+    "transactions": "Transactions",
+    "liters": "Liters",
+    "amount": "Amount",
+    "details": "Details",
+    "total": "TOTAL"
+  },
+  "common": {
+    "loading": "Loading...",
+    "noData": "No data"
+  },
   "header": {
     "home": "Home",
     "pricing": "Pricing",

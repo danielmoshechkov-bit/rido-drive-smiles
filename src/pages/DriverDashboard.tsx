@@ -24,10 +24,13 @@ import { pl } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from "@/components/LanguageSelector";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
@@ -149,7 +152,7 @@ const DriverDashboard = () => {
   if (!user || !driverData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Ładowanie...</div>
+        <div className="text-center">{t('driver.loading')}</div>
       </div>
     );
   }
@@ -166,7 +169,7 @@ const DriverDashboard = () => {
               className="h-8 w-8"
             />
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-primary">Panel kierowcy</span>
+              <span className="font-semibold text-primary">{t('driver.panel')}</span>
               {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
                 <>
                   <span className="text-muted-foreground">-</span>
@@ -178,12 +181,12 @@ const DriverDashboard = () => {
               {fleetInfo && (
                 <>
                   <span className="text-muted-foreground">-</span>
-                  <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
+                  <span className="font-medium text-primary">{t('driver.fleet')}: {fleetInfo.name}</span>
                   {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
                     <>
                       <span className="text-muted-foreground">•</span>
                       <span className="text-sm text-muted-foreground">
-                        Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
+                        {t('driver.caretaker')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
                       </span>
                     </>
                   )}
@@ -191,12 +194,13 @@ const DriverDashboard = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {driverData?.driver_id && (
               <DriverNotificationBell driverId={driverData.driver_id} />
             )}
+            <LanguageSelector />
             <Button variant="outline" onClick={handleLogout} className="rounded-lg">
-              Wyloguj
+              {t('driver.logout')}
             </Button>
           </div>
         </div>
@@ -213,19 +217,19 @@ const DriverDashboard = () => {
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsTrigger value="weekly-report">
             <DollarSign className="h-4 w-4 mr-2" />
-            Rozliczenie tygodniowe
+            {t('driver.tabs.weekly')}
           </TabsTrigger>
           <TabsTrigger value="cars">
             <Car className="h-4 w-4 mr-2" />
-            Samochód
+            {t('driver.tabs.cars')}
           </TabsTrigger>
           <TabsTrigger value="documents">
             <FileText className="h-4 w-4 mr-2" />
-            Dokumenty
+            {t('driver.tabs.documents')}
           </TabsTrigger>
           <TabsTrigger value="informacje">
             <Info className="h-4 w-4 mr-2" />
-            Informacje
+            {t('driver.tabs.info')}
           </TabsTrigger>
 
           {/* Tab Content */}
@@ -252,6 +256,7 @@ const DriverDashboard = () => {
 
 // Komponent sekcji samochodów z przyciskiem dodaj auto
 function CarsSection({ driverData }: { driverData: any }) {
+  const { t } = useTranslation();
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const driverId = driverData.driver_id;
@@ -265,7 +270,7 @@ function CarsSection({ driverData }: { driverData: any }) {
           className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
         >
           <Plus className="h-4 w-4" />
-          Dodaj auto
+          {t('driver.cars.addCar')}
         </Button>
       </div>
 
@@ -289,6 +294,7 @@ function CarsSection({ driverData }: { driverData: any }) {
 
 // PIN Display component with password verification
 function PinDisplay({ pin }: { pin: string }) {
+  const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
   const [password, setPassword] = useState("");
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -304,7 +310,7 @@ function PinDisplay({ pin }: { pin: string }) {
   const handlePasswordSubmit = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email) {
-      toast.error("Nie można zweryfikować użytkownika");
+      toast.error(t('driver.pin.cannotVerify'));
       return;
     }
 
@@ -314,7 +320,7 @@ function PinDisplay({ pin }: { pin: string }) {
     });
 
     if (error) {
-      toast.error("Nieprawidłowe hasło");
+      toast.error(t('driver.pin.incorrectPassword'));
       setPassword("");
       return;
     }
@@ -346,23 +352,23 @@ function PinDisplay({ pin }: { pin: string }) {
       <Dialog open={showPasswordPrompt} onOpenChange={setShowPasswordPrompt}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Potwierdź swoją tożsamość</DialogTitle>
+            <DialogTitle>{t('driver.pin.confirm')}</DialogTitle>
             <DialogDescription>
-              Wprowadź hasło do konta, aby wyświetlić PIN karty paliwowej
+              {t('driver.pin.enterPassword')}
             </DialogDescription>
           </DialogHeader>
           <Input
             type="password"
-            placeholder="Hasło"
+            placeholder={t('driver.pin.password')}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handlePasswordSubmit()}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPasswordPrompt(false)}>
-              Anuluj
+              {t('driver.pin.cancel')}
             </Button>
-            <Button onClick={handlePasswordSubmit}>Potwierdź</Button>
+            <Button onClick={handlePasswordSubmit}>{t('driver.pin.confirmBtn')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -372,6 +378,7 @@ function PinDisplay({ pin }: { pin: string }) {
 
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
 function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
+  const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState("my");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
@@ -380,8 +387,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   });
   
   const subTabs = [
-    { value: "my", label: "Moje rozliczenia", visible: true },
-    { value: "fuel", label: "Paliwo", visible: true }
+    { value: "my", label: t('weekly.title'), visible: true },
+    { value: "fuel", label: t('fuel.title'), visible: true }
   ];
 
   const weeks = getAvailableWeeks(selectedYear);
@@ -402,12 +409,12 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           <div className="flex gap-3 items-center flex-wrap">
             {/* Year selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Rok</label>
+              <label className="text-sm font-medium">{t('weekly.year')}</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
                 <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]" position="popper" sideOffset={6}>
                   {[2023, 2024, 2025, 2026].map(year => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -417,12 +424,12 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
 
             {/* Week selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Tydzień</label>
+              <label className="text-sm font-medium">{t('weekly.week')}</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
                 <SelectTrigger className="h-9 px-3 w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
+                <SelectContent className="max-h-[300px] z-[60]" position="popper" sideOffset={6}>
                   {weeks.map(week => (
                     <SelectItem key={week.number} value={week.number.toString()}>
                       {week.displayLabel}
@@ -438,24 +445,24 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             {/* Fuel Card Number */}
             {driverData.drivers?.fuel_card_number ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Karta:</span>
+                <span className="text-sm font-medium">{t('fuel.card')}:</span>
                 <span className="text-sm font-medium">{driverData.drivers.fuel_card_number}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-sm">Brak karty paliwowej</span>
+                <span className="text-sm">{t('fuel.noCard')}</span>
               </div>
             )}
 
             {/* PIN with security */}
             {driverData.drivers?.fuel_card_pin ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">PIN:</span>
+                <span className="text-sm font-medium">{t('fuel.pin')}:</span>
                 <PinDisplay pin={driverData.drivers.fuel_card_pin} />
               </div>
             ) : driverData.drivers?.fuel_card_number && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-sm">PIN nie został jeszcze ustawiony</span>
+                <span className="text-sm">{t('fuel.noPinYet')}</span>
               </div>
             )}
           </div>

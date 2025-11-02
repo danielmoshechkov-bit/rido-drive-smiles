@@ -12,6 +12,7 @@ import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
 
 interface Settlement {
   id: string;
@@ -61,6 +62,7 @@ export const DriverSettlements = ({
   preSelectedWeek, 
   hideControls = false 
 }: DriverSettlementsProps) => {
+  const { t } = useTranslation();
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings | null>(null);
   const [loading, setLoading] = useState(false);
@@ -618,15 +620,15 @@ export const DriverSettlements = ({
     <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
       {!hideControls && (
         <CardHeader className="py-3">
-          <div className="flex items-center gap-4 flex-nowrap">
-            <CardTitle className="whitespace-nowrap">Wynik tygodniowy</CardTitle>
+          <div className="flex items-center gap-3 flex-wrap">
+            <CardTitle className="whitespace-nowrap">{t('weekly.title')}</CardTitle>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Rok:</Label>
+              <Label className="text-sm whitespace-nowrap">{t('weekly.year')}:</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[100px]">
+                <SelectTrigger className="h-9 px-3 w-[100px] shrink-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]" position="popper" sideOffset={6}>
                   {years.map(year => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -634,12 +636,12 @@ export const DriverSettlements = ({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Okres:</Label>
+              <Label className="text-sm whitespace-nowrap">{t('weekly.period')}:</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[240px]">
+                <SelectTrigger className="h-9 px-3 min-w-[220px] max-w-[280px] shrink-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
+                <SelectContent className="max-h-[300px] z-[60]" position="popper" sideOffset={6}>
                   {weeks.map(week => (
                     <SelectItem key={week.number} value={week.number.toString()}>
                       {week.displayLabel}
@@ -647,36 +649,6 @@ export const DriverSettlements = ({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <Label className="text-sm whitespace-nowrap">Plan:</Label>
-              <Select 
-                value={selectedPlanId} 
-                onValueChange={setSelectedPlanId}
-                disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
-              >
-                <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
-                  <SelectValue placeholder="Wszystkie plany" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Wszystkie plany</SelectItem>
-                  {settlementPlans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {role === 'admin' && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  Admin
-                </Badge>
-              )}
-              {!canChangePlan && role !== 'admin' && planChangeInfo && (
-                <span className="text-xs text-orange-600 font-medium">
-                  {planChangeInfo}
-                </span>
-              )}
             </div>
           </div>
         </CardHeader>
@@ -718,15 +690,15 @@ export const DriverSettlements = ({
                       Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
 
-                    {/* Layout: wykres i tabela zawsze obok siebie (50/50) */}
-                    <div className="flex flex-wrap gap-4">
+                    {/* Layout: wykres i tabela zawsze obok siebie (50/50) nawet na mobile */}
+                    <div className="flex flex-wrap items-start justify-center gap-3 pb-24">
                     {platformData.length > 0 && (
-                      <Card className="flex-1 min-w-[300px]">
+                      <Card className="w-1/2 max-w-[50%] min-w-[150px]">
                         <CardHeader className="pb-2">
-                          <h4 className="text-sm font-medium">Zarobki według platform</h4>
+                          <h4 className="text-[11px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-80">
+                          <div className="h-44 sm:h-56 md:h-72">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
@@ -734,8 +706,8 @@ export const DriverSettlements = ({
                                   cx="50%"
                                   cy="55%"
                                   labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={100}
+                                  label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                  outerRadius={80}
                                   dataKey="value"
                                 >
                                   {platformData.map((entry, index) => (
@@ -751,15 +723,15 @@ export const DriverSettlements = ({
                      )}
 
                     {/* Compact settlement table */}
-                    <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
+                    <div className="border rounded-lg overflow-hidden w-1/2 max-w-[50%] min-w-[150px]">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-[11px] sm:text-sm">
                           <thead>
                             <tr className="bg-muted">
-                              <th className="text-left p-2 font-medium">Kategoria</th>
-                              <th className="text-right p-2 font-medium">Uber</th>
-                              <th className="text-right p-2 font-medium">Bolt</th>
-                              <th className="text-right p-2 font-medium">FreeNow</th>
+                              <th className="text-left p-2 font-medium">{t('weekly.table.category')}</th>
+                              <th className="text-right p-2 font-medium">{t('weekly.table.uber')}</th>
+                              <th className="text-right p-2 font-medium">{t('weekly.table.bolt')}</th>
+                              <th className="text-right p-2 font-medium">{t('weekly.table.freenow')}</th>
                             </tr>
                           </thead>
                           <tbody>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
@@ -25,6 +26,7 @@ interface FuelTransaction {
 }
 
 export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverFuelViewProps) {
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
