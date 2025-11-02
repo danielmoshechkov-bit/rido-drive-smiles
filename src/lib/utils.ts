@@ -68,10 +68,18 @@ export function getWeekDates(year: number) {
       month: 'short' 
     });
 
+    // Format dates as YYYY-MM-DD in local timezone (not UTC)
+    const formatLocalDate = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     weeks.push({
       number: week,
-      start: weekStart.toISOString().split('T')[0],
-      end: weekEnd.toISOString().split('T')[0],
+      start: formatLocalDate(weekStart),
+      end: formatLocalDate(weekEnd),
       label: `Tydzień ${week} (${startFormatted} - ${endFormatted})`,
       displayLabel: `${startFormatted} - ${endFormatted} pon.-ndz.`
     });

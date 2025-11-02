@@ -302,11 +302,32 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           tabs={subTabs}
         />
         <div className="space-y-4 mt-4">
-          <div className="flex gap-4 items-center">
-            <div className="flex-1">
+          {/* Fuel Card Info */}
+          {driverData.drivers?.fuel_card_number && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Numer karty paliwowej</p>
+                    <p className="text-2xl font-mono font-bold text-primary">
+                      {driverData.drivers.fuel_card_number}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Kierowca</p>
+                    <p className="font-medium">{driverData.drivers.first_name} {driverData.drivers.last_name}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Year & Week Selectors - side by side */}
+          <div className="flex gap-3 items-end">
+            <div>
               <label className="text-sm font-medium mb-2 block">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
+                <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,7 +340,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">Tydzień</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-auto max-w-[280px]">
+                <SelectTrigger className="h-9 px-3 w-full max-w-[320px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -443,58 +464,68 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   ];
 
   return (
-    <Card className="rounded-xl shadow-soft">
-      <CardHeader>
-        <CardTitle>Dokumenty</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <select
-            className="px-3 py-2 border border-input rounded-lg bg-background"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            {types.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <Input 
-            type="file" 
-            accept=".pdf,.jpg,.jpeg,.png,.docx" 
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="rounded-lg"
-          />
-          <Button onClick={upload} disabled={!file || loading} className="rounded-lg">
-            {loading ? "Przesyłanie..." : "Dodaj dokument"}
-          </Button>
-        </div>
-        
-        {docs.length === 0 ? (
-          <p className="text-muted-foreground">Brak dokumentów.</p>
-        ) : (
-          <div className="space-y-2">
-            {docs.map(d => (
-              <div key={d.id} className="flex items-center justify-between p-3 border border-border/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium">{d.file_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(d.created_at).toLocaleDateString('pl-PL')}
+    <div className="space-y-4">
+      {/* Add notification bell for documents */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Dokumenty</h2>
+        {driverData?.driver_id && (
+          <DriverNotificationBell driverId={driverData.driver_id} />
+        )}
+      </div>
+
+      <Card className="rounded-xl shadow-soft">
+        <CardHeader>
+          <CardTitle>Zarządzaj dokumentami</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <select
+              className="px-3 py-2 border border-input rounded-lg bg-background"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            >
+              {types.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <Input 
+              type="file" 
+              accept=".pdf,.jpg,.jpeg,.png,.docx" 
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="rounded-lg"
+            />
+            <Button onClick={upload} disabled={!file || loading} className="rounded-lg">
+              {loading ? "Przesyłanie..." : "Dodaj dokument"}
+            </Button>
+          </div>
+          
+          {docs.length === 0 ? (
+            <p className="text-muted-foreground">Brak dokumentów.</p>
+          ) : (
+            <div className="space-y-2">
+              {docs.map(d => (
+                <div key={d.id} className="flex items-center justify-between p-3 border border-border/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">{d.file_name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(d.created_at).toLocaleDateString('pl-PL')}
+                      </div>
                     </div>
                   </div>
+                  <Button variant="outline" size="sm" asChild className="rounded-lg">
+                    <a href={d.file_url} target="_blank" rel="noreferrer">
+                      Pobierz
+                    </a>
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" asChild className="rounded-lg">
-                  <a href={d.file_url} target="_blank" rel="noreferrer">
-                    Pobierz
-                  </a>
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
