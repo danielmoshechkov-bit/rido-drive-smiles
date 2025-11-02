@@ -12,21 +12,13 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { FleetFuelView } from "@/components/FleetFuelView";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
-import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
-import { DriverSettlements } from "@/components/DriverSettlements";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
-import { FleetFuelView } from "@/components/FleetFuelView";
-import { getWeekDates, getCurrentWeekNumber } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
-import { FileText, Plus, DollarSign, Car, File } from "lucide-react";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();

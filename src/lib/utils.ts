@@ -17,10 +17,11 @@ export function getAvailableWeeks(year: number) {
     adjustedDate.setDate(now.getDate() - 1);
   }
   
-  // Filter out future weeks
+  // Filter out future weeks - check weekEnd instead of weekStart
+  // This ensures that in Sunday, the new week (starting Monday) is NOT visible yet
   return allWeeks.filter(w => {
-    const weekStart = new Date(w.start);
-    return weekStart <= adjustedDate;
+    const weekEnd = new Date(w.end);
+    return weekEnd <= adjustedDate;
   });
 }
 
