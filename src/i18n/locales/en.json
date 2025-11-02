@@ -82,10 +82,18 @@
       "warning": "Warning: Negative Payout",
       "addedToDebt": "Amount will be added to debt"
     },
-    "noSettlements": "No settlements available for selected period.",
-    "contactAdmin": "If the problem persists, contact the administrator.",
+    "errors": {
+      "loading": "Error loading settlements",
+      "unknown": "Unknown error"
+    },
+    "messages": {
+      "loadingData": "Loading...",
+      "loadingSettings": "Loading settings...",
+      "noSettlements": "No settlements available for the selected period.",
+      "contactAdmin": "If the problem persists, contact the administrator."
+    },
+    "period": "Period",
     "driverId": "Driver ID",
-    "loadingSettings": "Loading settings...",
     "periodRange": "Period"
   },
   "fuel": {

@@ -690,208 +690,177 @@ export const DriverSettlements = ({
                       Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
 
-                    {/* Layout: wykres i tabela zawsze obok siebie (50/50) nawet na mobile */}
-                    <div className="flex flex-wrap items-start justify-center gap-3 pb-24">
-                    {platformData.length > 0 && (
-                      <Card className="w-1/2 max-w-[50%] min-w-[150px]">
-                        <CardHeader className="pb-2">
-                          <h4 className="text-[11px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="h-44 sm:h-56 md:h-72">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={platformData}
-                                  cx="50%"
-                                  cy="55%"
-                                  labelLine={false}
-                                  label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={80}
-                                  dataKey="value"
-                                >
-                                  {platformData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                     )}
-
-                    {/* Compact settlement table */}
-                    <div className="border rounded-lg overflow-hidden w-1/2 max-w-[50%] min-w-[150px]">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px] sm:text-sm">
-                          <thead>
-                            <tr className="bg-muted">
-                              <th className="text-left p-2 font-medium">{t('weekly.table.category')}</th>
-                              <th className="text-right p-2 font-medium">{t('weekly.table.uber')}</th>
-                              <th className="text-right p-2 font-medium">{t('weekly.table.bolt')}</th>
-                              <th className="text-right p-2 font-medium">{t('weekly.table.freenow')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {/* Podstawa opodatkowania */}
-                            <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Podstawa</td>
-                              <td className="p-2 text-right font-medium">
-                                {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium">
-                                {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium">
-                                {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                            
-                            {/* Prowizja */}
-                            <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Prowizja</td>
-                              <td className="p-2 text-right font-medium text-amber-600">
-                                {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-amber-600">
-                                {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-amber-600">
-                                {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                            
-                            {/* Gotówka pobrana (informacyjnie) */}
-                            <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Gotówka pobrana</td>
-                              <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-blue-600">
-                                {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                            
-                            {/* Podatek 8% */}
-                            <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Podatek 8%</td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-2 text-right font-medium text-destructive">
-                                {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      {/* Additional rows below table */}
-                      <div className="border-t bg-muted/30 p-4 space-y-3">
-                        {/* Razem bez prowizji - DUŻA CZCIONKA */}
-                        <div className="flex justify-between text-base font-bold">
-                          <span className="font-bold">Razem bez prowizji:</span>
-                          <span className="font-bold text-green-600 text-lg">
-                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
-                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
-                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
-                          </span>
+                     {/* Layout: na mobile tabela na górze, wykres na dole; na desktop obok siebie */}
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pb-24">
+                     
+                     {/* Compact settlement table - na mobile PIERWSZA (order-1) */}
+                     <div className="border rounded-lg overflow-hidden w-full order-1 lg:order-2">
+                       <div className="overflow-x-auto">
+                         <table className="w-full text-[11px] sm:text-sm">
+                           <thead>
+                             <tr className="bg-muted">
+                               <th className="text-left p-2 font-medium">{t('weekly.table.category')}</th>
+                               <th className="text-right p-2 font-medium">{t('weekly.table.uber')}</th>
+                               <th className="text-right p-2 font-medium">{t('weekly.table.bolt')}</th>
+                               <th className="text-right p-2 font-medium">{t('weekly.table.freenow')}</th>
+                             </tr>
+                           </thead>
+                            <tbody>
+                              {/* Podstawa opodatkowania */}
+                              <tr className="border-t hover:bg-yellow-200">
+                                <td className="p-2 text-muted-foreground">{t('weekly.row.base')}</td>
+                                <td className="p-2 text-right font-medium">
+                                  {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium">
+                                  {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium">
+                                  {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
+                                </td>
+                              </tr>
+                              
+                              {/* Prowizja */}
+                              <tr className="border-t hover:bg-yellow-200">
+                                <td className="p-2 text-muted-foreground">{t('weekly.row.commission')}</td>
+                                <td className="p-2 text-right font-medium text-amber-600">
+                                  {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-amber-600">
+                                  {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-amber-600">
+                                  {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
+                                </td>
+                              </tr>
+                              
+                              {/* Gotówka pobrana (informacyjnie) */}
+                              <tr className="border-t hover:bg-yellow-200">
+                                <td className="p-2 text-muted-foreground">{t('weekly.row.cashCollected')}</td>
+                                <td className="p-2 text-right font-medium text-blue-600">
+                                  {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-blue-600">
+                                  {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-blue-600">
+                                  {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                                </td>
+                              </tr>
+                              
+                              {/* Podatek 8% */}
+                              <tr className="border-t hover:bg-yellow-200">
+                                <td className="p-2 text-muted-foreground">{t('weekly.row.tax8')}</td>
+                                <td className="p-2 text-right font-medium text-destructive">
+                                  {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-destructive">
+                                  {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-medium text-destructive">
+                                  {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                         
-                        {/* Razem gotówka - DUŻA CZCIONKA */}
-                        {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
+                        {/* Additional rows below table */}
+                        <div className="border-t bg-muted/30 p-4 space-y-3">
+                          {/* Razem bez prowizji - DUŻA CZCIONKA */}
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Razem gotówka:</span>
-                            <span className="font-bold text-blue-600 text-lg">
-                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
+                            <span className="font-bold">{t('weekly.sum.withoutCommission')}:</span>
+                            <span className="font-bold text-green-600 text-lg">
+                              {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
+                                (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
+                                (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
                             </span>
                           </div>
-                        )}
-                        
-                        {/* Razem podatek 8% - DUŻA CZCIONKA */}
-                        <div className="flex justify-between text-base font-bold">
-                          <span className="font-bold">Razem podatek 8%:</span>
-                          <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
+                          
+                          {/* Razem gotówka - DUŻA CZCIONKA */}
+                          {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
+                            <div className="flex justify-between text-base font-bold">
+                              <span className="font-bold">{t('weekly.sum.totalCash')}:</span>
+                              <span className="font-bold text-blue-600 text-lg">
+                                {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Razem podatek 8% - DUŻA CZCIONKA */}
+                          <div className="flex justify-between text-base font-bold">
+                            <span className="font-bold">{t('weekly.sum.totalTax8')}:</span>
+                            <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
+                          </div>
+                          
+                          {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
+                          {fee > 0 && (
+                            <div className="flex justify-between text-base font-bold">
+                              <span className="font-bold">{t('weekly.sum.settlementFee')}:</span>
+                              <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
+                            </div>
+                          )}
+                          
+                          {/* Paliwo - DUŻA CZCIONKA */}
+                          {amounts.fuel > 0 && (
+                            <div className="flex justify-between text-base font-bold">
+                              <span className="font-bold">{t('weekly.sum.fuel')}:</span>
+                              <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
+                            </div>
+                          )}
+                          
+                          {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
+                          {amounts.fuel_vat_refund > 0 && (
+                            <div className="flex justify-between text-base font-bold">
+                              <span className="font-bold">{t('weekly.sum.fuelVatRefund')}:</span>
+                              <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                            </div>
+                          )}
+                          
+                          {/* Wynajem auta - WARUNKOWO, DUŻA CZCIONKA */}
+                          {rentalFee > 0 && (
+                            <div className="flex justify-between text-base font-bold">
+                              <span className="font-bold">{t('weekly.sum.rental')}:</span>
+                              <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
+                            </div>
+                          )}
                         </div>
-                        
-                        {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
-                        {fee > 0 && (
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Opłata za rozliczenie:</span>
-                            <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                        
-                        {/* Paliwo - DUŻA CZCIONKA */}
-                        {amounts.fuel > 0 && (
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Paliwo:</span>
-                            <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                        
-                        {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
-                        {amounts.fuel_vat_refund > 0 && (
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Zwrot VAT paliwo:</span>
-                            <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                        
-                        {/* Wynajem auta - WARUNKOWO, DUŻA CZCIONKA */}
-                        {rentalFee > 0 && (
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Wynajem auta:</span>
-                            <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
-                          </div>
-                        )}
-                      </div>
+                       <div className="border-t bg-primary/10 p-4">
+                         <div className="flex justify-between">
+                           <span className="font-extrabold text-lg">{t('weekly.sum.payout')}:</span>
+                           <span className="font-extrabold text-primary text-2xl">
+                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
+                           </span>
+                         </div>
+                       </div>
                       
-                      {/* Payout summary - EXTRA DUŻA CZCIONKA */}
-                      <div className="border-t bg-primary/10 p-4">
-                        <div className="flex justify-between">
-                          <span className="font-extrabold text-lg">Wypłata:</span>
-                          <span className="font-extrabold text-primary text-2xl">
-                            {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* Debt information */}
-                      {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
-                        <div className="border-t bg-red-50 p-3">
-                          <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">💳 Zadłużenie</div>
+                       {/* Debt information */}
+                       {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
+                         <div className="border-t bg-red-50 p-3">
+                           <div className="space-y-2">
+                             <div className="font-semibold text-red-800 mb-2">💳 {t('weekly.debt.title')}</div>
                             
-                            {settlement.debt_before && settlement.debt_before > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Dług z poprzednich tygodni:</span>
+                             {settlement.debt_before && settlement.debt_before > 0 && (
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-muted-foreground">{t('weekly.debt.previous')}:</span>
                                 <span className="font-semibold text-red-600">
                                   -{settlement.debt_before.toFixed(2)} zł
                                 </span>
                               </div>
                             )}
                             
-                            {settlement.debt_payment && settlement.debt_payment > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Spłata długu:</span>
+                             {settlement.debt_payment && settlement.debt_payment > 0 && (
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-muted-foreground">{t('weekly.debt.payment')}:</span>
                                 <span className="font-semibold text-green-600">
                                   -{settlement.debt_payment.toFixed(2)} zł
                                 </span>
                               </div>
                             )}
                             
-                            {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
-                              <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
-                                <span className="text-muted-foreground">Pozostały dług:</span>
+                             {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
+                               <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
+                                 <span className="text-muted-foreground">{t('weekly.debt.remaining')}:</span>
                                 <span className="font-semibold text-red-600">
                                   -{settlement.debt_after.toFixed(2)} zł
                                 </span>
@@ -899,7 +868,7 @@ export const DriverSettlements = ({
                             )}
                             
                             <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className="font-bold">{t('weekly.debt.actualPayout')}:</span>
                               <span className={`font-bold text-lg ${(settlement.actual_payout || 0) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
                                 {(settlement.actual_payout || 0).toFixed(2)} zł
                               </span>
@@ -909,23 +878,53 @@ export const DriverSettlements = ({
                       ) : payout < 0 ? (
                         <div className="border-t bg-red-50 p-3">
                           <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">⚠️ Uwaga: Ujemna wypłata</div>
+                            <div className="font-semibold text-red-800 mb-2">⚠️ {t('weekly.debt.warning')}</div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Kwota zostanie dodana do długu:</span>
+                              <span className="text-muted-foreground">{t('weekly.debt.addedToDebt')}:</span>
                               <span className="font-bold text-red-600">
                                 {Math.abs(payout).toFixed(2)} zł
                               </span>
                             </div>
                             <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className="font-bold">{t('weekly.debt.actualPayout')}:</span>
                               <span className="font-bold text-lg text-gray-600">0.00 zł</span>
                             </div>
                           </div>
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  </div>
+                       ) : null}
+                     </div>
+                     
+                     {/* Wykres - na mobile DRUGI (order-2), na desktop pierwszy (order-1) */}
+                     {platformData.length > 0 && (
+                       <Card className="w-full order-2 lg:order-1">
+                         <CardHeader className="pb-2">
+                           <h4 className="text-[11px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
+                         </CardHeader>
+                         <CardContent>
+                           <div className="h-44 sm:h-56 md:h-72">
+                             <ResponsiveContainer width="100%" height="100%">
+                               <PieChart>
+                                 <Pie
+                                   data={platformData}
+                                   cx="50%"
+                                   cy="55%"
+                                   labelLine={false}
+                                   label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                   outerRadius={80}
+                                   dataKey="value"
+                                 >
+                                   {platformData.map((entry, index) => (
+                                     <Cell key={`cell-${index}`} fill={entry.fill} />
+                                   ))}
+                                 </Pie>
+                                 <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
+                               </PieChart>
+                             </ResponsiveContainer>
+                           </div>
+                         </CardContent>
+                       </Card>
+                     )}
+                   </div>
                 );
             })}
           </div>

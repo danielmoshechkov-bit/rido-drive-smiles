@@ -82,10 +82,18 @@
       "warning": "Uwaga: Ujemna wypłata",
       "addedToDebt": "Kwota zostanie dodana do długu"
     },
-    "noSettlements": "Brak dostępnych rozliczeń dla wybranego okresu.",
-    "contactAdmin": "Jeśli problem się powtarza, skontaktuj się z administratorem.",
+    "errors": {
+      "loading": "Błąd podczas ładowania rozliczeń",
+      "unknown": "Nieznany błąd"
+    },
+    "messages": {
+      "loadingData": "Ładowanie...",
+      "loadingSettings": "Ładowanie ustawień...",
+      "noSettlements": "Brak dostępnych rozliczeń dla wybranego okresu.",
+      "contactAdmin": "Jeśli problem się powtarza, skontaktuj się z administratorem."
+    },
+    "period": "Okres",
     "driverId": "ID kierowcy",
-    "loadingSettings": "Ładowanie ustawień...",
     "periodRange": "Okres"
   },
   "fuel": {
