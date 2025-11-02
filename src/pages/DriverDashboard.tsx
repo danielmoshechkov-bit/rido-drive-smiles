@@ -27,7 +27,6 @@ import { toast } from "sonner";
 import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { UserDropdown } from "@/components/UserDropdown";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -39,7 +38,6 @@ const DriverDashboard = () => {
   const [driverData, setDriverData] = useState<any>(null);
   const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
   const [showAddOwnCarModal, setShowAddOwnCarModal] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -140,14 +138,6 @@ const DriverDashboard = () => {
     checkAuth();
   }, [navigate]);
 
-  useEffect(() => {
-    const fetchUserEmail = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email || '');
-    };
-    fetchUserEmail();
-  }, []);
-
   const handleLogout = async () => {
     // Clear test user data if exists
     localStorage.removeItem('testUser');
@@ -177,32 +167,54 @@ const DriverDashboard = () => {
         <div className="container mx-auto px-4 py-4">
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
                 className="h-6 w-6"
               />
-              <h1 className="text-base font-bold text-primary">Panel Kierowcy</h1>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-primary">Panel kierowcy</span>
+                {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="font-medium text-foreground">
+                      {driverData.drivers.first_name} {driverData.drivers.last_name}
+                    </span>
+                  </>
+                )}
+                {fleetInfo && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
+                    {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
+                      <>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">
+                          Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
+                        </span>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-3">
-              <UserDropdown 
-                userName={`${driverData?.drivers?.first_name || ''} ${driverData?.drivers?.last_name || ''}`.trim() || 'Kierowca'}
-                userRole={t('driver.role')}
-                userEmail={userEmail}
-                fleetName={fleetInfo?.name}
-                onLogout={handleLogout}
-                showLanguageInside={true}
-              />
               {driverData?.driver_id && (
                 <div className="scale-90">
                   <DriverNotificationBell driverId={driverData.driver_id} />
                 </div>
               )}
+              <div className="scale-90">
+                <LanguageSelector />
+              </div>
+              <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
+                {t('auth.logout')}
+              </Button>
             </div>
           </div>
 
-          {/* Mobile header */}
+          {/* Mobile header - hamburger menu */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <img 
@@ -210,22 +222,54 @@ const DriverDashboard = () => {
                 alt="Get RIDO Logo" 
                 className="h-6 w-6"
               />
-              <h1 className="text-sm font-bold text-primary">Panel Kierowcy</h1>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-80">
+                  <div className="space-y-4 mt-4">
+                    <div className="text-sm font-semibold text-primary border-b pb-2">Panel kierowcy</div>
+                    {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Kierowca:</div>
+                        <div className="font-medium">
+                          {driverData.drivers.first_name} {driverData.drivers.last_name}
+                        </div>
+                      </div>
+                    )}
+                    {fleetInfo && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Flota:</div>
+                          <div className="font-medium text-primary">{fleetInfo.name}</div>
+                        </div>
+                        {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Opiekun:</div>
+                            <div className="text-sm">
+                              {fleetInfo.contact_name}<br />
+                              {fleetInfo.contact_phone_for_drivers}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
             <div className="flex items-center space-x-2">
-              <UserDropdown 
-                userName={`${driverData?.drivers?.first_name || ''} ${driverData?.drivers?.last_name || ''}`.trim() || 'Kierowca'}
-                userRole={t('driver.role')}
-                userEmail={userEmail}
-                fleetName={fleetInfo?.name}
-                onLogout={handleLogout}
-                showLanguageInside={true}
-              />
               {driverData?.driver_id && (
-                <div className="scale-90">
-                  <DriverNotificationBell driverId={driverData.driver_id} />
-                </div>
+                <DriverNotificationBell driverId={driverData.driver_id} />
               )}
+              <LanguageSelector />
+              <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-lg">
+                {t('auth.logout')}
+              </Button>
             </div>
           </div>
         </div>
@@ -260,70 +304,98 @@ const DriverDashboard = () => {
           </TabsPill>
         </div>
 
-        {/* Mobile Navigation Menu */}
-        <div className="md:hidden mb-6">
-          <div className="bg-primary rounded-2xl p-4 shadow-lg">
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={() => setActiveTab('weekly-report')}
-                variant={activeTab === 'weekly-report' ? 'secondary' : 'ghost'}
-                className={`h-auto py-3 px-4 rounded-xl ${
-                  activeTab === 'weekly-report' 
-                    ? 'bg-white text-primary' 
-                    : 'text-white hover:bg-primary-dark'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('driver.tabs.settlements')}</span>
+        {/* Mobile Hamburger Menu - Redesigned */}
+        <div className="md:hidden mb-3">
+          <div className="flex items-center gap-3">
+            {/* Hamburger w zaokrąglonym kontenerze */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <div className="rounded-xl bg-primary shadow-sm p-1.5">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
+                    <Menu className="h-4 w-4 text-white" />
+                  </Button>
                 </div>
-              </Button>
-              <Button
-                onClick={() => setActiveTab('cars')}
-                variant={activeTab === 'cars' ? 'secondary' : 'ghost'}
-                className={`h-auto py-3 px-4 rounded-xl ${
-                  activeTab === 'cars' 
-                    ? 'bg-white text-primary' 
-                    : 'text-white hover:bg-primary-dark'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Car className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('driver.tabs.cars')}</span>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                <div className="space-y-2 mt-4">
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('weekly-report')}
+                    >
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.settlements')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'cars' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('cars')}
+                    >
+                      <Car className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.cars')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('documents')}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.documents')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('informacje')}
+                    >
+                      <Info className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.information')}
+                    </Button>
+                  </SheetTrigger>
                 </div>
-              </Button>
-              <Button
-                onClick={() => setActiveTab('documents')}
-                variant={activeTab === 'documents' ? 'secondary' : 'ghost'}
-                className={`h-auto py-3 px-4 rounded-xl ${
-                  activeTab === 'documents' 
-                    ? 'bg-white text-primary' 
-                    : 'text-white hover:bg-primary-dark'
-                }`}
+              </SheetContent>
+            </Sheet>
+
+            {/* Sub-tab buttons obok hamburgera - tylko dla zakładki rozliczenia */}
+            {activeTab === 'weekly-report' && (
+              <div className="flex gap-2 flex-1">
+                <Button
+                  variant={activeSubTab === 'my' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('my')}
+                >
+                  Moje rozliczenia
+                </Button>
+                <Button
+                  variant={activeSubTab === 'fuel' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('fuel')}
+                >
+                  Paliwo
+                </Button>
+              </div>
+            )}
+
+            {/* Przycisk Dodaj auto obok hamburgera - dla zakładki cars */}
+            {activeTab === 'cars' && (
+              <Button 
+                className="flex-1 rounded-full"
+                onClick={() => setShowAddOwnCarModal(true)}
               >
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('driver.tabs.documents')}</span>
-                </div>
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj auto
               </Button>
-              <Button
-                onClick={() => setActiveTab('informacje')}
-                variant={activeTab === 'informacje' ? 'secondary' : 'ghost'}
-                className={`h-auto py-3 px-4 rounded-xl ${
-                  activeTab === 'informacje' 
-                    ? 'bg-white text-primary' 
-                    : 'text-white hover:bg-primary-dark'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('driver.tabs.information')}</span>
-                </div>
-              </Button>
-            </div>
+            )}
           </div>
         </div>
-
 
         {/* Tab Content - rendered based on activeTab state */}
         {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}

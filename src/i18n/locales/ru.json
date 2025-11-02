@@ -288,13 +288,6 @@
       "contractRodo": "Договор / Персональные данные"
     }
   },
-  "userDropdown": {
-    "accountInfo": "Информация об учетной записи",
-    "role": "Роль",
-    "fleet": "Флот",
-    "language": "Язык",
-    "logout": "Выйти"
-  },
   "admin": {
     "dashboard": "Панель администратора",
     "logout": "Выйти",

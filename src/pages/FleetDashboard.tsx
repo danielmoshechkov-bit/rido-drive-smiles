@@ -10,7 +10,6 @@ export default function FleetDashboard() {
   const { role, roles, fleetId, loading: roleLoading, delegatedRole } = useUserRole();
   const [fleetName, setFleetName] = useState('');
   const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
 
   // Check permissions based on roles
   const canAccessFleet = roles.includes('admin') || roles.includes('fleet_rental') || roles.includes('fleet_settlement') || !!delegatedRole;
@@ -50,7 +49,6 @@ export default function FleetDashboard() {
       const lastName = user.user_metadata?.last_name || '';
       const name = `${firstName} ${lastName}`.trim();
       setUserName(delegatedRole ? `${name} - ${delegatedRole.role_name}` : name);
-      setUserEmail(user.email || '');
     }
   };
 
@@ -86,8 +84,6 @@ export default function FleetDashboard() {
       fleetId={fleetId || delegatedRole?.fleet_id || null}
       fleetName={fleetName}
       userName={userName}
-      userEmail={userEmail}
-      userRoles={roles.join(', ')}
       onLogout={handleLogout}
     />
   );

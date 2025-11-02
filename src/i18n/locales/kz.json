@@ -288,13 +288,6 @@
       "contractRodo": "Шарт / Жеке деректер"
     }
   },
-  "userDropdown": {
-    "accountInfo": "Тіркелгі туралы ақпарат",
-    "role": "Рөл",
-    "fleet": "Флот",
-    "language": "Тіл",
-    "logout": "Шығу"
-  },
   "admin": {
     "dashboard": "Әкімші панелі",
     "logout": "Шығу",
