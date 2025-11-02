@@ -271,7 +271,21 @@
     },
     "cars": {
       "addCar": "Добавить авто",
-      "rentalHistory": "История аренды"
+      "rentalHistory": "История аренды",
+      "leasedCar": "Арендованный автомобиль",
+      "productionYear": "Год выпуска",
+      "color": "Цвет",
+      "usingSince": "С какого времени пользуетесь авто"
+    },
+    "documents": {
+      "title": "Документы",
+      "manageDocuments": "Управление документами",
+      "addDocument": "Добавить документ",
+      "selectType": "Тип документа",
+      "chooseFile": "Выбрать файл",
+      "noFileSelected": "Файл не выбран",
+      "noDocuments": "Нет документов",
+      "contractRodo": "Договор / Персональные данные"
     }
   },
   "admin": {

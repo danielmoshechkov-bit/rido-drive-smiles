@@ -195,10 +195,10 @@ const DriverDashboard = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <LanguageSelector />
             {driverData?.driver_id && (
               <DriverNotificationBell driverId={driverData.driver_id} />
             )}
+            <LanguageSelector />
             <Button variant="outline" onClick={handleLogout} className="rounded-lg">
               {t('auth.logout')}
             </Button>
@@ -264,15 +264,15 @@ function CarsSection({ driverData }: { driverData: any }) {
   return (
     <div className="space-y-4">
       {/* Przycisk Dodaj auto */}
-      <div className="flex justify-start pl-4">
-        <Button 
-          onClick={() => setShowAddModal(true)}
-          className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
-        >
-          <Plus className="h-4 w-4" />
-          {t('driver.cars.addCar')}
-        </Button>
-      </div>
+                <div className="flex justify-start px-6">
+                  <Button 
+                    onClick={() => setShowAddModal(true)}
+                    className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t('driver.cars.addCar')}
+                  </Button>
+                </div>
 
 
       {/* Karta wynajętego auta */}

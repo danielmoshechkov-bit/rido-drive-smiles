@@ -271,7 +271,21 @@
     },
     "cars": {
       "addCar": "Dodaj auto",
-      "rentalHistory": "Historia wynajmów"
+      "rentalHistory": "Historia wynajmów",
+      "leasedCar": "Wynajęte auto",
+      "productionYear": "Rok produkcji",
+      "color": "Kolor",
+      "usingSince": "Od kiedy korzystasz z auta"
+    },
+    "documents": {
+      "title": "Dokumenty",
+      "manageDocuments": "Zarządzaj dokumentami",
+      "addDocument": "Dodaj dokument",
+      "selectType": "Typ dokumentu",
+      "chooseFile": "Wybierz plik",
+      "noFileSelected": "Nie wybrano pliku",
+      "noDocuments": "Brak dokumentów",
+      "contractRodo": "Umowa / RODO"
     }
   },
   "admin": {

@@ -145,18 +145,23 @@ export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewPr
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Karta:</span>
-            <span className="text-sm font-medium">{fuelCardNumber}</span>
-          </div>
-          {fuelCardPin && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">PIN:</span>
-              <PinDisplay pin={fuelCardPin} />
-            </div>
-          )}
         </div>
       </CardHeader>
+      
+      {/* Card number and PIN below header */}
+      <div className="px-6 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Karta:</span>
+          <span className="text-sm font-medium">{fuelCardNumber}</span>
+        </div>
+        {fuelCardPin && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">PIN:</span>
+            <PinDisplay pin={fuelCardPin} />
+          </div>
+        )}
+      </div>
+      
       <CardContent>
         <div className="space-y-2">
           <div className="overflow-x-auto">

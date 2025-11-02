@@ -771,7 +771,7 @@ export const DriverSettlements = ({
                     <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
                       <div className="bg-white p-4 space-y-3">
                         {/* Razem bez prowizji - DUŻA CZCIONKA */}
-                        <div className="flex justify-between text-base font-bold">
+                        <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                           <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
                           <span className="font-bold text-green-600 text-lg">
                             {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
@@ -782,23 +782,23 @@ export const DriverSettlements = ({
                         
                         {/* Razem gotówka - DUŻA CZCIONKA */}
                         {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
-                          <div className="flex justify-between text-base font-bold">
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.totalCash')}:</span>
-                            <span className="font-bold text-blue-600 text-lg">
-                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
+                            <span className="font-bold text-red-600 text-lg">
+                              -{Math.abs(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                             </span>
                           </div>
                         )}
                         
                         {/* Razem podatek 8% - DUŻA CZCIONKA */}
-                        <div className="flex justify-between text-base font-bold">
+                        <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                           <span className="font-bold">{t('weekly.totalTax')}:</span>
                           <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
                         {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
                         {fee > 0 && (
-                          <div className="flex justify-between text-base font-bold">
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.settlementFee')}:</span>
                             <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
                           </div>
@@ -806,7 +806,7 @@ export const DriverSettlements = ({
                         
                         {/* Paliwo - DUŻA CZCIONKA */}
                         {amounts.fuel > 0 && (
-                          <div className="flex justify-between text-base font-bold">
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.fuel')}:</span>
                             <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
                           </div>
@@ -814,7 +814,7 @@ export const DriverSettlements = ({
                         
                         {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
                         {amounts.fuel_vat_refund > 0 && (
-                          <div className="flex justify-between text-base font-bold">
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.fuelVatRefund')}:</span>
                             <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                           </div>
@@ -822,7 +822,7 @@ export const DriverSettlements = ({
                         
                         {/* Wynajem auta - WARUNKOWO, DUŻA CZCIONKA */}
                         {rentalFee > 0 && (
-                          <div className="flex justify-between text-base font-bold">
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.carRental')}:</span>
                             <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
                           </div>
@@ -832,8 +832,8 @@ export const DriverSettlements = ({
                       {/* Payout summary - EXTRA DUŻA CZCIONKA */}
                       <div className="border-t bg-purple-100 p-4 rounded-b-lg">
                         <div className="flex justify-between">
-                          <span className="font-extrabold text-xl">{t('weekly.payout')}:</span>
-                          <span className="font-extrabold text-purple-600 text-xl">
+                          <span className="font-extrabold text-xl text-gray-900">{t('weekly.payout')}:</span>
+                          <span className="font-extrabold text-gray-900 text-xl">
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
                         </div>

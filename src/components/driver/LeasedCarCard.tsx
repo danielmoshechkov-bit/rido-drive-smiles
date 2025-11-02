@@ -1,6 +1,7 @@
 import React from "react";
 import { Car, Calendar, Building2 } from "lucide-react";
 import { VehicleRentBlock } from "@/components/ui/VehicleRentBlock";
+import { useTranslation } from 'react-i18next';
 
 // LeasedCarCard — karta auta w panelu kierowcy (spójna z adminem)
 export function LeasedCarCard({
@@ -14,6 +15,8 @@ export function LeasedCarCard({
   fleet?: any;
   readOnlyRent?: boolean;
 }) {
+  const { t } = useTranslation();
+  
   if (!vehicle) {
     return (
       <div className="rounded-2xl border bg-card shadow-soft p-5">
@@ -32,7 +35,7 @@ export function LeasedCarCard({
         <div className="flex-1 min-w-[280px]">
           <div className="flex items-center gap-2 text-lg font-semibold text-primary mb-3">
             <Car className="h-5 w-5" />
-            Wynajęte auto
+            {t('driver.cars.leasedCar')}
           </div>
           
           <h3 className="text-2xl font-bold text-foreground">
@@ -43,9 +46,9 @@ export function LeasedCarCard({
           </div>
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm">
-            <div className="text-muted-foreground">Rok produkcji:</div>
+            <div className="text-muted-foreground">{t('driver.cars.productionYear')}:</div>
             <div className="font-medium">{vehicle.year || "—"}</div>
-            <div className="text-muted-foreground">Kolor:</div>
+            <div className="text-muted-foreground">{t('driver.cars.color')}:</div>
             <div className="font-medium">{vehicle.color || "—"}</div>
           </div>
 
@@ -84,7 +87,7 @@ export function LeasedCarCard({
           <div className="bg-primary/5 rounded-2xl p-4">
             <Calendar className="h-5 w-5 text-primary mb-2" />
             <div className="text-muted-foreground text-sm">
-              Od kiedy korzystasz z auta:
+              {t('driver.cars.usingSince')}:
             </div>
             <div className="font-semibold text-foreground">
               {assignment?.assigned_at

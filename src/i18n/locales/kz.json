@@ -271,7 +271,21 @@
     },
     "cars": {
       "addCar": "Көлік қосу",
-      "rentalHistory": "Жалдау тарихы"
+      "rentalHistory": "Жалдау тарихы",
+      "leasedCar": "Жалға алынған автомобиль",
+      "productionYear": "Шығарылған жылы",
+      "color": "Түс",
+      "usingSince": "Қашаннан бастап пайдаланасыз"
+    },
+    "documents": {
+      "title": "Құжаттар",
+      "manageDocuments": "Құжаттарды басқару",
+      "addDocument": "Құжат қосу",
+      "selectType": "Құжат түрі",
+      "chooseFile": "Файл таңдау",
+      "noFileSelected": "Файл таңдалмады",
+      "noDocuments": "Құжаттар жоқ",
+      "contractRodo": "Шарт / Жеке деректер"
     }
   },
   "admin": {

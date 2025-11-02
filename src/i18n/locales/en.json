@@ -271,7 +271,21 @@
     },
     "cars": {
       "addCar": "Add Car",
-      "rentalHistory": "Rental History"
+      "rentalHistory": "Rental History",
+      "leasedCar": "Leased Car",
+      "productionYear": "Production Year",
+      "color": "Color",
+      "usingSince": "Using Since"
+    },
+    "documents": {
+      "title": "Documents",
+      "manageDocuments": "Manage Documents",
+      "addDocument": "Add Document",
+      "selectType": "Document Type",
+      "chooseFile": "Choose File",
+      "noFileSelected": "No File Selected",
+      "noDocuments": "No Documents",
+      "contractRodo": "Contract / GDPR"
     }
   },
   "admin": {
