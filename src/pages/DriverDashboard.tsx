@@ -631,13 +631,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
 
   return (
     <div className="space-y-4">
-      {/* Add notification bell for documents */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Dokumenty</h2>
-        {driverData?.driver_id && (
-          <DriverNotificationBell driverId={driverData.driver_id} />
-        )}
-      </div>
+      <h2 className="text-xl font-semibold">Dokumenty</h2>
 
       <Card className="rounded-xl shadow-soft">
         <CardHeader>

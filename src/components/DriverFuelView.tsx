@@ -39,26 +39,16 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     try {
       setLoading(true);
 
-      // Normalize driver's card number (remove leading zeros)
-      const normalizedDriverCard = fuelCardNumber.replace(/^0+/, '');
-
-      // Fetch all fuel transactions for the period
-      const { data: allTransactions, error: transactionsError } = await supabase
-        .from('fuel_transactions')
-        .select('*')
-        .gte('transaction_date', periodFrom)
-        .lte('transaction_date', periodTo)
-        .order('transaction_date', { ascending: false });
+      // Use secure RPC function to fetch driver's own fuel transactions
+      const { data: driverTransactions, error: transactionsError } = await supabase
+        .rpc('my_fuel_transactions', {
+          p_from: periodFrom,
+          p_to: periodTo
+        });
 
       if (transactionsError) throw transactionsError;
 
-      // Filter transactions where the normalized card number matches
-      const driverTransactions = (allTransactions || []).filter(t => {
-        const normalizedTransactionCard = t.card_number.replace(/^0+/, '');
-        return normalizedTransactionCard === normalizedDriverCard;
-      });
-
-      setTransactions(driverTransactions);
+      setTransactions(driverTransactions || []);
 
     } catch (error: any) {
       console.error('Error fetching fuel transactions:', error);

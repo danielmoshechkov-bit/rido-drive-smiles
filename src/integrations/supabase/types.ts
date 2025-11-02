@@ -2295,6 +2295,33 @@ export type Database = {
         Args: { p_driver_id: string; p_user_id: string }
         Returns: undefined
       }
+      my_fuel_transactions: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          brand: string | null
+          card_number: string
+          created_at: string | null
+          driver_name: string | null
+          fuel_type: string | null
+          id: string
+          import_batch_id: string | null
+          import_date: string | null
+          liters: number | null
+          period_from: string
+          period_to: string
+          price_per_liter: number | null
+          total_amount: number
+          transaction_date: string
+          transaction_time: string
+          vehicle_number: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fuel_transactions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "fleet_settlement" | "fleet_rental" | "driver"
