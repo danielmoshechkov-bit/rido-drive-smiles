@@ -20,7 +20,10 @@ import { AdminSettingsView } from "@/components/AdminSettingsView";
 import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { TabsPill } from "@/components/ui/TabsPill";
+import { UserDropdown } from "@/components/UserDropdown";
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -30,6 +33,7 @@ const AdminDashboard = () => {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [showRebuildModal, setShowRebuildModal] = useState(false);
   const [sanitizing, setSanitizing] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
@@ -71,6 +75,17 @@ const AdminDashboard = () => {
       setSelectedCity(warszawa || cities[0]);
     }
   }, [cities, selectedCity]);
+
+  // Fetch user email
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || '');
+      }
+    };
+    fetchUserEmail();
+  }, []);
 
   const handleLogout = () => {
     navigate('/');
@@ -131,21 +146,49 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="Get RIDO Logo" 
-              className="h-8 w-8"
-            />
-            <h1 className="text-xl font-bold text-primary">{t('admin.dashboard')}</h1>
+        <div className="container mx-auto px-4 py-3">
+          {/* Desktop header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-6 w-6"
+              />
+              <h1 className="text-base font-bold text-primary">{t('admin.dashboard')}</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <UserDropdown 
+                userName="Administrator"
+                userRole="Administrator"
+                userEmail={userEmail}
+                onLogout={handleLogout}
+              />
+              <div className="scale-90">
+                <SystemAlertsButton />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <SystemAlertsButton />
-            <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout}>
-              {t('admin.logout')}
-            </Button>
+
+          {/* Mobile header */}
+          <div className="md:hidden flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-6 w-6"
+              />
+              <span className="text-sm font-semibold text-primary">Panel Admin</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <SystemAlertsButton />
+              <UserDropdown 
+                userName="Admin"
+                userRole="Administrator"
+                userEmail={userEmail}
+                onLogout={handleLogout}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -159,58 +202,126 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-9 w-full grid grid-cols-8">
-            <TabsTrigger 
-              value="weekly-report" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.weeklyReport')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="settlements" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.settlements')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="drivers-list" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.driversList')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="fleet" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              Flota
-            </TabsTrigger>
-            <TabsTrigger 
-              value="documents" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              Dokumenty
-            </TabsTrigger>
-            <TabsTrigger 
-              value="settings" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.settings')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="reports" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              {t('admin.reports')}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="system-alerts" 
-              className="data-[state=active]:bg-white data-[state=active]:text-primary rounded-md hover:bg-white/5 transition-all px-4 py-1.5 text-sm font-medium"
-            >
-              Informacje
-            </TabsTrigger>
-          </TabsList>
+          {/* Desktop - TabsPill */}
+          <div className="hidden md:block">
+            <TabsPill value={activeTab} onValueChange={setActiveTab}>
+              <TabsTrigger value="weekly-report">
+                {t('admin.weeklyReport')}
+              </TabsTrigger>
+              <TabsTrigger value="settlements">
+                {t('admin.settlements')}
+              </TabsTrigger>
+              <TabsTrigger value="drivers-list">
+                {t('admin.driversList')}
+              </TabsTrigger>
+              <TabsTrigger value="fleet">
+                Flota
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                Dokumenty
+              </TabsTrigger>
+              <TabsTrigger value="settings">
+                {t('admin.settings')}
+              </TabsTrigger>
+              <TabsTrigger value="reports">
+                {t('admin.reports')}
+              </TabsTrigger>
+              <TabsTrigger value="system-alerts">
+                Informacje
+              </TabsTrigger>
+            </TabsPill>
+          </div>
+
+          {/* Mobile - Hamburger menu */}
+          <div className="md:hidden mb-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
+                    <Menu className="h-4 w-4 text-white" />
+                  </Button>
+                </div>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                <div className="space-y-2 mt-6">
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('weekly-report')}
+                    >
+                      {t('admin.weeklyReport')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('settlements')}
+                    >
+                      {t('admin.settlements')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('drivers-list')}
+                    >
+                      {t('admin.driversList')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('fleet')}
+                    >
+                      Flota
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('documents')}
+                    >
+                      Dokumenty
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'settings' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('settings')}
+                    >
+                      {t('admin.settings')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'reports' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('reports')}
+                    >
+                      {t('admin.reports')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('system-alerts')}
+                    >
+                      Informacje
+                    </Button>
+                  </SheetTrigger>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
           <TabsContent value="weekly-report" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

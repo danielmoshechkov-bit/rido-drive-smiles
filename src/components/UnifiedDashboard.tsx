@@ -29,18 +29,22 @@ import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu } from "lucide-react";
 import LanguageSelector from "@/components/LanguageSelector";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { TabsPill } from "@/components/ui/TabsPill";
+import { UserDropdown } from "@/components/UserDropdown";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
   fleetId?: string | null;
   fleetName?: string;
   userName?: string;
+  userEmail?: string;
   onLogout: () => void;
 }
 
-export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLogout }: UnifiedDashboardProps) {
+export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userEmail, onLogout }: UnifiedDashboardProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
@@ -187,26 +191,63 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="Get RIDO Logo" 
-              className="h-8 w-8"
-            />
-            <h1 className="text-xl font-bold text-primary">
-              {userType === 'admin' 
-                ? t('admin.dashboard') 
-                : `Panel Flotowy - ${fleetName}${userName ? ` - ${userName}` : ''}`
-              }
-            </h1>
+        <div className="container mx-auto px-4 py-3">
+          {/* Desktop header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-6 w-6"
+              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-primary">
+                  {userType === 'admin' ? 'Panel Administracyjny' : `Panel Flotowy - ${fleetName}`}
+                </span>
+                {userName && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="font-medium text-foreground">{userName}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <UserDropdown 
+                userName={userName || (userType === 'admin' ? 'Admin' : 'Fleet Manager')}
+                userRole={userType === 'admin' ? 'Administrator' : 'Fleet Manager'}
+                userEmail={userEmail}
+                fleetName={userType === 'fleet' ? fleetName : undefined}
+                onLogout={onLogout}
+              />
+              <div className="scale-90">
+                <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
-            <LanguageSelector />
-            <Button variant="outline" onClick={onLogout}>
-              {t('admin.logout')}
-            </Button>
+
+          {/* Mobile header */}
+          <div className="md:hidden flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-6 w-6"
+              />
+              <span className="text-sm font-semibold text-primary truncate max-w-[150px]">
+                {userType === 'admin' ? 'Panel Admin' : fleetName}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
+              <UserDropdown 
+                userName={userName || (userType === 'admin' ? 'Admin' : 'User')}
+                userRole={userType === 'admin' ? 'Administrator' : 'Fleet Manager'}
+                userEmail={userEmail}
+                fleetName={userType === 'fleet' ? fleetName : undefined}
+                onLogout={onLogout}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -222,100 +263,240 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-auto w-full flex flex-wrap gap-1">
-            {canViewTab('weekly-report') && (
-              <TabsTrigger value="weekly-report" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <BarChart className="h-4 w-4 mr-2" />
-                {t('admin.weeklyReport')}
-              </TabsTrigger>
-            )}
-            {canViewTab('settlements') && (
-              <TabsTrigger value="settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <DollarSign className="h-4 w-4 mr-2" />
-                {t('admin.settlements')}
-              </TabsTrigger>
-            )}
-            {canViewTab('drivers-list') && (
-              <TabsTrigger value="drivers-list" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <Users className="h-4 w-4 mr-2" />
-                {t('admin.driversList')}
-              </TabsTrigger>
-            )}
-            {canViewTab('fleet') && (
-              <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <Car className="h-4 w-4 mr-2" />
-                Flota
-              </TabsTrigger>
-            )}
-            {canViewTab('documents') && (
-              <TabsTrigger value="documents" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <FileText className="h-4 w-4 mr-2" />
-                Dokumenty
-              </TabsTrigger>
-            )}
-            {canViewTab('system-alerts') && (
-              <TabsTrigger value="system-alerts" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <Info className="h-4 w-4 mr-2" />
-                Informacje
-              </TabsTrigger>
-            )}
-            {canViewTab('fleet-accounts') && (
-              <TabsTrigger value="fleet-accounts" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                Konta flotowe
-              </TabsTrigger>
-            )}
-            {canViewTab('user-roles') && (
-              <TabsTrigger value="user-roles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                Uprawnienia
-              </TabsTrigger>
-            )}
-            {canViewTab('plans') && (
-              <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                Plany
-              </TabsTrigger>
-            )}
-            {canViewTab('visibility') && (
-              <TabsTrigger value="visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                Widoczność
-              </TabsTrigger>
-            )}
-            {canViewTab('tab-visibility') && (
-              <TabsTrigger value="tab-visibility" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                Widoczność zakładek
-              </TabsTrigger>
-            )}
-            {canViewTab('data-import') && (
-              <TabsTrigger value="data-import" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                {t('admin.dataImport')}
-              </TabsTrigger>
-            )}
-            {canViewTab('settings') && (
-              <TabsTrigger value="settings" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <Settings className="h-4 w-4 mr-2" />
-                {t('admin.settings')}
-              </TabsTrigger>
-            )}
-            {canViewTab('reports') && (
-              <TabsTrigger value="reports" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                {t('admin.reports')}
-              </TabsTrigger>
-            )}
-            {userType === 'fleet' && (
-              <TabsTrigger value="informacje" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <Info className="h-4 w-4 mr-2" />
-                Informacje
-              </TabsTrigger>
-            )}
-            {roles.includes('driver') && myDriverId && !roles.includes('fleet_rental') && !roles.includes('fleet_settlement') && (
-              <TabsTrigger value="my-settlements" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Moje rozliczenia
-              </TabsTrigger>
-            )}
-          </TabsList>
+          {/* Desktop - TabsPill */}
+          <div className="hidden md:block">
+            <TabsPill value={activeTab} onValueChange={setActiveTab}>
+              {canViewTab('weekly-report') && (
+                <TabsTrigger value="weekly-report">
+                  <BarChart className="h-4 w-4 mr-2" />
+                  {t('admin.weeklyReport')}
+                </TabsTrigger>
+              )}
+              {canViewTab('settlements') && (
+                <TabsTrigger value="settlements">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  {t('admin.settlements')}
+                </TabsTrigger>
+              )}
+              {canViewTab('drivers-list') && (
+                <TabsTrigger value="drivers-list">
+                  <Users className="h-4 w-4 mr-2" />
+                  {t('admin.driversList')}
+                </TabsTrigger>
+              )}
+              {canViewTab('fleet') && (
+                <TabsTrigger value="fleet">
+                  <Car className="h-4 w-4 mr-2" />
+                  Flota
+                </TabsTrigger>
+              )}
+              {canViewTab('documents') && (
+                <TabsTrigger value="documents">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Dokumenty
+                </TabsTrigger>
+              )}
+              {canViewTab('system-alerts') && (
+                <TabsTrigger value="system-alerts">
+                  <Info className="h-4 w-4 mr-2" />
+                  Informacje
+                </TabsTrigger>
+              )}
+              {canViewTab('fleet-accounts') && (
+                <TabsTrigger value="fleet-accounts">
+                  Konta flotowe
+                </TabsTrigger>
+              )}
+              {canViewTab('user-roles') && (
+                <TabsTrigger value="user-roles">
+                  Uprawnienia
+                </TabsTrigger>
+              )}
+              {canViewTab('plans') && (
+                <TabsTrigger value="plans">
+                  Plany
+                </TabsTrigger>
+              )}
+              {canViewTab('visibility') && (
+                <TabsTrigger value="visibility">
+                  Widoczność
+                </TabsTrigger>
+              )}
+              {canViewTab('tab-visibility') && (
+                <TabsTrigger value="tab-visibility">
+                  Widoczność zakładek
+                </TabsTrigger>
+              )}
+              {canViewTab('data-import') && (
+                <TabsTrigger value="data-import">
+                  {t('admin.dataImport')}
+                </TabsTrigger>
+              )}
+              {canViewTab('settings') && (
+                <TabsTrigger value="settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  {t('admin.settings')}
+                </TabsTrigger>
+              )}
+              {canViewTab('reports') && (
+                <TabsTrigger value="reports">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  {t('admin.reports')}
+                </TabsTrigger>
+              )}
+              {userType === 'fleet' && (
+                <TabsTrigger value="informacje">
+                  <Info className="h-4 w-4 mr-2" />
+                  Informacje
+                </TabsTrigger>
+              )}
+              {roles.includes('driver') && myDriverId && !roles.includes('fleet_rental') && !roles.includes('fleet_settlement') && (
+                <TabsTrigger value="my-settlements">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Moje rozliczenia
+                </TabsTrigger>
+              )}
+            </TabsPill>
+          </div>
+
+          {/* Mobile - Hamburger menu */}
+          <div className="md:hidden mb-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
+                    <Menu className="h-4 w-4 text-white" />
+                  </Button>
+                </div>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                <div className="space-y-2 mt-6">
+                  {canViewTab('weekly-report') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('weekly-report')}
+                      >
+                        <BarChart className="h-4 w-4 mr-2" />
+                        {t('admin.weeklyReport')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('settlements') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('settlements')}
+                      >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        {t('admin.settlements')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('drivers-list') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('drivers-list')}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        {t('admin.driversList')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('fleet') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('fleet')}
+                      >
+                        <Car className="h-4 w-4 mr-2" />
+                        Flota
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('documents') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('documents')}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Dokumenty
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('system-alerts') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('system-alerts')}
+                      >
+                        <Info className="h-4 w-4 mr-2" />
+                        Informacje
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('settings') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'settings' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('settings')}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        {t('admin.settings')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {canViewTab('reports') && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'reports' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('reports')}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        {t('admin.reports')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {userType === 'fleet' && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('informacje')}
+                      >
+                        <Info className="h-4 w-4 mr-2" />
+                        Informacje
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  {roles.includes('driver') && myDriverId && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'my-settlements' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('my-settlements')}
+                      >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Moje rozliczenia
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
           {canViewTab('weekly-report') && (
             <TabsContent value="weekly-report" className="space-y-6">

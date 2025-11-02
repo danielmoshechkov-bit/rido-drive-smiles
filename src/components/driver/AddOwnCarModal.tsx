@@ -225,7 +225,7 @@ export function AddOwnCarModal({
           <Button variant="outline" onClick={onClose}>
             Anuluj
           </Button>
-          <Button onClick={save} disabled={loading}>
+          <Button onClick={save} disabled={loading} size="sm" className="h-9 text-sm px-6">
             {loading ? "Zapisywanie..." : "Zapisz pojazd"}
           </Button>
         </DialogFooter>
