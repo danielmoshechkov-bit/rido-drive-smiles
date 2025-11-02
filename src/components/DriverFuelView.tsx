@@ -85,9 +85,6 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     <Card className="shadow-sm">
       <CardHeader className="py-2">
         <CardTitle className="text-sm">{t('fuel.title')}</CardTitle>
-        <CardDescription className="text-xs">
-          {t('fuel.transactionsForPeriod')} {periodFrom} - {periodTo}
-        </CardDescription>
       </CardHeader>
       <CardContent className="p-2">
         <div className="space-y-1">
@@ -107,7 +104,12 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                   <td className="py-1.5 px-1.5 text-xs">{fuelCardNumber}</td>
                   <td className="py-1.5 px-1.5 text-xs text-right">{transactions.length}</td>
                   <td className="py-1.5 px-1.5 text-xs text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-1.5 px-1.5 text-xs text-right font-medium">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right font-medium">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{totalAmount.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">zł</span>
+                    </div>
+                  </td>
                   <td className="py-1.5 px-1.5 text-center">
                     <Button
                       variant="ghost"
@@ -125,14 +127,17 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                 </tr>
                 {expanded && (
                   <tr>
-                    <td colSpan={5} className="py-1.5 px-1.5 bg-muted/30">
-                      <div className="space-y-0.5 text-xs">
+                    <td colSpan={5} className="p-1 bg-muted/30">
+                      <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
                         {transactions.map((trans) => (
-                          <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50">
-                            <span>{trans.transaction_date} {trans.transaction_time}</span>
-                            <span>{trans.brand} - {trans.fuel_type}</span>
-                            <span>{trans.liters.toFixed(2)} L</span>
-                            <span className="font-medium">{trans.total_amount.toFixed(2)} zł</span>
+                          <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
+                            <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
+                            <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
+                            <span className="whitespace-nowrap">{trans.liters.toFixed(2)} L</span>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
+                              <span className="text-xs text-muted-foreground">zł</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -143,7 +148,12 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                   <td className="py-1.5 px-1.5 text-xs">{t('fuel.total')}</td>
                   <td className="py-1.5 px-1.5 text-xs text-right">{transactions.length}</td>
                   <td className="py-1.5 px-1.5 text-xs text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-1.5 px-1.5 text-xs text-right">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{totalAmount.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">zł</span>
+                    </div>
+                  </td>
                   <td></td>
                 </tr>
               </tbody>

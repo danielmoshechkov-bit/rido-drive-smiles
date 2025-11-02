@@ -227,11 +227,11 @@ const DriverDashboard = () => {
         <div className="lg:hidden mb-4">
           <div className="flex items-stretch gap-0 bg-white rounded-full border border-gray-200 shadow-sm overflow-hidden">
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none flex-shrink-0">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-2 border-gray-200 bg-white shadow-sm hover:bg-gray-50 flex-shrink-0">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
             <SheetContent side="left" className="w-[280px]">
               <SheetHeader>
                 <SheetTitle>{t('driver.panel')}</SheetTitle>
@@ -284,8 +284,8 @@ const DriverDashboard = () => {
                 size="sm"
                 onClick={() => setWeeklySubTab('my')}
                 className={weeklySubTab === 'my' 
-                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white hover:bg-primary/90" 
-                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"}
+                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white" 
+                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-gray-100 hover:bg-primary/20"}
               >
                 Wynik tygodniowy
               </Button>
@@ -297,8 +297,8 @@ const DriverDashboard = () => {
                 size="sm"
                 onClick={() => setWeeklySubTab('fuel')}
                 className={weeklySubTab === 'fuel' 
-                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white hover:bg-primary/90" 
-                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"}
+                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white" 
+                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-gray-100 hover:bg-primary/20"}
               >
                 Rozliczenie paliwa
               </Button>
@@ -550,8 +550,8 @@ function SettlementsWithSubTabs({
   if (currentTab === "fuel") {
     return (
       <div>
-        {/* UniversalSubTabBar TYLKO na desktop */}
-        <div className="hidden lg:block">
+        {/* UniversalSubTabBar ukryty */}
+        <div className="hidden">
           <UniversalSubTabBar
             activeTab={currentTab}
             onTabChange={handleTabChange}
@@ -633,8 +633,8 @@ function SettlementsWithSubTabs({
 
   return (
     <div>
-      {/* UniversalSubTabBar TYLKO na desktop */}
-      <div className="hidden lg:block">
+      {/* UniversalSubTabBar ukryty */}
+      <div className="hidden">
         <UniversalSubTabBar
           activeTab={currentTab}
           onTabChange={handleTabChange}

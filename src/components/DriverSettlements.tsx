@@ -689,7 +689,7 @@ export const DriverSettlements = ({
                 return (
                   <div key={periodKey} className="space-y-0">
                      {/* 1. PODSUMOWANIE - fioletowe tło z białymi separatorami */}
-                     <div className="lg:hidden bg-primary rounded-t-lg overflow-hidden">
+                     <div className="lg:hidden bg-[hsl(259_65%_48%)] rounded-t-lg overflow-hidden">
                        <div className="flex justify-between items-center px-3 py-2.5 border-b border-white/20">
                          <span className="text-xs font-medium text-white">
                            Bez prowizji
