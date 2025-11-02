@@ -149,7 +149,7 @@ export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewPr
       </CardHeader>
       
       {/* Card number and PIN below header */}
-      <div className="px-6 pb-3 flex items-center justify-between">
+      <div className="px-6 pb-3 flex items-center justify-start gap-6">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Karta:</span>
           <span className="text-sm font-medium">{fuelCardNumber}</span>

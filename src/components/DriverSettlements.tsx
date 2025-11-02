@@ -854,7 +854,7 @@ export const DriverSettlements = ({
                           </thead>
                           <tbody>
                             {/* Podstawa opodatkowania */}
-                            <tr className="border-t hover:bg-yellow-200">
+                            <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.base')}</td>
                               <td className="p-2 text-right font-medium">
                                 {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
@@ -868,7 +868,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Prowizja */}
-                            <tr className="border-t hover:bg-yellow-200">
+                            <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.commission')}</td>
                               <td className="p-2 text-right font-medium text-amber-600">
                                 {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
@@ -882,7 +882,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Gotówka pobrana (informacyjnie) */}
-                            <tr className="border-t hover:bg-yellow-200">
+                            <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.cashCollected')}</td>
                               <td className="p-2 text-right font-medium text-blue-600">
                                 {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
@@ -896,7 +896,7 @@ export const DriverSettlements = ({
                             </tr>
                             
                             {/* Podatek 8% */}
-                            <tr className="border-t hover:bg-yellow-200">
+                            <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.tax8')}</td>
                               <td className="p-2 text-right font-medium text-destructive">
                                 {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}

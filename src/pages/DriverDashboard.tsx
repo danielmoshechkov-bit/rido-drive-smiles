@@ -264,7 +264,7 @@ function CarsSection({ driverData }: { driverData: any }) {
   return (
     <div className="space-y-4">
       {/* Przycisk Dodaj auto */}
-                <div className="flex justify-start px-6">
+                <div className="flex justify-start px-8">
                   <Button 
                     onClick={() => setShowAddModal(true)}
                     className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
@@ -321,19 +321,19 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
         tabs={subTabs}
       />
       
-      {activeSubTab === "fuel" ? (
-        <div className="mt-4">
+      <div className="pt-4">
+        {activeSubTab === "fuel" ? (
           <DriverFuelView 
             fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
             fuelCardPin={driverData.drivers?.fuel_card_pin}
           />
-        </div>
-      ) : (
-        <DriverSettlements 
-          driverId={driverData.driver_id} 
-          hideControls={false}
-        />
-      )}
+        ) : (
+          <DriverSettlements 
+            driverId={driverData.driver_id} 
+            hideControls={false}
+          />
+        )}
+      </div>
     </div>
   );
 }
