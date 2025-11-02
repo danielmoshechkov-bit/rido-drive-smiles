@@ -9,9 +9,11 @@ import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { getAvailableWeeks, getCurrentWeekNumber } from '@/lib/utils';
+import { PinDisplay } from '@/components/PinDisplay';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
+  fuelCardPin?: string;
 }
 
 interface FuelTransaction {
@@ -26,7 +28,7 @@ interface FuelTransaction {
   fuel_type: string;
 }
 
-export function DriverFuelView({ fuelCardNumber }: DriverFuelViewProps) {
+export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewProps) {
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +52,9 @@ export function DriverFuelView({ fuelCardNumber }: DriverFuelViewProps) {
     if (fuelType.includes('Skroplony gaz') || fuelType.includes('LPG')) {
       shortType = 'LPG';
     } else if (fuelType.includes('Benzyna 95')) {
-      shortType = 'benzyna 95';
+      shortType = 'PB95';
     } else if (fuelType.includes('Benzyna 98')) {
-      shortType = 'benzyna 98';
+      shortType = 'PB98';
     } else if (fuelType.includes('Diesel') || fuelType.includes('ON')) {
       shortType = 'diesel';
     }
@@ -143,6 +145,16 @@ export function DriverFuelView({ fuelCardNumber }: DriverFuelViewProps) {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Karta:</span>
+            <span className="text-sm font-medium">{fuelCardNumber}</span>
+          </div>
+          {fuelCardPin && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">PIN:</span>
+              <PinDisplay pin={fuelCardPin} />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>

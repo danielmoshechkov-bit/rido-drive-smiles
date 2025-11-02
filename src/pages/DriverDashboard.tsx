@@ -12,7 +12,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
@@ -23,7 +23,7 @@ import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 
 const DriverDashboard = () => {
@@ -261,7 +261,7 @@ function CarsSection({ driverData }: { driverData: any }) {
   return (
     <div className="space-y-4">
       {/* Przycisk Dodaj auto */}
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button 
           onClick={() => setShowAddModal(true)}
           className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
@@ -289,88 +289,6 @@ function CarsSection({ driverData }: { driverData: any }) {
   );
 }
 
-// PIN Display component with password verification
-function PinDisplay({ pin }: { pin: string }) {
-  const [revealed, setRevealed] = useState(false);
-  const [password, setPassword] = useState("");
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
-
-  const handleReveal = async () => {
-    if (revealed) {
-      setRevealed(false);
-      return;
-    }
-    setShowPasswordPrompt(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.email) {
-      toast.error("Nie można zweryfikować użytkownika");
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: password
-    });
-
-    if (error) {
-      toast.error("Nieprawidłowe hasło");
-      setPassword("");
-      return;
-    }
-
-    setRevealed(true);
-    setShowPasswordPrompt(false);
-    setPassword("");
-    
-    // Auto-hide after 30 seconds
-    setTimeout(() => setRevealed(false), 30000);
-  };
-
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        <p className="text-lg font-semibold text-primary">
-          {revealed ? pin : "••••"}
-        </p>
-        <Button 
-          size="sm" 
-          variant="ghost" 
-          onClick={handleReveal}
-          className="h-6 w-6 p-0"
-        >
-          {revealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-        </Button>
-      </div>
-
-      <Dialog open={showPasswordPrompt} onOpenChange={setShowPasswordPrompt}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Potwierdź swoją tożsamość</DialogTitle>
-            <DialogDescription>
-              Wprowadź hasło do konta, aby wyświetlić PIN karty paliwowej
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            type="password"
-            placeholder="Hasło"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordPrompt(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handlePasswordSubmit}>Potwierdź</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
 
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
 function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
@@ -400,36 +318,10 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
       />
       
       {activeSubTab === "fuel" ? (
-        <div className="space-y-4 mt-4">
-          {/* Compact horizontal layout for Card Number and PIN */}
-          <div className="flex gap-3 items-center flex-wrap">
-            {/* Fuel Card Number */}
-            {driverData.drivers?.fuel_card_number ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Karta:</span>
-                <span className="text-sm font-medium">{driverData.drivers.fuel_card_number}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-sm">Brak karty paliwowej</span>
-              </div>
-            )}
-
-            {/* PIN with security */}
-            {driverData.drivers?.fuel_card_pin ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">PIN:</span>
-                <PinDisplay pin={driverData.drivers.fuel_card_pin} />
-              </div>
-            ) : driverData.drivers?.fuel_card_number && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-sm">PIN nie został jeszcze ustawiony</span>
-              </div>
-            )}
-          </div>
-          
+        <div className="mt-4">
           <DriverFuelView 
             fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
+            fuelCardPin={driverData.drivers?.fuel_card_pin}
           />
         </div>
       ) : (
