@@ -399,8 +399,11 @@ export function FleetSettlementsView({
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
   }
 
-  // Render "Przychody aut" tab (vehicles) OR when parent controls "my"
-  if (activeSubTab === "vehicles" || (initialSubTab === 'my' && hideSubTabBar && activeSubTab === 'my')) {
+  // Render "Przychody aut" when parent passes 'my' OR internal "vehicles"
+  if (
+    activeSubTab === "vehicles" || 
+    (hideSubTabBar && initialSubTab === 'my')
+  ) {
     return (
       <div>
         {!hideSubTabBar && (
@@ -418,8 +421,11 @@ export function FleetSettlementsView({
     );
   }
 
-  // Render "Paliwo" tab (fuel) OR when parent controls "drivers"
-  if (activeSubTab === "fuel" || (initialSubTab === 'drivers' && hideSubTabBar && activeSubTab === 'drivers')) {
+  // Render "Paliwo" when parent passes 'drivers' OR internal "fuel"
+  if (
+    activeSubTab === "fuel" || 
+    (hideSubTabBar && initialSubTab === 'drivers')
+  ) {
     return (
       <div className="space-y-6">
         {!hideSubTabBar && (
@@ -439,7 +445,6 @@ export function FleetSettlementsView({
           </CardHeader>
           <CardContent>
             <FuelCSVUpload onUploadComplete={() => {
-              // Trigger refresh of fuel view
               fetchSettlements();
             }} />
           </CardContent>

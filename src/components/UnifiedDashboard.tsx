@@ -373,28 +373,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                     </Button>
                   </div>
                 </SheetTrigger>
-
-              {/* Sub-menu buttons - visible only for settlements tab in fleet mode */}
-              {activeTab === 'settlements' && userType === 'fleet' && (
-                <div className="flex gap-2 flex-1">
-                  <Button
-                    variant={activeSubTab === 'my' ? 'default' : 'outline'}
-                    size="sm"
-                    className="rounded-full px-4 shadow-sm text-xs flex-1"
-                    onClick={() => setActiveSubTab('my')}
-                  >
-                    Moje rozliczenia
-                  </Button>
-                  <Button
-                    variant={activeSubTab === 'drivers' ? 'default' : 'outline'}
-                    size="sm"
-                    className="rounded-full px-4 shadow-sm text-xs flex-1"
-                    onClick={() => setActiveSubTab('drivers')}
-                  >
-                    Rozliczenia kierowców
-                  </Button>
-                </div>
-              )}
               
                 <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
                 <div className="space-y-2 mt-6">
@@ -521,6 +499,28 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 </div>
               </SheetContent>
             </Sheet>
+
+            {/* Sub-menu buttons - MOVED OUTSIDE Sheet, visible only for settlements tab in fleet mode */}
+            {activeTab === 'settlements' && userType === 'fleet' && (
+              <div className="flex gap-2 flex-1">
+                <Button
+                  variant={activeSubTab === 'my' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('my')}
+                >
+                  Rozliczenia aut
+                </Button>
+                <Button
+                  variant={activeSubTab === 'drivers' ? 'default' : 'outline'}
+                  size="sm"
+                  className="rounded-full px-4 shadow-sm text-xs flex-1"
+                  onClick={() => setActiveSubTab('drivers')}
+                >
+                  Paliwo
+                </Button>
+              </div>
+            )}
             </div>
           </div>
 
