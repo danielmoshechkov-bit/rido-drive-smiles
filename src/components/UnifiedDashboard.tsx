@@ -207,6 +207,8 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               userRole={userRoles || 'Fleet'}
               userEmail={userEmail}
               fleetName={fleetName}
+              onLogout={onLogout}
+              showLanguageInside={false}
             />
             <div className="scale-90">
               <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
@@ -214,9 +216,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             <div className="scale-90">
               <LanguageSelector />
             </div>
-            <Button variant="outline" onClick={onLogout} size="sm" className="text-sm">
-              Wyloguj
-            </Button>
           </div>
         </div>
       </div>

@@ -259,11 +259,15 @@
     "logout": "Вийти"
   },
   "driver": {
+    "role": "Водій",
     "tabs": {
       "settlements": "Тижневий розрахунок",
+      "mySettlements": "Мої розрахунки",
+      "fuel": "Паливо",
       "cars": "Автомобіль",
       "documents": "Документи",
-      "information": "Інформація"
+      "information": "Інформація",
+      "fleet": "Флот"
     },
     "settlements": {
       "mySettlements": "Мої розрахунки",
@@ -287,6 +291,13 @@
       "noDocuments": "Немає документів",
       "contractRodo": "Договір / Персональні дані"
     }
+  },
+  "userDropdown": {
+    "accountInfo": "Інформація про обліковий запис",
+    "role": "Роль",
+    "fleet": "Флот",
+    "language": "Мова",
+    "logout": "Вийти"
   },
   "admin": {
     "dashboard": "Панель адміністратора",

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { pl } from 'date-fns/locale';
+import { pl, enUS, ru, uk } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,7 +82,16 @@ export const DriverSettlements = ({
   const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const { role } = useUserRole();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const localeMap: Record<string, any> = {
+    pl: pl,
+    en: enUS,
+    ru: ru,
+    ua: uk,
+    kz: ru // Kazakh uses Russian locale as fallback
+  };
+  const currentLocale = localeMap[i18n.language] || pl;
 
   const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
@@ -658,7 +667,7 @@ export const DriverSettlements = ({
                   <span className="font-semibold text-lg">{t('weekly.title')}</span>
                   {currentWeek && (
                     <span className="text-sm text-muted-foreground mt-1">
-                      {format(new Date(currentWeek.start), 'd MMM', { locale: pl })} - {format(new Date(currentWeek.end), 'd MMM yyyy', { locale: pl })}
+                      {format(new Date(currentWeek.start), 'd MMM', { locale: currentLocale })} - {format(new Date(currentWeek.end), 'd MMM yyyy', { locale: currentLocale })}
                     </span>
                   )}
                 </div>

@@ -288,6 +288,13 @@
       "contractRodo": "Contract / GDPR"
     }
   },
+  "userDropdown": {
+    "accountInfo": "Account Information",
+    "role": "Role",
+    "fleet": "Fleet",
+    "language": "Language",
+    "logout": "Logout"
+  },
   "admin": {
     "dashboard": "Admin Dashboard",
     "logout": "Logout",

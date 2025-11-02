@@ -259,11 +259,15 @@
     "logout": "Wyloguj"
   },
   "driver": {
+    "role": "Kierowca",
     "tabs": {
       "settlements": "Rozliczenie tygodniowe",
+      "mySettlements": "Moje rozliczenia",
+      "fuel": "Paliwo",
       "cars": "Samochód",
       "documents": "Dokumenty",
-      "information": "Informacje"
+      "information": "Informacje",
+      "fleet": "Flota"
     },
     "settlements": {
       "mySettlements": "Moje rozliczenia",
@@ -287,6 +291,13 @@
       "noDocuments": "Brak dokumentów",
       "contractRodo": "Umowa / RODO"
     }
+  },
+  "userDropdown": {
+    "accountInfo": "Informacje o koncie",
+    "role": "Rola",
+    "fleet": "Flota",
+    "language": "Język",
+    "logout": "Wyloguj"
   },
   "admin": {
     "dashboard": "Panel Administratora",

@@ -160,8 +160,10 @@ const AdminDashboard = () => {
           <div className="flex items-center space-x-3">
             <UserDropdown 
               userName={adminUserName}
-              userRole="Administrator"
+              userRole={t('admin.dashboard')}
               userEmail={adminEmail}
+              onLogout={handleLogout}
+              showLanguageInside={false}
             />
             <div className="scale-90">
               <SystemAlertsButton />
@@ -169,9 +171,6 @@ const AdminDashboard = () => {
             <div className="scale-90">
               <LanguageSelector />
             </div>
-            <Button variant="outline" onClick={handleLogout} size="sm" className="text-sm">
-              {t('admin.logout')}
-            </Button>
           </div>
         </div>
       </div>

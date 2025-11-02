@@ -188,21 +188,17 @@ const DriverDashboard = () => {
             <div className="flex items-center space-x-3">
               <UserDropdown 
                 userName={`${driverData?.drivers?.first_name || ''} ${driverData?.drivers?.last_name || ''}`.trim() || 'Kierowca'}
-                userRole="Kierowca"
+                userRole={t('driver.role')}
                 userEmail={userEmail}
                 fleetName={fleetInfo?.name}
+                onLogout={handleLogout}
+                showLanguageInside={true}
               />
               {driverData?.driver_id && (
                 <div className="scale-90">
                   <DriverNotificationBell driverId={driverData.driver_id} />
                 </div>
               )}
-              <div className="scale-90">
-                <LanguageSelector />
-              </div>
-              <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
-                {t('auth.logout')}
-              </Button>
             </div>
           </div>
 
@@ -219,21 +215,17 @@ const DriverDashboard = () => {
             <div className="flex items-center space-x-2">
               <UserDropdown 
                 userName={`${driverData?.drivers?.first_name || ''} ${driverData?.drivers?.last_name || ''}`.trim() || 'Kierowca'}
-                userRole="Kierowca"
+                userRole={t('driver.role')}
                 userEmail={userEmail}
                 fleetName={fleetInfo?.name}
+                onLogout={handleLogout}
+                showLanguageInside={true}
               />
               {driverData?.driver_id && (
                 <div className="scale-90">
                   <DriverNotificationBell driverId={driverData.driver_id} />
                 </div>
               )}
-              <div className="scale-90">
-                <LanguageSelector />
-              </div>
-              <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-lg">
-                {t('auth.logout')}
-              </Button>
             </div>
           </div>
         </div>
