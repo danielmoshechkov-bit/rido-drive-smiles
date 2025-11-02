@@ -306,9 +306,9 @@ const DriverDashboard = () => {
             {/* Hamburger w zaokrąglonym kontenerze */}
             <Sheet>
               <SheetTrigger asChild>
-                <div className="rounded-xl bg-primary shadow-sm p-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/90">
-                    <Menu className="h-5 w-5 text-white" />
+                <div className="rounded-xl bg-primary shadow-sm p-1.5">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
+                    <Menu className="h-4 w-4 text-white" />
                   </Button>
                 </div>
               </SheetTrigger>

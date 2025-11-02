@@ -878,7 +878,7 @@ export const DriverSettlements = ({
                         {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.totalCash')}:</span>
-                            <span className="font-bold text-red-600 text-lg">
+                            <span className="font-bold text-foreground text-lg">
                               -{Math.abs(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                             </span>
                           </div>
@@ -887,14 +887,14 @@ export const DriverSettlements = ({
                         {/* Razem podatek 8% - DUŻA CZCIONKA */}
                         <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                           <span className="font-bold">{t('weekly.totalTax')}:</span>
-                          <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
+                          <span className="font-bold text-foreground text-lg">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
                         {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
                         {fee > 0 && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.settlementFee')}:</span>
-                            <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
+                            <span className="font-bold text-foreground text-lg">-{fee.toFixed(2)} zł</span>
                           </div>
                         )}
                         
@@ -902,7 +902,7 @@ export const DriverSettlements = ({
                         {amounts.fuel > 0 && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.fuel')}:</span>
-                            <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
+                            <span className="font-bold text-foreground text-lg">-{amounts.fuel.toFixed(2)} zł</span>
                           </div>
                         )}
                         
@@ -918,7 +918,7 @@ export const DriverSettlements = ({
                         {rentalFee > 0 && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.carRental')}:</span>
-                            <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
+                            <span className="font-bold text-foreground text-lg">-{rentalFee.toFixed(2)} zł</span>
                           </div>
                         )}
                       </div>
@@ -927,7 +927,7 @@ export const DriverSettlements = ({
                       <div className="border-t bg-purple-100 p-4 rounded-b-lg">
                         <div className="flex justify-between">
                           <span className="font-extrabold text-xl text-gray-900">{t('weekly.payout')}:</span>
-                          <span className="font-extrabold text-gray-900 text-xl">
+                          <span className={`font-extrabold text-xl ${payout > 0 ? 'text-green-600' : payout < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
                         </div>
@@ -940,65 +940,65 @@ export const DriverSettlements = ({
                         <table className="w-full text-sm bg-white">
                           <thead>
                             <tr className="bg-muted">
-                              <th className="text-left p-2 font-medium">{t('weekly.category')}</th>
-                              <th className="text-right p-2 font-medium whitespace-nowrap">Uber</th>
-                              <th className="text-right p-2 font-medium whitespace-nowrap">Bolt</th>
-                              <th className="text-right p-2 font-medium whitespace-nowrap">FreeNow</th>
+                              <th className="text-left p-1.5 font-medium text-xs">{t('weekly.category')}</th>
+                              <th className="text-right p-1.5 font-medium whitespace-nowrap text-xs">Uber</th>
+                              <th className="text-right p-1.5 font-medium whitespace-nowrap text-xs">Bolt</th>
+                              <th className="text-right p-1.5 font-medium whitespace-nowrap text-xs">FreeNow</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white">
                             {/* Podstawa opodatkowania */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">{t('weekly.base')}</td>
-                              <td className="p-2 text-right font-medium whitespace-nowrap">
+                              <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.base')}</td>
+                              <td className="p-1.5 text-right font-medium whitespace-nowrap text-xs">
                                 {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium whitespace-nowrap text-xs">
                                 {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium whitespace-nowrap text-xs">
                                 {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
                             {/* Prowizja */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">{t('weekly.commission')}</td>
-                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
+                              <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.commission')}</td>
+                              <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
                                 {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
                                 {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
                                 {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
                             {/* Gotówka pobrana (informacyjnie) */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">{t('weekly.cashCollected')}</td>
-                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
+                              <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.cashCollected')}</td>
+                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
                                 {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
                                 {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
                                 {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
                             {/* Podatek 8% */}
                             <tr className="border-t hover:bg-muted/50">
-                              <td className="p-2 text-muted-foreground">{t('weekly.tax8')}</td>
-                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
+                              <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.tax8')}</td>
+                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
                                 {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
                                 {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
+                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
                                 {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
@@ -1074,7 +1074,7 @@ export const DriverSettlements = ({
                           <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-64 md:h-80">
+                          <div className="h-48 md:h-56">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
