@@ -650,22 +650,20 @@ export const DriverSettlements = ({
     <Card className={hideControls ? "border-0 shadow-none mt-4" : "mt-4"}>
       {!hideControls && (
         <Collapsible open={isControlsOpen} onOpenChange={setIsControlsOpen}>
-          <CardHeader className="py-3">
+          <div className="py-3 px-4">
             {/* Mobile: collapsed header with expand button */}
             <div className="md:hidden">
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full flex flex-col items-start p-3">
-                  <div className="w-full flex items-center justify-between">
-                    <span className="font-semibold text-lg">{t('weekly.title')}</span>
-                    {isControlsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                  </div>
+              <div className="w-full flex items-center justify-between cursor-pointer" onClick={() => setIsControlsOpen(!isControlsOpen)}>
+                <div className="flex flex-col items-start">
+                  <span className="font-semibold text-lg">{t('weekly.title')}</span>
                   {currentWeek && (
                     <span className="text-sm text-muted-foreground mt-1">
                       {format(new Date(currentWeek.start), 'd MMM', { locale: pl })} - {format(new Date(currentWeek.end), 'd MMM yyyy', { locale: pl })}
                     </span>
                   )}
-                </Button>
-              </CollapsibleTrigger>
+                </div>
+                {isControlsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
             </div>
             
             {/* Desktop: always visible controls */}
@@ -822,7 +820,7 @@ export const DriverSettlements = ({
                 </Select>
               </div>
             </CollapsibleContent>
-          </CardHeader>
+          </div>
         </Collapsible>
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
@@ -1072,6 +1070,21 @@ export const DriverSettlements = ({
                       <Card className="flex-1 min-w-[300px]">
                         <CardHeader className="pb-2">
                           <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
+                          {/* Percentages as text */}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {platformData.map((platform, idx) => {
+                              const total = platformData.reduce((sum, p) => sum + p.value, 0);
+                              const percentage = total > 0 ? ((platform.value / total) * 100).toFixed(0) : 0;
+                              return (
+                                <span key={platform.name}>
+                                  {idx > 0 && ', '}
+                                  <span style={{ color: platform.fill }} className="font-medium">
+                                    {platform.name} {percentage}%
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
                         </CardHeader>
                         <CardContent>
                           <div className="h-48 md:h-56">
@@ -1082,8 +1095,8 @@ export const DriverSettlements = ({
                                   cx="50%"
                                   cy="50%"
                                   labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius="60%"
+                                  label={false}
+                                  outerRadius="70%"
                                   dataKey="value"
                                 >
                                   {platformData.map((entry, index) => (

@@ -171,7 +171,7 @@ const DriverDashboard = () => {
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
-                className="h-8 w-8"
+                className="h-6 w-6"
               />
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold text-primary">Panel kierowcy</span>
@@ -199,12 +199,16 @@ const DriverDashboard = () => {
                 )}
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {driverData?.driver_id && (
-                <DriverNotificationBell driverId={driverData.driver_id} />
+                <div className="scale-90">
+                  <DriverNotificationBell driverId={driverData.driver_id} />
+                </div>
               )}
-              <LanguageSelector />
-              <Button variant="outline" onClick={handleLogout} className="rounded-lg">
+              <div className="scale-90">
+                <LanguageSelector />
+              </div>
+              <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
                 {t('auth.logout')}
               </Button>
             </div>
@@ -216,7 +220,7 @@ const DriverDashboard = () => {
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
-                className="h-8 w-8"
+                className="h-6 w-6"
               />
               <Sheet>
                 <SheetTrigger asChild>
