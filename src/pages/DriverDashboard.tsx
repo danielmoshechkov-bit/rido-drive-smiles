@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
@@ -302,19 +302,11 @@ const DriverDashboard = () => {
         <div className="md:hidden mb-6">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="default" className="w-full justify-between">
-                <span className="flex items-center gap-2">
-                  {activeTab === 'weekly-report' && <><DollarSign className="h-4 w-4" /> {t('driver.tabs.settlements')}</>}
-                  {activeTab === 'cars' && <><Car className="h-4 w-4" /> {t('driver.tabs.cars')}</>}
-                  {activeTab === 'documents' && <><FileText className="h-4 w-4" /> {t('driver.tabs.documents')}</>}
-                  {activeTab === 'informacje' && <><Info className="h-4 w-4" /> {t('driver.tabs.information')}</>}
-                </span>
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+              <Button variant="ghost" size="icon" className="h-10 w-10">
+                <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto">
+            <SheetContent side="left" className="w-64">
               <div className="space-y-2 mt-4">
                 <SheetTrigger asChild>
                   <Button 
@@ -619,7 +611,36 @@ function DriverDocuments({ driverData }: { driverData: any }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Dokumenty</h2>
+      {/* Mobile header with hamburger menu */}
+      <div className="md:hidden bg-primary text-primary-foreground px-4 py-3 rounded-lg flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Dokumenty</h2>
+        </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-primary-hover">
+              <MoreVertical className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-64">
+            <div className="space-y-4 mt-4">
+              <h3 className="font-semibold text-sm text-muted-foreground">Opcje dokumentów</h3>
+              <Button variant="ghost" className="w-full justify-start">
+                <FileText className="h-4 w-4 mr-2" />
+                Wszystkie dokumenty
+              </Button>
+              <Button variant="ghost" className="w-full justify-start">
+                <Calendar className="h-4 w-4 mr-2" />
+                Sortuj po dacie
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop header */}
+      <h2 className="hidden md:block text-xl font-semibold">Dokumenty</h2>
 
       <Card className="rounded-xl shadow-soft">
         <CardHeader>
