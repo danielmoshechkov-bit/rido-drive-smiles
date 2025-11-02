@@ -34,6 +34,7 @@ const DriverDashboard = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('weekly-report');
+  const [weeklySubTab, setWeeklySubTab] = useState<'my' | 'fuel'>('my');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [driverData, setDriverData] = useState<any>(null);
@@ -272,16 +273,19 @@ const DriverDashboard = () => {
             </SheetContent>
           </Sheet>
           
-          {/* Context buttons for weekly-report */}
+          {/* Context buttons for weekly-report - FIOLETOWE PRZYCISKI */}
           {activeTab === 'weekly-report' && (
             <>
               {/* Vertical separator */}
               <div className="w-[1px] bg-gray-200 self-stretch"></div>
               
               <Button 
-                variant="ghost" 
+                variant={weeklySubTab === 'my' ? "default" : "ghost"}
                 size="sm"
-                className="h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"
+                onClick={() => setWeeklySubTab('my')}
+                className={weeklySubTab === 'my' 
+                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white hover:bg-primary/90" 
+                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"}
               >
                 Wynik tygodniowy
               </Button>
@@ -289,9 +293,12 @@ const DriverDashboard = () => {
               <div className="w-[1px] bg-gray-200 self-stretch"></div>
               
               <Button 
-                variant="ghost" 
+                variant={weeklySubTab === 'fuel' ? "default" : "ghost"}
                 size="sm"
-                className="h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"
+                onClick={() => setWeeklySubTab('fuel')}
+                className={weeklySubTab === 'fuel' 
+                  ? "h-10 px-3 text-xs font-medium rounded-none flex-1 bg-primary text-white hover:bg-primary/90" 
+                  : "h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"}
               >
                 Rozliczenie paliwa
               </Button>
@@ -340,7 +347,11 @@ const DriverDashboard = () => {
 
           {/* Tab Content - Desktop only (wrapped in TabsPill) */}
           <TabsContent value="weekly-report">
-              <SettlementsWithSubTabs driverData={driverData} />
+              <SettlementsWithSubTabs 
+                driverData={driverData} 
+                activeSubTab={weeklySubTab}
+                onSubTabChange={setWeeklySubTab}
+              />
             </TabsContent>
           
           <TabsContent value="cars">
@@ -358,7 +369,13 @@ const DriverDashboard = () => {
 
         {/* Tab Content - Mobile only (outside TabsPill) */}
         <div className="lg:hidden">
-          {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} />}
+          {activeTab === 'weekly-report' && (
+            <SettlementsWithSubTabs 
+              driverData={driverData} 
+              activeSubTab={weeklySubTab}
+              onSubTabChange={setWeeklySubTab}
+            />
+          )}
           {activeTab === 'cars' && <CarsSection driverData={driverData} />}
           {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
           {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
@@ -491,10 +508,29 @@ function PinDisplay({ pin }: { pin: string }) {
   );
 }
 
-// Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
-function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
+// Komponent z sub-tabami dla rozliczeń - controlled component
+function SettlementsWithSubTabs({ 
+  driverData, 
+  activeSubTab, 
+  onSubTabChange 
+}: { 
+  driverData: any;
+  activeSubTab?: 'my' | 'fuel';
+  onSubTabChange?: (tab: 'my' | 'fuel') => void;
+}) {
   const { t } = useTranslation();
-  const [activeSubTab, setActiveSubTab] = useState("my");
+  // Fallback to internal state if not controlled
+  const [internalTab, setInternalTab] = useState<'my' | 'fuel'>("my");
+  const currentTab = activeSubTab ?? internalTab;
+  
+  const handleTabChange = (tab: 'my' | 'fuel') => {
+    if (onSubTabChange) {
+      onSubTabChange(tab);
+    } else {
+      setInternalTab(tab);
+    }
+  };
+  
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const currentYear = new Date().getFullYear();
@@ -511,14 +547,17 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const periodFrom = selectedWeekData?.start;
   const periodTo = selectedWeekData?.end;
 
-  if (activeSubTab === "fuel") {
+  if (currentTab === "fuel") {
     return (
       <div>
-        <UniversalSubTabBar
-          activeTab={activeSubTab}
-          onTabChange={setActiveSubTab}
-          tabs={subTabs}
-        />
+        {/* UniversalSubTabBar TYLKO na desktop */}
+        <div className="hidden lg:block">
+          <UniversalSubTabBar
+            activeTab={currentTab}
+            onTabChange={handleTabChange}
+            tabs={subTabs}
+          />
+        </div>
         <div className="space-y-4 mt-4">
           {/* Compact horizontal layout - all in one line */}
           <div className="flex gap-3 items-center flex-wrap">
@@ -594,11 +633,14 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
 
   return (
     <div>
-      <UniversalSubTabBar
-        activeTab={activeSubTab}
-        onTabChange={setActiveSubTab}
-        tabs={subTabs}
-      />
+      {/* UniversalSubTabBar TYLKO na desktop */}
+      <div className="hidden lg:block">
+        <UniversalSubTabBar
+          activeTab={currentTab}
+          onTabChange={handleTabChange}
+          tabs={subTabs}
+        />
+      </div>
       <DriverSettlements 
         driverId={driverData.driver_id} 
         hideControls={false}

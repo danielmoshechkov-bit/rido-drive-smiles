@@ -617,15 +617,15 @@ export const DriverSettlements = ({
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
 
   return (
-    <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
+    <div className={hideControls ? "" : "mt-6"}>
       {!hideControls && (
-        <CardHeader className="py-3">
+        <div className="py-3 mb-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <CardTitle className="whitespace-nowrap">{t('weekly.title')}</CardTitle>
+            <h2 className="text-base font-semibold text-gray-900 whitespace-nowrap">{t('weekly.title')}</h2>
             <div className="flex items-center gap-2">
-              <Label className="text-xs sm:text-sm whitespace-nowrap">{t('weekly.year')}:</Label>
+              <Label className="text-xs whitespace-nowrap">{t('weekly.year')}:</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[100px] shrink-0">
+                <SelectTrigger className="h-8 px-2 w-[90px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[60]" position="popper" sideOffset={6}>
@@ -636,11 +636,11 @@ export const DriverSettlements = ({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor="week-select" className="text-xs sm:text-sm font-medium whitespace-nowrap">
+              <Label htmlFor="week-select" className="text-xs font-medium whitespace-nowrap">
                 {t('weekly.period')}:
               </Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger id="week-select" className="h-9 min-w-[180px] sm:min-w-[240px] max-w-[280px]">
+                <SelectTrigger id="week-select" className="h-8 px-2 min-w-[180px] max-w-[240px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] z-[60]" position="popper" sideOffset={6}>
@@ -653,9 +653,9 @@ export const DriverSettlements = ({
               </Select>
             </div>
           </div>
-        </CardHeader>
+        </div>
       )}
-      <CardContent className={hideControls ? "p-0" : "space-y-3"}>
+      <div className={hideControls ? "" : "space-y-3"}>
 
         {loading ? (
           <div className="text-center py-4">{t('weekly.messages.loadingData')}</div>
@@ -672,7 +672,7 @@ export const DriverSettlements = ({
             </p>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <>
             {periods.map((period) => {
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0]; // Take newest settlement
@@ -1051,10 +1051,10 @@ export const DriverSettlements = ({
                       )}
                    </div>
                  );
-             })}
-           </div>
-         )}
-       </CardContent>
-     </Card>
-   );
- };
+              })}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};

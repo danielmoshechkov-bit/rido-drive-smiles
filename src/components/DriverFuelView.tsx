@@ -82,54 +82,53 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   const totalLiters = transactions.reduce((sum, t) => sum + t.liters, 0);
 
   return (
-    <Card>
-      <CardHeader>
-            <CardTitle className="text-sm sm:text-base lg:text-lg">
-              {t('fuel.title')}
-            </CardTitle>
-        <CardDescription className="text-xs sm:text-sm">
+    <Card className="shadow-sm">
+      <CardHeader className="py-2">
+        <CardTitle className="text-sm">{t('fuel.title')}</CardTitle>
+        <CardDescription className="text-xs">
           {t('fuel.transactionsForPeriod')} {periodFrom} - {periodTo}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className="p-2">
+        <div className="space-y-1">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.cardNumber')}</th>
-                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.transactions')}</th>
-                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.liters')}</th>
-                  <th className="text-right py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.amount')}</th>
-                  <th className="text-center py-3 px-2 text-xs sm:text-sm font-medium">{t('fuel.details')}</th>
+                  <th className="text-left py-1.5 px-1.5 text-xs font-medium">{t('fuel.cardNumber')}</th>
+                  <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.transactions')}</th>
+                  <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.liters')}</th>
+                  <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.amount')}</th>
+                  <th className="text-center py-1.5 px-1.5 text-xs font-medium">{t('fuel.details')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b hover:bg-muted/50">
-                  <td className="py-2 px-2 text-sm">{fuelCardNumber}</td>
-                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-2 px-2 text-sm text-right font-medium">{totalAmount.toFixed(2)} zł</td>
-                  <td className="py-2 px-2 text-center">
+                  <td className="py-1.5 px-1.5 text-xs">{fuelCardNumber}</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">{transactions.length}</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right font-medium">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-1.5 px-1.5 text-center">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setExpanded(!expanded)}
+                      className="h-6 w-6 p-0"
                     >
                       {expanded ? (
-                        <ChevronUp className="h-4 w-4" />
+                        <ChevronUp className="h-3 w-3" />
                       ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-3 w-3" />
                       )}
                     </Button>
                   </td>
                 </tr>
                 {expanded && (
                   <tr>
-                    <td colSpan={5} className="py-2 px-2 bg-muted/30">
-                      <div className="space-y-1 text-sm">
+                    <td colSpan={5} className="py-1.5 px-1.5 bg-muted/30">
+                      <div className="space-y-0.5 text-xs">
                         {transactions.map((trans) => (
-                          <div key={trans.id} className="flex justify-between py-1 px-2 border-b border-border/50">
+                          <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50">
                             <span>{trans.transaction_date} {trans.transaction_time}</span>
                             <span>{trans.brand} - {trans.fuel_type}</span>
                             <span>{trans.liters.toFixed(2)} L</span>
@@ -141,10 +140,10 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                   </tr>
                 )}
                 <tr className="font-bold border-t-2">
-                  <td className="py-2 px-2 text-xs sm:text-sm">{t('fuel.total')}</td>
-                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-2 px-2 text-xs sm:text-sm text-right">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-1.5 px-1.5 text-xs">{t('fuel.total')}</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">{transactions.length}</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right">{totalAmount.toFixed(2)} zł</td>
                   <td></td>
                 </tr>
               </tbody>
