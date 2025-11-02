@@ -688,68 +688,62 @@ export const DriverSettlements = ({
 
                 return (
                   <div key={periodKey} className="space-y-3">
-                     {/* 1. PODSUMOWANIE - tylko mobile, bez ramki */}
-                     <div className="lg:hidden bg-gray-50/30 rounded-lg p-2.5 space-y-1.5">
-                       <div className="flex justify-between items-center">
-                         <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                           <span className="hidden xs:inline">{t('weekly.sum.withoutCommission')}</span>
-                           <span className="xs:hidden">Bez prowizji</span>
+                     {/* 1. PODSUMOWANIE - tylko mobile, pełna szerokość z separatorami */}
+                     <div className="lg:hidden bg-white rounded-lg shadow-sm overflow-hidden">
+                       <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                         <span className="text-xs font-medium text-gray-700">
+                           Bez prowizji
                          </span>
-                         <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">
+                         <span className="font-bold text-gray-900 text-sm whitespace-nowrap">
                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
                          </span>
                        </div>
                        {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
-                         <div className="flex justify-between items-center">
-                           <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                             <span className="hidden xs:inline">{t('weekly.sum.totalCash')}</span>
-                             <span className="xs:hidden">Gotówka</span>
+                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                           <span className="text-xs font-medium text-gray-700">
+                             Gotówka
                            </span>
-                           <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">
+                           <span className="font-bold text-gray-900 text-sm whitespace-nowrap">
                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                            </span>
                          </div>
                        )}
-                       <div className="flex justify-between items-center">
-                         <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                           <span className="hidden xs:inline">{t('weekly.sum.totalTax8')}</span>
-                           <span className="xs:hidden">Podatek 8%</span>
+                       <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                         <span className="text-xs font-medium text-gray-700">
+                           Podatek 8%
                          </span>
-                         <span className="font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">-{totalTax.toFixed(2)} zł</span>
+                         <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{totalTax.toFixed(2)} zł</span>
                        </div>
                        {fee > 0 && (
-                         <div className="flex justify-between items-center">
-                           <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                             <span className="hidden xs:inline">{t('weekly.sum.settlementFee')}</span>
-                             <span className="xs:hidden">Opłata</span>
+                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                           <span className="text-xs font-medium text-gray-700">
+                             Opłata
                            </span>
-                           <span className="font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">-{fee.toFixed(2)} zł</span>
+                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{fee.toFixed(2)} zł</span>
                          </div>
                        )}
                        {amounts.fuel > 0 && (
-                         <div className="flex justify-between items-center">
-                           <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">Paliwo</span>
-                           <span className="font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">-{amounts.fuel.toFixed(2)} zł</span>
+                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                           <span className="text-xs font-medium text-gray-700">Paliwo</span>
+                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{amounts.fuel.toFixed(2)} zł</span>
                          </div>
                        )}
                        {amounts.fuel_vat_refund > 0 && (
-                         <div className="flex justify-between items-center">
-                           <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                             <span className="hidden xs:inline">{t('weekly.sum.fuelVatRefund')}</span>
-                             <span className="xs:hidden">Zwrot VAT</span>
+                         <div className="flex justify-between items-center px-3 py-2 border-b border-gray-100">
+                           <span className="text-xs font-medium text-gray-700">
+                             Zwrot VAT
                            </span>
-                           <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                           <span className="font-bold text-gray-900 text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                          </div>
                        )}
                        {rentalFee > 0 && (
-                         <div className="flex justify-between items-center">
-                           <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
-                             <span className="hidden xs:inline">{t('weekly.sum.rental')}</span>
-                             <span className="xs:hidden">Wynajem</span>
+                         <div className="flex justify-between items-center px-3 py-2">
+                           <span className="text-xs font-medium text-gray-700">
+                             Wynajem
                            </span>
-                           <span className="font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">-{rentalFee.toFixed(2)} zł</span>
+                           <span className="font-bold text-red-600 text-sm whitespace-nowrap">-{rentalFee.toFixed(2)} zł</span>
                          </div>
                        )}
                        </div>

@@ -170,7 +170,8 @@ const DriverDashboard = () => {
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
-                className="h-8 w-8 flex-shrink-0"
+                className="h-8 w-8 flex-shrink-0 cursor-pointer"
+                onClick={() => setActiveTab('weekly-report')}
               />
               
               <DropdownMenu>
@@ -223,10 +224,10 @@ const DriverDashboard = () => {
         
         {/* Mobile Navigation - Horizontal with separators */}
         <div className="lg:hidden mb-4">
-          <div className="flex items-center gap-2 bg-white rounded-full p-1 border border-gray-200 shadow-sm">
+          <div className="flex items-stretch gap-0 bg-white rounded-full border border-gray-200 shadow-sm overflow-hidden">
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full flex-shrink-0">
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none flex-shrink-0">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -271,26 +272,26 @@ const DriverDashboard = () => {
             </SheetContent>
           </Sheet>
           
-          {/* Vertical separator */}
-          <div className="h-8 w-[1px] bg-gray-300"></div>
-          
           {/* Context buttons for weekly-report */}
           {activeTab === 'weekly-report' && (
             <>
+              {/* Vertical separator */}
+              <div className="w-[1px] bg-gray-200 self-stretch"></div>
+              
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+                className="h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"
               >
                 Wynik tygodniowy
               </Button>
               
-              <div className="h-8 w-[1px] bg-gray-300"></div>
+              <div className="w-[1px] bg-gray-200 self-stretch"></div>
               
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+                className="h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"
               >
                 Rozliczenie paliwa
               </Button>
@@ -300,10 +301,16 @@ const DriverDashboard = () => {
           {/* Context buttons for cars */}
           {activeTab === 'cars' && (
             <>
+              <div className="w-[1px] bg-gray-200 self-stretch"></div>
+              
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+                onClick={() => {
+                  const addCarBtn = document.querySelector('[data-add-car-btn]') as HTMLButtonElement;
+                  addCarBtn?.click();
+                }}
+                className="h-10 px-3 text-xs font-medium rounded-none flex-1 hover:bg-gray-100"
               >
                 Dodaj auto
               </Button>
@@ -373,6 +380,7 @@ function CarsSection({ driverData }: { driverData: any }) {
       {/* Przycisk Dodaj auto */}
       <div className="flex justify-end">
         <Button 
+          data-add-car-btn
           onClick={() => setShowAddModal(true)}
           className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
         >
