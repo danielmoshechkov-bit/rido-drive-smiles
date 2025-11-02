@@ -472,7 +472,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">Rok:</Label>
                   <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="h-9 px-3 w-[100px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -489,7 +489,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     onValueChange={(v) => setSelectedWeek(parseInt(v))}
                     disabled={selectedWeek === null}
                   >
-                    <SelectTrigger className="w-[280px]">
+                    <SelectTrigger className="h-9 px-3 w-[240px]">
                       <SelectValue placeholder="Wybierz okres" />
                     </SelectTrigger>
                     <SelectContent>

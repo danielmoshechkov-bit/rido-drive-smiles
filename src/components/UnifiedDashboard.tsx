@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
+import { useSystemAlerts } from "@/hooks/useSystemAlerts";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import { CitySelector } from "@/components/CitySelector";
 import { CSVUpload } from "@/components/CSVUpload";
 import { useCities, City } from "@/hooks/useCities";
@@ -25,7 +29,7 @@ import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3 } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info } from "lucide-react";
 import LanguageSelector from "@/components/LanguageSelector";
 
 interface UnifiedDashboardProps {
@@ -251,6 +255,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
                 Dokumenty
               </TabsTrigger>
             )}
+            {canViewTab('system-alerts') && (
+              <TabsTrigger value="system-alerts" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
+                <Info className="h-4 w-4 mr-2" />
+                Informacje
+              </TabsTrigger>
+            )}
             {canViewTab('fleet-accounts') && (
               <TabsTrigger value="fleet-accounts" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md hover:bg-white/5 transition-all px-3 py-1.5 text-sm font-medium">
                 Konta flotowe
@@ -420,6 +430,18 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
             </TabsContent>
           )}
 
+          {canViewTab('system-alerts') && fleetId && (
+            <TabsContent value="system-alerts" className="space-y-6">
+              <FleetSystemAlerts fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {canViewTab('system-alerts') && fleetId && (
+            <TabsContent value="system-alerts" className="space-y-6">
+              <FleetSystemAlerts fleetId={fleetId} />
+            </TabsContent>
+          )}
+
           {canViewTab('plans') && (
             <TabsContent value="plans" className="space-y-6">
               <SettlementPlansManagement />
@@ -501,6 +523,66 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
           )}
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// Component to display system alerts for fleet
+function FleetSystemAlerts({ fleetId }: { fleetId: string }) {
+  const { alerts, loading, markAsResolved } = useSystemAlerts({ fleetId });
+  const pendingAlerts = alerts.filter(a => a.status === 'pending');
+
+  if (loading) {
+    return <div className="text-center py-8">Ładowanie powiadomień...</div>;
+  }
+
+  const getAlertColor = (type: string) => {
+    switch (type) {
+      case 'error': return 'destructive';
+      case 'warning': return 'secondary';
+      case 'new_driver': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {pendingAlerts.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Brak nowych powiadomień</CardTitle>
+            <CardDescription>Wszystkie powiadomienia zostały przeczytane</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        pendingAlerts.map(alert => (
+          <Card key={alert.id}>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{alert.title}</CardTitle>
+                    <Badge variant={getAlertColor(alert.type) as any}>
+                      {alert.type}
+                    </Badge>
+                  </div>
+                  <CardDescription>{alert.description}</CardDescription>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(alert.created_at), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markAsResolved(alert.id)}
+                >
+                  Oznacz jako przeczytane
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+        ))
+      )}
     </div>
   );
 }

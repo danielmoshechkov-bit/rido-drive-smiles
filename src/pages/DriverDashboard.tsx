@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TabsPill } from "@/ridoUiPack";
 import { AddOwnCarModal } from "@/components/driver/AddOwnCarModal";
 import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
@@ -12,11 +12,15 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { FleetFuelView } from "@/components/FleetFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
+import { useSystemAlerts } from "@/hooks/useSystemAlerts";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -216,8 +220,12 @@ const DriverDashboard = () => {
             Samochód
           </TabsTrigger>
           <TabsTrigger value="documents">
-            <File className="h-4 w-4 mr-2" />
+            <FileText className="h-4 w-4 mr-2" />
             Dokumenty
+          </TabsTrigger>
+          <TabsTrigger value="informacje">
+            <Info className="h-4 w-4 mr-2" />
+            Informacje
           </TabsTrigger>
 
           {/* Tab Content */}
@@ -231,6 +239,10 @@ const DriverDashboard = () => {
           
           <TabsContent value="documents">
             <DriverDocuments driverData={driverData} />
+          </TabsContent>
+
+          <TabsContent value="informacje">
+            <DriverNotifications driverId={driverData.driver_id} />
           </TabsContent>
         </TabsPill>
       </div>
@@ -469,6 +481,66 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
         driverId={driverData.driver_id} 
         hideControls={false}
       />
+    </div>
+  );
+}
+
+// Component to display driver notifications
+function DriverNotifications({ driverId }: { driverId: string }) {
+  const { alerts, loading, markAsResolved } = useSystemAlerts();
+  const driverAlerts = alerts.filter(a => a.driver_id === driverId && a.status === 'pending');
+
+  if (loading) {
+    return <div className="text-center py-8">Ładowanie powiadomień...</div>;
+  }
+
+  const getAlertColor = (type: string) => {
+    switch (type) {
+      case 'error': return 'destructive';
+      case 'warning': return 'secondary';
+      case 'new_driver': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {driverAlerts.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Brak nowych powiadomień</CardTitle>
+            <CardDescription>Wszystkie powiadomienia zostały przeczytane</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        driverAlerts.map(alert => (
+          <Card key={alert.id}>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{alert.title}</CardTitle>
+                    <Badge variant={getAlertColor(alert.type) as any}>
+                      {alert.type}
+                    </Badge>
+                  </div>
+                  <CardDescription>{alert.description}</CardDescription>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(alert.created_at), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markAsResolved(alert.id)}
+                >
+                  Oznacz jako przeczytane
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+        ))
+      )}
     </div>
   );
 }

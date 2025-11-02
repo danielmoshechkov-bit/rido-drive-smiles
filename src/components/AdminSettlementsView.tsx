@@ -61,7 +61,7 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-start mb-4">
           <FuelCSVImportModal onUploadComplete={() => {
             // Refresh the fuel view after upload
             window.location.reload();

@@ -58,19 +58,27 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
 
       if (driversError) throw driversError;
 
-      // Create map of card_number to driver name
-      // Handle multiple formats: original, with leading 0, with leading 00, and without leading zeros
+      // Create map of card_number to driver name (all 4 variants)
       const cardToDriverMap = new Map<string, string>();
       drivers?.forEach(d => {
         const cardNum = d.fuel_card_number;
-        const normalized = cardNum.replace(/^0+/, '');
         const driverName = `${d.first_name} ${d.last_name}`;
         
-        // Map all variants to same driver name
+        // Always map all 4 variants:
+        // 1) Original
         cardToDriverMap.set(cardNum, driverName);
-        cardToDriverMap.set(`00${cardNum}`, driverName);
-        cardToDriverMap.set(`0${cardNum}`, driverName);
-        cardToDriverMap.set(normalized, driverName);
+        
+        // 2) With leading 0
+        cardToDriverMap.set('0' + cardNum, driverName);
+        
+        // 3) With leading 00
+        cardToDriverMap.set('00' + cardNum, driverName);
+        
+        // 4) Without leading zeros
+        const normalized = cardNum.replace(/^0+/, '');
+        if (normalized !== cardNum) {
+          cardToDriverMap.set(normalized, driverName);
+        }
       });
 
       // Fetch fuel transactions for the period
@@ -83,34 +91,47 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
 
       if (transactionsError) throw transactionsError;
 
-      // Filter transactions to only include cards from this fleet
+      // Create set of all fleet card numbers (all 4 variants)
       const fleetCardNumbers = new Set<string>();
       drivers?.forEach(d => {
         if (d.fuel_card_number) {
           const cardNum = d.fuel_card_number;
-          const normalized = cardNum.replace(/^0+/, '');
           
-          // Add all variants to the set
-          fleetCardNumbers.add(cardNum);
-          fleetCardNumbers.add(`00${cardNum}`);
-          fleetCardNumbers.add(`0${cardNum}`);
-          fleetCardNumbers.add(normalized);
+          // Add all 4 variants to the set
+          fleetCardNumbers.add(cardNum);                    // Original
+          fleetCardNumbers.add('0' + cardNum);              // With 0
+          fleetCardNumbers.add('00' + cardNum);             // With 00
+          
+          const normalized = cardNum.replace(/^0+/, '');
+          fleetCardNumbers.add(normalized);                 // Without zeros
         }
       });
 
       const fleetTransactions = (transactions || []).filter(t => {
-        // Sprawdź czy numer karty z transakcji lub jego wersja bez zer jest w zbiorze
-        const normalized = t.card_number.replace(/^0+/, '');
-        return fleetCardNumbers.has(t.card_number) || fleetCardNumbers.has(normalized);
+        // Check if transaction card number (or any variant) is in the fleet set
+        const transactionCard = t.card_number;
+        const transactionNormalized = transactionCard.replace(/^0+/, '');
+        
+        return fleetCardNumbers.has(transactionCard) || 
+               fleetCardNumbers.has(transactionNormalized) ||
+               fleetCardNumbers.has('0' + transactionCard) ||
+               fleetCardNumbers.has('00' + transactionCard);
       });
 
       // Group transactions by card_number
       const grouped = fleetTransactions.reduce((acc, transaction) => {
         const cardNumber = transaction.card_number;
         if (!acc[cardNumber]) {
+          // Try all variants to find driver name
+          const driverName = cardToDriverMap.get(cardNumber) || 
+                            cardToDriverMap.get(cardNumber.replace(/^0+/, '')) ||
+                            cardToDriverMap.get('0' + cardNumber) ||
+                            cardToDriverMap.get('00' + cardNumber) ||
+                            'Nieprzypisany';
+          
           acc[cardNumber] = {
             card_number: cardNumber,
-            driver_name: cardToDriverMap.get(cardNumber) || 'Nieprzypisany',
+            driver_name: driverName,
             transaction_count: 0,
             total_liters: 0,
             total_amount: 0,
