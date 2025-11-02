@@ -687,19 +687,15 @@ export const DriverSettlements = ({
                 ].filter(item => item.value > 0);
 
                 return (
-                  <div key={periodKey} className="border border-border/40 rounded-xl p-3 sm:p-4 space-y-3 shadow-sm bg-card">
-                    <h3 className="font-semibold text-sm sm:text-base">
-                      {t('weekly.period')} {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
-                    </h3>
-
-                     {/* 1. PODSUMOWANIE NA GÓRZE - tylko mobile */}
-                     <div className="lg:hidden bg-gradient-to-r from-violet-50 to-white border border-violet-200 rounded-lg p-2.5 space-y-1">
+                  <div key={periodKey} className="space-y-3">
+                     {/* 1. PODSUMOWANIE - tylko mobile */}
+                     <div className="lg:hidden bg-gray-50 border border-gray-200 rounded-lg p-2.5 space-y-1.5">
                        <div className="flex justify-between items-center">
                          <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
                            <span className="hidden xs:inline">{t('weekly.sum.withoutCommission')}</span>
                            <span className="xs:hidden">Bez prowizji</span>
                          </span>
-                         <span className="font-bold text-green-600 text-xs sm:text-sm whitespace-nowrap">
+                         <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">
                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
@@ -711,7 +707,7 @@ export const DriverSettlements = ({
                              <span className="hidden xs:inline">{t('weekly.sum.totalCash')}</span>
                              <span className="xs:hidden">Gotówka</span>
                            </span>
-                           <span className="font-bold text-blue-600 text-xs sm:text-sm whitespace-nowrap">
+                           <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">
                              {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                            </span>
                          </div>
@@ -744,7 +740,7 @@ export const DriverSettlements = ({
                              <span className="hidden xs:inline">{t('weekly.sum.fuelVatRefund')}</span>
                              <span className="xs:hidden">Zwrot VAT</span>
                            </span>
-                           <span className="font-bold text-green-600 text-xs sm:text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                           <span className="font-bold text-gray-900 text-xs sm:text-sm whitespace-nowrap">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                          </div>
                        )}
                        {rentalFee > 0 && (
@@ -758,119 +754,80 @@ export const DriverSettlements = ({
                        )}
                      </div>
 
-                     {/* 2. WYKRES - kompaktowy */}
-                     {platformData.length > 0 && (
-                       <div className="lg:hidden bg-white border border-border/40 rounded-lg p-2 shadow-sm">
-                         <h4 className="text-xs font-semibold mb-1 text-gray-700">Zarobki według platform</h4>
-                         <div className="h-[150px]">
-                           <ResponsiveContainer width="100%" height="100%">
-                             <PieChart>
-                               <Pie
-                                 data={platformData}
-                                 cx="50%"
-                                 cy="50%"
-                                 labelLine={false}
-                                 label={({ name, percent }) => 
-                                   percent > 0.15 ? `${name}\n${(percent * 100).toFixed(0)}%` : ''
-                                 }
-                                 outerRadius="55%"
-                                 dataKey="value"
-                               >
-                                 {platformData.map((entry, index) => (
-                                   <Cell key={`cell-${index}`} fill={entry.fill} />
-                                 ))}
-                               </Pie>
-                               <Legend 
-                                 verticalAlign="bottom" 
-                                 height={24}
-                                 iconSize={8}
-                                 wrapperStyle={{ fontSize: '10px' }}
-                                 formatter={(value: string) => 
-                                   value === 'Uber' ? t('weekly.platforms.uber') :
-                                   value === 'Bolt' ? t('weekly.platforms.bolt') :
-                                   value === 'FreeNow' ? t('weekly.platforms.freenow') : value
-                                 }
-                               />
-                             </PieChart>
-                           </ResponsiveContainer>
-                         </div>
-                       </div>
-                     )}
-
-                     {/* 3. TABELA SZCZEGÓŁÓW - kompaktowa */}
-                     <div className="border border-border/40 rounded-lg overflow-hidden shadow-sm bg-white">
+                     {/* 2. TABELA SZCZEGÓŁÓW */}
+                     <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
                        <div className="overflow-x-auto">
                           <table className="w-full text-[11px] sm:text-sm">
                             <thead>
-                              <tr className="bg-muted/50">
-                                <th className="text-left p-1.5 sm:p-3 font-medium text-[10px] sm:text-sm">{t('weekly.table.category')}</th>
-                                <th className="text-right p-1.5 sm:p-3 font-medium text-[10px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.uber')}</th>
-                                <th className="text-right p-1.5 sm:p-3 font-medium text-[10px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.bolt')}</th>
-                                <th className="text-right p-1.5 sm:p-3 font-medium text-[10px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.freenow')}</th>
+                              <tr className="bg-gray-50">
+                               <th className="text-left p-2 sm:p-3 font-medium text-[11px] sm:text-sm">{t('weekly.table.category')}</th>
+                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.uber')}</th>
+                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.bolt')}</th>
+                               <th className="text-right p-2 sm:p-3 font-medium text-[11px] sm:text-sm w-[70px] sm:w-auto">{t('weekly.table.freenow')}</th>
                               </tr>
                             </thead>
                              <tbody>
                                {/* Podstawa opodatkowania */}
-                               <tr className="border-t hover:bg-muted/30">
-                                 <td className="p-1.5 sm:p-2.5 text-gray-600 text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50">
+                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
                                    <span className="hidden sm:inline">{t('weekly.row.base')}</span>
                                    <span className="sm:hidden">Podstawa</span>
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                                
                                {/* Prowizja */}
-                               <tr className="border-t hover:bg-muted/30">
-                                 <td className="p-1.5 sm:p-2.5 text-gray-600 text-[11px] sm:text-sm">{t('weekly.row.commission')}</td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-amber-600 whitespace-nowrap text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50">
+                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">{t('weekly.row.commission')}</td>
+                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-amber-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-amber-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                                
                                {/* Gotówka pobrana (informacyjnie) */}
-                               <tr className="border-t hover:bg-muted/30">
-                                 <td className="p-1.5 sm:p-2.5 text-gray-600 text-[11px] sm:text-sm">
+                               <tr className="border-t hover:bg-gray-50">
+                                 <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
                                    <span className="hidden sm:inline">{t('weekly.row.cashCollected')}</span>
                                    <span className="sm:hidden">Gotówka</span>
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-blue-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-blue-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                                  </td>
-                                 <td className="p-1.5 sm:p-2.5 text-right font-medium text-blue-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                 <td className="p-2 text-right font-medium text-gray-900 whitespace-nowrap text-[11px] sm:text-sm">
                                    {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                                  </td>
                                </tr>
                               
                               {/* Podatek 8% */}
-                              <tr className="border-t hover:bg-muted/30">
-                                <td className="p-1.5 sm:p-2.5 text-gray-600 text-[11px] sm:text-sm">
+                              <tr className="border-t hover:bg-gray-50">
+                                <td className="p-2 text-gray-700 text-[11px] sm:text-sm">
                                   <span className="hidden sm:inline">{t('weekly.row.tax8')}</span>
                                   <span className="sm:hidden">Podatek</span>
                                 </td>
-                                <td className="p-1.5 sm:p-2.5 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                   {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
-                                <td className="p-1.5 sm:p-2.5 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                   {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
-                                <td className="p-1.5 sm:p-2.5 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
+                                <td className="p-2 text-right font-medium text-red-600 whitespace-nowrap text-[11px] sm:text-sm">
                                   {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
                                 </td>
                               </tr>
@@ -883,7 +840,7 @@ export const DriverSettlements = ({
                           {/* Razem bez prowizji */}
                           <div className="flex justify-between text-xs sm:text-sm font-bold">
                             <span className="text-gray-700">{t('weekly.sum.withoutCommission')}:</span>
-                            <span className="text-green-600">
+                            <span className="text-gray-900">
                               {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                                 (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
                                 (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
@@ -926,7 +883,7 @@ export const DriverSettlements = ({
                           {amounts.fuel_vat_refund > 0 && (
                             <div className="flex justify-between text-xs sm:text-sm font-bold">
                               <span className="text-gray-700">{t('weekly.sum.fuelVatRefund')}:</span>
-                              <span className="text-green-600">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                              <span className="text-gray-900">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                             </div>
                           )}
                           
@@ -938,10 +895,10 @@ export const DriverSettlements = ({
                             </div>
                           )}
                         </div>
-            <div className="hidden lg:block border-t bg-violet-100 p-2.5 sm:p-3">
+            <div className="hidden lg:block border-t bg-gray-100 p-2.5 sm:p-3">
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-sm sm:text-base text-gray-900">{t('weekly.sum.payout')}:</span>
-                <span className="font-extrabold text-violet-600 text-base sm:text-lg">
+                <span className="font-extrabold text-gray-900 text-base sm:text-lg">
                   {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                 </span>
               </div>
@@ -1051,11 +1008,49 @@ export const DriverSettlements = ({
                        </div>
                       )}
                      
+                     {/* 3. WYKRES - kompaktowy, pod tabelą */}
+                     {platformData.length > 0 && (
+                       <div className="lg:hidden bg-white rounded-lg p-2">
+                         <div className="h-[140px]">
+                           <ResponsiveContainer width="100%" height="100%">
+                             <PieChart>
+                               <Pie
+                                 data={platformData}
+                                 cx="50%"
+                                 cy="50%"
+                                 labelLine={false}
+                                 label={({ name, percent }) => 
+                                   percent > 0.15 ? `${name}\n${(percent * 100).toFixed(0)}%` : ''
+                                 }
+                                 outerRadius="50%"
+                                 dataKey="value"
+                               >
+                                 {platformData.map((entry, index) => (
+                                   <Cell key={`cell-${index}`} fill={entry.fill} />
+                                 ))}
+                               </Pie>
+                               <Legend 
+                                 verticalAlign="bottom" 
+                                 height={24}
+                                 iconSize={8}
+                                 wrapperStyle={{ fontSize: '10px' }}
+                                 formatter={(value: string) => 
+                                   value === 'Uber' ? t('weekly.platforms.uber') :
+                                   value === 'Bolt' ? t('weekly.platforms.bolt') :
+                                   value === 'FreeNow' ? t('weekly.platforms.freenow') : value
+                                 }
+                               />
+                             </PieChart>
+                           </ResponsiveContainer>
+                         </div>
+                       </div>
+                     )}
+
                      {/* 4. WYPŁATA KOŃCOWA - tylko mobile */}
-                     <div className="lg:hidden bg-violet-100 border-2 border-violet-400 rounded-lg p-3">
+                     <div className="lg:hidden bg-gray-100 border-2 border-gray-300 rounded-lg p-3">
                        <div className="flex justify-between items-center">
                          <span className="text-base font-extrabold text-gray-900">{t('weekly.sum.payout')}:</span>
-                         <span className="text-xl font-extrabold text-violet-600">
+                         <span className="text-xl font-extrabold text-gray-900">
                            {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                          </span>
                        </div>

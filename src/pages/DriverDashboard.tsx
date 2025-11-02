@@ -221,74 +221,57 @@ const DriverDashboard = () => {
           <ChatFab driverData={driverData} />
         </div>
         
-        {/* Mobile: Hamburger menu + Quick action buttons */}
+        {/* Mobile Navigation */}
         <div className="lg:hidden mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-full flex-shrink-0">
-                  <Menu className="h-5 w-5" />
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px]">
+              <SheetHeader>
+                <SheetTitle>{t('driver.panel')}</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 flex flex-col gap-2">
+                <Button
+                  variant={activeTab === 'weekly-report' ? 'default' : 'ghost'}
+                  onClick={() => { setActiveTab('weekly-report'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  {t('driver.tabs.weekly')}
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[280px]">
-                <SheetHeader>
-                  <SheetTitle>{t('driver.panel')}</SheetTitle>
-                </SheetHeader>
-                <div className="mt-6 flex flex-col gap-2">
-                  <Button
-                    variant={activeTab === 'weekly-report' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('weekly-report'); setIsSheetOpen(false); }}
-                    className="justify-start gap-2"
-                  >
-                    <DollarSign className="h-4 w-4" />
-                    {t('driver.tabs.weekly')}
-                  </Button>
-                  <Button
-                    variant={activeTab === 'cars' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('cars'); setIsSheetOpen(false); }}
-                    className="justify-start gap-2"
-                  >
-                    <Car className="h-4 w-4" />
-                    {t('driver.tabs.cars')}
-                  </Button>
-                  <Button
-                    variant={activeTab === 'documents' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('documents'); setIsSheetOpen(false); }}
-                    className="justify-start gap-2"
-                  >
-                    <FileText className="h-4 w-4" />
-                    {t('driver.tabs.documents')}
-                  </Button>
-                  <Button
-                    variant={activeTab === 'informacje' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('informacje'); setIsSheetOpen(false); }}
-                    className="justify-start gap-2"
-                  >
-                    <Info className="h-4 w-4" />
-                    {t('driver.tabs.info')}
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            <Button
-              variant={activeTab === 'weekly-report' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('weekly-report')}
-              className="flex-1 h-10 rounded-full text-xs sm:text-sm"
-            >
-              {t('driver.tabs.weekly')}
-            </Button>
-            <Button
-              variant={activeTab === 'documents' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('documents')}
-              className="flex-1 h-10 rounded-full text-xs sm:text-sm"
-            >
-              {t('driver.tabs.documents')}
-            </Button>
-          </div>
+                <Button
+                  variant={activeTab === 'cars' ? 'default' : 'ghost'}
+                  onClick={() => { setActiveTab('cars'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
+                >
+                  <Car className="h-4 w-4" />
+                  {t('driver.tabs.cars')}
+                </Button>
+                <Button
+                  variant={activeTab === 'documents' ? 'default' : 'ghost'}
+                  onClick={() => { setActiveTab('documents'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  {t('driver.tabs.documents')}
+                </Button>
+                <Button
+                  variant={activeTab === 'informacje' ? 'default' : 'ghost'}
+                  onClick={() => { setActiveTab('informacje'); setIsSheetOpen(false); }}
+                  className="justify-start gap-2"
+                >
+                  <Info className="h-4 w-4" />
+                  {t('driver.tabs.info')}
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
-        {/* Desktop Tabs - Hidden on Mobile */}
+        {/* Desktop Tabs */}
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6 hidden lg:flex">
           <TabsTrigger value="weekly-report">
             <DollarSign className="h-4 w-4 mr-2" />
@@ -326,7 +309,7 @@ const DriverDashboard = () => {
         </TabsPill>
 
         {/* Tab Content - Mobile only (outside TabsPill) */}
-        <div className="md:hidden">
+        <div className="lg:hidden">
           {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} />}
           {activeTab === 'cars' && <CarsSection driverData={driverData} />}
           {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}

@@ -146,12 +146,13 @@ export function AddOwnCarModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Dodaj pojazd</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="overflow-y-auto pr-2 flex-1">
+          <div className="grid grid-cols-1 gap-3">
           <div>
             <Label>Nr rejestracyjny *</Label>
             <Input 
@@ -218,14 +219,15 @@ export function AddOwnCarModal({
               value={policyValidTo} 
               onChange={(e) => setPolicyValidTo(e.target.value)} 
             />
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Anuluj
           </Button>
-          <Button onClick={save} disabled={loading}>
+          <Button onClick={save} disabled={loading} className="w-full sm:w-auto">
             {loading ? "Zapisywanie..." : "Zapisz pojazd"}
           </Button>
         </DialogFooter>
