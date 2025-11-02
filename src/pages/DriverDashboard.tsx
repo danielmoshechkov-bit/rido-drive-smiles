@@ -321,7 +321,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
         tabs={subTabs}
       />
       
-      <div className="pt-4">
+      <div className="pt-2">
         {activeSubTab === "fuel" ? (
           <DriverFuelView 
             fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
