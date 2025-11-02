@@ -217,7 +217,7 @@ const DriverDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-3 sm:px-4 lg:px-10 pt-3 pb-20 relative max-w-[1440px]">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-8 pt-3 pb-20 relative max-w-[1400px]">
         {/* Floating Chat Widget */}
         <div className="fixed bottom-6 right-6 z-50">
           <ChatFab driverData={driverData} />

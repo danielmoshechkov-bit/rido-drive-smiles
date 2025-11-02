@@ -640,7 +640,7 @@ export const DriverSettlements = ({
                 {t('weekly.period')}:
               </Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger id="week-select" className="h-8 px-2 min-w-[180px] max-w-[240px] text-xs">
+                <SelectTrigger id="week-select" className="h-8 px-2 w-[280px] lg:w-[300px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] z-[60]" position="popper" sideOffset={6}>
@@ -837,10 +837,85 @@ export const DriverSettlements = ({
                               </tr>
                             </tbody>
                           </table>
-                        </div>
+                         </div>
+                       </div>
+                     
+                     {/* DESKTOP: Grid layout with table and chart side-by-side */}
+                     <div className="hidden lg:grid lg:grid-cols-2 gap-6 mt-4">
+                       {/* Column 1: Table with summary */}
+                       <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+                         <div className="overflow-x-auto">
+                           <table className="w-full text-sm">
+                             <thead>
+                               <tr className="bg-gray-50">
+                                <th className="text-left py-2 px-3 font-medium text-sm">{t('weekly.table.category')}</th>
+                                <th className="text-right py-2 px-3 font-medium text-sm">{t('weekly.table.uber')}</th>
+                                <th className="text-right py-2 px-3 font-medium text-sm">{t('weekly.table.bolt')}</th>
+                                <th className="text-right py-2 px-3 font-medium text-sm">{t('weekly.table.freenow')}</th>
+                               </tr>
+                             </thead>
+                              <tbody>
+                                {/* Podstawa opodatkowania */}
+                                <tr className="border-t hover:bg-gray-50 h-9">
+                                  <td className="py-2 px-3 text-gray-700 text-sm">{t('weekly.row.base')}</td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
+                                  </td>
+                                </tr>
+                                
+                                {/* Prowizja */}
+                                <tr className="border-t hover:bg-gray-50 h-9">
+                                  <td className="py-2 px-3 text-gray-700 text-sm">{t('weekly.row.commission')}</td>
+                                  <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                    {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                    {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                    {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
+                                  </td>
+                                </tr>
+                                
+                                {/* Gotówka pobrana */}
+                                <tr className="border-t hover:bg-gray-50 h-9">
+                                  <td className="py-2 px-3 text-gray-700 text-sm">{t('weekly.row.cashCollected')}</td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium text-gray-900 whitespace-nowrap text-sm">
+                                    {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                                  </td>
+                                </tr>
+                               
+                               {/* Podatek 8% */}
+                               <tr className="border-t hover:bg-gray-50 h-9">
+                                 <td className="py-2 px-3 text-gray-700 text-sm">{t('weekly.row.tax8')}</td>
+                                 <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                   {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                   {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
+                                 </td>
+                                 <td className="py-2 px-3 text-right font-medium text-red-600 whitespace-nowrap text-sm">
+                                   {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
+                                 </td>
+                               </tr>
+                             </tbody>
+                           </table>
+                         </div>
                         
-                        {/* Additional rows below table - DESKTOP ONLY */}
-                        <div className="hidden lg:block border-t bg-gray-50/50 p-2.5 sm:p-3 space-y-1.5">
+                        {/* Additional rows below table - DESKTOP */}
+                        <div className="border-t bg-gray-50/50 p-2.5 space-y-1.5">
                           {/* Razem bez prowizji */}
                           <div className="flex justify-between text-xs sm:text-sm font-bold">
                             <span className="text-gray-700">{t('weekly.sum.withoutCommission')}:</span>
@@ -899,18 +974,21 @@ export const DriverSettlements = ({
                             </div>
                           )}
                         </div>
-            <div className="hidden lg:block border-t bg-white p-2.5 sm:p-3 shadow-sm">
+            <div className="border-t bg-white p-2.5 shadow-sm">
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-sm sm:text-base text-gray-900">{t('weekly.sum.payout')}:</span>
                 <span className="font-extrabold text-primary text-base sm:text-lg">
                   {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                 </span>
-              </div>
-            </div>
+                         </div>
+                       </div>
+                     
+                     {/* DESKTOP: Grid layout with table and chart side-by-side */}
+                     <div className="hidden lg:grid lg:grid-cols-2 gap-6 mt-4">
                       
                         {/* Debt information - DESKTOP ONLY */}
                         {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
-                          <div className="hidden lg:block border-t bg-red-50 p-3">
+                          <div className="border-t bg-red-50 p-3">
                             <div className="space-y-2">
                               <div className="font-semibold text-red-800 mb-2 text-sm">💳 {t('weekly.debt.title')}</div>
                              
@@ -950,7 +1028,7 @@ export const DriverSettlements = ({
                             </div>
                           </div>
                         ) : payout < 0 ? (
-                          <div className="hidden lg:block border-t bg-red-50 p-3">
+                          <div className="border-t bg-red-50 p-3">
                             <div className="space-y-2">
                               <div className="font-semibold text-red-800 mb-2 text-sm">⚠️ {t('weekly.debt.warning')}</div>
                               <div className="flex justify-between text-xs">
@@ -968,10 +1046,9 @@ export const DriverSettlements = ({
                         ) : null}
                       </div>
                      
-                     {/* DESKTOP: Wykres obok tabeli */}
+                     {/* Column 2: Chart */}
                      {platformData.length > 0 && (
-                       <div className="hidden lg:block">
-                         <Card className="w-full h-full">
+                       <Card className="w-full h-full">
                            <CardHeader className="pb-2">
                              <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                            </CardHeader>
@@ -1008,9 +1085,12 @@ export const DriverSettlements = ({
                                 </ResponsiveContainer>
                               </div>
                            </CardContent>
-                         </Card>
-                       </div>
-                      )}
+                          </Card>
+                        )}
+                      </div>
+                      
+                      {/* Close grid wrapper */}
+                     </div>
                      
                      {/* 4. WYKRES - kompaktowy, osobna sekcja */}
                      {platformData.length > 0 && (
