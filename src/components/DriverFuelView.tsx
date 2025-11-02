@@ -94,55 +94,73 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                 <tr className="border-b">
                   <th className="text-left py-1.5 px-1.5 text-xs font-medium">{t('fuel.cardNumber')}</th>
                   <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.transactions')}</th>
-                  <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.liters')}</th>
+                  <th className="text-right py-1.5 px-1.5 text-xs font-medium hidden md:table-cell">{t('fuel.liters')}</th>
                   <th className="text-right py-1.5 px-1.5 text-xs font-medium">{t('fuel.amount')}</th>
-                  <th className="text-center py-1.5 px-1.5 text-xs font-medium">{t('fuel.details')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b hover:bg-muted/50">
                   <td className="py-1.5 px-1.5 text-xs">{fuelCardNumber}</td>
                   <td className="py-1.5 px-1.5 text-xs text-right">{transactions.length}</td>
-                  <td className="py-1.5 px-1.5 text-xs text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-1.5 px-1.5 text-xs text-right hidden md:table-cell">{totalLiters.toFixed(2)} L</td>
                   <td className="py-1.5 px-1.5 text-xs text-right font-medium">
                     <div className="flex items-center justify-end gap-1">
                       <span>{totalAmount.toFixed(2)}</span>
                       <span className="text-xs text-muted-foreground">zł</span>
                     </div>
-                  </td>
-                  <td className="py-1.5 px-1.5 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setExpanded(!expanded)}
-                      className="h-6 w-6 p-0"
-                    >
-                      {expanded ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3" />
-                      )}
-                    </Button>
+                    <div className="mt-1 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpanded(!expanded)}
+                        className="h-6 px-2 py-0"
+                        aria-label={expanded ? t('common.collapse') : t('common.expand')}
+                      >
+                        {expanded ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
                 {expanded && (
-                  <tr>
-                    <td colSpan={5} className="p-1 bg-muted/30">
-                      <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
-                        {transactions.map((trans) => (
-                          <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
-                            <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
-                            <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
-                            <span className="whitespace-nowrap">{trans.liters.toFixed(2)} L</span>
-                            <div className="flex items-center gap-1 whitespace-nowrap">
-                              <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
-                              <span className="text-xs text-muted-foreground">zł</span>
+                  <>
+                    <tr className="md:hidden">
+                      <td colSpan={3} className="p-1 bg-muted/30">
+                        <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                          {transactions.map((trans) => (
+                            <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
+                              <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
+                              <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
+                              <div className="flex items-center gap-1 whitespace-nowrap">
+                                <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
+                                <span className="text-xs text-muted-foreground">zł</span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr className="hidden md:table-row">
+                      <td colSpan={4} className="p-1 bg-muted/30">
+                        <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                          {transactions.map((trans) => (
+                            <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
+                              <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
+                              <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
+                              <span className="whitespace-nowrap">{trans.liters.toFixed(2)} L</span>
+                              <div className="flex items-center gap-1 whitespace-nowrap">
+                                <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
+                                <span className="text-xs text-muted-foreground">zł</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  </>
                 )}
                 <tr className="font-bold border-t-2">
                   <td className="py-1.5 px-1.5 text-xs">{t('fuel.total')}</td>
