@@ -317,5 +317,17 @@
     "actualPayout": "Нақты төлем",
     "negativePayoutWarning": "Назар аударыңыз: Теріс төлем",
     "addedToDebt": "Сома қарызға қосылады"
+  },
+  "fuel": {
+    "title": "Сіздің отын есебіңіз",
+    "transactions": "Кезең үшін отын транзакциялары",
+    "cardNumber": "Карта нөмірі",
+    "transactionCount": "Транзакциялар",
+    "liters": "Литрлер",
+    "amount": "Сома",
+    "showDetails": "Толық көрсету",
+    "hideDetails": "Жасыру",
+    "sum": "БАРЛЫҒЫ",
+    "noTransactions": "Таңдалған кезең үшін отын транзакциялары жоқ"
   }
 }

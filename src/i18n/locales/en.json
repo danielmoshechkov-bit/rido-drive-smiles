@@ -317,5 +317,17 @@
     "actualPayout": "Actual payout",
     "negativePayoutWarning": "Warning: Negative payout",
     "addedToDebt": "Amount will be added to debt"
+  },
+  "fuel": {
+    "title": "Your Fuel Settlement",
+    "transactions": "Fuel transactions for period",
+    "cardNumber": "Card No.",
+    "transactionCount": "Transactions",
+    "liters": "Liters",
+    "amount": "Amount",
+    "showDetails": "Show Details",
+    "hideDetails": "Hide Details",
+    "sum": "TOTAL",
+    "noTransactions": "No fuel transactions for the selected period"
   }
 }

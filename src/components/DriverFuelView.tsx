@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
@@ -25,9 +26,26 @@ interface FuelTransaction {
 }
 
 export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverFuelViewProps) {
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+
+  const formatFuelType = (brand: string, fuelType: string): string => {
+    let shortType = fuelType;
+    
+    if (fuelType.includes('Skroplony gaz') || fuelType.includes('LPG')) {
+      shortType = 'LPG';
+    } else if (fuelType.includes('Benzyna 95')) {
+      shortType = 'benzyna 95';
+    } else if (fuelType.includes('Benzyna 98')) {
+      shortType = 'benzyna 98';
+    } else if (fuelType.includes('Diesel') || fuelType.includes('ON')) {
+      shortType = 'diesel';
+    }
+    
+    return `${brand} ${shortType}`;
+  };
 
   useEffect(() => {
     if (periodFrom && periodTo && fuelCardNumber) {
@@ -70,7 +88,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Brak transakcji paliwowych dla wybranego okresu
+          {t('fuel.noTransactions')}
         </CardContent>
       </Card>
     );
@@ -82,9 +100,9 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Twoje rozliczenie paliwa</CardTitle>
+        <CardTitle>{t('fuel.title')}</CardTitle>
         <CardDescription>
-          Transakcje paliwowe za okres {periodFrom} - {periodTo}
+          {t('fuel.transactions')} {periodFrom} - {periodTo}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -93,11 +111,10 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-2 text-sm font-medium">Nr karty</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Transakcje</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Litry</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">Kwota</th>
-                  <th className="text-center py-2 px-2 text-sm font-medium">Szczegóły</th>
+                  <th className="text-left py-2 px-2 text-sm font-medium">{t('fuel.cardNumber')}</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.transactionCount')}</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.liters')}</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.amount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,28 +123,43 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                   <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
                   <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
                   <td className="py-2 px-2 text-sm text-right font-medium">{totalAmount.toFixed(2)} zł</td>
-                  <td className="py-2 px-2 text-center">
+                </tr>
+                <tr className="font-bold border-t-2">
+                  <td className="py-2 px-2 text-sm">{t('fuel.sum')}</td>
+                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="py-2 px-2 text-center">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setExpanded(!expanded)}
+                      className="w-full"
                     >
                       {expanded ? (
-                        <ChevronUp className="h-4 w-4" />
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-2" />
+                          {t('fuel.hideDetails')}
+                        </>
                       ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-2" />
+                          {t('fuel.showDetails')}
+                        </>
                       )}
                     </Button>
                   </td>
                 </tr>
                 {expanded && (
                   <tr>
-                    <td colSpan={5} className="py-2 px-2 bg-muted/30">
+                    <td colSpan={4} className="py-2 px-2 bg-muted/30">
                       <div className="space-y-1 text-sm">
                         {transactions.map((trans) => (
                           <div key={trans.id} className="flex justify-between py-1 px-2 border-b border-border/50">
                             <span>{trans.transaction_date} {trans.transaction_time}</span>
-                            <span>{trans.brand} - {trans.fuel_type}</span>
+                            <span>{formatFuelType(trans.brand, trans.fuel_type)}</span>
                             <span>{trans.liters.toFixed(2)} L</span>
                             <span className="font-medium">{trans.total_amount.toFixed(2)} zł</span>
                           </div>
@@ -136,13 +168,6 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                     </td>
                   </tr>
                 )}
-                <tr className="font-bold border-t-2">
-                  <td className="py-2 px-2 text-sm">SUMA</td>
-                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
-                  <td></td>
-                </tr>
               </tbody>
             </table>
           </div>

@@ -317,5 +317,17 @@
     "actualPayout": "Фактическая выплата",
     "negativePayoutWarning": "Внимание: Отрицательная выплата",
     "addedToDebt": "Сумма будет добавлена к долгу"
+  },
+  "fuel": {
+    "title": "Ваш расчет по топливу",
+    "transactions": "Топливные транзакции за период",
+    "cardNumber": "Номер карты",
+    "transactionCount": "Транзакции",
+    "liters": "Литры",
+    "amount": "Сумма",
+    "showDetails": "Показать детали",
+    "hideDetails": "Скрыть детали",
+    "sum": "ИТОГО",
+    "noTransactions": "Нет топливных транзакций за выбранный период"
   }
 }

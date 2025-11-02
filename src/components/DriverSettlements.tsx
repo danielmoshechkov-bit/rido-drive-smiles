@@ -715,7 +715,7 @@ export const DriverSettlements = ({
                 ].filter(item => item.value > 0);
 
                 return (
-                  <div key={periodKey} className="border rounded-lg p-4 space-y-4">
+                  <div key={periodKey} className="space-y-4">
                     {/* Layout: wykres i tabela zawsze obok siebie (50/50) */}
                     <div className="flex flex-wrap gap-4">
                     {platformData.length > 0 && (

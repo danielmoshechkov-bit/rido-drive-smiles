@@ -317,5 +317,17 @@
     "actualPayout": "Фактична виплата",
     "negativePayoutWarning": "Увага: Від'ємна виплата",
     "addedToDebt": "Сума буде додана до боргу"
+  },
+  "fuel": {
+    "title": "Ваш розрахунок по паливу",
+    "transactions": "Паливні транзакції за період",
+    "cardNumber": "Номер картки",
+    "transactionCount": "Транзакції",
+    "liters": "Літри",
+    "amount": "Сума",
+    "showDetails": "Показати деталі",
+    "hideDetails": "Сховати деталі",
+    "sum": "ЗАГАЛОМ",
+    "noTransactions": "Немає паливних транзакцій за вибраний період"
   }
 }

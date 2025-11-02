@@ -317,5 +317,17 @@
     "actualPayout": "Faktyczna wypłata",
     "negativePayoutWarning": "Uwaga: Ujemna wypłata",
     "addedToDebt": "Kwota zostanie dodana do długu"
+  },
+  "fuel": {
+    "title": "Twoje rozliczenie paliwa",
+    "transactions": "Transakcje paliwowe za okres",
+    "cardNumber": "Nr karty",
+    "transactionCount": "Transakcje",
+    "liters": "Litry",
+    "amount": "Kwota",
+    "showDetails": "Pokaż szczegóły",
+    "hideDetails": "Ukryj szczegóły",
+    "sum": "SUMA",
+    "noTransactions": "Brak transakcji paliwowych dla wybranego okresu"
   }
 }
