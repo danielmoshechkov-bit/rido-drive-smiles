@@ -999,6 +999,7 @@ export type Database = {
           driver_name: string | null
           fuel_type: string | null
           id: string
+          import_batch_id: string | null
           import_date: string | null
           liters: number | null
           period_from: string
@@ -1016,6 +1017,7 @@ export type Database = {
           driver_name?: string | null
           fuel_type?: string | null
           id?: string
+          import_batch_id?: string | null
           import_date?: string | null
           liters?: number | null
           period_from: string
@@ -1033,6 +1035,7 @@ export type Database = {
           driver_name?: string | null
           fuel_type?: string | null
           id?: string
+          import_batch_id?: string | null
           import_date?: string | null
           liters?: number | null
           period_from?: string

@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { corsHeaders } from '../_shared/cors.ts';
+// Deno built-in crypto for UUID generation
+import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -17,6 +19,7 @@ interface FuelTransaction {
   fuel_type: string;
   period_from: string;
   period_to: string;
+  import_batch_id: string;
 }
 
 const convertDate = (dateStr: string): string => {
@@ -30,7 +33,7 @@ const parseNumber = (numStr: string): number => {
   return parseFloat(numStr.replace(',', '.'));
 };
 
-const parseCSV = (csvText: string, periodFrom: string, periodTo: string): FuelTransaction[] => {
+const parseCSV = (csvText: string, periodFrom: string, periodTo: string, batchId: string): FuelTransaction[] => {
   // Remove BOM if exists
   const cleanText = csvText.replace(/^\uFEFF/, '');
   
@@ -55,7 +58,8 @@ const parseCSV = (csvText: string, periodFrom: string, periodTo: string): FuelTr
       total_amount: parseNumber(columns[8]),
       fuel_type: columns[9],
       period_from: periodFrom,
-      period_to: periodTo
+      period_to: periodTo,
+      import_batch_id: batchId
     };
   });
 };
@@ -78,8 +82,28 @@ Deno.serve(async (req) => {
 
     console.log(`Starting fuel import for period ${period_from} to ${period_to}`);
 
-    // Parse CSV
-    const transactions = parseCSV(csv_text, period_from, period_to);
+    // Generate unique batch ID for this import
+    const batchId = crypto.randomUUID();
+    console.log(`Generated batch ID: ${batchId}`);
+
+    // Check if this exact period already has transactions imported
+    const { data: existingTransactions, error: checkError } = await supabase
+      .from('fuel_transactions')
+      .select('import_batch_id')
+      .eq('period_from', period_from)
+      .eq('period_to', period_to)
+      .not('import_batch_id', 'is', null)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error checking existing transactions:', checkError);
+    } else if (existingTransactions && existingTransactions.length > 0) {
+      console.log('Warning: Transactions for this period already exist. Proceeding with import anyway.');
+      // Note: We still import but with a new batch_id to track duplicates
+    }
+
+    // Parse CSV with batch ID
+    const transactions = parseCSV(csv_text, period_from, period_to, batchId);
     
     console.log(`Parsed ${transactions.length} transactions`);
 

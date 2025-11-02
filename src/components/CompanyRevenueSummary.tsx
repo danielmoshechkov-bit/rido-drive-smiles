@@ -132,11 +132,11 @@ const currentWeek = weeks.find(w => w.number === selectedWeek);
               <CardTitle>Przychód firmy</CardTitle>
               <CardDescription>Podsumowanie przychodów i kosztów dla floty</CardDescription>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Rok:</Label>
+                <Label className="text-sm font-medium">Rok</Label>
                 <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="h-9 px-3 w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -147,13 +147,13 @@ const currentWeek = weeks.find(w => w.number === selectedWeek);
                 </Select>
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Okres:</Label>
+                <Label className="text-sm font-medium">Okres</Label>
                 <Select 
                   value={selectedWeek?.toString() || ''} 
                   onValueChange={(v) => setSelectedWeek(parseInt(v))}
                   disabled={selectedWeek === null}
                 >
-                  <SelectTrigger className="w-[280px]">
+                  <SelectTrigger className="h-9 px-3 w-[280px]">
                     <SelectValue placeholder="Wybierz okres" />
                   </SelectTrigger>
                   <SelectContent>

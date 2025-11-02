@@ -134,42 +134,51 @@ export function DriverSettlementsView() {
     <Card>
       <CardHeader>
         <CardTitle>Rozliczenia kierowców</CardTitle>
-        <div className="flex gap-4 mt-4">
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2024, 2025, 2026].map(year => (
-                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-3 items-center flex-wrap mt-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Rok</label>
+            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="h-9 px-3 w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[2024, 2025, 2026].map(year => (
+                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-[300px]">
-              <SelectValue placeholder="Wybierz tydzień" />
-            </SelectTrigger>
-            <SelectContent>
-              {weeks.map(week => (
-                <SelectItem key={week.number} value={week.number.toString()}>
-                  {week.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Tydzień</label>
+            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger className="h-9 px-3 w-[280px]">
+                <SelectValue placeholder="Wybierz tydzień" />
+              </SelectTrigger>
+              <SelectContent>
+                {weeks.map(week => (
+                  <SelectItem key={week.number} value={week.number.toString()}>
+                    {week.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={fleetFilter} onValueChange={setFleetFilter}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Wszystkie floty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Wszystkie floty</SelectItem>
-              {fleets.map(fleet => (
-                <SelectItem key={fleet.id} value={fleet.id}>{fleet.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Flota</label>
+            <Select value={fleetFilter} onValueChange={setFleetFilter}>
+              <SelectTrigger className="h-9 px-3 w-[200px]">
+                <SelectValue placeholder="Wszystkie floty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie floty</SelectItem>
+                {fleets.map(fleet => (
+                  <SelectItem key={fleet.id} value={fleet.id}>{fleet.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
 

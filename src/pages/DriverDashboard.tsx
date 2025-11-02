@@ -386,8 +386,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           tabs={subTabs}
         />
         <div className="space-y-4 mt-4">
-          {/* Compact horizontal layout for year, week, fuel card and PIN */}
-          <div className="flex gap-3 items-start flex-wrap">
+          {/* Compact horizontal layout - all in one line */}
+          <div className="flex gap-3 items-center flex-wrap">
             {/* Year selector */}
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Rok</label>
@@ -420,26 +420,31 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
               </Select>
             </div>
 
-            {/* Fuel Card Number - compact card */}
-            {driverData.drivers?.fuel_card_number && (
-              <Card className="border-primary/20 bg-primary/5 py-2 px-4 flex-shrink-0">
-                <div className="flex flex-col">
-                  <p className="text-xs text-muted-foreground">Numer karty paliwowej</p>
-                  <p className="text-lg font-mono font-bold text-primary">
-                    {driverData.drivers.fuel_card_number}
-                  </p>
-                </div>
-              </Card>
+            {/* Separator */}
+            <div className="h-6 w-px bg-border" />
+
+            {/* Fuel Card Number */}
+            {driverData.drivers?.fuel_card_number ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Karta:</span>
+                <span className="text-sm font-mono font-semibold">{driverData.drivers.fuel_card_number}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className="text-sm">Brak karty paliwowej</span>
+              </div>
             )}
 
-            {/* PIN - compact card with security */}
-            {driverData.drivers?.fuel_card_pin && (
-              <Card className="border-orange-300 bg-orange-50 py-2 px-4 flex-shrink-0">
-                <div className="flex flex-col">
-                  <p className="text-xs text-muted-foreground">PIN karty</p>
-                  <PinDisplay pin={driverData.drivers.fuel_card_pin} />
-                </div>
-              </Card>
+            {/* PIN with security */}
+            {driverData.drivers?.fuel_card_pin ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">PIN:</span>
+                <PinDisplay pin={driverData.drivers.fuel_card_pin} />
+              </div>
+            ) : driverData.drivers?.fuel_card_number && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className="text-sm">PIN nie został jeszcze ustawiony</span>
+              </div>
             )}
           </div>
           

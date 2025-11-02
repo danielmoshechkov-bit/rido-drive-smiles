@@ -82,14 +82,22 @@ export function FleetFuelView({ fleetId, periodFrom, periodTo }: FleetFuelViewPr
       if (transactionsError) throw transactionsError;
 
       // Filter transactions to only include cards from this fleet
-      const fleetCardNumbers = new Set(
-        drivers?.map(d => d.fuel_card_number) || []
-      );
+      const fleetCardNumbers = new Set<string>();
+      drivers?.forEach(d => {
+        if (d.fuel_card_number) {
+          // Dodaj wszystkie warianty numeru karty
+          fleetCardNumbers.add(d.fuel_card_number);
+          fleetCardNumbers.add(`00${d.fuel_card_number}`);
+          fleetCardNumbers.add(`0${d.fuel_card_number}`);
+          // Usuń wiodące zera i dodaj też tę wersję
+          fleetCardNumbers.add(d.fuel_card_number.replace(/^0+/, ''));
+        }
+      });
 
       const fleetTransactions = (transactions || []).filter(t => {
-        // Remove leading zeros for comparison
-        const normalizedCardNumber = t.card_number.replace(/^0+/, '');
-        return fleetCardNumbers.has(normalizedCardNumber);
+        // Sprawdź czy numer karty z transakcji lub jego wersja bez zer jest w zbiorze
+        const normalized = t.card_number.replace(/^0+/, '');
+        return fleetCardNumbers.has(t.card_number) || fleetCardNumbers.has(normalized);
       });
 
       // Group transactions by card_number

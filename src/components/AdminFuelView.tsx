@@ -155,11 +155,11 @@ export const AdminFuelView = () => {
         <CardTitle>Dane paliwowe</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Rok</label>
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Rok</label>
             <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-              <SelectTrigger className="h-9 px-2 w-auto min-w-[70px]">
+              <SelectTrigger className="h-9 px-3 w-[100px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -172,10 +172,10 @@ export const AdminFuelView = () => {
             </Select>
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-2 block">Tydzień</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Tydzień</label>
             <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-              <SelectTrigger className="h-9 px-3 w-auto max-w-[280px]">
+              <SelectTrigger className="h-9 px-3 w-[280px]">
                 <SelectValue placeholder="Wybierz tydzień" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
