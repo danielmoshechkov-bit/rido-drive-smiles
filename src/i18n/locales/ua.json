@@ -51,6 +51,12 @@
     "allPlans": "Всі плани",
     "admin": "Адмін",
     "earningsByPlatform": "Заробіток за платформами",
+    "messages": {
+      "loadingData": "Завантаження...",
+      "noSettlements": "Немає доступних розрахунків за обраний період.",
+      "contactAdmin": "Якщо проблема повторюється, зверніться до адміністратора.",
+      "driverId": "ID водія"
+    },
     "table": {
       "category": "Категорія",
       "uber": "Uber",

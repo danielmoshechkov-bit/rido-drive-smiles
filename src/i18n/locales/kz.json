@@ -51,6 +51,12 @@
     "allPlans": "Барлық жоспарлар",
     "admin": "Әкімші",
     "earningsByPlatform": "Платформалар бойынша табыс",
+    "messages": {
+      "loadingData": "Жүктелуде...",
+      "noSettlements": "Таңдалған кезең үшін есептер жоқ.",
+      "contactAdmin": "Мәселе қайталанса, әкімшіге хабарласыңыз.",
+      "driverId": "Жүргізуші ID"
+    },
     "table": {
       "category": "Санат",
       "uber": "Uber",

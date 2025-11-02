@@ -26,6 +26,8 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from "@/components/LanguageSelector";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -159,47 +161,49 @@ const DriverDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header - identyczny jak AdminDashboard */}
+      {/* Header - responsive with mobile wrap */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
             <img 
               src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
               alt="Get RIDO Logo" 
-              className="h-8 w-8"
+              className="h-8 w-8 flex-shrink-0"
             />
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm">
               <span className="font-semibold text-primary">{t('driver.panel')}</span>
               {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
                 <>
-                  <span className="text-muted-foreground">-</span>
+                  <span className="hidden md:inline text-muted-foreground">-</span>
                   <span className="font-medium text-foreground">
                     {driverData.drivers.first_name} {driverData.drivers.last_name}
                   </span>
                 </>
               )}
               {fleetInfo && (
-                <>
-                  <span className="text-muted-foreground">-</span>
-                  <span className="font-medium text-primary">{t('driver.fleet')}: {fleetInfo.name}</span>
+                <div className="flex flex-col md:flex-row md:items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className="hidden md:inline text-muted-foreground">-</span>
+                    <span className="font-medium text-primary">{t('driver.fleet')}: {fleetInfo.name}</span>
+                  </div>
                   {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <span className="hidden md:inline text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">
                         {t('driver.caretaker')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
                       </span>
-                    </>
+                    </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 md:space-x-3">
             {driverData?.driver_id && (
               <DriverNotificationBell driverId={driverData.driver_id} />
             )}
             <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout} className="rounded-lg">
+            <Button variant="outline" onClick={handleLogout} className="rounded-lg text-xs md:text-sm px-2 md:px-4">
               {t('driver.logout')}
             </Button>
           </div>
@@ -207,14 +211,61 @@ const DriverDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 pt-4 pb-8 relative">
+      <div className="container mx-auto px-4 pt-4 pb-24 relative">
         {/* Floating Chat Widget */}
         <div className="fixed bottom-6 right-6 z-50">
           <ChatFab driverData={driverData} />
         </div>
         
-        {/* Slim Pill Tabs */}
-        <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        {/* Hamburger Menu for Mobile */}
+        <div className="md:hidden mb-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px]">
+              <div className="flex flex-col gap-3 mt-8">
+                <Button
+                  variant={activeTab === 'weekly-report' ? 'default' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                  onClick={() => setActiveTab('weekly-report')}
+                >
+                  <DollarSign className="h-4 w-4" />
+                  {t('driver.tabs.weekly')}
+                </Button>
+                <Button
+                  variant={activeTab === 'cars' ? 'default' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                  onClick={() => setActiveTab('cars')}
+                >
+                  <Car className="h-4 w-4" />
+                  {t('driver.tabs.cars')}
+                </Button>
+                <Button
+                  variant={activeTab === 'documents' ? 'default' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                  onClick={() => setActiveTab('documents')}
+                >
+                  <FileText className="h-4 w-4" />
+                  {t('driver.tabs.documents')}
+                </Button>
+                <Button
+                  variant={activeTab === 'informacje' ? 'default' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                  onClick={() => setActiveTab('informacje')}
+                >
+                  <Info className="h-4 w-4" />
+                  {t('driver.tabs.info')}
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* Desktop Tabs - Hidden on Mobile */}
+        <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6 hidden md:flex">
           <TabsTrigger value="weekly-report">
             <DollarSign className="h-4 w-4 mr-2" />
             {t('driver.tabs.weekly')}
@@ -232,7 +283,7 @@ const DriverDashboard = () => {
             {t('driver.tabs.info')}
           </TabsTrigger>
 
-          {/* Tab Content */}
+          {/* Tab Content - Desktop only (wrapped in TabsPill) */}
           <TabsContent value="weekly-report">
               <SettlementsWithSubTabs driverData={driverData} />
             </TabsContent>
@@ -249,6 +300,14 @@ const DriverDashboard = () => {
             <DriverNotifications driverId={driverData.driver_id} />
           </TabsContent>
         </TabsPill>
+
+        {/* Tab Content - Mobile only (outside TabsPill) */}
+        <div className="md:hidden">
+          {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} />}
+          {activeTab === 'cars' && <CarsSection driverData={driverData} />}
+          {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
+          {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
+        </div>
       </div>
     </div>
   );

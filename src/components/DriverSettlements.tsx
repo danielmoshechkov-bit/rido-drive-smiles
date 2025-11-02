@@ -656,17 +656,17 @@ export const DriverSettlements = ({
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
 
         {loading ? (
-          <div className="text-center py-4">Ładowanie...</div>
+          <div className="text-center py-4">{t('weekly.messages.loadingData')}</div>
         ) : settlements.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground mb-2">
-              Brak dostępnych rozliczeń dla wybranego okresu.
+              {t('weekly.messages.noSettlements')}
             </p>
             <p className="text-sm text-muted-foreground">
-              Jeśli problem się powtarza, skontaktuj się z administratorem.
+              {t('weekly.messages.contactAdmin')}
             </p>
             <p className="text-xs text-muted-foreground mt-4">
-              ID kierowcy: {driverId}
+              {t('weekly.messages.driverId')}: {driverId}
             </p>
           </Card>
         ) : (
@@ -687,16 +687,16 @@ export const DriverSettlements = ({
                 return (
                   <div key={periodKey} className="border rounded-lg p-4 space-y-4">
                     <h3 className="font-semibold">
-                      Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
+                      {t('weekly.period')} {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
 
                      {/* Layout: na mobile tabela na górze, wykres na dole; na desktop obok siebie */}
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pb-24">
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                      
-                     {/* Compact settlement table - na mobile PIERWSZA (order-1) */}
-                     <div className="border rounded-lg overflow-hidden w-full order-1 lg:order-2">
+                     {/* Compact settlement table - FIRST in JSX = appears first on mobile */}
+                     <div className="border rounded-lg overflow-hidden w-full">
                        <div className="overflow-x-auto">
-                         <table className="w-full text-[11px] sm:text-sm">
+                         <table className="w-full text-[10px] sm:text-sm">
                            <thead>
                              <tr className="bg-muted">
                                <th className="text-left p-2 font-medium">{t('weekly.table.category')}</th>
@@ -894,14 +894,14 @@ export const DriverSettlements = ({
                         ) : null}
                       </div>
                      
-                     {/* Wykres - na mobile DRUGI (order-2), na desktop pierwszy (order-1) */}
+                     {/* Wykres - SECOND in JSX = appears second on mobile, side-by-side on desktop */}
                      {platformData.length > 0 && (
-                       <Card className="w-full order-2 lg:order-1">
+                       <Card className="w-full">
                          <CardHeader className="pb-2">
-                           <h4 className="text-[11px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
+                           <h4 className="text-[10px] sm:text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                          </CardHeader>
                          <CardContent>
-                           <div className="h-44 sm:h-56 md:h-72">
+                           <div className="h-36 sm:h-48 lg:h-64">
                              <ResponsiveContainer width="100%" height="100%">
                                <PieChart>
                                  <Pie

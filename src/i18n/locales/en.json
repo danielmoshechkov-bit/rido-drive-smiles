@@ -51,6 +51,12 @@
     "allPlans": "All Plans",
     "admin": "Admin",
     "earningsByPlatform": "Earnings by Platform",
+    "messages": {
+      "loadingData": "Loading...",
+      "noSettlements": "No settlements available for the selected period.",
+      "contactAdmin": "If the problem persists, contact the administrator.",
+      "driverId": "Driver ID"
+    },
     "table": {
       "category": "Category",
       "uber": "Uber",

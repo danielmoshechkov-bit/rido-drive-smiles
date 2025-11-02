@@ -51,6 +51,12 @@
     "allPlans": "Wszystkie plany",
     "admin": "Admin",
     "earningsByPlatform": "Zarobki według platform",
+    "messages": {
+      "loadingData": "Ładowanie...",
+      "noSettlements": "Brak dostępnych rozliczeń dla wybranego okresu.",
+      "contactAdmin": "Jeśli problem się powtarza, skontaktuj się z administratorem.",
+      "driverId": "ID kierowcy"
+    },
     "table": {
       "category": "Kategoria",
       "uber": "Uber",
