@@ -644,7 +644,7 @@ export const DriverSettlements = ({
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
 
   return (
-    <Card className={hideControls ? "border-0 shadow-none" : "mt-6"}>
+    <Card className={hideControls ? "border-0 shadow-none" : ""}>
       {!hideControls && (
         <CardHeader className="py-3">
           <div className="flex items-center gap-4 flex-nowrap">
