@@ -44,11 +44,11 @@ import { ExpiryBadges } from "@/components/ExpiryBadges";
 export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
   return (
     <Tabs {...props}>
-      <div className="rounded-[9999px] bg-[#6C3CF0] p-1 shadow-[0_8px_30px_rgba(108,60,240,0.18)]">
+      <div className="rounded-[9999px] bg-primary p-1 shadow-lg">
         <TabsList
           className="
             flex w-full items-center gap-1 overflow-x-auto no-scrollbar
-            rounded-[9999px] bg-[#6C3CF0] px-1
+            rounded-[9999px] bg-primary px-1
             min-h-[44px]
           "
         >
@@ -56,9 +56,9 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
             if (child?.type?.displayName === "TabsTrigger") {
               return React.cloneElement(child, {
                 className:
-                  "px-5 h-10 flex items-center rounded-full text-sm whitespace-nowrap transition text-white " +
-                  "data-[state=active]:bg-white data-[state=active]:text-[#6C3CF0] data-[state=active]:font-semibold " +
-                  "hover:bg-white/20 focus-visible:outline-none",
+                  "px-5 h-10 flex items-center rounded-full text-sm whitespace-nowrap transition text-primary-foreground " +
+                  "data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:font-semibold " +
+                  "hover:bg-background/20 focus-visible:outline-none",
               });
             }
             return null;
