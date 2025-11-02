@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import LanguageSelector from "@/components/LanguageSelector";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [user, setUser] = useState<any>(null);
@@ -198,7 +200,7 @@ const DriverDashboard = () => {
               <DriverNotificationBell driverId={driverData.driver_id} />
             )}
             <Button variant="outline" onClick={handleLogout} className="rounded-lg">
-              Wyloguj
+              {t('auth.logout')}
             </Button>
           </div>
         </div>
@@ -215,19 +217,19 @@ const DriverDashboard = () => {
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsTrigger value="weekly-report">
             <DollarSign className="h-4 w-4 mr-2" />
-            Rozliczenie tygodniowe
+            {t('driver.tabs.settlements')}
           </TabsTrigger>
           <TabsTrigger value="cars">
             <Car className="h-4 w-4 mr-2" />
-            Samochód
+            {t('driver.tabs.cars')}
           </TabsTrigger>
           <TabsTrigger value="documents">
             <FileText className="h-4 w-4 mr-2" />
-            Dokumenty
+            {t('driver.tabs.documents')}
           </TabsTrigger>
           <TabsTrigger value="informacje">
             <Info className="h-4 w-4 mr-2" />
-            Informacje
+            {t('driver.tabs.information')}
           </TabsTrigger>
 
           {/* Tab Content */}
@@ -254,6 +256,7 @@ const DriverDashboard = () => {
 
 // Komponent sekcji samochodów z przyciskiem dodaj auto
 function CarsSection({ driverData }: { driverData: any }) {
+  const { t } = useTranslation();
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const driverId = driverData.driver_id;
@@ -261,13 +264,13 @@ function CarsSection({ driverData }: { driverData: any }) {
   return (
     <div className="space-y-4">
       {/* Przycisk Dodaj auto */}
-      <div className="flex justify-start">
+      <div className="flex justify-start pl-4">
         <Button 
           onClick={() => setShowAddModal(true)}
           className="gap-2 rounded-2xl shadow-[0_10px_30px_rgba(108,60,240,0.18)]"
         >
           <Plus className="h-4 w-4" />
-          Dodaj auto
+          {t('driver.cars.addCar')}
         </Button>
       </div>
 
@@ -292,6 +295,7 @@ function CarsSection({ driverData }: { driverData: any }) {
 
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
 function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
+  const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState("my");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState(() => {
@@ -300,8 +304,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   });
   
   const subTabs = [
-    { value: "my", label: "Moje rozliczenia", visible: true },
-    { value: "fuel", label: "Paliwo", visible: true }
+    { value: "my", label: t('driver.settlements.mySettlements'), visible: true },
+    { value: "fuel", label: t('driver.settlements.fuel'), visible: true }
   ];
 
   const weeks = getAvailableWeeks(selectedYear);

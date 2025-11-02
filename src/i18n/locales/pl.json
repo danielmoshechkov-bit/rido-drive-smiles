@@ -255,7 +255,24 @@
     "strongPassword": "Silne hasło",
     "weakPassword": "Słabe hasło",
     "passwordsMatch": "Hasła są zgodne",
-    "passwordsDontMatch": "Hasła nie są zgodne"
+    "passwordsDontMatch": "Hasła nie są zgodne",
+    "logout": "Wyloguj"
+  },
+  "driver": {
+    "tabs": {
+      "settlements": "Rozliczenie tygodniowe",
+      "cars": "Samochód",
+      "documents": "Dokumenty",
+      "information": "Informacje"
+    },
+    "settlements": {
+      "mySettlements": "Moje rozliczenia",
+      "fuel": "Paliwo"
+    },
+    "cars": {
+      "addCar": "Dodaj auto",
+      "rentalHistory": "Historia wynajmów"
+    }
   },
   "admin": {
     "dashboard": "Panel Administratora",

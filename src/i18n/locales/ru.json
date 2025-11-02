@@ -255,7 +255,24 @@
     "strongPassword": "Надежный пароль",
     "weakPassword": "Слабый пароль",
     "passwordsMatch": "Пароли совпадают",
-    "passwordsDontMatch": "Пароли не совпадают"
+    "passwordsDontMatch": "Пароли не совпадают",
+    "logout": "Выйти"
+  },
+  "driver": {
+    "tabs": {
+      "settlements": "Еженедельный расчет",
+      "cars": "Автомобиль",
+      "documents": "Документы",
+      "information": "Информация"
+    },
+    "settlements": {
+      "mySettlements": "Мои расчеты",
+      "fuel": "Топливо"
+    },
+    "cars": {
+      "addCar": "Добавить авто",
+      "rentalHistory": "История аренды"
+    }
   },
   "admin": {
     "dashboard": "Панель администратора",

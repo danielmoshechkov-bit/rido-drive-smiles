@@ -255,7 +255,24 @@
     "strongPassword": "Strong password",
     "weakPassword": "Weak password",
     "passwordsMatch": "Passwords match",
-    "passwordsDontMatch": "Passwords don't match"
+    "passwordsDontMatch": "Passwords don't match",
+    "logout": "Logout"
+  },
+  "driver": {
+    "tabs": {
+      "settlements": "Weekly Settlements",
+      "cars": "Cars",
+      "documents": "Documents",
+      "information": "Information"
+    },
+    "settlements": {
+      "mySettlements": "My Settlements",
+      "fuel": "Fuel"
+    },
+    "cars": {
+      "addCar": "Add Car",
+      "rentalHistory": "Rental History"
+    }
   },
   "admin": {
     "dashboard": "Admin Dashboard",

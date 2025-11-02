@@ -255,7 +255,24 @@
     "strongPassword": "Надійний пароль",
     "weakPassword": "Слабкий пароль",
     "passwordsMatch": "Паролі співпадають",
-    "passwordsDontMatch": "Паролі не співпадають"
+    "passwordsDontMatch": "Паролі не співпадають",
+    "logout": "Вийти"
+  },
+  "driver": {
+    "tabs": {
+      "settlements": "Тижневий розрахунок",
+      "cars": "Автомобіль",
+      "documents": "Документи",
+      "information": "Інформація"
+    },
+    "settlements": {
+      "mySettlements": "Мої розрахунки",
+      "fuel": "Паливо"
+    },
+    "cars": {
+      "addCar": "Додати авто",
+      "rentalHistory": "Історія оренди"
+    }
   },
   "admin": {
     "dashboard": "Панель адміністратора",

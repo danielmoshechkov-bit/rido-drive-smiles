@@ -255,7 +255,24 @@
     "strongPassword": "Күшті құпия сөз",
     "weakPassword": "Әлсіз құпия сөз",
     "passwordsMatch": "Құпия сөздер сәйкес келеді",
-    "passwordsDontMatch": "Құпия сөздер сәйкес келмейді"
+    "passwordsDontMatch": "Құпия сөздер сәйкес келмейді",
+    "logout": "Шығу"
+  },
+  "driver": {
+    "tabs": {
+      "settlements": "Апталық есеп",
+      "cars": "Автокөлік",
+      "documents": "Құжаттар",
+      "information": "Ақпарат"
+    },
+    "settlements": {
+      "mySettlements": "Менің есептерім",
+      "fuel": "Жанармай"
+    },
+    "cars": {
+      "addCar": "Көлік қосу",
+      "rentalHistory": "Жалдау тарихы"
+    }
   },
   "admin": {
     "dashboard": "Әкімші панелі",

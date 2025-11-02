@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { LeasedCarCard } from "./LeasedCarCard";
 import { VehicleAssignmentHistory } from "./VehicleAssignmentHistory";
@@ -35,6 +36,7 @@ interface VehicleAssignment {
 }
 
 export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
+  const { t } = useTranslation();
   const [activeAssignment, setActiveAssignment] = useState<VehicleAssignment | null>(null);
   const [historicalAssignments, setHistoricalAssignments] = useState<VehicleAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +156,7 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
         <Collapsible open={historyOpen} onOpenChange={setHistoryOpen} className="mt-4">
           <CollapsibleTrigger asChild>
             <Button variant="outline" className="w-full flex items-center justify-between">
-              <span>Historia wynajmów ({historicalAssignments.length})</span>
+              <span>{t('driver.cars.rentalHistory')} ({historicalAssignments.length})</span>
               <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
