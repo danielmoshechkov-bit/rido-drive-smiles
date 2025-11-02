@@ -360,5 +360,9 @@
     "hideDetails": "Сховати деталі",
     "sum": "ЗАГАЛОМ",
     "noTransactions": "Немає паливних транзакцій за вибраний період"
+  },
+  "fleet": {
+    "mySettlements": "Мої розрахунки",
+    "driverSettlements": "Розрахунки водіїв"
   }
 }

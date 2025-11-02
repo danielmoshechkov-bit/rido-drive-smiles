@@ -360,5 +360,9 @@
     "hideDetails": "Hide Details",
     "sum": "TOTAL",
     "noTransactions": "No fuel transactions for the selected period"
+  },
+  "fleet": {
+    "mySettlements": "My Settlements",
+    "driverSettlements": "Driver Settlements"
   }
 }

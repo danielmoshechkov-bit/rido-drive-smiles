@@ -360,5 +360,9 @@
     "hideDetails": "Жасыру",
     "sum": "БАРЛЫҒЫ",
     "noTransactions": "Таңдалған кезең үшін отын транзакциялары жоқ"
+  },
+  "fleet": {
+    "mySettlements": "Менің есептерім",
+    "driverSettlements": "Жүргізушілердің есептері"
   }
 }

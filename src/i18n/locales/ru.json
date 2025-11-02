@@ -360,5 +360,9 @@
     "hideDetails": "Скрыть детали",
     "sum": "ИТОГО",
     "noTransactions": "Нет топливных транзакций за выбранный период"
+  },
+  "fleet": {
+    "mySettlements": "Мои расчеты",
+    "driverSettlements": "Расчеты водителей"
   }
 }
