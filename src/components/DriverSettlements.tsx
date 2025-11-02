@@ -12,6 +12,7 @@ import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
 
 interface Settlement {
   id: string;
@@ -78,6 +79,7 @@ export const DriverSettlements = ({
   const [canChangePlan, setCanChangePlan] = useState(true);
   const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
   const { role } = useUserRole();
+  const { t } = useTranslation();
 
   const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
@@ -607,7 +609,7 @@ export const DriverSettlements = ({
   if (!visibilitySettings) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">Ładowanie ustawień...</p>
+        <p className="text-muted-foreground">{t('weekly.loading')}</p>
       </div>
     );
   }
@@ -619,9 +621,9 @@ export const DriverSettlements = ({
       {!hideControls && (
         <CardHeader className="py-3">
           <div className="flex items-center gap-4 flex-nowrap">
-            <CardTitle className="whitespace-nowrap">Wynik tygodniowy</CardTitle>
+            <CardTitle className="whitespace-nowrap">{t('weekly.title')}</CardTitle>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Rok:</Label>
+              <Label className="text-sm whitespace-nowrap">{t('weekly.year')}:</Label>
               <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
                 <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
@@ -634,9 +636,9 @@ export const DriverSettlements = ({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Okres:</Label>
+              <Label className="text-sm whitespace-nowrap">{t('weekly.period')}:</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[240px]">
+                <SelectTrigger className="h-10 px-4 rounded-lg border-gray-300 shadow-sm w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -649,17 +651,17 @@ export const DriverSettlements = ({
               </Select>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <Label className="text-sm whitespace-nowrap">Plan:</Label>
+              <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
               <Select 
                 value={selectedPlanId} 
                 onValueChange={setSelectedPlanId}
                 disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
               >
                 <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
-                  <SelectValue placeholder="Wszystkie plany" />
+                  <SelectValue placeholder={t('weekly.allPlans')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Wszystkie plany</SelectItem>
+                  <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
                   {settlementPlans.map(plan => (
                     <SelectItem key={plan.id} value={plan.id}>
                       {plan.name}
@@ -684,17 +686,17 @@ export const DriverSettlements = ({
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
 
         {loading ? (
-          <div className="text-center py-4">Ładowanie...</div>
+          <div className="text-center py-4">{t('weekly.loading')}</div>
         ) : settlements.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground mb-2">
-              Brak dostępnych rozliczeń dla wybranego okresu.
+              {t('weekly.noData')}
             </p>
             <p className="text-sm text-muted-foreground">
-              Jeśli problem się powtarza, skontaktuj się z administratorem.
+              {t('weekly.contactAdmin')}
             </p>
             <p className="text-xs text-muted-foreground mt-4">
-              ID kierowcy: {driverId}
+              {t('weekly.driverId')}: {driverId}
             </p>
           </Card>
         ) : (
@@ -714,16 +716,12 @@ export const DriverSettlements = ({
 
                 return (
                   <div key={periodKey} className="border rounded-lg p-4 space-y-4">
-                    <h3 className="font-semibold">
-                      Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
-                    </h3>
-
                     {/* Layout: wykres i tabela zawsze obok siebie (50/50) */}
                     <div className="flex flex-wrap gap-4">
                     {platformData.length > 0 && (
                       <Card className="flex-1 min-w-[300px]">
                         <CardHeader className="pb-2">
-                          <h4 className="text-sm font-medium">Zarobki według platform</h4>
+                          <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                         </CardHeader>
                         <CardContent>
                           <div className="h-80">
@@ -756,7 +754,7 @@ export const DriverSettlements = ({
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-muted">
-                              <th className="text-left p-2 font-medium">Kategoria</th>
+                              <th className="text-left p-2 font-medium">{t('weekly.category')}</th>
                               <th className="text-right p-2 font-medium">Uber</th>
                               <th className="text-right p-2 font-medium">Bolt</th>
                               <th className="text-right p-2 font-medium">FreeNow</th>
@@ -765,7 +763,7 @@ export const DriverSettlements = ({
                           <tbody>
                             {/* Podstawa opodatkowania */}
                             <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Podstawa</td>
+                              <td className="p-2 text-muted-foreground">{t('weekly.base')}</td>
                               <td className="p-2 text-right font-medium">
                                 {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                               </td>
@@ -779,7 +777,7 @@ export const DriverSettlements = ({
                             
                             {/* Prowizja */}
                             <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Prowizja</td>
+                              <td className="p-2 text-muted-foreground">{t('weekly.commission')}</td>
                               <td className="p-2 text-right font-medium text-amber-600">
                                 {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                               </td>
@@ -793,7 +791,7 @@ export const DriverSettlements = ({
                             
                             {/* Gotówka pobrana (informacyjnie) */}
                             <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Gotówka pobrana</td>
+                              <td className="p-2 text-muted-foreground">{t('weekly.cashCollected')}</td>
                               <td className="p-2 text-right font-medium text-blue-600">
                                 {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                               </td>
@@ -807,7 +805,7 @@ export const DriverSettlements = ({
                             
                             {/* Podatek 8% */}
                             <tr className="border-t hover:bg-yellow-200">
-                              <td className="p-2 text-muted-foreground">Podatek 8%</td>
+                              <td className="p-2 text-muted-foreground">{t('weekly.tax8')}</td>
                               <td className="p-2 text-right font-medium text-destructive">
                                 {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                               </td>
@@ -826,7 +824,7 @@ export const DriverSettlements = ({
                       <div className="border-t bg-muted/30 p-4 space-y-3">
                         {/* Razem bez prowizji - DUŻA CZCIONKA */}
                         <div className="flex justify-between text-base font-bold">
-                          <span className="font-bold">Razem bez prowizji:</span>
+                          <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
                           <span className="font-bold text-green-600 text-lg">
                             {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
                               (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
@@ -837,7 +835,7 @@ export const DriverSettlements = ({
                         {/* Razem gotówka - DUŻA CZCIONKA */}
                         {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Razem gotówka:</span>
+                            <span className="font-bold">{t('weekly.totalCash')}:</span>
                             <span className="font-bold text-blue-600 text-lg">
                               {(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
                             </span>
@@ -846,14 +844,14 @@ export const DriverSettlements = ({
                         
                         {/* Razem podatek 8% - DUŻA CZCIONKA */}
                         <div className="flex justify-between text-base font-bold">
-                          <span className="font-bold">Razem podatek 8%:</span>
+                          <span className="font-bold">{t('weekly.totalTax')}:</span>
                           <span className="font-bold text-destructive text-lg">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
                         {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
                         {fee > 0 && (
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Opłata za rozliczenie:</span>
+                            <span className="font-bold">{t('weekly.settlementFee')}:</span>
                             <span className="font-bold text-destructive text-lg">-{fee.toFixed(2)} zł</span>
                           </div>
                         )}
@@ -861,7 +859,7 @@ export const DriverSettlements = ({
                         {/* Paliwo - DUŻA CZCIONKA */}
                         {amounts.fuel > 0 && (
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Paliwo:</span>
+                            <span className="font-bold">{t('weekly.fuel')}:</span>
                             <span className="font-bold text-destructive text-lg">-{amounts.fuel.toFixed(2)} zł</span>
                           </div>
                         )}
@@ -869,7 +867,7 @@ export const DriverSettlements = ({
                         {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
                         {amounts.fuel_vat_refund > 0 && (
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Zwrot VAT paliwo:</span>
+                            <span className="font-bold">{t('weekly.fuelVatRefund')}:</span>
                             <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                           </div>
                         )}
@@ -877,7 +875,7 @@ export const DriverSettlements = ({
                         {/* Wynajem auta - WARUNKOWO, DUŻA CZCIONKA */}
                         {rentalFee > 0 && (
                           <div className="flex justify-between text-base font-bold">
-                            <span className="font-bold">Wynajem auta:</span>
+                            <span className="font-bold">{t('weekly.carRental')}:</span>
                             <span className="font-bold text-destructive text-lg">-{rentalFee.toFixed(2)} zł</span>
                           </div>
                         )}
@@ -886,7 +884,7 @@ export const DriverSettlements = ({
                       {/* Payout summary - EXTRA DUŻA CZCIONKA */}
                       <div className="border-t bg-primary/10 p-4">
                         <div className="flex justify-between">
-                          <span className="font-extrabold text-lg">Wypłata:</span>
+                          <span className="font-extrabold text-lg">{t('weekly.payout')}:</span>
                           <span className="font-extrabold text-primary text-2xl">
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
@@ -897,11 +895,11 @@ export const DriverSettlements = ({
                       {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
                         <div className="border-t bg-red-50 p-3">
                           <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">💳 Zadłużenie</div>
+                            <div className="font-semibold text-red-800 mb-2">💳 {t('weekly.debt')}</div>
                             
                             {settlement.debt_before && settlement.debt_before > 0 && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Dług z poprzednich tygodni:</span>
+                                <span className="text-muted-foreground">{t('weekly.debtFromPrevious')}:</span>
                                 <span className="font-semibold text-red-600">
                                   -{settlement.debt_before.toFixed(2)} zł
                                 </span>
@@ -910,7 +908,7 @@ export const DriverSettlements = ({
                             
                             {settlement.debt_payment && settlement.debt_payment > 0 && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Spłata długu:</span>
+                                <span className="text-muted-foreground">{t('weekly.debtPayment')}:</span>
                                 <span className="font-semibold text-green-600">
                                   -{settlement.debt_payment.toFixed(2)} zł
                                 </span>
@@ -919,7 +917,7 @@ export const DriverSettlements = ({
                             
                             {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
                               <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
-                                <span className="text-muted-foreground">Pozostały dług:</span>
+                                <span className="text-muted-foreground">{t('weekly.remainingDebt')}:</span>
                                 <span className="font-semibold text-red-600">
                                   -{settlement.debt_after.toFixed(2)} zł
                                 </span>
@@ -927,7 +925,7 @@ export const DriverSettlements = ({
                             )}
                             
                             <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className="font-bold">{t('weekly.actualPayout')}:</span>
                               <span className={`font-bold text-lg ${(settlement.actual_payout || 0) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
                                 {(settlement.actual_payout || 0).toFixed(2)} zł
                               </span>
@@ -937,15 +935,15 @@ export const DriverSettlements = ({
                       ) : payout < 0 ? (
                         <div className="border-t bg-red-50 p-3">
                           <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">⚠️ Uwaga: Ujemna wypłata</div>
+                            <div className="font-semibold text-red-800 mb-2">⚠️ {t('weekly.negativePayoutWarning')}</div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Kwota zostanie dodana do długu:</span>
+                              <span className="text-muted-foreground">{t('weekly.addedToDebt')}:</span>
                               <span className="font-bold text-red-600">
                                 {Math.abs(payout).toFixed(2)} zł
                               </span>
                             </div>
                             <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">Faktyczna wypłata:</span>
+                              <span className="font-bold">{t('weekly.actualPayout')}:</span>
                               <span className="font-bold text-lg text-gray-600">0.00 zł</span>
                             </div>
                           </div>
