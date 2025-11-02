@@ -17,6 +17,7 @@ import { DocumentsManagement } from "@/components/DocumentsManagement";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { RebuildDriversModal } from "@/components/RebuildDriversModal";
 import { AdminSettingsView } from "@/components/AdminSettingsView";
+import { UserDropdown } from "@/components/UserDropdown";
 import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -30,9 +31,25 @@ const AdminDashboard = () => {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [showRebuildModal, setShowRebuildModal] = useState(false);
   const [sanitizing, setSanitizing] = useState(false);
+  const [adminUserName, setAdminUserName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
+
+  // Fetch admin user info
+  useEffect(() => {
+    const fetchAdminInfo = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const firstName = user.user_metadata?.first_name || '';
+        const lastName = user.user_metadata?.last_name || '';
+        setAdminUserName(`${firstName} ${lastName}`.trim() || 'Administrator');
+        setAdminEmail(user.email || '');
+      }
+    };
+    fetchAdminInfo();
+  }, []);
 
   // Read tab from URL
   useEffect(() => {
@@ -132,18 +149,27 @@ const AdminDashboard = () => {
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <img 
               src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
               alt="Get RIDO Logo" 
-              className="h-8 w-8"
+              className="h-6 w-6"
             />
-            <h1 className="text-xl font-bold text-primary">{t('admin.dashboard')}</h1>
+            <h1 className="text-lg font-bold text-primary">{t('admin.dashboard')}</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <SystemAlertsButton />
-            <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout}>
+          <div className="flex items-center space-x-3">
+            <UserDropdown 
+              userName={adminUserName}
+              userRole="Administrator"
+              userEmail={adminEmail}
+            />
+            <div className="scale-90">
+              <SystemAlertsButton />
+            </div>
+            <div className="scale-90">
+              <LanguageSelector />
+            </div>
+            <Button variant="outline" onClick={handleLogout} size="sm" className="text-sm">
               {t('admin.logout')}
             </Button>
           </div>

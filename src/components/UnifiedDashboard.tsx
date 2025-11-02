@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
 import { useSystemAlerts } from "@/hooks/useSystemAlerts";
 import { Badge } from "@/components/ui/badge";
+import { UserDropdown } from "@/components/UserDropdown";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { CitySelector } from "@/components/CitySelector";
@@ -37,10 +38,12 @@ interface UnifiedDashboardProps {
   fleetId?: string | null;
   fleetName?: string;
   userName?: string;
+  userEmail?: string;
+  userRoles?: string;
   onLogout: () => void;
 }
 
-export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLogout }: UnifiedDashboardProps) {
+export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userEmail, userRoles, onLogout }: UnifiedDashboardProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
@@ -188,24 +191,31 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <img 
               src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
               alt="Get RIDO Logo" 
-              className="h-8 w-8"
+              className="h-6 w-6"
             />
-            <h1 className="text-xl font-bold text-primary">
-              {userType === 'admin' 
-                ? t('admin.dashboard') 
-                : `Panel Flotowy - ${fleetName}${userName ? ` - ${userName}` : ''}`
-              }
+            <h1 className="text-lg font-bold text-primary">
+              Panel Flotowy - {fleetName}
             </h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
-            <LanguageSelector />
-            <Button variant="outline" onClick={onLogout}>
-              {t('admin.logout')}
+          <div className="flex items-center space-x-3">
+            <UserDropdown 
+              userName={userName || 'Użytkownik'}
+              userRole={userRoles || 'Fleet'}
+              userEmail={userEmail}
+              fleetName={fleetName}
+            />
+            <div className="scale-90">
+              <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
+            </div>
+            <div className="scale-90">
+              <LanguageSelector />
+            </div>
+            <Button variant="outline" onClick={onLogout} size="sm" className="text-sm">
+              Wyloguj
             </Button>
           </div>
         </div>
