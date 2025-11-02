@@ -652,6 +652,29 @@ export const DriverSettlements = ({
                 </SelectContent>
               </Select>
             </div>
+            {settlementPlans.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2">
+                <Label className="text-xs font-medium whitespace-nowrap">Plan:</Label>
+                <Select 
+                  value={driverPlan?.id || "all"} 
+                  onValueChange={(val) => {
+                    const plan = settlementPlans.find(p => p.id === val);
+                    if (plan) setDriverPlan(plan);
+                  }}
+                >
+                  <SelectTrigger className="h-8 px-2 w-[180px] text-xs">
+                    <SelectValue placeholder="Wszystkie plany" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[60]" position="popper" sideOffset={6}>
+                    {settlementPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
       )}
