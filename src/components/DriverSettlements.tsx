@@ -718,9 +718,10 @@ export const DriverSettlements = ({
                       Okres {format(parseISO(period.period_from), 'dd.MM', { locale: pl })} - {format(parseISO(period.period_to), 'dd.MM.yyyy', { locale: pl })}
                     </h3>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Layout: wykres i tabela zawsze obok siebie (50/50) */}
+                    <div className="flex flex-wrap gap-4">
                     {platformData.length > 0 && (
-                      <Card className="h-full">
+                      <Card className="flex-1 min-w-[300px]">
                         <CardHeader className="pb-2">
                           <h4 className="text-sm font-medium">Zarobki według platform</h4>
                         </CardHeader>
@@ -750,7 +751,7 @@ export const DriverSettlements = ({
                      )}
 
                     {/* Compact settlement table */}
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>

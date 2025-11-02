@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
@@ -94,6 +95,7 @@ const Auth = () => {
           />
           <span className="text-xl font-bold text-primary">Get RIDO</span>
         </div>
+        <LanguageSelector />
       </div>
 
       {/* Main Content */}
