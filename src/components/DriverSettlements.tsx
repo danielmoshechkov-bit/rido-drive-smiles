@@ -636,7 +636,7 @@ export const DriverSettlements = ({
             <div className="flex items-center gap-2">
               <Label className="text-sm whitespace-nowrap">Okres:</Label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-auto max-w-[320px]">
+                <SelectTrigger className="h-9 px-3 w-[280px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">

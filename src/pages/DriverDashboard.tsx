@@ -12,13 +12,14 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { FleetFuelView } from "@/components/FleetFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -274,6 +275,89 @@ function CarsSection({ driverData }: { driverData: any }) {
   );
 }
 
+// PIN Display component with password verification
+function PinDisplay({ pin }: { pin: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+
+  const handleReveal = async () => {
+    if (revealed) {
+      setRevealed(false);
+      return;
+    }
+    setShowPasswordPrompt(true);
+  };
+
+  const handlePasswordSubmit = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+      toast.error("Nie można zweryfikować użytkownika");
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: password
+    });
+
+    if (error) {
+      toast.error("Nieprawidłowe hasło");
+      setPassword("");
+      return;
+    }
+
+    setRevealed(true);
+    setShowPasswordPrompt(false);
+    setPassword("");
+    
+    // Auto-hide after 30 seconds
+    setTimeout(() => setRevealed(false), 30000);
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <p className="text-lg font-mono font-bold text-orange-600">
+          {revealed ? pin : "••••"}
+        </p>
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          onClick={handleReveal}
+          className="h-6 w-6 p-0"
+        >
+          {revealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+        </Button>
+      </div>
+
+      <Dialog open={showPasswordPrompt} onOpenChange={setShowPasswordPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Potwierdź swoją tożsamość</DialogTitle>
+            <DialogDescription>
+              Wprowadź hasło do konta, aby wyświetlić PIN karty paliwowej
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="Hasło"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordPrompt(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={handlePasswordSubmit}>Potwierdź</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // Komponent z sub-tabami dla rozliczeń - identyczny układ jak w portalu flotowym
 function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const [activeSubTab, setActiveSubTab] = useState("my");
@@ -302,30 +386,11 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           tabs={subTabs}
         />
         <div className="space-y-4 mt-4">
-          {/* Fuel Card Info */}
-          {driverData.drivers?.fuel_card_number && (
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Numer karty paliwowej</p>
-                    <p className="text-2xl font-mono font-bold text-primary">
-                      {driverData.drivers.fuel_card_number}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Kierowca</p>
-                    <p className="font-medium">{driverData.drivers.first_name} {driverData.drivers.last_name}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Year & Week Selectors - side by side */}
-          <div className="flex gap-3 items-end">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Rok</label>
+          {/* Compact horizontal layout for year, week, fuel card and PIN */}
+          <div className="flex gap-3 items-start flex-wrap">
+            {/* Year selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
                 <SelectTrigger className="h-9 px-3 w-[100px]">
                   <SelectValue />
@@ -337,10 +402,12 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Tydzień</label>
+
+            {/* Week selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Tydzień</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-full max-w-[320px]">
+                <SelectTrigger className="h-9 px-3 w-[280px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -352,6 +419,28 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Fuel Card Number - compact card */}
+            {driverData.drivers?.fuel_card_number && (
+              <Card className="border-primary/20 bg-primary/5 py-2 px-4 flex-shrink-0">
+                <div className="flex flex-col">
+                  <p className="text-xs text-muted-foreground">Numer karty paliwowej</p>
+                  <p className="text-lg font-mono font-bold text-primary">
+                    {driverData.drivers.fuel_card_number}
+                  </p>
+                </div>
+              </Card>
+            )}
+
+            {/* PIN - compact card with security */}
+            {driverData.drivers?.fuel_card_pin && (
+              <Card className="border-orange-300 bg-orange-50 py-2 px-4 flex-shrink-0">
+                <div className="flex flex-col">
+                  <p className="text-xs text-muted-foreground">PIN karty</p>
+                  <PinDisplay pin={driverData.drivers.fuel_card_pin} />
+                </div>
+              </Card>
+            )}
           </div>
           
           <FleetFuelView 
