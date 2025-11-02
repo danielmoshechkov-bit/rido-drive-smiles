@@ -47,7 +47,6 @@ interface UnifiedDashboardProps {
 export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userEmail, onLogout }: UnifiedDashboardProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'my' | 'drivers'>('my');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [sanitizing, setSanitizing] = useState(false);
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
@@ -364,17 +363,15 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
 
           {/* Mobile - Hamburger menu */}
           <div className="md:hidden mb-3">
-            <div className="flex items-center gap-3">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
-                      <Menu className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
-                </SheetTrigger>
-              
-                <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+            <Sheet>
+              <SheetTrigger asChild>
+                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
+                    <Menu className="h-4 w-4 text-white" />
+                  </Button>
+                </div>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
                 <div className="space-y-2 mt-6">
                   {canViewTab('weekly-report') && (
                     <SheetTrigger asChild>
@@ -499,29 +496,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 </div>
               </SheetContent>
             </Sheet>
-
-            {/* Sub-menu buttons - MOVED OUTSIDE Sheet, visible only for settlements tab in fleet mode */}
-            {activeTab === 'settlements' && userType === 'fleet' && (
-              <div className="flex gap-2 flex-1">
-                <Button
-                  variant={activeSubTab === 'my' ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full px-4 shadow-sm text-xs flex-1"
-                  onClick={() => setActiveSubTab('my')}
-                >
-                  Rozliczenia aut
-                </Button>
-                <Button
-                  variant={activeSubTab === 'drivers' ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full px-4 shadow-sm text-xs flex-1"
-                  onClick={() => setActiveSubTab('drivers')}
-                >
-                  Paliwo
-                </Button>
-              </div>
-            )}
-            </div>
           </div>
 
           {canViewTab('weekly-report') && (
@@ -561,9 +535,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 <FleetSettlementsView 
                   fleetId={fleetId!}
                   viewType="settlement"
-                  initialSubTab={activeSubTab}
-                  onSubTabChange={setActiveSubTab}
-                  hideSubTabBar={true}
                 />
               ) : userType === 'admin' && !selectedCity ? (
                 <Card>

@@ -27,17 +27,16 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'lovable-uploads/*.png', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png'],
       manifest: {
-        name: 'RIDO Driver Portal',
+        name: 'Get RIDO - Portal Kierowcy',
         short_name: 'RIDO',
-        description: 'Portal kierowcy RIDO - zarządzanie rozliczeniami i dokumentami',
+        description: 'System zarządzania flotą i rozliczeniami dla kierowców',
         theme_color: '#6C4AE2',
-        background_color: '#6C4AE2',
+        background_color: '#ffffff',
         display: 'standalone',
         scope: '/',
         start_url: '/',
-        orientation: 'portrait',
         icons: [
           {
             src: '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png',
@@ -51,45 +50,24 @@ export default defineConfig(({ mode }) => ({
             type: 'image/png',
             purpose: 'any maskable'
           }
-        ],
-        shortcuts: [
-          {
-            name: 'Portal Kierowcy',
-            short_name: 'Kierowca',
-            description: 'Panel kierowcy',
-            url: '/driver',
-            icons: [{ src: '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png', sizes: '96x96' }]
-          },
-          {
-            name: 'Panel Floty',
-            short_name: 'Flota',
-            description: 'Panel zarządzania flotą',
-            url: '/fleet/dashboard',
-            icons: [{ src: '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png', sizes: '96x96' }]
-          }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB limit
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            urlPattern: /^https:\/\/wclrrytmrscqvsyxyvnn\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24
-              },
-              networkTimeoutSeconds: 10
+                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              }
             }
           }
         ]
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module'
       }
     })
   ].filter(Boolean),

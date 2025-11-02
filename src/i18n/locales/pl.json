@@ -360,9 +360,5 @@
     "hideDetails": "Ukryj szczegóły",
     "sum": "SUMA",
     "noTransactions": "Brak transakcji paliwowych dla wybranego okresu"
-  },
-  "fleet": {
-    "mySettlements": "Moje rozliczenia",
-    "driverSettlements": "Rozliczenia kierowców"
   }
 }

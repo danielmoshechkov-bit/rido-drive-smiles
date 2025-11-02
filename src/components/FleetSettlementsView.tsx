@@ -23,9 +23,6 @@ interface FleetSettlementsViewProps {
   viewType: 'settlement' | 'rental';
   periodFrom?: string;
   periodTo?: string;
-  initialSubTab?: 'my' | 'drivers';
-  onSubTabChange?: (tab: 'my' | 'drivers') => void;
-  hideSubTabBar?: boolean;
 }
 
 interface DriverSettlement {
@@ -53,18 +50,10 @@ interface DriverSettlement {
   covered_rental?: boolean;
 }
 
-export function FleetSettlementsView({ 
-  fleetId, 
-  viewType, 
-  periodFrom, 
-  periodTo,
-  initialSubTab,
-  onSubTabChange,
-  hideSubTabBar = false
-}: FleetSettlementsViewProps) {
+export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }: FleetSettlementsViewProps) {
   const [settlements, setSettlements] = useState<DriverSettlement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<string>(initialSubTab || "drivers");
+  const [activeSubTab, setActiveSubTab] = useState("drivers");
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -107,20 +96,13 @@ export function FleetSettlementsView({
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek]);
 
   useEffect(() => {
-    // Sync with parent state if initialSubTab is provided
-    if (initialSubTab) {
-      setActiveSubTab(initialSubTab);
-    }
-  }, [initialSubTab]);
-
-  useEffect(() => {
     // For admin, default to "my" (Przychód firmy)
-    if (roles.includes('admin') && !initialSubTab) {
+    if (roles.includes('admin')) {
       setActiveSubTab("my");
-    } else if (isDriver && !initialSubTab) {
+    } else if (isDriver) {
       fetchMyDriverId();
     }
-  }, [isDriver, roles, initialSubTab]);
+  }, [isDriver, roles]);
 
   const fetchMyDriverId = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -376,13 +358,6 @@ export function FleetSettlementsView({
     }
   };
 
-  const handleSubTabChange = (tab: string) => {
-    setActiveSubTab(tab);
-    if (onSubTabChange && (tab === 'my' || tab === 'drivers')) {
-      onSubTabChange(tab);
-    }
-  };
-
   const subTabs = [
     ...(roles.includes('admin') 
       ? [{ value: "my", label: "Przychód firmy", visible: true }] 
@@ -399,20 +374,15 @@ export function FleetSettlementsView({
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
   }
 
-  // Render "Przychody aut" when parent passes 'my' OR internal "vehicles"
-  if (
-    activeSubTab === "vehicles" || 
-    (hideSubTabBar && initialSubTab === 'my')
-  ) {
+  // Render "Przychody aut" tab
+  if (activeSubTab === "vehicles") {
     return (
       <div>
-        {!hideSubTabBar && (
-          <UniversalSubTabBar
-            activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
-            tabs={subTabs}
-          />
-        )}
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
         <FleetVehicleRevenue 
           fleetId={fleetId} 
           mode={roles.includes('admin') ? 'admin' : 'fleet'}
@@ -421,20 +391,15 @@ export function FleetSettlementsView({
     );
   }
 
-  // Render "Paliwo" when parent passes 'drivers' OR internal "fuel"
-  if (
-    activeSubTab === "fuel" || 
-    (hideSubTabBar && initialSubTab === 'drivers')
-  ) {
+  // Render "Paliwo" tab
+  if (activeSubTab === "fuel") {
     return (
       <div className="space-y-6">
-        {!hideSubTabBar && (
-          <UniversalSubTabBar
-            activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
-            tabs={subTabs}
-          />
-        )}
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
         
         <Card>
           <CardHeader>
@@ -445,6 +410,7 @@ export function FleetSettlementsView({
           </CardHeader>
           <CardContent>
             <FuelCSVUpload onUploadComplete={() => {
+              // Trigger refresh of fuel view
               fetchSettlements();
             }} />
           </CardContent>
@@ -460,14 +426,14 @@ export function FleetSettlementsView({
   }
 
   // Render based on active sub-tab
-  if (activeSubTab === "my" && !hideSubTabBar) {
+  if (activeSubTab === "my") {
     // For admin: show company revenue summary
     if (roles.includes('admin')) {
       return (
         <div>
           <UniversalSubTabBar
             activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
+            onTabChange={setActiveSubTab}
             tabs={subTabs}
           />
           <CompanyRevenueSummary fleetId={fleetId} />
@@ -481,7 +447,7 @@ export function FleetSettlementsView({
         <div>
           <UniversalSubTabBar
             activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
+            onTabChange={setActiveSubTab}
             tabs={subTabs}
           />
           <DriverSettlements driverId={myDriverId} hideControls={false} />
@@ -493,13 +459,11 @@ export function FleetSettlementsView({
   if (settlements.length === 0) {
     return (
       <div>
-        {!hideSubTabBar && (
-          <UniversalSubTabBar
-            activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
-            tabs={subTabs}
-          />
-        )}
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -553,13 +517,11 @@ export function FleetSettlementsView({
   if (viewType === 'rental') {
     return (
       <div>
-        {!hideSubTabBar && (
-          <UniversalSubTabBar
-            activeTab={activeSubTab}
-            onTabChange={handleSubTabChange}
-            tabs={subTabs}
-          />
-        )}
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
         <Card>
           <CardHeader>
             <CardTitle>Zestawienie wynajmu</CardTitle>
@@ -625,13 +587,11 @@ export function FleetSettlementsView({
 
   return (
     <div>
-      {!hideSubTabBar && (
-        <UniversalSubTabBar
-          activeTab={activeSubTab}
-          onTabChange={handleSubTabChange}
-          tabs={subTabs}
-        />
-      )}
+      <UniversalSubTabBar
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+        tabs={subTabs}
+      />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
