@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
@@ -26,7 +25,6 @@ interface FuelTransaction {
 }
 
 export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverFuelViewProps) {
-  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -54,7 +52,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
 
     } catch (error: any) {
       console.error('Error fetching fuel transactions:', error);
-      toast.error(t('fuel.errorLoading'));
+      toast.error('Nie udało się pobrać danych paliwowych');
     } finally {
       setLoading(false);
     }
@@ -72,7 +70,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          {t('fuel.noDataForPeriod')}
+          Brak transakcji paliwowych dla wybranego okresu
         </CardContent>
       </Card>
     );
@@ -82,96 +80,67 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
   const totalLiters = transactions.reduce((sum, t) => sum + t.liters, 0);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="py-2">
-        <CardTitle className="text-sm">{t('fuel.title')}</CardTitle>
+    <Card>
+      <CardHeader>
+        <CardTitle>Twoje rozliczenie paliwa</CardTitle>
+        <CardDescription>
+          Transakcje paliwowe za okres {periodFrom} - {periodTo}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="p-2">
-        <div className="space-y-1">
+      <CardContent>
+        <div className="space-y-2">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs lg:text-sm">
+            <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm font-medium">{t('fuel.cardNumber')}</th>
-                  <th className="text-right py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm font-medium">{t('fuel.transactions')}</th>
-                  <th className="text-right py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm font-medium hidden md:table-cell">{t('fuel.liters')}</th>
-                  <th className="text-right py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm font-medium">{t('fuel.amount')}</th>
+                  <th className="text-left py-2 px-2 text-sm font-medium">Nr karty</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Transakcje</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Litry</th>
+                  <th className="text-right py-2 px-2 text-sm font-medium">Kwota</th>
+                  <th className="text-center py-2 px-2 text-sm font-medium">Szczegóły</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b hover:bg-muted/50">
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm">{fuelCardNumber}</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right">{transactions.length}</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right hidden md:table-cell">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right font-medium">
-                    <div className="flex items-center justify-end gap-1">
-                      <span>{totalAmount.toFixed(2)}</span>
-                      <span className="text-xs lg:text-sm text-muted-foreground">zł</span>
-                    </div>
-                    <div className="mt-1 flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setExpanded(!expanded)}
-                        className="h-6 px-2 py-0"
-                        aria-label={expanded ? t('common.collapse') : t('common.expand')}
-                      >
-                        {expanded ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
+                  <td className="py-2 px-2 text-sm">{fuelCardNumber}</td>
+                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-sm text-right font-medium">{totalAmount.toFixed(2)} zł</td>
+                  <td className="py-2 px-2 text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setExpanded(!expanded)}
+                    >
+                      {expanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
                   </td>
                 </tr>
                 {expanded && (
-                  <>
-                    <tr className="md:hidden">
-                      <td colSpan={3} className="p-1 bg-muted/30">
-                        <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
-                          {transactions.map((trans) => (
-                            <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
-                              <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
-                              <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
-                              <div className="flex items-center gap-1 whitespace-nowrap">
-                                <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
-                                <span className="text-xs text-muted-foreground">zł</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hidden md:table-row">
-                      <td colSpan={4} className="p-1 bg-muted/30">
-                        <div className="text-xs lg:text-sm space-y-1 max-h-32 overflow-y-auto">
-                          {transactions.map((trans) => (
-                            <div key={trans.id} className="flex justify-between py-0.5 px-1.5 border-b border-border/50 gap-2">
-                              <span className="whitespace-nowrap">{trans.transaction_date} {trans.transaction_time}</span>
-                              <span className="truncate">{trans.brand} - {trans.fuel_type}</span>
-                              <span className="whitespace-nowrap">{trans.liters.toFixed(2)} L</span>
-                              <div className="flex items-center gap-1 whitespace-nowrap">
-                                <span className="font-medium">{trans.total_amount.toFixed(2)}</span>
-                                <span className="text-xs text-muted-foreground">zł</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  </>
+                  <tr>
+                    <td colSpan={5} className="py-2 px-2 bg-muted/30">
+                      <div className="space-y-1 text-sm">
+                        {transactions.map((trans) => (
+                          <div key={trans.id} className="flex justify-between py-1 px-2 border-b border-border/50">
+                            <span>{trans.transaction_date} {trans.transaction_time}</span>
+                            <span>{trans.brand} - {trans.fuel_type}</span>
+                            <span>{trans.liters.toFixed(2)} L</span>
+                            <span className="font-medium">{trans.total_amount.toFixed(2)} zł</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
                 )}
                 <tr className="font-bold border-t-2">
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm">{t('fuel.total')}</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right">{transactions.length}</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right">{totalLiters.toFixed(2)} L</td>
-                  <td className="py-1.5 px-1.5 lg:py-2 lg:px-3 text-xs lg:text-sm text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <span>{totalAmount.toFixed(2)}</span>
-                      <span className="text-xs lg:text-sm text-muted-foreground">zł</span>
-                    </div>
-                  </td>
+                  <td className="py-2 px-2 text-sm">SUMA</td>
+                  <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
+                  <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
                   <td></td>
                 </tr>
               </tbody>
