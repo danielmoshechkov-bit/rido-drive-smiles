@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pl } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
@@ -8,11 +8,13 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
 import { useTranslation } from 'react-i18next';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Settlement {
   id: string;
@@ -78,6 +80,7 @@ export const DriverSettlements = ({
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
   const [canChangePlan, setCanChangePlan] = useState(true);
   const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
+  const [isControlsOpen, setIsControlsOpen] = useState(false);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -646,90 +649,174 @@ export const DriverSettlements = ({
   return (
     <Card className={hideControls ? "border-0 shadow-none" : ""}>
       {!hideControls && (
-        <CardHeader className="py-3">
-          <div className="flex items-center gap-4 flex-nowrap">
-            <CardTitle className="whitespace-nowrap">{t('weekly.title')}</CardTitle>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">{t('weekly.year')}:</Label>
-              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <Collapsible open={isControlsOpen} onOpenChange={setIsControlsOpen}>
+          <CardHeader className="py-3">
+            {/* Mobile: collapsed header with expand button */}
+            <div className="md:hidden">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full flex items-center justify-between p-2">
+                  <span className="font-semibold">{t('weekly.title')}</span>
+                  {isControlsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                </Button>
+              </CollapsibleTrigger>
             </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">{t('weekly.period')}:</Label>
-              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-10 px-4 rounded-lg border-gray-300 shadow-sm w-[240px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {weeks.map(week => (
-                    <SelectItem key={week.number} value={week.number.toString()}>
-                      {week.displayLabel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
-              <Select 
-                value={selectedPlanId} 
-                onValueChange={(newPlanId) => {
-                  setSelectedPlanId(newPlanId);
-                  
-                  // Save to localStorage for 30 days if not "all"
-                  if (newPlanId !== "all") {
-                    const expiryDate = new Date();
-                    expiryDate.setDate(expiryDate.getDate() + 30);
+            
+            {/* Desktop: always visible controls */}
+            <div className="hidden md:flex items-center gap-4 flex-nowrap">
+              <CardTitle className="whitespace-nowrap">{t('weekly.title')}</CardTitle>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">{t('weekly.year')}:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="h-9 px-3 w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">{t('weekly.period')}:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="h-10 px-4 rounded-lg border-gray-300 shadow-sm w-[240px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.displayLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
+                <Select 
+                  value={selectedPlanId} 
+                  onValueChange={(newPlanId) => {
+                    setSelectedPlanId(newPlanId);
                     
-                    localStorage.setItem('driver_selected_plan', JSON.stringify({
-                      planId: newPlanId,
-                      expiresAt: expiryDate.toISOString(),
-                      driverId: driverId
-                    }));
-                    
-                    setCanChangePlan(false);
-                    setPlanChangeInfo(`Zablokowany na 30 dni`);
-                  } else {
-                    localStorage.removeItem('driver_selected_plan');
-                    setCanChangePlan(true);
-                    setPlanChangeInfo('');
-                  }
-                }}
-                disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
-              >
-                <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
-                  <SelectValue placeholder={t('weekly.allPlans')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
-                  {settlementPlans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {role === 'admin' && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  Admin
-                </Badge>
-              )}
-              {!canChangePlan && role !== 'admin' && planChangeInfo && (
-                <span className="text-xs text-orange-600 font-medium">
-                  {planChangeInfo}
-                </span>
-              )}
+                    if (newPlanId !== "all") {
+                      const expiryDate = new Date();
+                      expiryDate.setDate(expiryDate.getDate() + 30);
+                      
+                      localStorage.setItem('driver_selected_plan', JSON.stringify({
+                        planId: newPlanId,
+                        expiresAt: expiryDate.toISOString(),
+                        driverId: driverId
+                      }));
+                      
+                      setCanChangePlan(false);
+                      setPlanChangeInfo(`Zablokowany na 30 dni`);
+                    } else {
+                      localStorage.removeItem('driver_selected_plan');
+                      setCanChangePlan(true);
+                      setPlanChangeInfo('');
+                    }
+                  }}
+                  disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
+                >
+                  <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
+                    <SelectValue placeholder={t('weekly.allPlans')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
+                    {settlementPlans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {role === 'admin' && (
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    Admin
+                  </Badge>
+                )}
+                {!canChangePlan && role !== 'admin' && planChangeInfo && (
+                  <span className="text-xs text-orange-600 font-medium">
+                    {planChangeInfo}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </CardHeader>
+
+            {/* Mobile: collapsible controls */}
+            <CollapsibleContent className="md:hidden space-y-3 pt-3">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">{t('weekly.year')}:</Label>
+                <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">{t('weekly.period')}:</Label>
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.displayLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">{t('weekly.plan')}:</Label>
+                <Select 
+                  value={selectedPlanId} 
+                  onValueChange={(newPlanId) => {
+                    setSelectedPlanId(newPlanId);
+                    
+                    if (newPlanId !== "all") {
+                      const expiryDate = new Date();
+                      expiryDate.setDate(expiryDate.getDate() + 30);
+                      
+                      localStorage.setItem('driver_selected_plan', JSON.stringify({
+                        planId: newPlanId,
+                        expiresAt: expiryDate.toISOString(),
+                        driverId: driverId
+                      }));
+                      
+                      setCanChangePlan(false);
+                      setPlanChangeInfo(`Zablokowany na 30 dni`);
+                    } else {
+                      localStorage.removeItem('driver_selected_plan');
+                      setCanChangePlan(true);
+                      setPlanChangeInfo('');
+                    }
+                  }}
+                  disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder={t('weekly.allPlans')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
+                    {settlementPlans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CollapsibleContent>
+          </CardHeader>
+        </Collapsible>
       )}
       <CardContent className={hideControls ? "p-0" : "space-y-6"}>
 
@@ -841,28 +928,28 @@ export const DriverSettlements = ({
                     </div>
                     
                     {/* Compact settlement table - SECOND */}
-                    <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
+                    <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px] bg-white">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm bg-white">
                           <thead>
                             <tr className="bg-muted">
                               <th className="text-left p-2 font-medium">{t('weekly.category')}</th>
-                              <th className="text-right p-2 font-medium">Uber</th>
-                              <th className="text-right p-2 font-medium">Bolt</th>
-                              <th className="text-right p-2 font-medium">FreeNow</th>
+                              <th className="text-right p-2 font-medium whitespace-nowrap">Uber</th>
+                              <th className="text-right p-2 font-medium whitespace-nowrap">Bolt</th>
+                              <th className="text-right p-2 font-medium whitespace-nowrap">FreeNow</th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="bg-white">
                             {/* Podstawa opodatkowania */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.base')}</td>
-                              <td className="p-2 text-right font-medium">
+                              <td className="p-2 text-right font-medium whitespace-nowrap">
                                 {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium">
+                              <td className="p-2 text-right font-medium whitespace-nowrap">
                                 {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium">
+                              <td className="p-2 text-right font-medium whitespace-nowrap">
                                 {amounts.freenow_base_s ? `${amounts.freenow_base_s.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
@@ -870,13 +957,13 @@ export const DriverSettlements = ({
                             {/* Prowizja */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.commission')}</td>
-                              <td className="p-2 text-right font-medium text-amber-600">
+                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
                                 {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-amber-600">
+                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
                                 {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-amber-600">
+                              <td className="p-2 text-right font-medium text-amber-600 whitespace-nowrap">
                                 {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
@@ -884,13 +971,13 @@ export const DriverSettlements = ({
                             {/* Gotówka pobrana (informacyjnie) */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.cashCollected')}</td>
-                              <td className="p-2 text-right font-medium text-blue-600">
+                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
                                 {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-blue-600">
+                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
                                 {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-blue-600">
+                              <td className="p-2 text-right font-medium text-blue-600 whitespace-nowrap">
                                 {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
@@ -898,13 +985,13 @@ export const DriverSettlements = ({
                             {/* Podatek 8% */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-2 text-muted-foreground">{t('weekly.tax8')}</td>
-                              <td className="p-2 text-right font-medium text-destructive">
+                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
                                 {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-destructive">
+                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
                                 {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-2 text-right font-medium text-destructive">
+                              <td className="p-2 text-right font-medium text-destructive whitespace-nowrap">
                                 {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
@@ -980,16 +1067,16 @@ export const DriverSettlements = ({
                           <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-80">
+                          <div className="h-64 md:h-80">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
                                   data={platformData}
                                   cx="50%"
-                                  cy="55%"
+                                  cy="50%"
                                   labelLine={false}
                                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={100}
+                                  outerRadius="60%"
                                   dataKey="value"
                                 >
                                   {platformData.map((entry, index) => (

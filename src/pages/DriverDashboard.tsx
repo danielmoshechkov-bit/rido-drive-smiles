@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -159,49 +160,111 @@ const DriverDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header - identyczny jak AdminDashboard */}
+      {/* Header - responsywny z hamburger menu na mobile */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="Get RIDO Logo" 
-              className="h-8 w-8"
-            />
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-primary">Panel kierowcy</span>
-              {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
-                <>
-                  <span className="text-muted-foreground">-</span>
-                  <span className="font-medium text-foreground">
-                    {driverData.drivers.first_name} {driverData.drivers.last_name}
-                  </span>
-                </>
+        <div className="container mx-auto px-4 py-4">
+          {/* Desktop header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-8 w-8"
+              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-primary">Panel kierowcy</span>
+                {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="font-medium text-foreground">
+                      {driverData.drivers.first_name} {driverData.drivers.last_name}
+                    </span>
+                  </>
+                )}
+                {fleetInfo && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
+                    {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
+                      <>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">
+                          Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
+                        </span>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              {driverData?.driver_id && (
+                <DriverNotificationBell driverId={driverData.driver_id} />
               )}
-              {fleetInfo && (
-                <>
-                  <span className="text-muted-foreground">-</span>
-                  <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
-                  {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-sm text-muted-foreground">
-                        Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
-                      </span>
-                    </>
-                  )}
-                </>
-              )}
+              <LanguageSelector />
+              <Button variant="outline" onClick={handleLogout} className="rounded-lg">
+                {t('auth.logout')}
+              </Button>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            {driverData?.driver_id && (
-              <DriverNotificationBell driverId={driverData.driver_id} />
-            )}
-            <LanguageSelector />
-            <Button variant="outline" onClick={handleLogout} className="rounded-lg">
-              {t('auth.logout')}
-            </Button>
+
+          {/* Mobile header - hamburger menu */}
+          <div className="md:hidden flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="Get RIDO Logo" 
+                className="h-8 w-8"
+              />
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-80">
+                  <div className="space-y-4 mt-4">
+                    <div className="text-sm font-semibold text-primary border-b pb-2">Panel kierowcy</div>
+                    {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Kierowca:</div>
+                        <div className="font-medium">
+                          {driverData.drivers.first_name} {driverData.drivers.last_name}
+                        </div>
+                      </div>
+                    )}
+                    {fleetInfo && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Flota:</div>
+                          <div className="font-medium text-primary">{fleetInfo.name}</div>
+                        </div>
+                        {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Opiekun:</div>
+                            <div className="text-sm">
+                              {fleetInfo.contact_name}<br />
+                              {fleetInfo.contact_phone_for_drivers}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+            <div className="flex items-center space-x-2">
+              {driverData?.driver_id && (
+                <DriverNotificationBell driverId={driverData.driver_id} />
+              )}
+              <LanguageSelector />
+              <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-lg">
+                {t('auth.logout')}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -321,7 +384,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
         tabs={subTabs}
       />
       
-      <div className="pt-0">
+      <div className="pt-0 md:pt-0 mt-4 md:mt-0">
         {activeSubTab === "fuel" ? (
           <DriverFuelView 
             fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
