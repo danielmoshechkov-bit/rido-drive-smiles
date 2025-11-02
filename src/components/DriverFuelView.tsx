@@ -6,11 +6,12 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { getAvailableWeeks, getCurrentWeekNumber } from '@/lib/utils';
 
 interface DriverFuelViewProps {
   fuelCardNumber: string;
-  periodFrom?: string;
-  periodTo?: string;
 }
 
 interface FuelTransaction {
@@ -25,11 +26,23 @@ interface FuelTransaction {
   fuel_type: string;
 }
 
-export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverFuelViewProps) {
+export function DriverFuelView({ fuelCardNumber }: DriverFuelViewProps) {
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const currentYear = new Date().getFullYear();
+    return getCurrentWeekNumber(currentYear);
+  });
+
+  const weeks = getAvailableWeeks(selectedYear);
+  const selectedWeekData = weeks.find(w => w.number === selectedWeek);
+  const periodFrom = selectedWeekData?.start;
+  const periodTo = selectedWeekData?.end;
+
+  const years = [2023, 2024, 2025, 2026];
 
   const formatFuelType = (brand: string, fuelType: string): string => {
     let shortType = fuelType;
@@ -51,7 +64,7 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
     if (periodFrom && periodTo && fuelCardNumber) {
       fetchFuelTransactions();
     }
-  }, [fuelCardNumber, periodFrom, periodTo]);
+  }, [fuelCardNumber, periodFrom, periodTo, selectedYear, selectedWeek]);
 
   const fetchFuelTransactions = async () => {
     try {
@@ -99,11 +112,38 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('fuel.title')}</CardTitle>
-        <CardDescription>
-          {t('fuel.transactions')} {periodFrom} - {periodTo}
-        </CardDescription>
+      <CardHeader className="py-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          <CardTitle className="whitespace-nowrap">{t('fuel.title')}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm whitespace-nowrap">Rok:</Label>
+            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="h-9 px-3 w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(year => (
+                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm whitespace-nowrap">Okres:</Label>
+            <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+              <SelectTrigger className="h-9 px-3 w-[240px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {weeks.map(week => (
+                  <SelectItem key={week.number} value={week.number.toString()}>
+                    {week.displayLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
@@ -113,7 +153,6 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                 <tr className="border-b">
                   <th className="text-left py-2 px-2 text-sm font-medium">{t('fuel.cardNumber')}</th>
                   <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.transactionCount')}</th>
-                  <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.liters')}</th>
                   <th className="text-right py-2 px-2 text-sm font-medium">{t('fuel.amount')}</th>
                 </tr>
               </thead>
@@ -121,17 +160,15 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                 <tr className="border-b hover:bg-muted/50">
                   <td className="py-2 px-2 text-sm">{fuelCardNumber}</td>
                   <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
                   <td className="py-2 px-2 text-sm text-right font-medium">{totalAmount.toFixed(2)} zł</td>
                 </tr>
                 <tr className="font-bold border-t-2">
                   <td className="py-2 px-2 text-sm">{t('fuel.sum')}</td>
                   <td className="py-2 px-2 text-sm text-right">{transactions.length}</td>
-                  <td className="py-2 px-2 text-sm text-right">{totalLiters.toFixed(2)} L</td>
                   <td className="py-2 px-2 text-sm text-right">{totalAmount.toFixed(2)} zł</td>
                 </tr>
                 <tr>
-                  <td colSpan={4} className="py-2 px-2 text-center">
+                  <td colSpan={3} className="py-2 px-2 text-center">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -154,13 +191,12 @@ export function DriverFuelView({ fuelCardNumber, periodFrom, periodTo }: DriverF
                 </tr>
                 {expanded && (
                   <tr>
-                    <td colSpan={4} className="py-2 px-2 bg-muted/30">
+                    <td colSpan={3} className="py-2 px-2 bg-muted/30">
                       <div className="space-y-1 text-sm">
                         {transactions.map((trans) => (
                           <div key={trans.id} className="flex justify-between py-1 px-2 border-b border-border/50">
                             <span>{trans.transaction_date} {trans.transaction_time}</span>
                             <span>{formatFuelType(trans.brand, trans.fuel_type)}</span>
-                            <span>{trans.liters.toFixed(2)} L</span>
                             <span className="font-medium">{trans.total_amount.toFixed(2)} zł</span>
                           </div>
                         ))}

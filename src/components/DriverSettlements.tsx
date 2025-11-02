@@ -434,6 +434,33 @@ export const DriverSettlements = ({
     loadSettlementPlans();
   }, [driverId]);
 
+  // Load saved plan preference on mount
+  useEffect(() => {
+    const savedPlanStr = localStorage.getItem('driver_selected_plan');
+    if (savedPlanStr) {
+      try {
+        const savedPlan = JSON.parse(savedPlanStr);
+        const { planId, expiresAt, driverId: savedDriverId } = savedPlan;
+        
+        if (savedDriverId === driverId) {
+          const now = new Date();
+          const expiry = new Date(expiresAt);
+          
+          if (now < expiry) {
+            setSelectedPlanId(planId);
+            setCanChangePlan(false);
+            const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            setPlanChangeInfo(`Zablokowany na ${daysLeft} dni`);
+          } else {
+            localStorage.removeItem('driver_selected_plan');
+          }
+        }
+      } catch (e) {
+        console.error('Error loading saved plan:', e);
+      }
+    }
+  }, [driverId]);
+
   const checkPlanChangePermission = async () => {
     if (!driverId) return;
     
@@ -654,7 +681,28 @@ export const DriverSettlements = ({
               <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
               <Select 
                 value={selectedPlanId} 
-                onValueChange={setSelectedPlanId}
+                onValueChange={(newPlanId) => {
+                  setSelectedPlanId(newPlanId);
+                  
+                  // Save to localStorage for 30 days if not "all"
+                  if (newPlanId !== "all") {
+                    const expiryDate = new Date();
+                    expiryDate.setDate(expiryDate.getDate() + 30);
+                    
+                    localStorage.setItem('driver_selected_plan', JSON.stringify({
+                      planId: newPlanId,
+                      expiresAt: expiryDate.toISOString(),
+                      driverId: driverId
+                    }));
+                    
+                    setCanChangePlan(false);
+                    setPlanChangeInfo(`Zablokowany na 30 dni`);
+                  } else {
+                    localStorage.removeItem('driver_selected_plan');
+                    setCanChangePlan(true);
+                    setPlanChangeInfo('');
+                  }
+                }}
                 disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
               >
                 <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
@@ -716,39 +764,10 @@ export const DriverSettlements = ({
 
                 return (
                   <div key={periodKey} className="space-y-4">
-                    {/* Layout: wykres i tabela zawsze obok siebie (50/50) */}
+                    {/* Layout: tabela PIERWSZA, wykres DRUGI */}
                     <div className="flex flex-wrap gap-4">
-                    {platformData.length > 0 && (
-                      <Card className="flex-1 min-w-[300px]">
-                        <CardHeader className="pb-2">
-                          <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={platformData}
-                                  cx="50%"
-                                  cy="55%"
-                                  labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={100}
-                                  dataKey="value"
-                                >
-                                  {platformData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                     )}
-
-                    {/* Compact settlement table */}
+                    
+                    {/* Compact settlement table - FIRST */}
                     <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -950,6 +969,38 @@ export const DriverSettlements = ({
                         </div>
                       ) : null}
                     </div>
+                    
+                    {/* Chart - SECOND */}
+                    {platformData.length > 0 && (
+                      <Card className="flex-1 min-w-[300px]">
+                        <CardHeader className="pb-2">
+                          <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={platformData}
+                                  cx="50%"
+                                  cy="55%"
+                                  labelLine={false}
+                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                  outerRadius={100}
+                                  dataKey="value"
+                                >
+                                  {platformData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                  ))}
+                                </Pie>
+                                <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    
                   </div>
                   </div>
                 );

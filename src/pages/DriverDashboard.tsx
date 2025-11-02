@@ -24,6 +24,7 @@ import { pl } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import LanguageSelector from "@/components/LanguageSelector";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -192,6 +193,7 @@ const DriverDashboard = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <LanguageSelector />
             {driverData?.driver_id && (
               <DriverNotificationBell driverId={driverData.driver_id} />
             )}
@@ -389,52 +391,18 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
   const periodFrom = selectedWeekData?.start;
   const periodTo = selectedWeekData?.end;
 
-  if (activeSubTab === "fuel") {
-    return (
-      <div>
-        <UniversalSubTabBar
-          activeTab={activeSubTab}
-          onTabChange={setActiveSubTab}
-          tabs={subTabs}
-        />
+  return (
+    <div>
+      <UniversalSubTabBar
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+        tabs={subTabs}
+      />
+      
+      {activeSubTab === "fuel" ? (
         <div className="space-y-4 mt-4">
-          {/* Compact horizontal layout - all in one line */}
+          {/* Compact horizontal layout for Card Number and PIN */}
           <div className="flex gap-3 items-center flex-wrap">
-            {/* Year selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Rok</label>
-              <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger className="h-9 px-3 w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[2023, 2024, 2025, 2026].map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Week selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Tydzień</label>
-              <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[240px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {weeks.map(week => (
-                    <SelectItem key={week.number} value={week.number.toString()}>
-                      {week.displayLabel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Separator */}
-            <div className="h-6 w-px bg-border" />
-
             {/* Fuel Card Number */}
             {driverData.drivers?.fuel_card_number ? (
               <div className="flex items-center gap-2">
@@ -462,25 +430,14 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
           
           <DriverFuelView 
             fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
-            periodFrom={periodFrom} 
-            periodTo={periodTo}
           />
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <UniversalSubTabBar
-        activeTab={activeSubTab}
-        onTabChange={setActiveSubTab}
-        tabs={subTabs}
-      />
-      <DriverSettlements 
-        driverId={driverData.driver_id} 
-        hideControls={false}
-      />
+      ) : (
+        <DriverSettlements 
+          driverId={driverData.driver_id} 
+          hideControls={false}
+        />
+      )}
     </div>
   );
 }
