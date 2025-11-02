@@ -353,29 +353,11 @@ const DriverDashboard = () => {
           </Sheet>
         </div>
 
-        <TabsPill value={activeTab} onValueChange={setActiveTab} className="hidden">
-          <TabsTrigger value="weekly-report" className="hidden" />
-          <TabsTrigger value="cars" className="hidden" />
-          <TabsTrigger value="documents" className="hidden" />
-          <TabsTrigger value="informacje" className="hidden" />
-
-          {/* Tab Content */}
-          <TabsContent value="weekly-report">
-              <SettlementsWithSubTabs driverData={driverData} />
-            </TabsContent>
-          
-          <TabsContent value="cars">
-            <CarsSection driverData={driverData} />
-          </TabsContent>
-          
-          <TabsContent value="documents">
-            <DriverDocuments driverData={driverData} />
-          </TabsContent>
-
-          <TabsContent value="informacje">
-            <DriverNotifications driverId={driverData.driver_id} />
-          </TabsContent>
-        </TabsPill>
+        {/* Tab Content - rendered based on activeTab state */}
+        {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} />}
+        {activeTab === 'cars' && <CarsSection driverData={driverData} />}
+        {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
+        {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
       </div>
     </div>
   );
