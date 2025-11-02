@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { format } from 'date-fns';
+import { getAvailableWeeks } from '@/lib/utils';
 
 interface CompanyRevenueSummaryProps {
   fleetId: string;
@@ -24,46 +24,10 @@ export function CompanyRevenueSummary({ fleetId }: CompanyRevenueSummaryProps) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Generate week options for the selected year
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentDate = new Date(year, 0, 1);
+// Use shared week generator (newest first, no future weeks)
+const weeks = getAvailableWeeks(selectedYear);
+const currentWeek = weeks.find(w => w.number === selectedWeek);
 
-    while (currentDate.getDay() !== 1) {
-      currentDate.setDate(currentDate.getDate() + 1);
-      if (currentDate.getMonth() > 0) {
-        currentDate = new Date(year, 0, 1);
-        break;
-      }
-    }
-
-    let weekNumber = 1;
-    while (currentDate.getFullYear() === year) {
-      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-      
-      if (weekEnd.getFullYear() > year) break;
-      
-      weeks.push({
-        number: weekNumber,
-        start: format(weekStart, 'yyyy-MM-dd'),
-        end: format(weekEnd, 'yyyy-MM-dd'),
-        label: `Tydzień ${weekNumber} (${format(weekStart, 'dd.MM')} - ${format(weekEnd, 'dd.MM.yyyy')})`
-      });
-      
-      currentDate.setDate(currentDate.getDate() + 7);
-      weekNumber++;
-      
-      if (year === currentYear && currentDate > now) break;
-    }
-    
-    return weeks.reverse();
-  };
-
-  const weeks = getWeekDates(selectedYear);
-  const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {
     if (weeks.length > 0 && selectedWeek === null) {

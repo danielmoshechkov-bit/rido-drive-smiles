@@ -21,6 +21,15 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
   const [stats, setStats] = useState<any>(null);
   const { toast } = useToast();
 
+  const disableCurrentAndFuture = (date: Date) => {
+    const now = new Date();
+    const dow = now.getDay();
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+    currentMonday.setHours(0,0,0,0);
+    return date >= currentMonday;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -136,6 +145,8 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
                 mode="single"
                 selected={periodFrom}
                 onSelect={setPeriodFrom}
+                className="p-3 pointer-events-auto"
+                disabled={disableCurrentAndFuture}
               />
             </PopoverContent>
           </Popover>
@@ -154,6 +165,8 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
                 mode="single"
                 selected={periodTo}
                 onSelect={setPeriodTo}
+                className="p-3 pointer-events-auto"
+                disabled={disableCurrentAndFuture}
               />
             </PopoverContent>
           </Popover>

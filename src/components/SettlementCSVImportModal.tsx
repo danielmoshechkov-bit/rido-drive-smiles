@@ -21,17 +21,21 @@ interface SettlementCSVImportModalProps {
 export const SettlementCSVImportModal = ({ cityId, onSuccess }: SettlementCSVImportModalProps) => {
   const [open, setOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | undefined>(() => {
-    // Default to current week (Monday to Sunday)
+    // Default to last fully completed week (Mon-Sun)
     const now = new Date();
     const dayOfWeek = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    monday.setHours(0, 0, 0, 0);
-    
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    currentMonday.setHours(0, 0, 0, 0);
+
+    // Previous week Monday to Sunday
+    const monday = new Date(currentMonday);
+    monday.setDate(currentMonday.getDate() - 7);
+
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
-    
+
     return { from: monday, to: sunday };
   });
   const [ridoFile, setRidoFile] = useState<File | null>(null);
@@ -175,7 +179,15 @@ export const SettlementCSVImportModal = ({ cityId, onSuccess }: SettlementCSVImp
                   mode="single"
                   selected={dateRange?.from}
                   onSelect={handleDateSelect}
-                  className="pointer-events-auto"
+                  className="p-3 pointer-events-auto"
+                  disabled={(date) => {
+                    const now = new Date();
+                    const dow = now.getDay();
+                    const currentMonday = new Date(now);
+                    currentMonday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+                    currentMonday.setHours(0,0,0,0);
+                    return date >= currentMonday; // hide current and future weeks
+                  }}
                 />
               </PopoverContent>
             </Popover>

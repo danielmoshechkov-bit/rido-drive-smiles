@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { getAvailableWeeks } from '@/lib/utils';
 
 interface DriverSettlement {
   driverId: string;
@@ -28,43 +29,12 @@ export function DriverSettlementsView() {
   const [fleetFilter, setFleetFilter] = useState<string>('all');
   const [fleets, setFleets] = useState<Array<{ id: string; name: string }>>([]);
 
-  const getWeekDates = (year: number) => {
-    const weeks = [];
-    const startDate = new Date(year, 0, 1);
-    
-    while (startDate.getDay() !== 1) {
-      startDate.setDate(startDate.getDate() + 1);
-    }
-
-    for (let week = 1; week <= 52; week++) {
-      const weekStart = new Date(startDate);
-      const weekEnd = new Date(startDate);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-
-      weeks.push({
-        number: week,
-        start: weekStart.toISOString().split('T')[0],
-        end: weekEnd.toISOString().split('T')[0],
-        label: `Tydzień ${week} (${weekStart.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('pl-PL', { month: 'short', day: 'numeric' })})`
-      });
-
-      startDate.setDate(startDate.getDate() + 7);
-    }
-
-    return weeks;
-  };
-
-  const weeks = getWeekDates(selectedYear);
+  // Use shared week list (newest first without future weeks)
+  const weeks = getAvailableWeeks(selectedYear);
 
   useEffect(() => {
-    const currentWeek = weeks.find(w => {
-      const now = new Date();
-      const start = new Date(w.start);
-      const end = new Date(w.end);
-      return now >= start && now <= end;
-    });
-    if (currentWeek) {
-      setSelectedWeek(currentWeek.number.toString());
+    if (weeks.length) {
+      setSelectedWeek(weeks[0].number.toString());
     }
   }, [selectedYear]);
 
