@@ -221,14 +221,15 @@ const DriverDashboard = () => {
           <ChatFab driverData={driverData} />
         </div>
         
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation - Horizontal with separators */}
         <div className="lg:hidden mb-4">
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
+          <div className="flex items-center gap-2 bg-white rounded-full p-1 border border-gray-200 shadow-sm">
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full flex-shrink-0">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
             <SheetContent side="left" className="w-[280px]">
               <SheetHeader>
                 <SheetTitle>{t('driver.panel')}</SheetTitle>
@@ -269,6 +270,46 @@ const DriverDashboard = () => {
               </div>
             </SheetContent>
           </Sheet>
+          
+          {/* Vertical separator */}
+          <div className="h-8 w-[1px] bg-gray-300"></div>
+          
+          {/* Context buttons for weekly-report */}
+          {activeTab === 'weekly-report' && (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+              >
+                Wynik tygodniowy
+              </Button>
+              
+              <div className="h-8 w-[1px] bg-gray-300"></div>
+              
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+              >
+                Rozliczenie paliwa
+              </Button>
+            </>
+          )}
+          
+          {/* Context buttons for cars */}
+          {activeTab === 'cars' && (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-9 px-3 text-xs font-medium rounded-full flex-1"
+              >
+                Dodaj auto
+              </Button>
+            </>
+          )}
+        </div>
         </div>
 
         {/* Desktop Tabs */}

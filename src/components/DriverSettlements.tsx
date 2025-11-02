@@ -688,8 +688,8 @@ export const DriverSettlements = ({
 
                 return (
                   <div key={periodKey} className="space-y-3">
-                     {/* 1. PODSUMOWANIE - tylko mobile */}
-                     <div className="lg:hidden bg-gray-50 border border-gray-200 rounded-lg p-2.5 space-y-1.5">
+                     {/* 1. PODSUMOWANIE - tylko mobile, bez ramki */}
+                     <div className="lg:hidden bg-gray-50/30 rounded-lg p-2.5 space-y-1.5">
                        <div className="flex justify-between items-center">
                          <span className="text-[11px] sm:text-xs font-medium text-gray-700 truncate">
                            <span className="hidden xs:inline">{t('weekly.sum.withoutCommission')}</span>
@@ -752,10 +752,20 @@ export const DriverSettlements = ({
                            <span className="font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">-{rentalFee.toFixed(2)} zł</span>
                          </div>
                        )}
+                       </div>
+
+                     {/* 2. WYPŁATA - przed tabelą */}
+                     <div className="lg:hidden bg-white border border-gray-300 rounded-lg p-3 shadow-sm">
+                       <div className="flex justify-between items-center">
+                         <span className="text-base font-bold text-gray-900">{t('weekly.sum.payout')}:</span>
+                         <span className="text-xl font-bold text-primary">
+                           {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
+                         </span>
+                       </div>
                      </div>
 
-                     {/* 2. TABELA SZCZEGÓŁÓW */}
-                     <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                     {/* 3. TABELA SZCZEGÓŁÓW */}
+                     <div className="bg-white rounded-lg overflow-hidden shadow-sm">
                        <div className="overflow-x-auto">
                           <table className="w-full text-[11px] sm:text-sm">
                             <thead>
@@ -836,7 +846,7 @@ export const DriverSettlements = ({
                         </div>
                         
                         {/* Additional rows below table - DESKTOP ONLY */}
-                        <div className="hidden lg:block border-t bg-gray-50 p-2.5 sm:p-3 space-y-1.5">
+                        <div className="hidden lg:block border-t bg-gray-50/50 p-2.5 sm:p-3 space-y-1.5">
                           {/* Razem bez prowizji */}
                           <div className="flex justify-between text-xs sm:text-sm font-bold">
                             <span className="text-gray-700">{t('weekly.sum.withoutCommission')}:</span>
@@ -895,10 +905,10 @@ export const DriverSettlements = ({
                             </div>
                           )}
                         </div>
-            <div className="hidden lg:block border-t bg-gray-100 p-2.5 sm:p-3">
+            <div className="hidden lg:block border-t bg-white p-2.5 sm:p-3 shadow-sm">
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-sm sm:text-base text-gray-900">{t('weekly.sum.payout')}:</span>
-                <span className="font-extrabold text-gray-900 text-base sm:text-lg">
+                <span className="font-extrabold text-primary text-base sm:text-lg">
                   {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                 </span>
               </div>
@@ -1008,9 +1018,9 @@ export const DriverSettlements = ({
                        </div>
                       )}
                      
-                     {/* 3. WYKRES - kompaktowy, pod tabelą */}
+                     {/* 4. WYKRES - kompaktowy, na końcu */}
                      {platformData.length > 0 && (
-                       <div className="lg:hidden bg-white rounded-lg p-2">
+                       <div className="lg:hidden bg-white rounded-lg p-2 shadow-sm">
                          <div className="h-[140px]">
                            <ResponsiveContainer width="100%" height="100%">
                              <PieChart>
@@ -1042,72 +1052,15 @@ export const DriverSettlements = ({
                                />
                              </PieChart>
                            </ResponsiveContainer>
-                         </div>
-                       </div>
-                     )}
-
-                     {/* 4. WYPŁATA KOŃCOWA - tylko mobile */}
-                     <div className="lg:hidden bg-gray-100 border-2 border-gray-300 rounded-lg p-3">
-                       <div className="flex justify-between items-center">
-                         <span className="text-base font-extrabold text-gray-900">{t('weekly.sum.payout')}:</span>
-                         <span className="text-xl font-extrabold text-gray-900">
-                           {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
-                         </span>
-                       </div>
-                       
-                       {/* Debt info - mobile */}
-                       {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
-                         <div className="mt-3 pt-3 border-t border-violet-300 space-y-1.5">
-                           <div className="font-semibold text-red-700 mb-1.5 text-xs">💳 {t('weekly.debt.title')}</div>
-                           
-                           {settlement.debt_before && settlement.debt_before > 0 && (
-                             <div className="flex justify-between text-xs">
-                               <span className="text-gray-700">{t('weekly.debt.previous')}:</span>
-                               <span className="font-semibold text-red-600">-{settlement.debt_before.toFixed(2)} zł</span>
-                             </div>
-                           )}
-                           
-                           {settlement.debt_payment && settlement.debt_payment > 0 && (
-                             <div className="flex justify-between text-xs">
-                               <span className="text-gray-700">{t('weekly.debt.payment')}:</span>
-                               <span className="font-semibold text-green-600">-{settlement.debt_payment.toFixed(2)} zł</span>
-                             </div>
-                           )}
-                           
-                           {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
-                             <div className="flex justify-between text-xs border-t border-red-300 pt-1.5 mt-1.5">
-                               <span className="text-gray-700">{t('weekly.debt.remaining')}:</span>
-                               <span className="font-semibold text-red-600">-{settlement.debt_after.toFixed(2)} zł</span>
-                             </div>
-                           )}
-                           
-                           <div className="flex justify-between border-t-2 border-violet-400 pt-1.5 mt-1.5">
-                             <span className="font-bold text-sm">{t('weekly.debt.actualPayout')}:</span>
-                             <span className={`font-bold text-base ${(settlement.actual_payout || 0) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                               {(settlement.actual_payout || 0).toFixed(2)} zł
-                             </span>
-                           </div>
-                         </div>
-                       ) : payout < 0 ? (
-                         <div className="mt-3 pt-3 border-t border-violet-300 space-y-1.5">
-                           <div className="font-semibold text-red-700 mb-1.5 text-xs">⚠️ {t('weekly.debt.warning')}</div>
-                           <div className="flex justify-between text-xs">
-                             <span className="text-gray-700">{t('weekly.debt.addedToDebt')}:</span>
-                             <span className="font-bold text-red-600">{Math.abs(payout).toFixed(2)} zł</span>
-                           </div>
-                           <div className="flex justify-between border-t-2 border-violet-400 pt-1.5 mt-1.5">
-                             <span className="font-bold text-sm">{t('weekly.debt.actualPayout')}:</span>
-                             <span className="font-bold text-base text-gray-600">0.00 zł</span>
-                           </div>
-                         </div>
-                       ) : null}
-                     </div>
-                  </div>
-                );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
+                          </div>
+                        </div>
+                      )}
+                   </div>
+                 );
+             })}
+           </div>
+         )}
+       </CardContent>
+     </Card>
+   );
+ };
