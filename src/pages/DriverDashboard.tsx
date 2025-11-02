@@ -11,7 +11,7 @@ import { LeasedCarWrapper } from "@/components/driver/LeasedCarWrapper";
 import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
-import { FleetFuelView } from "@/components/FleetFuelView";
+import { DriverFuelView } from "@/components/DriverFuelView";
 import { Plus, Calendar, FileText, DollarSign, Car, File, Eye, EyeOff, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -404,7 +404,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Rok</label>
               <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                <SelectTrigger className="h-9 px-3 w-[100px]">
+                <SelectTrigger className="h-9 px-2 w-[90px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,7 +419,7 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Tydzień</label>
               <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
-                <SelectTrigger className="h-9 px-3 w-[240px]">
+                <SelectTrigger className="h-9 px-2 w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -460,8 +460,8 @@ function SettlementsWithSubTabs({ driverData }: { driverData: any }) {
             )}
           </div>
           
-          <FleetFuelView 
-            fleetId={driverData.drivers?.fleet_id || ""} 
+          <DriverFuelView 
+            fuelCardNumber={driverData.drivers?.fuel_card_number || ""} 
             periodFrom={periodFrom} 
             periodTo={periodTo}
           />
