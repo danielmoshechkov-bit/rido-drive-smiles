@@ -30,7 +30,6 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info } from "lucide-react";
-import LanguageSelector from "@/components/LanguageSelector";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -203,7 +202,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, onLog
           </div>
           <div className="flex items-center space-x-4">
             <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
-            <LanguageSelector />
             <Button variant="outline" onClick={onLogout}>
               {t('admin.logout')}
             </Button>

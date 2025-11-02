@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import LanguageSelector from "@/components/LanguageSelector";
 import { CitySelector } from "@/components/CitySelector";
 import { useCities, City } from "@/hooks/useCities";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -142,7 +141,6 @@ const AdminDashboard = () => {
           </div>
           <div className="flex items-center space-x-4">
             <SystemAlertsButton />
-            <LanguageSelector />
             <Button variant="outline" onClick={handleLogout}>
               {t('admin.logout')}
             </Button>

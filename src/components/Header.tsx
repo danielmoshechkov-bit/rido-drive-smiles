@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import LanguageSelector from "@/components/LanguageSelector";
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -72,9 +71,8 @@ const Header = () => {
           </button>
         </nav>
 
-        {/* CTA Button and Language Selector */}
+        {/* CTA Button */}
         <div className="flex items-center gap-3">
-          <LanguageSelector />
           <Button variant="accent" size="sm" onClick={() => navigate('/auth')}>
             {t('header.joinNow')}
           </Button>

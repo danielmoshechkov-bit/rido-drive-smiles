@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import LanguageSelector from "@/components/LanguageSelector";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
@@ -13,6 +13,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +94,6 @@ const Auth = () => {
           />
           <span className="text-xl font-bold text-primary">Get RIDO</span>
         </div>
-        <LanguageSelector />
       </div>
 
       {/* Main Content */}
@@ -130,9 +130,27 @@ const Auth = () => {
                 />
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="terms"
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Akceptuję{' '}
+                  <a href="/regulamin" className="text-primary hover:underline" target="_blank">
+                    regulamin i politykę prywatności
+                  </a>
+                </label>
+              </div>
+
               <Button 
                 type="submit" 
                 className="w-full"
+                disabled={!acceptedTerms}
               >
                 {t('auth.loginButton')}
               </Button>
@@ -145,10 +163,6 @@ const Auth = () => {
               >
                 Nie masz konta? Zarejestruj się jako kierowca
               </Link>
-            </div>
-
-            <div className="text-center text-xs text-muted-foreground space-y-1">
-              <div>Admin: email "daniel.moshechkov@gmail.com", password "danmos050389"</div>
             </div>
           </CardContent>
         </Card>
