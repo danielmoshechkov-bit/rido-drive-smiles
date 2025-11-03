@@ -690,8 +690,10 @@ export type Database = {
           fuel_card_number: string | null
           fuel_card_pin: string | null
           getrido_id: string | null
+          iban: string | null
           id: string
           last_name: string | null
+          payment_method: string | null
           phone: string | null
           registration_date: string | null
           updated_at: string
@@ -707,8 +709,10 @@ export type Database = {
           fuel_card_number?: string | null
           fuel_card_pin?: string | null
           getrido_id?: string | null
+          iban?: string | null
           id?: string
           last_name?: string | null
+          payment_method?: string | null
           phone?: string | null
           registration_date?: string | null
           updated_at?: string
@@ -724,8 +728,10 @@ export type Database = {
           fuel_card_number?: string | null
           fuel_card_pin?: string | null
           getrido_id?: string | null
+          iban?: string | null
           id?: string
           last_name?: string | null
+          payment_method?: string | null
           phone?: string | null
           registration_date?: string | null
           updated_at?: string

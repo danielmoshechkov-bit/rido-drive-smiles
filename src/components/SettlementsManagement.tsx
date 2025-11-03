@@ -557,10 +557,148 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
     { trips: 0, gross: 0, commission: 0, cash: 0, adjustments: 0, net: 0 }
   );
 
+  const handleGenerateTransfers = async () => {
+    if (!cityId) return;
+    
+    try {
+      const { data: settlements, error } = await supabase
+        .from('settlements')
+        .select(`
+          id,
+          driver_id,
+          actual_payout,
+          period_from,
+          period_to,
+          drivers (
+            first_name,
+            last_name,
+            email,
+            iban,
+            payment_method
+          )
+        `)
+        .eq('city_id', cityId)
+        .eq('period_from', format(weekStart, 'yyyy-MM-dd'))
+        .eq('period_to', format(weekEnd, 'yyyy-MM-dd'));
+      
+      if (error) throw error;
+      
+      const transferSettlements = settlements.filter(s => 
+        s.drivers?.payment_method === 'transfer' && 
+        s.actual_payout > 0 &&
+        s.drivers?.iban
+      );
+      
+      if (transferSettlements.length === 0) {
+        toast.error('Brak kierowców do przelewu w tym okresie');
+        return;
+      }
+      
+      const headers = ['Odbiorca', 'Numer konta', 'Kwota', 'Tytuł'];
+      const rows = transferSettlements.map(s => [
+        `${s.drivers.first_name} ${s.drivers.last_name}`,
+        s.drivers.iban,
+        s.actual_payout.toFixed(2),
+        `Rozliczenie ${format(new Date(s.period_from), 'dd.MM')} - ${format(new Date(s.period_to), 'dd.MM.yyyy')}`
+      ]);
+      
+      const csvContent = [
+        headers.join(';'),
+        ...rows.map(row => row.join(';'))
+      ].join('\n');
+      
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `przelewy_${format(weekStart, 'yyyy-MM-dd')}_${format(weekEnd, 'yyyy-MM-dd')}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`✅ Wygenerowano listę przelewów dla ${transferSettlements.length} kierowców`);
+    } catch (error) {
+      console.error('Error generating transfers:', error);
+      toast.error('❌ Błąd podczas generowania przelewów');
+    }
+  };
+
+  const handleGenerateCashPayouts = async () => {
+    if (!cityId) return;
+    
+    try {
+      const { data: settlements, error } = await supabase
+        .from('settlements')
+        .select(`
+          id,
+          driver_id,
+          actual_payout,
+          period_from,
+          period_to,
+          drivers (
+            first_name,
+            last_name,
+            phone,
+            payment_method
+          )
+        `)
+        .eq('city_id', cityId)
+        .eq('period_from', format(weekStart, 'yyyy-MM-dd'))
+        .eq('period_to', format(weekEnd, 'yyyy-MM-dd'));
+      
+      if (error) throw error;
+      
+      const cashSettlements = settlements.filter(s => 
+        s.drivers?.payment_method === 'cash' && 
+        s.actual_payout > 0
+      );
+      
+      if (cashSettlements.length === 0) {
+        toast.error('Brak kierowców do wypłaty gotówkowej w tym okresie');
+        return;
+      }
+      
+      const headers = ['LP', 'Imię i Nazwisko', 'Telefon', 'Kwota do wypłaty', 'Podpis'];
+      const rows = cashSettlements.map((s, idx) => [
+        idx + 1,
+        `${s.drivers.first_name} ${s.drivers.last_name}`,
+        s.drivers.phone || '-',
+        `${s.actual_payout.toFixed(2)} zł`,
+        '___________________'
+      ]);
+      
+      const totalCash = cashSettlements.reduce((sum, s) => sum + s.actual_payout, 0);
+      
+      const csvContent = [
+        `LISTA WYPŁAT GOTÓWKOWYCH - ${format(weekStart, 'dd.MM')} - ${format(weekEnd, 'dd.MM.yyyy')}`,
+        '',
+        headers.join(';'),
+        ...rows.map(row => row.join(';')),
+        '',
+        `SUMA DO WYPŁATY;${totalCash.toFixed(2)} zł`
+      ].join('\n');
+      
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `wyplaty_gotowkowe_${format(weekStart, 'yyyy-MM-dd')}_${format(weekEnd, 'yyyy-MM-dd')}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`✅ Wygenerowano listę wypłat dla ${cashSettlements.length} kierowców (suma: ${totalCash.toFixed(2)} zł)`);
+    } catch (error) {
+      console.error('Error generating cash payouts:', error);
+      toast.error('❌ Błąd podczas generowania wypłat gotówkowych');
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* New Settlement Button */}
-      <div className="flex justify-center gap-3">
+      {/* Action Buttons - Left and Right */}
+      <div className="flex justify-between items-center gap-3">
+        {/* Left side - New Settlement Button */}
         <Dialog open={newSettlementOpen} onOpenChange={setNewSettlementOpen}>
           <DialogTrigger asChild>
             <Button size="lg" className="gap-2 bg-gradient-hero hover:opacity-90 text-white shadow-elegant">
@@ -935,6 +1073,26 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Right side - Generate Buttons */}
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleGenerateTransfers}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Wygeneruj przelewy
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleGenerateCashPayouts}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Wygeneruj listę wypłat
+          </Button>
+        </div>
       </div>
 
       {/* Settlement Periods List */}

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -522,6 +522,19 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               ))}
                           </>
                         )}
+                        
+                        {/* Payment Method Badge */}
+                        {driver.payment_method === 'transfer' ? (
+                          <Badge variant="outline" className="gap-1">
+                            <CreditCard className="h-3 w-3" />
+                            Przelew
+                          </Badge>
+                        ) : driver.payment_method === 'cash' ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Banknote className="h-3 w-3" />
+                            Gotówka
+                          </Badge>
+                        ) : null}
                       </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">

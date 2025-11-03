@@ -16,6 +16,8 @@ export interface Driver {
   fuel_card_pin: string | null;
   fleet_id?: string | null;
   getrido_id?: string | null;
+  payment_method?: string | null;
+  iban?: string | null;
   platform_ids?: Array<{
     platform: string;
     platform_id: string;

@@ -269,6 +269,10 @@
       "mySettlements": "Moje rozliczenia",
       "fuel": "Paliwo"
     },
+    "paymentMethod": "Sposób rozliczenia",
+    "paymentMethodTransfer": "Przelew bankowy",
+    "paymentMethodCash": "Gotówka",
+    "iban": "Numer konta bankowego",
     "cars": {
       "addCar": "Dodaj auto",
       "rentalHistory": "Historia wynajmów",
@@ -315,7 +319,11 @@
     "calendar": "Kalendarz",
     "weeklySettlement": "Rozliczenie tygodniowe",
     "mondayToSunday": "Poniedziałek - Niedziela",
-    "nextMondaySettlement": "Rozliczenie w kolejny poniedziałek"
+    "nextMondaySettlement": "Rozliczenie w kolejny poniedziałek",
+    "generateTransfers": "Wygeneruj przelewy",
+    "generateCashPayouts": "Wygeneruj listę wypłat",
+    "transfersGenerated": "Wygenerowano listę przelewów",
+    "cashPayoutsGenerated": "Wygenerowano listę wypłat gotówkowych"
   },
   "weekly": {
     "title": "Wynik tygodniowy",

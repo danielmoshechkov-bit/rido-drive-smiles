@@ -15,6 +15,7 @@ import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
 import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
@@ -500,13 +501,70 @@ function SettlementsWithSubTabs({
   );
 }
 
-// Component to display driver notifications
+// Component to display driver notifications and settings
 function DriverNotifications({ driverId }: { driverId: string }) {
   const { alerts, loading, markAsResolved } = useSystemAlerts();
   const driverAlerts = alerts.filter(a => a.driver_id === driverId && a.status === 'pending');
+  const [driverInfo, setDriverInfo] = useState<any>(null);
+  const [loadingInfo, setLoadingInfo] = useState(true);
+  const { t } = useTranslation();
 
-  if (loading) {
-    return <div className="text-center py-8">Ładowanie powiadomień...</div>;
+  useEffect(() => {
+    loadDriverInfo();
+  }, [driverId]);
+
+  const loadDriverInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('payment_method, iban')
+        .eq('id', driverId)
+        .single();
+      
+      if (error) throw error;
+      setDriverInfo(data);
+    } catch (error) {
+      console.error('Error loading driver info:', error);
+    } finally {
+      setLoadingInfo(false);
+    }
+  };
+
+  const handlePaymentMethodChange = async (method: string) => {
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ payment_method: method })
+        .eq('id', driverId);
+      
+      if (error) throw error;
+      toast.success('Zaktualizowano sposób rozliczenia');
+      loadDriverInfo();
+    } catch (error) {
+      console.error('Error updating payment method:', error);
+      toast.error('Błąd aktualizacji sposobu rozliczenia');
+    }
+  };
+
+  const handleIbanChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const iban = e.target.value;
+    
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ iban })
+        .eq('id', driverId);
+      
+      if (error) throw error;
+      setDriverInfo({ ...driverInfo, iban });
+    } catch (error) {
+      console.error('Error updating IBAN:', error);
+      toast.error('Błąd aktualizacji numeru konta');
+    }
+  };
+
+  if (loading || loadingInfo) {
+    return <div className="text-center py-8">Ładowanie...</div>;
   }
 
   const getAlertColor = (type: string) => {
@@ -520,6 +578,41 @@ function DriverNotifications({ driverId }: { driverId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Payment Method Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sposób rozliczenia</CardTitle>
+          <CardDescription>Wybierz preferowany sposób otrzymywania wypłat</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Select 
+            value={driverInfo?.payment_method || 'transfer'} 
+            onValueChange={handlePaymentMethodChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Wybierz sposób płatności" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="transfer">💳 Przelew bankowy</SelectItem>
+              <SelectItem value="cash">💵 Gotówka</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {driverInfo?.payment_method === 'transfer' && (
+            <div className="space-y-2">
+              <Label htmlFor="iban">Numer konta bankowego (IBAN)</Label>
+              <Input 
+                id="iban"
+                value={driverInfo?.iban || ''} 
+                onChange={handleIbanChange}
+                placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
       {driverAlerts.length === 0 ? (
         <Card>
           <CardHeader>
