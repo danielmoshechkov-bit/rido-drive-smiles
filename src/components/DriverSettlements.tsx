@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, CreditCard, Banknote } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pl } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PieChart, Pie, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { CsvColumnMapping, FeeFormulas, letterToIndex } from "@/lib/csvMapping";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -81,11 +82,18 @@ export const DriverSettlements = ({
   const [canChangePlan, setCanChangePlan] = useState(true);
   const [planChangeInfo, setPlanChangeInfo] = useState<string>('');
   const [isControlsOpen, setIsControlsOpen] = useState(false);
+  const [driverPaymentMethod, setDriverPaymentMethod] = useState<string>('transfer');
+  const [driverIban, setDriverIban] = useState<string>('');
+  const [lastAvailableWeek, setLastAvailableWeek] = useState<string | null>(null);
+  const [ibanUpdateTimeout, setIbanUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
   const weeks = getAvailableWeeks(selectedYear);
-  const currentWeek = weeks.find(w => w.number === selectedWeek);
+  const currentWeek = useMemo(() => 
+    weeks.find(w => w.number === selectedWeek), 
+    [weeks, selectedWeek]
+  );
 
   // Normalize amounts - supports both old (camelCase) and new (snake_case) formats
   // Legacy mode: old data had wrong tax calculation for Bolt
@@ -243,6 +251,27 @@ export const DriverSettlements = ({
       }
 
       setSettlements((data || []) as Settlement[]);
+      
+      // Detect last available week if no settlements found
+      if (!data || data.length === 0) {
+        const { data: lastSettlement } = await supabase
+          .from('settlements')
+          .select('period_from, period_to')
+          .eq('driver_id', driverId)
+          .order('period_to', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (lastSettlement) {
+          setLastAvailableWeek(
+            `${format(new Date(lastSettlement.period_from), 'd MMM', { locale: pl })} - ${format(new Date(lastSettlement.period_to), 'd MMM yyyy', { locale: pl })}`
+          );
+        } else {
+          setLastAvailableWeek(null);
+        }
+      } else {
+        setLastAvailableWeek(null);
+      }
     } catch (error: any) {
       console.error('[ERROR] loadSettlements exception:', error);
       toast.error('Błąd podczas ładowania rozliczeń: ' + (error?.message || 'Nieznany błąd'));
@@ -414,6 +443,62 @@ export const DriverSettlements = ({
     }
     
     setInitialLoad(false);
+  };
+
+  // Fetch driver payment info
+  useEffect(() => {
+    const fetchDriverInfo = async () => {
+      if (!driverId) return;
+      
+      const { data } = await supabase
+        .from('drivers')
+        .select('payment_method, iban')
+        .eq('id', driverId)
+        .maybeSingle();
+      
+      if (data) {
+        setDriverPaymentMethod(data.payment_method || 'transfer');
+        setDriverIban(data.iban || '');
+      }
+    };
+    fetchDriverInfo();
+  }, [driverId]);
+
+  const handlePaymentMethodChange = async (method: string) => {
+    const { error } = await supabase
+      .from('drivers')
+      .update({ payment_method: method })
+      .eq('id', driverId);
+    
+    if (!error) {
+      setDriverPaymentMethod(method);
+      toast.success('Zaktualizowano sposób rozliczenia');
+    } else {
+      toast.error('Błąd aktualizacji');
+    }
+  };
+
+  const handleIbanChange = async (iban: string) => {
+    setDriverIban(iban);
+    
+    // Clear previous timeout
+    if (ibanUpdateTimeout) {
+      clearTimeout(ibanUpdateTimeout);
+    }
+    
+    // Debounced update
+    const timeout = setTimeout(async () => {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ iban })
+        .eq('id', driverId);
+      
+      if (error) {
+        toast.error('Błąd aktualizacji numeru konta');
+      }
+    }, 1000);
+    
+    setIbanUpdateTimeout(timeout);
   };
 
   // Synchronize with props when they change
@@ -779,9 +864,46 @@ export const DriverSettlements = ({
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Payment Method Section */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Sposób rozliczenia:</Label>
+                <Select 
+                  value={driverPaymentMethod || 'transfer'} 
+                  onValueChange={handlePaymentMethodChange}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Wybierz sposób płatności" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transfer">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Przelew bankowy
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="cash">
+                      <div className="flex items-center gap-2">
+                        <Banknote className="h-4 w-4" />
+                        Gotówka
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {driverPaymentMethod === 'transfer' && (
+                  <Input 
+                    value={driverIban || ''} 
+                    onChange={(e) => handleIbanChange(e.target.value)}
+                    placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
+                    className="h-10 mt-2"
+                  />
+                )}
+              </div>
+              
               <div className="flex flex-col gap-2">
                 <Label className="text-sm">{t('weekly.plan')}:</Label>
-                <Select 
+                <Select
                   value={selectedPlanId} 
                   onValueChange={(newPlanId) => {
                     setSelectedPlanId(newPlanId);
@@ -835,6 +957,11 @@ export const DriverSettlements = ({
             <p className="text-sm text-muted-foreground">
               {t('weekly.contactAdmin')}
             </p>
+            {lastAvailableWeek && (
+              <p className="text-xs text-blue-600 mt-4">
+                💡 Ostatnie dostępne rozliczenie: {lastAvailableWeek}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground mt-4">
               {t('weekly.driverId')}: {driverId}
             </p>
