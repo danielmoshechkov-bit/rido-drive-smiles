@@ -1,0 +1,23 @@
+name: Deploy to nazwa.pl
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ftp-deploy:
+    name: FTP Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Upload to nazwa.pl
+        uses: SamKirkland/FTP-Deploy-Action@4.3.4
+        with:
+          server: ${{secrets.FTP_SERVER}}
+          username: ${{secrets.FTP_USERNAME}}
+          password: ${{secrets.FTP_PASSWORD}}
+          server-dir: /public_html
+          local-dir: ./public
