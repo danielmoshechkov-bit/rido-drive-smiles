@@ -100,7 +100,7 @@ const Auth = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex items-center justify-center min-h-[calc(100vh-100px)] px-4">
+      <div className="relative z-10 flex items-center justify-center px-4 py-8" style={{ minHeight: 'calc(100vh - 200px)', marginTop: '-40px' }}>
         <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">
