@@ -754,6 +754,39 @@ export type Database = {
           },
         ]
       }
+      email_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          registration_subject: string | null
+          registration_template: string | null
+          sender_email: string | null
+          sender_name: string | null
+          smtp_provider: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          registration_subject?: string | null
+          registration_template?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          smtp_provider?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          registration_subject?: string | null
+          registration_template?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          smtp_provider?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fleet_delegated_roles: {
         Row: {
           assigned_to_driver_id: string
