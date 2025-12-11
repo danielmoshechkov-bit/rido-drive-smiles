@@ -762,7 +762,11 @@ export type Database = {
           registration_template: string | null
           sender_email: string | null
           sender_name: string | null
+          smtp_host: string | null
+          smtp_port: number | null
           smtp_provider: string | null
+          smtp_secure: boolean | null
+          smtp_user: string | null
           updated_at: string | null
         }
         Insert: {
@@ -772,7 +776,11 @@ export type Database = {
           registration_template?: string | null
           sender_email?: string | null
           sender_name?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
           smtp_provider?: string | null
+          smtp_secure?: boolean | null
+          smtp_user?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -782,7 +790,11 @@ export type Database = {
           registration_template?: string | null
           sender_email?: string | null
           sender_name?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
           smtp_provider?: string | null
+          smtp_secure?: boolean | null
+          smtp_user?: string | null
           updated_at?: string | null
         }
         Relationships: []

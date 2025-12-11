@@ -4,22 +4,27 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { Checkbox } from './ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from './ui/use-toast';
-import { Mail, Send, Save, Eye } from 'lucide-react';
+import { Mail, Send, Save, Eye, Server } from 'lucide-react';
 import { Badge } from './ui/badge';
 
-interface EmailSettings {
+interface EmailSettingsData {
   id: string;
   smtp_provider: string;
   sender_name: string;
   sender_email: string;
   registration_subject: string;
   registration_template: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_secure: boolean;
 }
 
 export function EmailSettings() {
-  const [settings, setSettings] = useState<EmailSettings | null>(null);
+  const [settings, setSettings] = useState<EmailSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testEmail, setTestEmail] = useState('');
@@ -39,7 +44,7 @@ export function EmailSettings() {
         .single();
 
       if (error) throw error;
-      setSettings(data);
+      setSettings(data as EmailSettingsData);
     } catch (error) {
       console.error('Error fetching email settings:', error);
       toast({
@@ -64,6 +69,10 @@ export function EmailSettings() {
           sender_email: settings.sender_email,
           registration_subject: settings.registration_subject,
           registration_template: settings.registration_template,
+          smtp_host: settings.smtp_host,
+          smtp_port: settings.smtp_port,
+          smtp_user: settings.smtp_user,
+          smtp_secure: settings.smtp_secure,
         })
         .eq('id', settings.id);
 
@@ -109,10 +118,14 @@ export function EmailSettings() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Wysłano',
-        description: `Testowy email został wysłany na ${testEmail}`,
-      });
+      if (data?.success) {
+        toast({
+          title: 'Wysłano',
+          description: `Testowy email został wysłany na ${testEmail}`,
+        });
+      } else {
+        throw new Error(data?.error || 'Błąd wysyłki');
+      }
     } catch (error: any) {
       console.error('Error sending test email:', error);
       toast({
@@ -157,35 +170,80 @@ export function EmailSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Ustawienia poczty
+            <Server className="h-5 w-5" />
+            Konfiguracja serwera SMTP
           </CardTitle>
           <CardDescription>
-            Konfiguracja wysyłki emaili rejestracyjnych z firmowej skrzynki pocztowej
+            Ustawienia serwera pocztowego do wysyłki maili
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Provider info */}
+          {/* SMTP Status */}
           <div className="p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary">Resend</Badge>
-              <span className="text-sm text-muted-foreground">Dostawca poczty</span>
+              <Badge variant="secondary">SMTP</Badge>
+              <span className="text-sm text-muted-foreground">Serwer pocztowy getrido.pl</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Emaile są wysyłane przez Resend. Klucz API jest skonfigurowany w Supabase secrets.
-              Aby wysyłać z własnej domeny, zweryfikuj ją w{' '}
-              <a 
-                href="https://resend.com/domains" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                panelu Resend
-              </a>.
+              Emaile są wysyłane bezpośrednio z serwera getrido.pl. 
+              Hasło do skrzynki kontakt@getrido.pl jest zapisane w Supabase secrets.
             </p>
           </div>
 
-          {/* Sender info */}
+          {/* SMTP Settings */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="smtp_host">Serwer SMTP *</Label>
+              <Input
+                id="smtp_host"
+                value={settings.smtp_host || 'getrido.pl'}
+                onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
+                placeholder="getrido.pl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="smtp_port">Port SMTP *</Label>
+              <Input
+                id="smtp_port"
+                type="number"
+                value={settings.smtp_port || 587}
+                onChange={(e) => setSettings({ ...settings, smtp_port: parseInt(e.target.value) || 587 })}
+                placeholder="587"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="smtp_user">Login SMTP (email) *</Label>
+              <Input
+                id="smtp_user"
+                value={settings.smtp_user || 'kontakt@getrido.pl'}
+                onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
+                placeholder="kontakt@getrido.pl"
+              />
+            </div>
+            <div className="space-y-2 flex items-end">
+              <label className="flex items-center gap-2 h-10">
+                <Checkbox
+                  checked={settings.smtp_secure !== false}
+                  onCheckedChange={(checked) => setSettings({ ...settings, smtp_secure: Boolean(checked) })}
+                />
+                <span className="text-sm">Użyj szyfrowania TLS</span>
+              </label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Ustawienia nadawcy
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="sender_name">Nazwa nadawcy *</Label>
@@ -203,11 +261,8 @@ export function EmailSettings() {
                 type="email"
                 value={settings.sender_email}
                 onChange={(e) => setSettings({ ...settings, sender_email: e.target.value })}
-                placeholder="no-reply@getrido.pl"
+                placeholder="kontakt@getrido.pl"
               />
-              <p className="text-xs text-muted-foreground">
-                Domena musi być zweryfikowana w Resend
-              </p>
             </div>
           </div>
         </CardContent>
@@ -279,7 +334,7 @@ export function EmailSettings() {
         <CardHeader>
           <CardTitle>Test wysyłki</CardTitle>
           <CardDescription>
-            Wyślij testowy email, aby sprawdzić konfigurację
+            Wyślij testowy email, aby sprawdzić konfigurację SMTP
           </CardDescription>
         </CardHeader>
         <CardContent>

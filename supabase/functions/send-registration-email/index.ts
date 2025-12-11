@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,13 +22,13 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      console.error("RESEND_API_KEY not configured");
-      throw new Error("RESEND_API_KEY nie jest skonfigurowany. Dodaj klucz API w ustawieniach Supabase.");
-    }
+    console.log("Starting send-registration-email function");
 
-    const resend = new Resend(resendApiKey);
+    const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+    if (!smtpPassword) {
+      console.error("SMTP_PASSWORD not configured");
+      throw new Error("SMTP_PASSWORD nie jest skonfigurowany. Dodaj hasło do Supabase secrets.");
+    }
 
     // Create Supabase client to fetch email settings
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -47,6 +47,13 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Nie udało się pobrać ustawień email");
     }
 
+    console.log("Email settings loaded:", {
+      smtp_host: emailSettings.smtp_host,
+      smtp_port: emailSettings.smtp_port,
+      smtp_user: emailSettings.smtp_user,
+      smtp_secure: emailSettings.smtp_secure
+    });
+
     const { email, first_name, last_name, activation_link, is_test }: EmailRequest = await req.json();
 
     if (!email) {
@@ -62,36 +69,46 @@ const handler = async (req: Request): Promise<Response> => {
       .replace(/\{\{email\}\}/g, email)
       .replace(/\{\{activation_link\}\}/g, activation_link);
 
-    // Determine sender - use verified domain or fallback to resend.dev for testing
-    let fromEmail = emailSettings.sender_email;
-    
-    // If domain is not verified, use resend.dev for testing
-    if (!fromEmail.endsWith("@resend.dev") && is_test) {
-      console.log("Using resend.dev for test email (domain may not be verified)");
-    }
-
     const senderName = emailSettings.sender_name || "RIDO";
+    const senderEmail = emailSettings.sender_email || emailSettings.smtp_user;
     const subject = is_test 
       ? `[TEST] ${emailSettings.registration_subject}`
       : emailSettings.registration_subject;
 
-    console.log(`Sending email from: ${senderName} <${fromEmail}>`);
+    console.log(`Sending email from: ${senderName} <${senderEmail}>`);
     console.log(`Subject: ${subject}`);
+    console.log(`SMTP Host: ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
 
-    const emailResponse = await resend.emails.send({
-      from: `${senderName} <${fromEmail}>`,
-      to: [email],
+    // Configure SMTP client
+    const client = new SMTPClient({
+      connection: {
+        hostname: emailSettings.smtp_host || "getrido.pl",
+        port: emailSettings.smtp_port || 587,
+        tls: emailSettings.smtp_secure !== false,
+        auth: {
+          username: emailSettings.smtp_user || "kontakt@getrido.pl",
+          password: smtpPassword,
+        },
+      },
+    });
+
+    // Send email
+    await client.send({
+      from: `${senderName} <${senderEmail}>`,
+      to: email,
       subject: subject,
+      content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
       html: htmlContent,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    await client.close();
+
+    console.log("Email sent successfully to:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Email wysłany pomyślnie",
-        id: emailResponse.id 
+        message: "Email wysłany pomyślnie"
       }), 
       {
         status: 200,

@@ -162,8 +162,24 @@ export default function DriverRegister() {
         }
       }
 
-      toast.success("Rejestracja wysłana! Sprawdź e-mail i potwierdź konto.");
-      setTimeout(() => navigate("/"), 2000);
+      // Send registration email
+      try {
+        await supabase.functions.invoke('send-registration-email', {
+          body: {
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            activation_link: `${window.location.origin}/auth?confirmed=1`,
+            is_test: false,
+          },
+        });
+      } catch (emailError) {
+        console.error("Error sending registration email:", emailError);
+        // Don't block registration if email fails
+      }
+
+      // Navigate to success page
+      navigate("/register-success");
 
     } catch (error) {
       toast.error("Wystąpił błąd podczas rejestracji");
