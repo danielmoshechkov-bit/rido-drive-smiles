@@ -614,6 +614,8 @@ async function parseBoltCsv(
   const projectedIdx = headers.findIndex(h => h.includes('zarobki brutto (ogółem)') || h.includes('brutto') || h.includes('projected'));
   const payoutIdx = headers.findIndex(h => h.includes('przewidywana wypłata') || h.includes('zarobki netto|') || h.includes('netto'));
   const cashIdx = headers.findIndex(h => h.includes('pobrana gotówka') || h.includes('gotówka') || h.includes('cash'));
+  // WAŻNE: Parsuj prowizję bezpośrednio z CSV zamiast obliczać
+  const commissionIdx = headers.findIndex(h => (h.includes('prowizja') && h.includes('zł')) || h === 'prowizja|zł' || h === 'prowizja');
   
   // WAŻNE: "kierowca" to nazwa, NIE ID!
   const driverNameIdx = headers.findIndex(h => h === 'kierowca' || h.includes('imię') || h.includes('name'));
@@ -622,7 +624,7 @@ async function parseBoltCsv(
   const phoneIdx = headers.findIndex(h => h.includes('numer telefonu') || h.includes('telefon') || h.includes('phone'));
   const emailIdx = headers.findIndex(h => h.includes('adres e-mail') || h.includes('e-mail') || h.includes('email'));
 
-  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, cashIdx, driverNameIdx, driverIdIdx, phoneIdx, emailIdx });
+  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, cashIdx, commissionIdx, driverNameIdx, driverIdIdx, phoneIdx, emailIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -634,8 +636,12 @@ async function parseBoltCsv(
     const bolt_projected_d = parsePLNumber(row[projectedIdx] || '0');
     const bolt_payout_s = parsePLNumber(row[payoutIdx] || '0');
     const bolt_cash = parsePLNumber(row[cashIdx] || '0');
+    // Prowizja: pobierz z CSV jeśli dostępna, inaczej oblicz jako brutto - netto
+    const bolt_commission = commissionIdx >= 0 ? parsePLNumber(row[commissionIdx] || '0') : (bolt_projected_d - bolt_payout_s);
     const bolt_tax_8 = bolt_projected_d * 0.08;
     const bolt_net = bolt_payout_s - bolt_tax_8;
+    
+    console.log(`📊 BOLT wiersz ${i}: brutto=${bolt_projected_d}, netto=${bolt_payout_s}, gotówka=${bolt_cash}, prowizja=${bolt_commission}`);
 
     // WAŻNE: Pobierz imię i nazwisko z kolumny "kierowca" (indeks 0 zazwyczaj)
     const driverName = (driverNameIdx >= 0 ? row[driverNameIdx] : row[0])?.trim() || '';
@@ -711,7 +717,7 @@ async function parseBoltCsv(
       data.bolt_projected_d = bolt_projected_d;
       data.bolt_payout_s = bolt_payout_s;
       data.bolt_cash = bolt_cash;
-      data.bolt_commission = bolt_projected_d - bolt_payout_s;
+      data.bolt_commission = bolt_commission;
       data.bolt_tax_8 = bolt_tax_8;
       data.bolt_net = bolt_net;
     }

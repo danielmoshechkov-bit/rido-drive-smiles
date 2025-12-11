@@ -990,12 +990,15 @@ export const DriverSettlements = ({
                     <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
                       <div className="bg-white p-4 space-y-3">
                         {/* Razem bez prowizji - DUŻA CZCIONKA */}
+                        {/* Bolt: używamy bolt_payout_s (netto po prowizji) */}
+                        {/* Uber: uber_payout_d (wypłata netto) */}
+                        {/* FreeNow: base - commission */}
                         <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                           <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
                           <span className="font-bold text-green-600 text-lg">
-                            {((amounts.uber_base || 0) - (amounts.uber_commission || 0) +
-                              (amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0) +
-                              (amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0)).toFixed(2)} zł
+                            {((amounts.uber_payout_d || 0) +
+                              (amounts.bolt_payout_s || 0) +
+                              ((amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0))).toFixed(2)} zł
                           </span>
                         </div>
                         
