@@ -221,9 +221,16 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       if (error) throw error;
       
+      // Natychmiastowa aktualizacja stanu lokalnego
+      setVehicles(prev => prev.map(v => 
+        v.id === vehicleId ? { ...v, assignedDriver: null } : v
+      ));
+      
+      setOpenDropdown(null);
       toast.success('Przypisanie kierowcy zostało usunięte');
-      setOpenDropdown(null); // Zamknij dropdown
-      await fetchVehicles(); // Odśwież dane
+      
+      // Odśwież dane z serwera
+      await fetchVehicles();
     } catch (error) {
       toast.error('Błąd podczas usuwania przypisania kierowcy');
     }
@@ -307,7 +314,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     if (!confirm("Czy na pewno chcesz usunąć ten pojazd? Ta operacja nie może być cofnięta.")) return;
     
     try {
-      // Najpierw dezaktywuj wszystkie przypisania
+      // 1. Dezaktywuj wszystkie przypisania kierowców
       await supabase
         .from("driver_vehicle_assignments")
         .update({ 
@@ -317,7 +324,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         .eq("vehicle_id", vehicleId)
         .eq("status", "active");
 
-      // Następnie usuń pojazd
+      // 2. Usuń powiązane zaproszenia flotowe (foreign key constraint)
+      await supabase
+        .from("fleet_invitations")
+        .delete()
+        .eq("vehicle_id", vehicleId);
+
+      // 3. Następnie usuń pojazd
       const { error } = await supabase
         .from("vehicles")
         .delete()
