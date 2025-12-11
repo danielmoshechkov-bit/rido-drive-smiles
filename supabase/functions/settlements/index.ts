@@ -825,12 +825,53 @@ function parseCSV(csvText: string): string[][] {
     return trimmed.length > 0 && !trimmed.match(/^[;,\s]*$/);
   });
   
-  return lines.map(line => {
-    // Split by semicolon (CSV z Excela)
-    return line.split(';').map(cell => 
-      cell.replace(/^"|"$/g, '').trim()
-    );
-  });
+  if (lines.length === 0) return [];
+  
+  // Wykryj separator: sprawdź czy więcej średników czy przecinków w pierwszej linii
+  const firstLine = lines[0];
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const separator = semicolonCount >= commaCount ? ';' : ',';
+  
+  console.log(`📝 CSV separator wykryty: '${separator}' (średniki: ${semicolonCount}, przecinki: ${commaCount})`);
+  
+  const result = lines.map(line => parseCSVLine(line, separator));
+  
+  if (result.length > 0) {
+    console.log(`📊 CSV: ${result.length} wierszy, ${result[0].length} kolumn w nagłówku`);
+    console.log(`📊 Nagłówki: ${result[0].slice(0, 10).join(' | ')}${result[0].length > 10 ? '...' : ''}`);
+  }
+  
+  return result;
+}
+
+// ========== HELPER: PARSOWANIE LINII CSV Z OBSŁUGĄ CUDZYSŁOWÓW ==========
+function parseCSVLine(line: string, separator: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++; // Skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === separator && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current.trim());
+  return result;
 }
 
 // ========== HELPER: PARSOWANIE LICZB (polski format) ==========
