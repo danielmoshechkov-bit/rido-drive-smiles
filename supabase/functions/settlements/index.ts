@@ -497,8 +497,9 @@ async function parseUberCsv(
   const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout') || h.includes('wyplata') || h.includes('wypłata'));
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('gotowka') || h.includes('cash'));
   const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko'));
 
-  console.log('📊 UBER CSV - indeksy kolumn:', { payoutIdx, cashIdx, driverIdIdx });
+  console.log('📊 UBER CSV - indeksy kolumn:', { payoutIdx, cashIdx, driverIdIdx, driverNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -513,44 +514,59 @@ async function parseUberCsv(
     const uber_tax_8 = uber_base * 0.08;
     const uber_net = uber_payout_d - uber_tax_8;
 
-    const platformId = row[driverIdIdx]?.trim();
-    if (!platformId) continue;
+    let platformId = row[driverIdIdx]?.trim();
+    const driverName = row[driverNameIdx]?.trim() || '';
+    
+    // Clean platformId if it looks like full row data
+    if (platformId && platformId.includes(',') && platformId.length > 20) {
+      const parts = platformId.split(',');
+      platformId = parts[0]?.trim();
+    }
+    
+    if (!platformId && !driverName) continue;
 
     let driverId: string | null = null;
 
     // Try to match by platform ID
-    if (existingDriversMap.has(`uber:${platformId}`)) {
+    if (platformId && existingDriversMap.has(`uber:${platformId}`)) {
       driverId = existingDriversMap.get(`uber:${platformId}`).id;
       matchedDrivers++;
-    } else {
-      // Create new driver
-      const { data: newDriver, error } = await supabase
-        .from('drivers')
-        .insert({
-          city_id,
-          first_name: 'Uber',
-          last_name: platformId.substring(0, 8),
-          phone: null,
-          email: null
-        })
-        .select()
-        .single();
-
-      if (!error && newDriver) {
-        driverId = newDriver.id;
-        existingDriversMap.set(`uber:${platformId}`, newDriver);
-        
-        // Create platform ID record
-        await supabase
-          .from('driver_platform_ids')
-          .insert({
-            driver_id: driverId,
-            platform: 'uber',
-            platform_id: platformId
-          });
-
-        newDrivers++;
+    } 
+    // Try to match by driver name
+    else if (driverName) {
+      const nameParts = driverName.split(' ');
+      const firstName = nameParts[0]?.toLowerCase() || '';
+      const lastName = nameParts.slice(1).join(' ').toLowerCase() || '';
+      
+      for (const [key, driver] of existingDriversMap.entries()) {
+        if (key.startsWith('phone:') || key.startsWith('getrido:')) {
+          const driverFirstName = (driver.first_name || '').toLowerCase();
+          const driverLastName = (driver.last_name || '').toLowerCase();
+          
+          if (driverFirstName === firstName && driverLastName === lastName) {
+            driverId = driver.id;
+            matchedDrivers++;
+            
+            if (platformId) {
+              await supabase
+                .from('driver_platform_ids')
+                .upsert({
+                  driver_id: driverId,
+                  platform: 'uber',
+                  platform_id: platformId
+                }, { onConflict: 'driver_id,platform' });
+              existingDriversMap.set(`uber:${platformId}`, driver);
+            }
+            break;
+          }
+        }
       }
+    }
+    
+    // If still no match, log warning instead of creating new driver
+    if (!driverId) {
+      console.warn(`⚠️ UBER: Nie znaleziono kierowcy dla platformId=${platformId}, name=${driverName}. Pomijam wiersz.`);
+      continue;
     }
 
     if (driverId) {
@@ -593,8 +609,9 @@ async function parseBoltCsv(
   const projectedIdx = headers.findIndex(h => h.includes('projected') || h.includes('przychód') || h.includes('przychod') || h.includes('brutto'));
   const payoutIdx = headers.findIndex(h => h.includes('wypłata') || h.includes('wyplata') || h.includes('payout') || h.includes('netto'));
   const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko'));
 
-  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, driverIdIdx });
+  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, driverIdIdx, driverNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -608,41 +625,58 @@ async function parseBoltCsv(
     const bolt_tax_8 = bolt_projected_d * 0.08;
     const bolt_net = bolt_payout_s - bolt_tax_8;
 
-    const platformId = row[driverIdIdx]?.trim();
-    if (!platformId) continue;
+    let platformId = row[driverIdIdx]?.trim();
+    const driverName = row[driverNameIdx]?.trim() || '';
+    
+    // Clean platformId if it looks like full row data
+    if (platformId && platformId.includes(',') && platformId.length > 20) {
+      const parts = platformId.split(',');
+      platformId = parts[0]?.trim();
+    }
+    
+    if (!platformId && !driverName) continue;
 
     let driverId: string | null = null;
 
-    if (existingDriversMap.has(`bolt:${platformId}`)) {
+    if (platformId && existingDriversMap.has(`bolt:${platformId}`)) {
       driverId = existingDriversMap.get(`bolt:${platformId}`).id;
       matchedDrivers++;
-    } else {
-      const { data: newDriver, error } = await supabase
-        .from('drivers')
-        .insert({
-          city_id,
-          first_name: 'Bolt',
-          last_name: platformId.substring(0, 8),
-          phone: null,
-          email: null
-        })
-        .select()
-        .single();
-
-      if (!error && newDriver) {
-        driverId = newDriver.id;
-        existingDriversMap.set(`bolt:${platformId}`, newDriver);
-        
-        await supabase
-          .from('driver_platform_ids')
-          .insert({
-            driver_id: driverId,
-            platform: 'bolt',
-            platform_id: platformId
-          });
-
-        newDrivers++;
+    } 
+    // Try to match by driver name
+    else if (driverName) {
+      const nameParts = driverName.split(' ');
+      const firstName = nameParts[0]?.toLowerCase() || '';
+      const lastName = nameParts.slice(1).join(' ').toLowerCase() || '';
+      
+      for (const [key, driver] of existingDriversMap.entries()) {
+        if (key.startsWith('phone:') || key.startsWith('getrido:')) {
+          const driverFirstName = (driver.first_name || '').toLowerCase();
+          const driverLastName = (driver.last_name || '').toLowerCase();
+          
+          if (driverFirstName === firstName && driverLastName === lastName) {
+            driverId = driver.id;
+            matchedDrivers++;
+            
+            if (platformId) {
+              await supabase
+                .from('driver_platform_ids')
+                .upsert({
+                  driver_id: driverId,
+                  platform: 'bolt',
+                  platform_id: platformId
+                }, { onConflict: 'driver_id,platform' });
+              existingDriversMap.set(`bolt:${platformId}`, driver);
+            }
+            break;
+          }
+        }
       }
+    }
+    
+    // If still no match, log warning instead of creating new driver
+    if (!driverId) {
+      console.warn(`⚠️ BOLT: Nie znaleziono kierowcy dla platformId=${platformId}, name=${driverName}. Pomijam wiersz.`);
+      continue;
     }
 
     if (driverId) {
@@ -684,9 +718,11 @@ async function parseFreenowCsv(
   const baseIdx = headers.findIndex(h => h.includes('revenue') || h.includes('przychód') || h.includes('przychod') || h.includes('brutto'));
   const commissionIdx = headers.findIndex(h => h.includes('commission') || h.includes('prowizja'));
   const cashIdx = headers.findIndex(h => h.includes('cash') || h.includes('gotówka') || h.includes('gotowka'));
-  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('id kierowcy') || h === 'id');
+  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko') || h.includes('kierowca'));
+  const plateIdx = headers.findIndex(h => h.includes('plate') || h.includes('rejestracja') || h.includes('tablica'));
 
-  console.log('📊 FREENOW CSV - indeksy kolumn:', { baseIdx, commissionIdx, cashIdx, driverIdIdx });
+  console.log('📊 FREENOW CSV - indeksy kolumn:', { baseIdx, commissionIdx, cashIdx, driverIdIdx, driverNameIdx, plateIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -701,41 +737,64 @@ async function parseFreenowCsv(
     const freenow_tax_8 = freenow_base_s * 0.08;
     const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
 
-    const platformId = row[driverIdIdx]?.trim();
-    if (!platformId) continue;
+    // Get platform ID or driver name
+    let platformId = row[driverIdIdx]?.trim();
+    const driverName = row[driverNameIdx]?.trim() || '';
+    const plateNumber = row[plateIdx]?.trim() || '';
+    
+    // If platformId looks like full row data (contains comma), try to extract just the ID
+    if (platformId && platformId.includes(',') && platformId.length > 20) {
+      // This is likely the whole row being treated as ID - extract first part before comma
+      const parts = platformId.split(',');
+      platformId = parts[0]?.trim();
+    }
+    
+    if (!platformId && !driverName && !plateNumber) continue;
 
     let driverId: string | null = null;
 
-    if (existingDriversMap.has(`freenow:${platformId}`)) {
+    // Try to match by platform ID first
+    if (platformId && existingDriversMap.has(`freenow:${platformId}`)) {
       driverId = existingDriversMap.get(`freenow:${platformId}`).id;
       matchedDrivers++;
-    } else {
-      const { data: newDriver, error } = await supabase
-        .from('drivers')
-        .insert({
-          city_id,
-          first_name: 'FreeNow',
-          last_name: platformId.substring(0, 8),
-          phone: null,
-          email: null
-        })
-        .select()
-        .single();
-
-      if (!error && newDriver) {
-        driverId = newDriver.id;
-        existingDriversMap.set(`freenow:${platformId}`, newDriver);
-        
-        await supabase
-          .from('driver_platform_ids')
-          .insert({
-            driver_id: driverId,
-            platform: 'freenow',
-            platform_id: platformId
-          });
-
-        newDrivers++;
+    } 
+    // Try to match by driver name
+    else if (driverName) {
+      const nameParts = driverName.split(' ');
+      const firstName = nameParts[0]?.toLowerCase() || '';
+      const lastName = nameParts.slice(1).join(' ').toLowerCase() || '';
+      
+      // Search in existing drivers
+      for (const [key, driver] of existingDriversMap.entries()) {
+        if (key.startsWith('phone:') || key.startsWith('getrido:')) {
+          const driverFirstName = (driver.first_name || '').toLowerCase();
+          const driverLastName = (driver.last_name || '').toLowerCase();
+          
+          if (driverFirstName === firstName && driverLastName === lastName) {
+            driverId = driver.id;
+            matchedDrivers++;
+            
+            // Save platform ID for future matching
+            if (platformId) {
+              await supabase
+                .from('driver_platform_ids')
+                .upsert({
+                  driver_id: driverId,
+                  platform: 'freenow',
+                  platform_id: platformId
+                }, { onConflict: 'driver_id,platform' });
+              existingDriversMap.set(`freenow:${platformId}`, driver);
+            }
+            break;
+          }
+        }
       }
+    }
+    
+    // If still no match, log warning instead of creating new driver
+    if (!driverId) {
+      console.warn(`⚠️ FREENOW: Nie znaleziono kierowcy dla platformId=${platformId}, name=${driverName}. Pomijam wiersz.`);
+      continue; // Skip this row instead of creating duplicate
     }
 
     if (driverId) {

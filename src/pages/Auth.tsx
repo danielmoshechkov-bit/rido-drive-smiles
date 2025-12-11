@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -16,6 +17,8 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,10 +180,33 @@ const Auth = () => {
               </Button>
             </form>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    toast.error('Wpisz swój email');
+                    return;
+                  }
+                  setIsLoading(true);
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/auth`,
+                  });
+                  setIsLoading(false);
+                  if (error) {
+                    toast.error('Błąd: ' + error.message);
+                  } else {
+                    toast.success('Link do resetowania hasła został wysłany na ' + email);
+                  }
+                }}
+                disabled={isLoading}
+                className="text-primary hover:underline text-sm block w-full"
+              >
+                Zapomniałeś hasła?
+              </button>
               <Link
                 to="/driver/register"
-                className="text-primary hover:underline text-sm"
+                className="text-primary hover:underline text-sm block"
               >
                 Nie masz konta? Zarejestruj się jako kierowca
               </Link>
