@@ -1093,13 +1093,13 @@ export const DriverSettlements = ({
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.commission')}</td>
                               <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
-                                {amounts.uber_commission > 0 ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
+                                {amounts.uber_commission ? `-${amounts.uber_commission.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
-                                {amounts.bolt_commission > 0 ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
+                                {amounts.bolt_commission ? `-${amounts.bolt_commission.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-amber-600 whitespace-nowrap text-xs">
-                                {amounts.freenow_commission_t > 0 ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
+                                {amounts.freenow_commission_t ? `-${amounts.freenow_commission_t.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
@@ -1107,13 +1107,13 @@ export const DriverSettlements = ({
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.cashCollected')}</td>
                               <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.uber_cash !== 0 ? `${amounts.uber_cash.toFixed(2)} zł` : '-'}
+                                {amounts.uber_cash_f ? `${amounts.uber_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.bolt_cash !== 0 ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                                {amounts.bolt_cash ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.freenow_cash_f !== 0 ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                                {amounts.freenow_cash_f ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
