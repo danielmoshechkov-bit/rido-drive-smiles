@@ -86,10 +86,12 @@ export const DriverSettlements = ({
   const [driverIban, setDriverIban] = useState<string>('');
   const [lastAvailableWeek, setLastAvailableWeek] = useState<string | null>(null);
   const [ibanUpdateTimeout, setIbanUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
   const weeks = getAvailableWeeks(selectedYear);
+  const displayedWeeks = showAllWeeks ? weeks : weeks.slice(0, 2);
   const currentWeek = useMemo(() => 
     weeks.find(w => w.number === selectedWeek), 
     [weeks, selectedWeek]
@@ -789,12 +791,24 @@ export const DriverSettlements = ({
                   <SelectTrigger className="h-10 px-4 rounded-lg border-gray-300 shadow-sm w-[240px]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {weeks.map(week => (
+                  <SelectContent className="max-h-[300px] bg-background">
+                    {displayedWeeks.map(week => (
                       <SelectItem key={week.number} value={week.number.toString()}>
                         {week.displayLabel}
                       </SelectItem>
                     ))}
+                    {!showAllWeeks && weeks.length > 2 && (
+                      <div 
+                        className="px-2 py-2 text-sm text-primary cursor-pointer hover:bg-muted flex items-center justify-center gap-1 border-t"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAllWeeks(true);
+                        }}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                        Rozwiń ({weeks.length - 2} więcej)
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -871,12 +885,24 @@ export const DriverSettlements = ({
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {weeks.map(week => (
+                  <SelectContent className="max-h-[300px] bg-background">
+                    {displayedWeeks.map(week => (
                       <SelectItem key={week.number} value={week.number.toString()}>
                         {week.displayLabel}
                       </SelectItem>
                     ))}
+                    {!showAllWeeks && weeks.length > 2 && (
+                      <div 
+                        className="px-2 py-2 text-sm text-primary cursor-pointer hover:bg-muted flex items-center justify-center gap-1 border-t"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAllWeeks(true);
+                        }}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                        Rozwiń ({weeks.length - 2} więcej)
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
