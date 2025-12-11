@@ -511,8 +511,13 @@ export const DriverSettlements = ({
   }, [preSelectedWeek]);
 
   useEffect(() => {
-    if (driverId && initialLoad) {
-      fetchLatestSettlement();
+    if (driverId) {
+      // Zawsze pobierz najnowsze rozliczenie przy pierwszym ładowaniu
+      if (initialLoad && !preSelectedYear && !preSelectedWeek) {
+        fetchLatestSettlement();
+      } else {
+        setInitialLoad(false);
+      }
     }
     loadVisibilitySettings();
     loadFeeFormulas();
@@ -589,9 +594,12 @@ export const DriverSettlements = ({
   }, [driverId, selectedPlanId]);
 
   useEffect(() => {
-    loadSettlements();
-    loadAdditionalFees();
-  }, [driverId, selectedYear, selectedWeek]);
+    // Czekaj aż fetchLatestSettlement się zakończy (initialLoad będzie false)
+    if (!initialLoad) {
+      loadSettlements();
+      loadAdditionalFees();
+    }
+  }, [driverId, selectedYear, selectedWeek, initialLoad]);
 
   // Helper: Convert 0-based index to Excel-style column letter (0→A, 25→Z, 26→AA)
   const indexToLetter = (index: number): string => {

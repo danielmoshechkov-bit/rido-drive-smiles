@@ -341,7 +341,11 @@ async function process3PlatformCsvs(
   const settlements: any[] = [];
   for (const [driverId, data] of driverDataMap.entries()) {
     const fuel = fuelByDriver.get(driverId) || 0;
-    const fuel_vat_refund = fuel * 0.2236 / 2; // 50% zwrot VAT (23% VAT = 0.2236 od brutto)
+    // Prawidłowy wzór: (brutto - brutto/1.23) / 2 = 50% VAT refund
+    // Przykład: (422.70 - 422.70/1.23) / 2 = (422.70 - 343.66) / 2 = 79.04 / 2 = 39.52 zł
+    const fuel_vat_refund = fuel > 0 ? (fuel - fuel / 1.23) / 2 : 0;
+    
+    console.log(`💰 Driver ${driverId} amounts: bolt_cash=${data.bolt_cash}, bolt_commission=${data.bolt_commission}, fuel=${fuel}, fuel_vat_refund=${fuel_vat_refund.toFixed(2)}`);
     
     settlements.push({
       city_id: meta.city_id,
@@ -355,22 +359,23 @@ async function process3PlatformCsvs(
       commission_amount: data.freenow_commission_t,
       net_amount: data.uber_net + data.bolt_net + data.freenow_net,
       amounts: {
-        uber_payout_d: data.uber_payout_d,
-        uber_cash_f: data.uber_cash_f,
-        uber_base: data.uber_base,
-        uber_tax_8: data.uber_tax_8,
-        uber_net: data.uber_net,
-        bolt_projected_d: data.bolt_projected_d,
-        bolt_payout_s: data.bolt_payout_s,
-        bolt_cash: data.bolt_cash,
-        bolt_commission: data.bolt_commission,
-        bolt_tax_8: data.bolt_tax_8,
-        bolt_net: data.bolt_net,
-        freenow_base_s: data.freenow_base_s,
-        freenow_commission_t: data.freenow_commission_t,
-        freenow_cash_f: data.freenow_cash_f,
-        freenow_tax_8: data.freenow_tax_8,
-        freenow_net: data.freenow_net,
+        uber_payout_d: data.uber_payout_d || 0,
+        uber_cash_f: data.uber_cash_f || 0,
+        uber_base: data.uber_base || 0,
+        uber_tax_8: data.uber_tax_8 || 0,
+        uber_net: data.uber_net || 0,
+        uber_commission: data.uber_commission || 0,
+        bolt_projected_d: data.bolt_projected_d || 0,
+        bolt_payout_s: data.bolt_payout_s || 0,
+        bolt_cash: data.bolt_cash || 0,
+        bolt_commission: data.bolt_commission || 0,
+        bolt_tax_8: data.bolt_tax_8 || 0,
+        bolt_net: data.bolt_net || 0,
+        freenow_base_s: data.freenow_base_s || 0,
+        freenow_commission_t: data.freenow_commission_t || 0,
+        freenow_cash_f: data.freenow_cash_f || 0,
+        freenow_tax_8: data.freenow_tax_8 || 0,
+        freenow_net: data.freenow_net || 0,
         fuel: fuel,
         fuel_vat_refund: fuel_vat_refund
       },
