@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
+import RegisterSuccess from "./pages/RegisterSuccess";
 import DriverDashboard from "./pages/DriverDashboard";
 import FleetDashboard from "./pages/FleetDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/admin/settlement/:id" element={<SettlementSheet />} />
           <Route path="/settlement/:id" element={<SettlementSheet />} />
           <Route path="/driver/register" element={<DriverRegister />} />
+          <Route path="/register-success" element={<RegisterSuccess />} />
           <Route path="/driver" element={<DriverDashboard />} />
           <Route path="/settlement/:id" element={<SettlementSheet />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
