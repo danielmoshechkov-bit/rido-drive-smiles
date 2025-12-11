@@ -33,20 +33,32 @@ export const useUserRole = (): UseUserRoleReturn => {
     permissions: DelegatedRolePermissions;
   } | null>(null);
 
-  const fetchUserRole = async () => {
+  const fetchUserRole = async (userId?: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
+      let currentUserId = userId;
+      
+      if (!currentUserId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setRole(null);
+          setRoles([]);
+          setFleetId(null);
+          setDelegatedRole(null);
+          setLoading(false);
+          return;
+        }
+        currentUserId = user.id;
       }
 
       const { data, error } = await supabase
         .from('user_roles')
         .select('role, fleet_id')
-        .eq('user_id', user.id);
+        .eq('user_id', currentUserId);
 
       if (error || !data || data.length === 0) {
+        setRole(null);
+        setRoles([]);
+        setFleetId(null);
         setLoading(false);
         return;
       }
@@ -75,7 +87,7 @@ export const useUserRole = (): UseUserRoleReturn => {
       const { data: delegatedData } = await supabase
         .from('fleet_delegated_roles')
         .select('fleet_id, role_name, permissions')
-        .eq('assigned_to_user_id', user.id)
+        .eq('assigned_to_user_id', currentUserId)
         .maybeSingle();
 
       if (delegatedData) {
@@ -84,6 +96,8 @@ export const useUserRole = (): UseUserRoleReturn => {
           role_name: delegatedData.role_name,
           permissions: delegatedData.permissions as unknown as DelegatedRolePermissions,
         });
+      } else {
+        setDelegatedRole(null);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
@@ -93,7 +107,34 @@ export const useUserRole = (): UseUserRoleReturn => {
   };
 
   useEffect(() => {
-    fetchUserRole();
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          setRole(null);
+          setRoles([]);
+          setFleetId(null);
+          setDelegatedRole(null);
+          setLoading(false);
+        } else if (session?.user) {
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => {
+            fetchUserRole(session.user.id);
+          }, 0);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserRole(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return {
