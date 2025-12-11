@@ -573,7 +573,8 @@ async function parseUberCsv(
     if (row.every(cell => !cell?.trim())) continue;
 
     const uber_payout_d = parsePLNumber(row[payoutIdx] || '0');
-    const uber_cash_f = parsePLNumber(row[cashIdx] || '0');
+    // Math.abs because cash in Uber CSV has minus sign (e.g. "-100" means 100 cash)
+    const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
     const uber_tax_8 = uber_base * 0.08;
     const uber_net = uber_payout_d - uber_tax_8;
