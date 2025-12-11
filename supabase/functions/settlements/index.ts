@@ -297,7 +297,7 @@ async function process3PlatformCsvs(
     settlements.push({
       city_id: meta.city_id,
       driver_id: driverId,
-      platform: 'combined',
+      platform: 'main',
       period_from: meta.period_from,
       period_to: meta.period_to,
       week_start: meta.period_from,
