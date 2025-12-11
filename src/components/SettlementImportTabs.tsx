@@ -18,10 +18,12 @@ interface SettlementImportTabsProps {
   boltFile: File | null;
   freenowFile: File | null;
   mainFile: File | null;
+  fuelFile: File | null;
   setUberFile: (file: File | null) => void;
   setBoltFile: (file: File | null) => void;
   setFreenowFile: (file: File | null) => void;
   setMainFile: (file: File | null) => void;
+  setFuelFile: (file: File | null) => void;
 }
 
 export const SettlementImportTabs = ({
@@ -30,10 +32,12 @@ export const SettlementImportTabs = ({
   boltFile,
   freenowFile,
   mainFile,
+  fuelFile,
   setUberFile,
   setBoltFile,
   setFreenowFile,
-  setMainFile
+  setMainFile,
+  setFuelFile
 }: SettlementImportTabsProps) => {
   const [activeTab, setActiveTab] = useState<'template' | 'platforms'>('template');
 
@@ -212,10 +216,40 @@ export const SettlementImportTabs = ({
               )}
             </div>
 
+            {/* Fuel CSV */}
+            <div className="space-y-2">
+              <Label htmlFor="fuel-csv" className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-full bg-orange-500"></span>
+                Paliwo CSV (opcjonalne)
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="fuel-csv"
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => handleFileChange(e, setFuelFile)}
+                />
+                {fuelFile && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFuelFile(null)}
+                  >
+                    Usuń
+                  </Button>
+                )}
+              </div>
+              {fuelFile && (
+                <p className="text-sm text-muted-foreground">
+                  ✅ {fuelFile.name} ({(fuelFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+
             <Alert variant="default" className="bg-blue-50 border-blue-200">
               <AlertCircle className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-900">
-                <strong>Tip:</strong> Możesz wgrać 1, 2 lub wszystkie 3 pliki naraz. System obliczy podatek 8% dla każdej platformy.
+                <strong>Tip:</strong> Możesz wgrać 1, 2 lub wszystkie 3 pliki naraz + opcjonalnie paliwo. System obliczy podatek 8% dla każdej platformy.
               </AlertDescription>
             </Alert>
           </CardContent>

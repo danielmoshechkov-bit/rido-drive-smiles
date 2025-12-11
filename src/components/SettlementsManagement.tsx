@@ -100,6 +100,7 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
   const [boltFile, setBoltFile] = useState<File | null>(null);
   const [freenowFile, setFreenowFile] = useState<File | null>(null);
   const [mainFile, setMainFile] = useState<File | null>(null);
+  const [fuelFile, setFuelFile] = useState<File | null>(null);
 
   const platforms = [
     { id: 'uber', name: 'Uber', color: 'bg-black text-white' },
@@ -432,12 +433,39 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
         }
       }
       
+      // Import fuel if file provided
+      if (fuelFile) {
+        try {
+          console.log('⛽ Importing fuel data...');
+          const fuelCsvText = await fuelFile.text();
+          
+          const { data: fuelData, error: fuelError } = await supabase.functions.invoke('fuel-import', {
+            body: {
+              csv_text: fuelCsvText,
+              period_from: format(dateRange.from, 'yyyy-MM-dd'),
+              period_to: format(dateRange.to, 'yyyy-MM-dd'),
+            },
+          });
+          
+          if (fuelError) {
+            console.error('Fuel import error:', fuelError);
+            toast.warning('⚠️ Rozliczenia zaimportowane, ale błąd importu paliwa');
+          } else if (fuelData?.success) {
+            toast.success(`⛽ Import paliwa: ${fuelData.stats?.imported || 0} transakcji`);
+          }
+        } catch (fuelErr) {
+          console.error('Fuel import error:', fuelErr);
+          toast.warning('⚠️ Błąd importu paliwa');
+        }
+      }
+      
       setNewSettlementOpen(false);
       setDateRange(undefined);
       setUberFile(null);
       setBoltFile(null);
       setFreenowFile(null);
       setMainFile(null);
+      setFuelFile(null);
       loadSettlementPeriods();
       
       // Navigate to the new settlement sheet
@@ -793,10 +821,12 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
                 boltFile={boltFile}
                 freenowFile={freenowFile}
                 mainFile={mainFile}
+                fuelFile={fuelFile}
                 setUberFile={setUberFile}
                 setBoltFile={setBoltFile}
                 setFreenowFile={setFreenowFile}
                 setMainFile={setMainFile}
+                setFuelFile={setFuelFile}
               />
             </div>
             <DialogFooter>
