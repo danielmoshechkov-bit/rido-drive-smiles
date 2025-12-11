@@ -169,7 +169,7 @@ export default function DriverRegister() {
             email,
             first_name: firstName,
             last_name: lastName,
-            activation_link: `${window.location.origin}/auth?confirmed=1`,
+            activation_link: `${window.location.origin}/email-confirmed`,
             is_test: false,
           },
         });
