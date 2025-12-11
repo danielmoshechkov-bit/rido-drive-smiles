@@ -56,8 +56,20 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email, first_name, last_name, activation_link, is_test }: EmailRequest = await req.json();
 
-    if (!email) {
-      throw new Error("Email jest wymagany");
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      console.error("Invalid email format:", email);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Nieprawidłowy format adresu email: ${email}` 
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     console.log(`Preparing to send email to: ${email}, is_test: ${is_test}`);
@@ -80,11 +92,15 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`SMTP Host: ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
 
     // Configure SMTP client
+    // Port 587 typically uses STARTTLS, port 465 uses direct TLS
+    const port = emailSettings.smtp_port || 587;
+    const useTls = port === 465;
+    
     const client = new SMTPClient({
       connection: {
         hostname: emailSettings.smtp_host || "getrido.pl",
-        port: emailSettings.smtp_port || 587,
-        tls: emailSettings.smtp_secure !== false,
+        port: port,
+        tls: useTls,
         auth: {
           username: emailSettings.smtp_user || "kontakt@getrido.pl",
           password: smtpPassword,
