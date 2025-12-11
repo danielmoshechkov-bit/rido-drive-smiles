@@ -95,7 +95,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email
     await client.send({
       from: `${senderName} <${senderEmail}>`,
-      to: email,
+      to: [email],
       subject: subject,
       content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
       html: htmlContent,
