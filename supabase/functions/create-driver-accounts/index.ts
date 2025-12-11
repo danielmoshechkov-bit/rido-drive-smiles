@@ -69,6 +69,22 @@ Deno.serve(async (req) => {
         }
 
         console.log(`✅ Utworzono konto: ${driver.email}`);
+
+        // Połącz konto auth z kierowcą i przypisz rolę driver
+        if (authUser?.user) {
+          const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
+            p_user_id: authUser.user.id,
+            p_driver_id: driver.id
+          });
+          
+          if (linkError) {
+            console.error(`⚠️ Błąd linkowania ${driver.email}:`, linkError);
+            results.errors.push(`${driver.email}: linkowanie - ${linkError.message}`);
+          } else {
+            console.log(`🔗 Połączono konto z kierowcą: ${driver.email}`);
+          }
+        }
+
         results.created++;
 
       } catch (error) {

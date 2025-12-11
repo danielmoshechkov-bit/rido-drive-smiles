@@ -580,8 +580,10 @@ function DriverNotifications({ driverId }: { driverId: string }) {
         .eq('id', driverId);
       
       if (error) throw error;
+      
+      // Natychmiastowa aktualizacja lokalnego stanu - to naprawi badge
+      setDriverInfo((prev: any) => ({ ...prev, payment_method: method }));
       toast.success('Zaktualizowano sposób rozliczenia');
-      loadDriverInfo();
     } catch (error) {
       console.error('Error updating payment method:', error);
       toast.error('Błąd aktualizacji sposobu rozliczenia');
