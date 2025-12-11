@@ -1,6 +1,6 @@
 {
-  "name": "RIDO Driver Portal",
-  "short_name": "RIDO",
+  "name": "get RIDO Driver Portal",
+  "short_name": "get RIDO",
   "description": "Portal kierowcy RIDO - zarządzanie rozliczeniami i dokumentami",
   "start_url": "/",
   "display": "standalone",

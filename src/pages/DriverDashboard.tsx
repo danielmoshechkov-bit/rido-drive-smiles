@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -39,6 +39,38 @@ const DriverDashboard = () => {
   const [driverData, setDriverData] = useState<any>(null);
   const [fleetInfo, setFleetInfo] = useState<{ name: string; contact_name?: string; contact_phone_for_drivers?: string } | null>(null);
   const [showAddOwnCarModal, setShowAddOwnCarModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  // PWA install prompt detection
+  useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true);
+    }
+    
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      // iOS or no prompt available - navigate to install page
+      navigate('/install');
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -209,6 +241,11 @@ const DriverDashboard = () => {
               <div className="scale-90">
                 <LanguageSelector />
               </div>
+              {!isAppInstalled && (
+                <Button variant="outline" onClick={handleInstallClick} size="sm" className="rounded-lg text-sm">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
                 {t('auth.logout')}
               </Button>
@@ -268,6 +305,11 @@ const DriverDashboard = () => {
                 <DriverNotificationBell driverId={driverData.driver_id} />
               )}
               <LanguageSelector />
+              {!isAppInstalled && (
+                <Button variant="outline" size="icon" onClick={handleInstallClick} className="rounded-lg h-8 w-8">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-lg">
                 {t('auth.logout')}
               </Button>
