@@ -60,3 +60,6 @@ verify_jwt = false
 
 [functions.import-drivers]
 verify_jwt = false
+
+[functions.send-registration-email]
+verify_jwt = false
