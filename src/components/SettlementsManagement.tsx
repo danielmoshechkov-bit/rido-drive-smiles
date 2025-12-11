@@ -215,44 +215,46 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
     navigate(`/admin/settlement/${settlementId}`);
   };
 
-  const handleDeleteSettlement = async (settlementId: string) => {
-    const confirmed = confirm('❌ Czy na pewno chcesz usunąć to rozliczenie?\n\nTa operacja jest nieodwracalna.');
+  const handleDeleteSettlement = async (period: SettlementPeriod) => {
+    const confirmed = confirm(
+      '❌ UWAGA! Usunięcie tego rozliczenia spowoduje:\n\n' +
+      '• Usunięcie okresu rozliczeniowego\n' +
+      '• Usunięcie WSZYSTKICH danych kierowców z portalu\n\n' +
+      'Ta operacja jest NIEODWRACALNA.\n\n' +
+      'Czy na pewno chcesz kontynuować?'
+    );
     if (!confirmed) return;
     
     try {
-      const { error } = await supabase
-        .from('settlement_periods')
-        .delete()
-        .eq('id', settlementId);
-      
-      if (error) throw error;
-      
-      toast.success('✅ Rozliczenie usunięte');
-      loadSettlementPeriods();
-    } catch (error) {
-      console.error('Error deleting settlement:', error);
-      toast.error('❌ Błąd podczas usuwania rozliczenia');
-    }
-  };
-
-  const handleDeleteDriverPortalData = async (period: SettlementPeriod) => {
-    const confirmed = confirm('🗑️ Czy na pewno chcesz usunąć dane portalu kierowcy dla tego okresu?\n\nUsunięte zostaną wszystkie rozliczenia z tabeli settlements dla tego okresu.\nTa operacja jest nieodwracalna.');
-    if (!confirmed) return;
-    
-    try {
-      const { error } = await supabase
+      // 1. Najpierw usuń dane kierowców z tabeli settlements
+      const { error: settlementsError } = await supabase
         .from('settlements')
         .delete()
         .eq('period_from', period.week_start)
         .eq('period_to', period.week_end)
         .eq('city_id', cityId);
       
-      if (error) throw error;
+      if (settlementsError) {
+        console.error('Error deleting settlements data:', settlementsError);
+        throw settlementsError;
+      }
       
-      toast.success('✅ Dane portalu kierowcy usunięte');
+      // 2. Potem usuń metadane okresu
+      const { error: periodError } = await supabase
+        .from('settlement_periods')
+        .delete()
+        .eq('id', period.id);
+      
+      if (periodError) {
+        console.error('Error deleting settlement period:', periodError);
+        throw periodError;
+      }
+      
+      toast.success('✅ Rozliczenie i wszystkie dane kierowców usunięte');
+      loadSettlementPeriods();
     } catch (error) {
-      console.error('Error deleting driver portal data:', error);
-      toast.error('❌ Błąd podczas usuwania danych portalu kierowcy');
+      console.error('Error deleting settlement:', error);
+      toast.error('❌ Błąd podczas usuwania rozliczenia');
     }
   };
 
@@ -854,18 +856,11 @@ export const SettlementsManagement = ({ cityId, cityName, userType = 'admin' }: 
                             Eksportuj CSV
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleDeleteDriverPortalData(period)}
-                            className="text-orange-600 focus:text-orange-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Usuń dane portalu kierowcy
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteSettlement(period.id)}
+                            onClick={() => handleDeleteSettlement(period)}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Usuń okres rozliczeniowy
+                            Usuń rozliczenie
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

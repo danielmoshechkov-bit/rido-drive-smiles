@@ -554,7 +554,13 @@ async function parseUberCsv(
   // More flexible header matching
   const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout') || h.includes('wyplata') || h.includes('wypłata'));
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('gotowka') || h.includes('cash'));
-  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+  // NAPRAWIONE: Uber CSV ma kolumnę "identyfikator uuid kierowcy" - dopasowujemy przez 'uuid' lub 'identyfikator kierowc'
+  const driverIdIdx = headers.findIndex(h => 
+    h.includes('uuid') || 
+    h.includes('identyfikator kierowc') ||
+    (h.includes('driver') && h.includes('id')) || 
+    h === 'id'
+  );
   const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko'));
 
   console.log('📊 UBER CSV - indeksy kolumn:', { payoutIdx, cashIdx, driverIdIdx, driverNameIdx });

@@ -416,7 +416,12 @@ export const DriverSettlements = ({
   };
 
   const fetchLatestSettlement = async () => {
-    if (!driverId) return;
+    if (!driverId) {
+      setInitialLoad(false);
+      return;
+    }
+    
+    console.log('📅 fetchLatestSettlement called for driver:', driverId);
     
     const { data, error } = await supabase
       .from('settlements')
@@ -426,19 +431,22 @@ export const DriverSettlements = ({
       .limit(1)
       .maybeSingle();
     
-    if (data && !preSelectedYear && !preSelectedWeek) {
+    console.log('📅 fetchLatestSettlement result:', { data, error });
+    
+    if (data) {
       const periodDate = new Date(data.period_from);
       const year = periodDate.getFullYear();
-      setSelectedYear(year);
       
       // Calculate week number from date
       const weekData = getWeekDates(year);
       const foundWeek = weekData.find(w => 
         data.period_from >= w.start && data.period_from <= w.end
       );
+      
       if (foundWeek) {
+        console.log('📅 Setting to latest week:', year, foundWeek.number, foundWeek.label);
+        setSelectedYear(year);
         setSelectedWeek(foundWeek.number);
-        console.log('📅 Set default week to latest settlement:', foundWeek.number, foundWeek.label);
       }
     }
     
