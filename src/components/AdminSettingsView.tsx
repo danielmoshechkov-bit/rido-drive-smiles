@@ -6,6 +6,7 @@ import { SettlementPlansManagement } from './SettlementPlansManagement';
 import { FleetAccountsManagement } from './FleetAccountsManagement';
 import { SettlementVisibilitySettings } from './SettlementVisibilitySettings';
 import { TabVisibilityManager } from './TabVisibilityManager';
+import { EmailSettings } from './EmailSettings';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 export function AdminSettingsView() {
@@ -17,7 +18,8 @@ export function AdminSettingsView() {
     { value: "plans", label: "Plany", visible: true },
     { value: "fleet-accounts", label: "Konta flotowe", visible: true },
     { value: "visibility", label: "Widoczność", visible: true },
-    { value: "tab-visibility", label: "Widoczność zakładek", visible: true }
+    { value: "tab-visibility", label: "Widoczność zakładek", visible: true },
+    { value: "email", label: "Ustawienia poczty", visible: true }
   ];
 
 
@@ -36,6 +38,7 @@ export function AdminSettingsView() {
       {activeSubTab === "fleet-accounts" && <FleetAccountsManagement />}
       {activeSubTab === "visibility" && <SettlementVisibilitySettings />}
       {activeSubTab === "tab-visibility" && <TabVisibilityManager />}
+      {activeSubTab === "email" && <EmailSettings />}
     </div>
   );
 }
