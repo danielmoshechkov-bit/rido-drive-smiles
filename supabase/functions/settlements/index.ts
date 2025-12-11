@@ -489,10 +489,16 @@ async function parseUberCsv(
   const csvText = new TextDecoder('utf-8').decode(uint8Array);
   const rows = parseCSV(csvText);
 
+  console.log('📊 UBER CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
-  const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout'));
-  const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
-  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+  console.log('📊 UBER CSV - nagłówki:', JSON.stringify(headers));
+  
+  // More flexible header matching
+  const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout') || h.includes('wyplata') || h.includes('wypłata'));
+  const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('gotowka') || h.includes('cash'));
+  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+
+  console.log('📊 UBER CSV - indeksy kolumn:', { payoutIdx, cashIdx, driverIdIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -579,10 +585,16 @@ async function parseBoltCsv(
   const csvText = new TextDecoder('utf-8').decode(uint8Array);
   const rows = parseCSV(csvText);
 
+  console.log('📊 BOLT CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
-  const projectedIdx = headers.findIndex(h => h.includes('projected'));
-  const payoutIdx = headers.findIndex(h => h.includes('wypłata') || h.includes('payout'));
-  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+  console.log('📊 BOLT CSV - nagłówki:', JSON.stringify(headers));
+  
+  // More flexible header matching
+  const projectedIdx = headers.findIndex(h => h.includes('projected') || h.includes('przychód') || h.includes('przychod') || h.includes('brutto'));
+  const payoutIdx = headers.findIndex(h => h.includes('wypłata') || h.includes('wyplata') || h.includes('payout') || h.includes('netto'));
+  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+
+  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, driverIdIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -664,11 +676,17 @@ async function parseFreenowCsv(
   const csvText = new TextDecoder('utf-8').decode(uint8Array);
   const rows = parseCSV(csvText);
 
+  console.log('📊 FREENOW CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
-  const baseIdx = headers.findIndex(h => h.includes('revenue') || h.includes('przychód'));
+  console.log('📊 FREENOW CSV - nagłówki:', JSON.stringify(headers));
+  
+  // More flexible header matching
+  const baseIdx = headers.findIndex(h => h.includes('revenue') || h.includes('przychód') || h.includes('przychod') || h.includes('brutto'));
   const commissionIdx = headers.findIndex(h => h.includes('commission') || h.includes('prowizja'));
-  const cashIdx = headers.findIndex(h => h.includes('cash') || h.includes('gotówka'));
-  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+  const cashIdx = headers.findIndex(h => h.includes('cash') || h.includes('gotówka') || h.includes('gotowka'));
+  const driverIdIdx = headers.findIndex(h => (h.includes('driver') && h.includes('id')) || h.includes('kierowca') || h === 'id');
+
+  console.log('📊 FREENOW CSV - indeksy kolumn:', { baseIdx, commissionIdx, cashIdx, driverIdIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;

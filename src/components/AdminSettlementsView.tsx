@@ -6,7 +6,6 @@ import { CompanyRevenueView } from './CompanyRevenueView';
 import { DriverSettlementsView } from './DriverSettlementsView';
 import { FuelCSVImportModal } from './FuelCSVImportModal';
 import { AdminFuelView } from './AdminFuelView';
-import { SettlementCSVImportModal } from './SettlementCSVImportModal';
 
 interface AdminSettlementsViewProps {
   cityId: string;
@@ -99,15 +98,6 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
         onTabChange={setActiveSubTab}
         tabs={subTabs}
       />
-      <div className="flex justify-end mb-4">
-        <SettlementCSVImportModal 
-          cityId={cityId}
-          onSuccess={() => {
-            // Refresh settlements
-            window.location.reload();
-          }}
-        />
-      </div>
       <SettlementsManagement 
         cityId={cityId} 
         cityName={cityName}
