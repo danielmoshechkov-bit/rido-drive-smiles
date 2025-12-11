@@ -57,3 +57,6 @@ verify_jwt = false
 
 [functions.fuel-import]
 verify_jwt = false
+
+[functions.import-drivers]
+verify_jwt = false
