@@ -293,9 +293,56 @@ async function process3PlatformCsvs(
     matchedDrivers += result.matchedDrivers;
   }
 
+  // ========== FETCH FUEL DATA ==========
+  const driverIds = Array.from(driverDataMap.keys());
+  console.log('⛽ Pobieranie danych paliwowych dla', driverIds.length, 'kierowców...');
+  
+  // Pobierz numery kart paliwowych
+  const { data: driversWithFuel } = await supabase
+    .from('drivers')
+    .select('id, fuel_card_number')
+    .in('id', driverIds);
+  
+  // Mapa: driver_id -> fuel_card_number (bez zer wiodących)
+  const fuelCardMap = new Map<string, string>();
+  driversWithFuel?.forEach((d: any) => {
+    if (d.fuel_card_number) {
+      fuelCardMap.set(d.id, d.fuel_card_number.replace(/^0+/, ''));
+    }
+  });
+  console.log('⛽ Znaleziono karty paliwowe dla', fuelCardMap.size, 'kierowców');
+  
+  // Pobierz transakcje paliwowe dla okresu
+  const { data: fuelTransactions } = await supabase
+    .from('fuel_transactions')
+    .select('card_number, total_amount')
+    .gte('transaction_date', meta.period_from)
+    .lte('transaction_date', meta.period_to);
+  
+  console.log('⛽ Znaleziono', fuelTransactions?.length || 0, 'transakcji paliwowych w okresie', meta.period_from, '-', meta.period_to);
+  
+  // Suma paliwa per kierowca
+  const fuelByDriver = new Map<string, number>();
+  for (const [driverId, cardNumber] of fuelCardMap) {
+    let total = 0;
+    fuelTransactions?.forEach((ft: any) => {
+      const ftCardClean = ft.card_number?.replace(/^0+/, '');
+      if (ftCardClean === cardNumber) {
+        total += ft.total_amount || 0;
+      }
+    });
+    if (total > 0) {
+      fuelByDriver.set(driverId, total);
+      console.log(`⛽ Kierowca ${driverId}: paliwo = ${total.toFixed(2)} zł`);
+    }
+  }
+
   // Combine data and create settlements
   const settlements: any[] = [];
   for (const [driverId, data] of driverDataMap.entries()) {
+    const fuel = fuelByDriver.get(driverId) || 0;
+    const fuel_vat_refund = fuel * 0.2236 / 2; // 50% zwrot VAT (23% VAT = 0.2236 od brutto)
+    
     settlements.push({
       city_id: meta.city_id,
       driver_id: driverId,
@@ -323,7 +370,9 @@ async function process3PlatformCsvs(
         freenow_commission_t: data.freenow_commission_t,
         freenow_cash_f: data.freenow_cash_f,
         freenow_tax_8: data.freenow_tax_8,
-        freenow_net: data.freenow_net
+        freenow_net: data.freenow_net,
+        fuel: fuel,
+        fuel_vat_refund: fuel_vat_refund
       },
       source: '3_platform_csvs',
       raw_row_id: `combined_${meta.period_from}_${driverId}`
