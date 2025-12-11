@@ -26,6 +26,8 @@ interface PlatformData {
   // Bolt
   bolt_projected_d: number;
   bolt_payout_s: number;
+  bolt_cash: number;
+  bolt_commission: number;
   bolt_tax_8: number;
   bolt_net: number;
   // FreeNow
@@ -313,6 +315,8 @@ async function process3PlatformCsvs(
         uber_net: data.uber_net,
         bolt_projected_d: data.bolt_projected_d,
         bolt_payout_s: data.bolt_payout_s,
+        bolt_cash: data.bolt_cash,
+        bolt_commission: data.bolt_commission,
         bolt_tax_8: data.bolt_tax_8,
         bolt_net: data.bolt_net,
         freenow_base_s: data.freenow_base_s,
@@ -574,7 +578,7 @@ async function parseUberCsv(
         driverDataMap.set(driverId, {
           driverId,
           uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
           freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
         });
       }
@@ -699,13 +703,15 @@ async function parseBoltCsv(
         driverDataMap.set(driverId, {
           driverId,
           uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
           freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
         });
       }
       const data = driverDataMap.get(driverId)!;
       data.bolt_projected_d = bolt_projected_d;
       data.bolt_payout_s = bolt_payout_s;
+      data.bolt_cash = bolt_cash;
+      data.bolt_commission = bolt_projected_d - bolt_payout_s;
       data.bolt_tax_8 = bolt_tax_8;
       data.bolt_net = bolt_net;
     }
@@ -811,7 +817,7 @@ async function parseFreenowCsv(
         driverDataMap.set(driverId, {
           driverId,
           uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_tax_8: 0, bolt_net: 0,
+          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
           freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
         });
       }
