@@ -222,7 +222,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
       if (error) throw error;
       
       toast.success('Przypisanie kierowcy zostało usunięte');
-      fetchVehicles();
+      setOpenDropdown(null); // Zamknij dropdown
+      await fetchVehicles(); // Odśwież dane
     } catch (error) {
       toast.error('Błąd podczas usuwania przypisania kierowcy');
     }
