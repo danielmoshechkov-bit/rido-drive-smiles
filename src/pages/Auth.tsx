@@ -19,9 +19,15 @@ const Auth = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [showTermsError, setShowTermsError] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!acceptedTerms) {
+      setShowTermsError(true);
+      return;
+    }
+    setShowTermsError(false);
     
     try {
       // Logowanie przez Supabase Auth
@@ -154,27 +160,37 @@ const Auth = () => {
                 </label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="terms"
-                  checked={acceptedTerms}
-                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Akceptuję{' '}
-                  <a href="/regulamin" className="text-primary hover:underline" target="_blank">
-                    regulamin i politykę prywatności
-                  </a>
-                </label>
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="terms"
+                    checked={acceptedTerms}
+                    onCheckedChange={(checked) => {
+                      setAcceptedTerms(checked as boolean);
+                      if (checked) setShowTermsError(false);
+                    }}
+                    className={showTermsError ? "border-red-500" : ""}
+                  />
+                  <label
+                    htmlFor="terms"
+                    className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${showTermsError ? "text-red-500" : ""}`}
+                  >
+                    Akceptuję{' '}
+                    <a href="/regulamin" className="text-primary hover:underline" target="_blank">
+                      regulamin i politykę prywatności
+                    </a>
+                  </label>
+                </div>
+                {showTermsError && (
+                  <p className="text-sm text-red-500 ml-6">
+                    Musisz zaakceptować regulamin, aby się zalogować
+                  </p>
+                )}
               </div>
 
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={!acceptedTerms}
               >
                 {t('auth.loginButton')}
               </Button>
