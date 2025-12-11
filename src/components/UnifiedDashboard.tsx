@@ -29,7 +29,8 @@ import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
@@ -46,17 +47,48 @@ interface UnifiedDashboardProps {
 
 export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userEmail, onLogout }: UnifiedDashboardProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [sanitizing, setSanitizing] = useState(false);
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
   const { canViewTab, loading: permissionsLoading } = useTabPermissions();
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
+
+  // PWA install prompt detection
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true);
+    }
+    
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      navigate('/install');
+    }
+  };
 
   // Set initial tab based on permissions
   useEffect(() => {
@@ -220,6 +252,11 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 fleetName={userType === 'fleet' ? fleetName : undefined}
                 onLogout={onLogout}
               />
+              {!isAppInstalled && (
+                <Button variant="outline" size="sm" onClick={handleInstallClick} className="rounded-lg">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <div className="scale-90">
                 <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
               </div>
@@ -240,6 +277,11 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             </div>
             <div className="flex items-center space-x-2">
               <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
+              {!isAppInstalled && (
+                <Button variant="outline" size="icon" onClick={handleInstallClick} className="rounded-lg h-8 w-8">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <UserDropdown 
                 userName={userName || (userType === 'admin' ? 'Admin' : 'User')}
                 userRole={userType === 'admin' ? 'Administrator' : 'Fleet Manager'}

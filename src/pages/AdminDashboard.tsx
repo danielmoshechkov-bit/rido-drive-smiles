@@ -20,7 +20,7 @@ import { AdminSettingsView } from "@/components/AdminSettingsView";
 import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Menu } from "lucide-react";
+import { Loader2, Menu, Download } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
@@ -34,9 +34,39 @@ const AdminDashboard = () => {
   const [showRebuildModal, setShowRebuildModal] = useState(false);
   const [sanitizing, setSanitizing] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
+
+  // PWA install prompt detection
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true);
+    }
+    
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      navigate('/install');
+    }
+  };
 
   // Read tab from URL
   useEffect(() => {
@@ -164,6 +194,11 @@ const AdminDashboard = () => {
                 userEmail={userEmail}
                 onLogout={handleLogout}
               />
+              {!isAppInstalled && (
+                <Button variant="outline" size="sm" onClick={handleInstallClick} className="rounded-lg">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <div className="scale-90">
                 <SystemAlertsButton />
               </div>
@@ -182,6 +217,11 @@ const AdminDashboard = () => {
             </div>
             <div className="flex items-center space-x-2">
               <SystemAlertsButton />
+              {!isAppInstalled && (
+                <Button variant="outline" size="icon" onClick={handleInstallClick} className="rounded-lg h-8 w-8">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <UserDropdown 
                 userName="Admin"
                 userRole="Administrator"
