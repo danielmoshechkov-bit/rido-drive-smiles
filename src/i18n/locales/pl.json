@@ -277,7 +277,16 @@
     "resetPasswordTitle": "Resetowanie hasła",
     "resetPasswordDescription": "Wprowadź swój adres email, a wyślemy Ci link do zmiany hasła",
     "enterYourEmail": "Wpisz swój email",
-    "sendResetLink": "Wyślij link do resetowania"
+    "sendResetLink": "Wyślij link do resetowania",
+    "samePasswordError": "Nowe hasło nie może być takie samo jak stare",
+    "invalidResetLink": "Link do resetowania hasła jest nieprawidłowy lub wygasł",
+    "backToLogin": "Powrót do logowania",
+    "passwordRequirementsNotMet": "Hasło nie spełnia wszystkich wymagań",
+    "minLength": "Minimum 8 znaków",
+    "hasUppercase": "Duża litera",
+    "hasLowercase": "Mała litera",
+    "hasNumber": "Cyfra",
+    "hasSpecialChar": "Znak specjalny"
   },
   "register": {
     "title": "Rejestracja kierowcy",

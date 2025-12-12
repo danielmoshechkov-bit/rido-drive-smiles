@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle, Check, X } from "lucide-react";
 
 const ResetPassword = () => {
   const { t } = useTranslation();
@@ -22,6 +22,17 @@ const ResetPassword = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Password requirements validation
+  const passwordRequirements = {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  };
+  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   useEffect(() => {
     const initializeSession = async () => {
@@ -94,12 +105,12 @@ const ResetPassword = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password.length < 6) {
-      toast.error(t('auth.passwordMinLength'));
+    if (!isPasswordValid) {
+      toast.error(t('auth.passwordRequirementsNotMet'));
       return;
     }
     
-    if (password !== confirmPassword) {
+    if (!passwordsMatch) {
       toast.error(t('auth.passwordsDoNotMatch'));
       return;
     }
@@ -113,7 +124,14 @@ const ResetPassword = () => {
       
       if (error) {
         console.error('Password reset error:', error);
-        toast.error(t('auth.passwordResetFailed'));
+        // Check if error is about same password
+        if (error.message.toLowerCase().includes('same') || 
+            error.message.toLowerCase().includes('different') ||
+            error.message.includes('should be different')) {
+          toast.error(t('auth.samePasswordError'));
+        } else {
+          toast.error(t('auth.passwordResetFailed'));
+        }
       } else {
         toast.success(t('auth.passwordResetSuccess'));
         // Sign out after password change and redirect to login
@@ -127,6 +145,17 @@ const ResetPassword = () => {
       setIsLoading(false);
     }
   };
+
+  const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+    <div className="flex items-center gap-2 text-xs">
+      {met ? (
+        <Check className="h-3 w-3 text-green-600" />
+      ) : (
+        <X className="h-3 w-3 text-destructive" />
+      )}
+      <span className={met ? 'text-green-600' : 'text-muted-foreground'}>{text}</span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 to-blue-50">
@@ -209,7 +238,6 @@ const ResetPassword = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
                       className="pr-10"
                     />
                     <button
@@ -220,9 +248,6 @@ const ResetPassword = () => {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t('auth.passwordMinLength')}
-                  </p>
                 </div>
                 
                 <div className="space-y-2">
@@ -234,7 +259,6 @@ const ResetPassword = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      minLength={6}
                       className="pr-10"
                     />
                     <button
@@ -247,10 +271,23 @@ const ResetPassword = () => {
                   </div>
                 </div>
 
+                {/* Password requirements list */}
+                <div className="space-y-1.5 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">{t('auth.passwordRequirements')}</p>
+                  <RequirementItem met={passwordRequirements.minLength} text={t('auth.minLength')} />
+                  <RequirementItem met={passwordRequirements.hasUppercase} text={t('auth.hasUppercase')} />
+                  <RequirementItem met={passwordRequirements.hasLowercase} text={t('auth.hasLowercase')} />
+                  <RequirementItem met={passwordRequirements.hasNumber} text={t('auth.hasNumber')} />
+                  <RequirementItem met={passwordRequirements.hasSpecialChar} text={t('auth.hasSpecialChar')} />
+                  {confirmPassword.length > 0 && (
+                    <RequirementItem met={passwordsMatch} text={t('auth.passwordsMatch')} />
+                  )}
+                </div>
+
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={isLoading}
+                  disabled={isLoading || !isPasswordValid || !passwordsMatch}
                 >
                   {isLoading ? t('common.loading') + '...' : t('auth.changePassword')}
                 </Button>

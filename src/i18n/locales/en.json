@@ -277,7 +277,16 @@
     "resetPasswordTitle": "Reset password",
     "resetPasswordDescription": "Enter your email address and we will send you a link to reset your password",
     "enterYourEmail": "Enter your email",
-    "sendResetLink": "Send reset link"
+    "sendResetLink": "Send reset link",
+    "samePasswordError": "New password cannot be the same as the old one",
+    "invalidResetLink": "Password reset link is invalid or has expired",
+    "backToLogin": "Back to login",
+    "passwordRequirementsNotMet": "Password does not meet all requirements",
+    "minLength": "Minimum 8 characters",
+    "hasUppercase": "Uppercase letter",
+    "hasLowercase": "Lowercase letter",
+    "hasNumber": "Number",
+    "hasSpecialChar": "Special character"
   },
   "register": {
     "title": "Driver Registration",

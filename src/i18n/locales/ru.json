@@ -277,7 +277,16 @@
     "resetPasswordTitle": "Сброс пароля",
     "resetPasswordDescription": "Введите свой адрес электронной почты, и мы отправим вам ссылку для сброса пароля",
     "enterYourEmail": "Введите ваш email",
-    "sendResetLink": "Отправить ссылку для сброса"
+    "sendResetLink": "Отправить ссылку для сброса",
+    "samePasswordError": "Новый пароль не может совпадать со старым",
+    "invalidResetLink": "Ссылка для сброса пароля недействительна или истекла",
+    "backToLogin": "Вернуться к входу",
+    "passwordRequirementsNotMet": "Пароль не соответствует всем требованиям",
+    "minLength": "Минимум 8 символов",
+    "hasUppercase": "Заглавная буква",
+    "hasLowercase": "Строчная буква",
+    "hasNumber": "Цифра",
+    "hasSpecialChar": "Специальный символ"
   },
   "register": {
     "title": "Регистрация водителя",

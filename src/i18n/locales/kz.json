@@ -277,7 +277,16 @@
     "resetPasswordTitle": "Құпия сөзді қалпына келтіру",
     "resetPasswordDescription": "Электрондық пошта мекенжайыңызды енгізіңіз, біз сізге құпия сөзді өзгерту сілтемесін жібереміз",
     "enterYourEmail": "Email енгізіңіз",
-    "sendResetLink": "Қалпына келтіру сілтемесін жіберу"
+    "sendResetLink": "Қалпына келтіру сілтемесін жіберу",
+    "samePasswordError": "Жаңа құпия сөз ескісімен бірдей болмауы керек",
+    "invalidResetLink": "Құпия сөзді қалпына келтіру сілтемесі жарамсыз немесе мерзімі өткен",
+    "backToLogin": "Кіруге оралу",
+    "passwordRequirementsNotMet": "Құпия сөз барлық талаптарға сәйкес келмейді",
+    "minLength": "Кемінде 8 таңба",
+    "hasUppercase": "Бас әріп",
+    "hasLowercase": "Кіші әріп",
+    "hasNumber": "Сан",
+    "hasSpecialChar": "Арнайы таңба"
   },
   "register": {
     "title": "Жүргізуші тіркелуі",
