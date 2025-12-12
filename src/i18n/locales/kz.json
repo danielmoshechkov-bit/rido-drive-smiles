@@ -256,7 +256,13 @@
     "weakPassword": "Әлсіз құпия сөз",
     "passwordsMatch": "Құпия сөздер сәйкес келеді",
     "passwordsDontMatch": "Құпия сөздер сәйкес келмейді",
-    "logout": "Шығу"
+    "logout": "Шығу",
+    "rememberMe": "Мені есте сақта",
+    "accept": "Қабылдаймын",
+    "termsAndPrivacy": "ережелер мен құпиялылық саясатын",
+    "mustAcceptTerms": "Кіру үшін ережелерді қабылдауыңыз керек",
+    "forgotPassword": "Құпия сөзді ұмыттыңыз ба?",
+    "noAccount": "Тіркелгіңіз жоқ па? Жүргізуші ретінде тіркеліңіз"
   },
   "register": {
     "title": "Жүргізуші тіркелуі",
@@ -358,6 +364,11 @@
     "earnings": "Табыс",
     "trips": "сапарлар",
     "uber": "Uber",
+    "selectCity": "Қаланы таңдаңыз:",
+    "fleet": "Автопарк",
+    "documents": "Құжаттар",
+    "information": "Ақпарат",
+    "settlements": "Есептеулер",
     "bolt": "Bolt",
     "freenow": "FreeNow",
     "settlements": "Есеп айырысулар",

@@ -256,7 +256,13 @@
     "weakPassword": "Слабый пароль",
     "passwordsMatch": "Пароли совпадают",
     "passwordsDontMatch": "Пароли не совпадают",
-    "logout": "Выйти"
+    "logout": "Выйти",
+    "rememberMe": "Запомнить меня",
+    "accept": "Я принимаю",
+    "termsAndPrivacy": "правила и политику конфиденциальности",
+    "mustAcceptTerms": "Вы должны принять правила для входа",
+    "forgotPassword": "Забыли пароль?",
+    "noAccount": "Нет аккаунта? Зарегистрируйтесь как водитель"
   },
   "register": {
     "title": "Регистрация водителя",
@@ -358,6 +364,11 @@
     "earnings": "Заработок",
     "trips": "поездок",
     "uber": "Uber",
+    "selectCity": "Выберите город:",
+    "fleet": "Автопарк",
+    "documents": "Документы",
+    "information": "Информация",
+    "settlements": "Расчеты",
     "bolt": "Bolt",
     "freenow": "FreeNow",
     "settlements": "Расчеты",

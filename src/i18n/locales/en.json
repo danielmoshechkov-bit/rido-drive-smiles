@@ -256,7 +256,13 @@
     "weakPassword": "Weak password",
     "passwordsMatch": "Passwords match",
     "passwordsDontMatch": "Passwords don't match",
-    "logout": "Logout"
+    "logout": "Logout",
+    "rememberMe": "Remember me",
+    "accept": "I accept",
+    "termsAndPrivacy": "the terms and privacy policy",
+    "mustAcceptTerms": "You must accept the terms to log in",
+    "forgotPassword": "Forgot your password?",
+    "noAccount": "Don't have an account? Register as a driver"
   },
   "register": {
     "title": "Driver Registration",
@@ -358,6 +364,11 @@
     "earnings": "Earnings",
     "trips": "trips",
     "uber": "Uber",
+    "selectCity": "Select city:",
+    "fleet": "Fleet",
+    "documents": "Documents",
+    "information": "Information",
+    "settlements": "Settlements",
     "bolt": "Bolt",
     "freenow": "FreeNow",
     "settlements": "Settlements",

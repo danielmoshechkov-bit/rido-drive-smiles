@@ -236,7 +236,7 @@ const AdminDashboard = () => {
       {/* City Selector */}
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Wybierz miasto:</h2>
+          <h2 className="text-lg font-semibold">{t('admin.selectCity')}</h2>
           <CitySelector selectedCity={selectedCity} onCitySelect={setSelectedCity} />
         </div>
       </div>
@@ -257,10 +257,10 @@ const AdminDashboard = () => {
                 {t('admin.driversList')}
               </TabsTrigger>
               <TabsTrigger value="fleet">
-                Flota
+                {t('admin.fleet')}
               </TabsTrigger>
               <TabsTrigger value="documents">
-                Dokumenty
+                {t('admin.documents')}
               </TabsTrigger>
               <TabsTrigger value="settings">
                 {t('admin.settings')}
@@ -269,7 +269,7 @@ const AdminDashboard = () => {
                 {t('admin.reports')}
               </TabsTrigger>
               <TabsTrigger value="system-alerts">
-                Informacje
+                {t('admin.information')}
               </TabsTrigger>
             </TabsPill>
           </div>
@@ -319,7 +319,7 @@ const AdminDashboard = () => {
                       className="w-full justify-start rounded-xl transition-all"
                       onClick={() => setActiveTab('fleet')}
                     >
-                      Flota
+                      {t('admin.fleet')}
                     </Button>
                   </SheetTrigger>
                   <SheetTrigger asChild>
@@ -328,7 +328,7 @@ const AdminDashboard = () => {
                       className="w-full justify-start rounded-xl transition-all"
                       onClick={() => setActiveTab('documents')}
                     >
-                      Dokumenty
+                      {t('admin.documents')}
                     </Button>
                   </SheetTrigger>
                   <SheetTrigger asChild>
@@ -355,7 +355,7 @@ const AdminDashboard = () => {
                       className="w-full justify-start rounded-xl transition-all"
                       onClick={() => setActiveTab('system-alerts')}
                     >
-                      Informacje
+                      {t('admin.information')}
                     </Button>
                   </SheetTrigger>
                 </div>
@@ -368,7 +368,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Łączna liczba kierowców
+                    {t('admin.totalDrivers')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -379,7 +379,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Łączne zarobki
+                    {t('admin.totalEarnings')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -390,7 +390,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Łączna liczba kursów
+                    {t('admin.totalTrips')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -401,7 +401,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Średnia ocena
+                    {t('admin.averageRating')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

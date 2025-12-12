@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useTranslation } from 'react-i18next';
 
 const LanguageSelector = () => {
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const currentLanguage = i18n.language.toUpperCase();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const languages = [
     { code: "PL", name: "Polski", flag: "🇵🇱" },
@@ -34,20 +46,23 @@ const LanguageSelector = () => {
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-full right-0 mt-2 py-2 z-50 min-w-[120px]">
+        <div className="absolute top-full right-0 mt-2 py-2 z-[100] min-w-[140px] bg-white dark:bg-gray-800 rounded-lg border border-border shadow-lg">
           {languages.map((language) => (
             <button
               key={language.code}
-              onClick={() => handleLanguageChange(language.code)}
-              className={`w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 ${
-                currentLanguage === language.code ? "bg-muted" : ""
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLanguageChange(language.code);
+              }}
+              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 cursor-pointer ${
+                currentLanguage === language.code ? "bg-gray-100 dark:bg-gray-700" : ""
               }`}
             >
               <span>{language.flag}</span>
               <span>{language.name}</span>
             </button>
           ))}
-        </Card>
+        </div>
       )}
     </div>
   );

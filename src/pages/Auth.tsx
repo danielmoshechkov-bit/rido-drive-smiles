@@ -156,7 +156,7 @@ const Auth = () => {
                   htmlFor="rememberMe"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Zapamiętaj mnie
+                  {t('auth.rememberMe')}
                 </label>
               </div>
 
@@ -175,15 +175,15 @@ const Auth = () => {
                     htmlFor="terms"
                     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${showTermsError ? "text-red-500" : ""}`}
                   >
-                    Akceptuję{' '}
+                    {t('auth.accept')}{' '}
                     <a href="/regulamin" className="text-primary hover:underline" target="_blank">
-                      regulamin i politykę prywatności
+                      {t('auth.termsAndPrivacy')}
                     </a>
                   </label>
                 </div>
                 {showTermsError && (
                   <p className="text-sm text-red-500 ml-6">
-                    Musisz zaakceptować regulamin, aby się zalogować
+                    {t('auth.mustAcceptTerms')}
                   </p>
                 )}
               </div>
@@ -218,13 +218,13 @@ const Auth = () => {
                 disabled={isLoading}
                 className="text-primary hover:underline text-sm block w-full"
               >
-                Zapomniałeś hasła?
+                {t('auth.forgotPassword')}
               </button>
               <Link
                 to="/driver/register"
                 className="text-primary hover:underline text-sm block"
               >
-                Nie masz konta? Zarejestruj się jako kierowca
+                {t('auth.noAccount')}
               </Link>
             </div>
           </CardContent>
