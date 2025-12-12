@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.register-driver]
 verify_jwt = false
+
+[functions.send-password-reset-email]
+verify_jwt = false

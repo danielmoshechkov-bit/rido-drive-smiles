@@ -262,7 +262,18 @@
     "termsAndPrivacy": "правила и политику конфиденциальности",
     "mustAcceptTerms": "Вы должны принять правила для входа",
     "forgotPassword": "Забыли пароль?",
-    "noAccount": "Нет аккаунта? Зарегистрируйтесь как водитель"
+    "noAccount": "Нет аккаунта? Зарегистрируйтесь как водитель",
+    "resetPassword": "Сбросить пароль",
+    "newPassword": "Новый пароль",
+    "confirmNewPassword": "Подтвердите новый пароль",
+    "passwordsDoNotMatch": "Пароли не совпадают",
+    "passwordResetSuccess": "Пароль успешно изменён",
+    "passwordResetFailed": "Не удалось изменить пароль",
+    "passwordResetEmailSent": "Ссылка для сброса пароля отправлена на вашу почту",
+    "passwordResetError": "Ошибка при отправке ссылки",
+    "enterEmail": "Введите ваш email",
+    "enterNewPassword": "Введите новый пароль для вашего аккаунта",
+    "changePassword": "Изменить пароль"
   },
   "register": {
     "title": "Регистрация водителя",

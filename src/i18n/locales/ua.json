@@ -262,7 +262,18 @@
     "termsAndPrivacy": "правила та політику конфіденційності",
     "mustAcceptTerms": "Ви повинні прийняти правила для входу",
     "forgotPassword": "Забули пароль?",
-    "noAccount": "Немає облікового запису? Зареєструйтесь як водій"
+    "noAccount": "Немає облікового запису? Зареєструйтесь як водій",
+    "resetPassword": "Скинути пароль",
+    "newPassword": "Новий пароль",
+    "confirmNewPassword": "Підтвердіть новий пароль",
+    "passwordsDoNotMatch": "Паролі не співпадають",
+    "passwordResetSuccess": "Пароль успішно змінено",
+    "passwordResetFailed": "Не вдалося змінити пароль",
+    "passwordResetEmailSent": "Посилання для скидання пароля надіслано на вашу пошту",
+    "passwordResetError": "Помилка при надсиланні посилання",
+    "enterEmail": "Введіть ваш email",
+    "enterNewPassword": "Введіть новий пароль для вашого облікового запису",
+    "changePassword": "Змінити пароль"
   },
   "register": {
     "title": "Реєстрація водія",
