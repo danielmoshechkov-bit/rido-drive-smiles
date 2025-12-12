@@ -140,10 +140,11 @@ const handler = async (req: Request): Promise<Response> => {
       from: `${senderName} <${senderEmail}>`,
       to: email,
       subject: subject,
-      content: "auto",
+      content: "Twoja przeglądarka nie obsługuje HTML.",
+      html: htmlContent,
       mimeContent: [
         {
-          mimeType: "text/html",
+          mimeType: "text/html; charset=utf-8",
           content: htmlContent,
           transferEncoding: "quoted-printable",
         },
