@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png'],
+      includeAssets: ['favicon.ico', 'lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png', 'lovable-uploads/getrido-mascot-email.png'],
       manifest: {
         name: 'Get RIDO - Portal Kierowcy',
         short_name: 'RIDO',
