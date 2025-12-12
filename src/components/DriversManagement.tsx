@@ -280,13 +280,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         .maybeSingle();
 
       if (dauData?.user_id) {
-        // 2. Wywołaj edge function która usunie konto auth
+        // 2. Wywołaj edge function która usunie konto auth po user_id
         const { error: deleteError } = await supabase.functions.invoke('reset-driver-password', {
           body: { user_id: dauData.user_id, action: 'delete' }
         });
 
         if (deleteError) {
-          console.error('Error deleting auth user:', deleteError);
+          console.error('Error deleting auth user by user_id:', deleteError);
         }
 
         // 3. Usuń role użytkownika
@@ -294,9 +294,19 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
           .from('user_roles')
           .delete()
           .eq('user_id', dauData.user_id);
+      } else if (email) {
+        // Fallback: jeśli nie ma powiązania w driver_app_users, spróbuj usunąć po emailu
+        console.log('No driver_app_users link found, trying to delete by email:', email);
+        const { error: deleteError } = await supabase.functions.invoke('reset-driver-password', {
+          body: { email: email, action: 'delete' }
+        });
+
+        if (deleteError) {
+          console.error('Error deleting auth user by email:', deleteError);
+        }
       }
 
-      // 4. Usuń powiązanie driver_app_users
+      // 4. Usuń powiązanie driver_app_users (jeśli istnieje)
       await supabase
         .from('driver_app_users')
         .delete()

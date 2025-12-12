@@ -18,21 +18,48 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Handle delete action - remove user from auth.users
-    if (action === 'delete' && user_id) {
-      console.log(`🗑️ Usuwanie użytkownika auth: ${user_id}`);
+    if (action === 'delete') {
+      let userIdToDelete = user_id;
       
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(user_id);
-      
-      if (deleteError) {
-        console.error('❌ Błąd usuwania użytkownika:', deleteError);
-        throw deleteError;
+      // If no user_id provided but email is, find user by email
+      if (!userIdToDelete && email) {
+        console.log(`🔍 Szukam użytkownika po emailu: ${email}`);
+        const { data: existingUsers } = await supabase.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(u => u.email === email);
+        
+        if (existingUser) {
+          userIdToDelete = existingUser.id;
+          console.log(`📧 Znaleziono użytkownika po emailu: ${userIdToDelete}`);
+        } else {
+          console.log(`ℹ️ Nie znaleziono użytkownika z emailem: ${email}`);
+          return new Response(
+            JSON.stringify({ success: true, action: 'not_found', message: 'User not found in auth' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       
-      console.log(`✅ Użytkownik auth usunięty: ${user_id}`);
+      if (userIdToDelete) {
+        console.log(`🗑️ Usuwanie użytkownika auth: ${userIdToDelete}`);
+        
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(userIdToDelete);
+        
+        if (deleteError) {
+          console.error('❌ Błąd usuwania użytkownika:', deleteError);
+          throw deleteError;
+        }
+        
+        console.log(`✅ Użytkownik auth usunięty: ${userIdToDelete}`);
+        
+        return new Response(
+          JSON.stringify({ success: true, action: 'deleted' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       return new Response(
-        JSON.stringify({ success: true, action: 'deleted' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'No user_id or email provided for deletion' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
