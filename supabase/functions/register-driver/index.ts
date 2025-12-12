@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       type: "magiclink",
       email,
       options: {
-        redirectTo: "https://getrido.pl/driver"
+        redirectTo: "https://getrido.pl/email-confirmed"
       }
     });
 
