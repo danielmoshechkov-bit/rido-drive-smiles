@@ -197,34 +197,48 @@ Deno.serve(async (req) => {
     const activationLink = linkData?.properties?.action_link || "https://getrido.pl/auth";
     console.log("🔗 Generated magic link for:", email);
 
-    // Send our custom RIDO email using send-registration-email function with language
-    try {
-      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceRoleKey}`
-        },
-        body: JSON.stringify({
-          email,
-          first_name,
-          last_name,
-          activation_link: activationLink,
-          language
-        })
-      });
+    // Send our custom RIDO email ASYNCHRONOUSLY (don't wait - registration completes immediately)
+    // This prevents 2+ minute registration times caused by slow SMTP
+    const emailPromise = fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`
+      },
+      body: JSON.stringify({
+        email,
+        first_name,
+        last_name,
+        activation_link: activationLink,
+        language
+      })
+    });
 
-      const emailResult = await emailResponse.json();
-      if (emailResult.success) {
-        console.log("✅ RIDO registration email sent successfully in language:", language);
-      } else {
-        console.error("⚠️ Failed to send RIDO email:", emailResult.error);
-      }
-    } catch (emailError) {
-      console.error("⚠️ Error calling send-registration-email:", emailError);
+    // Use EdgeRuntime.waitUntil to run email in background without blocking response
+    // @ts-ignore - Deno EdgeRuntime
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(
+        emailPromise
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              console.log("✅ RIDO registration email sent successfully in language:", language);
+            } else {
+              console.error("⚠️ Failed to send RIDO email:", result.error);
+            }
+          })
+          .catch(err => console.error("⚠️ Error sending email:", err))
+      );
+    } else {
+      // Fallback: fire and forget (don't await)
+      emailPromise
+        .then(res => res.json())
+        .then(result => console.log("📧 Email result:", result.success ? "sent" : result.error))
+        .catch(err => console.error("⚠️ Email error:", err));
     }
 
-    console.log("🎉 Registration completed successfully for:", email);
+    console.log("🎉 Registration completed successfully for:", email, "(email sending in background)");
 
     return new Response(
       JSON.stringify({ success: true, message: "Rejestracja zakończona. Sprawdź email, aby potwierdzić konto." }),

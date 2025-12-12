@@ -33,6 +33,20 @@ jobs:
       - name: Copy .htaccess to dist
         run: cp public/.htaccess dist/.htaccess
 
+      - name: Copy mascot email image to dist
+        run: |
+          mkdir -p dist/lovable-uploads
+          cp public/lovable-uploads/getrido-mascot-email.png dist/lovable-uploads/ || echo "Mascot file not in public, checking if built"
+
+      - name: Debug - List dist contents
+        run: |
+          echo "=== dist/ root ==="
+          ls -la dist/
+          echo "=== dist/lovable-uploads/ ==="
+          ls -la dist/lovable-uploads/ || echo "No lovable-uploads folder!"
+          echo "=== dist/assets/ ==="
+          ls -la dist/assets/ | head -20 || echo "No assets folder!"
+
       - name: Upload to nazwa.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
