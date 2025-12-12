@@ -160,6 +160,17 @@ export default function DriverRegister() {
           toast.error(error.message);
           return;
         }
+
+        // Automatycznie przypisz rolę driver
+        const { error: roleError } = await supabase.from("user_roles").insert([{
+          user_id: signUpData.user.id,
+          role: 'driver'
+        }]);
+
+        if (roleError) {
+          console.error("Error assigning driver role:", roleError);
+          // Don't block registration if role assignment fails
+        }
       }
 
       // Send registration email
