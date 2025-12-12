@@ -35,11 +35,11 @@ Deno.serve(async (req) => {
 
     console.log("📝 Starting driver registration for:", email);
 
-    // 1. Create auth user
+    // 1. Create auth user with email_confirm: true (user can login immediately)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // Require email confirmation
+      email_confirm: true, // Email is confirmed, user can login immediately
       user_metadata: { first_name, last_name }
     });
 
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     }
 
     const userId = authData.user!.id;
-    console.log("✅ Auth user created:", userId);
+    console.log("✅ Auth user created with confirmed email:", userId);
 
     // 2. Check for existing driver by email or phone
     let driverId: string | null = null;
@@ -154,17 +154,48 @@ Deno.serve(async (req) => {
       console.log("✅ Driver role assigned");
     }
 
-    // 5. Send confirmation email via Supabase Auth
-    const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
+    // 5. Send ONLY our custom RIDO registration email (no Supabase default email)
+    // Generate a magic link for login (does not send email by itself)
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
       email,
       options: {
-        redirectTo: `${supabaseUrl.replace('.supabase.co', '')}/email-confirmed`
+        redirectTo: "https://getrido.pl/driver"
       }
     });
 
-    if (emailError) {
-      console.error("⚠️ Email link generation error:", emailError.message);
+    if (linkError) {
+      console.error("⚠️ Magic link generation error:", linkError.message);
+    }
+
+    // Get the magic link URL
+    const activationLink = linkData?.properties?.action_link || "https://getrido.pl/auth";
+    console.log("🔗 Generated magic link for:", email);
+
+    // Send our custom RIDO email using send-registration-email function
+    try {
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`
+        },
+        body: JSON.stringify({
+          email,
+          first_name,
+          last_name,
+          activation_link: activationLink
+        })
+      });
+
+      const emailResult = await emailResponse.json();
+      if (emailResult.success) {
+        console.log("✅ RIDO registration email sent successfully");
+      } else {
+        console.error("⚠️ Failed to send RIDO email:", emailResult.error);
+      }
+    } catch (emailError) {
+      console.error("⚠️ Error calling send-registration-email:", emailError);
     }
 
     console.log("🎉 Registration completed successfully for:", email);

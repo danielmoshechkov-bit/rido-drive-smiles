@@ -11,17 +11,36 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password, driver_id } = await req.json();
+    const { email, password, driver_id, user_id, action } = await req.json();
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Handle delete action - remove user from auth.users
+    if (action === 'delete' && user_id) {
+      console.log(`🗑️ Usuwanie użytkownika auth: ${user_id}`);
+      
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(user_id);
+      
+      if (deleteError) {
+        console.error('❌ Błąd usuwania użytkownika:', deleteError);
+        throw deleteError;
+      }
+      
+      console.log(`✅ Użytkownik auth usunięty: ${user_id}`);
+      
+      return new Response(
+        JSON.stringify({ success: true, action: 'deleted' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!email) {
       throw new Error('Email jest wymagany');
     }
 
     console.log(`🔐 Tworzenie/resetowanie konta dla: ${email}`);
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // If no password provided, generate one
     let finalPassword = password;

@@ -71,12 +71,12 @@ export default function DriverRegister() {
     try {
       // Użyj fetch bezpośrednio dla lepszej obsługi błędów
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-driver`,
+        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/register-driver',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk`
           },
           body: JSON.stringify({
             first_name: firstName,

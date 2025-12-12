@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw } from 'lucide-react';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -265,6 +265,49 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       onDriverUpdate();
     } catch (error) {
       toast.error('Błąd podczas usuwania kierowcy z floty');
+    }
+  };
+
+  const resetDriverRegistration = async (driverId: string, email: string, driverName: string) => {
+    if (!confirm(`Czy na pewno chcesz zresetować rejestrację kierowcy ${driverName}?\n\nKierowca będzie musiał się ponownie zarejestrować używając tego samego emaila (${email}), ale zachowa swoje dane (rozliczenia, dokumenty).`)) return;
+
+    try {
+      // 1. Znajdź user_id powiązane z tym kierowcą
+      const { data: dauData } = await supabase
+        .from('driver_app_users')
+        .select('user_id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (dauData?.user_id) {
+        // 2. Wywołaj edge function która usunie konto auth
+        const { error: deleteError } = await supabase.functions.invoke('reset-driver-password', {
+          body: { user_id: dauData.user_id, action: 'delete' }
+        });
+
+        if (deleteError) {
+          console.error('Error deleting auth user:', deleteError);
+        }
+
+        // 3. Usuń role użytkownika
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', dauData.user_id);
+      }
+
+      // 4. Usuń powiązanie driver_app_users
+      await supabase
+        .from('driver_app_users')
+        .delete()
+        .eq('driver_id', driverId);
+
+      toast.success(`Rejestracja kierowcy ${driverName} została zresetowana. Może się teraz ponownie zarejestrować używając emaila: ${email}`);
+      checkAccountStatuses();
+      refetch();
+    } catch (error) {
+      console.error('Error resetting driver registration:', error);
+      toast.error('Błąd podczas resetowania rejestracji');
     }
   };
 
@@ -660,9 +703,24 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
                             }}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            title="Usuń kierowcę"
                           >
                             <Trash2 size={14} />
                           </Button>
+                          {accountStatuses[driver.id] === 'active' && driver.email && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                resetDriverRegistration(driver.id, driver.email!, `${driver.first_name} ${driver.last_name}`);
+                              }}
+                              className="text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                              title="Zresetuj rejestrację - kierowca będzie mógł się ponownie zarejestrować"
+                            >
+                              <RotateCcw size={14} />
+                            </Button>
+                          )}
                         </>
                       )}
                       {expandedDrivers.has(driver.id) ? (
