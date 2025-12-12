@@ -35,18 +35,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check if user exists
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(email);
-    
-    if (authError || !authUser?.user) {
-      console.log("User not found:", email);
-      // Return success anyway to prevent email enumeration
-      return new Response(
-        JSON.stringify({ success: true, message: "If account exists, reset email sent" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Get driver info for first name
     const { data: driver } = await supabase
       .from("drivers")
