@@ -48,7 +48,7 @@ jobs:
           ls -la dist/assets/ | head -20 || echo "No assets folder!"
 
       - name: Clean remote directory before upload
-        uses: StephanThier/ftp-delete-action@v2.1
+        uses: StephanThierry/ftp-delete-action@v2.1
         with:
           host: ${{secrets.FTP_SERVER}}
           user: ${{secrets.FTP_USERNAME}}
