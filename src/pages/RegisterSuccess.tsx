@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, Smartphone, Home, Mail } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function RegisterSuccess() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
@@ -24,24 +26,23 @@ export default function RegisterSuccess() {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-foreground">
-              Dziękujemy za rejestrację!
+              {t('registerSuccess.title')}
             </h1>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-center gap-2 text-primary">
                 <Mail className="h-5 w-5" />
-                <span className="font-medium">Sprawdź swoją pocztę</span>
+                <span className="font-medium">{t('registerSuccess.checkEmail')}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Wysłaliśmy link aktywacyjny na podany adres e-mail.
-                Kliknij w link, aby aktywować swoje konto.
+                {t('registerSuccess.emailSent')}
               </p>
             </div>
 
             <div className="border-t pt-4">
               <p className="text-sm text-muted-foreground mb-4">
-                W międzyczasie pobierz naszą aplikację na smartfona
+                {t('registerSuccess.downloadHint')}
               </p>
               <Button
                 onClick={() => navigate("/install")}
@@ -49,7 +50,7 @@ export default function RegisterSuccess() {
                 className="w-full gap-2"
               >
                 <Smartphone className="h-5 w-5" />
-                Pobierz aplikację na smartfona
+                {t('registerSuccess.downloadApp')}
               </Button>
             </div>
 
@@ -59,7 +60,7 @@ export default function RegisterSuccess() {
               className="w-full gap-2"
             >
               <Home className="h-4 w-4" />
-              Powrót do strony głównej
+              {t('registerSuccess.backHome')}
             </Button>
           </CardContent>
         </Card>
