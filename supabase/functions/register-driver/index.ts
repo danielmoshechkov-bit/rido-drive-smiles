@@ -63,33 +63,55 @@ Deno.serve(async (req) => {
     const userId = authData.user!.id;
     console.log("✅ Auth user created with confirmed email:", userId);
 
-    // 2. Check for existing driver by email or phone
+    // 2. Check for existing driver - PRIORITIZE PHONE (most stable identifier)
     let driverId: string | null = null;
+    let existingDriver: { id: string; getrido_id: string | null } | null = null;
     
-    const { data: existingDriver } = await supabaseAdmin
+    // First, search by phone number (primary identifier)
+    const { data: driverByPhone } = await supabaseAdmin
       .from("drivers")
-      .select("id")
-      .or(`email.eq.${email},phone.eq.${phone}`)
+      .select("id, getrido_id")
+      .eq("phone", phone)
       .maybeSingle();
+    
+    if (driverByPhone) {
+      existingDriver = driverByPhone;
+      console.log("📱 Found existing driver by phone:", driverByPhone.id);
+    } else {
+      // If not found by phone, search by email
+      const { data: driverByEmail } = await supabaseAdmin
+        .from("drivers")
+        .select("id, getrido_id")
+        .eq("email", email)
+        .maybeSingle();
+      
+      if (driverByEmail) {
+        existingDriver = driverByEmail;
+        console.log("📧 Found existing driver by email:", driverByEmail.id);
+      }
+    }
 
     if (existingDriver) {
-      // Update existing driver
+      // Update existing driver - KEEP getrido_id, update name/contact info
       driverId = existingDriver.id;
-      console.log("📋 Found existing driver, updating:", driverId);
+      console.log("📋 Updating existing driver:", driverId, "getrido_id:", existingDriver.getrido_id);
       
       await supabaseAdmin
         .from("drivers")
         .update({
-          first_name,
-          last_name,
-          email,
-          phone,
+          first_name,  // Update name to what driver entered
+          last_name,   // Update surname to what driver entered
+          email,       // Update email if changed
+          phone,       // Update phone if changed
           payment_method,
           iban: payment_method === "transfer" ? iban : null,
           preferred_language: language,
           updated_at: new Date().toISOString()
+          // NOTE: getrido_id, city_id, driver_platform_ids are NOT updated - preserved!
         })
         .eq("id", driverId);
+      
+      console.log("✅ Driver updated, getrido_id preserved:", existingDriver.getrido_id);
     } else {
       // Create new driver with getrido_id
       const getrido_id = Math.random().toString(36).substring(2, 8).toUpperCase();
