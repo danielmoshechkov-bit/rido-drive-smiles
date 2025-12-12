@@ -496,15 +496,18 @@
     "selectPlatform": "Wybierz swój system operacyjny:",
     "backToSelection": "Wróć do wyboru",
     "androidTitle": "Instalacja na Android",
-    "androidStep1": "Otwórz getrido.pl w przeglądarce Chrome",
-    "androidStep2": "Naciśnij (3 kropki) w prawym górnym rogu",
+    "androidStep1": "Otwórz stronę getrido.pl w przeglądarce Chrome",
+    "androidStep2": "Naciśnij ⋮ (3 kropki) w prawym górnym rogu ekranu",
     "androidStep3": "Wybierz \"Dodaj do ekranu głównego\" lub \"Zainstaluj aplikację\"",
-    "androidStep4": "Potwierdź instalację ✅",
+    "androidStep4": "Potwierdź instalację naciskając \"Dodaj\" ✅",
     "iphoneTitle": "Instalacja na iPhone",
-    "iphoneStep1": "Otwórz getrido.pl w przeglądarce Safari (nie Chrome!)",
-    "iphoneStep2": "Naciśnij (Udostępnij) na dolnym pasku",
-    "iphoneStep3": "Przewiń w dół i wybierz \"Dodaj do ekranu początkowego\"",
+    "iphoneStep1": "Otwórz stronę getrido.pl w przeglądarce Safari (nie Chrome!)",
+    "iphoneStep2": "Na dole ekranu naciśnij ikonę Udostępnij ↑ (kwadrat ze strzałką w górę)",
+    "iphoneStep3": "Przewiń menu i wybierz \"Dodaj do ekranu początkowego\"",
     "iphoneStep4": "Naciśnij \"Dodaj\" w prawym górnym rogu ✅",
     "skip": "Pomiń i przejdź do aplikacji"
+  },
+  "fuel": {
+    "noFuelCard": "Nie masz przypisanej karty paliwowej"
   }
 }

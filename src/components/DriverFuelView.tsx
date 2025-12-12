@@ -30,6 +30,18 @@ interface FuelTransaction {
 
 export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewProps) {
   const { t } = useTranslation();
+  
+  // Early return if no fuel card assigned
+  if (!fuelCardNumber) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          {t('fuel.noFuelCard')}
+        </CardContent>
+      </Card>
+    );
+  }
+  
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);

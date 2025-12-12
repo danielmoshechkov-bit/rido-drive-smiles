@@ -496,15 +496,18 @@
     "selectPlatform": "Select your operating system:",
     "backToSelection": "Back to selection",
     "androidTitle": "Install on Android",
-    "androidStep1": "Open getrido.pl in Chrome browser",
-    "androidStep2": "Tap (3 dots) in the top right corner",
+    "androidStep1": "Open getrido.pl website in Chrome browser",
+    "androidStep2": "Tap ⋮ (3 dots) in the top right corner of the screen",
     "androidStep3": "Select \"Add to Home screen\" or \"Install app\"",
-    "androidStep4": "Confirm installation ✅",
+    "androidStep4": "Confirm installation by tapping \"Add\" ✅",
     "iphoneTitle": "Install on iPhone",
-    "iphoneStep1": "Open getrido.pl in Safari browser (not Chrome!)",
-    "iphoneStep2": "Tap (Share) on the bottom bar",
-    "iphoneStep3": "Scroll down and select \"Add to Home Screen\"",
+    "iphoneStep1": "Open getrido.pl website in Safari browser (not Chrome!)",
+    "iphoneStep2": "At the bottom of the screen, tap the Share icon ↑ (square with arrow pointing up)",
+    "iphoneStep3": "Scroll through the menu and select \"Add to Home Screen\"",
     "iphoneStep4": "Tap \"Add\" in the top right corner ✅",
     "skip": "Skip and go to app"
+  },
+  "fuel": {
+    "noFuelCard": "You don't have a fuel card assigned"
   }
 }
