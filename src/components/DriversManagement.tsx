@@ -717,7 +717,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                           >
                             <Trash2 size={14} />
                           </Button>
-                          {accountStatuses[driver.id] === 'active' && driver.email && (
+                          {driver.email && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -726,7 +726,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                 resetDriverRegistration(driver.id, driver.email!, `${driver.first_name} ${driver.last_name}`);
                               }}
                               className="text-orange-500 hover:text-orange-700 hover:bg-orange-50"
-                              title="Zresetuj rejestrację - kierowca będzie mógł się ponownie zarejestrować"
+                              title="Zresetuj rejestrację - usuwa konto auth i pozwala kierowcy zarejestrować się ponownie"
                             >
                               <RotateCcw size={14} />
                             </Button>
