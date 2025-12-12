@@ -108,13 +108,20 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Send email
+    // Send email with proper UTF-8 encoding
     await client.send({
       from: `${senderName} <${senderEmail}>`,
       to: [email],
       subject: subject,
       content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
       html: htmlContent,
+      mimeContent: [
+        {
+          mimeType: "text/html; charset=utf-8",
+          content: htmlContent,
+          transferEncoding: "quoted-printable",
+        }
+      ],
     });
 
     await client.close();
