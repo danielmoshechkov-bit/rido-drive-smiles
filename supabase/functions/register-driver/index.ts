@@ -14,6 +14,7 @@ interface RegisterDriverRequest {
   password: string;
   payment_method: string;
   iban?: string;
+  language?: string;
 }
 
 Deno.serve(async (req) => {
@@ -31,16 +32,16 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterDriverRequest = await req.json();
-    const { first_name, last_name, email, phone, city_id, password, payment_method, iban } = body;
+    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl" } = body;
 
-    console.log("📝 Starting driver registration for:", email);
+    console.log("📝 Starting driver registration for:", email, "language:", language);
 
     // 1. Create auth user with email_confirm: true (user can login immediately)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Email is confirmed, user can login immediately
-      user_metadata: { first_name, last_name }
+      user_metadata: { first_name, last_name, preferred_language: language }
     });
 
     if (authError) {
@@ -85,6 +86,7 @@ Deno.serve(async (req) => {
           phone,
           payment_method,
           iban: payment_method === "transfer" ? iban : null,
+          preferred_language: language,
           updated_at: new Date().toISOString()
         })
         .eq("id", driverId);
@@ -103,6 +105,7 @@ Deno.serve(async (req) => {
           payment_method,
           iban: payment_method === "transfer" ? iban : null,
           getrido_id,
+          preferred_language: language,
           registration_date: new Date().toISOString()
         })
         .select("id")
@@ -172,7 +175,7 @@ Deno.serve(async (req) => {
     const activationLink = linkData?.properties?.action_link || "https://getrido.pl/auth";
     console.log("🔗 Generated magic link for:", email);
 
-    // Send our custom RIDO email using send-registration-email function
+    // Send our custom RIDO email using send-registration-email function with language
     try {
       const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
         method: "POST",
@@ -184,13 +187,14 @@ Deno.serve(async (req) => {
           email,
           first_name,
           last_name,
-          activation_link: activationLink
+          activation_link: activationLink,
+          language
         })
       });
 
       const emailResult = await emailResponse.json();
       if (emailResult.success) {
-        console.log("✅ RIDO registration email sent successfully");
+        console.log("✅ RIDO registration email sent successfully in language:", language);
       } else {
         console.error("⚠️ Failed to send RIDO email:", emailResult.error);
       }

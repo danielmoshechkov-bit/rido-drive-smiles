@@ -258,6 +258,51 @@
     "passwordsDontMatch": "Құпия сөздер сәйкес келмейді",
     "logout": "Шығу"
   },
+  "register": {
+    "title": "Жүргізуші тіркелуі",
+    "subtitle": "Біздің платформаға қосылыңыз",
+    "requiredFields": "* белгіленген өрістер міндетті",
+    "firstName": "Аты",
+    "firstNamePlaceholder": "Атыңызды енгізіңіз",
+    "lastName": "Тегі",
+    "lastNamePlaceholder": "Тегіңізді енгізіңіз",
+    "email": "E-mail",
+    "emailPlaceholder": "сіздің@email.com",
+    "phone": "Телефон",
+    "phonePlaceholder": "+48 123 456 789",
+    "city": "Қала",
+    "selectCity": "Қала таңдаңыз",
+    "paymentMethod": "Есеп айырысу әдісі",
+    "bankTransfer": "Банктік аударым",
+    "cash": "Қолма-қол ақша",
+    "cashInfo": "Қолма-қол ақшаны әр сейсенбі біздің офисте алуға болады",
+    "iban": "Банк шоты нөмірі (IBAN)",
+    "password": "Құпия сөз",
+    "passwordPlaceholder": "Құпия сөзді енгізіңіз",
+    "confirmPassword": "Құпия сөзді қайталаңыз",
+    "confirmPasswordPlaceholder": "Құпия сөзді қайталаңыз",
+    "passwordRequirements": "Құпия сөз талаптары",
+    "minLength": "Кемінде 8 таңба",
+    "uppercase": "Бас әріп",
+    "lowercase": "Кіші әріп",
+    "number": "Сан",
+    "specialChar": "Арнайы таңба",
+    "passwordsMatch": "Құпия сөздер сәйкес келеді",
+    "rodo": "Жеке деректерді өңдеу ережелерін қабылдаймын (GDPR)",
+    "terms": "Платформаны пайдалану шарттарын қабылдаймын",
+    "submit": "Тіркелу",
+    "loading": "Тіркелуде...",
+    "hasAccount": "Тіркелгіңіз бар ма?",
+    "login": "Кіру",
+    "fillAllFields": "Барлық міндетті өрістерді толтырыңыз *",
+    "ibanRequired": "Банк шоты нөмірін енгізіңіз (IBAN)",
+    "passwordInvalid": "Құпия сөз талаптарға сәйкес келмейді",
+    "passwordsMismatch": "Құпия сөздер сәйкес келмейді",
+    "acceptRequired": "Қажетті келісімдерді қабылдаңыз",
+    "success": "Тіркелу аяқталды! Email-ді тексеріңіз.",
+    "error": "Тіркелу кезінде қате орын алды. Қайталап көріңіз.",
+    "emailExists": "Бұл email тіркелген. Кіріңіз немесе басқа мекенжай қолданыңыз."
+  },
   "driver": {
     "tabs": {
       "settlements": "Апталық есеп",
@@ -269,6 +314,10 @@
       "mySettlements": "Менің есептерім",
       "fuel": "Жанармай"
     },
+    "paymentMethod": "Есеп айырысу әдісі",
+    "paymentMethodTransfer": "Банктік аударым",
+    "paymentMethodCash": "Қолма-қол ақша",
+    "iban": "Банк шоты нөмірі",
     "cars": {
       "addCar": "Көлік қосу",
       "rentalHistory": "Жалдау тарихы",
@@ -287,6 +336,12 @@
       "noDocuments": "Құжаттар жоқ",
       "contractRodo": "Шарт / Жеке деректер"
     }
+  },
+  "common": {
+    "loading": "Жүктелуде...",
+    "driverPanel": "Жүргізуші панелі",
+    "fleet": "Флот",
+    "supervisor": "Куратор"
   },
   "admin": {
     "dashboard": "Әкімші панелі",
@@ -315,7 +370,11 @@
     "calendar": "Күнтізбе",
     "weeklySettlement": "Апталық есеп айырысу",
     "mondayToSunday": "Дүйсенбі - Жексенбі",
-    "nextMondaySettlement": "Келесі дүйсенбіде есеп айырысу"
+    "nextMondaySettlement": "Келесі дүйсенбіде есеп айырысу",
+    "generateTransfers": "Аударымдарды құру",
+    "generateCashPayouts": "Төлемдер тізімін құру",
+    "transfersGenerated": "Аударымдар тізімі құрылды",
+    "cashPayoutsGenerated": "Қолма-қол төлемдер тізімі құрылды"
   },
   "weekly": {
     "title": "Апталық нәтиже",

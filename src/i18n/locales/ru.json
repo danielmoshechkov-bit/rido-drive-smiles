@@ -258,6 +258,51 @@
     "passwordsDontMatch": "Пароли не совпадают",
     "logout": "Выйти"
   },
+  "register": {
+    "title": "Регистрация водителя",
+    "subtitle": "Присоединяйтесь к нашей платформе",
+    "requiredFields": "Поля, отмеченные *, обязательны",
+    "firstName": "Имя",
+    "firstNamePlaceholder": "Введите имя",
+    "lastName": "Фамилия",
+    "lastNamePlaceholder": "Введите фамилию",
+    "email": "E-mail",
+    "emailPlaceholder": "ваш@email.com",
+    "phone": "Телефон",
+    "phonePlaceholder": "+48 123 456 789",
+    "city": "Город",
+    "selectCity": "Выберите город",
+    "paymentMethod": "Способ расчета",
+    "bankTransfer": "Банковский перевод",
+    "cash": "Наличные",
+    "cashInfo": "Наличные можно получить каждый вторник в нашем офисе",
+    "iban": "Номер банковского счета (IBAN)",
+    "password": "Пароль",
+    "passwordPlaceholder": "Введите пароль",
+    "confirmPassword": "Повторите пароль",
+    "confirmPasswordPlaceholder": "Повторите пароль",
+    "passwordRequirements": "Требования к паролю",
+    "minLength": "Минимум 8 символов",
+    "uppercase": "Заглавная буква",
+    "lowercase": "Строчная буква",
+    "number": "Цифра",
+    "specialChar": "Специальный символ",
+    "passwordsMatch": "Пароли совпадают",
+    "rodo": "Я принимаю правила обработки персональных данных (GDPR)",
+    "terms": "Я принимаю условия использования платформы",
+    "submit": "Зарегистрироваться",
+    "loading": "Регистрация...",
+    "hasAccount": "Уже есть аккаунт?",
+    "login": "Войти",
+    "fillAllFields": "Заполните все обязательные поля *",
+    "ibanRequired": "Введите номер банковского счета (IBAN)",
+    "passwordInvalid": "Пароль не соответствует требованиям",
+    "passwordsMismatch": "Пароли не совпадают",
+    "acceptRequired": "Примите необходимые согласия",
+    "success": "Регистрация завершена! Проверьте email.",
+    "error": "Произошла ошибка при регистрации. Попробуйте снова.",
+    "emailExists": "Этот email уже зарегистрирован. Войдите или используйте другой адрес."
+  },
   "driver": {
     "tabs": {
       "settlements": "Еженедельный расчет",
@@ -269,6 +314,10 @@
       "mySettlements": "Мои расчеты",
       "fuel": "Топливо"
     },
+    "paymentMethod": "Способ расчета",
+    "paymentMethodTransfer": "Банковский перевод",
+    "paymentMethodCash": "Наличные",
+    "iban": "Номер банковского счета",
     "cars": {
       "addCar": "Добавить авто",
       "rentalHistory": "История аренды",
@@ -287,6 +336,12 @@
       "noDocuments": "Нет документов",
       "contractRodo": "Договор / Персональные данные"
     }
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "driverPanel": "Панель водителя",
+    "fleet": "Флот",
+    "supervisor": "Куратор"
   },
   "admin": {
     "dashboard": "Панель администратора",
@@ -315,7 +370,11 @@
     "calendar": "Календарь",
     "weeklySettlement": "Еженедельный расчет",
     "mondayToSunday": "Понедельник - Воскресенье",
-    "nextMondaySettlement": "Расчет в следующий понедельник"
+    "nextMondaySettlement": "Расчет в следующий понедельник",
+    "generateTransfers": "Сформировать переводы",
+    "generateCashPayouts": "Сформировать список выплат",
+    "transfersGenerated": "Список переводов сформирован",
+    "cashPayoutsGenerated": "Список выплат наличными сформирован"
   },
   "weekly": {
     "title": "Еженедельный результат",

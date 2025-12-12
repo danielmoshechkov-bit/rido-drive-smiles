@@ -258,6 +258,51 @@
     "passwordsDontMatch": "Паролі не співпадають",
     "logout": "Вийти"
   },
+  "register": {
+    "title": "Реєстрація водія",
+    "subtitle": "Приєднуйтесь до нашої платформи",
+    "requiredFields": "Поля, позначені *, обов'язкові",
+    "firstName": "Ім'я",
+    "firstNamePlaceholder": "Введіть ім'я",
+    "lastName": "Прізвище",
+    "lastNamePlaceholder": "Введіть прізвище",
+    "email": "E-mail",
+    "emailPlaceholder": "ваш@email.com",
+    "phone": "Телефон",
+    "phonePlaceholder": "+48 123 456 789",
+    "city": "Місто",
+    "selectCity": "Виберіть місто",
+    "paymentMethod": "Спосіб розрахунку",
+    "bankTransfer": "Банківський переказ",
+    "cash": "Готівка",
+    "cashInfo": "Готівку можна отримати щовівторка в нашому офісі",
+    "iban": "Номер банківського рахунку (IBAN)",
+    "password": "Пароль",
+    "passwordPlaceholder": "Введіть пароль",
+    "confirmPassword": "Повторіть пароль",
+    "confirmPasswordPlaceholder": "Повторіть пароль",
+    "passwordRequirements": "Вимоги до пароля",
+    "minLength": "Мінімум 8 символів",
+    "uppercase": "Велика літера",
+    "lowercase": "Мала літера",
+    "number": "Цифра",
+    "specialChar": "Спеціальний символ",
+    "passwordsMatch": "Паролі співпадають",
+    "rodo": "Я приймаю правила обробки персональних даних (GDPR)",
+    "terms": "Я приймаю умови використання платформи",
+    "submit": "Зареєструватися",
+    "loading": "Реєстрація...",
+    "hasAccount": "Вже є обліковий запис?",
+    "login": "Увійти",
+    "fillAllFields": "Заповніть всі обов'язкові поля *",
+    "ibanRequired": "Введіть номер банківського рахунку (IBAN)",
+    "passwordInvalid": "Пароль не відповідає вимогам",
+    "passwordsMismatch": "Паролі не співпадають",
+    "acceptRequired": "Прийміть необхідні згоди",
+    "success": "Реєстрацію завершено! Перевірте email.",
+    "error": "Сталася помилка під час реєстрації. Спробуйте знову.",
+    "emailExists": "Цей email вже зареєстровано. Увійдіть або використайте іншу адресу."
+  },
   "driver": {
     "tabs": {
       "settlements": "Тижневий розрахунок",
@@ -269,6 +314,10 @@
       "mySettlements": "Мої розрахунки",
       "fuel": "Паливо"
     },
+    "paymentMethod": "Спосіб розрахунку",
+    "paymentMethodTransfer": "Банківський переказ",
+    "paymentMethodCash": "Готівка",
+    "iban": "Номер банківського рахунку",
     "cars": {
       "addCar": "Додати авто",
       "rentalHistory": "Історія оренди",
@@ -287,6 +336,12 @@
       "noDocuments": "Немає документів",
       "contractRodo": "Договір / Персональні дані"
     }
+  },
+  "common": {
+    "loading": "Завантаження...",
+    "driverPanel": "Панель водія",
+    "fleet": "Флот",
+    "supervisor": "Куратор"
   },
   "admin": {
     "dashboard": "Панель адміністратора",
@@ -315,7 +370,11 @@
     "calendar": "Календар",
     "weeklySettlement": "Тижневий розрахунок",
     "mondayToSunday": "Понеділок - Неділя",
-    "nextMondaySettlement": "Розрахунок у наступний понеділок"
+    "nextMondaySettlement": "Розрахунок у наступний понеділок",
+    "generateTransfers": "Сформувати перекази",
+    "generateCashPayouts": "Сформувати список виплат",
+    "transfersGenerated": "Список переказів сформовано",
+    "cashPayoutsGenerated": "Список виплат готівкою сформовано"
   },
   "weekly": {
     "title": "Тижневий результат",

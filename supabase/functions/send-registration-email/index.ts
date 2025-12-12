@@ -12,6 +12,7 @@ interface EmailRequest {
   first_name: string;
   last_name?: string;
   activation_link: string;
+  language?: string;
   is_test?: boolean;
 }
 
@@ -54,7 +55,9 @@ const handler = async (req: Request): Promise<Response> => {
       smtp_secure: emailSettings.smtp_secure
     });
 
-    const { email, first_name, last_name, activation_link, is_test }: EmailRequest = await req.json();
+    const { email, first_name, last_name, activation_link, language = "pl", is_test }: EmailRequest = await req.json();
+
+    console.log(`Processing email request for: ${email}, language: ${language}`);
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,10 +75,36 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Preparing to send email to: ${email}, is_test: ${is_test}`);
+    // Select template and subject based on language
+    let template: string;
+    let subject: string;
+    
+    switch (language) {
+      case "en":
+        template = emailSettings.registration_template_en || emailSettings.registration_template;
+        subject = emailSettings.registration_subject_en || emailSettings.registration_subject;
+        break;
+      case "ru":
+        template = emailSettings.registration_template_ru || emailSettings.registration_template;
+        subject = emailSettings.registration_subject_ru || emailSettings.registration_subject;
+        break;
+      case "ua":
+        template = emailSettings.registration_template_ua || emailSettings.registration_template;
+        subject = emailSettings.registration_subject_ua || emailSettings.registration_subject;
+        break;
+      case "kz":
+        template = emailSettings.registration_template_kz || emailSettings.registration_template;
+        subject = emailSettings.registration_subject_kz || emailSettings.registration_subject;
+        break;
+      default:
+        template = emailSettings.registration_template;
+        subject = emailSettings.registration_subject;
+    }
+
+    console.log(`Using ${language} template for email`);
 
     // Replace template variables
-    let htmlContent = emailSettings.registration_template
+    let htmlContent = template
       .replace(/\{\{first_name\}\}/g, first_name || "Kierowco")
       .replace(/\{\{last_name\}\}/g, last_name || "")
       .replace(/\{\{email\}\}/g, email)
@@ -83,12 +112,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const senderName = emailSettings.sender_name || "RIDO";
     const senderEmail = emailSettings.sender_email || emailSettings.smtp_user;
-    const subject = is_test 
-      ? `[TEST] ${emailSettings.registration_subject}`
-      : emailSettings.registration_subject;
+    const finalSubject = is_test ? `[TEST] ${subject}` : subject;
 
     console.log(`Sending email from: ${senderName} <${senderEmail}>`);
-    console.log(`Subject: ${subject}`);
+    console.log(`Subject: ${finalSubject}`);
     console.log(`SMTP Host: ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
 
     // Configure SMTP client
@@ -112,7 +139,7 @@ const handler = async (req: Request): Promise<Response> => {
     await client.send({
       from: `${senderName} <${senderEmail}>`,
       to: [email],
-      subject: subject,
+      subject: finalSubject,
       content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
       html: htmlContent,
       mimeContent: [
@@ -126,7 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     await client.close();
 
-    console.log("Email sent successfully to:", email);
+    console.log("Email sent successfully to:", email, "in language:", language);
 
     return new Response(
       JSON.stringify({ 
