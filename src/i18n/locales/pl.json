@@ -321,16 +321,27 @@
       "fuel": "Paliwo"
     },
     "paymentMethod": "Sposób rozliczenia",
+    "paymentMethodDescription": "Wybierz preferowany sposób otrzymywania wypłat",
     "paymentMethodTransfer": "Przelew bankowy",
     "paymentMethodCash": "Gotówka",
-    "iban": "Numer konta bankowego",
+    "iban": "Numer konta bankowego (IBAN)",
+    "noNotifications": "Brak nowych powiadomień",
+    "allNotificationsRead": "Wszystkie powiadomienia zostały przeczytane",
+    "markAsRead": "Oznacz jako przeczytane",
+    "info": {
+      "driver": "Kierowca"
+    },
     "cars": {
       "addCar": "Dodaj auto",
       "rentalHistory": "Historia wynajmów",
       "leasedCar": "Wynajęte auto",
       "productionYear": "Rok produkcji",
       "color": "Kolor",
-      "usingSince": "Od kiedy korzystasz z auta"
+      "usingSince": "Od kiedy korzystasz z auta",
+      "noAssignedVehicle": "Brak przypisanego pojazdu",
+      "contactAdmin": "Skontaktuj się z administratorem",
+      "noOwnCars": "Nie dodano jeszcze własnego auta",
+      "phoneForDriver": "Tel. dla kierowcy"
     },
     "documents": {
       "title": "Dokumenty",
@@ -340,14 +351,26 @@
       "chooseFile": "Wybierz plik",
       "noFileSelected": "Nie wybrano pliku",
       "noDocuments": "Brak dokumentów",
-      "contractRodo": "Umowa / RODO"
+      "contractRodo": "Umowa / RODO",
+      "uploading": "Przesyłanie...",
+      "uploaded": "Dokument został przesłany",
+      "download": "Pobierz",
+      "allDocuments": "Wszystkie dokumenty",
+      "sortByDate": "Sortuj po dacie",
+      "options": "Opcje dokumentów",
+      "drivingLicense": "Prawo jazdy",
+      "idCard": "Dowód osobisty",
+      "driverLicense": "Legitymacja kierowcy",
+      "medicalExam": "Badania lekarskie",
+      "otherDocument": "Inny dokument"
     }
   },
   "common": {
     "loading": "Ładowanie...",
     "driverPanel": "Panel kierowcy",
     "fleet": "Flota",
-    "supervisor": "Opiekun"
+    "supervisor": "Opiekun",
+    "contact": "Kontakt"
   },
   "admin": {
     "dashboard": "Panel Administratora",

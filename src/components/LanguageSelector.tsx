@@ -34,7 +34,7 @@ const LanguageSelector = () => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <Button
         variant="outline"
         size="sm"
@@ -46,19 +46,23 @@ const LanguageSelector = () => {
       </Button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 py-2 z-[100] min-w-[140px] bg-white dark:bg-gray-800 rounded-lg border border-border shadow-lg">
+        <div 
+          className="absolute top-full right-0 mt-2 py-2 min-w-[160px] bg-white dark:bg-gray-800 rounded-lg border border-border shadow-xl"
+          style={{ zIndex: 9999, pointerEvents: 'auto' }}
+        >
           {languages.map((language) => (
             <button
               key={language.code}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleLanguageChange(language.code);
-              }}
-              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 cursor-pointer ${
-                currentLanguage === language.code ? "bg-gray-100 dark:bg-gray-700" : ""
+              type="button"
+              onClick={() => handleLanguageChange(language.code)}
+              className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 cursor-pointer transition-colors ${
+                currentLanguage === language.code 
+                  ? "bg-primary/10 text-primary font-medium" 
+                  : "hover:bg-gray-100 dark:hover:bg-gray-700 text-foreground"
               }`}
+              style={{ pointerEvents: 'auto' }}
             >
-              <span>{language.flag}</span>
+              <span className="text-lg">{language.flag}</span>
               <span>{language.name}</span>
             </button>
           ))}

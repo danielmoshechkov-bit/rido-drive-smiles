@@ -321,16 +321,27 @@
       "fuel": "Паливо"
     },
     "paymentMethod": "Спосіб розрахунку",
+    "paymentMethodDescription": "Виберіть бажаний спосіб отримання виплат",
     "paymentMethodTransfer": "Банківський переказ",
     "paymentMethodCash": "Готівка",
-    "iban": "Номер банківського рахунку",
+    "iban": "Номер банківського рахунку (IBAN)",
+    "noNotifications": "Немає нових сповіщень",
+    "allNotificationsRead": "Усі сповіщення прочитані",
+    "markAsRead": "Позначити як прочитане",
+    "info": {
+      "driver": "Водій"
+    },
     "cars": {
       "addCar": "Додати авто",
       "rentalHistory": "Історія оренди",
       "leasedCar": "Орендований автомобіль",
       "productionYear": "Рік випуску",
       "color": "Колір",
-      "usingSince": "З якого часу користуєтесь авто"
+      "usingSince": "З якого часу користуєтесь авто",
+      "noAssignedVehicle": "Немає призначеного автомобіля",
+      "contactAdmin": "Зверніться до адміністратора",
+      "noOwnCars": "Власний автомобіль ще не додано",
+      "phoneForDriver": "Тел. для водія"
     },
     "documents": {
       "title": "Документи",
@@ -340,14 +351,26 @@
       "chooseFile": "Вибрати файл",
       "noFileSelected": "Файл не вибрано",
       "noDocuments": "Немає документів",
-      "contractRodo": "Договір / Персональні дані"
+      "contractRodo": "Договір / Персональні дані",
+      "uploading": "Завантаження...",
+      "uploaded": "Документ успішно завантажено",
+      "download": "Завантажити",
+      "allDocuments": "Усі документи",
+      "sortByDate": "Сортувати за датою",
+      "options": "Опції документів",
+      "drivingLicense": "Водійські права",
+      "idCard": "Посвідчення особи",
+      "driverLicense": "Посвідчення водія",
+      "medicalExam": "Медичний огляд",
+      "otherDocument": "Інший документ"
     }
   },
   "common": {
     "loading": "Завантаження...",
     "driverPanel": "Панель водія",
     "fleet": "Флот",
-    "supervisor": "Куратор"
+    "supervisor": "Куратор",
+    "contact": "Контакт"
   },
   "admin": {
     "dashboard": "Панель адміністратора",
