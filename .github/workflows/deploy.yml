@@ -30,6 +30,9 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Copy .htaccess to dist
+        run: cp public/.htaccess dist/.htaccess
+
       - name: Upload to nazwa.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
