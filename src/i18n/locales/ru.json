@@ -273,7 +273,11 @@
     "passwordResetError": "Ошибка при отправке ссылки",
     "enterEmail": "Введите ваш email",
     "enterNewPassword": "Введите новый пароль для вашего аккаунта",
-    "changePassword": "Изменить пароль"
+    "changePassword": "Изменить пароль",
+    "resetPasswordTitle": "Сброс пароля",
+    "resetPasswordDescription": "Введите свой адрес электронной почты, и мы отправим вам ссылку для сброса пароля",
+    "enterYourEmail": "Введите ваш email",
+    "sendResetLink": "Отправить ссылку для сброса"
   },
   "register": {
     "title": "Регистрация водителя",

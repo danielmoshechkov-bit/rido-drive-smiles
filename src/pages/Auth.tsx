@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,9 +19,11 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showTermsError, setShowTermsError] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -31,7 +34,6 @@ const Auth = () => {
     setShowTermsError(false);
     
     try {
-      // Logowanie przez Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -48,7 +50,6 @@ const Auth = () => {
         return;
       }
 
-      // Check user roles from user_roles table
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('role, fleet_id')
@@ -63,7 +64,6 @@ const Auth = () => {
       if (userRoles && userRoles.length > 0) {
         const roles = userRoles.map((r: any) => r.role);
         
-        // Priority: admin > fleet_settlement/fleet_rental > driver
         if (roles.includes('admin')) {
           navigate('/admin/dashboard');
           return;
@@ -76,7 +76,6 @@ const Auth = () => {
         }
       }
 
-      // No roles found - user needs to be configured
       alert('Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
       await supabase.auth.signOut();
     } catch (error) {
@@ -85,9 +84,36 @@ const Auth = () => {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast.error(t('auth.enterYourEmail'));
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-password-reset-email', {
+        body: { 
+          email: resetEmail,
+          language: i18n.language
+        }
+      });
+      if (error) {
+        toast.error(t('auth.passwordResetError'));
+      } else {
+        toast.success(t('auth.passwordResetEmailSent'));
+        setShowResetModal(false);
+        setResetEmail('');
+      }
+    } catch (err) {
+      console.error('Password reset error:', err);
+      toast.error(t('auth.passwordResetError'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 to-blue-50"
-    >
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 to-blue-50">
       {/* Background Animation with Mascots */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute top-[10%] left-[15%] h-8 w-8 animate-float-slow opacity-5" />
@@ -200,32 +226,7 @@ const Auth = () => {
             <div className="text-center space-y-2">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!email) {
-                    toast.error(t('auth.enterEmail'));
-                    return;
-                  }
-                  setIsLoading(true);
-                  try {
-                    const { error } = await supabase.functions.invoke('send-password-reset-email', {
-                      body: { 
-                        email,
-                        language: i18n.language
-                      }
-                    });
-                    if (error) {
-                      toast.error(t('auth.passwordResetError'));
-                    } else {
-                      toast.success(t('auth.passwordResetEmailSent'));
-                    }
-                  } catch (err) {
-                    console.error('Password reset error:', err);
-                    toast.error(t('auth.passwordResetError'));
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-                disabled={isLoading}
+                onClick={() => setShowResetModal(true)}
                 className="text-primary hover:underline text-sm block w-full"
               >
                 {t('auth.forgotPassword')}
@@ -240,6 +241,38 @@ const Auth = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Password Reset Modal */}
+      <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('auth.resetPasswordTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('auth.resetPasswordDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="reset-email">{t('auth.email')}</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder={t('auth.enterYourEmail')}
+                className="mt-1"
+              />
+            </div>
+            <Button 
+              onClick={handlePasswordReset}
+              className="w-full"
+              disabled={isLoading || !resetEmail}
+            >
+              {isLoading ? t('common.loading') : t('auth.sendResetLink')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

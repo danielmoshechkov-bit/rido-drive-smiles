@@ -273,7 +273,11 @@
     "passwordResetError": "Wystąpił błąd podczas wysyłania linku",
     "enterEmail": "Wpisz swój email",
     "enterNewPassword": "Wprowadź nowe hasło dla swojego konta",
-    "changePassword": "Zmień hasło"
+    "changePassword": "Zmień hasło",
+    "resetPasswordTitle": "Resetowanie hasła",
+    "resetPasswordDescription": "Wprowadź swój adres email, a wyślemy Ci link do zmiany hasła",
+    "enterYourEmail": "Wpisz swój email",
+    "sendResetLink": "Wyślij link do resetowania"
   },
   "register": {
     "title": "Rejestracja kierowcy",
