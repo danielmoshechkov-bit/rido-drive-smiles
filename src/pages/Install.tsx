@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Share, MoreVertical, Download, ArrowLeft, Home } from 'lucide-react';
@@ -8,6 +9,7 @@ type Platform = 'none' | 'android' | 'iphone';
 
 export default function Install() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('none');
@@ -58,37 +60,37 @@ export default function Install() {
             />
           </div>
           <CardTitle className="text-center text-2xl">
-            {isInstalled ? '✅ Aplikacja zainstalowana!' : '📱 Zainstaluj aplikację RIDO'}
+            {isInstalled ? t('install.alreadyInstalled') : t('install.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {isInstalled ? (
             <div className="text-center space-y-4">
               <p className="text-muted-foreground">
-                🎉 Aplikacja RIDO jest już zainstalowana na Twoim urządzeniu!
+                {t('install.installedMessage')}
               </p>
               <Button onClick={() => navigate('/')} className="w-full" size="lg">
                 <Home className="mr-2 h-5 w-5" />
-                Przejdź do aplikacji
+                {t('install.goToApp')}
               </Button>
             </div>
           ) : (
             <>
               <p className="text-center text-muted-foreground">
-                Zainstaluj aplikację na swoim telefonie i miej szybki dostęp do portalu kierowcy 🚗
+                {t('install.description')}
               </p>
 
               {deferredPrompt && (
                 <Button onClick={handleInstallClick} className="w-full" size="lg">
                   <Download className="mr-2 h-5 w-5" />
-                  ⚡ Zainstaluj teraz
+                  {t('install.installNow')}
                 </Button>
               )}
 
               {selectedPlatform === 'none' ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
-                    Wybierz swój system operacyjny:
+                    {t('install.selectPlatform')}
                   </p>
                   <div className="grid grid-cols-2 gap-4">
                     <button
@@ -126,7 +128,7 @@ export default function Install() {
                     onClick={() => setSelectedPlatform('none')}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
-                    Wróć do wyboru
+                    {t('install.backToSelection')}
                   </Button>
 
                   {selectedPlatform === 'android' && (
@@ -134,27 +136,27 @@ export default function Install() {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2 justify-center">
                           <span className="text-2xl">🤖</span>
-                          Instalacja na Android
+                          {t('install.androidTitle')}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="flex items-start gap-3">
                           <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
-                          <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce Chrome</p>
+                          <p className="text-sm">{t('install.androidStep1')}</p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
                           <p className="text-sm flex items-center gap-1 flex-wrap">
-                            Naciśnij <MoreVertical className="h-4 w-4 inline mx-1" /> (3 kropki) w prawym górnym rogu
+                            {t('install.androidStep2')} <MoreVertical className="h-4 w-4 inline mx-1" />
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
-                          <p className="text-sm">Wybierz <strong>"Dodaj do ekranu głównego"</strong> lub <strong>"Zainstaluj aplikację"</strong></p>
+                          <p className="text-sm">{t('install.androidStep3')}</p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                          <p className="text-sm">Potwierdź instalację ✅</p>
+                          <p className="text-sm">{t('install.androidStep4')}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -165,27 +167,27 @@ export default function Install() {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2 justify-center">
                           <span className="text-2xl">🍎</span>
-                          Instalacja na iPhone
+                          {t('install.iphoneTitle')}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="flex items-start gap-3">
                           <div className="bg-gray-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
-                          <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce <strong>Safari</strong> (nie Chrome!)</p>
+                          <p className="text-sm">{t('install.iphoneStep1')}</p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-gray-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
                           <p className="text-sm flex items-center gap-1 flex-wrap">
-                            Naciśnij <Share className="h-4 w-4 inline mx-1" /> (Udostępnij) na dolnym pasku
+                            {t('install.iphoneStep2')} <Share className="h-4 w-4 inline mx-1" />
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-gray-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
-                          <p className="text-sm">Przewiń w dół i wybierz <strong>"Dodaj do ekranu początkowego"</strong></p>
+                          <p className="text-sm">{t('install.iphoneStep3')}</p>
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="bg-gray-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                          <p className="text-sm">Naciśnij <strong>"Dodaj"</strong> w prawym górnym rogu ✅</p>
+                          <p className="text-sm">{t('install.iphoneStep4')}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -195,7 +197,7 @@ export default function Install() {
 
               <div className="pt-4 border-t">
                 <Button variant="outline" onClick={() => navigate('/')} className="w-full">
-                  Pomiń i przejdź do aplikacji
+                  {t('install.skip')}
                 </Button>
               </div>
             </>

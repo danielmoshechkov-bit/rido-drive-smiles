@@ -477,5 +477,34 @@
     "hideDetails": "Ukryj szczegóły",
     "sum": "SUMA",
     "noTransactions": "Brak transakcji paliwowych dla wybranego okresu"
+  },
+  "registerSuccess": {
+    "title": "Dziękujemy za rejestrację!",
+    "checkEmail": "Sprawdź swoją pocztę",
+    "emailSent": "Wysłaliśmy link aktywacyjny na podany adres e-mail. Kliknij w link, aby aktywować swoje konto.",
+    "downloadHint": "W międzyczasie pobierz naszą aplikację na smartfona",
+    "downloadApp": "Pobierz aplikację na smartfona",
+    "backHome": "Powrót do strony głównej"
+  },
+  "install": {
+    "title": "📱 Zainstaluj aplikację RIDO",
+    "alreadyInstalled": "✅ Aplikacja zainstalowana!",
+    "installedMessage": "🎉 Aplikacja RIDO jest już zainstalowana na Twoim urządzeniu!",
+    "goToApp": "Przejdź do aplikacji",
+    "description": "Zainstaluj aplikację na swoim telefonie i miej szybki dostęp do portalu kierowcy 🚗",
+    "installNow": "⚡ Zainstaluj teraz",
+    "selectPlatform": "Wybierz swój system operacyjny:",
+    "backToSelection": "Wróć do wyboru",
+    "androidTitle": "Instalacja na Android",
+    "androidStep1": "Otwórz getrido.pl w przeglądarce Chrome",
+    "androidStep2": "Naciśnij (3 kropki) w prawym górnym rogu",
+    "androidStep3": "Wybierz \"Dodaj do ekranu głównego\" lub \"Zainstaluj aplikację\"",
+    "androidStep4": "Potwierdź instalację ✅",
+    "iphoneTitle": "Instalacja na iPhone",
+    "iphoneStep1": "Otwórz getrido.pl w przeglądarce Safari (nie Chrome!)",
+    "iphoneStep2": "Naciśnij (Udostępnij) na dolnym pasku",
+    "iphoneStep3": "Przewiń w dół i wybierz \"Dodaj do ekranu początkowego\"",
+    "iphoneStep4": "Naciśnij \"Dodaj\" w prawym górnym rogu ✅",
+    "skip": "Pomiń i przejdź do aplikacji"
   }
 }

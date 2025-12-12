@@ -477,5 +477,34 @@
     "hideDetails": "Hide Details",
     "sum": "TOTAL",
     "noTransactions": "No fuel transactions for the selected period"
+  },
+  "registerSuccess": {
+    "title": "Thank you for registering!",
+    "checkEmail": "Check your email",
+    "emailSent": "We sent an activation link to your email address. Click the link to activate your account.",
+    "downloadHint": "In the meantime, download our mobile app",
+    "downloadApp": "Download mobile app",
+    "backHome": "Back to home page"
+  },
+  "install": {
+    "title": "📱 Install RIDO app",
+    "alreadyInstalled": "✅ App installed!",
+    "installedMessage": "🎉 RIDO app is already installed on your device!",
+    "goToApp": "Go to app",
+    "description": "Install the app on your phone and get quick access to driver portal 🚗",
+    "installNow": "⚡ Install now",
+    "selectPlatform": "Select your operating system:",
+    "backToSelection": "Back to selection",
+    "androidTitle": "Install on Android",
+    "androidStep1": "Open getrido.pl in Chrome browser",
+    "androidStep2": "Tap (3 dots) in the top right corner",
+    "androidStep3": "Select \"Add to Home screen\" or \"Install app\"",
+    "androidStep4": "Confirm installation ✅",
+    "iphoneTitle": "Install on iPhone",
+    "iphoneStep1": "Open getrido.pl in Safari browser (not Chrome!)",
+    "iphoneStep2": "Tap (Share) on the bottom bar",
+    "iphoneStep3": "Scroll down and select \"Add to Home Screen\"",
+    "iphoneStep4": "Tap \"Add\" in the top right corner ✅",
+    "skip": "Skip and go to app"
   }
 }
