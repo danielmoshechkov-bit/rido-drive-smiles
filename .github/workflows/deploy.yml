@@ -55,3 +55,4 @@ jobs:
           password: ${{secrets.FTP_PASSWORD}}
           server-dir: /migracja/public_html/getrido/
           local-dir: ./dist/
+          dangerous-clean-slate: true
