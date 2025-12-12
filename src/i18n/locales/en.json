@@ -273,7 +273,11 @@
     "passwordResetError": "Error sending reset link",
     "enterEmail": "Enter your email",
     "enterNewPassword": "Enter a new password for your account",
-    "changePassword": "Change Password"
+    "changePassword": "Change Password",
+    "resetPasswordTitle": "Reset password",
+    "resetPasswordDescription": "Enter your email address and we will send you a link to reset your password",
+    "enterYourEmail": "Enter your email",
+    "sendResetLink": "Send reset link"
   },
   "register": {
     "title": "Driver Registration",

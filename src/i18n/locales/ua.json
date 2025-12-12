@@ -273,7 +273,11 @@
     "passwordResetError": "Помилка при надсиланні посилання",
     "enterEmail": "Введіть ваш email",
     "enterNewPassword": "Введіть новий пароль для вашого облікового запису",
-    "changePassword": "Змінити пароль"
+    "changePassword": "Змінити пароль",
+    "resetPasswordTitle": "Скидання пароля",
+    "resetPasswordDescription": "Введіть свою електронну адресу, і ми надішлемо вам посилання для зміни пароля",
+    "enterYourEmail": "Введіть вашу пошту",
+    "sendResetLink": "Надіслати посилання для скидання"
   },
   "register": {
     "title": "Реєстрація водія",
