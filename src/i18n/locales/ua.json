@@ -277,7 +277,16 @@
     "resetPasswordTitle": "Скидання пароля",
     "resetPasswordDescription": "Введіть свою електронну адресу, і ми надішлемо вам посилання для зміни пароля",
     "enterYourEmail": "Введіть вашу пошту",
-    "sendResetLink": "Надіслати посилання для скидання"
+    "sendResetLink": "Надіслати посилання для скидання",
+    "samePasswordError": "Новий пароль не може співпадати зі старим",
+    "invalidResetLink": "Посилання для скидання пароля недійсне або застаріло",
+    "backToLogin": "Повернутися до входу",
+    "passwordRequirementsNotMet": "Пароль не відповідає всім вимогам",
+    "minLength": "Мінімум 8 символів",
+    "hasUppercase": "Велика літера",
+    "hasLowercase": "Мала літера",
+    "hasNumber": "Цифра",
+    "hasSpecialChar": "Спеціальний символ"
   },
   "register": {
     "title": "Реєстрація водія",
