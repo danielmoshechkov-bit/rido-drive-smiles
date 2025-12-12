@@ -258,6 +258,51 @@
     "passwordsDontMatch": "Passwords don't match",
     "logout": "Logout"
   },
+  "register": {
+    "title": "Driver Registration",
+    "subtitle": "Join our platform",
+    "requiredFields": "Fields marked with * are required",
+    "firstName": "First Name",
+    "firstNamePlaceholder": "Enter first name",
+    "lastName": "Last Name",
+    "lastNamePlaceholder": "Enter last name",
+    "email": "E-mail",
+    "emailPlaceholder": "your@email.com",
+    "phone": "Phone",
+    "phonePlaceholder": "+48 123 456 789",
+    "city": "City",
+    "selectCity": "Select city",
+    "paymentMethod": "Payment Method",
+    "bankTransfer": "Bank Transfer",
+    "cash": "Cash",
+    "cashInfo": "Cash available for pickup every Tuesday at our office",
+    "iban": "Bank Account Number (IBAN)",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Repeat password",
+    "passwordRequirements": "Password requirements",
+    "minLength": "Minimum 8 characters",
+    "uppercase": "Uppercase letter",
+    "lowercase": "Lowercase letter",
+    "number": "Number",
+    "specialChar": "Special character",
+    "passwordsMatch": "Passwords match",
+    "rodo": "I accept the personal data processing rules (GDPR)",
+    "terms": "I accept the platform terms of use",
+    "submit": "Register",
+    "loading": "Registering...",
+    "hasAccount": "Already have an account?",
+    "login": "Log in",
+    "fillAllFields": "Fill in all required fields marked with *",
+    "ibanRequired": "Enter bank account number (IBAN)",
+    "passwordInvalid": "Password does not meet requirements",
+    "passwordsMismatch": "Passwords do not match",
+    "acceptRequired": "Accept required consents",
+    "success": "Registration complete! Check your email.",
+    "error": "An error occurred during registration. Please try again.",
+    "emailExists": "This email is already registered. Log in or use a different address."
+  },
   "driver": {
     "tabs": {
       "settlements": "Weekly Settlements",
@@ -269,6 +314,10 @@
       "mySettlements": "My Settlements",
       "fuel": "Fuel"
     },
+    "paymentMethod": "Payment Method",
+    "paymentMethodTransfer": "Bank Transfer",
+    "paymentMethodCash": "Cash",
+    "iban": "Bank Account Number",
     "cars": {
       "addCar": "Add Car",
       "rentalHistory": "Rental History",
@@ -287,6 +336,12 @@
       "noDocuments": "No Documents",
       "contractRodo": "Contract / GDPR"
     }
+  },
+  "common": {
+    "loading": "Loading...",
+    "driverPanel": "Driver Panel",
+    "fleet": "Fleet",
+    "supervisor": "Supervisor"
   },
   "admin": {
     "dashboard": "Admin Dashboard",
@@ -315,7 +370,11 @@
     "calendar": "Calendar",
     "weeklySettlement": "Weekly Settlement",
     "mondayToSunday": "Monday - Sunday",
-    "nextMondaySettlement": "Settlement on next Monday"
+    "nextMondaySettlement": "Settlement on next Monday",
+    "generateTransfers": "Generate Transfers",
+    "generateCashPayouts": "Generate Cash Payouts List",
+    "transfersGenerated": "Transfers list generated",
+    "cashPayoutsGenerated": "Cash payouts list generated"
   },
   "weekly": {
     "title": "Weekly Results",

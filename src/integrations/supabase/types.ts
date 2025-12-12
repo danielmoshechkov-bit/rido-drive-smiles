@@ -695,6 +695,7 @@ export type Database = {
           last_name: string | null
           payment_method: string | null
           phone: string | null
+          preferred_language: string | null
           registration_date: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
@@ -714,6 +715,7 @@ export type Database = {
           last_name?: string | null
           payment_method?: string | null
           phone?: string | null
+          preferred_language?: string | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -733,6 +735,7 @@ export type Database = {
           last_name?: string | null
           payment_method?: string | null
           phone?: string | null
+          preferred_language?: string | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -759,7 +762,15 @@ export type Database = {
           created_at: string | null
           id: string
           registration_subject: string | null
+          registration_subject_en: string | null
+          registration_subject_kz: string | null
+          registration_subject_ru: string | null
+          registration_subject_ua: string | null
           registration_template: string | null
+          registration_template_en: string | null
+          registration_template_kz: string | null
+          registration_template_ru: string | null
+          registration_template_ua: string | null
           sender_email: string | null
           sender_name: string | null
           smtp_host: string | null
@@ -773,7 +784,15 @@ export type Database = {
           created_at?: string | null
           id?: string
           registration_subject?: string | null
+          registration_subject_en?: string | null
+          registration_subject_kz?: string | null
+          registration_subject_ru?: string | null
+          registration_subject_ua?: string | null
           registration_template?: string | null
+          registration_template_en?: string | null
+          registration_template_kz?: string | null
+          registration_template_ru?: string | null
+          registration_template_ua?: string | null
           sender_email?: string | null
           sender_name?: string | null
           smtp_host?: string | null
@@ -787,7 +806,15 @@ export type Database = {
           created_at?: string | null
           id?: string
           registration_subject?: string | null
+          registration_subject_en?: string | null
+          registration_subject_kz?: string | null
+          registration_subject_ru?: string | null
+          registration_subject_ua?: string | null
           registration_template?: string | null
+          registration_template_en?: string | null
+          registration_template_kz?: string | null
+          registration_template_ru?: string | null
+          registration_template_ua?: string | null
           sender_email?: string | null
           sender_name?: string | null
           smtp_host?: string | null

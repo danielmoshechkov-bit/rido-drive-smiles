@@ -8,10 +8,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Check, X, Banknote, CreditCard } from "lucide-react";
+import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+const languages = [
+  { code: "pl", label: "Polski", flag: "🇵🇱" },
+  { code: "en", label: "English", flag: "🇬🇧" },
+  { code: "ru", label: "Русский", flag: "🇷🇺" },
+  { code: "ua", label: "Українська", flag: "🇺🇦" },
+  { code: "kz", label: "Қазақша", flag: "🇰🇿" },
+];
 
 export default function DriverRegister() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,6 +35,7 @@ export default function DriverRegister() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || "pl");
   
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer");
@@ -50,26 +61,30 @@ export default function DriverRegister() {
     loadCities();
   }, []);
 
+  const handleLanguageChange = (langCode: string) => {
+    setSelectedLanguage(langCode);
+    i18n.changeLanguage(langCode);
+  };
+
   const submit = async () => {
     if (!firstName || !lastName || !email || !phone || !cityId || !password) {
-      return toast.error("Uzupełnij wszystkie pola oznaczone *");
+      return toast.error(t("register.fillAllFields"));
     }
     if (paymentMethod === "transfer" && !iban) {
-      return toast.error("Podaj numer konta bankowego (IBAN)");
+      return toast.error(t("register.ibanRequired"));
     }
     if (!isPasswordValid) {
-      return toast.error("Hasło nie spełnia wymagań");
+      return toast.error(t("register.passwordInvalid"));
     }
     if (!passwordsMatch) {
-      return toast.error("Hasła nie są identyczne");
+      return toast.error(t("register.passwordsMismatch"));
     }
     if (!rodo || !terms) {
-      return toast.error("Zaznacz wymagane zgody");
+      return toast.error(t("register.acceptRequired"));
     }
 
     setLoading(true);
     try {
-      // Użyj fetch bezpośrednio dla lepszej obsługi błędów
       const response = await fetch(
         'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/register-driver',
         {
@@ -86,7 +101,8 @@ export default function DriverRegister() {
             city_id: cityId,
             password,
             payment_method: paymentMethod,
-            iban: paymentMethod === "transfer" ? iban : null
+            iban: paymentMethod === "transfer" ? iban : null,
+            language: selectedLanguage
           })
         }
       );
@@ -94,25 +110,22 @@ export default function DriverRegister() {
       const result = await response.json();
 
       if (!response.ok || result.error) {
-        // Pokaż szczegółowy komunikat błędu
-        let errorMessage = result.error || "Wystąpił błąd podczas rejestracji";
+        let errorMessage = result.error || t("register.error");
         
-        // Przetłumacz znane błędy
         if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
-          errorMessage = "Ten adres email jest już zarejestrowany. Zaloguj się lub użyj innego adresu.";
+          errorMessage = t("register.emailExists");
         }
         
         toast.error(errorMessage);
         return;
       }
 
-      // Navigate to success page
-      toast.success("Rejestracja zakończona! Sprawdź email.");
+      toast.success(t("register.success"));
       navigate("/register-success");
 
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error("Wystąpił błąd podczas rejestracji. Spróbuj ponownie.");
+      toast.error(t("register.error"));
     } finally {
       setLoading(false);
     }
@@ -123,26 +136,47 @@ export default function DriverRegister() {
       <div className="container mx-auto max-w-2xl">
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl">Rejestracja kierowcy</CardTitle>
-            <p className="text-muted-foreground">Dołącz do naszej platformy</p>
-            <p className="text-xs text-muted-foreground mt-2">Pola oznaczone * są wymagane</p>
+            {/* Language selector */}
+            <div className="flex justify-end mb-4">
+              <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-1">
+                <Globe className="h-4 w-4 text-muted-foreground ml-2" />
+                {languages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`px-2 py-1 rounded text-sm transition-all ${
+                      selectedLanguage === lang.code
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    }`}
+                    title={lang.label}
+                  >
+                    {lang.flag}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <CardTitle className="text-3xl">{t("register.title")}</CardTitle>
+            <p className="text-muted-foreground">{t("register.subtitle")}</p>
+            <p className="text-xs text-muted-foreground mt-2">{t("register.requiredFields")}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="firstName">Imię *</Label>
+                <Label htmlFor="firstName">{t("register.firstName")} *</Label>
                 <Input
                   id="firstName"
-                  placeholder="Wprowadź imię"
+                  placeholder={t("register.firstNamePlaceholder")}
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="lastName">Nazwisko *</Label>
+                <Label htmlFor="lastName">{t("register.lastName")} *</Label>
                 <Input
                   id="lastName"
-                  placeholder="Wprowadź nazwisko"
+                  placeholder={t("register.lastNamePlaceholder")}
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                 />
@@ -150,10 +184,10 @@ export default function DriverRegister() {
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="email">E-mail *</Label>
+              <Label htmlFor="email">{t("register.email")} *</Label>
               <Input
                 id="email"
-                placeholder="twoj@email.pl"
+                placeholder={t("register.emailPlaceholder")}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -161,24 +195,24 @@ export default function DriverRegister() {
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="phone">Telefon *</Label>
+              <Label htmlFor="phone">{t("register.phone")} *</Label>
               <Input
                 id="phone"
-                placeholder="+48 123 456 789"
+                placeholder={t("register.phonePlaceholder")}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="city">Miasto *</Label>
+              <Label htmlFor="city">{t("register.city")} *</Label>
               <select
                 id="city"
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                 value={cityId}
                 onChange={(e) => setCityId(e.target.value)}
               >
-                <option value="">Wybierz miasto</option>
+                <option value="">{t("register.selectCity")}</option>
                 {cities.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -187,7 +221,7 @@ export default function DriverRegister() {
             
             {/* Sposób rozliczenia */}
             <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
-              <Label className="text-base font-semibold">Sposób rozliczenia *</Label>
+              <Label className="text-base font-semibold">{t("register.paymentMethod")} *</Label>
               <RadioGroup
                 value={paymentMethod}
                 onValueChange={(v) => setPaymentMethod(v as "transfer" | "cash")}
@@ -201,7 +235,7 @@ export default function DriverRegister() {
                   <RadioGroupItem value="transfer" id="transfer" />
                   <Label htmlFor="transfer" className="flex items-center gap-2 cursor-pointer">
                     <CreditCard className="h-4 w-4" />
-                    Przelew bankowy
+                    {t("register.bankTransfer")}
                   </Label>
                 </div>
                 <div className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
@@ -212,14 +246,14 @@ export default function DriverRegister() {
                   <RadioGroupItem value="cash" id="cash" />
                   <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer">
                     <Banknote className="h-4 w-4" />
-                    Gotówka
+                    {t("register.cash")}
                   </Label>
                 </div>
               </RadioGroup>
               
               {paymentMethod === "transfer" && (
                 <div className="space-y-1 mt-3">
-                  <Label htmlFor="iban">Numer konta bankowego (IBAN) *</Label>
+                  <Label htmlFor="iban">{t("register.iban")} *</Label>
                   <Input
                     id="iban"
                     placeholder="PL00 0000 0000 0000 0000 0000 0000"
@@ -233,7 +267,7 @@ export default function DriverRegister() {
                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
                     <Banknote className="h-4 w-4 flex-shrink-0" />
-                    Gotówka do odbioru w każdy wtorek w naszym biurze
+                    {t("register.cashInfo")}
                   </p>
                 </div>
               )}
@@ -241,11 +275,11 @@ export default function DriverRegister() {
             
             <div className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="password">Hasło *</Label>
+                <Label htmlFor="password">{t("register.password")} *</Label>
                 <div className="relative">
                   <Input
                     id="password"
-                    placeholder="Wprowadź hasło"
+                    placeholder={t("register.passwordPlaceholder")}
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -262,11 +296,11 @@ export default function DriverRegister() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="confirmPassword">Powtórz hasło *</Label>
+                <Label htmlFor="confirmPassword">{t("register.confirmPassword")} *</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
-                    placeholder="Powtórz hasło"
+                    placeholder={t("register.confirmPasswordPlaceholder")}
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -284,33 +318,33 @@ export default function DriverRegister() {
 
               {password && (
                 <div className="bg-muted/50 p-3 rounded-md space-y-2">
-                  <p className="text-sm font-medium">Wymagania hasła:</p>
+                  <p className="text-sm font-medium">{t("register.passwordRequirements")}:</p>
                   <div className="grid grid-cols-1 gap-1 text-xs">
                     <div className={`flex items-center gap-2 ${passwordRequirements.minLength ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordRequirements.minLength ? <Check size={12} /> : <X size={12} />}
-                      Minimum 8 znaków
+                      {t("register.minLength")}
                     </div>
                     <div className={`flex items-center gap-2 ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordRequirements.hasUppercase ? <Check size={12} /> : <X size={12} />}
-                      Duża litera
+                      {t("register.uppercase")}
                     </div>
                     <div className={`flex items-center gap-2 ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordRequirements.hasLowercase ? <Check size={12} /> : <X size={12} />}
-                      Mała litera
+                      {t("register.lowercase")}
                     </div>
                     <div className={`flex items-center gap-2 ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordRequirements.hasNumber ? <Check size={12} /> : <X size={12} />}
-                      Cyfra
+                      {t("register.number")}
                     </div>
                     <div className={`flex items-center gap-2 ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordRequirements.hasSpecialChar ? <Check size={12} /> : <X size={12} />}
-                      Znak specjalny
+                      {t("register.specialChar")}
                     </div>
                   </div>
                   {confirmPassword && (
                     <div className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : 'text-red-500'}`}>
                       {passwordsMatch ? <Check size={12} /> : <X size={12} />}
-                      Hasła są identyczne
+                      {t("register.passwordsMatch")}
                     </div>
                   )}
                 </div>
@@ -323,7 +357,7 @@ export default function DriverRegister() {
                   checked={rodo} 
                   onCheckedChange={(v) => setRodo(Boolean(v))}
                 />
-                Akceptuję zasady przetwarzania danych osobowych (RODO) *
+                {t("register.rodo")} *
               </label>
               
               <label className="flex items-center gap-2 text-sm">
@@ -331,7 +365,7 @@ export default function DriverRegister() {
                   checked={terms} 
                   onCheckedChange={(v) => setTerms(Boolean(v))}
                 />
-                Akceptuję regulamin korzystania z platformy *
+                {t("register.terms")} *
               </label>
             </div>
 
@@ -340,11 +374,11 @@ export default function DriverRegister() {
               className="w-full"
               disabled={loading || !isPasswordValid || !passwordsMatch}
             >
-              {loading ? "Rejestrowanie..." : "Zarejestruj się"}
+              {loading ? t("register.loading") : t("register.submit")}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground">
-              Masz już konto? <a href="/auth" className="text-primary hover:underline">Zaloguj się</a>
+              {t("register.hasAccount")} <a href="/auth" className="text-primary hover:underline">{t("register.login")}</a>
             </div>
           </CardContent>
         </Card>
