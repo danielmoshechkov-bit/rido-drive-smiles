@@ -244,28 +244,32 @@ const Auth = () => {
 
       {/* Password Reset Modal */}
       <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('auth.resetPasswordTitle')}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[400px] p-6 bg-background">
+          <DialogHeader className="space-y-3 text-center">
+            <DialogTitle className="text-xl font-semibold text-foreground">
+              {t('auth.resetPasswordTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
               {t('auth.resetPasswordDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="reset-email">{t('auth.email')}</Label>
+          <div className="space-y-5 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email" className="text-sm font-medium">
+                {t('auth.email')}
+              </Label>
               <Input
                 id="reset-email"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 placeholder={t('auth.enterYourEmail')}
-                className="mt-1"
+                className="h-10"
               />
             </div>
             <Button 
               onClick={handlePasswordReset}
-              className="w-full"
+              className="w-full h-10"
               disabled={isLoading || !resetEmail}
             >
               {isLoading ? t('common.loading') : t('auth.sendResetLink')}
