@@ -121,20 +121,59 @@ export function FleetTabManagement({ cityId }: { cityId: string }) {
   };
 
   const deleteFleet = async (id: string) => {
-    if (!confirm("Czy na pewno chcesz usunąć tę flotę?")) return;
+    if (!confirm("Czy na pewno chcesz usunąć tę flotę? Wszyscy kierowcy i pojazdy zostaną od niej odłączeni.")) return;
 
-    const { error } = await supabase
-      .from("fleets")
-      .delete()
-      .eq("id", id);
+    try {
+      // 1. Odpnij kierowców od floty
+      await supabase
+        .from("drivers")
+        .update({ fleet_id: null })
+        .eq("fleet_id", id);
 
-    if (error) {
-      toast.error(error.message);
-      return;
+      // 2. Odpnij pojazdy od floty
+      await supabase
+        .from("vehicles")
+        .update({ fleet_id: null })
+        .eq("fleet_id", id);
+
+      // 3. Usuń przypisania kierowców do pojazdów w tej flocie
+      await supabase
+        .from("driver_vehicle_assignments")
+        .delete()
+        .eq("fleet_id", id);
+
+      // 4. Usuń zaproszenia flotowe
+      await supabase
+        .from("fleet_invitations")
+        .delete()
+        .eq("fleet_id", id);
+
+      // 5. Usuń delegowane role
+      await supabase
+        .from("fleet_delegated_roles")
+        .delete()
+        .eq("fleet_id", id);
+
+      // 6. Usuń konta użytkowników flotowych
+      await supabase
+        .from("user_roles")
+        .delete()
+        .eq("fleet_id", id);
+
+      // 7. Teraz usuń flotę
+      const { error } = await supabase
+        .from("fleets")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Usunięto flotę");
+      fetchFleets();
+    } catch (error: any) {
+      console.error("Error deleting fleet:", error);
+      toast.error("Błąd podczas usuwania floty: " + (error.message || "Nieznany błąd"));
     }
-
-    toast.success("Usunięto flotę");
-    fetchFleets();
   };
 
   const toggleExpanded = (fleetId: string) => {

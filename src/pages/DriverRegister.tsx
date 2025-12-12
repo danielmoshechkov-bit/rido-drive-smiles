@@ -69,27 +69,40 @@ export default function DriverRegister() {
 
     setLoading(true);
     try {
-      // Wywołaj Edge Function która pomija RLS używając service role key
-      const { data, error } = await supabase.functions.invoke('register-driver', {
-        body: {
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          phone,
-          city_id: cityId,
-          password,
-          payment_method: paymentMethod,
-          iban: paymentMethod === "transfer" ? iban : null
+      // Użyj fetch bezpośrednio dla lepszej obsługi błędów
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-driver`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            phone,
+            city_id: cityId,
+            password,
+            payment_method: paymentMethod,
+            iban: paymentMethod === "transfer" ? iban : null
+          })
         }
-      });
+      );
 
-      if (error) {
-        toast.error(error.message || "Wystąpił błąd podczas rejestracji");
-        return;
-      }
+      const result = await response.json();
 
-      if (data?.error) {
-        toast.error(data.error);
+      if (!response.ok || result.error) {
+        // Pokaż szczegółowy komunikat błędu
+        let errorMessage = result.error || "Wystąpił błąd podczas rejestracji";
+        
+        // Przetłumacz znane błędy
+        if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
+          errorMessage = "Ten adres email jest już zarejestrowany. Zaloguj się lub użyj innego adresu.";
+        }
+        
+        toast.error(errorMessage);
         return;
       }
 
@@ -97,8 +110,9 @@ export default function DriverRegister() {
       toast.success("Rejestracja zakończona! Sprawdź email.");
       navigate("/register-success");
 
-    } catch (error) {
-      toast.error("Wystąpił błąd podczas rejestracji");
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast.error("Wystąpił błąd podczas rejestracji. Spróbuj ponownie.");
     } finally {
       setLoading(false);
     }
