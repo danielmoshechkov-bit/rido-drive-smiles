@@ -47,16 +47,6 @@ jobs:
           echo "=== dist/assets/ ==="
           ls -la dist/assets/ | head -20 || echo "No assets folder!"
 
-      - name: Clean remote directory before upload
-        uses: StephanThierry/ftp-delete-action@v2.1
-        with:
-          host: ${{secrets.FTP_SERVER}}
-          user: ${{secrets.FTP_USERNAME}}
-          password: ${{secrets.FTP_PASSWORD}}
-          remoteFiles: "/migracja/public_html/getrido/*"
-          workingDir: "/"
-          ignoreSSL: "1"
-
       - name: Upload to nazwa.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
