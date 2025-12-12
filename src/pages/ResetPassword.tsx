@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,39 +8,88 @@ import { Label } from "@/components/ui/label";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
 
 const ResetPassword = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSessionValid, setIsSessionValid] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if we have a valid recovery session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsSessionValid(true);
-      } else {
-        // Wait for the auth state to change (recovery link processing)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+    const initializeSession = async () => {
+      setIsCheckingSession(true);
+      setErrorMessage(null);
+      
+      try {
+        // Parse hash fragment for tokens (Supabase sends tokens in hash)
+        const hashParams = new URLSearchParams(location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+        
+        console.log('Reset password - hash params:', { hasAccessToken: !!accessToken, type });
+        
+        // If we have tokens in the URL, set the session
+        if (accessToken && type === 'recovery') {
+          console.log('Found recovery tokens, setting session...');
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          
+          if (error) {
+            console.error('Error setting session:', error);
+            setErrorMessage(t('auth.invalidResetLink'));
+          } else if (data.session) {
+            console.log('Session set successfully');
             setIsSessionValid(true);
           }
-        });
-        
-        // Clean up subscription on unmount
-        return () => subscription.unsubscribe();
+        } else {
+          // Check if we already have an active session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('Existing session found');
+            setIsSessionValid(true);
+          } else {
+            // Set up listener for auth state changes
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+              console.log('Auth state changed:', event);
+              if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+                setIsSessionValid(true);
+                setIsCheckingSession(false);
+              }
+            });
+            
+            // Timeout after 5 seconds if no session established
+            setTimeout(() => {
+              if (!isSessionValid) {
+                console.log('Session timeout - no valid session found');
+                setErrorMessage(t('auth.invalidResetLink'));
+                setIsCheckingSession(false);
+              }
+            }, 5000);
+            
+            return () => subscription.unsubscribe();
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing session:', error);
+        setErrorMessage(t('auth.invalidResetLink'));
+      } finally {
+        setIsCheckingSession(false);
       }
     };
     
-    checkSession();
-  }, []);
+    initializeSession();
+  }, [location.hash, t]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,9 +168,35 @@ const ResetPassword = () => {
             </p>
           </CardHeader>
           <CardContent>
-            {!isSessionValid ? (
+            {isCheckingSession ? (
               <div className="text-center py-4">
                 <p className="text-muted-foreground">{t('common.loading')}...</p>
+              </div>
+            ) : errorMessage ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="flex justify-center">
+                  <div className="p-3 rounded-full bg-destructive/10">
+                    <AlertCircle className="h-8 w-8 text-destructive" />
+                  </div>
+                </div>
+                <p className="text-destructive">{errorMessage}</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/auth')}
+                  className="mt-4"
+                >
+                  {t('auth.backToLogin')}
+                </Button>
+              </div>
+            ) : !isSessionValid ? (
+              <div className="text-center py-4 space-y-4">
+                <p className="text-muted-foreground">{t('auth.invalidResetLink')}</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/auth')}
+                >
+                  {t('auth.backToLogin')}
+                </Button>
               </div>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
