@@ -761,6 +761,16 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          password_reset_subject: string | null
+          password_reset_subject_en: string | null
+          password_reset_subject_kz: string | null
+          password_reset_subject_ru: string | null
+          password_reset_subject_ua: string | null
+          password_reset_template: string | null
+          password_reset_template_en: string | null
+          password_reset_template_kz: string | null
+          password_reset_template_ru: string | null
+          password_reset_template_ua: string | null
           registration_subject: string | null
           registration_subject_en: string | null
           registration_subject_kz: string | null
@@ -783,6 +793,16 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          password_reset_subject?: string | null
+          password_reset_subject_en?: string | null
+          password_reset_subject_kz?: string | null
+          password_reset_subject_ru?: string | null
+          password_reset_subject_ua?: string | null
+          password_reset_template?: string | null
+          password_reset_template_en?: string | null
+          password_reset_template_kz?: string | null
+          password_reset_template_ru?: string | null
+          password_reset_template_ua?: string | null
           registration_subject?: string | null
           registration_subject_en?: string | null
           registration_subject_kz?: string | null
@@ -805,6 +825,16 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          password_reset_subject?: string | null
+          password_reset_subject_en?: string | null
+          password_reset_subject_kz?: string | null
+          password_reset_subject_ru?: string | null
+          password_reset_subject_ua?: string | null
+          password_reset_template?: string | null
+          password_reset_template_en?: string | null
+          password_reset_template_kz?: string | null
+          password_reset_template_ru?: string | null
+          password_reset_template_ua?: string | null
           registration_subject?: string | null
           registration_subject_en?: string | null
           registration_subject_kz?: string | null

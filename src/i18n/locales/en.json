@@ -262,7 +262,18 @@
     "termsAndPrivacy": "the terms and privacy policy",
     "mustAcceptTerms": "You must accept the terms to log in",
     "forgotPassword": "Forgot your password?",
-    "noAccount": "Don't have an account? Register as a driver"
+    "noAccount": "Don't have an account? Register as a driver",
+    "resetPassword": "Reset Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordResetSuccess": "Password changed successfully",
+    "passwordResetFailed": "Failed to change password",
+    "passwordResetEmailSent": "Password reset link has been sent to your email",
+    "passwordResetError": "Error sending reset link",
+    "enterEmail": "Enter your email",
+    "enterNewPassword": "Enter a new password for your account",
+    "changePassword": "Change Password"
   },
   "register": {
     "title": "Driver Registration",

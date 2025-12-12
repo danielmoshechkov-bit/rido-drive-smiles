@@ -262,7 +262,18 @@
     "termsAndPrivacy": "regulamin i politykę prywatności",
     "mustAcceptTerms": "Musisz zaakceptować regulamin, aby się zalogować",
     "forgotPassword": "Zapomniałeś hasła?",
-    "noAccount": "Nie masz konta? Zarejestruj się jako kierowca"
+    "noAccount": "Nie masz konta? Zarejestruj się jako kierowca",
+    "resetPassword": "Zresetuj hasło",
+    "newPassword": "Nowe hasło",
+    "confirmNewPassword": "Potwierdź nowe hasło",
+    "passwordsDoNotMatch": "Hasła nie są identyczne",
+    "passwordResetSuccess": "Hasło zostało zmienione pomyślnie",
+    "passwordResetFailed": "Nie udało się zmienić hasła",
+    "passwordResetEmailSent": "Link do resetowania hasła został wysłany na Twój email",
+    "passwordResetError": "Wystąpił błąd podczas wysyłania linku",
+    "enterEmail": "Wpisz swój email",
+    "enterNewPassword": "Wprowadź nowe hasło dla swojego konta",
+    "changePassword": "Zmień hasło"
   },
   "register": {
     "title": "Rejestracja kierowcy",

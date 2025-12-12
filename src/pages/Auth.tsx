@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -201,18 +202,27 @@ const Auth = () => {
                 type="button"
                 onClick={async () => {
                   if (!email) {
-                    toast.error('Wpisz swój email');
+                    toast.error(t('auth.enterEmail'));
                     return;
                   }
                   setIsLoading(true);
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/auth`,
-                  });
-                  setIsLoading(false);
-                  if (error) {
-                    toast.error('Błąd: ' + error.message);
-                  } else {
-                    toast.success('Link do resetowania hasła został wysłany na ' + email);
+                  try {
+                    const { error } = await supabase.functions.invoke('send-password-reset-email', {
+                      body: { 
+                        email,
+                        language: i18n.language
+                      }
+                    });
+                    if (error) {
+                      toast.error(t('auth.passwordResetError'));
+                    } else {
+                      toast.success(t('auth.passwordResetEmailSent'));
+                    }
+                  } catch (err) {
+                    console.error('Password reset error:', err);
+                    toast.error(t('auth.passwordResetError'));
+                  } finally {
+                    setIsLoading(false);
                   }
                 }}
                 disabled={isLoading}
