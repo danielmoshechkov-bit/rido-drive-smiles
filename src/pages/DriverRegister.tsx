@@ -69,127 +69,32 @@ export default function DriverRegister() {
 
     setLoading(true);
     try {
-      // Rejestracja użytkownika
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin + "/driver",
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone
-          }
+      // Wywołaj Edge Function która pomija RLS używając service role key
+      const { data, error } = await supabase.functions.invoke('register-driver', {
+        body: {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone,
+          city_id: cityId,
+          password,
+          payment_method: paymentMethod,
+          iban: paymentMethod === "transfer" ? iban : null
         }
       });
 
-      if (signUpError) {
-        toast.error(signUpError.message);
+      if (error) {
+        toast.error(error.message || "Wystąpił błąd podczas rejestracji");
         return;
       }
 
-      // Szukaj kierowcy po EMAIL lub TELEFONIE
-      let driverId: string | undefined;
-      const { data: existingByEmail } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-      const { data: existingByPhone } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("phone", phone)
-        .maybeSingle();
-
-      const existing = existingByEmail || existingByPhone;
-
-      if (existing?.id) {
-        driverId = existing.id;
-        // Zaktualizuj istniejący rekord z wszystkimi danymi
-        await supabase
-          .from("drivers")
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone,
-            email: email,
-            city_id: cityId,
-            payment_method: paymentMethod,
-            iban: paymentMethod === "transfer" ? iban : null,
-            registration_date: new Date().toISOString()
-          })
-          .eq("id", driverId);
-      } else {
-        // Utwórz nowy rekord
-        const { data: newDriver, error: driverError } = await supabase
-          .from("drivers")
-          .insert([{
-            first_name: firstName,
-            last_name: lastName,
-            email: email,
-            phone: phone,
-            city_id: cityId,
-            payment_method: paymentMethod,
-            iban: paymentMethod === "transfer" ? iban : null,
-            user_role: 'kierowca',
-            registration_date: new Date().toISOString()
-          }])
-          .select("id")
-          .single();
-
-        if (driverError) {
-          toast.error(driverError.message);
-          return;
-        }
-        driverId = newDriver.id;
-      }
-
-      // Powiąż z driver_app_users
-      if (signUpData.user?.id && driverId) {
-        const { error } = await supabase.from("driver_app_users").insert([{
-          user_id: signUpData.user.id,
-          driver_id: driverId,
-          city_id: cityId,
-          phone: phone,
-          rodo_accepted_at: new Date().toISOString(),
-          terms_accepted_at: new Date().toISOString()
-        }]);
-
-        if (error) {
-          toast.error(error.message);
-          return;
-        }
-
-        // Automatycznie przypisz rolę driver
-        const { error: roleError } = await supabase.from("user_roles").insert([{
-          user_id: signUpData.user.id,
-          role: 'driver'
-        }]);
-
-        if (roleError) {
-          console.error("Error assigning driver role:", roleError);
-          // Don't block registration if role assignment fails
-        }
-      }
-
-      // Send registration email
-      try {
-        await supabase.functions.invoke('send-registration-email', {
-          body: {
-            email,
-            first_name: firstName,
-            last_name: lastName,
-            activation_link: `${window.location.origin}/email-confirmed`,
-            is_test: false,
-          },
-        });
-      } catch (emailError) {
-        console.error("Error sending registration email:", emailError);
-        // Don't block registration if email fails
+      if (data?.error) {
+        toast.error(data.error);
+        return;
       }
 
       // Navigate to success page
+      toast.success("Rejestracja zakończona! Sprawdź email.");
       navigate("/register-success");
 
     } catch (error) {
