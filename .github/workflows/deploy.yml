@@ -34,9 +34,7 @@ jobs:
         run: cp public/.htaccess dist/.htaccess
 
       - name: Copy mascot email image to dist
-        run: |
-          mkdir -p dist/lovable-uploads
-          cp public/lovable-uploads/getrido-mascot-email.png dist/lovable-uploads/ || echo "Mascot file not in public, checking if built"
+        run: cp public/getrido-mascot-email.png dist/getrido-mascot-email.png
 
       - name: Debug - List dist contents
         run: |
