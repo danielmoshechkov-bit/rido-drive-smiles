@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       if (!userIdToDelete && email) {
         console.log(`🔍 Szukam użytkownika po emailu: ${email}`);
         const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email === email);
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
         
         if (existingUser) {
           userIdToDelete = existingUser.id;
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
 
     // Sprawdź czy użytkownik istnieje
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email === email);
+    const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
     
     // Sprawdź czy istnieje stare konto z @rido.internal dla tego samego kierowcy
     const fakeUser = existingUsers?.users?.find(u => u.email?.includes('@rido.internal'));
