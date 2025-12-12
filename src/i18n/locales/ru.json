@@ -321,16 +321,27 @@
       "fuel": "Топливо"
     },
     "paymentMethod": "Способ расчета",
+    "paymentMethodDescription": "Выберите предпочтительный способ получения выплат",
     "paymentMethodTransfer": "Банковский перевод",
     "paymentMethodCash": "Наличные",
-    "iban": "Номер банковского счета",
+    "iban": "Номер банковского счета (IBAN)",
+    "noNotifications": "Нет новых уведомлений",
+    "allNotificationsRead": "Все уведомления прочитаны",
+    "markAsRead": "Отметить как прочитанное",
+    "info": {
+      "driver": "Водитель"
+    },
     "cars": {
       "addCar": "Добавить авто",
       "rentalHistory": "История аренды",
       "leasedCar": "Арендованный автомобиль",
       "productionYear": "Год выпуска",
       "color": "Цвет",
-      "usingSince": "С какого времени пользуетесь авто"
+      "usingSince": "С какого времени пользуетесь авто",
+      "noAssignedVehicle": "Нет назначенного автомобиля",
+      "contactAdmin": "Свяжитесь с администратором",
+      "noOwnCars": "Собственный автомобиль еще не добавлен",
+      "phoneForDriver": "Тел. для водителя"
     },
     "documents": {
       "title": "Документы",
@@ -340,14 +351,26 @@
       "chooseFile": "Выбрать файл",
       "noFileSelected": "Файл не выбран",
       "noDocuments": "Нет документов",
-      "contractRodo": "Договор / Персональные данные"
+      "contractRodo": "Договор / Персональные данные",
+      "uploading": "Загрузка...",
+      "uploaded": "Документ успешно загружен",
+      "download": "Скачать",
+      "allDocuments": "Все документы",
+      "sortByDate": "Сортировать по дате",
+      "options": "Опции документов",
+      "drivingLicense": "Водительские права",
+      "idCard": "Удостоверение личности",
+      "driverLicense": "Удостоверение водителя",
+      "medicalExam": "Медицинское обследование",
+      "otherDocument": "Другой документ"
     }
   },
   "common": {
     "loading": "Загрузка...",
     "driverPanel": "Панель водителя",
     "fleet": "Флот",
-    "supervisor": "Куратор"
+    "supervisor": "Куратор",
+    "contact": "Контакт"
   },
   "admin": {
     "dashboard": "Панель администратора",

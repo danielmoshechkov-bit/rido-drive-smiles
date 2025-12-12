@@ -321,16 +321,27 @@
       "fuel": "Fuel"
     },
     "paymentMethod": "Payment Method",
+    "paymentMethodDescription": "Choose your preferred payment method",
     "paymentMethodTransfer": "Bank Transfer",
     "paymentMethodCash": "Cash",
-    "iban": "Bank Account Number",
+    "iban": "Bank Account Number (IBAN)",
+    "noNotifications": "No new notifications",
+    "allNotificationsRead": "All notifications have been read",
+    "markAsRead": "Mark as read",
+    "info": {
+      "driver": "Driver"
+    },
     "cars": {
       "addCar": "Add Car",
       "rentalHistory": "Rental History",
       "leasedCar": "Leased Car",
       "productionYear": "Production Year",
       "color": "Color",
-      "usingSince": "Using Since"
+      "usingSince": "Using Since",
+      "noAssignedVehicle": "No assigned vehicle",
+      "contactAdmin": "Contact administrator",
+      "noOwnCars": "No own car added yet",
+      "phoneForDriver": "Phone for driver"
     },
     "documents": {
       "title": "Documents",
@@ -340,14 +351,26 @@
       "chooseFile": "Choose File",
       "noFileSelected": "No File Selected",
       "noDocuments": "No Documents",
-      "contractRodo": "Contract / GDPR"
+      "contractRodo": "Contract / GDPR",
+      "uploading": "Uploading...",
+      "uploaded": "Document uploaded successfully",
+      "download": "Download",
+      "allDocuments": "All documents",
+      "sortByDate": "Sort by date",
+      "options": "Document options",
+      "drivingLicense": "Driving License",
+      "idCard": "ID Card",
+      "driverLicense": "Driver License",
+      "medicalExam": "Medical Examination",
+      "otherDocument": "Other document"
     }
   },
   "common": {
     "loading": "Loading...",
     "driverPanel": "Driver Panel",
     "fleet": "Fleet",
-    "supervisor": "Supervisor"
+    "supervisor": "Supervisor",
+    "contact": "Contact"
   },
   "admin": {
     "dashboard": "Admin Dashboard",

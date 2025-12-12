@@ -22,8 +22,8 @@ export function LeasedCarCard({
       <div className="rounded-2xl border bg-card shadow-soft p-5">
         <div className="text-center py-8 text-muted-foreground">
           <Car className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Brak przypisanego pojazdu</p>
-          <p className="text-sm mt-1">Skontaktuj się z administratorem</p>
+          <p>{t('driver.cars.noAssignedVehicle')}</p>
+          <p className="text-sm mt-1">{t('driver.cars.contactAdmin')}</p>
         </div>
       </div>
     );
@@ -74,12 +74,12 @@ export function LeasedCarCard({
           {fleet && (
             <div className="bg-primary/5 rounded-2xl p-4">
               <div className="bg-primary text-primary-foreground p-3 rounded-t-2xl -mx-4 -mt-4 mb-4">
-                <h3 className="font-semibold">Flota: {fleet.name}</h3>
+                <h3 className="font-semibold">{t('common.fleet')}: {fleet.name}</h3>
               </div>
               <div className="space-y-2 text-sm">
                 <div><strong>NIP:</strong> {fleet.nip}</div>
-                <div><strong>Kontakt:</strong> {fleet.contact_name}</div>
-                <div><strong>Tel. dla kierowcy:</strong> {fleet.contact_phone_for_drivers}</div>
+                <div><strong>{t('common.contact')}:</strong> {fleet.contact_name}</div>
+                <div><strong>{t('driver.cars.phoneForDriver')}:</strong> {fleet.contact_phone_for_drivers}</div>
               </div>
             </div>
           )}

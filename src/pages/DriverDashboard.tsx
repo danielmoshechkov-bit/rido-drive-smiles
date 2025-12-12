@@ -188,7 +188,7 @@ const DriverDashboard = () => {
   if (!user || !driverData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Ładowanie...</div>
+        <div className="text-center">{t('common.loading')}</div>
       </div>
     );
   }
@@ -207,7 +207,7 @@ const DriverDashboard = () => {
                 className="h-6 w-6"
               />
               <div className="flex items-center gap-2 text-sm">
-                <span className="font-semibold text-primary">Panel kierowcy</span>
+                <span className="font-semibold text-primary">{t('common.driverPanel')}</span>
                 {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
                   <>
                     <span className="text-muted-foreground">-</span>
@@ -219,12 +219,12 @@ const DriverDashboard = () => {
                 {fleetInfo && (
                   <>
                     <span className="text-muted-foreground">-</span>
-                    <span className="font-medium text-primary">Flota: {fleetInfo.name}</span>
+                    <span className="font-medium text-primary">{t('common.fleet')}: {fleetInfo.name}</span>
                     {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
                       <>
                         <span className="text-muted-foreground">•</span>
                         <span className="text-sm text-muted-foreground">
-                          Opiekun: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
+                          {t('common.supervisor')}: {fleetInfo.contact_name} {fleetInfo.contact_phone_for_drivers}
                         </span>
                       </>
                     )}
@@ -270,10 +270,10 @@ const DriverDashboard = () => {
                 </SheetTrigger>
                 <SheetContent side="left" className="w-80">
                   <div className="space-y-4 mt-4">
-                    <div className="text-sm font-semibold text-primary border-b pb-2">Panel kierowcy</div>
+                    <div className="text-sm font-semibold text-primary border-b pb-2">{t('common.driverPanel')}</div>
                     {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
                       <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Kierowca:</div>
+                        <div className="text-xs text-muted-foreground">{t('driver.info.driver')}:</div>
                         <div className="font-medium">
                           {driverData.drivers.first_name} {driverData.drivers.last_name}
                         </div>
@@ -282,12 +282,12 @@ const DriverDashboard = () => {
                     {fleetInfo && (
                       <>
                         <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground">Flota:</div>
+                          <div className="text-xs text-muted-foreground">{t('common.fleet')}:</div>
                           <div className="font-medium text-primary">{fleetInfo.name}</div>
                         </div>
                         {fleetInfo.contact_name && fleetInfo.contact_phone_for_drivers && (
                           <div className="space-y-1">
-                            <div className="text-xs text-muted-foreground">Opiekun:</div>
+                            <div className="text-xs text-muted-foreground">{t('common.supervisor')}:</div>
                             <div className="text-sm">
                               {fleetInfo.contact_name}<br />
                               {fleetInfo.contact_phone_for_drivers}
@@ -414,7 +414,7 @@ const DriverDashboard = () => {
                   className="rounded-full px-4 shadow-sm text-xs flex-1"
                   onClick={() => setActiveSubTab('my')}
                 >
-                  Moje rozliczenia
+                  {t('driver.settlements.mySettlements')}
                 </Button>
                 <Button
                   variant={activeSubTab === 'fuel' ? 'default' : 'outline'}
@@ -422,7 +422,7 @@ const DriverDashboard = () => {
                   className="rounded-full px-4 shadow-sm text-xs flex-1"
                   onClick={() => setActiveSubTab('fuel')}
                 >
-                  Paliwo
+                  {t('driver.settlements.fuel')}
                 </Button>
               </div>
             )}
@@ -434,7 +434,7 @@ const DriverDashboard = () => {
                 onClick={() => setShowAddOwnCarModal(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Dodaj auto
+                {t('driver.cars.addCar')}
               </Button>
             )}
           </div>
@@ -608,7 +608,7 @@ function DriverNotifications({ driverId }: { driverId: string }) {
   };
 
   if (loading || loadingInfo) {
-    return <div className="text-center py-8">Ładowanie...</div>;
+    return <div className="text-center py-8">{t('common.loading')}</div>;
   }
 
   const getAlertColor = (type: string) => {
@@ -625,8 +625,8 @@ function DriverNotifications({ driverId }: { driverId: string }) {
       {/* Payment Method Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>Sposób rozliczenia</CardTitle>
-          <CardDescription>Wybierz preferowany sposób otrzymywania wypłat</CardDescription>
+          <CardTitle>{t('driver.paymentMethod')}</CardTitle>
+          <CardDescription>{t('driver.paymentMethodDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select 
@@ -634,17 +634,17 @@ function DriverNotifications({ driverId }: { driverId: string }) {
             onValueChange={handlePaymentMethodChange}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Wybierz sposób płatności" />
+              <SelectValue placeholder={t('driver.paymentMethod')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="transfer">💳 Przelew bankowy</SelectItem>
-              <SelectItem value="cash">💵 Gotówka</SelectItem>
+              <SelectItem value="transfer">💳 {t('driver.paymentMethodTransfer')}</SelectItem>
+              <SelectItem value="cash">💵 {t('driver.paymentMethodCash')}</SelectItem>
             </SelectContent>
           </Select>
           
           {driverInfo?.payment_method === 'transfer' && (
             <div className="space-y-2">
-              <Label htmlFor="iban">Numer konta bankowego (IBAN)</Label>
+              <Label htmlFor="iban">{t('driver.iban')}</Label>
               <Input 
                 id="iban"
                 value={driverInfo?.iban || ''} 
@@ -660,8 +660,8 @@ function DriverNotifications({ driverId }: { driverId: string }) {
       {driverAlerts.length === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Brak nowych powiadomień</CardTitle>
-            <CardDescription>Wszystkie powiadomienia zostały przeczytane</CardDescription>
+            <CardTitle>{t('driver.noNotifications')}</CardTitle>
+            <CardDescription>{t('driver.allNotificationsRead')}</CardDescription>
           </CardHeader>
         </Card>
       ) : (
@@ -686,7 +686,7 @@ function DriverNotifications({ driverId }: { driverId: string }) {
                   variant="outline"
                   onClick={() => markAsResolved(alert.id)}
                 >
-                  Oznacz jako przeczytane
+                  {t('driver.markAsRead')}
                 </Button>
               </div>
             </CardHeader>
@@ -699,9 +699,10 @@ function DriverNotifications({ driverId }: { driverId: string }) {
 
 // Komponent dokumentów
 function DriverDocuments({ driverData }: { driverData: any }) {
+  const { t } = useTranslation();
   const [docs, setDocs] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
-  const [type, setType] = useState("Umowa / RODO");
+  const [type, setType] = useState(t('driver.documents.contractRodo'));
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
@@ -761,9 +762,9 @@ function DriverDocuments({ driverData }: { driverData: any }) {
       
       if (error) throw error;
       
-      toast.success("Dokument został przesłany");
+      toast.success(t('driver.documents.uploaded'));
       setFile(null);
-      setType("Umowa / RODO");
+      setType(t('driver.documents.contractRodo'));
       load();
     } catch (error: any) {
       toast.error(error.message);
@@ -773,12 +774,12 @@ function DriverDocuments({ driverData }: { driverData: any }) {
   };
 
   const types = [
-    "Umowa / RODO",
-    "Prawo jazdy", 
-    "Dowód osobisty",
-    "Legitymacja kierowcy",
-    "Badania lekarskie",
-    "Inny dokument"
+    t('driver.documents.contractRodo'),
+    t('driver.documents.drivingLicense'), 
+    t('driver.documents.idCard'),
+    t('driver.documents.driverLicense'),
+    t('driver.documents.medicalExam'),
+    t('driver.documents.otherDocument')
   ];
 
   return (
@@ -787,7 +788,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
       <div className="md:hidden bg-primary text-primary-foreground px-4 py-3 rounded-lg flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Dokumenty</h2>
+          <h2 className="text-lg font-semibold">{t('driver.documents.title')}</h2>
         </div>
         <Sheet>
           <SheetTrigger asChild>
@@ -797,14 +798,14 @@ function DriverDocuments({ driverData }: { driverData: any }) {
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <div className="space-y-4 mt-4">
-              <h3 className="font-semibold text-sm text-muted-foreground">Opcje dokumentów</h3>
+              <h3 className="font-semibold text-sm text-muted-foreground">{t('driver.documents.options')}</h3>
               <Button variant="ghost" className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
-                Wszystkie dokumenty
+                {t('driver.documents.allDocuments')}
               </Button>
               <Button variant="ghost" className="w-full justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
-                Sortuj po dacie
+                {t('driver.documents.sortByDate')}
               </Button>
             </div>
           </SheetContent>
@@ -812,11 +813,11 @@ function DriverDocuments({ driverData }: { driverData: any }) {
       </div>
 
       {/* Desktop header */}
-      <h2 className="hidden md:block text-xl font-semibold">Dokumenty</h2>
+      <h2 className="hidden md:block text-xl font-semibold">{t('driver.documents.title')}</h2>
 
       <Card className="rounded-xl shadow-soft">
         <CardHeader>
-          <CardTitle>Zarządzaj dokumentami</CardTitle>
+          <CardTitle>{t('driver.documents.manageDocuments')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -825,8 +826,8 @@ function DriverDocuments({ driverData }: { driverData: any }) {
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
-              {types.map(t => (
-                <option key={t} value={t}>{t}</option>
+              {types.map(docType => (
+                <option key={docType} value={docType}>{docType}</option>
               ))}
             </select>
             <Input 
@@ -836,12 +837,12 @@ function DriverDocuments({ driverData }: { driverData: any }) {
               className="rounded-lg"
             />
             <Button onClick={upload} disabled={!file || loading} className="rounded-lg">
-              {loading ? "Przesyłanie..." : "Dodaj dokument"}
+              {loading ? t('driver.documents.uploading') : t('driver.documents.addDocument')}
             </Button>
           </div>
           
           {docs.length === 0 ? (
-            <p className="text-muted-foreground">Brak dokumentów.</p>
+            <p className="text-muted-foreground">{t('driver.documents.noDocuments')}</p>
           ) : (
             <div className="space-y-2">
               {docs.map(d => (
@@ -857,7 +858,7 @@ function DriverDocuments({ driverData }: { driverData: any }) {
                   </div>
                   <Button variant="outline" size="sm" asChild className="rounded-lg">
                     <a href={d.file_url} target="_blank" rel="noreferrer">
-                      Pobierz
+                      {t('driver.documents.download')}
                     </a>
                   </Button>
                 </div>

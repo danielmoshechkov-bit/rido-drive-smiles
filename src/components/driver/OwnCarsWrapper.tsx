@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { OwnCarCard } from "./OwnCarCard";
+import { useTranslation } from 'react-i18next';
 
 interface OwnCarsWrapperProps {
   driverData: any;
@@ -25,6 +26,7 @@ interface OwnVehicle {
 }
 
 export const OwnCarsWrapper = ({ driverData }: OwnCarsWrapperProps) => {
+  const { t } = useTranslation();
   const [ownVehicles, setOwnVehicles] = useState<OwnVehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -95,7 +97,7 @@ export const OwnCarsWrapper = ({ driverData }: OwnCarsWrapperProps) => {
     return (
       <div className="rounded-2xl border bg-card shadow-soft p-5">
         <div className="text-center text-muted-foreground">
-          <p className="text-sm">Nie dodano jeszcze własnego auta</p>
+          <p className="text-sm">{t('driver.cars.noOwnCars')}</p>
         </div>
       </div>
     );

@@ -321,16 +321,27 @@
       "fuel": "Жанармай"
     },
     "paymentMethod": "Есеп айырысу әдісі",
+    "paymentMethodDescription": "Төлемді алудың қалаған әдісін таңдаңыз",
     "paymentMethodTransfer": "Банктік аударым",
     "paymentMethodCash": "Қолма-қол ақша",
-    "iban": "Банк шоты нөмірі",
+    "iban": "Банк шоты нөмірі (IBAN)",
+    "noNotifications": "Жаңа хабарландырулар жоқ",
+    "allNotificationsRead": "Барлық хабарландырулар оқылды",
+    "markAsRead": "Оқылды деп белгілеу",
+    "info": {
+      "driver": "Жүргізуші"
+    },
     "cars": {
       "addCar": "Көлік қосу",
       "rentalHistory": "Жалдау тарихы",
       "leasedCar": "Жалға алынған автомобиль",
       "productionYear": "Шығарылған жылы",
       "color": "Түс",
-      "usingSince": "Қашаннан бастап пайдаланасыз"
+      "usingSince": "Қашаннан бастап пайдаланасыз",
+      "noAssignedVehicle": "Тағайындалған көлік жоқ",
+      "contactAdmin": "Әкімшіге хабарласыңыз",
+      "noOwnCars": "Жеке көлік әлі қосылмаған",
+      "phoneForDriver": "Жүргізуші үшін тел."
     },
     "documents": {
       "title": "Құжаттар",
@@ -340,14 +351,26 @@
       "chooseFile": "Файл таңдау",
       "noFileSelected": "Файл таңдалмады",
       "noDocuments": "Құжаттар жоқ",
-      "contractRodo": "Шарт / Жеке деректер"
+      "contractRodo": "Шарт / Жеке деректер",
+      "uploading": "Жүктелуде...",
+      "uploaded": "Құжат сәтті жүктелді",
+      "download": "Жүктеу",
+      "allDocuments": "Барлық құжаттар",
+      "sortByDate": "Күні бойынша сұрыптау",
+      "options": "Құжат опциялары",
+      "drivingLicense": "Жүргізуші куәлігі",
+      "idCard": "Жеке куәлік",
+      "driverLicense": "Жүргізуші куәлігі",
+      "medicalExam": "Медициналық тексеру",
+      "otherDocument": "Басқа құжат"
     }
   },
   "common": {
     "loading": "Жүктелуде...",
     "driverPanel": "Жүргізуші панелі",
     "fleet": "Флот",
-    "supervisor": "Куратор"
+    "supervisor": "Куратор",
+    "contact": "Байланыс"
   },
   "admin": {
     "dashboard": "Әкімші панелі",
