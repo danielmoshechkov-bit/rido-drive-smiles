@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Smartphone, Home, Mail } from "lucide-react";
+import { Smartphone, Home, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export default function RegisterSuccess() {
@@ -13,17 +13,20 @@ export default function RegisterSuccess() {
       <div className="container mx-auto max-w-md">
         <Card className="text-center">
           <CardHeader className="pb-2">
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center items-center gap-4 mb-4">
               <img
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
                 alt="RIDO"
-                className="h-16 w-16"
+                className="h-20 w-20 object-contain"
               />
-            </div>
-            <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
-              </div>
+              <video
+                src="/mascot-animation.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="h-20 w-20 object-contain"
+              />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {t('registerSuccess.title')}
