@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Share, MoreVertical, Download, ArrowLeft, Home } from 'lucide-react';
+import { Share, MoreVertical, Download, ArrowLeft, Home, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type Platform = 'none' | 'android' | 'iphone';
 
@@ -13,6 +14,7 @@ export default function Install() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('none');
+  const [showManualSteps, setShowManualSteps] = useState(false);
 
   useEffect(() => {
     // Check if already installed
@@ -80,22 +82,8 @@ export default function Install() {
                 {t('install.description')}
               </p>
 
-              {/* Android: Show big install button when prompt available */}
-              {deferredPrompt ? (
-                <div className="space-y-4">
-                  <Button 
-                    onClick={handleInstallClick} 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white" 
-                    size="lg"
-                  >
-                    <Download className="mr-2 h-5 w-5" />
-                    {t('install.installNow')}
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    {t('install.androidAutoInstall')}
-                  </p>
-                </div>
-              ) : selectedPlatform === 'none' ? (
+              {/* Platform selection or install flow */}
+              {selectedPlatform === 'none' ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
                     {t('install.selectPlatform')}
@@ -133,41 +121,69 @@ export default function Install() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => setSelectedPlatform('none')}
+                    onClick={() => { setSelectedPlatform('none'); setShowManualSteps(false); }}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     {t('install.backToSelection')}
                   </Button>
 
                   {selectedPlatform === 'android' && (
-                    <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center gap-2 justify-center">
-                          <span className="text-2xl">🤖</span>
-                          {t('install.androidTitle')}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
-                          <p className="text-sm">{t('install.androidStep1')}</p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
-                          <p className="text-sm flex items-center gap-1 flex-wrap">
-                            {t('install.androidStep2')} <MoreVertical className="h-4 w-4 inline mx-1" />
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
-                          <p className="text-sm">{t('install.androidStep3')}</p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                          <p className="text-sm">{t('install.androidStep4')}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="space-y-4">
+                      {/* Always show install button for Android */}
+                      <Button 
+                        onClick={handleInstallClick} 
+                        className={`w-full ${deferredPrompt ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'} text-white`}
+                        size="lg"
+                        disabled={!deferredPrompt}
+                      >
+                        <Download className="mr-2 h-5 w-5" />
+                        {t('install.installNow')}
+                      </Button>
+                      
+                      {deferredPrompt ? (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {t('install.androidAutoInstall')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                          {t('install.openInChrome')}
+                        </p>
+                      )}
+
+                      {/* Collapsible manual instructions */}
+                      <Collapsible open={showManualSteps} onOpenChange={setShowManualSteps}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+                            {t('install.manualSteps')}
+                            <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${showManualSteps ? 'rotate-180' : ''}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <Card className="mt-2 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                            <CardContent className="pt-4 space-y-3">
+                              <div className="flex items-start gap-3">
+                                <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
+                                <p className="text-sm">{t('install.androidStep1')}</p>
+                              </div>
+                              <div className="flex items-start gap-3">
+                                <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
+                                <p className="text-sm flex items-center gap-1 flex-wrap">
+                                  {t('install.androidStep2')} <MoreVertical className="h-4 w-4 inline mx-1" />
+                                </p>
+                              </div>
+                              <div className="flex items-start gap-3">
+                                <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
+                                <p className="text-sm">{t('install.androidStep3')}</p>
+                              </div>
+                              <div className="flex items-start gap-3">
+                                <div className="bg-green-600 text-white rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
+                                <p className="text-sm">{t('install.androidStep4')}</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
                   )}
 
                   {selectedPlatform === 'iphone' && (

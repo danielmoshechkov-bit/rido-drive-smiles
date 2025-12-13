@@ -507,6 +507,8 @@
     "iphoneStep2": "At the bottom of the screen, tap the Share icon ↑ (square with arrow pointing up)",
     "iphoneStep3": "Scroll through the menu and select \"Add to Home Screen\"",
     "iphoneStep4": "Tap \"Add\" in the top right corner ✅",
-    "skip": "Skip and go to app"
+    "skip": "Skip and go to app",
+    "openInChrome": "Open page in Chrome browser for the button to work",
+    "manualSteps": "Show manual instructions"
   }
 }
