@@ -3,28 +3,10 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Smartphone, Home, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
-import { removeBackground } from "@/lib/removeBackground";
 
 export default function RegisterSuccess() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [mascotSrc, setMascotSrc] = useState("/lovable-uploads/getrido-mascot-email.png");
-  const [isProcessing, setIsProcessing] = useState(true);
-
-  useEffect(() => {
-    const processMascot = async () => {
-      try {
-        const transparentMascot = await removeBackground("/lovable-uploads/getrido-mascot-email.png");
-        setMascotSrc(transparentMascot);
-      } catch (error) {
-        console.error("Failed to remove background:", error);
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-    processMascot();
-  }, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
       <div className="container mx-auto max-w-md">
@@ -37,9 +19,9 @@ export default function RegisterSuccess() {
                 className="h-20 w-20 object-contain"
               />
               <img
-                src={mascotSrc}
+                src="/lovable-uploads/getrido-mascot-email.png"
                 alt="RIDO Mascot"
-                className={`h-20 w-20 object-contain ${isProcessing ? 'opacity-50' : ''}`}
+                className="h-20 w-20 object-contain"
               />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
