@@ -19,12 +19,9 @@ export default function RegisterSuccess() {
                 alt="RIDO"
                 className="h-20 w-20 object-contain"
               />
-              <video
-                src="/mascot-animation.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
+              <img
+                src="/lovable-uploads/getrido-mascot-email.png"
+                alt="RIDO Mascot"
                 className="h-20 w-20 object-contain"
               />
             </div>
