@@ -80,14 +80,22 @@ export default function Install() {
                 {t('install.description')}
               </p>
 
-              {deferredPrompt && (
-                <Button onClick={handleInstallClick} className="w-full" size="lg">
-                  <Download className="mr-2 h-5 w-5" />
-                  {t('install.installNow')}
-                </Button>
-              )}
-
-              {selectedPlatform === 'none' ? (
+              {/* Android: Show big install button when prompt available */}
+              {deferredPrompt ? (
+                <div className="space-y-4">
+                  <Button 
+                    onClick={handleInstallClick} 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white" 
+                    size="lg"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    {t('install.installNow')}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('install.androidAutoInstall')}
+                  </p>
+                </div>
+              ) : selectedPlatform === 'none' ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
                     {t('install.selectPlatform')}

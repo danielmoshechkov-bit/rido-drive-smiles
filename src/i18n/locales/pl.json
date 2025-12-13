@@ -476,7 +476,8 @@
     "showDetails": "Pokaż szczegóły",
     "hideDetails": "Ukryj szczegóły",
     "sum": "SUMA",
-    "noTransactions": "Brak transakcji paliwowych dla wybranego okresu"
+    "noTransactions": "Brak transakcji paliwowych dla wybranego okresu",
+    "noFuelCard": "Nie masz przypisanej karty paliwowej"
   },
   "registerSuccess": {
     "title": "Dziękujemy za rejestrację!",
@@ -500,14 +501,12 @@
     "androidStep2": "Naciśnij ⋮ (3 kropki) w prawym górnym rogu ekranu",
     "androidStep3": "Wybierz \"Dodaj do ekranu głównego\" lub \"Zainstaluj aplikację\"",
     "androidStep4": "Potwierdź instalację naciskając \"Dodaj\" ✅",
+    "androidAutoInstall": "Naciśnij przycisk powyżej - aplikacja zainstaluje się automatycznie!",
     "iphoneTitle": "Instalacja na iPhone",
     "iphoneStep1": "Otwórz stronę getrido.pl w przeglądarce Safari (nie Chrome!)",
     "iphoneStep2": "Na dole ekranu naciśnij ikonę Udostępnij ↑ (kwadrat ze strzałką w górę)",
     "iphoneStep3": "Przewiń menu i wybierz \"Dodaj do ekranu początkowego\"",
     "iphoneStep4": "Naciśnij \"Dodaj\" w prawym górnym rogu ✅",
     "skip": "Pomiń i przejdź do aplikacji"
-  },
-  "fuel": {
-    "noFuelCard": "Nie masz przypisanej karty paliwowej"
   }
 }
