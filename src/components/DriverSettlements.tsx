@@ -171,7 +171,7 @@ export const DriverSettlements = ({
       if (uberPayoutD < 0) {
         const uberBaseForTax = Math.abs(uberPayoutD) + uberCashF;
         uber_tax_8 = uberBaseForTax * 0.08;
-        uber_base_corrected = uberBaseForTax;
+        uber_base_corrected = uberPayoutD; // Keep original negative sign for display
         uber_net = uberBaseForTax - uber_tax_8;
         uber_cash_corrected = -uberCashF;
         
@@ -179,6 +179,7 @@ export const DriverSettlements = ({
           uberPayoutD,
           uberCashF,
           uberBaseForTax,
+          uber_base_corrected,
           uber_tax_8,
           uber_net
         });
@@ -1148,7 +1149,7 @@ export const DriverSettlements = ({
                           <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
                           <span className="font-bold text-green-600 text-lg">
                             {((amounts.uber_payout_d || 0) +
-                              (amounts.bolt_payout_s || 0) +
+                              ((amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0)) +
                               ((amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0))).toFixed(2)} zł
                           </span>
                         </div>

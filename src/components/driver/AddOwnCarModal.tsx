@@ -82,6 +82,7 @@ export function AddOwnCarModal({
           color: color || null,
           status: "aktywne",
           city_id: cityId,
+          fleet_id: null,
           odometer: 0
         })
         .select("id")
