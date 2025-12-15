@@ -99,7 +99,8 @@ export const DriverSettlements = ({
 
   // Normalize amounts - supports both old (camelCase) and new (snake_case) formats
   // Legacy mode: old data had wrong tax calculation for Bolt
-  const normalizeAmounts = (amounts: any): any => {
+  // Also handles: negative Uber payout exception for tax calculation
+  const normalizeAmounts = (amounts: any, dynamicFuel?: { fuel: number; fuel_vat_refund: number }): any => {
     if (!amounts) return {};
     
     // Detect legacy format (old camelCase without proper tax calculation)
@@ -114,6 +115,10 @@ export const DriverSettlements = ({
     let freenow_tax_8 = amounts.freenow_tax_8 ?? amounts.freenowTax8 ?? 0;
     let freenow_net = amounts.freenow_net ?? amounts.freenowNet ?? 0;
     
+    // Get Uber values
+    const uberPayoutD = amounts.uber_payout_d ?? amounts.uberPayoutD ?? amounts.uberCashless ?? 0;
+    const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? amounts.uberCash ?? 0;
+    
     // Legacy fix: Calculate correct Bolt tax and net for old data
     if (isLegacyFormat) {
       const boltGross = amounts.boltGross ?? 0;
@@ -122,17 +127,12 @@ export const DriverSettlements = ({
       const freenowGross = amounts.freenowGross ?? 0;
       
       // Fix for negative Uber balance (column D)
-      // When uber_payout_d < 0, it means Uber owes money to the driver
-      // This amount should be ADDED to the base and cash, not subtracted
-      const uberPayoutD = amounts.uber_payout_d ?? amounts.uberPayoutD ?? amounts.uberCashless ?? 0;
-      const uberCashF = amounts.uber_cash_f ?? amounts.uberCashF ?? amounts.uberCash ?? 0;
-      
+      // When uber_payout_d < 0, it means driver owes money to Uber
+      // Tax should be calculated on absolute value
       if (uberPayoutD < 0) {
-        // Subtract negative number = add positive to the base
-        // Example: 1535.45 - (-7.06) = 1542.51
-        uberBase = uberCashF - uberPayoutD;
+        // Use absolute value for tax calculation
+        uberBase = Math.abs(uberPayoutD) + uberCashF;
         uber_base_corrected = uberBase;
-        // Cash actually collected by driver should DECREASE payout → keep it negative
         uber_cash_corrected = -uberCashF;
         
         console.log('🔧 Uber negative balance fix (legacy):', {
@@ -150,8 +150,6 @@ export const DriverSettlements = ({
       freenow_tax_8 = freenowGross * 0.08;
       
       // Oblicz netto dla każdej platformy
-      // Old boltNet = gross - commission (gotówka NIE odjęta)
-      // Correct bolt_net = old boltNet - tax - cash
       bolt_net = (amounts.boltNet ?? 0) - bolt_tax_8;
       uber_net = uberBase - uber_tax_8; // Now calculates from corrected base
       freenow_net = (amounts.freenowNet ?? 0) - freenow_tax_8;
@@ -168,12 +166,33 @@ export const DriverSettlements = ({
         freenow_net,
         tax_field_ignored: amounts.tax
       });
+    } else {
+      // New format - still handle negative Uber payout exception
+      if (uberPayoutD < 0) {
+        const uberBaseForTax = Math.abs(uberPayoutD) + uberCashF;
+        uber_tax_8 = uberBaseForTax * 0.08;
+        uber_base_corrected = uberBaseForTax;
+        uber_net = uberBaseForTax - uber_tax_8;
+        uber_cash_corrected = -uberCashF;
+        
+        console.log('🔧 Uber negative balance fix (new format):', {
+          uberPayoutD,
+          uberCashF,
+          uberBaseForTax,
+          uber_tax_8,
+          uber_net
+        });
+      }
     }
+    
+    // Use dynamic fuel if provided (fetched from fuel_transactions)
+    const fuelAmount = dynamicFuel?.fuel ?? amounts.fuel ?? 0;
+    const fuelVatRefund = dynamicFuel?.fuel_vat_refund ?? amounts.fuel_vat_refund ?? amounts.fuelVATRefund ?? amounts.fuelVatRefund ?? 0;
     
     return {
       // Uber - support both formats + negative balance fix
-      uber_payout_d: amounts.uber_payout_d ?? amounts.uberPayoutD ?? 0,
-      uber_cash_f: amounts.uber_cash_f ?? amounts.uberCashF ?? 0,
+      uber_payout_d: uberPayoutD,
+      uber_cash_f: uberCashF,
       uber_base: uber_base_corrected ?? amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0,
       uber_tax_8,
       uber_net,
@@ -195,12 +214,15 @@ export const DriverSettlements = ({
       freenow_tax_8,
       freenow_net,
       
-      // Shared - support both formats
+      // Shared - support both formats with dynamic fuel
       total_cash: amounts.total_cash ?? amounts.totalCash ?? 0,
-      fuel: amounts.fuel ?? 0,
-      fuel_vat_refund: amounts.fuel_vat_refund ?? amounts.fuelVATRefund ?? amounts.fuelVatRefund ?? 0,
+      fuel: fuelAmount,
+      fuel_vat_refund: fuelVatRefund,
     };
   };
+
+  // State for dynamic fuel data (fetched from fuel_transactions)
+  const [driverFuelData, setDriverFuelData] = useState<{ fuel: number; fuel_vat_refund: number } | null>(null);
 
   const loadSettlements = async () => {
     if (!driverId) return;
@@ -254,6 +276,11 @@ export const DriverSettlements = ({
 
       setSettlements((data || []) as Settlement[]);
       
+      // Fetch dynamic fuel data for this driver and period
+      if (data && data.length > 0 && currentWeek) {
+        await loadDynamicFuel(currentWeek.start, currentWeek.end);
+      }
+      
       // Detect last available week if no settlements found
       if (!data || data.length === 0) {
         const { data: lastSettlement } = await supabase
@@ -279,6 +306,66 @@ export const DriverSettlements = ({
       toast.error('Błąd podczas ładowania rozliczeń: ' + (error?.message || 'Nieznany błąd'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Dynamically fetch fuel from fuel_transactions table using driver's fuel_card_number
+  const loadDynamicFuel = async (periodFrom: string, periodTo: string) => {
+    if (!driverId) return;
+    
+    try {
+      // Get driver's fuel card number
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('fuel_card_number')
+        .eq('id', driverId)
+        .maybeSingle();
+      
+      if (!driverData?.fuel_card_number) {
+        console.log('⛽ No fuel card assigned to driver');
+        setDriverFuelData(null);
+        return;
+      }
+      
+      const cardNumber = driverData.fuel_card_number;
+      
+      // Sum fuel transactions for this period
+      const { data: fuelData, error: fuelError } = await supabase
+        .from('fuel_transactions')
+        .select('total_amount')
+        .gte('period_from', periodFrom)
+        .lte('period_to', periodTo)
+        .or(`card_number.eq.${cardNumber},card_number.eq.${cardNumber.replace(/^0+/, '')},card_number.eq.${cardNumber.padStart(16, '0')}`);
+      
+      if (fuelError) {
+        console.error('⛽ Error fetching fuel transactions:', fuelError);
+        setDriverFuelData(null);
+        return;
+      }
+      
+      if (fuelData && fuelData.length > 0) {
+        const totalFuel = fuelData.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
+        // VAT refund formula: (fuel - fuel/1.23) / 2 = 50% of VAT
+        const fuelVatRefund = (totalFuel - totalFuel / 1.23) / 2;
+        
+        console.log('⛽ Dynamic fuel data loaded:', {
+          cardNumber,
+          transactions: fuelData.length,
+          totalFuel,
+          fuelVatRefund
+        });
+        
+        setDriverFuelData({
+          fuel: totalFuel,
+          fuel_vat_refund: fuelVatRefund
+        });
+      } else {
+        console.log('⛽ No fuel transactions found for period');
+        setDriverFuelData(null);
+      }
+    } catch (error) {
+      console.error('⛽ Error in loadDynamicFuel:', error);
+      setDriverFuelData(null);
     }
   };
 
@@ -1014,7 +1101,8 @@ export const DriverSettlements = ({
                 const periodKey = `${period.period_from}_${period.period_to}`;
                 const settlement = period.settlements[0]; // Take newest settlement
                 const rawAmounts = settlement.amounts || {};
-                const amounts = normalizeAmounts(rawAmounts);
+                // Pass dynamic fuel data to normalizeAmounts if available
+                const amounts = normalizeAmounts(rawAmounts, driverFuelData || undefined);
                 const { payout, fee, totalTax, breakdown } = calculatePayout(amounts);
                 
                 const platformData = [
@@ -1159,17 +1247,17 @@ export const DriverSettlements = ({
                               </td>
                             </tr>
                             
-                            {/* Podatek 8% */}
+                            {/* Podatek 8% - use Math.abs() to fix double minus display */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.tax8')}</td>
                               <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.uber_tax_8 ? `-${amounts.uber_tax_8.toFixed(2)} zł` : '-'}
+                                {amounts.uber_tax_8 ? `-${Math.abs(amounts.uber_tax_8).toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.bolt_tax_8 ? `-${amounts.bolt_tax_8.toFixed(2)} zł` : '-'}
+                                {amounts.bolt_tax_8 ? `-${Math.abs(amounts.bolt_tax_8).toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.freenow_tax_8 ? `-${amounts.freenow_tax_8.toFixed(2)} zł` : '-'}
+                                {amounts.freenow_tax_8 ? `-${Math.abs(amounts.freenow_tax_8).toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                           </tbody>
