@@ -145,7 +145,7 @@ serve(async (req) => {
 
     if (!city_id) throw new Error('city_id is required');
 
-    // Resolve period (latest csv_import settlements if not specified)
+    // Resolve period (latest csv_import or 3_platform_csvs settlements if not specified)
     let from = period_from;
     let to = period_to;
     if (!from || !to) {
@@ -153,7 +153,7 @@ serve(async (req) => {
         .from('settlements')
         .select('period_from, period_to')
         .eq('city_id', city_id)
-        .eq('source', 'csv_import')
+        .in('source', ['csv_import', '3_platform_csvs'])
         .order('period_from', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -168,7 +168,7 @@ serve(async (req) => {
       .from('settlements')
       .select('id, driver_id, raw')
       .eq('city_id', city_id)
-      .eq('source', 'csv_import')
+      .in('source', ['csv_import', '3_platform_csvs'])
       .eq('period_from', from)
       .eq('period_to', to);
 

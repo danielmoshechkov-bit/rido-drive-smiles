@@ -15,13 +15,22 @@ interface OwnVehicle {
   year?: number;
   color?: string;
   vin?: string;
+  odometer?: number;
   assigned_at: string;
   vehicle_inspections?: Array<{
     valid_to: string;
+    id?: string;
+    date?: string;
+    result?: string;
+    notes?: string;
   }>;
   vehicle_policies?: Array<{
     valid_to: string;
     type: string;
+    id?: string;
+    policy_no?: string;
+    provider?: string;
+    valid_from?: string;
   }>;
 }
 
@@ -45,19 +54,28 @@ export const OwnCarsWrapper = ({ driverData }: OwnCarsWrapperProps) => {
               year,
               color,
               vin,
+              odometer,
               vehicle_inspections (
-                valid_to
+                id,
+                valid_to,
+                date,
+                result,
+                notes
               ),
               vehicle_policies (
+                id,
                 valid_to,
-                type
+                type,
+                policy_no,
+                provider,
+                valid_from
               )
             )
           `)
           .eq("driver_id", driverData.driver_id)
           .is("unassigned_at", null)
           .eq("status", "active")
-          .is("vehicles.fleet_id", null)  // Only own cars (no fleet)
+          .is("vehicles.fleet_id", null)
           .order("assigned_at", { ascending: false });
 
         if (error) {
