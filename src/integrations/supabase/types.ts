@@ -1367,6 +1367,39 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          created_at: string | null
+          document_expiry_notifications: boolean | null
+          id: string
+          push_enabled: boolean | null
+          push_subscription: Json | null
+          settlement_notifications: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_expiry_notifications?: boolean | null
+          id?: string
+          push_enabled?: boolean | null
+          push_subscription?: Json | null
+          settlement_notifications?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_expiry_notifications?: boolean | null
+          id?: string
+          push_enabled?: boolean | null
+          push_subscription?: Json | null
+          settlement_notifications?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       platform_import_config: {
         Row: {
           columns: Json

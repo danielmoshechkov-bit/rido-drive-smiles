@@ -286,7 +286,37 @@
     "hasUppercase": "Duża litera",
     "hasLowercase": "Mała litera",
     "hasNumber": "Cyfra",
-    "hasSpecialChar": "Znak specjalny"
+    "hasSpecialChar": "Znak specjalny",
+    "invalidCredentials": "Nieprawidłowy email lub hasło!",
+    "loginError": "Wystąpił błąd podczas logowania!",
+    "rolesError": "Błąd pobierania uprawnień!",
+    "noRoles": "Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem."
+  },
+  "notifications": {
+    "settings": "Ustawienia powiadomień",
+    "notSupported": "Powiadomienia push nie są obsługiwane",
+    "enabled": "Powiadomienia włączone",
+    "denied": "Powiadomienia zostały zablokowane",
+    "error": "Błąd podczas włączania powiadomień",
+    "notEnabled": "Powiadomienia nie są włączone",
+    "blocked": "Zablokowane",
+    "enable": "Włącz",
+    "unblockInstructions": "Aby odblokować, zmień ustawienia w przeglądarce",
+    "pushEnabled": "Powiadomienia push",
+    "pushDescription": "Otrzymuj powiadomienia na urządzeniu",
+    "settlements": "Rozliczenia",
+    "settlementsDescription": "Powiadomienia o nowych rozliczeniach",
+    "documentExpiry": "Dokumenty",
+    "documentExpiryDescription": "Przypomnienia o wygasających dokumentach"
+  },
+  "settings": {
+    "saved": "Ustawienia zapisane",
+    "saveError": "Błąd zapisu ustawień"
+  },
+  "common": {
+    "save": "Zapisz",
+    "saving": "Zapisywanie...",
+    "loading": "Ładowanie..."
   },
   "register": {
     "title": "Rejestracja kierowcy",

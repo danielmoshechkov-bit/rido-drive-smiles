@@ -34,6 +34,11 @@ const Auth = () => {
     setShowTermsError(false);
     
     try {
+      // If rememberMe is false, sign out first to clear any existing session
+      if (!rememberMe) {
+        await supabase.auth.signOut();
+      }
+      
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -41,12 +46,21 @@ const Auth = () => {
 
       if (authError) {
         console.error('Auth error:', authError);
-        alert('Nieprawidłowy email lub hasło!');
+        toast.error(t('auth.invalidCredentials') || 'Nieprawidłowy email lub hasło!');
         return;
+      }
+      
+      // Store rememberMe preference in localStorage
+      if (rememberMe) {
+        localStorage.setItem('rido_remember_me', 'true');
+      } else {
+        localStorage.removeItem('rido_remember_me');
+        // For non-remembered sessions, we'll check on page load
+        sessionStorage.setItem('rido_session_active', 'true');
       }
 
       if (!authData.user) {
-        alert('Błąd logowania!');
+        toast.error(t('auth.loginError') || 'Błąd logowania!');
         return;
       }
 
@@ -57,7 +71,7 @@ const Auth = () => {
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
-        alert('Błąd pobierania uprawnień!');
+        toast.error(t('auth.rolesError') || 'Błąd pobierania uprawnień!');
         return;
       }
 
@@ -76,11 +90,11 @@ const Auth = () => {
         }
       }
 
-      alert('Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
+      toast.error(t('auth.noRoles') || 'Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Login error:', error);
-      alert('Wystąpił błąd podczas logowania!');
+      toast.error(t('auth.loginError') || 'Wystąpił błąd podczas logowania!');
     }
   };
 

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
 import { DriverNotificationBell } from "@/components/driver/DriverNotificationBell";
+import { NotificationSettings } from "@/components/driver/NotificationSettings";
 import { useSystemAlerts } from "@/hooks/useSystemAlerts";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -444,7 +445,7 @@ const DriverDashboard = () => {
         {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}
         {activeTab === 'cars' && <CarsSection driverData={driverData} showAddModal={showAddOwnCarModal} setShowAddModal={setShowAddOwnCarModal} />}
         {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
-        {activeTab === 'informacje' && <DriverNotifications driverId={driverData.driver_id} />}
+        {activeTab === 'informacje' && user && <DriverNotifications driverId={driverData.driver_id} userId={user.id} />}
       </div>
     </div>
   );
@@ -544,7 +545,7 @@ function SettlementsWithSubTabs({
 }
 
 // Component to display driver notifications and settings
-function DriverNotifications({ driverId }: { driverId: string }) {
+function DriverNotifications({ driverId, userId }: { driverId: string; userId: string }) {
   const { alerts, loading, markAsResolved } = useSystemAlerts();
   const driverAlerts = alerts.filter(a => a.driver_id === driverId && a.status === 'pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
@@ -655,6 +656,9 @@ function DriverNotifications({ driverId }: { driverId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Push Notification Settings */}
+      <NotificationSettings userId={userId} />
 
       {/* Notifications */}
       {driverAlerts.length === 0 ? (

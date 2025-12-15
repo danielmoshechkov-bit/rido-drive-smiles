@@ -286,7 +286,37 @@
     "hasUppercase": "Заглавная буква",
     "hasLowercase": "Строчная буква",
     "hasNumber": "Цифра",
-    "hasSpecialChar": "Специальный символ"
+    "hasSpecialChar": "Специальный символ",
+    "invalidCredentials": "Неверный email или пароль!",
+    "loginError": "Ошибка при входе!",
+    "rolesError": "Ошибка загрузки прав!",
+    "noRoles": "У вашего аккаунта нет назначенных прав. Свяжитесь с администратором."
+  },
+  "notifications": {
+    "settings": "Настройки уведомлений",
+    "notSupported": "Push-уведомления не поддерживаются",
+    "enabled": "Уведомления включены",
+    "denied": "Уведомления заблокированы",
+    "error": "Ошибка включения уведомлений",
+    "notEnabled": "Уведомления не включены",
+    "blocked": "Заблокировано",
+    "enable": "Включить",
+    "unblockInstructions": "Чтобы разблокировать, измените настройки браузера",
+    "pushEnabled": "Push-уведомления",
+    "pushDescription": "Получать уведомления на устройстве",
+    "settlements": "Расчёты",
+    "settlementsDescription": "Уведомления о новых расчётах",
+    "documentExpiry": "Документы",
+    "documentExpiryDescription": "Напоминания об истекающих документах"
+  },
+  "settings": {
+    "saved": "Настройки сохранены",
+    "saveError": "Ошибка сохранения настроек"
+  },
+  "common": {
+    "save": "Сохранить",
+    "saving": "Сохранение...",
+    "loading": "Загрузка..."
   },
   "register": {
     "title": "Регистрация водителя",

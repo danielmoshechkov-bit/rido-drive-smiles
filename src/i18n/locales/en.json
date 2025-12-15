@@ -286,7 +286,37 @@
     "hasUppercase": "Uppercase letter",
     "hasLowercase": "Lowercase letter",
     "hasNumber": "Number",
-    "hasSpecialChar": "Special character"
+    "hasSpecialChar": "Special character",
+    "invalidCredentials": "Invalid email or password!",
+    "loginError": "Login error occurred!",
+    "rolesError": "Error loading permissions!",
+    "noRoles": "Your account has no assigned permissions. Please contact the administrator."
+  },
+  "notifications": {
+    "settings": "Notification settings",
+    "notSupported": "Push notifications are not supported",
+    "enabled": "Notifications enabled",
+    "denied": "Notifications have been blocked",
+    "error": "Error enabling notifications",
+    "notEnabled": "Notifications are not enabled",
+    "blocked": "Blocked",
+    "enable": "Enable",
+    "unblockInstructions": "To unblock, change your browser settings",
+    "pushEnabled": "Push notifications",
+    "pushDescription": "Receive notifications on your device",
+    "settlements": "Settlements",
+    "settlementsDescription": "Notifications about new settlements",
+    "documentExpiry": "Documents",
+    "documentExpiryDescription": "Reminders about expiring documents"
+  },
+  "settings": {
+    "saved": "Settings saved",
+    "saveError": "Error saving settings"
+  },
+  "common": {
+    "save": "Save",
+    "saving": "Saving...",
+    "loading": "Loading..."
   },
   "register": {
     "title": "Driver Registration",
