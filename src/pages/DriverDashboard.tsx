@@ -73,6 +73,24 @@ const DriverDashboard = () => {
     }
   };
 
+  // Auth state listener to prevent logout on refresh
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setDriverData(null);
+        navigate('/auth');
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          setUser(session.user);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   useEffect(() => {
     const checkAuth = async () => {
       // Check for test user in localStorage first

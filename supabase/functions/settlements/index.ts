@@ -697,8 +697,8 @@ async function parseBoltCsv(
     const bolt_projected_d = parsePLNumber(row[projectedIdx] || '0');
     const bolt_payout_s = parsePLNumber(row[payoutIdx] || '0');
     const bolt_cash = parsePLNumber(row[cashIdx] || '0');
-    // Prowizja: pobierz z CSV jeśli dostępna, inaczej oblicz jako brutto - netto
-    const bolt_commission = commissionIdx >= 0 ? parsePLNumber(row[commissionIdx] || '0') : (bolt_projected_d - bolt_payout_s);
+    // Prowizja: pobierz z CSV jeśli dostępna, inaczej oblicz jako D - G - S (brutto - gotówka - netto)
+    const bolt_commission = commissionIdx >= 0 ? parsePLNumber(row[commissionIdx] || '0') : (bolt_projected_d - bolt_cash - bolt_payout_s);
     const bolt_tax_8 = bolt_projected_d * 0.08;
     const bolt_net = bolt_payout_s - bolt_tax_8;
     
