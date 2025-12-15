@@ -328,14 +328,23 @@ export const DriverSettlements = ({
       }
       
       const cardNumber = driverData.fuel_card_number;
+      // Normalize: remove all leading zeros for comparison
+      const normalizedDriverCard = cardNumber.replace(/^0+/, '');
       
-      // Sum fuel transactions for this period
+      console.log('⛽ Looking for fuel transactions:', {
+        originalCardNumber: cardNumber,
+        normalizedCardNumber: normalizedDriverCard,
+        periodFrom,
+        periodTo
+      });
+      
+      // Fetch ALL fuel transactions for this period, then filter in JS
+      // This handles card_number format differences (leading zeros)
       const { data: fuelData, error: fuelError } = await supabase
         .from('fuel_transactions')
-        .select('total_amount')
+        .select('total_amount, card_number')
         .gte('period_from', periodFrom)
-        .lte('period_to', periodTo)
-        .or(`card_number.eq.${cardNumber},card_number.eq.${cardNumber.replace(/^0+/, '')},card_number.eq.${cardNumber.padStart(16, '0')}`);
+        .lte('period_to', periodTo);
       
       if (fuelError) {
         console.error('⛽ Error fetching fuel transactions:', fuelError);
@@ -343,14 +352,26 @@ export const DriverSettlements = ({
         return;
       }
       
-      if (fuelData && fuelData.length > 0) {
-        const totalFuel = fuelData.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
+      // Filter by normalized card number (remove leading zeros from both sides)
+      const matchingFuel = fuelData?.filter(tx => 
+        tx.card_number?.replace(/^0+/, '') === normalizedDriverCard
+      ) || [];
+      
+      console.log('⛽ Fuel matching results:', {
+        totalTransactions: fuelData?.length || 0,
+        matchingTransactions: matchingFuel.length,
+        sampleCardNumbers: fuelData?.slice(0, 3).map(tx => tx.card_number)
+      });
+      
+      if (matchingFuel.length > 0) {
+        const totalFuel = matchingFuel.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
         // VAT refund formula: (fuel - fuel/1.23) / 2 = 50% of VAT
         const fuelVatRefund = (totalFuel - totalFuel / 1.23) / 2;
         
         console.log('⛽ Dynamic fuel data loaded:', {
           cardNumber,
-          transactions: fuelData.length,
+          normalizedCardNumber: normalizedDriverCard,
+          transactions: matchingFuel.length,
           totalFuel,
           fuelVatRefund
         });
@@ -360,7 +381,7 @@ export const DriverSettlements = ({
           fuel_vat_refund: fuelVatRefund
         });
       } else {
-        console.log('⛽ No fuel transactions found for period');
+        console.log('⛽ No fuel transactions found for normalized card:', normalizedDriverCard);
         setDriverFuelData(null);
       }
     } catch (error) {
@@ -1209,7 +1230,7 @@ export const DriverSettlements = ({
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.base')}</td>
                               <td className="p-1.5 text-right font-medium whitespace-nowrap text-xs">
-                                {amounts.uber_base ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
+                                {amounts.uber_base !== undefined && amounts.uber_base !== 0 ? `${amounts.uber_base.toFixed(2)} zł` : '-'}
                               </td>
                               <td className="p-1.5 text-right font-medium whitespace-nowrap text-xs">
                                 {amounts.bolt_projected_d ? `${amounts.bolt_projected_d.toFixed(2)} zł` : '-'}
