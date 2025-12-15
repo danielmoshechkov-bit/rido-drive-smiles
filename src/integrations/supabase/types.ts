@@ -2423,6 +2423,11 @@ export type Database = {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
       }
+      driver_has_vehicle_access: {
+        Args: { p_vehicle_id: string }
+        Returns: boolean
+      }
+      get_driver_city_id: { Args: never; Returns: string }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
