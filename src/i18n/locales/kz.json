@@ -286,7 +286,37 @@
     "hasUppercase": "Бас әріп",
     "hasLowercase": "Кіші әріп",
     "hasNumber": "Сан",
-    "hasSpecialChar": "Арнайы таңба"
+    "hasSpecialChar": "Арнайы таңба",
+    "invalidCredentials": "Қате email немесе құпия сөз!",
+    "loginError": "Кіру кезінде қате!",
+    "rolesError": "Құқықтарды жүктеу қатесі!",
+    "noRoles": "Тіркелгіңізде тағайындалған құқықтар жоқ. Әкімшіге хабарласыңыз."
+  },
+  "notifications": {
+    "settings": "Хабарландыру параметрлері",
+    "notSupported": "Push-хабарландырулар қолдау көрсетілмейді",
+    "enabled": "Хабарландырулар қосылды",
+    "denied": "Хабарландырулар бұғатталған",
+    "error": "Хабарландыруларды қосу қатесі",
+    "notEnabled": "Хабарландырулар қосылмаған",
+    "blocked": "Бұғатталған",
+    "enable": "Қосу",
+    "unblockInstructions": "Бұғатты алу үшін браузер параметрлерін өзгертіңіз",
+    "pushEnabled": "Push-хабарландырулар",
+    "pushDescription": "Құрылғыда хабарландыруларды алу",
+    "settlements": "Есеп-қисаптар",
+    "settlementsDescription": "Жаңа есеп-қисаптар туралы хабарландырулар",
+    "documentExpiry": "Құжаттар",
+    "documentExpiryDescription": "Мерзімі аяқталатын құжаттар туралы еске салулар"
+  },
+  "settings": {
+    "saved": "Параметрлер сақталды",
+    "saveError": "Параметрлерді сақтау қатесі"
+  },
+  "common": {
+    "save": "Сақтау",
+    "saving": "Сақтау...",
+    "loading": "Жүктелуде..."
   },
   "register": {
     "title": "Жүргізуші тіркелуі",
