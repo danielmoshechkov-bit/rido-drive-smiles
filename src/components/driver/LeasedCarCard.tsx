@@ -18,15 +18,7 @@ export function LeasedCarCard({
   const { t } = useTranslation();
   
   if (!vehicle) {
-    return (
-      <div className="rounded-2xl border bg-card shadow-soft p-5">
-        <div className="text-center py-8 text-muted-foreground">
-          <Car className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{t('driver.cars.noAssignedVehicle')}</p>
-          <p className="text-sm mt-1">{t('driver.cars.contactAdmin')}</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

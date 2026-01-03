@@ -105,12 +105,12 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
 
         console.log('🚗 [LeasedCarWrapper] Enriched assignments:', enrichedAssignments);
 
-        // Step 6: Separate active and historical
+        // Step 6: Separate active and historical - ONLY show fleet vehicles
         const active = enrichedAssignments.find(
-          (a: any) => a.status === 'active' && a.unassigned_at === null
+          (a: any) => a.status === 'active' && a.unassigned_at === null && a.vehicles?.fleets
         );
         const historical = enrichedAssignments.filter(
-          (a: any) => a.status === 'inactive' || a.unassigned_at !== null
+          (a: any) => (a.status === 'inactive' || a.unassigned_at !== null) && a.vehicles?.fleets
         );
 
         setActiveAssignment(active || null);
@@ -143,12 +143,17 @@ export const LeasedCarWrapper = ({ driverData }: LeasedCarWrapperProps) => {
     );
   }
 
+  // Don't render anything if no active fleet assignment
+  if (!activeAssignment) {
+    return null;
+  }
+
   return (
     <>
       <LeasedCarCard
-        vehicle={activeAssignment?.vehicles || null}
+        vehicle={activeAssignment.vehicles}
         assignment={activeAssignment}
-        fleet={activeAssignment?.vehicles?.fleets}
+        fleet={activeAssignment.vehicles?.fleets}
         readOnlyRent={true}
       />
       

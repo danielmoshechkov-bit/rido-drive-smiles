@@ -22,6 +22,7 @@ import { InlineEdit } from "./InlineEdit";
 import { UniversalSelector } from "./UniversalSelector";
 import { VehicleListingModal } from "./fleet/VehicleListingModal";
 import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
+import { DriverVehiclesTab } from "./DriverVehiclesTab";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -96,6 +97,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         *,
         fleets(name)
       `)
+      .not("fleet_id", "is", null) // Only show fleet vehicles in this tab
       .order("created_at", { ascending: false });
       
     // Filter by fleetId if provided (fleet user), otherwise by cityId (admin)
@@ -377,10 +379,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-2' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-3' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="vehicles">Auta</TabsTrigger>
             {userType === 'admin' && (
-              <TabsTrigger value="fleets">Floty</TabsTrigger>
+              <>
+                <TabsTrigger value="fleets">Floty</TabsTrigger>
+                <TabsTrigger value="driver-vehicles">Auta kierowców</TabsTrigger>
+              </>
             )}
             {userType === 'fleet' && fleetId && (
               <TabsTrigger value="rentals">Rezerwacje z giełdy</TabsTrigger>
@@ -599,6 +604,12 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           <TabsContent value="fleets" className="space-y-6">
             <FleetTabManagement cityId={cityId} />
           </TabsContent>
+
+          {userType === 'admin' && (
+            <TabsContent value="driver-vehicles" className="space-y-6">
+              <DriverVehiclesTab />
+            </TabsContent>
+          )}
 
           {userType === 'fleet' && fleetId && (
             <TabsContent value="rentals" className="space-y-6">
