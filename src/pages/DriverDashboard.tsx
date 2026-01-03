@@ -805,6 +805,7 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
 function MarketplaceContactSettings({ driverId }: { driverId: string }) {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editValues, setEditValues] = useState<Record<string, { phone: string; email: string }>>({});
 
   useEffect(() => {
     loadVehicles();
@@ -850,6 +851,16 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
       }));
 
       setVehicles(vehiclesWithListings);
+      
+      // Initialize edit values with current data
+      const initialValues: Record<string, { phone: string; email: string }> = {};
+      vehiclesWithListings.forEach(v => {
+        initialValues[v.id] = {
+          phone: v.listing?.contact_phone || "",
+          email: v.listing?.contact_email || ""
+        };
+      });
+      setEditValues(initialValues);
     } catch (error) {
       console.error("Error loading vehicles:", error);
     } finally {
@@ -857,7 +868,35 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
     }
   };
 
-  const updateContact = async (vehicleId: string, field: string, value: string) => {
+  const handleInputChange = (vehicleId: string, field: "phone" | "email", value: string) => {
+    // Only allow numbers and phone characters for phone field
+    const cleanedValue = field === "phone" 
+      ? value.replace(/[^\d+\-() ]/g, '') 
+      : value;
+    
+    setEditValues(prev => ({
+      ...prev,
+      [vehicleId]: {
+        ...prev[vehicleId],
+        [field]: cleanedValue
+      }
+    }));
+  };
+
+  const saveContact = async (vehicleId: string, field: "phone" | "email") => {
+    const value = editValues[vehicleId]?.[field] || "";
+    const dbField = field === "phone" ? "contact_phone" : "contact_email";
+    
+    // Check if value actually changed
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    const currentValue = field === "phone" 
+      ? vehicle?.listing?.contact_phone 
+      : vehicle?.listing?.contact_email;
+    
+    if (value === (currentValue || "")) {
+      return; // No change, don't save
+    }
+    
     try {
       // Check if listing exists
       const { data: existing } = await supabase
@@ -869,7 +908,7 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
       if (existing) {
         await supabase
           .from("vehicle_listings")
-          .update({ [field]: value || null })
+          .update({ [dbField]: value || null })
           .eq("vehicle_id", vehicleId);
       } else {
         // Create listing with contact info (not available yet)
@@ -880,15 +919,15 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
             weekly_price: 0,
             is_available: false,
             created_by: driverId,
-            [field]: value || null
+            [dbField]: value || null
           }]);
       }
 
-      toast.success("Dane kontaktowe zaktualizowane");
+      toast.success("Dane kontaktowe zapisane");
       loadVehicles();
     } catch (error) {
       console.error("Error updating contact:", error);
-      toast.error("Błąd aktualizacji danych");
+      toast.error("Błąd zapisu danych");
     }
   };
 
@@ -931,8 +970,9 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
             <div>
               <Label className="text-sm">Nr telefonu *</Label>
               <Input
-                value={vehicle.listing?.contact_phone || ""}
-                onChange={(e) => updateContact(vehicle.id, "contact_phone", e.target.value)}
+                value={editValues[vehicle.id]?.phone || ""}
+                onChange={(e) => handleInputChange(vehicle.id, "phone", e.target.value)}
+                onBlur={() => saveContact(vehicle.id, "phone")}
                 placeholder="Wpisz nr telefonu"
                 className="mt-1"
               />
@@ -940,8 +980,9 @@ function MarketplaceContactSettings({ driverId }: { driverId: string }) {
             <div>
               <Label className="text-sm">Email (opcjonalnie)</Label>
               <Input
-                value={vehicle.listing?.contact_email || ""}
-                onChange={(e) => updateContact(vehicle.id, "contact_email", e.target.value)}
+                value={editValues[vehicle.id]?.email || ""}
+                onChange={(e) => handleInputChange(vehicle.id, "email", e.target.value)}
+                onBlur={() => saveContact(vehicle.id, "email")}
                 placeholder="Wpisz adres email"
                 className="mt-1"
               />
