@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Fuel, Calendar, MapPin, ChevronLeft, ChevronRight, Phone, Mail, Car } from "lucide-react";
+import { Star, Fuel, Calendar, MapPin, ChevronLeft, ChevronRight, Phone, Mail, Car, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VehicleListing {
@@ -10,6 +10,8 @@ interface VehicleListing {
   vehicle_id: string;
   fleet_id: string | null;
   weekly_price: number;
+  contact_phone?: string | null;
+  contact_email?: string | null;
   vehicle: {
     id: string;
     brand: string;
@@ -26,6 +28,7 @@ interface VehicleListing {
     email: string | null;
   } | null;
   avgRating: number | null;
+  cityName?: string | null;
   driver?: {
     id: string;
     first_name: string | null;
@@ -45,6 +48,7 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
   benzyna: "Benzyna",
   diesel: "Diesel",
   hybryda: "Hybryda",
+  hybryda_gaz: "Hybryda + Gaz",
   lpg: "LPG",
   elektryczny: "Elektryczny",
 };
@@ -66,35 +70,10 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
     setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
   };
 
-  const renderStars = (rating: number | null) => {
-    if (rating === null) return <span className="text-muted-foreground text-xs">Brak ocen</span>;
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Star
-          key={i}
-          className={cn(
-            "h-3.5 w-3.5",
-            i <= Math.round(rating)
-              ? "fill-yellow-400 text-yellow-400"
-              : "text-muted-foreground"
-          )}
-        />
-      );
-    }
-    return (
-      <div className="flex items-center gap-1">
-        {stars}
-        <span className="text-sm font-medium ml-1">{rating.toFixed(1)}</span>
-      </div>
-    );
-  };
-
-  const contactInfo = listing.fleet || listing.driver;
-  const contactPhone = listing.fleet?.contact_phone_for_drivers || listing.driver?.phone;
-  const contactEmail = listing.fleet?.email || listing.driver?.email;
-  const ownerName = listing.fleet?.name || 
-    (listing.driver ? `${listing.driver.first_name || ''} ${listing.driver.last_name || ''}`.trim() : 'Właściciel');
+  // Contact info - prioritize listing-specific contacts, fallback to fleet/driver
+  const contactPhone = listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone;
+  const contactEmail = listing.contact_email || listing.fleet?.email || listing.driver?.email;
+  const ownerFirstName = listing.driver?.first_name || listing.fleet?.name?.split(' ')[0] || 'Właściciel';
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
@@ -107,6 +86,17 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
               alt={`${listing.vehicle.brand} ${listing.vehicle.model}`}
               className="w-full h-full object-cover"
             />
+            
+            {/* Rating Badge - Top Left */}
+            <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
+              <Star className={cn(
+                "h-3.5 w-3.5",
+                listing.avgRating ? "fill-yellow-400 text-yellow-400" : "text-white/70"
+              )} />
+              <span className="text-xs font-medium">
+                {listing.avgRating ? listing.avgRating.toFixed(1) : "–"}
+              </span>
+            </div>
             
             {/* Photo Navigation */}
             {photos.length > 1 && (
@@ -177,15 +167,10 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
           )}
         </div>
 
-        {/* Rating */}
-        <div className="mb-3">
-          {renderStars(listing.avgRating)}
-        </div>
-
-        {/* Owner */}
+        {/* City */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
           <MapPin className="h-3.5 w-3.5" />
-          <span className="truncate">{ownerName}</span>
+          <span className="truncate">{listing.cityName || "Polska"}</span>
         </div>
 
         {/* Price & Actions */}
@@ -211,9 +196,10 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-4 pt-4 border-t space-y-2">
-            <p className="text-sm">
-              <strong>Rejestracja:</strong> {listing.vehicle.plate}
-            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{ownerFirstName}</span>
+            </div>
             {contactPhone && (
               <a
                 href={`tel:${contactPhone}`}

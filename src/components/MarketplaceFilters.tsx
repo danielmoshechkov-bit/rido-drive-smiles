@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Search, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,19 +29,19 @@ interface MarketplaceFiltersProps {
 }
 
 export interface FilterValues {
-  brand: string;
+  brands: string[];
   model: string;
   yearFrom: string;
   priceMax: string;
-  fuelType: string;
+  fuelTypes: string[];
   city: string;
 }
 
 const FUEL_TYPES = [
-  { value: "all", label: "Wszystkie" },
   { value: "benzyna", label: "Benzyna" },
   { value: "diesel", label: "Diesel" },
   { value: "hybryda", label: "Hybryda" },
+  { value: "hybryda_gaz", label: "Hybryda + Gaz" },
   { value: "lpg", label: "LPG" },
   { value: "elektryczny", label: "Elektryczny" },
 ];
@@ -47,16 +49,16 @@ const FUEL_TYPES = [
 const YEARS = Array.from({ length: 30 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) {
-  const [brands, setBrands] = useState<CarBrand[]>([]);
+  const [allBrands, setAllBrands] = useState<CarBrand[]>([]);
   const [models, setModels] = useState<CarModel[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   
   const [filters, setFilters] = useState<FilterValues>({
-    brand: "",
+    brands: [],
     model: "",
     yearFrom: "",
     priceMax: "",
-    fuelType: "",
+    fuelTypes: [],
     city: "",
   });
   
@@ -64,10 +66,11 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
   const [modelSearch, setModelSearch] = useState("");
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [showFuelDropdown, setShowFuelDropdown] = useState(false);
   
   const brandRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
+  const fuelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,7 +78,7 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
         supabase.from("car_brands").select("*").order("name"),
         supabase.from("cities").select("*").order("name"),
       ]);
-      if (brandsRes.data) setBrands(brandsRes.data);
+      if (brandsRes.data) setAllBrands(brandsRes.data);
       if (citiesRes.data) setCities(citiesRes.data);
     };
     loadData();
@@ -83,19 +86,22 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
 
   useEffect(() => {
     const loadModels = async () => {
-      if (!selectedBrandId) {
+      if (filters.brands.length !== 1) {
         setModels([]);
         return;
       }
+      const brand = allBrands.find(b => b.name === filters.brands[0]);
+      if (!brand) return;
+      
       const { data } = await supabase
         .from("car_models")
         .select("*")
-        .eq("brand_id", selectedBrandId)
+        .eq("brand_id", brand.id)
         .order("name");
       if (data) setModels(data);
     };
     loadModels();
-  }, [selectedBrandId]);
+  }, [filters.brands, allBrands]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -105,12 +111,15 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
       if (modelRef.current && !modelRef.current.contains(event.target as Node)) {
         setShowModelDropdown(false);
       }
+      if (fuelRef.current && !fuelRef.current.contains(event.target as Node)) {
+        setShowFuelDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredBrands = brands.filter((b) =>
+  const filteredBrands = allBrands.filter((b) =>
     b.name.toLowerCase().includes(brandSearch.toLowerCase())
   );
 
@@ -118,23 +127,43 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
     m.name.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
-  const handleSelectBrand = (b: CarBrand) => {
-    setFilters((prev) => ({ ...prev, brand: b.name, model: "" }));
-    setSelectedBrandId(b.id);
-    setBrandSearch("");
-    setShowBrandDropdown(false);
+  const toggleBrand = (brandName: string) => {
+    setFilters((prev) => {
+      const newBrands = prev.brands.includes(brandName)
+        ? prev.brands.filter(b => b !== brandName)
+        : [...prev.brands, brandName];
+      return { ...prev, brands: newBrands, model: "" };
+    });
+  };
+
+  const removeBrand = (brandName: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      brands: prev.brands.filter(b => b !== brandName),
+      model: prev.brands.length === 1 ? "" : prev.model
+    }));
+  };
+
+  const toggleFuelType = (fuelValue: string) => {
+    setFilters((prev) => {
+      const newFuels = prev.fuelTypes.includes(fuelValue)
+        ? prev.fuelTypes.filter(f => f !== fuelValue)
+        : [...prev.fuelTypes, fuelValue];
+      return { ...prev, fuelTypes: newFuels };
+    });
+  };
+
+  const removeFuelType = (fuelValue: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      fuelTypes: prev.fuelTypes.filter(f => f !== fuelValue)
+    }));
   };
 
   const handleSelectModel = (m: CarModel) => {
     setFilters((prev) => ({ ...prev, model: m.name }));
     setModelSearch("");
     setShowModelDropdown(false);
-  };
-
-  const clearBrand = () => {
-    setFilters((prev) => ({ ...prev, brand: "", model: "" }));
-    setSelectedBrandId(null);
-    setBrandSearch("");
   };
 
   const clearModel = () => {
@@ -147,73 +176,81 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
   };
 
   const clearFilters = () => {
-    const emptyFilters = {
-      brand: "",
+    const emptyFilters: FilterValues = {
+      brands: [],
       model: "",
       yearFrom: "",
       priceMax: "",
-      fuelType: "",
+      fuelTypes: [],
       city: "",
     };
     setFilters(emptyFilters);
-    setSelectedBrandId(null);
     setBrandSearch("");
     setModelSearch("");
     onFilterChange(emptyFilters);
   };
 
-  const hasActiveFilters = Object.values(filters).some((v) => v !== "" && v !== "all");
+  const hasActiveFilters = 
+    filters.brands.length > 0 ||
+    filters.model !== "" ||
+    (filters.yearFrom !== "" && filters.yearFrom !== "all") ||
+    filters.priceMax !== "" ||
+    filters.fuelTypes.length > 0 ||
+    (filters.city !== "" && filters.city !== "all");
 
   return (
     <div className="bg-card border rounded-xl p-6 shadow-sm">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {/* Brand Selector */}
+        {/* Brand Multi-Select */}
         <div ref={brandRef} className="relative">
           <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Marka</label>
           <div className="relative">
-            <Input
-              value={showBrandDropdown ? brandSearch : filters.brand}
-              onChange={(e) => {
-                setBrandSearch(e.target.value);
-                if (!showBrandDropdown) setShowBrandDropdown(true);
-              }}
-              onFocus={() => setShowBrandDropdown(true)}
-              placeholder="Wszystkie marki"
-              className="pr-8"
-            />
-            {filters.brand ? (
-              <button
-                onClick={clearBrand}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : (
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            )}
+            <div
+              onClick={() => setShowBrandDropdown(!showBrandDropdown)}
+              className="flex items-center justify-between w-full px-3 py-2 border rounded-md bg-background cursor-pointer hover:border-primary/50 transition-colors min-h-[40px]"
+            >
+              <span className={cn("text-sm truncate", filters.brands.length === 0 && "text-muted-foreground")}>
+                {filters.brands.length === 0 ? "Wszystkie marki" : `${filters.brands.length} wybrano`}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </div>
           </div>
+          
+          {/* Selected brands as chips */}
+          {filters.brands.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {filters.brands.map((brand) => (
+                <Badge key={brand} variant="secondary" className="text-xs px-2 py-0.5 gap-1">
+                  {brand}
+                  <button onClick={() => removeBrand(brand)} className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+          
           {showBrandDropdown && (
             <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
-              <button
-                className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
-                onClick={() => {
-                  clearBrand();
-                  setShowBrandDropdown(false);
-                }}
-              >
-                Wszystkie marki
-              </button>
+              <div className="p-2 border-b">
+                <Input
+                  value={brandSearch}
+                  onChange={(e) => setBrandSearch(e.target.value)}
+                  placeholder="Szukaj marki..."
+                  className="h-8"
+                />
+              </div>
               {filteredBrands.map((b) => (
-                <button
+                <label
                   key={b.id}
-                  className={cn(
-                    "w-full px-3 py-2 text-left hover:bg-accent text-sm",
-                    filters.brand === b.name && "bg-accent font-medium"
-                  )}
-                  onClick={() => handleSelectBrand(b)}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer text-sm"
                 >
+                  <Checkbox
+                    checked={filters.brands.includes(b.name)}
+                    onCheckedChange={() => toggleBrand(b.name)}
+                  />
                   {b.name}
-                </button>
+                </label>
               ))}
             </div>
           )}
@@ -229,9 +266,9 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
                 setModelSearch(e.target.value);
                 if (!showModelDropdown) setShowModelDropdown(true);
               }}
-              onFocus={() => selectedBrandId && setShowModelDropdown(true)}
-              placeholder={selectedBrandId ? "Wszystkie modele" : "Najpierw marka"}
-              disabled={!selectedBrandId}
+              onFocus={() => filters.brands.length === 1 && setShowModelDropdown(true)}
+              placeholder={filters.brands.length === 1 ? "Wszystkie modele" : "Najpierw 1 marka"}
+              disabled={filters.brands.length !== 1}
               className="pr-8"
             />
             {filters.model ? (
@@ -245,7 +282,7 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             )}
           </div>
-          {showModelDropdown && selectedBrandId && (
+          {showModelDropdown && filters.brands.length === 1 && (
             <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
               <button
                 className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
@@ -304,24 +341,54 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
           />
         </div>
 
-        {/* Fuel Type */}
-        <div>
+        {/* Fuel Type Multi-Select */}
+        <div ref={fuelRef} className="relative">
           <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Rodzaj paliwa</label>
-          <Select
-            value={filters.fuelType}
-            onValueChange={(v) => setFilters((prev) => ({ ...prev, fuelType: v }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Wszystkie" />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="relative">
+            <div
+              onClick={() => setShowFuelDropdown(!showFuelDropdown)}
+              className="flex items-center justify-between w-full px-3 py-2 border rounded-md bg-background cursor-pointer hover:border-primary/50 transition-colors min-h-[40px]"
+            >
+              <span className={cn("text-sm truncate", filters.fuelTypes.length === 0 && "text-muted-foreground")}>
+                {filters.fuelTypes.length === 0 ? "Wszystkie" : `${filters.fuelTypes.length} wybrano`}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </div>
+          </div>
+          
+          {/* Selected fuel types as chips */}
+          {filters.fuelTypes.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {filters.fuelTypes.map((fuelValue) => {
+                const fuelLabel = FUEL_TYPES.find(f => f.value === fuelValue)?.label || fuelValue;
+                return (
+                  <Badge key={fuelValue} variant="secondary" className="text-xs px-2 py-0.5 gap-1">
+                    {fuelLabel}
+                    <button onClick={() => removeFuelType(fuelValue)} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          
+          {showFuelDropdown && (
+            <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg">
               {FUEL_TYPES.map((ft) => (
-                <SelectItem key={ft.value} value={ft.value}>
+                <label
+                  key={ft.value}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                >
+                  <Checkbox
+                    checked={filters.fuelTypes.includes(ft.value)}
+                    onCheckedChange={() => toggleFuelType(ft.value)}
+                  />
                   {ft.label}
-                </SelectItem>
+                </label>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
         </div>
 
         {/* City */}

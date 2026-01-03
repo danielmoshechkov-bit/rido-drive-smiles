@@ -2347,6 +2347,8 @@ export type Database = {
       }
       vehicle_listings: {
         Row: {
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
           created_by: string
           fleet_id: string | null
@@ -2358,6 +2360,8 @@ export type Database = {
           weekly_price: number
         }
         Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           created_by: string
           fleet_id?: string | null
@@ -2369,6 +2373,8 @@ export type Database = {
           weekly_price: number
         }
         Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           created_by?: string
           fleet_id?: string | null
