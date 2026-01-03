@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Image, AlertCircle, Phone, Mail } from "lucide-react";
@@ -25,6 +26,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
   const [weeklyPrice, setWeeklyPrice] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +46,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
         // Load existing listing if any
         const { data: listingData } = await supabase
           .from("vehicle_listings")
-          .select("weekly_price, contact_phone, contact_email")
+          .select("weekly_price, contact_phone, contact_email, description")
           .eq("vehicle_id", vehicle.id)
           .single();
 
@@ -52,6 +54,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
           setWeeklyPrice(listingData.weekly_price?.toString() || "");
           setContactPhone(listingData.contact_phone || "");
           setContactEmail(listingData.contact_email || "");
+          setDescription((listingData as any).description || "");
         }
       };
       loadData();
@@ -84,6 +87,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
         weekly_price: Number(weeklyPrice),
         contact_phone: contactPhone.trim(),
         contact_email: contactEmail.trim() || null,
+        description: description.trim() || null,
         is_available: true,
         created_by: user.id
       };
@@ -155,6 +159,20 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
               onChange={(e) => setContactEmail(e.target.value)}
               placeholder="kontakt@email.pl"
             />
+          </div>
+
+          <div>
+            <Label>Opis (opcjonalnie)</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="np. Auto w świetnym stanie, niski przebieg, ekonomiczne..."
+              rows={3}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Maksymalnie 500 znaków
+            </p>
           </div>
 
           <div>

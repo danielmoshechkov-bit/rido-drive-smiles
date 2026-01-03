@@ -12,6 +12,7 @@ interface VehicleListing {
   weekly_price: number;
   contact_phone?: string | null;
   contact_email?: string | null;
+  description?: string | null;
   vehicle: {
     id: string;
     brand: string;
@@ -92,12 +93,11 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
               const displayRating = listing.avgRating ?? 5.0;
               const isDefaultRating = listing.avgRating === null;
               return (
-                <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1" title={isDefaultRating ? "Nowy na giełdzie" : undefined}>
+                <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
                   <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                   <span className="text-xs font-medium">
                     {displayRating.toFixed(1)}
                   </span>
-                  {isDefaultRating && <span className="text-[10px] opacity-75">(nowy)</span>}
                 </div>
               );
             })()}
@@ -200,27 +200,34 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-4 pt-4 border-t space-y-2">
+            {listing.description && (
+              <p className="text-sm text-muted-foreground mb-3">{listing.description}</p>
+            )}
+            
             <div className="flex items-center gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Właściciel:</span>
               <span className="font-medium">{ownerFirstName}</span>
             </div>
+            
             {contactPhone && (
-              <a
-                href={`tel:${contactPhone}`}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <Phone className="h-4 w-4" />
-                {contactPhone}
-              </a>
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Tel:</span>
+                <a href={`tel:${contactPhone}`} className="font-medium text-primary hover:underline">
+                  {contactPhone}
+                </a>
+              </div>
             )}
+            
             {contactEmail && (
-              <a
-                href={`mailto:${contactEmail}`}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <Mail className="h-4 w-4" />
-                {contactEmail}
-              </a>
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Email:</span>
+                <a href={`mailto:${contactEmail}`} className="font-medium text-primary hover:underline">
+                  {contactEmail}
+                </a>
+              </div>
             )}
           </div>
         )}

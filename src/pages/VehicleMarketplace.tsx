@@ -83,6 +83,7 @@ export default function VehicleMarketplace() {
           weekly_price,
           contact_phone,
           contact_email,
+          description,
           vehicle:vehicles!vehicle_id (
             id, brand, model, year, plate, photos, fuel_type
           ),

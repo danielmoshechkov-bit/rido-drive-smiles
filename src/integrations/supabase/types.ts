@@ -2351,6 +2351,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string | null
           created_by: string
+          description: string | null
           fleet_id: string | null
           id: string
           is_available: boolean | null
@@ -2364,6 +2365,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           created_by: string
+          description?: string | null
           fleet_id?: string | null
           id?: string
           is_available?: boolean | null
@@ -2377,6 +2379,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           created_by?: string
+          description?: string | null
           fleet_id?: string | null
           id?: string
           is_available?: boolean | null
