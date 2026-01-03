@@ -63,17 +63,18 @@ export function DriverVehiclesTab() {
         return;
       }
 
-      // Fetch owner assignments - driver who created/owns the vehicle
+      // Fetch ALL owner assignments - driver who created/owns the vehicle (not just active)
       const { data: ownerAssignments } = await supabase
         .from("driver_vehicle_assignments")
         .select(`
           vehicle_id,
           driver_id,
+          created_at,
           drivers!driver_vehicle_assignments_driver_id_fkey(id, first_name, last_name, email, user_role)
         `)
         .in("vehicle_id", vehicleIds)
         .is("fleet_id", null)
-        .eq("status", "active");
+        .order("created_at", { ascending: true });
 
       // Fetch active rentals from marketplace
       const { data: activeRentals } = await supabase
@@ -89,6 +90,7 @@ export function DriverVehiclesTab() {
       // Filter: only include vehicles owned by regular drivers (user_role = 'kierowca' or null)
       const vehiclesWithDrivers = vehiclesData
         ?.map(vehicle => {
+          // Find the first (oldest) assignment for this vehicle - that's the owner
           const ownerAssignment = ownerAssignments?.find(a => a.vehicle_id === vehicle.id);
           const rental = activeRentals?.find(r => r.vehicle_id === vehicle.id);
           

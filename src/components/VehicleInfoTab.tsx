@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+import { InlineEdit } from "@/components/InlineEdit";
 
 interface VehicleInfoTabProps {
   vehicle: any;
@@ -77,20 +77,18 @@ export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-muted-foreground">Nr rejestracyjny</label>
-          <Input 
+          <InlineEdit
             value={formData.plate}
-            onChange={e => setFormData(prev => ({ ...prev, plate: e.target.value.toUpperCase() }))}
-            onBlur={e => handleSave('plate', e.target.value)}
-            className="uppercase rounded-lg" 
+            onSave={async (val) => handleSave('plate', val)}
+            placeholder="Wpisz nr rejestracyjny"
           />
         </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground">VIN</label>
-          <Input 
+          <InlineEdit
             value={formData.vin}
-            onChange={e => setFormData(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
-            onBlur={e => handleSave('vin', e.target.value)}
-            className="uppercase rounded-lg" 
+            onSave={async (val) => handleSave('vin', val)}
+            placeholder="Wpisz numer VIN"
           />
         </div>
         
@@ -106,21 +104,18 @@ export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
 
         <div>
           <label className="text-sm font-medium text-muted-foreground">Rok</label>
-          <Input 
-            type="number" 
-            value={formData.year}
-            onChange={e => setFormData(prev => ({ ...prev, year: e.target.value }))}
-            onBlur={e => handleSave('year', e.target.value)}
-            className="rounded-lg"
+          <InlineEdit
+            value={formData.year?.toString() || ""}
+            onSave={async (val) => handleSave('year', val)}
+            placeholder="Wpisz rok"
           />
         </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground">Kolor</label>
-          <Input 
+          <InlineEdit
             value={formData.color}
-            onChange={e => setFormData(prev => ({ ...prev, color: e.target.value }))}
-            onBlur={e => handleSave('color', e.target.value)}
-            className="rounded-lg"
+            onSave={async (val) => handleSave('color', val)}
+            placeholder="Wpisz kolor"
           />
         </div>
         <div>

@@ -36,7 +36,7 @@ export interface FilterValues {
 }
 
 const FUEL_TYPES = [
-  { value: "", label: "Wszystkie" },
+  { value: "all", label: "Wszystkie" },
   { value: "benzyna", label: "Benzyna" },
   { value: "diesel", label: "Diesel" },
   { value: "hybryda", label: "Hybryda" },
@@ -162,7 +162,7 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
     onFilterChange(emptyFilters);
   };
 
-  const hasActiveFilters = Object.values(filters).some((v) => v !== "");
+  const hasActiveFilters = Object.values(filters).some((v) => v !== "" && v !== "all");
 
   return (
     <div className="bg-card border rounded-xl p-6 shadow-sm">
@@ -283,7 +283,7 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
               <SelectValue placeholder="Dowolny" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Dowolny</SelectItem>
+              <SelectItem value="all">Dowolny</SelectItem>
               {YEARS.map((year) => (
                 <SelectItem key={year} value={year}>
                   {year}
@@ -335,7 +335,7 @@ export function MarketplaceFilters({ onFilterChange }: MarketplaceFiltersProps) 
               <SelectValue placeholder="Wszystkie" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Wszystkie miasta</SelectItem>
+              <SelectItem value="all">Wszystkie miasta</SelectItem>
               {cities.map((city) => (
                 <SelectItem key={city.id} value={city.id}>
                   {city.name}
