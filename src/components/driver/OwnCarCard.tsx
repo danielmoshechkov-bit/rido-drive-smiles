@@ -10,8 +10,8 @@ import { VehicleDocuments } from "@/components/VehicleDocuments";
 import { VehicleServiceTab } from "@/components/VehicleServiceTab";
 import { VehicleInfoTab } from "@/components/VehicleInfoTab";
 import { VehicleRentalHistory } from "./VehicleRentalHistory";
+import { VehiclePhotosTab } from "./VehiclePhotosTab";
 import { VehicleListingModal } from "@/components/fleet/VehicleListingModal";
-
 interface OwnVehicle {
   id: string;
   brand: string;
@@ -158,11 +158,12 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
           <CollapsibleContent>
             <div className="border-t px-4 py-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsList className="grid w-full grid-cols-5 mb-4">
                   <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
                   <TabsTrigger value="docs" className="text-xs">Dokumenty</TabsTrigger>
                   <TabsTrigger value="service" className="text-xs">Serwis</TabsTrigger>
-                  <TabsTrigger value="history" className="text-xs">Historia wynajmu</TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs">Historia</TabsTrigger>
+                  <TabsTrigger value="photos" className="text-xs">Zdjęcia</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="info">
@@ -191,6 +192,14 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
 
                 <TabsContent value="history">
                   <VehicleRentalHistory vehicleId={vehicle.id} />
+                </TabsContent>
+
+                <TabsContent value="photos">
+                  <VehiclePhotosTab 
+                    vehicleId={vehicle.id} 
+                    photos={vehicle.photos}
+                    onPhotosChange={(newPhotos) => setVehicle(prev => ({ ...prev, photos: newPhotos }))}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
