@@ -3,7 +3,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronUp, Trash2, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ExpiryBadges } from "@/components/ExpiryBadges";
@@ -43,6 +45,8 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
     contact_email?: string;
     weekly_price?: number;
   }>({});
+  const [editPrice, setEditPrice] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
 
   const handleDeleteVehicle = async () => {
     setDeleting(true);
@@ -93,6 +97,7 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
           contact_email: data.contact_email || undefined,
           weekly_price: data.weekly_price || undefined
         });
+        setEditPrice(data.weekly_price?.toString() || "");
       }
       setLoadingListing(false);
     };
@@ -195,6 +200,81 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
     }
   };
 
+  const handlePriceSave = async () => {
+    const priceValue = Number(editPrice);
+    if (!priceValue || priceValue <= 0) {
+      toast.error("Podaj prawidłową cenę");
+      return;
+    }
+
+    setSavingPrice(true);
+    try {
+      const oldPrice = listingData.weekly_price || 0;
+      
+      // Update price in listing
+      const { error } = await supabase
+        .from("vehicle_listings")
+        .update({ weekly_price: priceValue })
+        .eq("vehicle_id", vehicle.id);
+
+      if (error) throw error;
+
+      // Check if there are active rentals for this vehicle
+      const { data: activeRentals } = await supabase
+        .from("vehicle_rentals")
+        .select("id, driver_id")
+        .eq("vehicle_id", vehicle.id)
+        .in("status", ["active", "pending"]);
+
+      // If price changed and there are active rentals, create notifications
+      if (oldPrice > 0 && oldPrice !== priceValue && activeRentals && activeRentals.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        for (const rental of activeRentals) {
+          // Create notification
+          const { data: notification, error: notifError } = await supabase
+            .from("price_change_notifications")
+            .insert({
+              vehicle_id: vehicle.id,
+              driver_id: rental.driver_id,
+              old_price: oldPrice,
+              new_price: priceValue,
+              changed_by: user?.id
+            })
+            .select()
+            .single();
+
+          if (!notifError && notification) {
+            // Send email notification
+            try {
+              await supabase.functions.invoke("send-price-change-email", {
+                body: {
+                  driver_id: rental.driver_id,
+                  vehicle_id: vehicle.id,
+                  old_price: oldPrice,
+                  new_price: priceValue,
+                  notification_id: notification.id
+                }
+              });
+            } catch (emailError) {
+              console.error("Error sending price change email:", emailError);
+            }
+          }
+        }
+        toast.success("Cena zmieniona. Kierowcy zostali powiadomieni.");
+      } else {
+        toast.success("Cena zapisana");
+      }
+
+      setListingData(prev => ({ ...prev, weekly_price: priceValue }));
+    } catch (error: any) {
+      console.error("Error saving price:", error);
+      toast.error("Błąd zapisu ceny");
+    } finally {
+      setSavingPrice(false);
+    }
+  };
+
   return (
     <>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -278,6 +358,43 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
           {/* Expanded content */}
           <CollapsibleContent>
             <div className="border-t px-4 py-4">
+              {/* Rental price section - only show if listed or has listing data */}
+              {(isListed || listingData.weekly_price) && (
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                  <Label className="text-sm font-medium">Stawka za wynajem (giełda)</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      placeholder="np. 500"
+                      className="w-32"
+                      min="1"
+                    />
+                    <span className="text-sm text-muted-foreground">zł/tydzień</span>
+                    <Button
+                      size="sm"
+                      onClick={handlePriceSave}
+                      disabled={savingPrice || !editPrice || Number(editPrice) === listingData.weekly_price}
+                    >
+                      {savingPrice ? (
+                        "Zapisywanie..."
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-1" />
+                          Zapisz
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {listingData.weekly_price && Number(editPrice) !== listingData.weekly_price && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Aktualna cena: {listingData.weekly_price} zł/tydzień
+                    </p>
+                  )}
+                </div>
+              )}
+
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-5 mb-4">
                   <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>

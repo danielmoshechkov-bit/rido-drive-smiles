@@ -1471,6 +1471,66 @@ export type Database = {
         }
         Relationships: []
       }
+      price_change_notifications: {
+        Row: {
+          accepted_at: string | null
+          changed_by: string | null
+          created_at: string | null
+          driver_id: string
+          email_sent: boolean | null
+          email_sent_at: string | null
+          id: string
+          is_accepted: boolean | null
+          is_read: boolean | null
+          new_price: number
+          old_price: number
+          vehicle_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          driver_id: string
+          email_sent?: boolean | null
+          email_sent_at?: string | null
+          id?: string
+          is_accepted?: boolean | null
+          is_read?: boolean | null
+          new_price: number
+          old_price: number
+          vehicle_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          driver_id?: string
+          email_sent?: boolean | null
+          email_sent_at?: string | null
+          id?: string
+          is_accepted?: boolean | null
+          is_read?: boolean | null
+          new_price?: number
+          old_price?: number
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_change_notifications_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_change_notifications_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_reviews: {
         Row: {
           approved_at: string | null

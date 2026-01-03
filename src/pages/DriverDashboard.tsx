@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ const DriverDashboard = () => {
   const [showAddOwnCarModal, setShowAddOwnCarModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [priceChangeNotification, setPriceChangeNotification] = useState<any>(null);
 
   // PWA install prompt detection
   useEffect(() => {
@@ -185,6 +187,34 @@ const DriverDashboard = () => {
           setFleetInfo(fleetData);
         }
       }
+
+      // Check for unread price change notifications
+      const { data: notifications } = await supabase
+        .from("price_change_notifications")
+        .select(`
+          id,
+          vehicle_id,
+          old_price,
+          new_price,
+          created_at,
+          vehicles:vehicle_id (brand, model, plate)
+        `)
+        .eq("driver_id", driverAppUser.driver_id)
+        .eq("is_accepted", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (notifications && notifications.length > 0) {
+        const notif = notifications[0];
+        setPriceChangeNotification({
+          id: notif.id,
+          vehicle_id: notif.vehicle_id,
+          old_price: notif.old_price,
+          new_price: notif.new_price,
+          created_at: notif.created_at,
+          vehicle: notif.vehicles
+        });
+      }
     };
 
     checkAuth();
@@ -214,6 +244,14 @@ const DriverDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {/* Price Change Notification Modal - blocks everything until accepted */}
+      {priceChangeNotification && (
+        <PriceChangeModal
+          notification={priceChangeNotification}
+          onAccepted={() => setPriceChangeNotification(null)}
+        />
+      )}
+
       {/* Header - responsywny z hamburger menu na mobile */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">

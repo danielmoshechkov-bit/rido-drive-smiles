@@ -255,9 +255,11 @@ export default function VehicleMarketplace() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-xl">
-              <Car className="h-6 w-6 text-primary" />
-            </div>
+            <img 
+              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+              alt="RIDO Logo" 
+              className="h-8 w-8"
+            />
             <div>
               <h1 className="text-xl font-bold">Giełda Aut</h1>
               <p className="text-xs text-muted-foreground">get RIDO</p>
@@ -266,7 +268,7 @@ export default function VehicleMarketplace() {
           
           {user ? (
             <Button variant="outline" onClick={() => navigate("/driver")}>
-              Panel Kierowcy
+              Moje konto
             </Button>
           ) : (
             <Button onClick={() => navigate("/")}>
