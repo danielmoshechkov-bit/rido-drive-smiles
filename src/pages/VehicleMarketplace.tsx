@@ -19,6 +19,7 @@ interface VehicleListing {
     year: number;
     plate: string;
     photos: string[];
+    fuel_type: string | null;
   };
   fleet?: {
     id: string;
@@ -67,7 +68,7 @@ export default function VehicleMarketplace() {
           id,
           weekly_price,
           vehicle:vehicles!vehicle_id (
-            id, brand, model, year, plate, photos
+            id, brand, model, year, plate, photos, fuel_type
           ),
           fleet:fleets!fleet_id (
             id, name, contact_name, contact_phone_for_drivers, phone, email
@@ -232,14 +233,31 @@ export default function VehicleMarketplace() {
                 onOpenChange={(open) => setExpandedId(open ? listing.id : null)}
               >
                 <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                  {/* Photo */}
-                  <div className="aspect-square bg-muted relative">
-                    {listing.vehicle.photos?.[0] ? (
-                      <img
-                        src={listing.vehicle.photos[0]}
-                        alt={`${listing.vehicle.brand} ${listing.vehicle.model}`}
-                        className="w-full h-full object-cover"
-                      />
+                  {/* Photo Gallery */}
+                  <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                    {listing.vehicle.photos?.length > 0 ? (
+                      <>
+                        <img
+                          src={listing.vehicle.photos[0]}
+                          alt={`${listing.vehicle.brand} ${listing.vehicle.model}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {listing.vehicle.photos.length > 1 && (
+                          <div className="absolute bottom-2 left-2 flex gap-1">
+                            {listing.vehicle.photos.slice(0, 4).map((_, idx) => (
+                              <div 
+                                key={idx}
+                                className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-primary' : 'bg-white/60'}`}
+                              />
+                            ))}
+                            {listing.vehicle.photos.length > 4 && (
+                              <span className="text-xs text-white bg-black/50 px-1.5 rounded">
+                                +{listing.vehicle.photos.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Car className="h-16 w-16 text-muted-foreground/50" />
@@ -260,6 +278,10 @@ export default function VehicleMarketplace() {
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {listing.vehicle.year || "—"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Fuel className="h-3 w-3" />
+                          {listing.vehicle.fuel_type || "—"}
                         </span>
                       </div>
 

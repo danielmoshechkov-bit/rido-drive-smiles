@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, X, Image } from "lucide-react";
+import { Image, AlertCircle } from "lucide-react";
 
 interface VehicleListingModalProps {
   open: boolean;
@@ -17,51 +17,30 @@ interface VehicleListingModalProps {
     plate: string;
     photos?: string[];
   };
-  fleetId: string | null; // null for driver's own cars
+  fleetId: string | null;
   onSuccess: () => void;
 }
 
 export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSuccess }: VehicleListingModalProps) {
   const [weeklyPrice, setWeeklyPrice] = useState("");
-  const [photos, setPhotos] = useState<string[]>(vehicle.photos || []);
-  const [uploading, setUploading] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  // Load current photos from vehicle when modal opens
+  useEffect(() => {
+    if (open) {
+      const loadVehiclePhotos = async () => {
+        const { data } = await supabase
+          .from("vehicles")
+          .select("photos")
+          .eq("id", vehicle.id)
+          .single();
 
-    setUploading(true);
-    try {
-      const newPhotos: string[] = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const path = `vehicles/${vehicle.id}/${Date.now()}_${file.name}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(path, file, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from("documents").getPublicUrl(path);
-        newPhotos.push(data.publicUrl);
-      }
-
-      setPhotos(prev => [...prev, ...newPhotos]);
-      toast.success(`Dodano ${newPhotos.length} zdjęć`);
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      toast.error(error.message || "Błąd przesyłania zdjęć");
-    } finally {
-      setUploading(false);
+        setPhotos(data?.photos || vehicle.photos || []);
+      };
+      loadVehiclePhotos();
     }
-  };
-
-  const removePhoto = (index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
-  };
+  }, [open, vehicle.id, vehicle.photos]);
 
   const handleSubmit = async () => {
     if (!weeklyPrice || Number(weeklyPrice) <= 0) {
@@ -69,29 +48,23 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
       return;
     }
 
+    if (photos.length === 0) {
+      toast.error("Dodaj zdjęcia w zakładce Zdjęcia przed publikacją");
+      return;
+    }
+
     setSaving(true);
     try {
-      // Update vehicle photos
-      const { error: vehicleError } = await supabase
-        .from("vehicles")
-        .update({ photos })
-        .eq("id", vehicle.id);
-
-      if (vehicleError) throw vehicleError;
-
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Nie zalogowany");
 
-      // Create or update listing - fleet_id is null for driver's own cars
       const listingData: any = {
         vehicle_id: vehicle.id,
         weekly_price: Number(weeklyPrice),
         is_available: true,
         created_by: user.id
       };
-      
-      // Only include fleet_id if it's a fleet vehicle
+
       if (fleetId) {
         listingData.fleet_id = fleetId;
       }
@@ -134,40 +107,32 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
 
           <div>
             <Label>Zdjęcia pojazdu</Label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {photos.map((photo, index) => (
-                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
-                  <img src={photo} alt="" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removePhoto(index)}
-                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              
-              <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                {uploading ? (
-                  <span className="text-xs text-muted-foreground">Ładowanie...</span>
-                ) : (
-                  <>
-                    <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                    <span className="text-xs text-muted-foreground">Dodaj zdjęcia</span>
-                  </>
+            {photos.length > 0 ? (
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {photos.slice(0, 4).map((photo, index) => (
+                  <div key={index} className="aspect-square rounded-lg overflow-hidden border relative">
+                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute top-1 left-1 bg-background/80 text-foreground text-xs px-1.5 py-0.5 rounded font-medium">
+                      {index + 1}
+                    </span>
+                  </div>
+                ))}
+                {photos.length > 4 && (
+                  <div className="aspect-square rounded-lg border flex items-center justify-center bg-muted">
+                    <span className="text-sm text-muted-foreground">+{photos.length - 4}</span>
+                  </div>
                 )}
-              </label>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Dodaj zdjęcia aby zwiększyć atrakcyjność ogłoszenia
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Dodaj zdjęcia w zakładce "Zdjęcia" przed publikacją
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Zdjęcia możesz dodać i uporządkować w zakładce "Zdjęcia"
             </p>
           </div>
         </div>
@@ -176,7 +141,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Anuluj
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button onClick={handleSubmit} disabled={saving || photos.length === 0}>
             {saving ? "Publikowanie..." : "Opublikuj na giełdzie"}
           </Button>
         </DialogFooter>
