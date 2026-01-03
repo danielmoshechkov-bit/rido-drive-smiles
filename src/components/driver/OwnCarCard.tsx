@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { Car, FileText, Wrench, Info } from "lucide-react";
+import { Car, FileText, Wrench, Info, AlertTriangle, CheckCircle } from "lucide-react";
 import { VehicleDocuments } from "@/components/VehicleDocuments";
 import { VehicleServiceTab } from "@/components/VehicleServiceTab";
 
@@ -22,9 +22,74 @@ interface OwnVehicle {
   vehicle_policies?: Array<{ valid_to: string; type: string; id?: string; policy_no?: string; provider?: string; valid_from?: string }>;
 }
 
+const getExpiryStatus = (dateStr?: string) => {
+  if (!dateStr) return { status: 'missing', daysLeft: 0 };
+  const date = new Date(dateStr);
+  const today = new Date();
+  const diffTime = date.getTime() - today.getTime();
+  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (daysLeft < 0) return { status: 'expired', daysLeft };
+  if (daysLeft <= 14) return { status: 'warning', daysLeft };
+  return { status: 'ok', daysLeft };
+};
+
+const ExpiryBadge = ({ dateStr, label }: { dateStr?: string; label: string }) => {
+  const { status, daysLeft } = getExpiryStatus(dateStr);
+  
+  if (!dateStr) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">{label}:</span>
+        <Badge variant="outline" className="text-xs">Brak danych</Badge>
+      </div>
+    );
+  }
+  
+  const formattedDate = new Date(dateStr).toLocaleDateString('pl-PL');
+  
+  if (status === 'expired') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">{label}:</span>
+        <Badge variant="destructive" className="text-xs flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Wygasło {formattedDate}
+        </Badge>
+      </div>
+    );
+  }
+  
+  if (status === 'warning') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">{label}:</span>
+        <Badge className="text-xs bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          {formattedDate} ({daysLeft} dni)
+        </Badge>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">{label}:</span>
+      <Badge variant="secondary" className="text-xs flex items-center gap-1">
+        <CheckCircle className="h-3 w-3 text-green-600" />
+        {formattedDate}
+      </Badge>
+    </div>
+  );
+};
+
 export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("info");
+
+  // Get latest inspection and OC policy dates
+  const latestInspection = vehicle.vehicle_inspections?.[0];
+  const ocPolicy = vehicle.vehicle_policies?.find(p => p.type?.toLowerCase() === 'oc');
 
   return (
     <Card className="rounded-2xl border shadow-soft">
@@ -82,6 +147,12 @@ export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
                 <span className="text-muted-foreground">VIN:</span>
                 <span className="ml-2 font-mono text-xs">{vehicle.vin || "-"}</span>
               </div>
+            </div>
+            
+            {/* Inspection and Insurance dates */}
+            <div className="pt-3 mt-3 border-t space-y-2">
+              <ExpiryBadge dateStr={latestInspection?.valid_to} label="Przegląd ważny do" />
+              <ExpiryBadge dateStr={ocPolicy?.valid_to} label="Polisa OC ważna do" />
             </div>
           </TabsContent>
 
