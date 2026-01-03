@@ -1421,6 +1421,65 @@ export type Database = {
         }
         Relationships: []
       }
+      rental_reviews: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          car_condition_rating: number | null
+          comment: string | null
+          created_at: string | null
+          driver_rating: number | null
+          id: string
+          problem_help_rating: number | null
+          rental_id: string
+          reviewee_id: string
+          reviewer_id: string
+          reviewer_type: string
+          service_quality_rating: number | null
+          status: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          car_condition_rating?: number | null
+          comment?: string | null
+          created_at?: string | null
+          driver_rating?: number | null
+          id?: string
+          problem_help_rating?: number | null
+          rental_id: string
+          reviewee_id: string
+          reviewer_id: string
+          reviewer_type: string
+          service_quality_rating?: number | null
+          status?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          car_condition_rating?: number | null
+          comment?: string | null
+          created_at?: string | null
+          driver_rating?: number | null
+          id?: string
+          problem_help_rating?: number | null
+          rental_id?: string
+          reviewee_id?: string
+          reviewer_id?: string
+          reviewer_type?: string
+          service_quality_rating?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_reviews_rental_id_fkey"
+            columns: ["rental_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_rentals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rides_raw: {
         Row: {
           adjustments: number | null
@@ -2236,6 +2295,57 @@ export type Database = {
           },
         ]
       }
+      vehicle_listings: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          fleet_id: string
+          id: string
+          is_available: boolean | null
+          listed_at: string | null
+          updated_at: string | null
+          vehicle_id: string
+          weekly_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          fleet_id: string
+          id?: string
+          is_available?: boolean | null
+          listed_at?: string | null
+          updated_at?: string | null
+          vehicle_id: string
+          weekly_price: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          fleet_id?: string
+          id?: string
+          is_available?: boolean | null
+          listed_at?: string | null
+          updated_at?: string | null
+          vehicle_id?: string
+          weekly_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_listings_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_listings_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_policies: {
         Row: {
           created_at: string
@@ -2279,6 +2389,83 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "vehicle_policies_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_rentals: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          driver_reviewed: boolean | null
+          fleet_id: string
+          fleet_reviewed: boolean | null
+          id: string
+          listing_id: string
+          rental_end: string | null
+          rental_start: string | null
+          status: string | null
+          updated_at: string | null
+          vehicle_id: string
+          weekly_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          driver_reviewed?: boolean | null
+          fleet_id: string
+          fleet_reviewed?: boolean | null
+          id?: string
+          listing_id: string
+          rental_end?: string | null
+          rental_start?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_id: string
+          weekly_price: number
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          driver_reviewed?: boolean | null
+          fleet_id?: string
+          fleet_reviewed?: boolean | null
+          id?: string
+          listing_id?: string
+          rental_end?: string | null
+          rental_start?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_id?: string
+          weekly_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_rentals_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_rentals_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_rentals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_rentals_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
@@ -2347,6 +2534,7 @@ export type Database = {
           model: string
           odometer: number | null
           owner_name: string | null
+          photos: string[] | null
           plate: string
           status: string | null
           updated_at: string
@@ -2364,6 +2552,7 @@ export type Database = {
           model: string
           odometer?: number | null
           owner_name?: string | null
+          photos?: string[] | null
           plate: string
           status?: string | null
           updated_at?: string
@@ -2381,6 +2570,7 @@ export type Database = {
           model?: string
           odometer?: number | null
           owner_name?: string | null
+          photos?: string[] | null
           plate?: string
           status?: string | null
           updated_at?: string
