@@ -35,17 +35,29 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
   const [listingModalOpen, setListingModalOpen] = useState(false);
   const [loadingListing, setLoadingListing] = useState(true);
   const [vehicle, setVehicle] = useState(initialVehicle);
+  const [listingData, setListingData] = useState<{
+    contact_phone?: string;
+    contact_email?: string;
+    weekly_price?: number;
+  }>({});
 
-  // Check if vehicle is listed on marketplace
+  // Check if vehicle is listed on marketplace and fetch listing data
   useEffect(() => {
     const checkListing = async () => {
       const { data } = await supabase
         .from("vehicle_listings")
-        .select("id, is_available")
+        .select("id, is_available, contact_phone, contact_email, weekly_price")
         .eq("vehicle_id", vehicle.id)
         .maybeSingle();
 
       setIsListed(data?.is_available ?? false);
+      if (data) {
+        setListingData({
+          contact_phone: data.contact_phone || undefined,
+          contact_email: data.contact_email || undefined,
+          weekly_price: data.weekly_price || undefined
+        });
+      }
       setLoadingListing(false);
     };
 
@@ -105,6 +117,45 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
       toast.success("Zapisano");
       // Refresh vehicle data after successful save
       await refreshVehicleData();
+    }
+  };
+
+  const handleListingSave = async (updates: { contact_phone?: string; contact_email?: string }) => {
+    // Check if listing exists first
+    const { data: existing } = await supabase
+      .from("vehicle_listings")
+      .select("id")
+      .eq("vehicle_id", vehicle.id)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      // Update existing listing
+      const result = await supabase
+        .from("vehicle_listings")
+        .update(updates)
+        .eq("vehicle_id", vehicle.id);
+      error = result.error;
+    } else {
+      // Insert new listing with required fields
+      const result = await supabase
+        .from("vehicle_listings")
+        .insert({
+          vehicle_id: vehicle.id,
+          created_by: (await supabase.auth.getUser()).data.user?.id || "",
+          weekly_price: listingData.weekly_price || 0,
+          is_available: false,
+          ...updates
+        });
+      error = result.error;
+    }
+
+    if (error) {
+      toast.error("Błąd zapisu danych kontaktowych");
+      console.error(error);
+    } else {
+      setListingData(prev => ({ ...prev, ...updates }));
+      toast.success("Zapisano dane kontaktowe");
     }
   };
 
@@ -179,6 +230,8 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
                       fuel_type: vehicle.fuel_type || ""
                     }}
                     onSave={handleVehicleSave}
+                    listing={listingData}
+                    onListingSave={handleListingSave}
                   />
                 </TabsContent>
 
