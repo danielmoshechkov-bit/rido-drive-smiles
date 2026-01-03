@@ -262,7 +262,7 @@
     "termsAndPrivacy": "the terms and privacy policy",
     "mustAcceptTerms": "You must accept the terms to log in",
     "forgotPassword": "Forgot your password?",
-    "noAccount": "Don't have an account? Register as a driver",
+    "noAccount": "Don't have an account? Register!",
     "resetPassword": "Reset Password",
     "newPassword": "New Password",
     "confirmNewPassword": "Confirm New Password",
@@ -368,7 +368,8 @@
       "settlements": "Weekly Settlements",
       "cars": "Cars",
       "documents": "Documents",
-      "information": "Information"
+      "information": "Information",
+      "marketplace": "Car Marketplace"
     },
     "settlements": {
       "mySettlements": "My Settlements",

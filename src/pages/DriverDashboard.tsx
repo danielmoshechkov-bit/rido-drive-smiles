@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -363,6 +363,10 @@ const DriverDashboard = () => {
               <Info className="h-4 w-4 mr-2" />
               {t('driver.tabs.information')}
             </TabsTrigger>
+            <TabsTrigger value="marketplace">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              {t('driver.tabs.marketplace')}
+            </TabsTrigger>
           </TabsPill>
         </div>
 
@@ -420,6 +424,16 @@ const DriverDashboard = () => {
                       {t('driver.tabs.information')}
                     </Button>
                   </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'marketplace' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('marketplace')}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      {t('driver.tabs.marketplace')}
+                    </Button>
+                  </SheetTrigger>
                 </div>
               </SheetContent>
             </Sheet>
@@ -464,6 +478,7 @@ const DriverDashboard = () => {
         {activeTab === 'cars' && <CarsSection driverData={driverData} showAddModal={showAddOwnCarModal} setShowAddModal={setShowAddOwnCarModal} />}
         {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
         {activeTab === 'informacje' && user && <DriverNotifications driverId={driverData.driver_id} userId={user.id} />}
+        {activeTab === 'marketplace' && <MarketplaceRedirect navigate={navigate} />}
       </div>
     </div>
   );
@@ -889,6 +904,21 @@ function DriverDocuments({ driverData }: { driverData: any }) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Komponent przekierowania do giełdy aut
+function MarketplaceRedirect({ navigate }: { navigate: (path: string) => void }) {
+  const { t } = useTranslation();
+  
+  useEffect(() => {
+    navigate('/gielda');
+  }, [navigate]);
+
+  return (
+    <div className="text-center py-8 text-muted-foreground">
+      {t('common.loading')}
     </div>
   );
 }

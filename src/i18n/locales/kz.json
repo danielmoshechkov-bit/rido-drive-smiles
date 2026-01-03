@@ -262,7 +262,7 @@
     "termsAndPrivacy": "ережелер мен құпиялылық саясатын",
     "mustAcceptTerms": "Кіру үшін ережелерді қабылдауыңыз керек",
     "forgotPassword": "Құпия сөзді ұмыттыңыз ба?",
-    "noAccount": "Тіркелгіңіз жоқ па? Жүргізуші ретінде тіркеліңіз",
+    "noAccount": "Тіркелгіңіз жоқ па? Тіркеліңіз!",
     "resetPassword": "Құпия сөзді қалпына келтіру",
     "newPassword": "Жаңа құпия сөз",
     "confirmNewPassword": "Жаңа құпия сөзді растаңыз",
@@ -368,7 +368,8 @@
       "settlements": "Апталық есеп",
       "cars": "Автокөлік",
       "documents": "Құжаттар",
-      "information": "Ақпарат"
+      "information": "Ақпарат",
+      "marketplace": "Авто биржасы"
     },
     "settlements": {
       "mySettlements": "Менің есептерім",

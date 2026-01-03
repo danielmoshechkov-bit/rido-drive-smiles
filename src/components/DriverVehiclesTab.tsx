@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp, Car, User } from "lucide-react";
+import { ChevronDown, ChevronUp, Car, User, Users } from "lucide-react";
 import { VehicleInfoTab } from "./VehicleInfoTab";
 import { VehicleServiceTab } from "./VehicleServiceTab";
 import { VehicleDocuments } from "./VehicleDocuments";
@@ -20,15 +20,20 @@ interface DriverVehicle {
   model: string;
   year: number | null;
   color: string | null;
+  fuel_type: string | null;
   odometer: number | null;
   status: string;
   created_at: string;
-  assignedDriver?: {
+  ownerDriver?: {
     id: string;
     first_name: string;
     last_name: string;
     email?: string;
-    assigned_at: string;
+  } | null;
+  rentedByDriver?: {
+    id: string;
+    first_name: string;
+    last_name: string;
   } | null;
 }
 
@@ -52,33 +57,62 @@ export function DriverVehiclesTab() {
       // Get vehicle IDs
       const vehicleIds = vehiclesData?.map(v => v.id) || [];
 
-      // Fetch active assignments for these vehicles
-      const { data: assignments } = await supabase
+      if (vehicleIds.length === 0) {
+        setVehicles([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch owner assignments - driver who created/owns the vehicle
+      const { data: ownerAssignments } = await supabase
         .from("driver_vehicle_assignments")
         .select(`
           vehicle_id,
-          assigned_at,
-          drivers(id, first_name, last_name, email)
+          driver_id,
+          drivers!driver_vehicle_assignments_driver_id_fkey(id, first_name, last_name, email, user_role)
         `)
         .in("vehicle_id", vehicleIds)
+        .is("fleet_id", null)
         .eq("status", "active");
 
-      // Merge vehicles with assignments
-      const vehiclesWithDrivers = vehiclesData?.map(vehicle => {
-        const assignment = assignments?.find(a => a.vehicle_id === vehicle.id);
-        return {
-          ...vehicle,
-          assignedDriver: assignment?.drivers
-            ? {
-                id: assignment.drivers.id,
-                first_name: assignment.drivers.first_name,
-                last_name: assignment.drivers.last_name,
-                email: assignment.drivers.email,
-                assigned_at: assignment.assigned_at
-              }
-            : null
-        };
-      }) || [];
+      // Fetch active rentals from marketplace
+      const { data: activeRentals } = await supabase
+        .from("vehicle_rentals")
+        .select(`
+          vehicle_id,
+          driver_id,
+          drivers!vehicle_rentals_driver_id_fkey(id, first_name, last_name)
+        `)
+        .in("vehicle_id", vehicleIds)
+        .eq("status", "confirmed");
+
+      // Filter: only include vehicles owned by regular drivers (user_role = 'kierowca' or null)
+      const vehiclesWithDrivers = vehiclesData
+        ?.map(vehicle => {
+          const ownerAssignment = ownerAssignments?.find(a => a.vehicle_id === vehicle.id);
+          const rental = activeRentals?.find(r => r.vehicle_id === vehicle.id);
+          
+          // Get owner driver data
+          const ownerDriver = ownerAssignment?.drivers as any;
+          
+          return {
+            ...vehicle,
+            ownerDriver: ownerDriver ? {
+              id: ownerDriver.id,
+              first_name: ownerDriver.first_name,
+              last_name: ownerDriver.last_name,
+              email: ownerDriver.email,
+              user_role: ownerDriver.user_role
+            } : null,
+            rentedByDriver: rental?.drivers ? {
+              id: (rental.drivers as any).id,
+              first_name: (rental.drivers as any).first_name,
+              last_name: (rental.drivers as any).last_name
+            } : null
+          };
+        })
+        // Only show vehicles where owner is a regular driver (kierowca), not fleet
+        .filter(v => v.ownerDriver?.user_role === 'kierowca' || v.ownerDriver?.user_role === null) || [];
 
       setVehicles(vehiclesWithDrivers);
     } catch (error) {
@@ -103,15 +137,11 @@ export function DriverVehiclesTab() {
     setExpandedVehicles(newExpanded);
   };
 
-  const saveVehicleInfo = async (vehicleId: string, field: string, value: string) => {
+  const saveVehicleInfo = async (vehicleId: string, data: any) => {
     try {
-      let updateData: any = { [field]: value };
-      if (field === 'plate') updateData.plate = value.toUpperCase();
-      if (field === 'vin') updateData.vin = value.toUpperCase();
-      
       const { error } = await supabase
         .from("vehicles")
-        .update(updateData)
+        .update(data)
         .eq("id", vehicleId);
 
       if (error) throw error;
@@ -168,15 +198,27 @@ export function DriverVehiclesTab() {
                         <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
                         <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
                       </div>
-                      <div className="min-w-[200px]">
+                      <div className="min-w-[180px]">
                         <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
                           <User className="h-3 w-3" />
                           Kierowca (właściciel):
                         </span>
                         <div className="font-semibold text-sm">
-                          {vehicle.assignedDriver 
-                            ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
+                          {vehicle.ownerDriver 
+                            ? `${vehicle.ownerDriver.first_name} ${vehicle.ownerDriver.last_name}`
                             : <Badge variant="outline">Nieprzypisany</Badge>
+                          }
+                        </div>
+                      </div>
+                      <div className="min-w-[180px]">
+                        <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          Przypisany kierowca:
+                        </span>
+                        <div className="font-semibold text-sm">
+                          {vehicle.rentedByDriver 
+                            ? `${vehicle.rentedByDriver.first_name} ${vehicle.rentedByDriver.last_name}`
+                            : <Badge variant="outline">Brak</Badge>
                           }
                         </div>
                       </div>
@@ -213,7 +255,7 @@ export function DriverVehiclesTab() {
                     <TabsContent value="info">
                       <VehicleInfoTab 
                         vehicle={vehicle} 
-                        onSave={(field, value) => saveVehicleInfo(vehicle.id, field, value)}
+                        onSave={saveVehicleInfo}
                       />
                     </TabsContent>
 

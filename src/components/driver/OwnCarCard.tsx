@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,12 +28,13 @@ interface OwnVehicle {
   vehicle_policies?: Array<{ valid_to: string; type: string; id?: string; policy_no?: string; provider?: string; valid_from?: string }>;
 }
 
-export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
+export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
   const [isListed, setIsListed] = useState(false);
   const [listingModalOpen, setListingModalOpen] = useState(false);
   const [loadingListing, setLoadingListing] = useState(true);
+  const [vehicle, setVehicle] = useState(initialVehicle);
 
   // Check if vehicle is listed on marketplace
   useEffect(() => {
@@ -49,6 +50,22 @@ export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
     };
 
     checkListing();
+  }, [vehicle.id]);
+
+  // Refresh vehicle data from database
+  const refreshVehicleData = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("*")
+      .eq("id", vehicle.id)
+      .single();
+
+    if (data && !error) {
+      setVehicle(prev => ({
+        ...prev,
+        ...data
+      }));
+    }
   }, [vehicle.id]);
 
   const handleListingToggle = async (checked: boolean) => {
@@ -86,6 +103,8 @@ export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
       toast.error("Błąd zapisu");
     } else {
       toast.success("Zapisano");
+      // Refresh vehicle data after successful save
+      await refreshVehicleData();
     }
   };
 
@@ -155,7 +174,8 @@ export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
                       brand: vehicle.brand,
                       model: vehicle.model,
                       year: vehicle.year || 0,
-                      color: vehicle.color || ""
+                      color: vehicle.color || "",
+                      fuel_type: vehicle.fuel_type || ""
                     }}
                     onSave={handleVehicleSave}
                   />
