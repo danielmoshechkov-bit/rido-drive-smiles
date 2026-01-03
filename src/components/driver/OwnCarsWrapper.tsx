@@ -39,61 +39,61 @@ export const OwnCarsWrapper = ({ driverData }: OwnCarsWrapperProps) => {
   const [ownVehicles, setOwnVehicles] = useState<OwnVehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadOwnVehicles = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("driver_vehicle_assignments")
-          .select(`
-            assigned_at,
-            vehicles!inner (
+  const loadOwnVehicles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("driver_vehicle_assignments")
+        .select(`
+          assigned_at,
+          vehicles!inner (
+            id,
+            brand,
+            model,
+            plate,
+            year,
+            color,
+            vin,
+            odometer,
+            vehicle_inspections (
               id,
-              brand,
-              model,
-              plate,
-              year,
-              color,
-              vin,
-              odometer,
-              vehicle_inspections (
-                id,
-                valid_to,
-                date,
-                result,
-                notes
-              ),
-              vehicle_policies (
-                id,
-                valid_to,
-                type,
-                policy_no,
-                provider,
-                valid_from
-              )
+              valid_to,
+              date,
+              result,
+              notes
+            ),
+            vehicle_policies (
+              id,
+              valid_to,
+              type,
+              policy_no,
+              provider,
+              valid_from
             )
-          `)
-          .eq("driver_id", driverData.driver_id)
-          .is("unassigned_at", null)
-          .eq("status", "active")
-          .is("vehicles.fleet_id", null)
-          .order("assigned_at", { ascending: false });
+          )
+        `)
+        .eq("driver_id", driverData.driver_id)
+        .is("unassigned_at", null)
+        .eq("status", "active")
+        .is("vehicles.fleet_id", null)
+        .order("assigned_at", { ascending: false });
 
-        if (error) {
-          console.error("Error loading own vehicles:", error);
-        } else if (data) {
-          const vehicles = data.map(assignment => ({
-            ...assignment.vehicles,
-            assigned_at: assignment.assigned_at
-          })) as OwnVehicle[];
-          setOwnVehicles(vehicles);
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error loading own vehicles:", error);
-      } finally {
-        setLoading(false);
+      } else if (data) {
+        const vehicles = data.map(assignment => ({
+          ...assignment.vehicles,
+          assigned_at: assignment.assigned_at
+        })) as OwnVehicle[];
+        setOwnVehicles(vehicles);
       }
-    };
+    } catch (error) {
+      console.error("Error loading own vehicles:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (driverData.driver_id) {
       loadOwnVehicles();
     }
@@ -124,7 +124,7 @@ export const OwnCarsWrapper = ({ driverData }: OwnCarsWrapperProps) => {
   return (
     <div className="space-y-4">
       {ownVehicles.map((vehicle) => (
-        <OwnCarCard key={vehicle.id} vehicle={vehicle} />
+        <OwnCarCard key={vehicle.id} vehicle={vehicle} onDeleted={loadOwnVehicles} />
       ))}
     </div>
   );

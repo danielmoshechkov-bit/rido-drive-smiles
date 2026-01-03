@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ExpiryBadges } from "@/components/ExpiryBadges";
@@ -12,6 +13,7 @@ import { VehicleInfoTab } from "@/components/VehicleInfoTab";
 import { VehicleRentalHistory } from "./VehicleRentalHistory";
 import { VehiclePhotosTab } from "./VehiclePhotosTab";
 import { VehicleListingModal } from "@/components/fleet/VehicleListingModal";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 interface OwnVehicle {
   id: string;
   brand: string;
@@ -28,18 +30,52 @@ interface OwnVehicle {
   vehicle_policies?: Array<{ valid_to: string; type: string; id?: string; policy_no?: string; provider?: string; valid_from?: string }>;
 }
 
-export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle }) => {
+export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: OwnVehicle; onDeleted?: () => void }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
   const [isListed, setIsListed] = useState(false);
   const [listingModalOpen, setListingModalOpen] = useState(false);
   const [loadingListing, setLoadingListing] = useState(true);
   const [vehicle, setVehicle] = useState(initialVehicle);
+  const [deleting, setDeleting] = useState(false);
   const [listingData, setListingData] = useState<{
     contact_phone?: string;
     contact_email?: string;
     weekly_price?: number;
   }>({});
+
+  const handleDeleteVehicle = async () => {
+    setDeleting(true);
+    try {
+      // 1. Delete vehicle_listings
+      await supabase
+        .from("vehicle_listings")
+        .delete()
+        .eq("vehicle_id", vehicle.id);
+
+      // 2. Delete driver_vehicle_assignments
+      await supabase
+        .from("driver_vehicle_assignments")
+        .delete()
+        .eq("vehicle_id", vehicle.id);
+
+      // 3. Delete the vehicle itself
+      const { error } = await supabase
+        .from("vehicles")
+        .delete()
+        .eq("id", vehicle.id);
+
+      if (error) throw error;
+
+      toast.success("Auto zostało usunięte");
+      onDeleted?.();
+    } catch (error: any) {
+      console.error("Error deleting vehicle:", error);
+      toast.error("Błąd usuwania: " + (error.message || "Nieznany błąd"));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Check if vehicle is listed on marketplace and fetch listing data
   useEffect(() => {
@@ -167,16 +203,19 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="grid grid-cols-3 gap-4 flex-1 items-center">
-                {/* Column 1: Plate */}
-                <div>
-                  <span className="text-xs text-muted-foreground">Nr rej.:</span>
-                  <p className="font-mono font-medium">{vehicle.plate}</p>
-                </div>
-
-                {/* Column 2: Vehicle */}
+                {/* Column 1: Vehicle */}
                 <div>
                   <span className="text-xs text-muted-foreground">Pojazd:</span>
-                  <p className="font-medium">{vehicle.brand} {vehicle.model}</p>
+                  <p className="font-medium">
+                    {vehicle.brand} {vehicle.model}
+                    {vehicle.year && <span className="text-muted-foreground ml-1">({vehicle.year})</span>}
+                  </p>
+                </div>
+
+                {/* Column 2: Plate */}
+                <div>
+                  <span className="text-xs text-muted-foreground">Nr rej.:</span>
+                  <p className="font-medium">{vehicle.plate}</p>
                 </div>
 
                 {/* Column 3: Documents */}
@@ -188,8 +227,8 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
                 </div>
               </div>
 
-              {/* Rental toggle and expand button */}
-              <div className="flex items-center gap-4 ml-4" onClick={(e) => e.stopPropagation()}>
+              {/* Rental toggle, delete button and expand button */}
+              <div className="flex items-center gap-3 ml-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Do wynajęcia</span>
                   <Switch
@@ -198,6 +237,37 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
                     disabled={loadingListing}
                   />
                 </div>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={deleting}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Usunąć auto?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Ta akcja jest nieodwracalna. Auto {vehicle.brand} {vehicle.model} ({vehicle.plate}) zostanie trwale usunięte z systemu wraz z ogłoszeniem na giełdzie.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteVehicle}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {deleting ? "Usuwanie..." : "Usuń"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                
                 <div className="text-muted-foreground" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}>
                   {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                 </div>
