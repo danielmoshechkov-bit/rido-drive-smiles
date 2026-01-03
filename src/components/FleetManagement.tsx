@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X, Store } from "lucide-react";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { VehicleInfoTab } from "./VehicleInfoTab";
 import { VehicleServiceTab } from "./VehicleServiceTab";
@@ -20,6 +20,8 @@ import { useGlobalDropdown } from "@/hooks/useGlobalDropdown";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
 import { UniversalSelector } from "./UniversalSelector";
+import { VehicleListingModal } from "./fleet/VehicleListingModal";
+import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -62,6 +64,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeTab, setActiveTab] = useState("vehicles");
+  const [listingVehicle, setListingVehicle] = useState<Vehicle | null>(null);
+  const [listedVehicleIds, setListedVehicleIds] = useState<Set<string>>(new Set());
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
 
   const loadDrivers = async () => {
@@ -139,9 +143,20 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     setVehicles(vehiclesWithAssignments as Vehicle[]);
   };
   
+  const loadListedVehicles = async () => {
+    if (!fleetId) return;
+    const { data } = await supabase
+      .from("vehicle_listings")
+      .select("vehicle_id")
+      .eq("fleet_id", fleetId);
+    
+    setListedVehicleIds(new Set((data || []).map(l => l.vehicle_id)));
+  };
+  
   useEffect(() => {
     fetchVehicles();
     loadDrivers();
+    loadListedVehicles();
   }, [cityId, fleetId]);
 
   const filtered = vehicles.filter(v => {
@@ -362,10 +377,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-2' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="vehicles">Auta</TabsTrigger>
             {userType === 'admin' && (
               <TabsTrigger value="fleets">Floty</TabsTrigger>
+            )}
+            {userType === 'fleet' && fleetId && (
+              <TabsTrigger value="rentals">Rezerwacje z giełdy</TabsTrigger>
             )}
           </TabsList>
 
@@ -497,13 +515,33 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                          className="inline-block"
                                        />
                                     </div>
-                                  <div className="min-w-[200px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
-                                    <div className="font-semibold">
-                                      <ExpiryBadges vehicleId={vehicle.id} />
-                                    </div>
-                                  </div>
-                               </div>
+                                   <div className="min-w-[200px]">
+                                     <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
+                                     <div className="font-semibold">
+                                       <ExpiryBadges vehicleId={vehicle.id} />
+                                     </div>
+                                   </div>
+                                   {userType === 'fleet' && fleetId && (
+                                     <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                       {listedVehicleIds.has(vehicle.id) ? (
+                                         <Badge variant="secondary" className="flex items-center gap-1">
+                                           <Store className="h-3 w-3" />
+                                           Na giełdzie
+                                         </Badge>
+                                       ) : (
+                                         <Button
+                                           size="sm"
+                                           variant="outline"
+                                           onClick={() => setListingVehicle(vehicle)}
+                                           className="gap-1"
+                                         >
+                                           <Store className="h-3 w-3" />
+                                           Na giełdę
+                                         </Button>
+                                       )}
+                                     </div>
+                                   )}
+                                </div>
                             </div>
                             
                             {/* Przycisk rozwijania */}
@@ -561,6 +599,12 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           <TabsContent value="fleets" className="space-y-6">
             <FleetTabManagement cityId={cityId} />
           </TabsContent>
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="rentals" className="space-y-6">
+              <FleetRentalsManagement fleetId={fleetId} />
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
 
@@ -573,6 +617,25 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         fleetId={fleetId}
         fleetName={cityName}
       />
+
+      {listingVehicle && fleetId && (
+        <VehicleListingModal
+          open={!!listingVehicle}
+          onOpenChange={(open) => !open && setListingVehicle(null)}
+          vehicle={{
+            id: listingVehicle.id,
+            brand: listingVehicle.brand,
+            model: listingVehicle.model,
+            plate: listingVehicle.plate,
+            photos: []
+          }}
+          fleetId={fleetId}
+          onSuccess={() => {
+            loadListedVehicles();
+            setListingVehicle(null);
+          }}
+        />
+      )}
     </Card>
   );
 }

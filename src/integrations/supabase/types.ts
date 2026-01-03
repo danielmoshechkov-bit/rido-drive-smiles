@@ -2530,6 +2530,7 @@ export type Database = {
           color: string | null
           created_at: string
           fleet_id: string | null
+          fuel_type: string | null
           id: string
           model: string
           odometer: number | null
@@ -2548,6 +2549,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           fleet_id?: string | null
+          fuel_type?: string | null
           id?: string
           model: string
           odometer?: number | null
@@ -2566,6 +2568,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           fleet_id?: string | null
+          fuel_type?: string | null
           id?: string
           model?: string
           odometer?: number | null

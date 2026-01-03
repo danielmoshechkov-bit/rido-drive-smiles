@@ -18,6 +18,7 @@ import SettlementSheetView from "./pages/SettlementSheetView";
 import SystemAlerts from "./pages/SystemAlerts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import VehicleMarketplace from "./pages/VehicleMarketplace";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/landing" element={<Index />} />
           <Route path="/install" element={<Install />} />
+          <Route path="/gielda" element={<VehicleMarketplace />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
