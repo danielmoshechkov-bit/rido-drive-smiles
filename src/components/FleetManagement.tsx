@@ -97,7 +97,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         *,
         fleets(name)
       `)
-      .not("fleet_id", "is", null) // Only show fleet vehicles in this tab
+      // Show fleet vehicles only if fleetId provided, otherwise show all for admin
       .order("created_at", { ascending: false });
       
     // Filter by fleetId if provided (fleet user), otherwise by cityId (admin)
