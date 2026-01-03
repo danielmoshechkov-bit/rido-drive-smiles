@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -529,25 +530,33 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                      </div>
                                    </div>
                                    {userType === 'fleet' && fleetId && (
-                                     <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
-                                       {listedVehicleIds.has(vehicle.id) ? (
-                                         <Badge variant="secondary" className="flex items-center gap-1">
-                                           <Store className="h-3 w-3" />
-                                           Na giełdzie
-                                         </Badge>
-                                       ) : (
-                                         <Button
-                                           size="sm"
-                                           variant="outline"
-                                           onClick={() => setListingVehicle(vehicle)}
-                                           className="gap-1"
-                                         >
-                                           <Store className="h-3 w-3" />
-                                           Na giełdę
-                                         </Button>
-                                       )}
-                                     </div>
-                                   )}
+                                      <div className="min-w-[120px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                        <Switch
+                                          checked={listedVehicleIds.has(vehicle.id)}
+                                          onCheckedChange={async (checked) => {
+                                            if (checked) {
+                                              // Open listing modal
+                                              setListingVehicle(vehicle);
+                                            } else {
+                                              // Remove from marketplace
+                                              try {
+                                                await supabase
+                                                  .from("vehicle_listings")
+                                                  .delete()
+                                                  .eq("vehicle_id", vehicle.id);
+                                                toast.success("Usunięto z giełdy");
+                                                loadListedVehicles();
+                                              } catch (error) {
+                                                toast.error("Błąd usuwania z giełdy");
+                                              }
+                                            }
+                                          }}
+                                        />
+                                        <span className="text-sm text-muted-foreground">
+                                          {listedVehicleIds.has(vehicle.id) ? "Na giełdzie" : "Giełda"}
+                                        </span>
+                                      </div>
+                                    )}
                                 </div>
                             </div>
                             

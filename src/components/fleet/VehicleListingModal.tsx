@@ -24,6 +24,7 @@ interface VehicleListingModalProps {
 
 export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSuccess }: VehicleListingModalProps) {
   const [weeklyPrice, setWeeklyPrice] = useState("");
+  const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [description, setDescription] = useState("");
@@ -32,14 +33,14 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load current photos and existing listing data when modal opens
+  // Load current photos, existing listing data, and vehicle rental price when modal opens
   useEffect(() => {
     if (open) {
       const loadData = async () => {
-        // Load vehicle photos
+        // Load vehicle photos and weekly_rental_fee
         const { data: vehicleData } = await supabase
           .from("vehicles")
-          .select("photos")
+          .select("photos, weekly_rental_fee")
           .eq("id", vehicle.id)
           .single();
 
@@ -48,15 +49,21 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
         // Load existing listing if any
         const { data: listingData } = await supabase
           .from("vehicle_listings")
-          .select("weekly_price, contact_phone, contact_email, description")
+          .select("weekly_price, contact_name, contact_phone, contact_email, description")
           .eq("vehicle_id", vehicle.id)
           .single();
 
         if (listingData) {
           setWeeklyPrice(listingData.weekly_price?.toString() || "");
+          setContactName((listingData as any).contact_name || "");
           setContactPhone(listingData.contact_phone || "");
           setContactEmail(listingData.contact_email || "");
           setDescription((listingData as any).description || "");
+        } else {
+          // No listing exists - auto-populate price from vehicle rental fee
+          if (vehicleData?.weekly_rental_fee) {
+            setWeeklyPrice(vehicleData.weekly_rental_fee.toString());
+          }
         }
       };
       loadData();
@@ -127,6 +134,11 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
       return;
     }
 
+    if (!contactName.trim()) {
+      toast.error("Podaj osobę do kontaktu");
+      return;
+    }
+
     if (!contactPhone.trim()) {
       toast.error("Numer telefonu jest wymagany");
       return;
@@ -145,6 +157,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
       const listingData: any = {
         vehicle_id: vehicle.id,
         weekly_price: Number(weeklyPrice),
+        contact_name: contactName.trim(),
         contact_phone: contactPhone.trim(),
         contact_email: contactEmail.trim() || null,
         description: description.trim() || null,
@@ -189,6 +202,18 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
               onChange={(e) => setWeeklyPrice(e.target.value)}
               placeholder="np. 500"
               min="1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Wartość pobrana automatycznie z karty pojazdu (można zmienić)
+            </p>
+          </div>
+
+          <div>
+            <Label>Osoba do kontaktu *</Label>
+            <Input
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              placeholder="Imię i nazwisko"
             />
           </div>
 
@@ -295,7 +320,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Anuluj
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || uploading || photos.length === 0 || !contactPhone.trim()}>
+          <Button onClick={handleSubmit} disabled={saving || uploading || photos.length === 0 || !contactName.trim() || !contactPhone.trim()}>
             {saving ? "Publikowanie..." : "Opublikuj na giełdzie"}
           </Button>
         </DialogFooter>

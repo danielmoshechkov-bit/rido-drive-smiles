@@ -12,6 +12,7 @@ interface VehicleListing {
   weekly_price: number;
   contact_phone?: string | null;
   contact_email?: string | null;
+  contact_name?: string | null;
   description?: string | null;
   vehicle: {
     id: string;
@@ -74,7 +75,20 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
   // Contact info - prioritize listing-specific contacts, fallback to fleet/driver
   const contactPhone = listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone;
   const contactEmail = listing.contact_email || listing.fleet?.email || listing.driver?.email;
-  const ownerFirstName = listing.driver?.first_name || listing.fleet?.name?.split(' ')[0] || 'Właściciel';
+  // Get contact first name: from contact_name, driver, or fleet name
+  const getContactFirstName = () => {
+    if (listing.contact_name) {
+      return listing.contact_name.split(' ')[0];
+    }
+    if (listing.driver?.first_name) {
+      return listing.driver.first_name;
+    }
+    if (listing.fleet?.name) {
+      return listing.fleet.name.split(' ')[0];
+    }
+    return 'Właściciel';
+  };
+  const ownerFirstName = getContactFirstName();
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
@@ -155,12 +169,18 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
           {listing.vehicle.brand} {listing.vehicle.model}
         </h3>
 
-        {/* Details Row */}
-        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
+        {/* Details Row - Year, Location, Fuel on same line */}
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground mb-4">
           {listing.vehicle.year && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               {listing.vehicle.year}
+            </span>
+          )}
+          {listing.cityName && (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[120px]">{listing.cityName}</span>
             </span>
           )}
           {listing.vehicle.fuel_type && (
@@ -169,12 +189,6 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
               {FUEL_TYPE_LABELS[listing.vehicle.fuel_type] || listing.vehicle.fuel_type}
             </span>
           )}
-        </div>
-
-        {/* City */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-          <MapPin className="h-3.5 w-3.5" />
-          <span className="truncate">{listing.cityName || "Polska"}</span>
         </div>
 
         {/* Price & Actions */}
