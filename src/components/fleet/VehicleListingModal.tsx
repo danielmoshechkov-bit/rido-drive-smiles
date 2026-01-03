@@ -17,7 +17,7 @@ interface VehicleListingModalProps {
     plate: string;
     photos?: string[];
   };
-  fleetId: string;
+  fleetId: string | null; // null for driver's own cars
   onSuccess: () => void;
 }
 
@@ -83,16 +83,22 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Nie zalogowany");
 
-      // Create or update listing
+      // Create or update listing - fleet_id is null for driver's own cars
+      const listingData: any = {
+        vehicle_id: vehicle.id,
+        weekly_price: Number(weeklyPrice),
+        is_available: true,
+        created_by: user.id
+      };
+      
+      // Only include fleet_id if it's a fleet vehicle
+      if (fleetId) {
+        listingData.fleet_id = fleetId;
+      }
+
       const { error: listingError } = await supabase
         .from("vehicle_listings")
-        .upsert({
-          vehicle_id: vehicle.id,
-          fleet_id: fleetId,
-          weekly_price: Number(weeklyPrice),
-          is_available: true,
-          created_by: user.id
-        }, { onConflict: "vehicle_id" });
+        .upsert(listingData, { onConflict: "vehicle_id" });
 
       if (listingError) throw listingError;
 

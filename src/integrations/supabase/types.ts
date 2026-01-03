@@ -2299,7 +2299,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string
-          fleet_id: string
+          fleet_id: string | null
           id: string
           is_available: boolean | null
           listed_at: string | null
@@ -2310,7 +2310,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by: string
-          fleet_id: string
+          fleet_id?: string | null
           id?: string
           is_available?: boolean | null
           listed_at?: string | null
@@ -2321,7 +2321,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string
-          fleet_id?: string
+          fleet_id?: string | null
           id?: string
           is_available?: boolean | null
           listed_at?: string | null
