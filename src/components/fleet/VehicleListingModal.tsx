@@ -200,7 +200,11 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
             <Input
               type="tel"
               value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
+              onChange={(e) => {
+                // Allow only digits, +, -, spaces, and parentheses
+                const cleaned = e.target.value.replace(/[^\d+\-() ]/g, '');
+                setContactPhone(cleaned);
+              }}
               placeholder="+48 123 456 789"
             />
             <p className="text-xs text-muted-foreground mt-1">
