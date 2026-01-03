@@ -127,27 +127,21 @@ export const InlineEdit = ({
 
   return (
     <div 
-      className={`group flex items-center gap-2 rounded px-2 py-1 border border-transparent transition-all ${className}`}
+      onClick={() => setIsEditing(true)}
+      className={`group flex items-center gap-1 cursor-pointer ${className}`}
     >
-      <span 
-        className="flex-1 text-sm cursor-pointer hover:bg-violet-50/70"
-        onClick={() => setIsEditing(true)}
-      >
-        {displayValue || placeholder}
-      </span>
+      <div className="flex-1 px-3 py-2 rounded-lg border border-input bg-background hover:border-primary/50 transition-colors min-h-[40px] flex items-center text-sm">
+        {displayValue || <span className="text-muted-foreground">{placeholder || "Kliknij aby edytować"}</span>}
+      </div>
       <Button
         size="sm"
-        onClick={handleCopy}
-        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-70 transition-opacity"
+        onClick={(e) => { e.stopPropagation(); handleCopy(); }}
+        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-70 transition-opacity"
         variant="ghost"
         title="Kopiuj"
       >
         <Copy className="h-3 w-3" />
       </Button>
-      <Edit3 
-        className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity text-violet-500 cursor-pointer" 
-        onClick={() => setIsEditing(true)}
-      />
     </div>
   );
 };
