@@ -14,6 +14,7 @@ interface VehicleListing {
   weekly_price: number;
   contact_phone: string | null;
   contact_email: string | null;
+  contact_name: string | null;
   vehicle: {
     id: string;
     brand: string;
@@ -83,6 +84,7 @@ export default function VehicleMarketplace() {
           weekly_price,
           contact_phone,
           contact_email,
+          contact_name,
           description,
           vehicle:vehicles!vehicle_id (
             id, brand, model, year, plate, photos, fuel_type

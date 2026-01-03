@@ -2408,6 +2408,7 @@ export type Database = {
       vehicle_listings: {
         Row: {
           contact_email: string | null
+          contact_name: string | null
           contact_phone: string | null
           created_at: string | null
           created_by: string
@@ -2422,6 +2423,7 @@ export type Database = {
         }
         Insert: {
           contact_email?: string | null
+          contact_name?: string | null
           contact_phone?: string | null
           created_at?: string | null
           created_by: string
@@ -2436,6 +2438,7 @@ export type Database = {
         }
         Update: {
           contact_email?: string | null
+          contact_name?: string | null
           contact_phone?: string | null
           created_at?: string | null
           created_by?: string
