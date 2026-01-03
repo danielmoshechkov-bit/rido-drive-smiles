@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 
 // AddOwnCarModal — kierowca dodaje swoje auto (bez pola Flota)
 export function AddOwnCarModal({
@@ -171,22 +172,17 @@ export function AddOwnCarModal({
               className="uppercase" 
             />
           </div>
-          <div>
-            <Label>Marka *</Label>
-            <Input 
-              value={brand} 
-              onChange={(e) => setBrand(e.target.value)} 
-              placeholder="np. Toyota" 
+          
+          {/* Car Brand/Model Selector - spans full width */}
+          <div className="md:col-span-2">
+            <CarBrandModelSelector
+              brand={brand}
+              model={model}
+              onBrandChange={setBrand}
+              onModelChange={setModel}
             />
           </div>
-          <div>
-            <Label>Model *</Label>
-            <Input 
-              value={model} 
-              onChange={(e) => setModel(e.target.value)} 
-              placeholder="np. Auris" 
-            />
-          </div>
+
           <div>
             <Label>Rok</Label>
             <Input 
