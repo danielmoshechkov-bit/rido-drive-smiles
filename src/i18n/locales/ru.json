@@ -262,7 +262,7 @@
     "termsAndPrivacy": "правила и политику конфиденциальности",
     "mustAcceptTerms": "Вы должны принять правила для входа",
     "forgotPassword": "Забыли пароль?",
-    "noAccount": "Нет аккаунта? Зарегистрируйтесь как водитель",
+    "noAccount": "Нет аккаунта? Зарегистрируйтесь!",
     "resetPassword": "Сбросить пароль",
     "newPassword": "Новый пароль",
     "confirmNewPassword": "Подтвердите новый пароль",
@@ -368,7 +368,8 @@
       "settlements": "Еженедельный расчет",
       "cars": "Автомобиль",
       "documents": "Документы",
-      "information": "Информация"
+      "information": "Информация",
+      "marketplace": "Биржа авто"
     },
     "settlements": {
       "mySettlements": "Мои расчеты",

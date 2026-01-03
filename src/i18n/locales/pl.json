@@ -262,7 +262,7 @@
     "termsAndPrivacy": "regulamin i politykę prywatności",
     "mustAcceptTerms": "Musisz zaakceptować regulamin, aby się zalogować",
     "forgotPassword": "Zapomniałeś hasła?",
-    "noAccount": "Nie masz konta? Zarejestruj się jako kierowca",
+    "noAccount": "Nie masz konta? Zarejestruj się!",
     "resetPassword": "Zresetuj hasło",
     "newPassword": "Nowe hasło",
     "confirmNewPassword": "Potwierdź nowe hasło",
@@ -368,7 +368,8 @@
       "settlements": "Rozliczenie tygodniowe",
       "cars": "Samochód",
       "documents": "Dokumenty",
-      "information": "Informacje"
+      "information": "Informacje",
+      "marketplace": "Giełda aut"
     },
     "settlements": {
       "mySettlements": "Moje rozliczenia",
