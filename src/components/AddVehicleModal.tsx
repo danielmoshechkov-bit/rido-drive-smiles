@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 
 type Props = {
   isOpen: boolean;
@@ -26,7 +27,6 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
-  const [odometer, setOdometer] = useState<number | "">("");
   const [ownerName, setOwnerName] = useState(fleetName || "");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
@@ -108,14 +108,17 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
             <Label>VIN</Label>
             <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase" />
           </div>
-          <div>
-            <Label>Marka *</Label>
-            <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="np. Toyota" />
+          
+          {/* Car Brand/Model Selector - spans full width */}
+          <div className="md:col-span-2">
+            <CarBrandModelSelector
+              brand={brand}
+              model={model}
+              onBrandChange={setBrand}
+              onModelChange={setModel}
+            />
           </div>
-          <div>
-            <Label>Model *</Label>
-            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="np. Auris" />
-          </div>
+
           <div>
             <Label>Rok</Label>
             <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />

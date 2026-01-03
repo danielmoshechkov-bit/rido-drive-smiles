@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 
 interface VehicleInfoTabProps {
   vehicle: any;
@@ -12,9 +13,9 @@ const FUEL_TYPES = [
   { value: "benzyna", label: "Benzyna" },
   { value: "diesel", label: "Diesel" },
   { value: "hybryda", label: "Hybryda" },
-  { value: "gaz", label: "Gaz" },
+  { value: "lpg", label: "LPG" },
   { value: "hybryda_gaz", label: "Hybryda + Gaz" },
-  { value: "elektryk", label: "Elektryk" },
+  { value: "elektryczny", label: "Elektryczny" },
 ];
 
 export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
@@ -58,6 +59,16 @@ export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
     onSave(vehicle.id, { [field]: processedValue });
   };
 
+  const handleBrandChange = (newBrand: string) => {
+    setFormData(prev => ({ ...prev, brand: newBrand, model: "" }));
+    onSave(vehicle.id, { brand: newBrand });
+  };
+
+  const handleModelChange = (newModel: string) => {
+    setFormData(prev => ({ ...prev, model: newModel }));
+    onSave(vehicle.id, { model: newModel });
+  };
+
   return (
     <Card className="rounded-lg border border-border/50">
       <CardHeader>
@@ -82,24 +93,17 @@ export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
             className="uppercase rounded-lg" 
           />
         </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Marka</label>
-          <Input 
-            value={formData.brand}
-            onChange={e => setFormData(prev => ({ ...prev, brand: e.target.value }))}
-            onBlur={e => handleSave('brand', e.target.value)}
-            className="rounded-lg"
+        
+        {/* Car Brand/Model Selector - spans full width */}
+        <div className="md:col-span-2">
+          <CarBrandModelSelector
+            brand={formData.brand}
+            model={formData.model}
+            onBrandChange={handleBrandChange}
+            onModelChange={handleModelChange}
           />
         </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Model</label>
-          <Input 
-            value={formData.model}
-            onChange={e => setFormData(prev => ({ ...prev, model: e.target.value }))}
-            onBlur={e => handleSave('model', e.target.value)}
-            className="rounded-lg"
-          />
-        </div>
+
         <div>
           <label className="text-sm font-medium text-muted-foreground">Rok</label>
           <Input 

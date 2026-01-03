@@ -23,6 +23,7 @@ import { UniversalSelector } from "./UniversalSelector";
 import { VehicleListingModal } from "./fleet/VehicleListingModal";
 import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
 import { DriverVehiclesTab } from "./DriverVehiclesTab";
+import { CarBrandsManagement } from "./CarBrandsManagement";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -379,12 +380,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-3' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-4' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="vehicles">Auta</TabsTrigger>
             {userType === 'admin' && (
               <>
                 <TabsTrigger value="fleets">Floty</TabsTrigger>
                 <TabsTrigger value="driver-vehicles">Auta kierowców</TabsTrigger>
+                <TabsTrigger value="car-brands">Lista aut</TabsTrigger>
               </>
             )}
             {userType === 'fleet' && fleetId && (
@@ -614,6 +616,12 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           {userType === 'fleet' && fleetId && (
             <TabsContent value="rentals" className="space-y-6">
               <FleetRentalsManagement fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {userType === 'admin' && (
+            <TabsContent value="car-brands" className="space-y-6">
+              <CarBrandsManagement />
             </TabsContent>
           )}
         </Tabs>
