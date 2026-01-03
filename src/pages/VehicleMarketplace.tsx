@@ -20,14 +20,14 @@ interface VehicleListing {
     plate: string;
     photos: string[];
   };
-  fleet: {
+  fleet?: {
     id: string;
     name: string;
     contact_name: string;
     contact_phone_for_drivers: string;
     phone: string;
     email: string;
-  };
+  } | null;
   average_rating?: number;
 }
 
@@ -137,7 +137,7 @@ export default function VehicleMarketplace() {
           listing_id: listing.id,
           vehicle_id: listing.vehicle.id,
           driver_id: driverId,
-          fleet_id: listing.fleet.id,
+          fleet_id: listing.fleet?.id || null,
           weekly_price: listing.weekly_price,
           status: "pending"
         });
@@ -158,7 +158,7 @@ export default function VehicleMarketplace() {
     return (
       l.vehicle.brand.toLowerCase().includes(searchLower) ||
       l.vehicle.model.toLowerCase().includes(searchLower) ||
-      l.fleet.name.toLowerCase().includes(searchLower)
+      (l.fleet?.name?.toLowerCase().includes(searchLower) ?? false)
     );
   });
 
@@ -264,7 +264,7 @@ export default function VehicleMarketplace() {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">{listing.fleet.name}</span>
+                        <span className="text-sm text-muted-foreground">{listing.fleet?.name || "Prywatny"}</span>
                         {listing.average_rating && renderStars(listing.average_rating)}
                       </div>
 
@@ -279,27 +279,33 @@ export default function VehicleMarketplace() {
 
                   <CollapsibleContent>
                     <div className="px-4 pb-4 space-y-3 border-t pt-3">
-                      <div className="text-sm space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <a href={`tel:${listing.fleet.contact_phone_for_drivers || listing.fleet.phone}`} className="text-primary hover:underline">
-                            {listing.fleet.contact_phone_for_drivers || listing.fleet.phone || "Brak telefonu"}
-                          </a>
-                        </div>
-                        {listing.fleet.email && (
+                      {listing.fleet ? (
+                        <div className="text-sm space-y-2">
                           <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <a href={`mailto:${listing.fleet.email}`} className="text-primary hover:underline">
-                              {listing.fleet.email}
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <a href={`tel:${listing.fleet.contact_phone_for_drivers || listing.fleet.phone}`} className="text-primary hover:underline">
+                              {listing.fleet.contact_phone_for_drivers || listing.fleet.phone || "Brak telefonu"}
                             </a>
                           </div>
-                        )}
-                        {listing.fleet.contact_name && (
-                          <p className="text-muted-foreground">
-                            Kontakt: {listing.fleet.contact_name}
-                          </p>
-                        )}
-                      </div>
+                          {listing.fleet.email && (
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              <a href={`mailto:${listing.fleet.email}`} className="text-primary hover:underline">
+                                {listing.fleet.email}
+                              </a>
+                            </div>
+                          )}
+                          {listing.fleet.contact_name && (
+                            <p className="text-muted-foreground">
+                              Kontakt: {listing.fleet.contact_name}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          Auto prywatne
+                        </div>
+                      )}
 
                       <Button 
                         className="w-full" 

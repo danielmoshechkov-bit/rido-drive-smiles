@@ -110,9 +110,8 @@ export function DriverVehiclesTab() {
               last_name: (rental.drivers as any).last_name
             } : null
           };
-        })
-        // Only show vehicles where owner is a regular driver (kierowca), not fleet
-        .filter(v => v.ownerDriver?.user_role === 'kierowca' || v.ownerDriver?.user_role === null) || [];
+        }) || [];
+        // Show all vehicles with fleet_id = null (driver owned cars)
 
       setVehicles(vehiclesWithDrivers);
     } catch (error) {
