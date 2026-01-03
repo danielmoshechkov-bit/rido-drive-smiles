@@ -3,9 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+
+const FUEL_TYPES = [
+  { value: "benzyna", label: "Benzyna" },
+  { value: "diesel", label: "Diesel" },
+  { value: "hybryda", label: "Hybryda" },
+  { value: "elektryczny", label: "Elektryczny" },
+  { value: "lpg", label: "LPG" },
+  { value: "hybryda+gaz", label: "Hybryda + Gaz" },
+];
 
 // AddOwnCarModal — kierowca dodaje swoje auto (bez pola Flota)
 export function AddOwnCarModal({
@@ -26,6 +36,8 @@ export function AddOwnCarModal({
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
+  const [fuelType, setFuelType] = useState("");
+  const [weeklyPrice, setWeeklyPrice] = useState<number | "">("");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
 
@@ -81,6 +93,7 @@ export function AddOwnCarModal({
           model: model.trim(),
           year: year || null,
           color: color || null,
+          fuel_type: fuelType || null,
           status: "aktywne",
           city_id: cityId,
           fleet_id: null,
@@ -133,6 +146,19 @@ export function AddOwnCarModal({
         
       if (assignError) {
         throw new Error("Błąd przypisywania pojazdu: " + assignError.message);
+      }
+
+      // Jeśli podano cenę wynajmu, utwórz wstępny listing (nieaktywny)
+      if (weeklyPrice && Number(weeklyPrice) > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("vehicle_listings").insert({
+            vehicle_id: veh.id,
+            weekly_price: Number(weeklyPrice),
+            is_available: false,
+            created_by: user.id
+          });
+        }
       }
       
       toast.success("Pojazd dodany i przypisany");
@@ -198,6 +224,31 @@ export function AddOwnCarModal({
               value={color} 
               onChange={(e) => setColor(e.target.value)} 
               placeholder="np. biały" 
+            />
+          </div>
+          <div>
+            <Label>Rodzaj paliwa</Label>
+            <Select value={fuelType} onValueChange={setFuelType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz..." />
+              </SelectTrigger>
+              <SelectContent>
+                {FUEL_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Cena wynajmu (zł/tydzień) - opcjonalnie</Label>
+            <Input 
+              type="number" 
+              value={weeklyPrice} 
+              onChange={(e) => setWeeklyPrice(e.target.value === "" ? "" : Number(e.target.value))} 
+              placeholder="np. 500" 
+              min="1"
             />
           </div>
           <div>
