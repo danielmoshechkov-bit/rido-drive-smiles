@@ -1,171 +1,282 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
+import { Resend } from 'npm:resend@4.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Email configuration - these would come from environment variables
-const SMTP_CONFIG = {
-  host: Deno.env.get('SMTP_HOST') || 'localhost',
-  port: parseInt(Deno.env.get('SMTP_PORT') || '587'),
-  user: Deno.env.get('SMTP_USER') || '',
-  pass: Deno.env.get('SMTP_PASS') || '',
-  from: Deno.env.get('MAIL_FROM') || 'RIDO <no-reply@rido.pl>',
-};
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
-async function sendEmail(to: string, subject: string, body: string) {
-  console.log(`Would send email to ${to}: ${subject}`);
-  console.log(`Body: ${body}`);
-  
-  // This is where actual email sending would be implemented
-  // For now, just log the email details
-  return true;
+interface DriverVehicleInfo {
+  driverId: string;
+  driverEmail: string;
+  driverFirstName: string;
+  vehiclePlate: string;
+  vehicleId: string;
 }
 
-async function checkExpiryDates(supabaseClient: any) {
+async function sendDriverExpiryEmail(
+  info: DriverVehicleInfo,
+  expiryType: 'oc' | 'inspection',
+  expiryDate: string,
+  daysLeft: number
+) {
+  const typeLabel = expiryType === 'oc' ? 'Polisa OC' : 'Przegląd techniczny';
+  const formattedDate = new Date(expiryDate).toLocaleDateString('pl-PL');
+  
+  const subject = `[get RIDO] ${typeLabel} Twojego auta ${info.vehiclePlate} kończy się ${daysLeft <= 1 ? 'jutro!' : `za ${daysLeft} dni`}`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #333; margin: 0;">get RIDO</h1>
+      </div>
+      
+      <h2 style="color: ${daysLeft <= 3 ? '#dc2626' : '#f59e0b'};">
+        ⚠️ ${typeLabel} wygasa ${daysLeft <= 1 ? 'jutro!' : `za ${daysLeft} dni`}
+      </h2>
+      
+      <p>Cześć ${info.driverFirstName || 'Kierowco'},</p>
+      
+      <p>Przypominamy, że <strong>${typeLabel}</strong> Twojego pojazdu <strong>${info.vehiclePlate}</strong> 
+         wygasa <strong>${formattedDate}</strong>.</p>
+      
+      ${daysLeft <= 3 
+        ? '<p style="color: #dc2626; font-weight: bold;">⚠️ Pilne! Zostało bardzo mało czasu - działaj teraz!</p>'
+        : '<p>Pamiętaj o przedłużeniu, aby uniknąć problemów.</p>'
+      }
+      
+      <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>Pojazd:</strong> ${info.vehiclePlate}</p>
+        <p style="margin: 5px 0 0 0;"><strong>${typeLabel} ważny do:</strong> ${formattedDate}</p>
+        <p style="margin: 5px 0 0 0;"><strong>Pozostało dni:</strong> ${daysLeft}</p>
+      </div>
+      
+      <p>Możesz zaktualizować datę ważności dokumentu w panelu kierowcy w sekcji "Twoje auto".</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+      <p style="color: #999; font-size: 12px; text-align: center;">
+        © ${new Date().getFullYear()} get RIDO. Wszelkie prawa zastrzeżone.
+      </p>
+    </div>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: 'get RIDO <no-reply@getrido.pl>',
+      to: [info.driverEmail],
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return false;
+    }
+    
+    console.log(`Email sent to ${info.driverEmail} for ${expiryType} expiring on ${expiryDate}`);
+    return true;
+  } catch (err) {
+    console.error('Error sending email:', err);
+    return false;
+  }
+}
+
+async function getDriverForVehicle(supabaseClient: any, vehicleId: string): Promise<DriverVehicleInfo | null> {
+  // Get vehicle plate
+  const { data: vehicle } = await supabaseClient
+    .from('vehicles')
+    .select('plate')
+    .eq('id', vehicleId)
+    .single();
+
+  if (!vehicle) return null;
+
+  // Get active driver assignment for this vehicle
+  const { data: assignment } = await supabaseClient
+    .from('driver_vehicle_assignments')
+    .select(`
+      driver_id,
+      drivers!inner (
+        id,
+        email,
+        first_name
+      )
+    `)
+    .eq('vehicle_id', vehicleId)
+    .eq('status', 'active')
+    .is('unassigned_at', null)
+    .maybeSingle();
+
+  if (!assignment?.drivers?.email) return null;
+
+  return {
+    driverId: assignment.driver_id,
+    driverEmail: assignment.drivers.email,
+    driverFirstName: assignment.drivers.first_name || '',
+    vehiclePlate: vehicle.plate,
+    vehicleId
+  };
+}
+
+async function checkDriverExpiryDates(supabaseClient: any) {
   const results = [];
   const today = new Date();
-  const warningDays = [30, 7, 3, 1];
+  today.setHours(0, 0, 0, 0);
+  
+  // Warning thresholds in days
+  const warningDays = [14, 7, 3, 1];
 
-  // Check vehicle policies
+  // Check vehicle policies (OC)
   for (const days of warningDays) {
-    const targetDate = new Date();
+    const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + days);
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    console.log(`Checking policies expiring on ${targetDateStr} (${days} days from now)`);
     
     const { data: policies, error } = await supabaseClient
       .from('vehicle_policies')
-      .select(`
-        *,
-        vehicle:vehicles(plate, brand, model)
-      `)
-      .eq('valid_to', targetDate.toISOString().split('T')[0]);
+      .select('id, vehicle_id, valid_to, type')
+      .eq('valid_to', targetDateStr)
+      .eq('type', 'OC');
 
     if (error) {
       console.error('Error fetching policies:', error);
       continue;
     }
 
+    console.log(`Found ${policies?.length || 0} expiring policies`);
+
     for (const policy of policies || []) {
-      // Check if reminder already exists
-      const { data: existingReminder } = await supabaseClient
+      const driverInfo = await getDriverForVehicle(supabaseClient, policy.vehicle_id);
+      
+      if (!driverInfo) {
+        console.log(`No driver found for vehicle ${policy.vehicle_id}`);
+        continue;
+      }
+
+      // Check if we already sent notification for this
+      const { data: existingSent } = await supabaseClient
         .from('reminders')
         .select('id')
         .eq('entity_type', 'Policy')
         .eq('entity_id', policy.id)
         .eq('due_date', policy.valid_to)
-        .single();
+        .eq('channel', 'driver_email')
+        .maybeSingle();
 
-      if (!existingReminder) {
-        // Create reminder
-        const { error: reminderError } = await supabaseClient
+      if (existingSent) {
+        console.log(`Already sent notification for policy ${policy.id}`);
+        continue;
+      }
+
+      // Send email to driver
+      const emailSent = await sendDriverExpiryEmail(
+        driverInfo,
+        'oc',
+        policy.valid_to,
+        days
+      );
+
+      if (emailSent) {
+        // Record that we sent this notification
+        await supabaseClient
           .from('reminders')
           .insert([{
             entity_type: 'Policy',
             entity_id: policy.id,
             due_date: policy.valid_to,
-            title: `${policy.vehicle.plate} - ${policy.type} wygasa`,
-            notes: `Pojazd ${policy.vehicle.plate}: ${policy.type} wygasa dnia ${policy.valid_to}. Proszę o działanie.`,
-            channel: 'email',
-            status: 'open'
+            title: `Email do kierowcy: ${driverInfo.vehiclePlate} - OC wygasa`,
+            notes: `Wysłano email do ${driverInfo.driverEmail}`,
+            channel: 'driver_email',
+            status: 'sent'
           }]);
 
-        if (!reminderError) {
-          // Send email
-          const emailSent = await sendEmail(
-            'admin@rido.pl', // This would come from configuration
-            `[RIDO] ${policy.vehicle.plate} - ${policy.type} wygasa ${policy.valid_to}`,
-            `Pojazd ${policy.vehicle.plate}: ${policy.type} wygasa dnia ${policy.valid_to}. Proszę o działanie.`
-          );
-
-          if (emailSent) {
-            // Update reminder status
-            await supabaseClient
-              .from('reminders')
-              .update({ status: 'sent' })
-              .eq('entity_type', 'Policy')
-              .eq('entity_id', policy.id)
-              .eq('due_date', policy.valid_to);
-          }
-
-          results.push({
-            type: 'policy',
-            vehicle: policy.vehicle.plate,
-            days: days,
-            date: policy.valid_to
-          });
-        }
+        results.push({
+          type: 'policy',
+          vehicle: driverInfo.vehiclePlate,
+          driver: driverInfo.driverEmail,
+          days,
+          date: policy.valid_to
+        });
       }
     }
   }
 
   // Check vehicle inspections
   for (const days of warningDays) {
-    const targetDate = new Date();
+    const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + days);
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    console.log(`Checking inspections expiring on ${targetDateStr} (${days} days from now)`);
     
     const { data: inspections, error } = await supabaseClient
       .from('vehicle_inspections')
-      .select(`
-        *,
-        vehicle:vehicles(plate, brand, model)
-      `)
-      .eq('valid_to', targetDate.toISOString().split('T')[0]);
+      .select('id, vehicle_id, valid_to')
+      .eq('valid_to', targetDateStr);
 
     if (error) {
       console.error('Error fetching inspections:', error);
       continue;
     }
 
+    console.log(`Found ${inspections?.length || 0} expiring inspections`);
+
     for (const inspection of inspections || []) {
-      // Check if reminder already exists
-      const { data: existingReminder } = await supabaseClient
+      const driverInfo = await getDriverForVehicle(supabaseClient, inspection.vehicle_id);
+      
+      if (!driverInfo) {
+        console.log(`No driver found for vehicle ${inspection.vehicle_id}`);
+        continue;
+      }
+
+      // Check if we already sent notification for this
+      const { data: existingSent } = await supabaseClient
         .from('reminders')
         .select('id')
         .eq('entity_type', 'Inspection')
         .eq('entity_id', inspection.id)
         .eq('due_date', inspection.valid_to)
-        .single();
+        .eq('channel', 'driver_email')
+        .maybeSingle();
 
-      if (!existingReminder) {
-        // Create reminder
-        const { error: reminderError } = await supabaseClient
+      if (existingSent) {
+        console.log(`Already sent notification for inspection ${inspection.id}`);
+        continue;
+      }
+
+      // Send email to driver
+      const emailSent = await sendDriverExpiryEmail(
+        driverInfo,
+        'inspection',
+        inspection.valid_to,
+        days
+      );
+
+      if (emailSent) {
+        // Record that we sent this notification
+        await supabaseClient
           .from('reminders')
           .insert([{
             entity_type: 'Inspection',
             entity_id: inspection.id,
             due_date: inspection.valid_to,
-            title: `${inspection.vehicle.plate} - przegląd wygasa`,
-            notes: `Pojazd ${inspection.vehicle.plate}: przegląd wygasa dnia ${inspection.valid_to}. Proszę o działanie.`,
-            channel: 'email',
-            status: 'open'
+            title: `Email do kierowcy: ${driverInfo.vehiclePlate} - Przegląd wygasa`,
+            notes: `Wysłano email do ${driverInfo.driverEmail}`,
+            channel: 'driver_email',
+            status: 'sent'
           }]);
 
-        if (!reminderError) {
-          // Send email
-          const emailSent = await sendEmail(
-            'admin@rido.pl', // This would come from configuration
-            `[RIDO] ${inspection.vehicle.plate} - przegląd wygasa ${inspection.valid_to}`,
-            `Pojazd ${inspection.vehicle.plate}: przegląd wygasa dnia ${inspection.valid_to}. Proszę o działanie.`
-          );
-
-          if (emailSent) {
-            // Update reminder status
-            await supabaseClient
-              .from('reminders')
-              .update({ status: 'sent' })
-              .eq('entity_type', 'Inspection')
-              .eq('entity_id', inspection.id)
-              .eq('due_date', inspection.valid_to);
-          }
-
-          results.push({
-            type: 'inspection',
-            vehicle: inspection.vehicle.plate,
-            days: days,
-            date: inspection.valid_to
-          });
-        }
+        results.push({
+          type: 'inspection',
+          vehicle: driverInfo.vehiclePlate,
+          driver: driverInfo.driverEmail,
+          days,
+          date: inspection.valid_to
+        });
       }
     }
   }
@@ -182,7 +293,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
     const url = new URL(req.url);
@@ -193,12 +304,13 @@ Deno.serve(async (req) => {
       case 'GET': {
         if (action === 'check') {
           // Manual trigger of expiry check
-          const results = await checkExpiryDates(supabaseClient);
+          console.log('Manual check triggered');
+          const results = await checkDriverExpiryDates(supabaseClient);
           
           return new Response(JSON.stringify({
-            message: 'Expiry check completed',
+            message: 'Driver expiry check completed',
             processed: results.length,
-            results: results
+            results
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -222,15 +334,16 @@ Deno.serve(async (req) => {
 
       case 'POST': {
         if (action === 'cron') {
-          // This would be called by a cron job
-          console.log('Running scheduled reminder check...');
+          // This is called by a cron job
+          console.log('Running scheduled driver reminder check...');
           
-          const results = await checkExpiryDates(supabaseClient);
+          const results = await checkDriverExpiryDates(supabaseClient);
           
           return new Response(JSON.stringify({
-            message: 'Cron job completed',
+            message: 'Cron job completed - driver emails sent',
             processed: results.length,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            results
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

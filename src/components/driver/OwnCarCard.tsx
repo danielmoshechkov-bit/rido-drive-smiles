@@ -1,11 +1,16 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import React, { useState, useEffect } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTranslation } from "react-i18next";
-import { Car, FileText, Wrench, Info, AlertTriangle, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { ExpiryBadges } from "@/components/ExpiryBadges";
 import { VehicleDocuments } from "@/components/VehicleDocuments";
 import { VehicleServiceTab } from "@/components/VehicleServiceTab";
+import { VehicleInfoTab } from "@/components/VehicleInfoTab";
+import { VehicleRentalHistory } from "./VehicleRentalHistory";
+import { VehicleListingModal } from "@/components/fleet/VehicleListingModal";
 
 interface OwnVehicle {
   id: string;
@@ -17,154 +22,176 @@ interface OwnVehicle {
   vin?: string;
   odometer?: number;
   fuel_type?: string;
+  photos?: string[];
   assigned_at: string;
   vehicle_inspections?: Array<{ valid_to: string; id?: string; date?: string; result?: string; notes?: string }>;
   vehicle_policies?: Array<{ valid_to: string; type: string; id?: string; policy_no?: string; provider?: string; valid_from?: string }>;
 }
 
-const getExpiryStatus = (dateStr?: string) => {
-  if (!dateStr) return { status: 'missing', daysLeft: 0 };
-  const date = new Date(dateStr);
-  const today = new Date();
-  const diffTime = date.getTime() - today.getTime();
-  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (daysLeft < 0) return { status: 'expired', daysLeft };
-  if (daysLeft <= 14) return { status: 'warning', daysLeft };
-  return { status: 'ok', daysLeft };
-};
-
-const ExpiryBadge = ({ dateStr, label }: { dateStr?: string; label: string }) => {
-  const { status, daysLeft } = getExpiryStatus(dateStr);
-  
-  if (!dateStr) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">{label}:</span>
-        <Badge variant="outline" className="text-xs">Brak danych</Badge>
-      </div>
-    );
-  }
-  
-  const formattedDate = new Date(dateStr).toLocaleDateString('pl-PL');
-  
-  if (status === 'expired') {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">{label}:</span>
-        <Badge variant="destructive" className="text-xs flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          Wygasło {formattedDate}
-        </Badge>
-      </div>
-    );
-  }
-  
-  if (status === 'warning') {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">{label}:</span>
-        <Badge className="text-xs bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          {formattedDate} ({daysLeft} dni)
-        </Badge>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-muted-foreground">{label}:</span>
-      <Badge variant="secondary" className="text-xs flex items-center gap-1">
-        <CheckCircle className="h-3 w-3 text-green-600" />
-        {formattedDate}
-      </Badge>
-    </div>
-  );
-};
-
 export const OwnCarCard = ({ vehicle }: { vehicle: OwnVehicle }) => {
-  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
+  const [isListed, setIsListed] = useState(false);
+  const [listingModalOpen, setListingModalOpen] = useState(false);
+  const [loadingListing, setLoadingListing] = useState(true);
 
-  // Get latest inspection and OC policy dates
-  const latestInspection = vehicle.vehicle_inspections?.[0];
-  const ocPolicy = vehicle.vehicle_policies?.find(p => p.type?.toLowerCase() === 'oc');
+  // Check if vehicle is listed on marketplace
+  useEffect(() => {
+    const checkListing = async () => {
+      const { data } = await supabase
+        .from("vehicle_listings")
+        .select("id, is_available")
+        .eq("vehicle_id", vehicle.id)
+        .maybeSingle();
+
+      setIsListed(data?.is_available ?? false);
+      setLoadingListing(false);
+    };
+
+    checkListing();
+  }, [vehicle.id]);
+
+  const handleListingToggle = async (checked: boolean) => {
+    if (checked) {
+      // Open modal to set price and photos
+      setListingModalOpen(true);
+    } else {
+      // Remove from marketplace
+      const { error } = await supabase
+        .from("vehicle_listings")
+        .update({ is_available: false })
+        .eq("vehicle_id", vehicle.id);
+
+      if (error) {
+        toast.error("Błąd usuwania z giełdy");
+        console.error(error);
+      } else {
+        setIsListed(false);
+        toast.success("Auto usunięte z giełdy");
+      }
+    }
+  };
+
+  const handleListingSuccess = () => {
+    setIsListed(true);
+  };
+
+  const handleVehicleSave = async (vehicleId: string, updates: any) => {
+    const { error } = await supabase
+      .from("vehicles")
+      .update(updates)
+      .eq("id", vehicleId);
+
+    if (error) {
+      toast.error("Błąd zapisu");
+    } else {
+      toast.success("Zapisano");
+    }
+  };
 
   return (
-    <Card className="rounded-2xl border shadow-soft">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-xl">
-              <Car className="h-5 w-5 text-primary" />
+    <>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="border rounded-xl bg-card shadow-sm">
+          {/* Header row */}
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="grid grid-cols-3 gap-4 flex-1 items-center">
+                {/* Column 1: Plate */}
+                <div>
+                  <span className="text-xs text-muted-foreground">Nr rej.:</span>
+                  <p className="font-mono font-medium">{vehicle.plate}</p>
+                </div>
+
+                {/* Column 2: Vehicle */}
+                <div>
+                  <span className="text-xs text-muted-foreground">Pojazd:</span>
+                  <p className="font-medium">{vehicle.brand} {vehicle.model}</p>
+                </div>
+
+                {/* Column 3: Documents */}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <span className="text-xs text-muted-foreground">Dokumenty:</span>
+                  <div className="mt-1">
+                    <ExpiryBadges vehicleId={vehicle.id} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Rental toggle and expand button */}
+              <div className="flex items-center gap-4 ml-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Do wynajęcia</span>
+                  <Switch
+                    checked={isListed}
+                    onCheckedChange={handleListingToggle}
+                    disabled={loadingListing}
+                  />
+                </div>
+                <div className="text-muted-foreground" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}>
+                  {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                </div>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg">{vehicle.brand} {vehicle.model}</CardTitle>
-              <p className="text-sm text-muted-foreground font-mono">{vehicle.plate}</p>
+          </CollapsibleTrigger>
+
+          {/* Expanded content */}
+          <CollapsibleContent>
+            <div className="border-t px-4 py-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-4 mb-4">
+                  <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
+                  <TabsTrigger value="docs" className="text-xs">Dokumenty</TabsTrigger>
+                  <TabsTrigger value="service" className="text-xs">Serwis</TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs">Historia wynajmu</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="info">
+                  <VehicleInfoTab
+                    vehicle={{
+                      id: vehicle.id,
+                      plate: vehicle.plate,
+                      vin: vehicle.vin || "",
+                      brand: vehicle.brand,
+                      model: vehicle.model,
+                      year: vehicle.year || 0,
+                      color: vehicle.color || ""
+                    }}
+                    onSave={handleVehicleSave}
+                  />
+                </TabsContent>
+
+                <TabsContent value="docs">
+                  <VehicleDocuments vehicleId={vehicle.id} />
+                </TabsContent>
+
+                <TabsContent value="service">
+                  <VehicleServiceTab vehicleId={vehicle.id} />
+                </TabsContent>
+
+                <TabsContent value="history">
+                  <VehicleRentalHistory vehicleId={vehicle.id} />
+                </TabsContent>
+              </Tabs>
             </div>
-          </div>
-          <Badge variant="outline" className="text-xs">Własne auto</Badge>
+          </CollapsibleContent>
         </div>
-      </CardHeader>
-      
-      <CardContent className="pt-2">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="info" className="text-xs">
-              <Info className="h-3 w-3 mr-1" />
-              Info
-            </TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">
-              <FileText className="h-3 w-3 mr-1" />
-              Dokumenty
-            </TabsTrigger>
-            <TabsTrigger value="service" className="text-xs">
-              <Wrench className="h-3 w-3 mr-1" />
-              Serwis
-            </TabsTrigger>
-          </TabsList>
+      </Collapsible>
 
-          <TabsContent value="info" className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Rok:</span>
-                <span className="ml-2 font-medium">{vehicle.year || "-"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Kolor:</span>
-                <span className="ml-2 font-medium">{vehicle.color || "-"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Paliwo:</span>
-                <span className="ml-2 font-medium">{vehicle.fuel_type || "-"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Przebieg:</span>
-                <span className="ml-2 font-medium">{vehicle.odometer ? `${vehicle.odometer.toLocaleString()} km` : "-"}</span>
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">VIN:</span>
-                <span className="ml-2 font-mono text-xs">{vehicle.vin || "-"}</span>
-              </div>
-            </div>
-            
-            {/* Inspection and Insurance dates */}
-            <div className="pt-3 mt-3 border-t space-y-2">
-              <ExpiryBadge dateStr={latestInspection?.valid_to} label="Przegląd ważny do" />
-              <ExpiryBadge dateStr={ocPolicy?.valid_to} label="Polisa OC ważna do" />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="docs" className="space-y-3">
-            <VehicleDocuments vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="service" className="space-y-3">
-            <VehicleServiceTab vehicleId={vehicle.id} />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+      {/* Listing modal - pass null for fleetId since it's driver's own car */}
+      <VehicleListingModal
+        open={listingModalOpen}
+        onOpenChange={setListingModalOpen}
+        vehicle={{
+          id: vehicle.id,
+          brand: vehicle.brand,
+          model: vehicle.model,
+          plate: vehicle.plate,
+          photos: vehicle.photos
+        }}
+        fleetId=""
+        onSuccess={handleListingSuccess}
+      />
+    </>
   );
 };
