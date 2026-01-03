@@ -87,16 +87,20 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
               className="w-full h-full object-cover"
             />
             
-            {/* Rating Badge - Top Left */}
-            <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
-              <Star className={cn(
-                "h-3.5 w-3.5",
-                listing.avgRating ? "fill-yellow-400 text-yellow-400" : "text-white/70"
-              )} />
-              <span className="text-xs font-medium">
-                {listing.avgRating ? listing.avgRating.toFixed(1) : "–"}
-              </span>
-            </div>
+            {/* Rating Badge - Top Left - default 5.0 for new listings */}
+            {(() => {
+              const displayRating = listing.avgRating ?? 5.0;
+              const isDefaultRating = listing.avgRating === null;
+              return (
+                <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1" title={isDefaultRating ? "Nowy na giełdzie" : undefined}>
+                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                  <span className="text-xs font-medium">
+                    {displayRating.toFixed(1)}
+                  </span>
+                  {isDefaultRating && <span className="text-[10px] opacity-75">(nowy)</span>}
+                </div>
+              );
+            })()}
             
             {/* Photo Navigation */}
             {photos.length > 1 && (
