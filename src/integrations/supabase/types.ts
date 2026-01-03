@@ -2436,6 +2436,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_driver_user: { Args: never; Returns: boolean }
       is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
       link_auth_user_to_driver: {
         Args: { p_driver_id: string; p_user_id: string }
