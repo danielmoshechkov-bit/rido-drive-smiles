@@ -17,7 +17,6 @@ interface VehicleListing {
     brand: string;
     model: string;
     year: number;
-    fuel_type: string;
     plate: string;
     photos: string[];
   };
@@ -68,7 +67,7 @@ export default function VehicleMarketplace() {
           id,
           weekly_price,
           vehicle:vehicles!vehicle_id (
-            id, brand, model, year, fuel_type, plate, photos
+            id, brand, model, year, plate, photos
           ),
           fleet:fleets!fleet_id (
             id, name, contact_name, contact_phone_for_drivers, phone, email
@@ -260,11 +259,7 @@ export default function VehicleMarketplace() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {listing.vehicle.year}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Fuel className="h-3 w-3" />
-                          {listing.vehicle.fuel_type || "—"}
+                          {listing.vehicle.year || "—"}
                         </span>
                       </div>
 
