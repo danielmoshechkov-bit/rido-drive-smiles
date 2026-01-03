@@ -230,8 +230,6 @@ export const OwnCarCard = ({ vehicle: initialVehicle }: { vehicle: OwnVehicle })
                       fuel_type: vehicle.fuel_type || ""
                     }}
                     onSave={handleVehicleSave}
-                    listing={listingData}
-                    onListingSave={handleListingSave}
                   />
                 </TabsContent>
 

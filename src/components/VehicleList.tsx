@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AddCarForm } from "./AddCarForm";
 import { VehicleDocuments } from "./VehicleDocuments";
 import { VehicleServiceTab } from "./VehicleServiceTab";
+import { VehicleReviewsTab } from "./VehicleReviewsTab";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
 import { VehicleFleetSelector } from "./VehicleFleetSelector";
@@ -347,9 +348,10 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
                 <CollapsibleContent>
                   <div className="border-t p-4">
                     <Tabs defaultValue="documents" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2 rounded-lg">
+                      <TabsList className="grid w-full grid-cols-3 rounded-lg">
                         <TabsTrigger value="documents">Dokumenty</TabsTrigger>
                         <TabsTrigger value="service">Serwis</TabsTrigger>
+                        <TabsTrigger value="reviews">Oceny</TabsTrigger>
                       </TabsList>
 
                       <div className="mt-4">
@@ -359,6 +361,10 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
 
                          <TabsContent value="service">
                            <VehicleServiceTab vehicleId={vehicle.id} />
+                         </TabsContent>
+
+                         <TabsContent value="reviews">
+                           <VehicleReviewsTab vehicleId={vehicle.id} />
                          </TabsContent>
                       </div>
                     </Tabs>

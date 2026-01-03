@@ -577,8 +577,38 @@ function SettlementsWithSubTabs({
   );
 }
 
-// Component to display driver notifications and settings
+// Component to display driver notifications and settings with sub-tabs
 function DriverNotifications({ driverId, userId }: { driverId: string; userId: string }) {
+  const [activeSubTab, setActiveSubTab] = useState("payment");
+  const { t } = useTranslation();
+
+  const subTabs = [
+    { value: "payment", label: t('driver.paymentMethod') },
+    { value: "contact", label: "Dane kontaktowe (giełda)" }
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Sub-tabs */}
+      <UniversalSubTabBar
+        activeTab={activeSubTab}
+        onTabChange={setActiveSubTab}
+        tabs={subTabs.map(t => ({ ...t, visible: true }))}
+      />
+
+      {activeSubTab === "payment" && (
+        <PaymentMethodSettings driverId={driverId} userId={userId} />
+      )}
+
+      {activeSubTab === "contact" && (
+        <MarketplaceContactSettings driverId={driverId} />
+      )}
+    </div>
+  );
+}
+
+// Payment method settings component
+function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId: string }) {
   const { alerts, loading, markAsResolved } = useSystemAlerts();
   const driverAlerts = alerts.filter(a => a.driver_id === driverId && a.status === 'pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
@@ -615,7 +645,6 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
       
       if (error) throw error;
       
-      // Natychmiastowa aktualizacja lokalnego stanu - to naprawi badge
       setDriverInfo((prev: any) => ({ ...prev, payment_method: method }));
       toast.success('Zaktualizowano sposób rozliczenia');
     } catch (error) {
@@ -730,6 +759,158 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
           </Card>
         ))
       )}
+    </div>
+  );
+}
+
+// Marketplace contact settings for each vehicle
+function MarketplaceContactSettings({ driverId }: { driverId: string }) {
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadVehicles();
+  }, [driverId]);
+
+  const loadVehicles = async () => {
+    try {
+      // Get vehicles owned by this driver
+      const { data: assignments } = await supabase
+        .from("driver_vehicle_assignments")
+        .select("vehicle_id")
+        .eq("driver_id", driverId)
+        .eq("status", "active");
+
+      if (!assignments?.length) {
+        setVehicles([]);
+        setLoading(false);
+        return;
+      }
+
+      const vehicleIds = assignments.map(a => a.vehicle_id).filter(Boolean);
+
+      // Get vehicles with listing data
+      const { data: vehiclesData } = await supabase
+        .from("vehicles")
+        .select("id, plate, brand, model")
+        .in("id", vehicleIds);
+
+      // Get listings for these vehicles
+      const { data: listings } = await supabase
+        .from("vehicle_listings")
+        .select("vehicle_id, contact_phone, contact_email")
+        .in("vehicle_id", vehicleIds);
+
+      const listingMap: Record<string, any> = {};
+      listings?.forEach(l => {
+        listingMap[l.vehicle_id] = l;
+      });
+
+      const vehiclesWithListings = (vehiclesData || []).map(v => ({
+        ...v,
+        listing: listingMap[v.id] || null
+      }));
+
+      setVehicles(vehiclesWithListings);
+    } catch (error) {
+      console.error("Error loading vehicles:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateContact = async (vehicleId: string, field: string, value: string) => {
+    try {
+      // Check if listing exists
+      const { data: existing } = await supabase
+        .from("vehicle_listings")
+        .select("id")
+        .eq("vehicle_id", vehicleId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("vehicle_listings")
+          .update({ [field]: value || null })
+          .eq("vehicle_id", vehicleId);
+      } else {
+        // Create listing with contact info (not available yet)
+        await supabase
+          .from("vehicle_listings")
+          .insert([{
+            vehicle_id: vehicleId,
+            weekly_price: 0,
+            is_available: false,
+            created_by: driverId,
+            [field]: value || null
+          }]);
+      }
+
+      toast.success("Dane kontaktowe zaktualizowane");
+      loadVehicles();
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      toast.error("Błąd aktualizacji danych");
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-muted-foreground">Ładowanie...</div>;
+  }
+
+  if (vehicles.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Dane kontaktowe (giełda)</CardTitle>
+          <CardDescription>
+            Nie masz jeszcze żadnych pojazdów. Dodaj auto, aby móc ustawić dane kontaktowe dla giełdy.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Dane kontaktowe (giełda)</CardTitle>
+          <CardDescription>
+            Te dane będą widoczne w ogłoszeniach na giełdzie. Możesz podać inne dane niż w profilu.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {vehicles.map(vehicle => (
+        <Card key={vehicle.id}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              {vehicle.brand} {vehicle.model} – {vehicle.plate}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <Label className="text-sm">Nr telefonu *</Label>
+              <Input
+                value={vehicle.listing?.contact_phone || ""}
+                onChange={(e) => updateContact(vehicle.id, "contact_phone", e.target.value)}
+                placeholder="Wpisz nr telefonu"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">Email (opcjonalnie)</Label>
+              <Input
+                value={vehicle.listing?.contact_email || ""}
+                onChange={(e) => updateContact(vehicle.id, "contact_email", e.target.value)}
+                placeholder="Wpisz adres email"
+                className="mt-1"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

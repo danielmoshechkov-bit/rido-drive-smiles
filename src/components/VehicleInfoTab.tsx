@@ -4,17 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 import { InlineEdit } from "@/components/InlineEdit";
 
-interface ListingData {
-  contact_phone?: string;
-  contact_email?: string;
-  weekly_price?: number;
-}
-
 interface VehicleInfoTabProps {
   vehicle: any;
   onSave: (vehicleId: string, data: any) => void;
-  listing?: ListingData;
-  onListingSave?: (data: Partial<ListingData>) => void;
 }
 
 const FUEL_TYPES = [
@@ -26,7 +18,7 @@ const FUEL_TYPES = [
   { value: "elektryczny", label: "Elektryczny" },
 ];
 
-export const VehicleInfoTab = ({ vehicle, onSave, listing, onListingSave }: VehicleInfoTabProps) => {
+export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
   const [formData, setFormData] = useState({
     plate: vehicle.plate || "",
     vin: vehicle.vin || "",
@@ -77,113 +69,74 @@ export const VehicleInfoTab = ({ vehicle, onSave, listing, onListingSave }: Vehi
     onSave(vehicle.id, { model: newModel });
   };
 
-  const handleListingFieldSave = (field: keyof ListingData, value: string) => {
-    if (onListingSave) {
-      onListingSave({ [field]: value || null });
-    }
-  };
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Vehicle Data Card */}
-      <Card className="rounded-lg border border-border/50">
-        <CardHeader>
-          <CardTitle>Dane pojazdu</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Nr rejestracyjny</label>
-            <InlineEdit
-              value={formData.plate}
-              onSave={async (val) => handleSave('plate', val)}
-              placeholder="Wpisz nr rejestracyjny"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">VIN</label>
-            <InlineEdit
-              value={formData.vin}
-              onSave={async (val) => handleSave('vin', val)}
-              placeholder="Wpisz numer VIN"
-            />
-          </div>
-          
-          {/* Car Brand/Model Selector - spans full width */}
-          <div className="sm:col-span-2">
-            <CarBrandModelSelector
-              brand={formData.brand}
-              model={formData.model}
-              onBrandChange={handleBrandChange}
-              onModelChange={handleModelChange}
-            />
-          </div>
+    <Card className="rounded-lg border border-border/50">
+      <CardHeader>
+        <CardTitle>Dane pojazdu</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">Nr rejestracyjny</label>
+          <InlineEdit
+            value={formData.plate}
+            onSave={async (val) => handleSave('plate', val)}
+            placeholder="Wpisz nr rejestracyjny"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">VIN</label>
+          <InlineEdit
+            value={formData.vin}
+            onSave={async (val) => handleSave('vin', val)}
+            placeholder="Wpisz numer VIN"
+          />
+        </div>
+        
+        {/* Car Brand/Model Selector - spans full width */}
+        <div className="sm:col-span-2">
+          <CarBrandModelSelector
+            brand={formData.brand}
+            model={formData.model}
+            onBrandChange={handleBrandChange}
+            onModelChange={handleModelChange}
+          />
+        </div>
 
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Rok</label>
-            <InlineEdit
-              value={formData.year?.toString() || ""}
-              onSave={async (val) => handleSave('year', val)}
-              placeholder="Wpisz rok"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Kolor</label>
-            <InlineEdit
-              value={formData.color}
-              onSave={async (val) => handleSave('color', val)}
-              placeholder="Wpisz kolor"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium text-muted-foreground">Rodzaj paliwa</label>
-            <Select 
-              value={formData.fuel_type} 
-              onValueChange={value => handleSave('fuel_type', value)}
-            >
-              <SelectTrigger className="rounded-lg">
-                <SelectValue placeholder="Wybierz rodzaj paliwa" />
-              </SelectTrigger>
-              <SelectContent>
-                {FUEL_TYPES.map(fuel => (
-                  <SelectItem key={fuel.value} value={fuel.value}>
-                    {fuel.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contact Data Card - Only show if onListingSave is provided */}
-      {onListingSave && (
-        <Card className="rounded-lg border border-border/50">
-          <CardHeader>
-            <CardTitle>Dane kontaktowe (giełda)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground mb-4">
-              Te dane będą widoczne w ogłoszeniu na giełdzie. Możesz podać inne dane niż w profilu.
-            </p>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Nr telefonu *</label>
-              <InlineEdit
-                value={listing?.contact_phone || ""}
-                onSave={async (val) => handleListingFieldSave('contact_phone', val)}
-                placeholder="Wpisz nr telefonu"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Email (opcjonalnie)</label>
-              <InlineEdit
-                value={listing?.contact_email || ""}
-                onSave={async (val) => handleListingFieldSave('contact_email', val)}
-                placeholder="Wpisz adres email"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">Rok</label>
+          <InlineEdit
+            value={formData.year?.toString() || ""}
+            onSave={async (val) => handleSave('year', val)}
+            placeholder="Wpisz rok"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">Kolor</label>
+          <InlineEdit
+            value={formData.color}
+            onSave={async (val) => handleSave('color', val)}
+            placeholder="Wpisz kolor"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-sm font-medium text-muted-foreground">Rodzaj paliwa</label>
+          <Select 
+            value={formData.fuel_type} 
+            onValueChange={value => handleSave('fuel_type', value)}
+          >
+            <SelectTrigger className="rounded-lg">
+              <SelectValue placeholder="Wybierz rodzaj paliwa" />
+            </SelectTrigger>
+            <SelectContent>
+              {FUEL_TYPES.map(fuel => (
+                <SelectItem key={fuel.value} value={fuel.value}>
+                  {fuel.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
