@@ -163,7 +163,10 @@ export default function VehicleMarketplace() {
         }
       }
 
-      const listingsWithData = (data || []).map(l => ({
+      // Filter out listings where vehicle is null (deleted vehicles)
+      const validListings = (data || []).filter(l => l.vehicle !== null);
+      
+      const listingsWithData = validListings.map(l => ({
         ...l,
         avgRating: l.fleet?.id ? ratingsMap[l.fleet.id] || null : null,
         driver: !l.fleet_id ? driverInfoMap[l.vehicle_id] || null : null,
