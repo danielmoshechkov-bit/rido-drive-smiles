@@ -19,6 +19,9 @@ import SystemAlerts from "./pages/SystemAlerts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 import VehicleMarketplace from "./pages/VehicleMarketplace";
+import MarketplaceRegister from "./pages/MarketplaceRegister";
+import MarketplaceAuth from "./pages/MarketplaceAuth";
+import MarketplaceDashboard from "./pages/MarketplaceDashboard";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +38,9 @@ const App = () => (
           <Route path="/landing" element={<Index />} />
           <Route path="/install" element={<Install />} />
           <Route path="/gielda" element={<VehicleMarketplace />} />
+          <Route path="/gielda/logowanie" element={<MarketplaceAuth />} />
+          <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
+          <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />

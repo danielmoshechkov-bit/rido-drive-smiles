@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type AppRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver';
+type AppRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'marketplace_user';
 
 interface UserRole {
   user_id: string;

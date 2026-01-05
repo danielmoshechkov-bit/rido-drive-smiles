@@ -59,19 +59,19 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                 <Button variant="ghost" size="icon">
                   <Bell className="h-5 w-5" />
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/driver")}>
+                <Button variant="outline" onClick={() => navigate("/gielda/panel")}>
                   <User className="h-4 w-4 mr-2" />
                   Moje konto
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => navigate("/")}>
+                <Button variant="ghost" onClick={() => navigate("/gielda/logowanie")}>
                   Zaloguj się
                 </Button>
-                <Button onClick={() => navigate("/rejestracja")}>
+                <Button onClick={() => navigate("/gielda/rejestracja")}>
                   <LogIn className="h-4 w-4 mr-2" />
-                  Dołącz
+                  Dołącz za darmo
                 </Button>
               </>
             )}
