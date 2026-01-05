@@ -1477,6 +1477,61 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_conversations: {
+        Row: {
+          buyer_profile_id: string | null
+          buyer_unread_count: number | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          listing_id: string | null
+          seller_profile_id: string | null
+          seller_unread_count: number | null
+        }
+        Insert: {
+          buyer_profile_id?: string | null
+          buyer_unread_count?: number | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          listing_id?: string | null
+          seller_profile_id?: string | null
+          seller_unread_count?: number | null
+        }
+        Update: {
+          buyer_profile_id?: string | null
+          buyer_unread_count?: number | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          listing_id?: string | null
+          seller_profile_id?: string | null
+          seller_unread_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_conversations_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_conversations_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_conversations_seller_profile_id_fkey"
+            columns: ["seller_profile_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_favorites: {
         Row: {
           created_at: string | null
@@ -1725,6 +1780,48 @@ export type Database = {
           },
         ]
       }
+      marketplace_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          sender_profile_id: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_profile_id?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_messages_sender_profile_id_fkey"
+            columns: ["sender_profile_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_saved_searches: {
         Row: {
           category_id: string | null
@@ -1817,6 +1914,108 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      marketplace_user_profiles: {
+        Row: {
+          account_mode: string
+          avg_rating: number | null
+          city_id: string | null
+          company_address: string | null
+          company_city: string | null
+          company_name: string | null
+          company_nip: string | null
+          company_postal_code: string | null
+          company_regon: string | null
+          company_website: string | null
+          created_at: string | null
+          default_category: string | null
+          email: string
+          employee_permissions: Json | null
+          first_name: string
+          id: string
+          last_name: string | null
+          listings_count: number | null
+          parent_company_id: string | null
+          phone: string
+          preferred_listing_type: string | null
+          public_email: string | null
+          public_phone: string | null
+          reviews_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_mode?: string
+          avg_rating?: number | null
+          city_id?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_name?: string | null
+          company_nip?: string | null
+          company_postal_code?: string | null
+          company_regon?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_category?: string | null
+          email: string
+          employee_permissions?: Json | null
+          first_name: string
+          id?: string
+          last_name?: string | null
+          listings_count?: number | null
+          parent_company_id?: string | null
+          phone: string
+          preferred_listing_type?: string | null
+          public_email?: string | null
+          public_phone?: string | null
+          reviews_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_mode?: string
+          avg_rating?: number | null
+          city_id?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_name?: string | null
+          company_nip?: string | null
+          company_postal_code?: string | null
+          company_regon?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_category?: string | null
+          email?: string
+          employee_permissions?: Json | null
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          listings_count?: number | null
+          parent_company_id?: string | null
+          phone?: string
+          preferred_listing_type?: string | null
+          public_email?: string | null
+          public_phone?: string | null
+          reviews_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_user_profiles_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_user_profiles_parent_company_id_fkey"
+            columns: ["parent_company_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -3219,7 +3418,12 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "fleet_settlement" | "fleet_rental" | "driver"
+      app_role:
+        | "admin"
+        | "fleet_settlement"
+        | "fleet_rental"
+        | "driver"
+        | "marketplace_user"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -3348,7 +3552,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "fleet_settlement", "fleet_rental", "driver"],
+      app_role: [
+        "admin",
+        "fleet_settlement",
+        "fleet_rental",
+        "driver",
+        "marketplace_user",
+      ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
   },
