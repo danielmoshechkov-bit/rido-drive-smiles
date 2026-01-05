@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Car, LogIn } from "lucide-react";
+import { Car } from "lucide-react";
 import { toast } from "sonner";
-import { MarketplaceFilters, FilterValues } from "@/components/MarketplaceFilters";
-import { MarketplaceVehicleCard } from "@/components/MarketplaceVehicleCard";
+
+import { MarketplaceHeader } from "@/components/marketplace/MarketplaceHeader";
+import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
+import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
+import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
+import { ListingCard } from "@/components/marketplace/ListingCard";
 
 interface VehicleListing {
   id: string;
@@ -29,6 +32,7 @@ interface VehicleListing {
     name: string;
     contact_phone_for_drivers: string | null;
     email: string | null;
+    city: string | null;
   } | null;
   avgRating: number | null;
   cityName: string | null;
@@ -48,7 +52,11 @@ export default function VehicleMarketplace() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
-  const [reserving, setReserving] = useState(false);
+  
+  // New filter states
+  const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(null);
+  const [selectedVehicleSlug, setSelectedVehicleSlug] = useState<string | null>(null);
+  const [selectedTransactionTypes, setSelectedTransactionTypes] = useState<string[]>([]);
 
   useEffect(() => {
     loadListings();
@@ -172,7 +180,7 @@ export default function VehicleMarketplace() {
     }
   };
 
-  const handleFilterChange = (filters: FilterValues) => {
+  const handleSearch = (filters: SearchFilters) => {
     let result = [...listings];
 
     // Multi-brand filter
@@ -197,6 +205,18 @@ export default function VehicleMarketplace() {
       );
     }
 
+    if (filters.yearTo && filters.yearTo !== "all") {
+      const yearTo = parseInt(filters.yearTo);
+      result = result.filter(l => 
+        l.vehicle.year && l.vehicle.year <= yearTo
+      );
+    }
+
+    if (filters.priceMin) {
+      const priceMin = parseInt(filters.priceMin);
+      result = result.filter(l => l.weekly_price >= priceMin);
+    }
+
     if (filters.priceMax) {
       const priceMax = parseInt(filters.priceMax);
       result = result.filter(l => l.weekly_price <= priceMax);
@@ -209,10 +229,22 @@ export default function VehicleMarketplace() {
       );
     }
 
-    // City filter - would need to match by city_id
-    // For now we skip city filtering as it requires more complex logic
-
     setFilteredListings(result);
+  };
+
+  const handleVehicleTypeSelect = (typeId: string | null, slug: string | null) => {
+    setSelectedVehicleType(typeId);
+    setSelectedVehicleSlug(slug);
+    // In future: filter listings by vehicle type
+  };
+
+  const handleTransactionTypeToggle = (typeId: string) => {
+    setSelectedTransactionTypes(prev => 
+      prev.includes(typeId) 
+        ? prev.filter(t => t !== typeId)
+        : [...prev, typeId]
+    );
+    // In future: filter listings by transaction type
   };
 
   const handleReserve = async (listing: VehicleListing) => {
@@ -227,7 +259,6 @@ export default function VehicleMarketplace() {
       return;
     }
 
-    setReserving(true);
     try {
       const { error } = await supabase
         .from("vehicle_rentals")
@@ -246,87 +277,112 @@ export default function VehicleMarketplace() {
     } catch (error: any) {
       console.error("Error reserving:", error);
       toast.error(error.message || "Błąd rezerwacji");
-    } finally {
-      setReserving(false);
     }
   };
 
+  // Map old listing format to new ListingCard format
+  const mapToListingCard = (listing: VehicleListing) => ({
+    id: listing.id,
+    title: `${listing.vehicle.brand} ${listing.vehicle.model}`,
+    price: listing.weekly_price,
+    priceType: "weekly" as const,
+    photos: listing.vehicle.photos || [],
+    location: listing.cityName || undefined,
+    year: listing.vehicle.year || undefined,
+    fuelType: listing.vehicle.fuel_type || undefined,
+    rating: listing.avgRating || undefined,
+    transactionType: "Wynajem", // Default for now
+    transactionColor: "#3b82f6",
+    contactName: listing.contact_name || listing.driver?.first_name || undefined,
+    contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
+    contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
+  });
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="RIDO Logo" 
-              className="h-8 w-8"
-            />
-            <div>
-              <h1 className="text-xl font-bold">Giełda Aut</h1>
-              <p className="text-xs text-muted-foreground">get RIDO</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <MarketplaceHeader user={user} />
+
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+        <div className="container mx-auto px-4 py-12 md:py-16">
+          <div className="max-w-3xl">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Znajdź idealne auto
+              <span className="text-primary"> dla siebie</span>
+            </h1>
+            <p className="text-lg text-muted-foreground mb-8">
+              Tysiące sprawdzonych ofert od flot i prywatnych właścicieli. 
+              Wynajem, leasing, sprzedaż – wszystko w jednym miejscu.
+            </p>
           </div>
-          
-          {user ? (
-            <Button variant="outline" onClick={() => navigate("/driver")}>
-              Moje konto
-            </Button>
-          ) : (
-            <Button onClick={() => navigate("/")}>
-              <LogIn className="h-4 w-4 mr-2" />
-              Zaloguj się
-            </Button>
-          )}
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
-        {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">
-            Znajdź idealne auto do wynajmu
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Przeglądaj oferty aut od sprawdzonych flot i prywatnych właścicieli. 
-            Bezpieczne rezerwacje, transparentne warunki.
-          </p>
+      <div className="container mx-auto px-4 -mt-6">
+        {/* Vehicle Type Selector (tabs) */}
+        <div className="mb-6">
+          <VehicleTypeSelector 
+            selectedType={selectedVehicleType}
+            onSelect={handleVehicleTypeSelect}
+          />
         </div>
 
-        {/* Filters */}
+        {/* Transaction Type Chips */}
+        <div className="mb-6">
+          <p className="text-sm font-medium text-muted-foreground mb-2">Typ transakcji:</p>
+          <TransactionTypeChips 
+            selectedTypes={selectedTransactionTypes}
+            onToggle={handleTransactionTypeToggle}
+          />
+        </div>
+
+        {/* Search Filters */}
         <div className="mb-8">
-          <MarketplaceFilters onFilterChange={handleFilterChange} />
+          <MarketplaceSearch 
+            onSearch={handleSearch}
+            resultCount={filteredListings.length}
+          />
         </div>
 
-        {/* Results Count */}
+        {/* Results Count & Sort */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-muted-foreground">
-            Znaleziono: <strong className="text-foreground">{filteredListings.length}</strong> ogłoszeń
+            Znaleziono: <strong className="text-foreground">{filteredListings.length.toLocaleString()}</strong> ogłoszeń
           </p>
+          {/* Sort dropdown could go here */}
         </div>
 
         {/* Listings Grid */}
         {loading ? (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Ładowanie ogłoszeń...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="bg-card rounded-xl overflow-hidden animate-pulse">
+                <div className="aspect-[4/3] bg-muted" />
+                <div className="p-4 space-y-3">
+                  <div className="h-5 bg-muted rounded w-3/4" />
+                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-8 bg-muted rounded w-full" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredListings.length === 0 ? (
           <div className="text-center py-16">
-            <Car className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Brak wyników</h3>
-            <p className="text-muted-foreground">
-              Zmień kryteria wyszukiwania lub spróbuj później
+            <Car className="h-20 w-20 text-muted-foreground/20 mx-auto mb-6" />
+            <h3 className="text-2xl font-semibold mb-3">Brak wyników</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Nie znaleziono ogłoszeń spełniających kryteria. 
+              Spróbuj zmienić filtry lub wróć później.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredListings.map(listing => (
-              <MarketplaceVehicleCard
+              <ListingCard
                 key={listing.id}
-                listing={listing}
-                onReserve={handleReserve}
+                listing={mapToListingCard(listing)}
+                onReserve={() => handleReserve(listing)}
                 isLoggedIn={!!user && !!driverId}
               />
             ))}
@@ -335,9 +391,21 @@ export default function VehicleMarketplace() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t mt-12 py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>© 2025 get RIDO. Wszystkie prawa zastrzeżone.</p>
+      <footer className="border-t mt-16 py-12 bg-card">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="RIDO" 
+                className="h-8 w-8"
+              />
+              <span className="font-semibold">RIDO Marketplace</span>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
