@@ -1385,6 +1385,439 @@ export type Database = {
           },
         ]
       }
+      marketplace_attribute_definitions: {
+        Row: {
+          attribute_key: string
+          created_at: string | null
+          id: string
+          input_type: string | null
+          is_filterable: boolean | null
+          is_required: boolean | null
+          item_type_id: string
+          label: string
+          label_en: string | null
+          options: Json | null
+          placeholder: string | null
+          sort_order: number | null
+          unit: string | null
+        }
+        Insert: {
+          attribute_key: string
+          created_at?: string | null
+          id?: string
+          input_type?: string | null
+          is_filterable?: boolean | null
+          is_required?: boolean | null
+          item_type_id: string
+          label: string
+          label_en?: string | null
+          options?: Json | null
+          placeholder?: string | null
+          sort_order?: number | null
+          unit?: string | null
+        }
+        Update: {
+          attribute_key?: string
+          created_at?: string | null
+          id?: string
+          input_type?: string | null
+          is_filterable?: boolean | null
+          is_required?: boolean | null
+          item_type_id?: string
+          label?: string
+          label_en?: string | null
+          options?: Json | null
+          placeholder?: string | null
+          sort_order?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_attribute_definitions_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_item_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      marketplace_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          listing_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          listing_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          listing_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_favorites_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_item_types: {
+        Row: {
+          category_id: string
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_item_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_listing_attributes: {
+        Row: {
+          attribute_key: string
+          attribute_value: string | null
+          created_at: string | null
+          id: string
+          listing_id: string
+        }
+        Insert: {
+          attribute_key: string
+          attribute_value?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id: string
+        }
+        Update: {
+          attribute_key?: string
+          attribute_value?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_listing_attributes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_listings: {
+        Row: {
+          category_id: string
+          city_id: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          driver_id: string | null
+          expires_at: string | null
+          favorites_count: number | null
+          fleet_id: string | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          item_type_id: string
+          location_text: string | null
+          photos: string[] | null
+          price: number
+          price_negotiable: boolean | null
+          price_type: string | null
+          status: string | null
+          title: string
+          transaction_type_id: string
+          updated_at: string | null
+          vehicle_id: string | null
+          views_count: number | null
+        }
+        Insert: {
+          category_id: string
+          city_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          driver_id?: string | null
+          expires_at?: string | null
+          favorites_count?: number | null
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          item_type_id: string
+          location_text?: string | null
+          photos?: string[] | null
+          price?: number
+          price_negotiable?: boolean | null
+          price_type?: string | null
+          status?: string | null
+          title: string
+          transaction_type_id: string
+          updated_at?: string | null
+          vehicle_id?: string | null
+          views_count?: number | null
+        }
+        Update: {
+          category_id?: string
+          city_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          driver_id?: string | null
+          expires_at?: string | null
+          favorites_count?: number | null
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          item_type_id?: string
+          location_text?: string | null
+          photos?: string[] | null
+          price?: number
+          price_negotiable?: boolean | null
+          price_type?: string | null
+          status?: string | null
+          title?: string
+          transaction_type_id?: string
+          updated_at?: string | null
+          vehicle_id?: string | null
+          views_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_listings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_transaction_type_id_fkey"
+            columns: ["transaction_type_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_transaction_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_saved_searches: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          filters: Json | null
+          id: string
+          item_type_id: string | null
+          name: string
+          notify_new_listings: boolean | null
+          transaction_type_ids: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          item_type_id?: string | null
+          name: string
+          notify_new_listings?: boolean | null
+          transaction_type_ids?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          item_type_id?: string | null
+          name?: string
+          notify_new_listings?: boolean | null
+          transaction_type_ids?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_saved_searches_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_saved_searches_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_item_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_transaction_types: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
