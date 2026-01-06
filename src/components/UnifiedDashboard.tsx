@@ -27,6 +27,7 @@ import { DriverSettlements } from "@/components/DriverSettlements";
 import { FleetVehicleRevenue } from "@/components/FleetVehicleRevenue";
 import { useTabPermissions } from "@/hooks/useTabPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart } from "lucide-react";
@@ -60,6 +61,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
   const { canViewTab, loading: permissionsLoading } = useTabPermissions();
   const { roles } = useUserRole();
+  const { isMarketplaceEnabled } = useFeatureToggles();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
 
   // PWA install prompt detection
@@ -245,15 +247,17 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/gielda')} 
-                className="rounded-lg gap-2"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                Giełda aut
-              </Button>
+              {isMarketplaceEnabled && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate('/gielda')} 
+                  className="rounded-lg gap-2"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Giełda aut
+                </Button>
+              )}
               <UserDropdown 
                 userName={userName || (userType === 'admin' ? 'Admin' : 'Fleet Manager')}
                 userRole={userType === 'admin' ? 'Administrator' : 'Fleet Manager'}

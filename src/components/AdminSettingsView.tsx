@@ -7,13 +7,14 @@ import { FleetAccountsManagement } from './FleetAccountsManagement';
 import { SettlementVisibilitySettings } from './SettlementVisibilitySettings';
 import { TabVisibilityManager } from './TabVisibilityManager';
 import { EmailSettings } from './EmailSettings';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { FeatureTogglesManagement } from './FeatureTogglesManagement';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
 
   const subTabs = [
     { value: "system", label: "Ustawienia systemu", visible: true },
+    { value: "features", label: "Funkcje", visible: true },
     { value: "user-roles", label: "Uprawnienia", visible: true },
     { value: "plans", label: "Plany", visible: true },
     { value: "fleet-accounts", label: "Konta flotowe", visible: true },
@@ -32,7 +33,7 @@ export function AdminSettingsView() {
       />
 
       {activeSubTab === "system" && <RidoSettings />}
-
+      {activeSubTab === "features" && <FeatureTogglesManagement />}
       {activeSubTab === "user-roles" && <UserRolesManager />}
       {activeSubTab === "plans" && <SettlementPlansManagement />}
       {activeSubTab === "fleet-accounts" && <FleetAccountsManagement />}

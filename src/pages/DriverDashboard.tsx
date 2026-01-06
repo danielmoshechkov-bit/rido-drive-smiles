@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -30,11 +30,21 @@ import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { features, isMarketplaceEnabled } = useFeatureToggles();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [activeSubTab, setActiveSubTab] = useState('my');
   const [user, setUser] = useState<any>(null);
@@ -44,6 +54,33 @@ const DriverDashboard = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [priceChangeNotification, setPriceChangeNotification] = useState<any>(null);
+  const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+
+  // Check for other account types
+  useEffect(() => {
+    const checkAccounts = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Check for fleet account
+      const { data: fleetRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["fleet_settlement", "fleet_rental"]);
+      setIsFleetAccount(!!fleetRoles && fleetRoles.length > 0);
+
+      // Check for marketplace account
+      const { data: marketplaceProfile } = await supabase
+        .from("marketplace_user_profiles")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      setIsMarketplaceAccount(!!marketplaceProfile);
+    };
+    checkAccounts();
+  }, []);
 
   // PWA install prompt detection
   useEffect(() => {
@@ -384,28 +421,78 @@ const DriverDashboard = () => {
         
         {/* Desktop Tabs */}
         <div className="hidden md:block">
-          <TabsPill value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsTrigger value="weekly-report">
-              <DollarSign className="h-4 w-4 mr-2" />
-              {t('driver.tabs.settlements')}
-            </TabsTrigger>
-            <TabsTrigger value="cars">
-              <Car className="h-4 w-4 mr-2" />
-              {t('driver.tabs.cars')}
-            </TabsTrigger>
-            <TabsTrigger value="documents">
-              <FileText className="h-4 w-4 mr-2" />
-              {t('driver.tabs.documents')}
-            </TabsTrigger>
-            <TabsTrigger value="informacje">
-              <Info className="h-4 w-4 mr-2" />
-              {t('driver.tabs.information')}
-            </TabsTrigger>
-            <TabsTrigger value="marketplace">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              {t('driver.tabs.marketplace')}
-            </TabsTrigger>
-          </TabsPill>
+          <div className="flex items-center gap-4 mb-6">
+            <TabsPill value={activeTab} onValueChange={setActiveTab}>
+              <TabsTrigger value="weekly-report">
+                <DollarSign className="h-4 w-4 mr-2" />
+                {t('driver.tabs.settlements')}
+              </TabsTrigger>
+              <TabsTrigger value="cars">
+                <Car className="h-4 w-4 mr-2" />
+                {t('driver.tabs.cars')}
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                <FileText className="h-4 w-4 mr-2" />
+                {t('driver.tabs.documents')}
+              </TabsTrigger>
+              <TabsTrigger value="informacje">
+                <Info className="h-4 w-4 mr-2" />
+                {t('driver.tabs.information')}
+              </TabsTrigger>
+              {isMarketplaceEnabled && (
+                <TabsTrigger value="marketplace">
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {t('driver.tabs.marketplace')}
+                </TabsTrigger>
+              )}
+            </TabsPill>
+
+            {/* Przełącz konto dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Repeat className="h-4 w-4" />
+                  Przełącz konto
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                  <Car className="h-4 w-4" />
+                  <span>Konto kierowcy</span>
+                  <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => navigate("/gielda/panel")}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <User className="h-4 w-4" />
+                  <span>Konto główne (giełda)</span>
+                  {isMarketplaceAccount ? (
+                    <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
+                  ) : (
+                    <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Truck className="h-4 w-4" />
+                  <span>Konto flotowe</span>
+                  {isFleetAccount ? (
+                    <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
+                  ) : (
+                    <Badge variant="outline" className="ml-auto text-xs">wkrótce</Badge>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Mobile Hamburger Menu - Redesigned */}
@@ -462,16 +549,42 @@ const DriverDashboard = () => {
                       {t('driver.tabs.information')}
                     </Button>
                   </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'marketplace' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('marketplace')}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      {t('driver.tabs.marketplace')}
-                    </Button>
-                  </SheetTrigger>
+                  {isMarketplaceEnabled && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'marketplace' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('marketplace')}
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        {t('driver.tabs.marketplace')}
+                      </Button>
+                    </SheetTrigger>
+                  )}
+                  
+                  <div className="border-t pt-2 mt-2">
+                    <p className="text-xs text-muted-foreground px-2 mb-2">Przełącz konto</p>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => navigate("/gielda/panel")}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Konto główne
+                      </Button>
+                    </SheetTrigger>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
+                      >
+                        <Truck className="h-4 w-4 mr-2" />
+                        Konto flotowe
+                      </Button>
+                    </SheetTrigger>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
