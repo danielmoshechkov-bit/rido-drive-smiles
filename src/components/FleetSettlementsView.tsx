@@ -15,6 +15,8 @@ import { FleetFuelView } from './FleetFuelView';
 import { FuelCSVUpload } from './FuelCSVUpload';
 import { CompanyRevenueSummary } from './CompanyRevenueSummary';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
+import { FleetSettlementImport } from './fleet/FleetSettlementImport';
+import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -76,9 +78,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Fetch latest settlement week on mount
   useEffect(() => {
-    if (fleetId && selectedWeek !== getCurrentWeekNumber(selectedYear)) {
-      // Week already set by getCurrentWeekNumber, fetch data
-      fetchSettlements();
+    if (fleetId) {
+      fetchLatestSettlement();
     }
   }, [fleetId]);
 
@@ -365,13 +366,49 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         ? [{ value: "my", label: "Moje rozliczenia", visible: true }] 
         : []
     ),
+    { value: "import", label: "Rozlicz kierowców", visible: true },
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
     { value: "vehicles", label: "Przychody aut", visible: true },
-    { value: "fuel", label: "Paliwo", visible: true }
+    { value: "fuel", label: "Paliwo", visible: true },
+    { value: "settings", label: "Ustawienia rozliczeń", visible: true }
   ];
 
   if (loading) {
     return <div className="text-center py-8">Ładowanie rozliczeń...</div>;
+  }
+
+  // Render "Rozlicz kierowców" (import) tab
+  if (activeSubTab === "import") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetSettlementImport 
+          fleetId={fleetId} 
+          onComplete={() => {
+            fetchSettlements();
+            setActiveSubTab("drivers");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Render "Ustawienia rozliczeń" tab
+  if (activeSubTab === "settings") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetSettlementSettings fleetId={fleetId} />
+      </div>
+    );
   }
 
   // Render "Przychody aut" tab

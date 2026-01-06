@@ -8,7 +8,8 @@ const corsHeaders = {
 interface SettlementRequest {
   period_from: string;
   period_to: string;
-  city_id: string;
+  city_id?: string;
+  fleet_id?: string;
   main_csv?: string;
   uber_csv?: string;
   bolt_csv?: string;
@@ -70,6 +71,7 @@ Deno.serve(async (req) => {
         period_from: body.period_from,
         period_to: body.period_to,
         city_id: body.city_id,
+        fleet_id: (body as any).fleet_id,
         has_main_csv: !!body.main_csv,
         main_csv_length: body.main_csv?.length || 0,
         has_uber_csv: !!(body as any).uber_csv,
@@ -82,9 +84,36 @@ Deno.serve(async (req) => {
     }
 
     const { period_from, period_to, city_id, main_csv, uber_csv, bolt_csv, freenow_csv } = body;
+    const fleet_id = (body as any).fleet_id;
 
-    if (!period_from || !period_to || !city_id) {
-      throw new Error('Missing required fields: period_from, period_to, city_id');
+    // Accept either city_id or fleet_id
+    if (!period_from || !period_to || (!city_id && !fleet_id)) {
+      throw new Error('Missing required fields: period_from, period_to, and either city_id or fleet_id');
+    }
+
+    // If fleet_id provided, get city_id from drivers in that fleet
+    let effectiveCityId = city_id;
+    if (fleet_id && !city_id) {
+      const { data: fleetDriver } = await supabase
+        .from('drivers')
+        .select('city_id')
+        .eq('fleet_id', fleet_id)
+        .limit(1)
+        .single();
+      
+      if (fleetDriver?.city_id) {
+        effectiveCityId = fleetDriver.city_id;
+        console.log('📍 Using city_id from fleet:', effectiveCityId);
+      } else {
+        // Get a default city if no drivers in fleet yet
+        const { data: defaultCity } = await supabase
+          .from('cities')
+          .select('id')
+          .limit(1)
+          .single();
+        effectiveCityId = defaultCity?.id;
+        console.log('📍 Using default city_id:', effectiveCityId);
+      }
     }
 
     // Determine import mode
@@ -106,7 +135,7 @@ Deno.serve(async (req) => {
       const result = await process3PlatformCsvs(
         supabase,
         { uber_csv, bolt_csv, freenow_csv },
-        { period_from, period_to, city_id }
+        { period_from, period_to, city_id: effectiveCityId, fleet_id }
       );
       settlementsToInsert = result.settlements;
       newDriversCount = result.newDrivers;
@@ -117,7 +146,7 @@ Deno.serve(async (req) => {
       const result = await processRidoTemplate(
         supabase,
         main_csv,
-        { period_from, period_to, city_id }
+        { period_from, period_to, city_id: effectiveCityId, fleet_id }
       );
       settlementsToInsert = result.settlements;
       newDriversCount = result.newDrivers;
@@ -248,18 +277,25 @@ Deno.serve(async (req) => {
 async function process3PlatformCsvs(
   supabase: any,
   csvFiles: { uber_csv?: string; bolt_csv?: string; freenow_csv?: string },
-  meta: { period_from: string; period_to: string; city_id: string }
+  meta: { period_from: string; period_to: string; city_id: string; fleet_id?: string }
 ) {
   console.log('🎯 Processing 3 platform CSVs...');
 
   const driverDataMap = new Map<string, PlatformData>();
   const existingDriversMap = new Map<string, any>();
 
-  // Load existing drivers
-  const { data: existingDrivers } = await supabase
+  // Load existing drivers - filter by fleet_id if provided, otherwise by city_id
+  let driversQuery = supabase
     .from('drivers')
-    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
-    .eq('city_id', meta.city_id);
+    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)');
+  
+  if (meta.fleet_id) {
+    driversQuery = driversQuery.eq('fleet_id', meta.fleet_id);
+  } else {
+    driversQuery = driversQuery.eq('city_id', meta.city_id);
+  }
+  
+  const { data: existingDrivers } = await driversQuery;
 
   existingDrivers?.forEach((driver: any) => {
     if (driver.phone) existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
@@ -391,7 +427,7 @@ async function process3PlatformCsvs(
 async function processRidoTemplate(
   supabase: any,
   main_csv: string,
-  meta: { period_from: string; period_to: string; city_id: string }
+  meta: { period_from: string; period_to: string; city_id: string; fleet_id?: string }
 ) {
   console.log('🎯 Processing RIDO template...');
 
@@ -427,12 +463,19 @@ async function processRidoTemplate(
   const getColValue = (row: string[], idx: number, fallbackIdx: number) => 
     (idx >= 0 ? row[idx] : row[fallbackIdx]) || '';
 
-  // Load existing drivers
+  // Load existing drivers - filter by fleet_id if provided, otherwise by city_id
   const existingDriversMap = new Map<string, any>();
-  const { data: existingDrivers } = await supabase
+  let driversQuery = supabase
     .from('drivers')
-    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)')
-    .eq('city_id', meta.city_id);
+    .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)');
+  
+  if (meta.fleet_id) {
+    driversQuery = driversQuery.eq('fleet_id', meta.fleet_id);
+  } else {
+    driversQuery = driversQuery.eq('city_id', meta.city_id);
+  }
+  
+  const { data: existingDrivers } = await driversQuery;
 
   existingDrivers?.forEach((driver: any) => {
     if (driver.phone) existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
