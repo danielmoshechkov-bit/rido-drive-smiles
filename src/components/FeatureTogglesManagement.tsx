@@ -12,7 +12,14 @@ interface FeatureToggle {
   feature_name: string;
   description: string | null;
   is_enabled: boolean;
+  category: string | null;
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  marketplace: "Funkcje Marketplace",
+  registration: "Rejestracja",
+  general: "Ogólne",
+};
 
 export function FeatureTogglesManagement() {
   const [toggles, setToggles] = useState<FeatureToggle[]>([]);
@@ -85,32 +92,46 @@ export function FeatureTogglesManagement() {
         {toggles.length === 0 ? (
           <p className="text-muted-foreground text-sm">Brak dostępnych przełączników</p>
         ) : (
-          toggles.map((toggle) => (
-            <div 
-              key={toggle.id} 
-              className="flex items-center justify-between p-4 border rounded-lg"
-            >
-              <div className="space-y-1">
-                <Label htmlFor={toggle.id} className="text-base font-medium cursor-pointer">
-                  {toggle.feature_name}
-                </Label>
-                {toggle.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {toggle.description}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {updating === toggle.id && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                <Switch
-                  id={toggle.id}
-                  checked={toggle.is_enabled}
-                  onCheckedChange={() => handleToggle(toggle)}
-                  disabled={updating === toggle.id}
-                />
-              </div>
+          Object.entries(
+            toggles.reduce((acc, toggle) => {
+              const cat = toggle.category || 'general';
+              if (!acc[cat]) acc[cat] = [];
+              acc[cat].push(toggle);
+              return acc;
+            }, {} as Record<string, FeatureToggle[]>)
+          ).map(([category, categoryToggles]) => (
+            <div key={category} className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-2">
+                {CATEGORY_LABELS[category] || category}
+              </h3>
+              {categoryToggles.map((toggle) => (
+                <div 
+                  key={toggle.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor={toggle.id} className="text-base font-medium cursor-pointer">
+                      {toggle.feature_name}
+                    </Label>
+                    {toggle.description && (
+                      <p className="text-sm text-muted-foreground">
+                        {toggle.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {updating === toggle.id && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    <Switch
+                      id={toggle.id}
+                      checked={toggle.is_enabled}
+                      onCheckedChange={() => handleToggle(toggle)}
+                      disabled={updating === toggle.id}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           ))
         )}
