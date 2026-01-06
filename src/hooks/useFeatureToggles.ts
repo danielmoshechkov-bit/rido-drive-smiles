@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 interface FeatureToggles {
   marketplace_enabled: boolean;
   fleet_registration_enabled: boolean;
+  marketplace_vehicles_enabled: boolean;
+  marketplace_realestate_enabled: boolean;
+  marketplace_services_enabled: boolean;
+  driver_registration_enabled: boolean;
   [key: string]: boolean;
 }
 
@@ -11,6 +15,10 @@ export function useFeatureToggles() {
   const [features, setFeatures] = useState<FeatureToggles>({
     marketplace_enabled: false,
     fleet_registration_enabled: false,
+    marketplace_vehicles_enabled: false,
+    marketplace_realestate_enabled: false,
+    marketplace_services_enabled: false,
+    driver_registration_enabled: true,
   });
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +37,10 @@ export function useFeatureToggles() {
       const toggles: FeatureToggles = {
         marketplace_enabled: false,
         fleet_registration_enabled: false,
+        marketplace_vehicles_enabled: false,
+        marketplace_realestate_enabled: false,
+        marketplace_services_enabled: false,
+        driver_registration_enabled: true,
       };
 
       data?.forEach((toggle) => {

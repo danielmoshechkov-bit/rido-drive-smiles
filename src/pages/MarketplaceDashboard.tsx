@@ -267,13 +267,25 @@ export default function MarketplaceDashboard() {
     }
   };
 
-  const handleSwitchAccount = (type: 'driver' | 'fleet' | 'marketplace') => {
+  const handleSwitchAccount = async (type: 'driver' | 'fleet' | 'marketplace') => {
     if (type === 'driver') {
-      if (isDriverAccount) {
-        navigate("/driver");
-      } else {
-        setShowDriverModal(true);
+      // Re-check driver account status asynchronously to avoid stale state
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: driverData } = await supabase
+          .from("driver_app_users")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        
+        if (driverData) {
+          setIsDriverAccount(true);
+          navigate("/driver");
+          return;
+        }
       }
+      // If no driver account, show registration modal
+      setShowDriverModal(true);
     } else if (type === 'fleet') {
       if (isFleetAccount) {
         navigate("/fleet/dashboard");
