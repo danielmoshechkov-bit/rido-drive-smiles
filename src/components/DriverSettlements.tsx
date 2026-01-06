@@ -87,8 +87,36 @@ export const DriverSettlements = ({
   const [lastAvailableWeek, setLastAvailableWeek] = useState<string | null>(null);
   const [ibanUpdateTimeout, setIbanUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
+  const [fleetPlanSelectionDisabled, setFleetPlanSelectionDisabled] = useState(false);
   const { role } = useUserRole();
   const { t } = useTranslation();
+
+  // Check if fleet has disabled plan selection for drivers
+  useEffect(() => {
+    const checkFleetPlanSetting = async () => {
+      if (!driverId || role === 'admin') return;
+      
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('fleet_id')
+        .eq('id', driverId)
+        .maybeSingle();
+      
+      if (!driver?.fleet_id) return;
+      
+      const { data: fleet } = await supabase
+        .from('fleets')
+        .select('driver_plan_selection_enabled')
+        .eq('id', driver.fleet_id)
+        .maybeSingle();
+      
+      if (fleet && fleet.driver_plan_selection_enabled === false) {
+        setFleetPlanSelectionDisabled(true);
+      }
+    };
+    
+    checkFleetPlanSetting();
+  }, [driverId, role]);
 
   const weeks = getAvailableWeeks(selectedYear);
   const displayedWeeks = showAllWeeks ? weeks : weeks.slice(0, 2);
@@ -921,56 +949,58 @@ export const DriverSettlements = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
-                <Select 
-                  value={selectedPlanId} 
-                  onValueChange={(newPlanId) => {
-                    setSelectedPlanId(newPlanId);
-                    
-                    if (newPlanId !== "all") {
-                      const expiryDate = new Date();
-                      expiryDate.setDate(expiryDate.getDate() + 30);
+              {!fleetPlanSelectionDisabled && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <Label className="text-sm whitespace-nowrap">{t('weekly.plan')}:</Label>
+                  <Select 
+                    value={selectedPlanId} 
+                    onValueChange={(newPlanId) => {
+                      setSelectedPlanId(newPlanId);
                       
-                      localStorage.setItem('driver_selected_plan', JSON.stringify({
-                        planId: newPlanId,
-                        expiresAt: expiryDate.toISOString(),
-                        driverId: driverId
-                      }));
-                      
-                      setCanChangePlan(false);
-                      setPlanChangeInfo(`Zablokowany na 30 dni`);
-                    } else {
-                      localStorage.removeItem('driver_selected_plan');
-                      setCanChangePlan(true);
-                      setPlanChangeInfo('');
-                    }
-                  }}
-                  disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
-                >
-                  <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
-                    <SelectValue placeholder={t('weekly.allPlans')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
-                    {settlementPlans.map(plan => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {role === 'admin' && (
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    Admin
-                  </Badge>
-                )}
-                {!canChangePlan && role !== 'admin' && planChangeInfo && (
-                  <span className="text-xs text-orange-600 font-medium">
-                    {planChangeInfo}
-                  </span>
-                )}
-              </div>
+                      if (newPlanId !== "all") {
+                        const expiryDate = new Date();
+                        expiryDate.setDate(expiryDate.getDate() + 30);
+                        
+                        localStorage.setItem('driver_selected_plan', JSON.stringify({
+                          planId: newPlanId,
+                          expiresAt: expiryDate.toISOString(),
+                          driverId: driverId
+                        }));
+                        
+                        setCanChangePlan(false);
+                        setPlanChangeInfo(`Zablokowany na 30 dni`);
+                      } else {
+                        localStorage.removeItem('driver_selected_plan');
+                        setCanChangePlan(true);
+                        setPlanChangeInfo('');
+                      }
+                    }}
+                    disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
+                  >
+                    <SelectTrigger className="h-9 px-3 w-[160px]" style={{ pointerEvents: (selectedPlanId !== "all" && !canChangePlan && role !== 'admin') ? 'none' : 'auto' }}>
+                      <SelectValue placeholder={t('weekly.allPlans')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
+                      {settlementPlans.map(plan => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {role === 'admin' && (
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      Admin
+                    </Badge>
+                  )}
+                  {!canChangePlan && role !== 'admin' && planChangeInfo && (
+                    <span className="text-xs text-orange-600 font-medium">
+                      {planChangeInfo}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Mobile: collapsible controls */}
@@ -1052,46 +1082,48 @@ export const DriverSettlements = ({
                 )}
               </div>
               
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm">{t('weekly.plan')}:</Label>
-                <Select
-                  value={selectedPlanId} 
-                  onValueChange={(newPlanId) => {
-                    setSelectedPlanId(newPlanId);
-                    
-                    if (newPlanId !== "all") {
-                      const expiryDate = new Date();
-                      expiryDate.setDate(expiryDate.getDate() + 30);
+              {!fleetPlanSelectionDisabled && (
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm">{t('weekly.plan')}:</Label>
+                  <Select
+                    value={selectedPlanId} 
+                    onValueChange={(newPlanId) => {
+                      setSelectedPlanId(newPlanId);
                       
-                      localStorage.setItem('driver_selected_plan', JSON.stringify({
-                        planId: newPlanId,
-                        expiresAt: expiryDate.toISOString(),
-                        driverId: driverId
-                      }));
-                      
-                      setCanChangePlan(false);
-                      setPlanChangeInfo(`Zablokowany na 30 dni`);
-                    } else {
-                      localStorage.removeItem('driver_selected_plan');
-                      setCanChangePlan(true);
-                      setPlanChangeInfo('');
-                    }
-                  }}
-                  disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder={t('weekly.allPlans')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
-                    {settlementPlans.map(plan => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      if (newPlanId !== "all") {
+                        const expiryDate = new Date();
+                        expiryDate.setDate(expiryDate.getDate() + 30);
+                        
+                        localStorage.setItem('driver_selected_plan', JSON.stringify({
+                          planId: newPlanId,
+                          expiresAt: expiryDate.toISOString(),
+                          driverId: driverId
+                        }));
+                        
+                        setCanChangePlan(false);
+                        setPlanChangeInfo(`Zablokowany na 30 dni`);
+                      } else {
+                        localStorage.removeItem('driver_selected_plan');
+                        setCanChangePlan(true);
+                        setPlanChangeInfo('');
+                      }
+                    }}
+                    disabled={selectedPlanId !== "all" && !canChangePlan && role !== 'admin'}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder={t('weekly.allPlans')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('weekly.allPlans')}</SelectItem>
+                      {settlementPlans.map(plan => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CollapsibleContent>
           </div>
         </Collapsible>
