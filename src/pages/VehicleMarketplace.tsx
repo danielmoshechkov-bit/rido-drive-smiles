@@ -19,6 +19,8 @@ interface VehicleListing {
   contact_phone: string | null;
   contact_email: string | null;
   contact_name: string | null;
+  description: string | null;
+  listing_number: string | null;
   vehicle: {
     id: string;
     brand: string;
@@ -95,6 +97,7 @@ export default function VehicleMarketplace() {
           contact_email,
           contact_name,
           description,
+          listing_number,
           vehicle:vehicles!vehicle_id (
             id, brand, model, year, plate, photos, fuel_type
           ),
@@ -300,6 +303,8 @@ export default function VehicleMarketplace() {
     contactName: listing.contact_name || listing.driver?.first_name || undefined,
     contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
     contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
+    description: listing.description || undefined,
+    listingNumber: listing.listing_number || undefined,
   });
 
   return (

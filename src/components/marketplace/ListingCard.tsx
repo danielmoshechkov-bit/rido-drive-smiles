@@ -26,6 +26,8 @@ interface ListingCardProps {
     contactPhone?: string;
     contactEmail?: string;
     isFeatured?: boolean;
+    listingNumber?: string;
+    description?: string;
   };
   onReserve?: () => void;
   onFavorite?: () => void;
@@ -165,31 +167,42 @@ export function ListingCard({
         {/* Title */}
         <h3 className="font-semibold text-lg mb-2 line-clamp-1">{listing.title}</h3>
 
-        {/* Meta Info */}
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-3">
+        {/* Meta Info - with bullet separators */}
+        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
           {listing.year && (
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              {listing.year}
-            </span>
-          )}
-          {listing.location && (
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              {listing.location}
-            </span>
+            <>
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {listing.year}
+              </span>
+            </>
           )}
           {listing.fuelType && (
-            <span className="flex items-center gap-1">
-              <Fuel className="h-3.5 w-3.5" />
-              {FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}
-            </span>
+            <>
+              {listing.year && <span className="mx-1.5">•</span>}
+              <span className="flex items-center gap-1">
+                <Fuel className="h-3.5 w-3.5" />
+                {FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}
+              </span>
+            </>
           )}
           {listing.mileage && (
-            <span className="flex items-center gap-1">
-              <Gauge className="h-3.5 w-3.5" />
-              {listing.mileage.toLocaleString()} km
-            </span>
+            <>
+              {(listing.year || listing.fuelType) && <span className="mx-1.5">•</span>}
+              <span className="flex items-center gap-1">
+                <Gauge className="h-3.5 w-3.5" />
+                {listing.mileage.toLocaleString()} km
+              </span>
+            </>
+          )}
+          {listing.location && (
+            <>
+              {(listing.year || listing.fuelType || listing.mileage) && <span className="mx-1.5">•</span>}
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {listing.location}
+              </span>
+            </>
           )}
         </div>
 
@@ -213,40 +226,57 @@ export function ListingCard({
           </Button>
         </div>
 
-        {/* Expandable Contact Details */}
+        {/* Expandable Details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
           className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
         >
-          {showDetails ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
+          {showDetails ? "Ukryj szczegóły ▲" : "Pokaż więcej ▼"}
         </button>
         
         {showDetails && (
-          <div className="mt-3 space-y-2 text-sm">
-            {listing.contactName && (
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span>{listing.contactName}</span>
-              </div>
+          <div className="mt-3 space-y-3 text-sm">
+            {/* Description */}
+            {listing.description && (
+              <p className="text-muted-foreground leading-relaxed">
+                {listing.description}
+              </p>
             )}
-            {listing.contactPhone && (
-              <a 
-                href={`tel:${listing.contactPhone}`}
-                className="flex items-center gap-2 text-primary hover:underline"
-              >
-                <Phone className="h-4 w-4" />
-                <span>{listing.contactPhone}</span>
-              </a>
-            )}
-            {listing.contactEmail && (
-              <a 
-                href={`mailto:${listing.contactEmail}`}
-                className="flex items-center gap-2 text-primary hover:underline"
-              >
-                <Mail className="h-4 w-4" />
-                <span>{listing.contactEmail}</span>
-              </a>
-            )}
+            
+            {/* Contact Info */}
+            <div className="pt-2 border-t space-y-2">
+              {listing.contactName && (
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span>{listing.contactName}</span>
+                </div>
+              )}
+              {listing.contactPhone && (
+                <a 
+                  href={`tel:${listing.contactPhone}`}
+                  className="flex items-center gap-2 text-primary hover:underline"
+                >
+                  <Phone className="h-4 w-4" />
+                  <span>{listing.contactPhone}</span>
+                </a>
+              )}
+              {listing.contactEmail && (
+                <a 
+                  href={`mailto:${listing.contactEmail}`}
+                  className="flex items-center gap-2 text-primary hover:underline"
+                >
+                  <Mail className="h-4 w-4" />
+                  <span>{listing.contactEmail}</span>
+                </a>
+              )}
+              
+              {/* Listing Number */}
+              {listing.listingNumber && (
+                <div className="pt-2 text-xs text-muted-foreground">
+                  Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -3094,6 +3094,7 @@ export type Database = {
           id: string
           is_available: boolean | null
           listed_at: string | null
+          listing_number: string | null
           updated_at: string | null
           vehicle_id: string
           weekly_price: number
@@ -3109,6 +3110,7 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           listed_at?: string | null
+          listing_number?: string | null
           updated_at?: string | null
           vehicle_id: string
           weekly_price: number
@@ -3124,6 +3126,7 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           listed_at?: string | null
+          listing_number?: string | null
           updated_at?: string | null
           vehicle_id?: string
           weekly_price?: number

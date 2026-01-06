@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Image, Save, Settings, List, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Image, Save, Settings, List, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdSlot {
@@ -20,22 +21,29 @@ interface AdSlot {
   is_active: boolean;
 }
 
-interface MarketplaceListing {
+interface VehicleListing {
   id: string;
-  title: string;
-  price: number;
-  status: string | null;
-  is_active: boolean | null;
-  created_at: string | null;
-  vehicle_id: string | null;
+  listing_number: string | null;
+  weekly_price: number;
+  is_available: boolean;
+  created_at: string;
+  vehicle: {
+    brand: string;
+    model: string;
+    year: number | null;
+  } | null;
 }
 
 export default function AdminMarketplace() {
   const navigate = useNavigate();
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
-  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [listings, setListings] = useState<VehicleListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   // Settings state
   const [defaultDuration, setDefaultDuration] = useState(30);
@@ -59,15 +67,26 @@ export default function AdminMarketplace() {
       setAdSlots(slots);
     }
 
-    // Load listings
+    // Load vehicle listings with vehicle data
     const { data: listingsData } = await supabase
-      .from("marketplace_listings")
-      .select("id, title, price, status, is_active, created_at, vehicle_id")
+      .from("vehicle_listings")
+      .select(`
+        id,
+        listing_number,
+        weekly_price,
+        is_available,
+        created_at,
+        vehicle:vehicles (
+          brand,
+          model,
+          year
+        )
+      `)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (listingsData) {
-      setListings(listingsData);
+      setListings(listingsData as VehicleListing[]);
     }
 
     setLoading(false);
@@ -104,12 +123,12 @@ export default function AdminMarketplace() {
     setSaving(false);
   };
 
-  const toggleListingStatus = async (listing: MarketplaceListing) => {
-    const newStatus = !listing.is_active;
+  const toggleListingStatus = async (listing: VehicleListing) => {
+    const newStatus = !listing.is_available;
     
     const { error } = await supabase
-      .from("marketplace_listings")
-      .update({ is_active: newStatus })
+      .from("vehicle_listings")
+      .update({ is_available: newStatus })
       .eq("id", listing.id);
 
     if (error) {
@@ -118,16 +137,16 @@ export default function AdminMarketplace() {
     }
 
     setListings(listings.map((l) =>
-      l.id === listing.id ? { ...l, is_active: newStatus } : l
+      l.id === listing.id ? { ...l, is_available: newStatus } : l
     ));
     toast.success(newStatus ? "Ogłoszenie aktywowane" : "Ogłoszenie dezaktywowane");
   };
 
-  const deleteListing = async (listing: MarketplaceListing) => {
+  const deleteListing = async (listing: VehicleListing) => {
     if (!confirm("Czy na pewno chcesz usunąć to ogłoszenie?")) return;
 
     const { error } = await supabase
-      .from("marketplace_listings")
+      .from("vehicle_listings")
       .delete()
       .eq("id", listing.id);
 
@@ -139,6 +158,23 @@ export default function AdminMarketplace() {
     setListings(listings.filter((l) => l.id !== listing.id));
     toast.success("Ogłoszenie usunięte");
   };
+
+  // Filter listings
+  const filteredListings = listings.filter((l) => {
+    const title = l.vehicle ? `${l.vehicle.brand} ${l.vehicle.model}` : "";
+    const searchLower = searchQuery.toLowerCase();
+    
+    const matchesSearch = 
+      title.toLowerCase().includes(searchLower) ||
+      (l.listing_number?.toLowerCase().includes(searchLower) ?? false);
+    
+    const matchesStatus = 
+      filterStatus === "all" ||
+      (filterStatus === "active" && l.is_available) ||
+      (filterStatus === "inactive" && !l.is_available);
+    
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -182,30 +218,64 @@ export default function AdminMarketplace() {
           <TabsContent value="listings">
             <Card>
               <CardHeader>
-                <CardTitle>Ogłoszenia ({listings.length})</CardTitle>
+                <CardTitle>Ogłoszenia ({filteredListings.length})</CardTitle>
                 <CardDescription>Moderuj i zarządzaj ogłoszeniami</CardDescription>
               </CardHeader>
               <CardContent>
-                {listings.length === 0 ? (
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="md:col-span-2 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj po nazwie lub numerze oferty..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie</SelectItem>
+                      <SelectItem value="active">Aktywne</SelectItem>
+                      <SelectItem value="inactive">Nieaktywne</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {filteredListings.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
                     Brak ogłoszeń do wyświetlenia
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {listings.map((listing) => (
+                    {filteredListings.map((listing) => (
                       <div
                         key={listing.id}
                         className="flex items-center justify-between p-4 border rounded-lg"
                       >
                         <div className="flex-1">
-                          <p className="font-medium">{listing.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">
+                              {listing.vehicle 
+                                ? `${listing.vehicle.brand} ${listing.vehicle.model}` 
+                                : "Brak danych pojazdu"}
+                            </p>
+                            {listing.listing_number && (
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
+                                {listing.listing_number}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            {listing.price} zł • {new Date(listing.created_at || "").toLocaleDateString("pl-PL")}
+                            {listing.weekly_price} zł/tydzień • {new Date(listing.created_at).toLocaleDateString("pl-PL")}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
                           <Switch
-                            checked={listing.is_active ?? false}
+                            checked={listing.is_available}
                             onCheckedChange={() => toggleListingStatus(listing)}
                           />
                           <Button
