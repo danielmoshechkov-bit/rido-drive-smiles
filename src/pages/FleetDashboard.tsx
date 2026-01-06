@@ -45,13 +45,28 @@ export default function FleetDashboard() {
 
   const fetchUserName = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    if (!user) return;
+
+    // Try to get name from driver_app_users -> drivers first
+    const { data: driverAppUser } = await supabase
+      .from('driver_app_users')
+      .select('driver_id, drivers(first_name, last_name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (driverAppUser?.drivers) {
+      const driver = driverAppUser.drivers as { first_name: string | null; last_name: string | null };
+      const name = `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
+      setUserName(delegatedRole ? `${name} - ${delegatedRole.role_name}` : name);
+    } else {
+      // Fallback to user metadata
       const firstName = user.user_metadata?.first_name || '';
       const lastName = user.user_metadata?.last_name || '';
       const name = `${firstName} ${lastName}`.trim();
       setUserName(delegatedRole ? `${name} - ${delegatedRole.role_name}` : name);
-      setUserEmail(user.email || '');
     }
+    
+    setUserEmail(user.email || '');
   };
 
   const handleLogout = async () => {

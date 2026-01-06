@@ -9,15 +9,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Trash2, Settings, Percent } from 'lucide-react';
+import { Plus, Trash2, Settings } from 'lucide-react';
 
 interface FleetFee {
   id: string;
   name: string;
   amount: number;
   vat_rate: number;
-  frequency: 'weekly' | 'monthly';
-  type: 'fixed' | 'percent';
+  frequency: string;
+  type: string;
   is_active: boolean;
   created_at: string;
 }
@@ -33,12 +33,18 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [saving, setSaving] = useState(false);
   
   // Form state
-  const [newFee, setNewFee] = useState({
+  const [newFee, setNewFee] = useState<{
+    name: string;
+    amount: string;
+    vat_rate: string;
+    frequency: 'weekly' | 'monthly';
+    type: 'fixed' | 'percent';
+  }>({
     name: '',
     amount: '',
     vat_rate: '8',
-    frequency: 'weekly' as 'weekly' | 'monthly',
-    type: 'fixed' as 'fixed' | 'percent',
+    frequency: 'weekly',
+    type: 'fixed',
   });
 
   useEffect(() => {
@@ -49,16 +55,15 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('fleet_settlement_fees')
+        .from('fleet_settlement_fees' as any)
         .select('*')
         .eq('fleet_id', fleetId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFees(data || []);
+      setFees((data as unknown as FleetFee[]) || []);
     } catch (error) {
       console.error('Error fetching fees:', error);
-      // Table might not exist yet - that's okay
       setFees([]);
     } finally {
       setLoading(false);
@@ -74,7 +79,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('fleet_settlement_fees')
+        .from('fleet_settlement_fees' as any)
         .insert({
           fleet_id: fleetId,
           name: newFee.name,
@@ -110,7 +115,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
 
     try {
       const { error } = await supabase
-        .from('fleet_settlement_fees')
+        .from('fleet_settlement_fees' as any)
         .delete()
         .eq('id', feeId);
 
@@ -127,7 +132,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const toggleFeeActive = async (fee: FleetFee) => {
     try {
       const { error } = await supabase
-        .from('fleet_settlement_fees')
+        .from('fleet_settlement_fees' as any)
         .update({ is_active: !fee.is_active })
         .eq('id', fee.id);
 
@@ -192,7 +197,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       <Label htmlFor="fee-type">Typ</Label>
                       <Select
                         value={newFee.type}
-                        onValueChange={(v) => setNewFee({ ...newFee, type: v as 'fixed' | 'percent' })}
+                        onValueChange={(v: 'fixed' | 'percent') => setNewFee({ ...newFee, type: v })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -242,7 +247,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       <Label htmlFor="fee-frequency">Cykliczność</Label>
                       <Select
                         value={newFee.frequency}
-                        onValueChange={(v) => setNewFee({ ...newFee, frequency: v as 'weekly' | 'monthly' })}
+                        onValueChange={(v: 'weekly' | 'monthly') => setNewFee({ ...newFee, frequency: v })}
                       >
                         <SelectTrigger>
                           <SelectValue />

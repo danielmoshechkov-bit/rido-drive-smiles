@@ -1045,6 +1045,53 @@ export type Database = {
           },
         ]
       }
+      fleet_settlement_fees: {
+        Row: {
+          amount: number
+          created_at: string
+          fleet_id: string
+          frequency: string
+          id: string
+          is_active: boolean
+          name: string
+          type: string
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          fleet_id: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          type?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fleet_id?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          type?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_settlement_fees_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleets: {
         Row: {
           address: string | null
