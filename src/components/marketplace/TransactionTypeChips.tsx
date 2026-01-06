@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { 
   Key, TrendingUp, DollarSign, FileText, ArrowLeftRight, 
@@ -19,6 +18,7 @@ interface TransactionType {
 interface TransactionTypeChipsProps {
   selectedTypes: string[];
   onToggle: (typeId: string) => void;
+  vehicleTypeSlug?: string | null;
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -32,7 +32,10 @@ const ICON_MAP: Record<string, React.ElementType> = {
   PiggyBank: PiggyBank,
 };
 
-export function TransactionTypeChips({ selectedTypes, onToggle }: TransactionTypeChipsProps) {
+// Types allowed for motorcycles, scooters, and bikes (limited set)
+const LIMITED_TYPE_SLUGS = ['sprzedaz', 'wynajem', 'rent-to-own', 'cesja-leasingu', 'zamiana'];
+
+export function TransactionTypeChips({ selectedTypes, onToggle, vehicleTypeSlug }: TransactionTypeChipsProps) {
   const [types, setTypes] = useState<TransactionType[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,6 +58,16 @@ export function TransactionTypeChips({ selectedTypes, onToggle }: TransactionTyp
     loadTypes();
   }, []);
 
+  // Filter types based on vehicle category
+  const filteredTypes = useMemo(() => {
+    // For motorcycles, scooters, and bikes - show limited set
+    if (vehicleTypeSlug && ['motocykle', 'skutery', 'rowery'].includes(vehicleTypeSlug)) {
+      return types.filter(t => LIMITED_TYPE_SLUGS.includes(t.slug));
+    }
+    // For cars and all - show full set
+    return types;
+  }, [types, vehicleTypeSlug]);
+
   if (loading) {
     return (
       <div className="flex gap-2 flex-wrap">
@@ -67,7 +80,7 @@ export function TransactionTypeChips({ selectedTypes, onToggle }: TransactionTyp
 
   return (
     <div className="flex gap-2 flex-wrap">
-      {types.map((type) => {
+      {filteredTypes.map((type) => {
         const IconComponent = ICON_MAP[type.icon] || Key;
         const isSelected = selectedTypes.includes(type.id);
 

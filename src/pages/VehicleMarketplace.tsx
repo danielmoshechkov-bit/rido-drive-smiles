@@ -331,14 +331,17 @@ export default function VehicleMarketplace() {
           />
         </div>
 
-        {/* Transaction Type Chips */}
-        <div className="mb-6">
-          <p className="text-sm font-medium text-muted-foreground mb-2">Typ transakcji:</p>
-          <TransactionTypeChips 
-            selectedTypes={selectedTransactionTypes}
-            onToggle={handleTransactionTypeToggle}
-          />
-        </div>
+        {/* Transaction Type Chips - only show when category is selected */}
+        {selectedVehicleType && (
+          <div className="mb-6">
+            <p className="text-sm font-medium text-muted-foreground mb-2">Typ transakcji:</p>
+            <TransactionTypeChips 
+              selectedTypes={selectedTransactionTypes}
+              onToggle={handleTransactionTypeToggle}
+              vehicleTypeSlug={selectedVehicleSlug}
+            />
+          </div>
+        )}
 
         {/* Search Filters */}
         <div className="mb-8">
