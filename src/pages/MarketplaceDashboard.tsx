@@ -84,7 +84,7 @@ export default function MarketplaceDashboard() {
       // Check if user has driver account
       const { data: driverData } = await supabase
         .from("driver_app_users")
-        .select("id")
+        .select("user_id")
         .eq("user_id", session.user.id)
         .maybeSingle();
       setIsDriverAccount(!!driverData);
@@ -274,7 +274,7 @@ export default function MarketplaceDashboard() {
       if (session) {
         const { data: driverData } = await supabase
           .from("driver_app_users")
-          .select("id")
+          .select("user_id")
           .eq("user_id", session.user.id)
           .maybeSingle();
         

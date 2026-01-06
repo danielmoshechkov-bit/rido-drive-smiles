@@ -562,29 +562,33 @@ const DriverDashboard = () => {
                     </SheetTrigger>
                   )}
                   
-                  <div className="border-t pt-2 mt-2">
-                    <p className="text-xs text-muted-foreground px-2 mb-2">Przełącz konto</p>
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => navigate("/gielda/panel")}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        Konto główne
-                      </Button>
-                    </SheetTrigger>
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
-                      >
-                        <Truck className="h-4 w-4 mr-2" />
-                        Konto flotowe
-                      </Button>
-                    </SheetTrigger>
-                  </div>
+                  {(features.marketplace_enabled || isFleetAccount) && (
+                    <div className="border-t pt-2 mt-2">
+                      <p className="text-xs text-muted-foreground px-2 mb-2">Przełącz konto</p>
+                      {features.marketplace_enabled && (
+                        <SheetTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            className="w-full justify-start rounded-xl transition-all"
+                            onClick={() => navigate("/gielda/panel")}
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            Konto główne (giełda)
+                          </Button>
+                        </SheetTrigger>
+                      )}
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          Konto flotowe
+                        </Button>
+                      </SheetTrigger>
+                    </div>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
