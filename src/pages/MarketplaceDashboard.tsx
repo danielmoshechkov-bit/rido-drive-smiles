@@ -8,8 +8,28 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { 
   Search, Plus, MessageSquare, Heart, Settings, LogOut, 
-  Car, Building2, User, ChevronRight, Package, Loader2
+  Car, Building2, User, ChevronRight, Package, Loader2,
+  Truck, Users, Repeat
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface MarketplaceProfile {
   id: string;
@@ -22,11 +42,35 @@ interface MarketplaceProfile {
   listings_count: number;
 }
 
+interface City {
+  id: string;
+  name: string;
+}
+
 export default function MarketplaceDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [activeTab, setActiveTab] = useState("start");
+  const [isDriverAccount, setIsDriverAccount] = useState(false);
+  const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [cities, setCities] = useState<City[]>([]);
+  const [driverForm, setDriverForm] = useState({
+    city_id: "",
+    payment_method: "transfer" as "transfer" | "cash",
+    iban: "",
+    fleet_nip: ""
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const loadCities = async () => {
+      const { data } = await supabase.from("cities").select("id, name").order("name");
+      if (data) setCities(data);
+    };
+    loadCities();
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -36,6 +80,22 @@ export default function MarketplaceDashboard() {
         navigate("/gielda/logowanie");
         return;
       }
+
+      // Check if user has driver account
+      const { data: driverData } = await supabase
+        .from("driver_app_users")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      setIsDriverAccount(!!driverData);
+
+      // Check if user has fleet account
+      const { data: fleetRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["fleet_settlement", "fleet_rental"]);
+      setIsFleetAccount(!!fleetRoles && fleetRoles.length > 0);
 
       const { data, error } = await supabase
         .from("marketplace_user_profiles")
@@ -58,7 +118,6 @@ export default function MarketplaceDashboard() {
 
         if (createError) {
           console.error("Profile creation error:", createError);
-          // Still allow viewing, just with minimal profile
         }
 
         // Reload profile
@@ -71,7 +130,6 @@ export default function MarketplaceDashboard() {
         if (newProfile) {
           setProfile(newProfile);
         } else {
-          // Create temporary profile for display
           setProfile({
             id: session.user.id,
             first_name: session.user.user_metadata?.first_name || 'Użytkownik',
@@ -125,6 +183,108 @@ export default function MarketplaceDashboard() {
     toast.success(mode === 'business' ? "Konto firmowe aktywowane" : "Tryb sprzedawcy aktywowany");
   };
 
+  const handleDriverRegistration = async () => {
+    if (!driverForm.city_id) {
+      toast.error("Wybierz miasto");
+      return;
+    }
+    if (!driverForm.fleet_nip) {
+      toast.error("Podaj NIP partnera flotowego");
+      return;
+    }
+    if (driverForm.payment_method === "transfer" && !driverForm.iban) {
+      toast.error("Podaj numer konta IBAN");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Find fleet by NIP
+      const { data: fleet, error: fleetError } = await supabase
+        .from("fleets")
+        .select("id, name")
+        .eq("nip", driverForm.fleet_nip.replace(/\s/g, ""))
+        .maybeSingle();
+
+      if (fleetError || !fleet) {
+        toast.error("Nie znaleziono floty o podanym NIP");
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Brak sesji użytkownika");
+        setSubmitting(false);
+        return;
+      }
+
+      // Create driver record
+      const { data: driver, error: driverError } = await supabase
+        .from("drivers")
+        .insert({
+          first_name: profile?.first_name || '',
+          last_name: profile?.last_name || '',
+          email: profile?.email || session.user.email,
+          phone: profile?.phone || '',
+          city_id: driverForm.city_id,
+          payment_method: driverForm.payment_method,
+          iban: driverForm.payment_method === "transfer" ? driverForm.iban : null,
+          fleet_id: fleet.id
+        })
+        .select()
+        .single();
+
+      if (driverError) {
+        console.error("Driver creation error:", driverError);
+        toast.error("Błąd tworzenia profilu kierowcy");
+        setSubmitting(false);
+        return;
+      }
+
+      // Link auth user to driver
+      const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
+        p_user_id: session.user.id,
+        p_driver_id: driver.id
+      });
+
+      if (linkError) {
+        console.error("Link error:", linkError);
+        toast.error("Błąd powiązania konta");
+        setSubmitting(false);
+        return;
+      }
+
+      toast.success(`Zarejestrowano jako kierowca w flocie ${fleet.name}`);
+      setShowDriverModal(false);
+      setIsDriverAccount(true);
+      navigate("/driver");
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Błąd rejestracji kierowcy");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSwitchAccount = (type: 'driver' | 'fleet' | 'marketplace') => {
+    if (type === 'driver') {
+      if (isDriverAccount) {
+        navigate("/driver");
+      } else {
+        setShowDriverModal(true);
+      }
+    } else if (type === 'fleet') {
+      if (isFleetAccount) {
+        navigate("/fleet/dashboard");
+      } else {
+        toast.info("Rejestracja floty - wkrótce dostępna");
+      }
+    } else {
+      // Already on marketplace
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -151,7 +311,7 @@ export default function MarketplaceDashboard() {
               <span className="text-xl font-bold">RIDO</span>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden sm:block">
                 {profile?.first_name} {profile?.last_name}
               </span>
@@ -160,6 +320,53 @@ export default function MarketplaceDashboard() {
                 {profile?.account_mode === 'private_seller' && 'Sprzedawca'}
                 {profile?.account_mode === 'business' && 'Firma'}
               </Badge>
+
+              {/* Switch Account Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Repeat className="h-4 w-4" />
+                    <span className="hidden sm:inline">Przełącz konto</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                    <User className="h-4 w-4" />
+                    <span>Konto główne (giełda)</span>
+                    <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => handleSwitchAccount('driver')}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Car className="h-4 w-4" />
+                    <span>Konto kierowcy</span>
+                    {isDriverAccount ? (
+                      <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
+                    ) : (
+                      <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
+                    )}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => handleSwitchAccount('fleet')}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Truck className="h-4 w-4" />
+                    <span>Konto flotowe</span>
+                    {isFleetAccount ? (
+                      <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
+                    ) : (
+                      <Badge variant="outline" className="ml-auto text-xs">wkrótce</Badge>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -420,6 +627,108 @@ export default function MarketplaceDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Driver Registration Modal */}
+      <Dialog open={showDriverModal} onOpenChange={setShowDriverModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Zarejestruj się jako kierowca
+            </DialogTitle>
+            <DialogDescription>
+              Podaj dane, aby dołączyć do floty partnera
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="fleet_nip">NIP partnera flotowego *</Label>
+              <Input
+                id="fleet_nip"
+                placeholder="np. 5223252793"
+                value={driverForm.fleet_nip}
+                onChange={(e) => setDriverForm({ ...driverForm, fleet_nip: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Podaj NIP floty, do której chcesz dołączyć
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="city">Miasto *</Label>
+              <Select 
+                value={driverForm.city_id} 
+                onValueChange={(value) => setDriverForm({ ...driverForm, city_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz miasto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city.id} value={city.id}>
+                      {city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Metoda płatności *</Label>
+              <RadioGroup 
+                value={driverForm.payment_method}
+                onValueChange={(value: "transfer" | "cash") => 
+                  setDriverForm({ ...driverForm, payment_method: value })
+                }
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="transfer" id="transfer" />
+                  <Label htmlFor="transfer" className="cursor-pointer">Przelew</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cash" id="cash" />
+                  <Label htmlFor="cash" className="cursor-pointer">Gotówka</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {driverForm.payment_method === "transfer" && (
+              <div className="space-y-2">
+                <Label htmlFor="iban">Numer konta IBAN *</Label>
+                <Input
+                  id="iban"
+                  placeholder="PL 00 0000 0000 0000 0000 0000 0000"
+                  value={driverForm.iban}
+                  onChange={(e) => setDriverForm({ ...driverForm, iban: e.target.value })}
+                />
+              </div>
+            )}
+
+            {driverForm.payment_method === "cash" && (
+              <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                💵 Gotówka do odbioru w każdy wtorek w biurze partnera
+              </p>
+            )}
+
+            <Button 
+              onClick={handleDriverRegistration} 
+              className="w-full"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Rejestracja...
+                </>
+              ) : (
+                "Zarejestruj jako kierowca"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

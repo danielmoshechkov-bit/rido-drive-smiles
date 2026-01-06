@@ -246,7 +246,7 @@ const Auth = () => {
                 {t('auth.forgotPassword')}
               </button>
               <Link
-                to="/driver/register"
+                to="/gielda/rejestracja"
                 className="text-primary hover:underline text-sm block"
               >
                 {t('auth.noAccount')}
