@@ -44,19 +44,46 @@ export default function MarketplaceDashboard() {
         .maybeSingle();
 
       if (error || !data) {
-        // Not a marketplace user, check if driver
-        const { data: driverData } = await supabase
-          .from("driver_app_users")
-          .select("id")
+        // User logged in but no marketplace profile - create one from auth data
+        const { error: createError } = await supabase
+          .from("marketplace_user_profiles")
+          .insert({
+            user_id: session.user.id,
+            first_name: session.user.user_metadata?.first_name || session.user.email?.split('@')[0] || 'Użytkownik',
+            last_name: session.user.user_metadata?.last_name || null,
+            email: session.user.email || '',
+            phone: session.user.user_metadata?.phone || '',
+            account_mode: 'buyer'
+          });
+
+        if (createError) {
+          console.error("Profile creation error:", createError);
+          // Still allow viewing, just with minimal profile
+        }
+
+        // Reload profile
+        const { data: newProfile } = await supabase
+          .from("marketplace_user_profiles")
+          .select("*")
           .eq("user_id", session.user.id)
           .maybeSingle();
 
-        if (driverData) {
-          navigate("/driver");
+        if (newProfile) {
+          setProfile(newProfile);
         } else {
-          toast.error("Nie znaleziono profilu");
-          navigate("/gielda/rejestracja");
+          // Create temporary profile for display
+          setProfile({
+            id: session.user.id,
+            first_name: session.user.user_metadata?.first_name || 'Użytkownik',
+            last_name: session.user.user_metadata?.last_name || null,
+            email: session.user.email || '',
+            phone: '',
+            account_mode: 'buyer',
+            company_name: null,
+            listings_count: 0
+          });
         }
+        setLoading(false);
         return;
       }
 
