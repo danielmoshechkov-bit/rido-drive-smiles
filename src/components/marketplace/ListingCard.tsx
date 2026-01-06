@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft, ChevronRight, Star, MapPin, Calendar, Fuel, 
-  Gauge, Heart, Phone, Mail, User 
+  Gauge, Heart, Phone, Mail, User, Zap 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,10 @@ interface ListingCardProps {
     isFeatured?: boolean;
     listingNumber?: string;
     description?: string;
+    engineCapacity?: number;
+    power?: number;
+    bodyType?: string;
+    sellerRating?: number;
   };
   onReserve?: () => void;
   onFavorite?: () => void;
@@ -51,6 +55,17 @@ const PRICE_TYPE_LABELS: Record<string, string> = {
   per_hour: "/ godz",
 };
 
+const BODY_TYPE_LABELS: Record<string, string> = {
+  sedan: "Sedan",
+  kombi: "Kombi",
+  hatchback: "Hatchback",
+  suv: "SUV",
+  coupe: "Coupe",
+  cabrio: "Cabrio",
+  minivan: "Minivan",
+  pickup: "Pickup",
+};
+
 export function ListingCard({ 
   listing, 
   onReserve, 
@@ -59,7 +74,7 @@ export function ListingCard({
   isFavorited = false 
 }: ListingCardProps) {
   const [currentPhoto, setCurrentPhoto] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showContact, setShowContact] = useState(false);
 
   const photos = listing.photos?.length > 0 
     ? listing.photos 
@@ -73,6 +88,26 @@ export function ListingCard({
   const prevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentPhoto((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  // Helper to render rating stars
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={cn(
+              "h-3 w-3",
+              star <= Math.round(rating) 
+                ? "fill-yellow-400 text-yellow-400" 
+                : "fill-muted text-muted"
+            )}
+          />
+        ))}
+        <span className="text-xs text-muted-foreground ml-1">({rating.toFixed(1)})</span>
+      </div>
+    );
   };
 
   return (
@@ -119,33 +154,15 @@ export function ListingCard({
           </>
         )}
 
-        {/* Top Badges */}
-        <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            {listing.isFeatured && (
-              <Badge className="bg-accent text-accent-foreground">
-                Wyróżnione
-              </Badge>
-            )}
-            {listing.transactionType && (
-              <Badge 
-                style={{ backgroundColor: listing.transactionColor || '#6366f1' }}
-                className="text-white"
-              >
-                {listing.transactionType}
-              </Badge>
-            )}
+        {/* Rating Badge - top left */}
+        {listing.rating && (
+          <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-lg flex items-center gap-1 text-sm">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            <span className="font-medium">{listing.rating.toFixed(1)}</span>
           </div>
-          
-          {listing.rating && (
-            <div className="bg-black/60 text-white px-2 py-1 rounded-lg flex items-center gap-1 text-sm">
-              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-              <span className="font-medium">{listing.rating.toFixed(1)}</span>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Favorite Button */}
+        {/* Favorite Button - top right */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -160,6 +177,16 @@ export function ListingCard({
             )} 
           />
         </button>
+
+        {/* Transaction Type Badge - bottom right corner */}
+        {listing.transactionType && (
+          <Badge 
+            style={{ backgroundColor: listing.transactionColor || '#6366f1' }}
+            className="absolute bottom-2 right-2 text-white"
+          >
+            {listing.transactionType}
+          </Badge>
+        )}
       </div>
 
       {/* Content */}
@@ -167,15 +194,13 @@ export function ListingCard({
         {/* Title */}
         <h3 className="font-semibold text-lg mb-2 line-clamp-1">{listing.title}</h3>
 
-        {/* Meta Info - with bullet separators */}
-        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
+        {/* Line 1: Year • Fuel • Mileage • Power (with icons) */}
+        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-1.5">
           {listing.year && (
-            <>
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {listing.year}
-              </span>
-            </>
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              {listing.year}
+            </span>
           )}
           {listing.fuelType && (
             <>
@@ -195,9 +220,31 @@ export function ListingCard({
               </span>
             </>
           )}
-          {listing.location && (
+          {listing.power && (
             <>
               {(listing.year || listing.fuelType || listing.mileage) && <span className="mx-1.5">•</span>}
+              <span className="flex items-center gap-1">
+                <Zap className="h-3.5 w-3.5" />
+                {listing.power} KM
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Line 2: Engine capacity • Body type • City (no icons except location) */}
+        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
+          {listing.engineCapacity && (
+            <span>{(listing.engineCapacity / 1000).toFixed(1)}L</span>
+          )}
+          {listing.bodyType && (
+            <>
+              {listing.engineCapacity && <span className="mx-1.5">•</span>}
+              <span>{BODY_TYPE_LABELS[listing.bodyType.toLowerCase()] || listing.bodyType}</span>
+            </>
+          )}
+          {listing.location && (
+            <>
+              {(listing.engineCapacity || listing.bodyType) && <span className="mx-1.5">•</span>}
               <span className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
                 {listing.location}
@@ -205,6 +252,13 @@ export function ListingCard({
             </>
           )}
         </div>
+
+        {/* Short Description */}
+        {listing.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+            {listing.description}
+          </p>
+        )}
 
         {/* Price & Action */}
         <div className="flex items-center justify-between">
@@ -226,17 +280,17 @@ export function ListingCard({
           </Button>
         </div>
 
-        {/* Expandable Details */}
+        {/* Expandable Contact Section */}
         <button
-          onClick={() => setShowDetails(!showDetails)}
+          onClick={() => setShowContact(!showContact)}
           className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
         >
-          {showDetails ? "Ukryj szczegóły ▲" : "Pokaż więcej ▼"}
+          {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
         </button>
         
-        {showDetails && (
+        {showContact && (
           <div className="mt-3 space-y-3 text-sm">
-            {/* Description */}
+            {/* Full Description */}
             {listing.description && (
               <p className="text-muted-foreground leading-relaxed">
                 {listing.description}
@@ -246,9 +300,12 @@ export function ListingCard({
             {/* Contact Info */}
             <div className="pt-2 border-t space-y-2">
               {listing.contactName && (
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{listing.contactName}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span>{listing.contactName}</span>
+                  </div>
+                  {listing.sellerRating && renderStars(listing.sellerRating)}
                 </div>
               )}
               {listing.contactPhone && (

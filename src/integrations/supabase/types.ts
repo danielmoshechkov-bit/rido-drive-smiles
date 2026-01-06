@@ -3327,10 +3327,12 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          body_type: string | null
           brand: string
           city_id: string | null
           color: string | null
           created_at: string
+          engine_capacity: number | null
           fleet_id: string | null
           fuel_type: string | null
           id: string
@@ -3339,6 +3341,7 @@ export type Database = {
           owner_name: string | null
           photos: string[] | null
           plate: string
+          power: number | null
           status: string | null
           updated_at: string
           vin: string | null
@@ -3346,10 +3349,12 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          body_type?: string | null
           brand: string
           city_id?: string | null
           color?: string | null
           created_at?: string
+          engine_capacity?: number | null
           fleet_id?: string | null
           fuel_type?: string | null
           id?: string
@@ -3358,6 +3363,7 @@ export type Database = {
           owner_name?: string | null
           photos?: string[] | null
           plate: string
+          power?: number | null
           status?: string | null
           updated_at?: string
           vin?: string | null
@@ -3365,10 +3371,12 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          body_type?: string | null
           brand?: string
           city_id?: string | null
           color?: string | null
           created_at?: string
+          engine_capacity?: number | null
           fleet_id?: string | null
           fuel_type?: string | null
           id?: string
@@ -3377,6 +3385,7 @@ export type Database = {
           owner_name?: string | null
           photos?: string[] | null
           plate?: string
+          power?: number | null
           status?: string | null
           updated_at?: string
           vin?: string | null
