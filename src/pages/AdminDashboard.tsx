@@ -20,7 +20,7 @@ import { AdminSettingsView } from "@/components/AdminSettingsView";
 import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Menu, Download } from "lucide-react";
+import { Loader2, Menu, Download, ShoppingCart } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
@@ -262,6 +262,10 @@ const AdminDashboard = () => {
               <TabsTrigger value="documents">
                 {t('admin.documents')}
               </TabsTrigger>
+              <TabsTrigger value="marketplace" onClick={() => navigate('/admin/marketplace')}>
+                <ShoppingCart className="h-4 w-4 mr-1" />
+                Marketplace
+              </TabsTrigger>
               <TabsTrigger value="settings">
                 {t('admin.settings')}
               </TabsTrigger>
@@ -329,6 +333,16 @@ const AdminDashboard = () => {
                       onClick={() => setActiveTab('documents')}
                     >
                       {t('admin.documents')}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => navigate('/admin/marketplace')}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Marketplace
                     </Button>
                   </SheetTrigger>
                   <SheetTrigger asChild>

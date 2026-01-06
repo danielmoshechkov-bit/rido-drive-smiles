@@ -1385,6 +1385,42 @@ export type Database = {
           },
         ]
       }
+      marketplace_ad_slots: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          link_url: string | null
+          name: string
+          slot_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          name: string
+          slot_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          name?: string
+          slot_key?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       marketplace_attribute_definitions: {
         Row: {
           attribute_key: string
@@ -1649,14 +1685,17 @@ export type Database = {
           contact_phone: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           driver_id: string | null
+          duration_days: number | null
           expires_at: string | null
           favorites_count: number | null
           fleet_id: string | null
           id: string
           is_active: boolean | null
           is_featured: boolean | null
+          is_unlimited: boolean | null
           item_type_id: string
           location_text: string | null
           photos: string[] | null
@@ -1678,14 +1717,17 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           driver_id?: string | null
+          duration_days?: number | null
           expires_at?: string | null
           favorites_count?: number | null
           fleet_id?: string | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_unlimited?: boolean | null
           item_type_id: string
           location_text?: string | null
           photos?: string[] | null
@@ -1707,14 +1749,17 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           driver_id?: string | null
+          duration_days?: number | null
           expires_at?: string | null
           favorites_count?: number | null
           fleet_id?: string | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_unlimited?: boolean | null
           item_type_id?: string
           location_text?: string | null
           photos?: string[] | null

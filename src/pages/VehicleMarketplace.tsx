@@ -9,6 +9,7 @@ import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelecto
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
 import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
 import { ListingCard } from "@/components/marketplace/ListingCard";
+import { AdBanner } from "@/components/marketplace/AdBanner";
 
 interface VehicleListing {
   id: string;
@@ -344,12 +345,15 @@ export default function VehicleMarketplace() {
         )}
 
         {/* Search Filters */}
-        <div className="mb-8">
+        <div className="mb-4">
           <MarketplaceSearch 
             onSearch={handleSearch}
             resultCount={filteredListings.length}
           />
         </div>
+
+        {/* Ad Banner - below search */}
+        <AdBanner slotKey="search_below" className="mb-8" />
 
         {/* Results Count & Sort */}
         <div className="flex items-center justify-between mb-6">

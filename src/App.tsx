@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminMarketplace from "./pages/AdminMarketplace";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import RegisterSuccess from "./pages/RegisterSuccess";
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
           <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/marketplace" element={<AdminMarketplace />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
