@@ -447,51 +447,53 @@ const DriverDashboard = () => {
               )}
             </TabsPill>
 
-            {/* Przełącz konto dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Repeat className="h-4 w-4" />
-                  Przełącz konto
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                  <Car className="h-4 w-4" />
-                  <span>Konto kierowcy</span>
-                  <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
-                </DropdownMenuItem>
+            {/* Przełącz konto dropdown - only if enabled */}
+            {features.account_switching_enabled && (features.marketplace_enabled || isFleetAccount) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Repeat className="h-4 w-4" />
+                    Przełącz konto
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                    <Car className="h-4 w-4" />
+                    <span>Konto kierowcy</span>
+                    <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                  </DropdownMenuItem>
 
-                <DropdownMenuItem 
-                  onClick={() => navigate("/gielda/panel")}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <User className="h-4 w-4" />
-                  <span>Konto główne (giełda)</span>
-                  {isMarketplaceAccount ? (
-                    <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
-                  ) : (
-                    <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
+                  {features.marketplace_enabled && (
+                    <DropdownMenuItem 
+                      onClick={() => navigate("/gielda/panel")}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <User className="h-4 w-4" />
+                      <span>Konto główne (giełda)</span>
+                      {isMarketplaceAccount ? (
+                        <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
+                      ) : (
+                        <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
+                      )}
+                    </DropdownMenuItem>
                   )}
-                </DropdownMenuItem>
 
-                <DropdownMenuItem 
-                  onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Truck className="h-4 w-4" />
-                  <span>Konto flotowe</span>
-                  {isFleetAccount ? (
-                    <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
-                  ) : (
-                    <Badge variant="outline" className="ml-auto text-xs">wkrótce</Badge>
+                  {isFleetAccount && (
+                    <DropdownMenuItem 
+                      onClick={() => navigate("/fleet/dashboard")}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Truck className="h-4 w-4" />
+                      <span>Konto flotowe</span>
+                      <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
+                    </DropdownMenuItem>
                   )}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -562,7 +564,7 @@ const DriverDashboard = () => {
                     </SheetTrigger>
                   )}
                   
-                  {(features.marketplace_enabled || isFleetAccount) && (
+                  {features.account_switching_enabled && (features.marketplace_enabled || isFleetAccount) && (
                     <div className="border-t pt-2 mt-2">
                       <p className="text-xs text-muted-foreground px-2 mb-2">Przełącz konto</p>
                       {features.marketplace_enabled && (
@@ -577,16 +579,18 @@ const DriverDashboard = () => {
                           </Button>
                         </SheetTrigger>
                       )}
-                      <SheetTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          className="w-full justify-start rounded-xl transition-all"
-                          onClick={() => isFleetAccount ? navigate("/fleet/dashboard") : toast({ title: "Rejestracja floty - wkrótce dostępna" })}
-                        >
-                          <Truck className="h-4 w-4 mr-2" />
-                          Konto flotowe
-                        </Button>
-                      </SheetTrigger>
+                      {isFleetAccount && (
+                        <SheetTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            className="w-full justify-start rounded-xl transition-all"
+                            onClick={() => navigate("/fleet/dashboard")}
+                          >
+                            <Truck className="h-4 w-4 mr-2" />
+                            Konto flotowe
+                          </Button>
+                        </SheetTrigger>
+                      )}
                     </div>
                   )}
                 </div>

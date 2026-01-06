@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Upload, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { SettlementImportTabs } from '../SettlementImportTabs';
@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format, differenceInDays } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format, differenceInDays, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,11 @@ interface FleetSettlementImportProps {
   onComplete?: () => void;
 }
 
+interface City {
+  id: string;
+  name: string;
+}
+
 export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementImportProps) => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -27,6 +33,17 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
   const [freenowFile, setFreenowFile] = useState<File | null>(null);
   const [mainFile, setMainFile] = useState<File | null>(null);
   const [fuelFile, setFuelFile] = useState<File | null>(null);
+  const [cities, setCities] = useState<City[]>([]);
+  const [selectedCityId, setSelectedCityId] = useState<string>('');
+
+  // Load cities
+  useEffect(() => {
+    const fetchCities = async () => {
+      const { data } = await supabase.from('cities').select('id, name').order('name');
+      if (data) setCities(data);
+    };
+    fetchCities();
+  }, []);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -38,6 +55,14 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
       };
       reader.onerror = error => reject(error);
     });
+  };
+
+  // Handle week selection - click any day to select entire week (Mon-Sun)
+  const handleDayClick = (day: Date | undefined) => {
+    if (!day) return;
+    const weekStart = startOfWeek(day, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(day, { weekStartsOn: 1 }); // Sunday
+    setDateRange({ from: weekStart, to: weekEnd });
   };
 
   const createNewSettlement = async () => {
@@ -84,6 +109,7 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
             period_from: format(dateRange.from, "yyyy-MM-dd"),
             period_to: format(dateRange.to, "yyyy-MM-dd"),
             fleet_id: fleetId,
+            city_id: selectedCityId || undefined,
             uber_csv: uberCsv,
             bolt_csv: boltCsv,
             freenow_csv: freenowCsv,
@@ -169,45 +195,71 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Date Range Picker */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Okres rozliczeniowy</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !dateRange && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "dd.MM.yyyy", { locale: pl })} -{" "}
-                        {format(dateRange.to, "dd.MM.yyyy", { locale: pl })}
-                      </>
+          {/* Date Range Picker + City Selector */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Okres rozliczeniowy (tydzień)</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dateRange && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd.MM.yyyy", { locale: pl })} -{" "}
+                          {format(dateRange.to, "dd.MM.yyyy", { locale: pl })}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd.MM.yyyy", { locale: pl })
+                      )
                     ) : (
-                      format(dateRange.from, "dd.MM.yyyy", { locale: pl })
-                    )
-                  ) : (
-                    <span>Wybierz okres (max 7 dni)</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                  locale={pl}
-                  disabled={(date) => date > new Date()}
-                />
-              </PopoverContent>
-            </Popover>
+                      <span>Kliknij aby wybrać tydzień (pn-nd)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange?.from}
+                    onSelect={handleDayClick}
+                    numberOfMonths={1}
+                    locale={pl}
+                    disabled={(date) => date > new Date()}
+                    modifiers={{
+                      selectedWeek: (day) => dateRange?.from ? isSameWeek(day, dateRange.from, { weekStartsOn: 1 }) : false
+                    }}
+                    modifiersStyles={{
+                      selectedWeek: { 
+                        backgroundColor: 'hsl(var(--primary))', 
+                        color: 'hsl(var(--primary-foreground))',
+                        borderRadius: '0'
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Miasto</label>
+              <Select value={selectedCityId} onValueChange={setSelectedCityId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wszystkie miasta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Wszystkie miasta</SelectItem>
+                  {cities.map(city => (
+                    <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Import Tabs */}

@@ -1099,6 +1099,7 @@ export type Database = {
           contact_name: string | null
           contact_phone_for_drivers: string | null
           created_at: string | null
+          driver_plan_selection_enabled: boolean | null
           email: string | null
           house_number: string | null
           id: string
@@ -1116,6 +1117,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
           created_at?: string | null
+          driver_plan_selection_enabled?: boolean | null
           email?: string | null
           house_number?: string | null
           id?: string
@@ -1133,6 +1135,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
           created_at?: string | null
+          driver_plan_selection_enabled?: boolean | null
           email?: string | null
           house_number?: string | null
           id?: string
