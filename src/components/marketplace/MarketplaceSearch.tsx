@@ -34,6 +34,11 @@ export interface SearchFilters {
   fuelTypes: string[];
   city: string;
   mileageMax: string;
+  bodyType: string;
+  engineCapacityMin: string;
+  engineCapacityMax: string;
+  powerMin: string;
+  powerMax: string;
 }
 
 interface MarketplaceSearchProps {
@@ -47,6 +52,17 @@ const FUEL_TYPES = [
   { value: "hybryda", label: "Hybryda" },
   { value: "lpg", label: "LPG" },
   { value: "elektryczny", label: "Elektryczny" },
+];
+
+const BODY_TYPES = [
+  { value: "sedan", label: "Sedan" },
+  { value: "kombi", label: "Kombi" },
+  { value: "hatchback", label: "Hatchback" },
+  { value: "suv", label: "SUV" },
+  { value: "coupe", label: "Coupe" },
+  { value: "cabrio", label: "Cabrio" },
+  { value: "minivan", label: "Minivan" },
+  { value: "pickup", label: "Pickup" },
 ];
 
 const YEARS = Array.from({ length: 30 }, (_, i) => (new Date().getFullYear() - i).toString());
@@ -67,6 +83,11 @@ export function MarketplaceSearch({ onSearch, resultCount }: MarketplaceSearchPr
     fuelTypes: [],
     city: "",
     mileageMax: "",
+    bodyType: "",
+    engineCapacityMin: "",
+    engineCapacityMax: "",
+    powerMin: "",
+    powerMax: "",
   });
   
   const [brandSearch, setBrandSearch] = useState("");
@@ -172,6 +193,11 @@ export function MarketplaceSearch({ onSearch, resultCount }: MarketplaceSearchPr
       fuelTypes: [],
       city: "",
       mileageMax: "",
+      bodyType: "",
+      engineCapacityMin: "",
+      engineCapacityMax: "",
+      powerMin: "",
+      powerMax: "",
     };
     setFilters(emptyFilters);
     setBrandSearch("");
@@ -187,7 +213,12 @@ export function MarketplaceSearch({ onSearch, resultCount }: MarketplaceSearchPr
     (filters.priceMax ? 1 : 0) +
     filters.fuelTypes.length +
     (filters.city && filters.city !== "all" ? 1 : 0) +
-    (filters.mileageMax ? 1 : 0);
+    (filters.mileageMax ? 1 : 0) +
+    (filters.bodyType && filters.bodyType !== "all" ? 1 : 0) +
+    (filters.engineCapacityMin ? 1 : 0) +
+    (filters.engineCapacityMax ? 1 : 0) +
+    (filters.powerMin ? 1 : 0) +
+    (filters.powerMax ? 1 : 0);
 
   return (
     <div className="bg-card border rounded-2xl shadow-lg overflow-hidden">
@@ -422,6 +453,69 @@ export function MarketplaceSearch({ onSearch, resultCount }: MarketplaceSearchPr
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Body Type */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Typ nadwozia</label>
+                <Select
+                  value={filters.bodyType || "all"}
+                  onValueChange={(v) => setFilters((prev) => ({ ...prev, bodyType: v === "all" ? "" : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wszystkie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie</SelectItem>
+                    {BODY_TYPES.map((bt) => (
+                      <SelectItem key={bt.value} value={bt.value}>{bt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Engine Capacity Min */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Pojemność od (cm³)</label>
+                <Input
+                  type="number"
+                  placeholder="Od"
+                  value={filters.engineCapacityMin}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, engineCapacityMin: e.target.value }))}
+                />
+              </div>
+
+              {/* Engine Capacity Max */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Pojemność do (cm³)</label>
+                <Input
+                  type="number"
+                  placeholder="Do"
+                  value={filters.engineCapacityMax}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, engineCapacityMax: e.target.value }))}
+                />
+              </div>
+
+              {/* Power Min */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Moc od (KM)</label>
+                <Input
+                  type="number"
+                  placeholder="Od"
+                  value={filters.powerMin}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, powerMin: e.target.value }))}
+                />
+              </div>
+
+              {/* Power Max */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Moc do (KM)</label>
+                <Input
+                  type="number"
+                  placeholder="Do"
+                  value={filters.powerMax}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, powerMax: e.target.value }))}
+                />
               </div>
             </div>
 

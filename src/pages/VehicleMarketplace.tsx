@@ -29,6 +29,10 @@ interface VehicleListing {
     plate: string;
     photos: string[] | null;
     fuel_type: string | null;
+    odometer: number | null;
+    engine_capacity: number | null;
+    power: number | null;
+    body_type: string | null;
   };
   fleet: {
     id: string;
@@ -99,7 +103,7 @@ export default function VehicleMarketplace() {
           description,
           listing_number,
           vehicle:vehicles!vehicle_id (
-            id, brand, model, year, plate, photos, fuel_type
+            id, brand, model, year, plate, photos, fuel_type, odometer, engine_capacity, power, body_type
           ),
           fleet:fleets!fleet_id (
             id, name, contact_phone_for_drivers, email, city
@@ -297,6 +301,10 @@ export default function VehicleMarketplace() {
     location: listing.cityName || undefined,
     year: listing.vehicle.year || undefined,
     fuelType: listing.vehicle.fuel_type || undefined,
+    mileage: listing.vehicle.odometer || undefined,
+    engineCapacity: listing.vehicle.engine_capacity || undefined,
+    power: listing.vehicle.power || undefined,
+    bodyType: listing.vehicle.body_type || undefined,
     rating: listing.avgRating || undefined,
     transactionType: "Wynajem", // Default for now
     transactionColor: "#3b82f6",
