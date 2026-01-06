@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface MarketplaceProfile {
   id: string;
@@ -49,6 +50,7 @@ interface City {
 
 export default function MarketplaceDashboard() {
   const navigate = useNavigate();
+  const { features } = useFeatureToggles();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [activeTab, setActiveTab] = useState("start");
@@ -333,51 +335,49 @@ export default function MarketplaceDashboard() {
                 {profile?.account_mode === 'business' && 'Firma'}
               </Badge>
 
-              {/* Switch Account Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Repeat className="h-4 w-4" />
-                    <span className="hidden sm:inline">Przełącz konto</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                    <User className="h-4 w-4" />
-                    <span>Konto główne (giełda)</span>
-                    <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
-                  </DropdownMenuItem>
+              {/* Switch Account Dropdown - only if enabled */}
+              {features.account_switching_enabled && (isDriverAccount || isFleetAccount) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Repeat className="h-4 w-4" />
+                      <span className="hidden sm:inline">Przełącz konto</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                      <User className="h-4 w-4" />
+                      <span>Konto główne (giełda)</span>
+                      <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                    </DropdownMenuItem>
 
-                  <DropdownMenuItem 
-                    onClick={() => handleSwitchAccount('driver')}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Car className="h-4 w-4" />
-                    <span>Konto kierowcy</span>
-                    {isDriverAccount ? (
-                      <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
-                    ) : (
-                      <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
+                    {isDriverAccount && (
+                      <DropdownMenuItem 
+                        onClick={() => handleSwitchAccount('driver')}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Car className="h-4 w-4" />
+                        <span>Konto kierowcy</span>
+                        <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
+                      </DropdownMenuItem>
                     )}
-                  </DropdownMenuItem>
 
-                  <DropdownMenuItem 
-                    onClick={() => handleSwitchAccount('fleet')}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Truck className="h-4 w-4" />
-                    <span>Konto flotowe</span>
-                    {isFleetAccount ? (
-                      <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
-                    ) : (
-                      <Badge variant="outline" className="ml-auto text-xs">wkrótce</Badge>
+                    {isFleetAccount && (
+                      <DropdownMenuItem 
+                        onClick={() => handleSwitchAccount('fleet')}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Truck className="h-4 w-4" />
+                        <span>Konto flotowe</span>
+                        <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
+                      </DropdownMenuItem>
                     )}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />

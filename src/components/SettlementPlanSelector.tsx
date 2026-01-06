@@ -18,6 +18,7 @@ export const SettlementPlanSelector = ({
   const [plans, setPlans] = useState<any[]>([]);
   const [userRole, setUserRole] = useState<'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | null>(null);
   const [changePermission, setChangePermission] = useState<any>(null);
+  const [fleetPlanSelectionBlocked, setFleetPlanSelectionBlocked] = useState(false);
 
   useEffect(() => {
     loadPlans();
@@ -27,6 +28,7 @@ export const SettlementPlanSelector = ({
   useEffect(() => {
     if (driverData.driver_id) {
       fetchChangePermission();
+      checkFleetPlanSelection();
     }
   }, [driverData.driver_id]);
 
@@ -80,11 +82,45 @@ export const SettlementPlanSelector = ({
     }
   };
 
+  const checkFleetPlanSelection = async () => {
+    // Get driver's fleet_id
+    const { data: driverRecord } = await supabase
+      .from('drivers')
+      .select('fleet_id')
+      .eq('id', driverData.driver_id)
+      .maybeSingle();
+
+    if (!driverRecord?.fleet_id) {
+      setFleetPlanSelectionBlocked(false);
+      return;
+    }
+
+    // Check fleet's driver_plan_selection_enabled setting
+    const { data: fleetData } = await supabase
+      .from('fleets')
+      .select('driver_plan_selection_enabled')
+      .eq('id', driverRecord.fleet_id)
+      .maybeSingle();
+
+    // If fleet has disabled driver plan selection
+    if (fleetData && fleetData.driver_plan_selection_enabled === false) {
+      setFleetPlanSelectionBlocked(true);
+    } else {
+      setFleetPlanSelectionBlocked(false);
+    }
+  };
+
   const handlePlanChange = async (item: {id: string; name: string} | null) => {
     if (!item) return;
     
     const newPlanId = item.id;
     const newPlanName = item.name;
+    
+    // Check if fleet has blocked plan selection for drivers
+    if (fleetPlanSelectionBlocked && userRole === 'driver') {
+      toast.error('Twoja flota nie zezwala na zmianę planu. Skontaktuj się z partnerem flotowym.');
+      return;
+    }
     
     // Sprawdź uprawnienia
     if (!changePermission?.can_change) {
@@ -139,6 +175,22 @@ export const SettlementPlanSelector = ({
 
   const currentPlanName = plans.find(p => p.id === selectedPlanId)?.name || "Wybierz plan";
 
+  // Determine if selector should be disabled
+  const isDisabled = !changePermission?.can_change || (fleetPlanSelectionBlocked && userRole === 'driver');
+
+  // Determine the message to show
+  const getMessage = () => {
+    if (fleetPlanSelectionBlocked && userRole === 'driver') {
+      return "Flota wyłączyła możliwość wyboru planu";
+    }
+    if (changePermission && !changePermission.can_change) {
+      return changePermission.reason;
+    }
+    return null;
+  };
+
+  const message = getMessage();
+
   return (
     <div className="flex flex-col">
       <label className="text-xs text-muted-foreground mb-1">Plan rozliczenia</label>
@@ -155,11 +207,11 @@ export const SettlementPlanSelector = ({
         allowClear={false}
         onSelect={handlePlanChange}
         className="w-48"
-        disabled={!changePermission?.can_change}
+        disabled={isDisabled}
       />
-      {changePermission && !changePermission.can_change && (
+      {message && (
         <div className="mt-1 text-xs text-orange-600 font-medium">
-          {changePermission.reason}
+          {message}
         </div>
       )}
       {changePermission && changePermission.is_admin && (

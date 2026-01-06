@@ -8,6 +8,7 @@ interface FeatureToggles {
   marketplace_realestate_enabled: boolean;
   marketplace_services_enabled: boolean;
   driver_registration_enabled: boolean;
+  account_switching_enabled: boolean;
   [key: string]: boolean;
 }
 
@@ -19,6 +20,7 @@ export function useFeatureToggles() {
     marketplace_realestate_enabled: false,
     marketplace_services_enabled: false,
     driver_registration_enabled: true,
+    account_switching_enabled: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +43,7 @@ export function useFeatureToggles() {
         marketplace_realestate_enabled: false,
         marketplace_services_enabled: false,
         driver_registration_enabled: true,
+        account_switching_enabled: false,
       };
 
       data?.forEach((toggle) => {

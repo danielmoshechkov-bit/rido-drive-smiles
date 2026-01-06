@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Settings } from 'lucide-react';
+import { Plus, Trash2, Settings, Edit } from 'lucide-react';
 
 interface FleetFee {
   id: string;
@@ -31,6 +32,9 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingFee, setEditingFee] = useState<FleetFee | null>(null);
+  const [driverPlanSelectionEnabled, setDriverPlanSelectionEnabled] = useState(true);
+  const [savingToggle, setSavingToggle] = useState(false);
   
   // Form state
   const [newFee, setNewFee] = useState<{
@@ -49,7 +53,20 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
 
   useEffect(() => {
     fetchFees();
+    fetchFleetSettings();
   }, [fleetId]);
+
+  const fetchFleetSettings = async () => {
+    const { data, error } = await supabase
+      .from('fleets')
+      .select('driver_plan_selection_enabled')
+      .eq('id', fleetId)
+      .single();
+
+    if (!error && data) {
+      setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
+    }
+  };
 
   const fetchFees = async () => {
     setLoading(true);
@@ -70,30 +87,87 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     }
   };
 
+  const handleToggleDriverPlanSelection = async (enabled: boolean) => {
+    setSavingToggle(true);
+    try {
+      const { error } = await supabase
+        .from('fleets')
+        .update({ driver_plan_selection_enabled: enabled })
+        .eq('id', fleetId);
+
+      if (error) throw error;
+
+      setDriverPlanSelectionEnabled(enabled);
+      toast.success(enabled ? 'Kierowcy mogą wybierać plan' : 'Wybór planu przez kierowców wyłączony');
+    } catch (error) {
+      console.error('Error updating fleet settings:', error);
+      toast.error('Błąd aktualizacji ustawień');
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
+  const handleEditFee = (fee: FleetFee) => {
+    setEditingFee(fee);
+    setNewFee({
+      name: fee.name,
+      amount: fee.amount.toString(),
+      vat_rate: fee.vat_rate.toString(),
+      frequency: fee.frequency as 'weekly' | 'monthly',
+      type: fee.type as 'fixed' | 'percent',
+    });
+    setDialogOpen(true);
+  };
+
   const handleAddFee = async () => {
     if (!newFee.name || !newFee.amount) {
       toast.error('Wypełnij wszystkie pola');
       return;
     }
 
+    const vatRate = parseFloat(newFee.vat_rate);
+    if (isNaN(vatRate) || vatRate < 0 || vatRate > 100) {
+      toast.error('Stawka VAT musi być między 0 a 100');
+      return;
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('fleet_settlement_fees' as any)
-        .insert({
-          fleet_id: fleetId,
-          name: newFee.name,
-          amount: parseFloat(newFee.amount),
-          vat_rate: parseFloat(newFee.vat_rate),
-          frequency: newFee.frequency,
-          type: newFee.type,
-          is_active: true,
-        });
+      if (editingFee) {
+        // Update existing fee
+        const { error } = await supabase
+          .from('fleet_settlement_fees' as any)
+          .update({
+            name: newFee.name,
+            amount: parseFloat(newFee.amount),
+            vat_rate: vatRate,
+            frequency: newFee.frequency,
+            type: newFee.type,
+          })
+          .eq('id', editingFee.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Opłata zaktualizowana');
+      } else {
+        // Insert new fee
+        const { error } = await supabase
+          .from('fleet_settlement_fees' as any)
+          .insert({
+            fleet_id: fleetId,
+            name: newFee.name,
+            amount: parseFloat(newFee.amount),
+            vat_rate: vatRate,
+            frequency: newFee.frequency,
+            type: newFee.type,
+            is_active: true,
+          });
 
-      toast.success('Opłata dodana');
+        if (error) throw error;
+        toast.success('Opłata dodana');
+      }
+
       setDialogOpen(false);
+      setEditingFee(null);
       setNewFee({
         name: '',
         amount: '',
@@ -103,14 +177,15 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       });
       fetchFees();
     } catch (error: any) {
-      console.error('Error adding fee:', error);
-      toast.error('Błąd podczas dodawania opłaty');
+      console.error('Error saving fee:', error);
+      toast.error('Błąd podczas zapisywania opłaty');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteFee = async (feeId: string) => {
+  const handleDeleteFee = async (feeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!confirm('Czy na pewno chcesz usunąć tę opłatę?')) return;
 
     try {
@@ -129,7 +204,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     }
   };
 
-  const toggleFeeActive = async (fee: FleetFee) => {
+  const toggleFeeActive = async (fee: FleetFee, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       const { error } = await supabase
         .from('fleet_settlement_fees' as any)
@@ -153,30 +229,73 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     }).format(amount) + ' zł';
   };
 
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingFee(null);
+    setNewFee({
+      name: '',
+      amount: '',
+      vat_rate: '8',
+      frequency: 'weekly',
+      type: 'fixed',
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Driver Plan Selection Toggle */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Wybór planu przez kierowców</CardTitle>
+          <CardDescription>
+            Gdy wyłączone, kierowcy nie mogą samodzielnie zmieniać planu rozliczeniowego
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">
+                {driverPlanSelectionEnabled ? 'Kierowcy mogą wybierać plan' : 'Wybór planu wyłączony'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {driverPlanSelectionEnabled 
+                  ? 'Kierowcy mogą samodzielnie zmienić plan rozliczeniowy'
+                  : 'Tylko flota może przypisać plan kierowcy'
+                }
+              </p>
+            </div>
+            <Switch
+              checked={driverPlanSelectionEnabled}
+              onCheckedChange={handleToggleDriverPlanSelection}
+              disabled={savingToggle}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Fees Management */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Ustawienia rozliczeń
+                Stałe opłaty rozliczeniowe
               </CardTitle>
               <CardDescription>
-                Skonfiguruj opłaty i stawki dla swoich kierowców
+                Opłaty automatycznie odejmowane od rozliczeń kierowców (np. ZUS, ubezpieczenie)
               </CardDescription>
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
               <DialogTrigger asChild>
-                <Button>
+                <Button onClick={() => { setEditingFee(null); setDialogOpen(true); }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Dodaj opłatę
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Dodaj nową opłatę</DialogTitle>
+                  <DialogTitle>{editingFee ? 'Edytuj opłatę' : 'Dodaj nową opłatę'}</DialogTitle>
                   <DialogDescription>
                     Opłata będzie automatycznie odejmowana od rozliczeń kierowców
                   </DialogDescription>
@@ -186,7 +305,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                     <Label htmlFor="fee-name">Nazwa opłaty</Label>
                     <Input
                       id="fee-name"
-                      placeholder="np. Opłata serwisowa"
+                      placeholder="np. Składka ZUS"
                       value={newFee.name}
                       onChange={(e) => setNewFee({ ...newFee, name: e.target.value })}
                     />
@@ -227,20 +346,16 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="fee-vat">Stawka VAT (%)</Label>
-                      <Select
+                      <Input
+                        id="fee-vat"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="np. 8"
                         value={newFee.vat_rate}
-                        onValueChange={(v) => setNewFee({ ...newFee, vat_rate: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">0%</SelectItem>
-                          <SelectItem value="5">5%</SelectItem>
-                          <SelectItem value="8">8%</SelectItem>
-                          <SelectItem value="23">23%</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        onChange={(e) => setNewFee({ ...newFee, vat_rate: e.target.value })}
+                      />
                     </div>
                     
                     <div className="space-y-2">
@@ -261,11 +376,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button variant="outline" onClick={handleCloseDialog}>
                     Anuluj
                   </Button>
                   <Button onClick={handleAddFee} disabled={saving}>
-                    {saving ? 'Zapisywanie...' : 'Dodaj opłatę'}
+                    {saving ? 'Zapisywanie...' : editingFee ? 'Zapisz zmiany' : 'Dodaj opłatę'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -291,12 +406,16 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                   <TableHead className="text-right">VAT</TableHead>
                   <TableHead>Cykliczność</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {fees.map((fee) => (
-                  <TableRow key={fee.id}>
+                  <TableRow 
+                    key={fee.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleEditFee(fee)}
+                  >
                     <TableCell className="font-medium">{fee.name}</TableCell>
                     <TableCell className="text-right">
                       {fee.type === 'fixed' 
@@ -314,19 +433,28 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       <Badge
                         variant={fee.is_active ? 'default' : 'secondary'}
                         className="cursor-pointer"
-                        onClick={() => toggleFeeActive(fee)}
+                        onClick={(e) => toggleFeeActive(fee, e)}
                       >
                         {fee.is_active ? 'Aktywna' : 'Nieaktywna'}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteFee(fee.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleEditFee(fee); }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeleteFee(fee.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

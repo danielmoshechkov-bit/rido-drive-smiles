@@ -22,6 +22,11 @@ export default function FleetDashboard() {
   }, [role, roleLoading, navigate, canAccessFleet]);
 
   useEffect(() => {
+    // Reset state when user/fleet changes to avoid stale data
+    setUserName('');
+    setFleetName('');
+    setUserEmail('');
+    
     if (fleetId || delegatedRole?.fleet_id) {
       fetchFleetName();
       fetchUserName();
