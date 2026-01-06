@@ -66,11 +66,11 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
               </>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => navigate("/gielda/logowanie")}>
-                  Zaloguj się
+                <Button variant="outline" onClick={() => navigate("/gielda/logowanie")}>
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Zaloguj
                 </Button>
                 <Button onClick={() => navigate("/gielda/rejestracja")}>
-                  <LogIn className="h-4 w-4 mr-2" />
                   Dołącz za darmo
                 </Button>
               </>
