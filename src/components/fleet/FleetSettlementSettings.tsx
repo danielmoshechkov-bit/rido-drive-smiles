@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Settings, Edit } from 'lucide-react';
-
+import { Plus, Trash2, Settings, Edit, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 interface FleetFee {
   id: string;
   name: string;
@@ -242,36 +242,27 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   };
 
   return (
-    <div className="space-y-6">
-      {/* Driver Plan Selection Toggle */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Wybór planu przez kierowców</CardTitle>
-          <CardDescription>
-            Gdy wyłączone, kierowcy nie mogą samodzielnie zmieniać planu rozliczeniowego
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">
-                {driverPlanSelectionEnabled ? 'Kierowcy mogą wybierać plan' : 'Wybór planu wyłączony'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {driverPlanSelectionEnabled 
-                  ? 'Kierowcy mogą samodzielnie zmienić plan rozliczeniowy'
-                  : 'Tylko flota może przypisać plan kierowcy'
-                }
-              </p>
-            </div>
-            <Switch
-              checked={driverPlanSelectionEnabled}
-              onCheckedChange={handleToggleDriverPlanSelection}
-              disabled={savingToggle}
-            />
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Driver Plan Selection Toggle - Compact */}
+        <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+          <div className="flex items-center gap-3">
+            <span className="font-medium">Wybór planu przez kierowców</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Gdy wyłączone, kierowcy nie mogą samodzielnie zmieniać planu rozliczeniowego. Tylko flota może przypisać plan.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </CardContent>
-      </Card>
+          <Switch
+            checked={driverPlanSelectionEnabled}
+            onCheckedChange={handleToggleDriverPlanSelection}
+            disabled={savingToggle}
+          />
+        </div>
 
       {/* Fees Management */}
       <Card>
@@ -286,7 +277,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                 Opłaty automatycznie odejmowane od rozliczeń kierowców (np. ZUS, ubezpieczenie)
               </CardDescription>
             </div>
-            <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setDialogOpen(true); }}>
               <DialogTrigger asChild>
                 <Button onClick={() => { setEditingFee(null); setDialogOpen(true); }}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -463,6 +454,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };

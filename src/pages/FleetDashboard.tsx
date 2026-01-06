@@ -27,11 +27,12 @@ export default function FleetDashboard() {
     setFleetName('');
     setUserEmail('');
     
-    if (fleetId || delegatedRole?.fleet_id) {
+    // Wait for role loading to complete before fetching
+    if (!roleLoading && (fleetId || delegatedRole?.fleet_id)) {
       fetchFleetName();
       fetchUserName();
     }
-  }, [fleetId, delegatedRole]);
+  }, [fleetId, delegatedRole, roleLoading]);
 
   const fetchFleetName = async () => {
     const targetFleetId = fleetId || delegatedRole?.fleet_id;
