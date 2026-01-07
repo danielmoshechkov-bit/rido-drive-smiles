@@ -106,35 +106,40 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   }, [isDriver, roles]);
 
   const fetchMyDriverId = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data } = await supabase
-      .from('driver_app_users')
-      .select('driver_id')
-      .eq('user_id', user.id)
-      .single();
+      const { data } = await supabase
+        .from('driver_app_users')
+        .select('driver_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    if (data) {
-      setMyDriverId(data.driver_id);
-      
-      // Only set default tab if not admin (admins default to "my" for company revenue)
-      if (!roles.includes('admin')) {
-        // Check if this driver has any settlements
-        const { data: hasSettlements } = await supabase
-          .from('settlements')
-          .select('id')
-          .eq('driver_id', data.driver_id)
-          .limit(1)
-          .single();
+      if (data?.driver_id) {
+        setMyDriverId(data.driver_id);
         
-        // If has settlements, default to "my", otherwise "drivers"
-        if (hasSettlements) {
-          setActiveSubTab("my");
-        } else {
-          setActiveSubTab("drivers");
+        // Only set default tab if not admin (admins default to "my" for company revenue)
+        if (!roles.includes('admin')) {
+          // Check if this driver has any settlements
+          const { data: hasSettlements } = await supabase
+            .from('settlements')
+            .select('id')
+            .eq('driver_id', data.driver_id)
+            .limit(1)
+            .maybeSingle();
+          
+          // If has settlements, default to "my", otherwise "drivers"
+          if (hasSettlements) {
+            setActiveSubTab("my");
+          } else {
+            setActiveSubTab("drivers");
+          }
         }
       }
+    } catch (error) {
+      console.error('Error fetching driver ID:', error);
+      setActiveSubTab("drivers");
     }
   };
 
@@ -157,7 +162,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .in('driver_id', driverIds)
         .order('period_from', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (latestSettlement?.period_from) {
         const latestDate = new Date(latestSettlement.period_from);

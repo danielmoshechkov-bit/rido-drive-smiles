@@ -61,7 +61,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       .from('fleets')
       .select('driver_plan_selection_enabled')
       .eq('id', fleetId)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
