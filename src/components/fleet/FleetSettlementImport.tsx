@@ -34,7 +34,7 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
   const [mainFile, setMainFile] = useState<File | null>(null);
   const [fuelFile, setFuelFile] = useState<File | null>(null);
   const [cities, setCities] = useState<City[]>([]);
-  const [selectedCityId, setSelectedCityId] = useState<string>('');
+  const [selectedCityId, setSelectedCityId] = useState<string>('all');
 
   // Load cities
   useEffect(() => {
@@ -109,7 +109,7 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
             period_from: format(dateRange.from, "yyyy-MM-dd"),
             period_to: format(dateRange.to, "yyyy-MM-dd"),
             fleet_id: fleetId,
-            city_id: selectedCityId || undefined,
+            city_id: selectedCityId && selectedCityId !== 'all' ? selectedCityId : undefined,
             uber_csv: uberCsv,
             bolt_csv: boltCsv,
             freenow_csv: freenowCsv,
@@ -253,7 +253,7 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
                   <SelectValue placeholder="Wszystkie miasta" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Wszystkie miasta</SelectItem>
+                  <SelectItem value="all">Wszystkie miasta</SelectItem>
                   {cities.map(city => (
                     <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
                   ))}
