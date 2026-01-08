@@ -408,14 +408,26 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                 </Button>
               )}
               {mode === 'fleet' && (
-                <Button 
-                  onClick={() => setShowDelegateRoleModal(true)}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Shield className="h-4 w-4" />
-                  Przyznaj rolę
-                </Button>
+                <>
+                  <Button 
+                    onClick={() => setShowDelegateRoleModal(true)}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Przyznaj rolę
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      toast.info('Funkcja aktualizacji kierowców - w przygotowaniu');
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Aktualizuj kierowców
+                  </Button>
+                </>
               )}
               <Button 
                 onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
@@ -507,10 +519,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                    )}
                                  </div>
                                )}
-                               {!driver.vehicle_assignment?.fleet_id && driver.vehicle_assignment?.vehicle?.fleet_id === null && driver.vehicle_assignment?.vehicle && (
-                                 <Badge variant="outline" className="text-xs">
-                                   Własne auto: {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
-                                   {driver.vehicle_assignment.assigned_at && ` od ${format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}`}
+                               {/* Własne auto badge - dla kierowców z autem bez floty */}
+                               {driver.vehicle_assignment?.vehicle && driver.vehicle_assignment.vehicle.fleet_id === null && (
+                                 <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
+                                   🚗 Własne: {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
                                  </Badge>
                                )}
                               </div>
@@ -576,18 +588,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                           </>
                         )}
                         
-                        {/* Payment Method Badge */}
-                        {driver.payment_method === 'transfer' ? (
-                          <Badge variant="outline" className="gap-1">
-                            <CreditCard className="h-3 w-3" />
-                            Przelew
-                          </Badge>
-                        ) : driver.payment_method === 'cash' ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Banknote className="h-3 w-3" />
-                            Gotówka
-                          </Badge>
-                        ) : null}
+                        {/* Payment Method Badge - clickable to toggle */}
+                        <Badge 
+                          variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
+                          className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const newMethod = driver.payment_method === 'cash' ? 'transfer' : 'cash';
+                            try {
+                              await supabase
+                                .from('drivers')
+                                .update({ payment_method: newMethod })
+                                .eq('id', driver.id);
+                              toast.success(`Zmieniono metodę płatności na: ${newMethod === 'cash' ? 'Gotówka' : 'Przelew'}`);
+                              refetch();
+                            } catch (error) {
+                              toast.error('Błąd zmiany metody płatności');
+                            }
+                          }}
+                        >
+                          {driver.payment_method === 'cash' ? (
+                            <><Banknote className="h-3 w-3" /> Gotówka</>
+                          ) : (
+                            <><CreditCard className="h-3 w-3" /> Przelew</>
+                          )}
+                        </Badge>
                       </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">

@@ -92,6 +92,7 @@ export const DriverSettlements = ({
   const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
   const [accumulatedEarnings, setAccumulatedEarnings] = useState<number>(0);
   const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
+  const [fleetBaseFee, setFleetBaseFee] = useState<number | null>(null);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -110,7 +111,7 @@ export const DriverSettlements = ({
       
       const { data: fleet } = await supabase
         .from('fleets')
-        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate, base_fee')
         .eq('id', driver.fleet_id)
         .maybeSingle();
       
@@ -120,6 +121,7 @@ export const DriverSettlements = ({
         }
         setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
         setFleetVatRate(fleet.vat_rate ?? null);
+        setFleetBaseFee((fleet as any).base_fee ?? null);
       }
       
       // Get driver's current frequency setting
@@ -853,10 +855,21 @@ export const DriverSettlements = ({
     const boltNet = amounts.bolt_net || 0;
     const freenowNet = amounts.freenow_net || 0;
     
-    // Get taxes
-    const uberTax = amounts.uber_tax_8 || 0;
-    const boltTax = amounts.bolt_tax_8 || 0;
-    const freenowTax = amounts.freenow_tax_8 || 0;
+    // Get taxes - dynamically calculate based on fleet VAT rate if different from 8%
+    const effectiveVatRate = fleetVatRate ?? 8;
+    
+    const calculateDynamicTax = (netAmount: number, originalTax8: number) => {
+      if (effectiveVatRate === 8) return originalTax8;
+      // Reconstruct gross from net (net = gross * 0.92)
+      // gross = net / 0.92
+      // new tax = gross * (effectiveVatRate / 100)
+      const grossBase = netAmount / 0.92;
+      return grossBase * (effectiveVatRate / 100);
+    };
+    
+    const uberTax = calculateDynamicTax(uberNet, amounts.uber_tax_8 || 0);
+    const boltTax = calculateDynamicTax(boltNet, amounts.bolt_tax_8 || 0);
+    const freenowTax = calculateDynamicTax(freenowNet, amounts.freenow_tax_8 || 0);
     const totalTax = uberTax + boltTax + freenowTax;
     
     // Get other values
@@ -866,8 +879,10 @@ export const DriverSettlements = ({
     // Cash collected on platforms (always reduce payout)
     const cashTotal = Math.abs(amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
     
-    // Use driver plan or default to 50 PLN base fee
-    const planFee = driverPlan?.base_fee ?? 50;
+    // Use fleet base_fee if set (priority), otherwise driver plan fee, default to 50 PLN
+    const planFee = (fleetBaseFee !== null && fleetBaseFee > 0) 
+      ? fleetBaseFee 
+      : (driverPlan?.base_fee ?? 50);
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // Calculate total earnings before any deductions
@@ -1184,7 +1199,12 @@ export const DriverSettlements = ({
                         
                         {/* Razem podatek - DUŻA CZCIONKA */}
                         <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                          <span className="font-bold">{t('weekly.totalTax')} {fleetVatRate ?? 8}%:</span>
+                          <span className="font-bold">
+                            {(fleetVatRate ?? 8) === 8 
+                              ? t('weekly.totalTax')
+                              : `${t('weekly.totalTax')} + inne opłaty ${fleetVatRate}%`
+                            }:
+                          </span>
                           <span className="font-bold text-foreground text-lg">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
