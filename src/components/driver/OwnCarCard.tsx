@@ -15,6 +15,7 @@ import { VehicleInfoTab } from "@/components/VehicleInfoTab";
 import { VehicleRentalHistory } from "./VehicleRentalHistory";
 import { VehiclePhotosTab } from "./VehiclePhotosTab";
 import { VehicleListingModal } from "@/components/fleet/VehicleListingModal";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 interface OwnVehicle {
   id: string;
@@ -33,6 +34,7 @@ interface OwnVehicle {
 }
 
 export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: OwnVehicle; onDeleted?: () => void }) => {
+  const { isMarketplaceEnabled } = useFeatureToggles();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
   const [isListed, setIsListed] = useState(false);
@@ -307,16 +309,18 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
                 </div>
               </div>
 
-              {/* Rental toggle, delete button and expand button */}
+              {/* Rental toggle (only if marketplace enabled), delete button and expand button */}
               <div className="flex items-center gap-3 ml-4" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Do wynajęcia</span>
-                  <Switch
-                    checked={isListed}
-                    onCheckedChange={handleListingToggle}
-                    disabled={loadingListing}
-                  />
-                </div>
+                {isMarketplaceEnabled && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Do wynajęcia</span>
+                    <Switch
+                      checked={isListed}
+                      onCheckedChange={handleListingToggle}
+                      disabled={loadingListing}
+                    />
+                  </div>
+                )}
                 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

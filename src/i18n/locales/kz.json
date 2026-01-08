@@ -316,7 +316,11 @@
   "common": {
     "save": "Сақтау",
     "saving": "Сақтау...",
-    "loading": "Жүктелуде..."
+    "loading": "Жүктелуде...",
+    "driverPanel": "Жүргізуші панелі",
+    "fleet": "Флот",
+    "supervisor": "Куратор",
+    "contact": "Байланыс"
   },
   "register": {
     "title": "Жүргізуші тіркелуі",
@@ -420,8 +424,7 @@
       "otherDocument": "Басқа құжат"
     }
   },
-  "common": {
-    "loading": "Жүктелуде...",
+  "commonExtra": {
     "driverPanel": "Жүргізуші панелі",
     "fleet": "Флот",
     "supervisor": "Куратор",

@@ -316,7 +316,11 @@
   "common": {
     "save": "Сохранить",
     "saving": "Сохранение...",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "driverPanel": "Панель водителя",
+    "fleet": "Флот",
+    "supervisor": "Куратор",
+    "contact": "Контакт"
   },
   "register": {
     "title": "Регистрация водителя",
@@ -420,8 +424,7 @@
       "otherDocument": "Другой документ"
     }
   },
-  "common": {
-    "loading": "Загрузка...",
+  "commonExtra": {
     "driverPanel": "Панель водителя",
     "fleet": "Флот",
     "supervisor": "Куратор",
