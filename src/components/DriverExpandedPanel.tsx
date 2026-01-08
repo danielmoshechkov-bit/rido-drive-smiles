@@ -27,10 +27,59 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
   const [showSuccess, setShowSuccess] = useState(false);
   const [userAuthId, setUserAuthId] = useState<string | null>(null);
   const [hasAuthAccount, setHasAuthAccount] = useState(false);
+  const [settlementPlanName, setSettlementPlanName] = useState<string | null>(null);
+  const [fleetSettings, setFleetSettings] = useState<{ base_fee: number; vat_rate: number } | null>(null);
 
   useEffect(() => {
     checkAuthAccount();
-  }, [driver.email]);
+    fetchSettlementData();
+  }, [driver.id, driver.email, (driver as any).fleet_id]);
+
+  const fetchSettlementData = async () => {
+    try {
+      // 1. Check if driver has assigned settlement plan
+      const { data: appUser } = await supabase
+        .from('driver_app_users')
+        .select('settlement_plan_id')
+        .eq('driver_id', driver.id)
+        .maybeSingle();
+      
+      if (appUser?.settlement_plan_id) {
+        // Fetch plan name
+        const { data: plan } = await supabase
+          .from('settlement_plans')
+          .select('name')
+          .eq('id', appUser.settlement_plan_id)
+          .maybeSingle();
+        
+        if (plan?.name) {
+          setSettlementPlanName(plan.name);
+          setFleetSettings(null);
+          return;
+        }
+      }
+      
+      // 2. If no plan - fetch fleet settings
+      const fleetId = (driver as any).fleet_id;
+      if (fleetId) {
+        const { data: fleet } = await supabase
+          .from('fleets')
+          .select('base_fee, vat_rate')
+          .eq('id', fleetId)
+          .maybeSingle();
+        
+        if (fleet) {
+          setFleetSettings({
+            base_fee: fleet.base_fee ?? 50,
+            vat_rate: fleet.vat_rate ?? 8
+          });
+          setSettlementPlanName(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching settlement data:', error);
+    }
+  };
 
   const checkAuthAccount = async () => {
     if (!driver.email) {
@@ -63,15 +112,18 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
     return driver.platform_ids?.find(p => p.platform === platform)?.platform_id || '';
   };
 
-  const getBillingMethodDisplay = (method: string) => {
-    switch (method) {
-      case '50+8%':
-        return { label: '50zł + 8%', color: 'bg-blue-500/10 text-blue-700 border-blue-500/20' };
-      case '159+0%':
-        return { label: '159zł + 0%', color: 'bg-purple-500/10 text-purple-700 border-purple-500/20' };
-      default:
-        return { label: method || '50zł + 8%', color: 'bg-gray-500/10 text-gray-700 border-gray-500/20' };
+  const getSettlementDisplay = () => {
+    // Priority: 1. Settlement plan name, 2. Fleet settings, 3. Fallback
+    if (settlementPlanName) {
+      return { label: settlementPlanName, color: 'bg-blue-500/10 text-blue-700 border-blue-500/20' };
     }
+    if (fleetSettings) {
+      return { 
+        label: `${fleetSettings.base_fee}+${fleetSettings.vat_rate}%`, 
+        color: 'bg-purple-500/10 text-purple-700 border-purple-500/20' 
+      };
+    }
+    return { label: '50+8%', color: 'bg-gray-500/10 text-gray-700 border-gray-500/20' };
   };
 
   const handleCreateAuthAccount = async () => {
@@ -122,7 +174,7 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
     }
   };
 
-  const billingDisplay = getBillingMethodDisplay(driver.billing_method || '50+8%');
+  const settlementDisplay = getSettlementDisplay();
 
   return (
     <Card className="mt-2 p-4 bg-muted/20 border-l-4 border-primary/20">
@@ -197,8 +249,8 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
 
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Sposób rozliczenia</h4>
-            <Badge className={billingDisplay.color} variant="outline">
-              {billingDisplay.label}
+            <Badge className={settlementDisplay.color} variant="outline">
+              {settlementDisplay.label}
             </Badge>
           </div>
         </div>
