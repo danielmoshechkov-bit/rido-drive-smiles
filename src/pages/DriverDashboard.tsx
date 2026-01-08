@@ -1126,127 +1126,136 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   };
 
   return (
-    <div className="space-y-4 max-w-md">
-      {/* Payment Method Settings */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('driver.paymentMethod')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Select 
-            value={driverInfo?.payment_method || 'transfer'} 
-            onValueChange={handlePaymentMethodChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t('driver.paymentMethod')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="transfer">💳 {t('driver.paymentMethodTransfer')}</SelectItem>
-              <SelectItem value="cash">💵 {t('driver.paymentMethodCash')}</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {driverInfo?.payment_method === 'transfer' && (
-            <div className="space-y-2">
-              <Label htmlFor="iban" className="text-sm">{t('driver.iban')}</Label>
-              <Input 
-                id="iban"
-                value={driverInfo?.iban || ''} 
-                onChange={handleIbanChange}
-                placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Settlement Plan & Frequency Settings */}
-      {(!fleetPlanSelectionDisabled || fleetFrequencyEnabled) && settlementPlans.length > 0 && (
+    <div className="space-y-4">
+      {/* Row 1: Payment Method + Settlement Settings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Payment Method Settings */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Ustawienia rozliczeń</CardTitle>
+            <CardTitle className="text-base">{t('driver.paymentMethod')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Plan Selection */}
-            {!fleetPlanSelectionDisabled && settlementPlans.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm">Plan rozliczeń</Label>
-                <Select value={selectedPlanId} onValueChange={handlePlanChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wybierz plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {settlementPlans.map(plan => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} ({plan.fee_amount} zł + {plan.tax_rate}%)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <Select 
+              value={driverInfo?.payment_method || 'transfer'} 
+              onValueChange={handlePaymentMethodChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t('driver.paymentMethod')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="transfer">💳 {t('driver.paymentMethodTransfer')}</SelectItem>
+                <SelectItem value="cash">💵 {t('driver.paymentMethodCash')}</SelectItem>
+              </SelectContent>
+            </Select>
             
-            {/* Frequency Selection */}
-            {fleetFrequencyEnabled && (
+            {driverInfo?.payment_method === 'transfer' && (
               <div className="space-y-2">
-                <Label className="text-sm">Częstotliwość rozliczeń</Label>
-                <Select value={settlementFrequency} onValueChange={handleFrequencyChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Co tydzień</SelectItem>
-                    <SelectItem value="biweekly">Co 2 tygodnie</SelectItem>
-                    <SelectItem value="triweekly">Co 3 tygodnie</SelectItem>
-                    <SelectItem value="monthly">Raz w miesiącu</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="iban" className="text-sm">{t('driver.iban')}</Label>
+                <Input 
+                  id="iban"
+                  value={driverInfo?.iban || ''} 
+                  onChange={handleIbanChange}
+                  placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
+                />
               </div>
             )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Push Notification Settings */}
-      <NotificationSettings userId={userId} />
-
-      {/* Notifications */}
-      {driverAlerts.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('driver.noNotifications')}</CardTitle>
-            <CardDescription>{t('driver.allNotificationsRead')}</CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        driverAlerts.map(alert => (
-          <Card key={alert.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">{alert.title}</CardTitle>
-                    <Badge variant={getAlertColor(alert.type) as any}>
-                      {alert.type}
-                    </Badge>
-                  </div>
-                  <CardDescription>{alert.description}</CardDescription>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(alert.created_at), 'dd MMM yyyy, HH:mm', { locale: pl })}
-                  </p>
+        {/* Settlement Plan & Frequency Settings */}
+        {(!fleetPlanSelectionDisabled || fleetFrequencyEnabled) && settlementPlans.length > 0 ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Ustawienia rozliczeń</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Plan Selection */}
+              {!fleetPlanSelectionDisabled && settlementPlans.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Plan rozliczeń</Label>
+                  <Select value={selectedPlanId} onValueChange={handlePlanChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wybierz plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {settlementPlans.map(plan => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name} ({plan.fee_amount} zł + {plan.tax_rate}%)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => markAsResolved(alert.id)}
-                >
-                  {t('driver.markAsRead')}
-                </Button>
-              </div>
+              )}
+              
+              {/* Frequency Selection */}
+              {fleetFrequencyEnabled && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Częstotliwość rozliczeń</Label>
+                  <Select value={settlementFrequency} onValueChange={handleFrequencyChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Co tydzień</SelectItem>
+                      <SelectItem value="biweekly">Co 2 tygodnie</SelectItem>
+                      <SelectItem value="triweekly">Co 3 tygodnie</SelectItem>
+                      <SelectItem value="monthly">Raz w miesiącu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div /> // Empty placeholder for grid alignment
+        )}
+      </div>
+
+      {/* Row 2: Push Notifications + Alerts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Push Notification Settings */}
+        <NotificationSettings userId={userId} />
+
+        {/* Notifications */}
+        {driverAlerts.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('driver.noNotifications')}</CardTitle>
+              <CardDescription>{t('driver.allNotificationsRead')}</CardDescription>
             </CardHeader>
           </Card>
-        ))
-      )}
+        ) : (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Powiadomienia</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {driverAlerts.slice(0, 3).map(alert => (
+                <div key={alert.id} className="flex items-start justify-between gap-2 p-2 border rounded-md">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate">{alert.title}</span>
+                      <Badge variant={getAlertColor(alert.type) as any} className="text-xs">
+                        {alert.type}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{alert.description}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => markAsResolved(alert.id)}
+                  >
+                    ✓
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
