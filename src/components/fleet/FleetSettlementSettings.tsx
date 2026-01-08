@@ -21,6 +21,8 @@ interface FleetFee {
   type: string;
   is_active: boolean;
   created_at: string;
+  valid_from?: string | null;
+  valid_to?: string | null;
 }
 
 interface FleetSettlementSettingsProps {
@@ -45,12 +47,16 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     vat_rate: string;
     frequency: 'weekly' | 'monthly';
     type: 'fixed' | 'percent';
+    valid_from: string;
+    valid_to: string;
   }>({
     name: '',
     amount: '',
     vat_rate: '8',
     frequency: 'weekly',
     type: 'fixed',
+    valid_from: '',
+    valid_to: '',
   });
 
   useEffect(() => {
@@ -138,6 +144,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       vat_rate: fee.vat_rate.toString(),
       frequency: fee.frequency as 'weekly' | 'monthly',
       type: fee.type as 'fixed' | 'percent',
+      valid_from: fee.valid_from || '',
+      valid_to: fee.valid_to || '',
     });
     setDialogOpen(true);
   };
@@ -166,6 +174,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             vat_rate: vatRate,
             frequency: newFee.frequency,
             type: newFee.type,
+            valid_from: newFee.valid_from || null,
+            valid_to: newFee.valid_to || null,
           })
           .eq('id', editingFee.id);
 
@@ -183,6 +193,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             frequency: newFee.frequency,
             type: newFee.type,
             is_active: true,
+            valid_from: newFee.valid_from || null,
+            valid_to: newFee.valid_to || null,
           });
 
         if (error) throw error;
@@ -197,6 +209,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
         vat_rate: '8',
         frequency: 'weekly',
         type: 'fixed',
+        valid_from: '',
+        valid_to: '',
       });
       fetchFees();
     } catch (error: any) {
@@ -261,6 +275,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       vat_rate: '8',
       frequency: 'weekly',
       type: 'fixed',
+      valid_from: '',
+      valid_to: '',
     });
   };
 
@@ -408,6 +424,29 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       </Select>
                     </div>
                   </div>
+
+                  {/* Date validity fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fee-valid-from">Obowiązuje od (opcjonalnie)</Label>
+                      <Input
+                        id="fee-valid-from"
+                        type="date"
+                        value={newFee.valid_from}
+                        onChange={(e) => setNewFee({ ...newFee, valid_from: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="fee-valid-to">Obowiązuje do (opcjonalnie)</Label>
+                      <Input
+                        id="fee-valid-to"
+                        type="date"
+                        value={newFee.valid_to}
+                        onChange={(e) => setNewFee({ ...newFee, valid_to: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={handleCloseDialog}>
@@ -439,6 +478,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                   <TableHead className="text-right">Kwota/Procent</TableHead>
                   <TableHead className="text-right">VAT</TableHead>
                   <TableHead>Cykliczność</TableHead>
+                  <TableHead>Ważność</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
@@ -462,6 +502,15 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       <Badge variant="outline">
                         {fee.frequency === 'weekly' ? 'Co tydzień' : 'Co miesiąc'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {fee.valid_from || fee.valid_to ? (
+                        <span className="text-xs text-muted-foreground">
+                          {fee.valid_from ? fee.valid_from : '...'} → {fee.valid_to ? fee.valid_to : '...'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Bezterminowo</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge

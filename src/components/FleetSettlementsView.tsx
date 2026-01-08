@@ -33,12 +33,15 @@ interface DriverSettlement {
   driver_id: string;
   driver_name: string;
   uber_base: number;
+  uber_cash: number;
   bolt_base: number;
+  bolt_cash: number;
+  bolt_commission: number;
   freenow_base: number;
+  freenow_cash: number;
+  freenow_commission: number;
   total_base: number;
   uber_commission: number;
-  bolt_commission: number;
-  freenow_commission: number;
   total_commission: number;
   total_cash: number;
   tax_8_percent: number;
@@ -313,23 +316,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return sum + freenow;
         }, 0);
 
-        const total_commission = driverSettlements.reduce((sum, s) => {
+        // Aggregate commission per platform
+        const uber_commission = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Support both new (snake_case) and old (camelCase) formats
-          const boltComm = parseFloat(amounts.bolt_commission || amounts.boltCommission || '0');
-          const freenowComm = parseFloat(amounts.freenow_commission_t || amounts.freenowCommission || '0');
-          const uberComm = parseFloat(amounts.uber_commission || amounts.uberCommission || '0');
-          return sum + boltComm + freenowComm + uberComm;
+          return sum + parseFloat(amounts.uber_commission || amounts.uberCommission || '0');
         }, 0);
 
-        const total_cash = driverSettlements.reduce((sum, s) => {
+        const bolt_commission = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Support both new (snake_case) and old (camelCase) formats
-          const uberCash = parseFloat(amounts.uber_cash_f || amounts.uberCash || '0');
-          const boltCash = parseFloat(amounts.bolt_cash || amounts.boltCash || '0');
-          const freenowCash = parseFloat(amounts.freenow_cash_f || amounts.freenowCash || '0');
-          return sum + uberCash + boltCash + freenowCash;
+          return sum + parseFloat(amounts.bolt_commission || amounts.boltCommission || '0');
         }, 0);
+
+        const freenow_commission = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.freenow_commission_t || amounts.freenowCommission || '0');
+        }, 0);
+
+        const total_commission = uber_commission + bolt_commission + freenow_commission;
+
+        // Aggregate cash per platform
+        const uber_cash = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.uber_cash_f || amounts.uberCash || '0');
+        }, 0);
+
+        const bolt_cash = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_cash || amounts.boltCash || '0');
+        }, 0);
+
+        const freenow_cash = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.freenow_cash_f || amounts.freenowCash || '0');
+        }, 0);
+
+        const total_cash = uber_cash + bolt_cash + freenow_cash;
 
         // Aggregate fuel costs and VAT refunds
         const total_fuel = driverSettlements.reduce((sum, s) => {
@@ -374,12 +395,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
             uber_base: 0,
-            bolt_base: 0,
-            freenow_base: 0,
-            total_base: 0,
+            uber_cash: 0,
             uber_commission: 0,
+            bolt_base: 0,
+            bolt_cash: 0,
             bolt_commission: 0,
+            freenow_base: 0,
+            freenow_cash: 0,
             freenow_commission: 0,
+            total_base: 0,
             total_commission: 0,
             total_cash: 0,
             tax_8_percent: 0,
@@ -396,12 +420,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
             uber_base,
-            bolt_base,
-            freenow_base,
-            total_base,
+            uber_cash: 0,
             uber_commission: 0,
+            bolt_base,
+            bolt_cash: 0,
             bolt_commission: 0,
+            freenow_base,
+            freenow_cash: 0,
             freenow_commission: 0,
+            total_base,
             total_commission: 0,
             total_cash: 0,
             tax_8_percent: 0,
@@ -419,12 +446,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           driver_id: driver.id,
           driver_name: `${driver.first_name} ${driver.last_name}`,
           uber_base,
+          uber_cash,
+          uber_commission,
           bolt_base,
+          bolt_cash,
+          bolt_commission,
           freenow_base,
+          freenow_cash,
+          freenow_commission,
           total_base,
-          uber_commission: 0,
-          bolt_commission: 0,
-          freenow_commission: 0,
           total_commission,
           total_cash,
           tax_8_percent: tax,
@@ -827,11 +857,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableRow>
                     <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
                     <TableHead className="text-right p-1.5 text-xs">Uber</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Bolt</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-red-600">Uber got.</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Bolt brutto</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-red-600">Bolt got.</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-orange-600">Bolt prow.</TableHead>
                     <TableHead className="text-right p-1.5 text-xs">FreeNow</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Prowizja</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-red-600">Gotówka</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Podatek</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-red-600">FN got.</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-orange-600">FN prow.</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-red-600 font-semibold">Razem got.</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-orange-600 font-semibold">Razem prow.</TableHead>
                     <TableHead className="text-right p-1.5 text-xs">Opłata</TableHead>
                     <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
                     <TableHead className="text-right font-bold p-1.5 text-xs">Wypłata</TableHead>
@@ -844,20 +878,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className="text-right p-1.5 text-xs">
                         {formatCurrency(settlement.uber_base)}
                       </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-red-600">
+                        {settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}
+                      </TableCell>
                       <TableCell className="text-right p-1.5 text-xs">
                         {formatCurrency(settlement.bolt_base)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-red-600">
+                        {settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-orange-600">
+                        {settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}
                       </TableCell>
                       <TableCell className="text-right p-1.5 text-xs">
                         {formatCurrency(settlement.freenow_base)}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        -{formatCurrency(settlement.total_commission)}
-                      </TableCell>
                       <TableCell className="text-right p-1.5 text-xs text-red-600">
-                        -{formatCurrency(settlement.total_cash)}
+                        {settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        -{formatCurrency(settlement.tax_8_percent)}
+                      <TableCell className="text-right p-1.5 text-xs text-orange-600">
+                        {settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-red-600 font-semibold">
+                        {settlement.total_cash > 0 ? `-${formatCurrency(settlement.total_cash)}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-orange-600 font-semibold">
+                        {settlement.total_commission > 0 ? `-${formatCurrency(settlement.total_commission)}` : '-'}
                       </TableCell>
                       <TableCell className="text-right p-1.5 text-xs">
                         -{formatCurrency(settlement.service_fee)}
@@ -877,20 +923,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     <TableCell className="text-right p-1.5 text-xs">
                       {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
                     </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-red-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
+                    </TableCell>
                     <TableCell className="text-right p-1.5 text-xs">
                       {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-red-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-orange-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
                     </TableCell>
                     <TableCell className="text-right p-1.5 text-xs">
                       {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
                     </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
-                    </TableCell>
                     <TableCell className="text-right p-1.5 text-xs text-red-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-orange-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-red-600 font-semibold">
                       -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
                     </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.tax_8_percent, 0))}
+                    <TableCell className="text-right p-1.5 text-xs text-orange-600 font-semibold">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
                     </TableCell>
                     <TableCell className="text-right p-1.5 text-xs">
                       -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
