@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
@@ -49,6 +50,8 @@ interface DriverSettlement {
   net_without_commission: number;
   final_payout: number;
   rental?: number;
+  fuel: number;
+  fuel_vat_refund: number;
   // For rental view
   vehicle?: string;
   weekly_rental_fee?: number;
@@ -79,12 +82,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     fetchCities();
   }, []);
 
-  // Format currency in Polish style
+  // Format currency in Polish style (without zł suffix for better alignment)
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('pl-PL', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(amount) + ' zł';
+    }).format(amount);
   };
 
   // Color amounts based on value
@@ -409,6 +412,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             tax_8_percent: 0,
             service_fee: 0,
             rental: 0,
+            fuel: 0,
+            fuel_vat_refund: 0,
             net_without_commission: 0,
             final_payout: 0,
           };
@@ -434,6 +439,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             tax_8_percent: 0,
             service_fee: 0,
             rental: 0,
+            fuel: 0,
+            fuel_vat_refund: 0,
             net_without_commission: total_base,
             final_payout: total_base,
           };
@@ -460,6 +467,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           tax_8_percent: tax,
           service_fee,
           rental,
+          fuel: total_fuel,
+          fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: total_base - total_commission - tax,
           final_payout: payout,
         };
@@ -851,118 +860,235 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           });
 
           return (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Uber</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-red-600">Uber got.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Bolt brutto</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-red-600">Bolt got.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-orange-600">Bolt prow.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">FreeNow</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-red-600">FN got.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-orange-600">FN prow.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-red-600 font-semibold">Razem got.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs text-orange-600 font-semibold">Razem prow.</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Opłata</TableHead>
-                    <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
-                    <TableHead className="text-right font-bold p-1.5 text-xs">Wypłata</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSettlements.map((settlement) => (
-                    <TableRow key={settlement.driver_id}>
-                      <TableCell className="font-medium p-1.5 text-xs">{settlement.driver_name}</TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        {formatCurrency(settlement.uber_base)}
+            <>
+              {/* Mobile View - Collapsible per driver */}
+              <div className="md:hidden space-y-2">
+                {filteredSettlements.map((settlement) => (
+                  <Collapsible key={settlement.driver_id} className="border rounded-lg bg-white">
+                    <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/50">
+                      <span className="font-medium text-sm">{settlement.driver_name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold ${getAmountColor(settlement.final_payout)}`}>
+                          {formatCurrency(settlement.final_payout)}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t">
+                        {/* Platform breakdown table */}
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-muted">
+                              <th className="text-left p-2 text-xs font-medium">Kategoria</th>
+                              <th className="text-right p-2 text-xs font-medium text-gray-900">Uber</th>
+                              <th className="text-right p-2 text-xs font-medium text-green-600">Bolt</th>
+                              <th className="text-right p-2 text-xs font-medium text-red-600">FreeNow</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-t">
+                              <td className="p-2 text-xs text-muted-foreground">Podstawa</td>
+                              <td className="p-2 text-right text-xs text-gray-900 tabular-nums">{settlement.uber_base > 0 ? formatCurrency(settlement.uber_base) : '-'}</td>
+                              <td className="p-2 text-right text-xs text-green-600 tabular-nums">{settlement.bolt_base > 0 ? formatCurrency(settlement.bolt_base) : '-'}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.freenow_base > 0 ? formatCurrency(settlement.freenow_base) : '-'}</td>
+                            </tr>
+                            <tr className="border-t">
+                              <td className="p-2 text-xs text-muted-foreground">Prowizja</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.uber_commission > 0 ? `-${formatCurrency(settlement.uber_commission)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}</td>
+                            </tr>
+                            <tr className="border-t">
+                              <td className="p-2 text-xs text-muted-foreground">Gotówka</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        
+                        {/* Summary section */}
+                        <div className="bg-gray-50 p-3 space-y-2 border-t">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Razem gotówka:</span>
+                            <span className="text-red-600 font-medium tabular-nums">{settlement.total_cash > 0 ? `-${formatCurrency(settlement.total_cash)}` : '-'}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Razem prowizja:</span>
+                            <span className="text-orange-600 font-medium tabular-nums">{settlement.total_commission > 0 ? `-${formatCurrency(settlement.total_commission)}` : '-'}</span>
+                          </div>
+                          {settlement.fuel > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Paliwo:</span>
+                              <span className="text-red-600 font-medium tabular-nums">-{formatCurrency(settlement.fuel)}</span>
+                            </div>
+                          )}
+                          {settlement.fuel_vat_refund > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">VAT zwrot:</span>
+                              <span className="text-green-600 font-medium tabular-nums">+{formatCurrency(settlement.fuel_vat_refund)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Opłata:</span>
+                            <span className="font-medium tabular-nums">-{formatCurrency(settlement.service_fee)}</span>
+                          </div>
+                          {(settlement.rental || 0) > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Wynajem:</span>
+                              <span className="font-medium tabular-nums">-{formatCurrency(settlement.rental || 0)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-bold border-t pt-2 mt-2">
+                            <span>Wypłata:</span>
+                            <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+                
+                {/* Mobile total summary */}
+                <div className="bg-muted/50 rounded-lg p-3 mt-4">
+                  <div className="flex justify-between text-sm font-bold">
+                    <span>RAZEM ({filteredSettlements.length}):</span>
+                    <span className={getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}>
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Desktop View - Full table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSettlements.map((settlement) => (
+                      <TableRow key={settlement.driver_id}>
+                        <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">{settlement.driver_name}</TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                          {formatCurrency(settlement.uber_base)}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                          {settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                          {formatCurrency(settlement.bolt_base)}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                          {settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                          {settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                          {formatCurrency(settlement.freenow_base)}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                          {settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                          {settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                          {settlement.total_cash > 0 ? `-${formatCurrency(settlement.total_cash)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                          {settlement.total_commission > 0 ? `-${formatCurrency(settlement.total_commission)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                          {settlement.fuel > 0 ? `-${formatCurrency(settlement.fuel)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                          {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                          -{formatCurrency(settlement.service_fee)}
+                        </TableCell>
+                        <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                          -{formatCurrency(settlement.rental || 0)}
+                        </TableCell>
+                        <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                          {formatCurrency(settlement.final_payout)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell className="px-2 py-1.5 text-xs whitespace-nowrap">RAZEM ({filteredSettlements.length})</TableCell>
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-red-600">
-                        {settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        {formatCurrency(settlement.bolt_base)}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-red-600">
-                        {settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-orange-600">
-                        {settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        {formatCurrency(settlement.freenow_base)}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-red-600">
-                        {settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-orange-600">
-                        {settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-red-600 font-semibold">
-                        {settlement.total_cash > 0 ? `-${formatCurrency(settlement.total_cash)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs text-orange-600 font-semibold">
-                        {settlement.total_commission > 0 ? `-${formatCurrency(settlement.total_commission)}` : '-'}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        -{formatCurrency(settlement.service_fee)}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel, 0))}
                       </TableCell>
-                      <TableCell className="text-right p-1.5 text-xs">
-                        -{formatCurrency(settlement.rental || 0)}
+                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                        +{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0))}
                       </TableCell>
-                      <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlement.final_payout)}`}>
-                        {formatCurrency(settlement.final_payout)}
+                      <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
+                      </TableCell>
+                      <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
+                      </TableCell>
+                      <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell className="p-1.5 text-xs">RAZEM ({filteredSettlements.length})</TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-red-600">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-red-600">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-orange-600">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-red-600">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-orange-600">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-red-600 font-semibold">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs text-orange-600 font-semibold">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
-                    </TableCell>
-                    <TableCell className="text-right p-1.5 text-xs">
-                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
-                    </TableCell>
-                    <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                    </TableCell>
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </div>
+                  </TableFooter>
+                </Table>
+              </div>
+            </>
           );
         })()}
       </CardContent>
