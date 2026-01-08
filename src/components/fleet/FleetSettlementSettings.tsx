@@ -34,7 +34,9 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [saving, setSaving] = useState(false);
   const [editingFee, setEditingFee] = useState<FleetFee | null>(null);
   const [driverPlanSelectionEnabled, setDriverPlanSelectionEnabled] = useState(true);
+  const [settlementFrequencyEnabled, setSettlementFrequencyEnabled] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
+  const [savingFrequencyToggle, setSavingFrequencyToggle] = useState(false);
   
   // Form state
   const [newFee, setNewFee] = useState<{
@@ -59,12 +61,13 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled')
       .eq('id', fleetId)
       .maybeSingle();
 
     if (!error && data) {
       setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
+      setSettlementFrequencyEnabled(data.settlement_frequency_enabled ?? false);
     }
   };
 
@@ -104,6 +107,26 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       toast.error('Błąd aktualizacji ustawień');
     } finally {
       setSavingToggle(false);
+    }
+  };
+
+  const handleToggleSettlementFrequency = async (enabled: boolean) => {
+    setSavingFrequencyToggle(true);
+    try {
+      const { error } = await supabase
+        .from('fleets')
+        .update({ settlement_frequency_enabled: enabled })
+        .eq('id', fleetId);
+
+      if (error) throw error;
+
+      setSettlementFrequencyEnabled(enabled);
+      toast.success(enabled ? 'Częstotliwość rozliczeń włączona' : 'Częstotliwość rozliczeń wyłączona');
+    } catch (error) {
+      console.error('Error updating fleet settings:', error);
+      toast.error('Błąd aktualizacji ustawień');
+    } finally {
+      setSavingFrequencyToggle(false);
     }
   };
 
@@ -261,6 +284,26 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             checked={driverPlanSelectionEnabled}
             onCheckedChange={handleToggleDriverPlanSelection}
             disabled={savingToggle}
+          />
+        </div>
+
+        {/* Settlement Frequency Toggle */}
+        <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+          <div className="flex items-center gap-3">
+            <span className="font-medium">Częstotliwość rozliczeń</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Gdy włączone, kierowcy mogą wybrać jak często chcą otrzymywać wypłaty (tygodniowo, co 2 tygodnie, co 3 tygodnie, miesięcznie). Opłata za rozliczenie jest pobierana tylko raz przy wypłacie, a środki są akumulowane.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Switch
+            checked={settlementFrequencyEnabled}
+            onCheckedChange={handleToggleSettlementFrequency}
+            disabled={savingFrequencyToggle}
           />
         </div>
 

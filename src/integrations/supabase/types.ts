@@ -246,6 +246,50 @@ export type Database = {
           },
         ]
       }
+      driver_accumulated_earnings: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          gross_earnings: number
+          id: string
+          is_paid: boolean | null
+          net_earnings: number
+          paid_at: string | null
+          period_from: string
+          period_to: string
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          gross_earnings?: number
+          id?: string
+          is_paid?: boolean | null
+          net_earnings?: number
+          paid_at?: string | null
+          period_from: string
+          period_to: string
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          gross_earnings?: number
+          id?: string
+          is_paid?: boolean | null
+          net_earnings?: number
+          paid_at?: string | null
+          period_from?: string
+          period_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_accumulated_earnings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_additional_fees: {
         Row: {
           amount: number
@@ -304,6 +348,7 @@ export type Database = {
           phone: string | null
           plan_type: string | null
           rodo_accepted_at: string | null
+          settlement_frequency: string | null
           settlement_plan_id: string | null
           terms_accepted_at: string | null
           user_id: string
@@ -315,6 +360,7 @@ export type Database = {
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null
+          settlement_frequency?: string | null
           settlement_plan_id?: string | null
           terms_accepted_at?: string | null
           user_id: string
@@ -326,6 +372,7 @@ export type Database = {
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null
+          settlement_frequency?: string | null
           settlement_plan_id?: string | null
           terms_accepted_at?: string | null
           user_id?: string
@@ -1109,6 +1156,7 @@ export type Database = {
           owner_phone: string | null
           phone: string | null
           postal_code: string | null
+          settlement_frequency_enabled: boolean | null
           street: string | null
         }
         Insert: {
@@ -1127,6 +1175,7 @@ export type Database = {
           owner_phone?: string | null
           phone?: string | null
           postal_code?: string | null
+          settlement_frequency_enabled?: boolean | null
           street?: string | null
         }
         Update: {
@@ -1145,6 +1194,7 @@ export type Database = {
           owner_phone?: string | null
           phone?: string | null
           postal_code?: string | null
+          settlement_frequency_enabled?: boolean | null
           street?: string | null
         }
         Relationships: []
