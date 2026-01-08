@@ -297,25 +297,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const aggregated = driversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
 
-        // Parsuj amounts JSONB - obsługuj STARE klucze camelCase z CSV importu
+        // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Stary format: uber (lub uberBase, uberCashless)
-          const uber = parseFloat(amounts.uber || amounts.uberBase || amounts.uberCashless || '0');
+          // Nowy format: uber_base, stary: uber, uberBase, uberCashless
+          const uber = parseFloat(amounts.uber_base || amounts.uber || amounts.uberBase || amounts.uberCashless || '0');
           return sum + uber;
         }, 0);
 
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Stary format: boltGross
-          const bolt = parseFloat(amounts.boltGross || amounts.bolt_projected_d || '0');
+          // Nowy format: bolt_projected_d, stary: boltGross
+          const bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
           return sum + bolt;
         }, 0);
 
         const freenow_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Stary format: freenowGross
-          const freenow = parseFloat(amounts.freenowGross || amounts.freenow_base_s || '0');
+          // Nowy format: freenow_base_s, stary: freenowGross
+          const freenow = parseFloat(amounts.freenow_base_s || amounts.freenowGross || '0');
           return sum + freenow;
         }, 0);
 
@@ -770,10 +770,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         tabs={subTabs}
       />
       <Card>
-        <CardHeader>
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        <CardHeader className="pb-4">
+        <div className="w-full space-y-4">
             <CardTitle>Rozliczenia kierowców</CardTitle>
-            <div className="flex items-center gap-4 flex-wrap">
+            <div className="w-full flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Miasto:</Label>
                 <Select value={selectedCityId} onValueChange={setSelectedCityId}>
