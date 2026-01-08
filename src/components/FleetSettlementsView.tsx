@@ -315,19 +315,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_commission = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Stary format: boltCommission + freenowCommission
-          const boltComm = parseFloat(amounts.boltCommission || '0');
-          const freenowComm = parseFloat(amounts.freenowCommission || amounts.freenow_commission_t || '0');
-          return sum + boltComm + freenowComm;
+          // Support both new (snake_case) and old (camelCase) formats
+          const boltComm = parseFloat(amounts.bolt_commission || amounts.boltCommission || '0');
+          const freenowComm = parseFloat(amounts.freenow_commission_t || amounts.freenowCommission || '0');
+          const uberComm = parseFloat(amounts.uber_commission || amounts.uberCommission || '0');
+          return sum + boltComm + freenowComm + uberComm;
         }, 0);
 
         const total_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Stary format: uberCash + boltCash + freenowCash
-          const uberCash = parseFloat(amounts.uberCash || amounts.uber_cash_f || '0');
-          const boltCash = parseFloat(amounts.boltCash || amounts.bolt_cash || '0');
-          const freenowCash = parseFloat(amounts.freenowCash || amounts.freenow_cash_f || '0');
+          // Support both new (snake_case) and old (camelCase) formats
+          const uberCash = parseFloat(amounts.uber_cash_f || amounts.uberCash || '0');
+          const boltCash = parseFloat(amounts.bolt_cash || amounts.boltCash || '0');
+          const freenowCash = parseFloat(amounts.freenow_cash_f || amounts.freenowCash || '0');
           return sum + uberCash + boltCash + freenowCash;
+        }, 0);
+
+        // Aggregate fuel costs and VAT refunds
+        const total_fuel = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.fuel || '0');
+        }, 0);
+
+        const total_fuel_vat_refund = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.fuel_vat_refund || amounts.fuelVatRefund || '0');
         }, 0);
 
         const tax = driverSettlements.reduce((sum, s) => {
@@ -400,8 +412,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
-        // FIXED: Subtract cash (driver already collected it from passengers)
-        const payout = total_base - total_commission - tax - service_fee - rental - total_cash;
+        // FIXED: Subtract cash, fuel, add VAT refund (matching driver panel formula)
+        const payout = total_base - total_commission - tax - service_fee - rental - total_cash - total_fuel + total_fuel_vat_refund;
 
         return {
           driver_id: driver.id,
