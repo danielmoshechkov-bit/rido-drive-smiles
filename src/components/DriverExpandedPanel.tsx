@@ -29,6 +29,7 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
   const [hasAuthAccount, setHasAuthAccount] = useState(false);
   const [settlementPlanName, setSettlementPlanName] = useState<string | null>(null);
   const [fleetSettings, setFleetSettings] = useState<{ base_fee: number; vat_rate: number } | null>(null);
+  const [settlementFrequency, setSettlementFrequency] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthAccount();
@@ -37,12 +38,25 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
 
   const fetchSettlementData = async () => {
     try {
-      // 1. Check if driver has assigned settlement plan
+      // 1. Fetch fleet_id directly from database for reliability
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('fleet_id')
+        .eq('id', driver.id)
+        .maybeSingle();
+      
+      const fleetId = driverData?.fleet_id;
+      
+      // 2. Check if driver has assigned settlement plan + frequency
       const { data: appUser } = await supabase
         .from('driver_app_users')
-        .select('settlement_plan_id')
+        .select('settlement_plan_id, settlement_frequency')
         .eq('driver_id', driver.id)
         .maybeSingle();
+      
+      if (appUser?.settlement_frequency) {
+        setSettlementFrequency(appUser.settlement_frequency);
+      }
       
       if (appUser?.settlement_plan_id) {
         // Fetch plan name
@@ -59,8 +73,7 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
         }
       }
       
-      // 2. If no plan - fetch fleet settings
-      const fleetId = (driver as any).fleet_id;
+      // 3. If no plan - fetch fleet settings
       if (fleetId) {
         const { data: fleet } = await supabase
           .from('fleets')
@@ -249,9 +262,19 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
 
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Sposób rozliczenia</h4>
-            <Badge className={settlementDisplay.color} variant="outline">
-              {settlementDisplay.label}
-            </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={settlementDisplay.color} variant="outline">
+                {settlementDisplay.label}
+              </Badge>
+              {settlementFrequency && (
+                <Badge variant="secondary" className="text-xs">
+                  {settlementFrequency === 'weekly' ? 'Co tydzień' :
+                   settlementFrequency === 'biweekly' ? 'Co 2 tygodnie' :
+                   settlementFrequency === 'triweekly' ? 'Co 3 tygodnie' :
+                   settlementFrequency === 'monthly' ? 'Co miesiąc' : settlementFrequency}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
