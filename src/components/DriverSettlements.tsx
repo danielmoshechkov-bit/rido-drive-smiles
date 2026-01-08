@@ -1366,17 +1366,17 @@ export const DriverSettlements = ({
                               </td>
                             </tr>
                             
-                            {/* Gotówka pobrana (informacyjnie) */}
+                            {/* Gotówka pobrana (z minusem dla jasności) */}
                             <tr className="border-t hover:bg-muted/50">
                               <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.cashCollected')}</td>
-                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.uber_cash_f ? `${amounts.uber_cash_f.toFixed(2)} zł` : '-'}
+                              <td className="p-1.5 text-right font-medium text-red-600 whitespace-nowrap text-xs">
+                                {amounts.uber_cash_f ? `-${amounts.uber_cash_f.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.bolt_cash ? `${amounts.bolt_cash.toFixed(2)} zł` : '-'}
+                              <td className="p-1.5 text-right font-medium text-red-600 whitespace-nowrap text-xs">
+                                {amounts.bolt_cash ? `-${amounts.bolt_cash.toFixed(2)} zł` : '-'}
                               </td>
-                              <td className="p-1.5 text-right font-medium text-blue-600 whitespace-nowrap text-xs">
-                                {amounts.freenow_cash_f ? `${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
+                              <td className="p-1.5 text-right font-medium text-red-600 whitespace-nowrap text-xs">
+                                {amounts.freenow_cash_f ? `-${amounts.freenow_cash_f.toFixed(2)} zł` : '-'}
                               </td>
                             </tr>
                             
