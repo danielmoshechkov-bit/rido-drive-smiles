@@ -48,7 +48,6 @@ interface DriverSettlement {
   tax_8_percent: number;
   vat_amount: number;
   service_fee: number;
-  base_fee: number;
   additional_fees: { name: string; amount: number }[];
   net_without_commission: number;
   final_payout: number;
@@ -440,10 +439,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return sum + uberTax + boltTax + freenowTax;
         }, 0);
 
-        // Pobierz service_fee z planu rozliczeniowego
+        // Pobierz service_fee - PRIORYTET: opłata flotowa, potem plan kierowcy
         const driverAppUser = (driver as any).driver_app_users;
         const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
-        const service_fee = plan?.service_fee || 50;
+        // Jeśli flota ustawiła base_fee > 0, użyj jej. W przeciwnym razie użyj planu kierowcy.
+        const service_fee = fleetBaseFee > 0 ? fleetBaseFee : (plan?.service_fee || 50);
 
         // Pobierz wynajem z przypisanego pojazdu
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
@@ -473,7 +473,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             tax_8_percent: 0,
             vat_amount: 0,
             service_fee: 0,
-            base_fee: 0,
             additional_fees: [],
             rental: 0,
             fuel: 0,
@@ -503,7 +502,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             tax_8_percent: 0,
             vat_amount: 0,
             service_fee: 0,
-            base_fee: 0,
             additional_fees: [],
             rental: 0,
             fuel: 0,
@@ -516,9 +514,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Calculate VAT amount from fleet settings
         const vat_amount = total_base * (fleetVatRate / 100);
 
+        // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
+        const isFirstFullWeekOfMonth = (weekStart: string): boolean => {
+          const start = new Date(weekStart);
+          // Tydzień jest "pierwszym pełnym" jeśli poniedziałek wypada między 1 a 7 dniem miesiąca
+          return start.getDate() >= 1 && start.getDate() <= 7;
+        };
+
+        const isFirstWeek = periodStart ? isFirstFullWeekOfMonth(periodStart) : false;
+
         // Calculate additional fees from fleet_settlement_fees
+        // Tygodniowe ZAWSZE + miesięczne TYLKO w pierwszym tygodniu miesiąca
         const additional_fees = fleetFees
-          .filter(fee => fee.frequency === 'weekly') // Only weekly fees for now
+          .filter(fee => {
+            if (fee.frequency === 'weekly') return true;
+            if (fee.frequency === 'monthly' && isFirstWeek) return true;
+            return false;
+          })
           .map(fee => ({
             name: fee.name,
             amount: fee.type === 'fixed' ? fee.amount : total_base * (fee.amount / 100)
@@ -527,8 +539,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const total_additional_fees = additional_fees.reduce((sum, f) => sum + f.amount, 0);
 
         // FIXED: Subtract cash, fuel, add VAT refund (matching driver panel formula)
-        // Now including VAT, base_fee, and additional_fees
-        const payout = total_base - total_commission - tax - vat_amount - service_fee - fleetBaseFee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+        // service_fee już zawiera fleetBaseFee gdy > 0, więc NIE dodawaj fleetBaseFee osobno
+        const payout = total_base - total_commission - tax - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
 
         return {
           driver_id: driver.id,
@@ -548,7 +560,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           tax_8_percent: tax,
           vat_amount,
           service_fee,
-          base_fee: fleetBaseFee,
           additional_fees,
           rental,
           fuel: total_fuel,
@@ -1024,12 +1035,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span className="text-muted-foreground">Opłata:</span>
                             <span className="font-medium tabular-nums">-{formatCurrency(settlement.service_fee)}</span>
                           </div>
-                          {settlement.base_fee > 0 && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Opłata stała:</span>
-                              <span className="font-medium tabular-nums">-{formatCurrency(settlement.base_fee)}</span>
-                            </div>
-                          )}
                           {settlement.additional_fees.map((fee, idx) => (
                             <div key={idx} className="flex justify-between text-xs">
                               <span className="text-muted-foreground">{fee.name}:</span>
@@ -1086,7 +1091,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableHead key={fee.id} className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">{fee.name}</TableHead>
                       ))}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata st.</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>
                     </TableRow>
@@ -1141,9 +1145,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         ))}
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           -{formatCurrency(settlement.service_fee)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          {settlement.base_fee > 0 ? `-${formatCurrency(settlement.base_fee)}` : '-'}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           -{formatCurrency(settlement.rental || 0)}
@@ -1203,9 +1204,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.base_fee, 0))}
                       </TableCell>
                       <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
