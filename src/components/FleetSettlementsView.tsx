@@ -235,11 +235,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       `;
       
       // Open in new window for print
-      const printWindow = window.open('', '_blank');
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (printWindow) {
+        printWindow.document.open();
         printWindow.document.write(htmlContent);
         printWindow.document.close();
-        printWindow.print();
+        printWindow.onload = () => printWindow.print();
+      } else {
+        toast.error('Przeglądarka zablokowała okno wydruku. Odblokuj popupy dla tej strony.');
       }
       
       // Clear payout_requested_at for processed drivers

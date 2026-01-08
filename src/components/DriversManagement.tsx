@@ -591,10 +591,11 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                         
                          {/* Payment Method Badge - Popover with options */}
                          <Popover>
-                           <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                           <PopoverTrigger asChild>
                              <Badge 
                                variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
                                className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                               onClick={(e) => e.stopPropagation()}
                              >
                                {driver.payment_method === 'cash' ? (
                                  <><Banknote className="h-3 w-3" /> Gotówka</>
