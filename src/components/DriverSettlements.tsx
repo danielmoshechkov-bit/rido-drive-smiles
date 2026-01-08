@@ -91,6 +91,7 @@ export const DriverSettlements = ({
   const [settlementFrequency, setSettlementFrequency] = useState<string>('weekly');
   const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
   const [accumulatedEarnings, setAccumulatedEarnings] = useState<number>(0);
+  const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -109,7 +110,7 @@ export const DriverSettlements = ({
       
       const { data: fleet } = await supabase
         .from('fleets')
-        .select('driver_plan_selection_enabled, settlement_frequency_enabled')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate')
         .eq('id', driver.fleet_id)
         .maybeSingle();
       
@@ -118,6 +119,7 @@ export const DriverSettlements = ({
           setFleetPlanSelectionDisabled(true);
         }
         setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
+        setFleetVatRate(fleet.vat_rate ?? null);
       }
       
       // Get driver's current frequency setting
@@ -1180,9 +1182,9 @@ export const DriverSettlements = ({
                           </div>
                         )}
                         
-                        {/* Razem podatek 8% - DUŻA CZCIONKA */}
+                        {/* Razem podatek - DUŻA CZCIONKA */}
                         <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                          <span className="font-bold">{t('weekly.totalTax')}:</span>
+                          <span className="font-bold">{t('weekly.totalTax')} {fleetVatRate ?? 8}%:</span>
                           <span className="font-bold text-foreground text-lg">-{totalTax.toFixed(2)} zł</span>
                         </div>
                         
