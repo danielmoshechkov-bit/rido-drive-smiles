@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DriverDocumentStatuses } from "./DriverDocumentStatuses";
 import { PlatformIdEditor } from "./PlatformIdEditor";
 import { DriverRoleManager } from "./DriverRoleManager";
@@ -10,7 +11,7 @@ import { VehicleHistorySection } from "./VehicleHistorySection";
 import { Driver } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Key, UserCircle } from "lucide-react";
+import { Key, UserCircle, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 
@@ -263,17 +264,77 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Sposób rozliczenia</h4>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Sposób rozliczenia badge - read only for now */}
               <Badge className={settlementDisplay.color} variant="outline">
                 {settlementDisplay.label}
               </Badge>
-              {settlementFrequency && (
-                <Badge variant="secondary" className="text-xs">
-                  {settlementFrequency === 'weekly' ? 'Co tydzień' :
-                   settlementFrequency === 'biweekly' ? 'Co 2 tygodnie' :
-                   settlementFrequency === 'triweekly' ? 'Co 3 tygodnie' :
-                   settlementFrequency === 'monthly' ? 'Co miesiąc' : settlementFrequency}
-                </Badge>
-              )}
+              
+              {/* Częstotliwość rozliczenia - editable */}
+              <Popover>
+                <PopoverTrigger onClick={(e) => e.stopPropagation()}>
+                  <Badge variant="secondary" className="text-xs cursor-pointer hover:opacity-80 gap-1">
+                    <Settings className="h-3 w-3" />
+                    {settlementFrequency === 'weekly' ? 'Co tydzień' :
+                     settlementFrequency === 'biweekly' ? 'Co 2 tygodnie' :
+                     settlementFrequency === 'triweekly' ? 'Co 3 tygodnie' :
+                     settlementFrequency === 'monthly' ? 'Co miesiąc' : 'Co tydzień'}
+                  </Badge>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2 bg-popover border shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">Częstotliwość rozliczenia</p>
+                    {[
+                      { value: 'weekly', label: 'Co tydzień' },
+                      { value: 'biweekly', label: 'Co 2 tygodnie' },
+                      { value: 'triweekly', label: 'Co 3 tygodnie' },
+                      { value: 'monthly', label: 'Co miesiąc' }
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        className={`w-full p-2 rounded hover:bg-muted text-left text-sm ${settlementFrequency === option.value ? 'bg-muted font-medium' : ''}`}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const oldFrequency = settlementFrequency;
+                          // Update driver_app_users
+                          await supabase
+                            .from('driver_app_users')
+                            .update({ settlement_frequency: option.value })
+                            .eq('driver_id', driver.id);
+                          
+                          // Get fleet manager name for notification
+                          const { data: userData } = await supabase.auth.getUser();
+                          const { data: fleetData } = await supabase
+                            .from('fleets')
+                            .select('contact_name')
+                            .eq('id', (await supabase.from('drivers').select('fleet_id').eq('id', driver.id).single()).data?.fleet_id)
+                            .maybeSingle();
+                          
+                          const managerName = fleetData?.contact_name || 'Opiekun flotowy';
+                          const oldLabel = oldFrequency === 'weekly' ? 'Co tydzień' :
+                                          oldFrequency === 'biweekly' ? 'Co 2 tygodnie' :
+                                          oldFrequency === 'triweekly' ? 'Co 3 tygodnie' :
+                                          oldFrequency === 'monthly' ? 'Co miesiąc' : 'brak';
+                          
+                          // Insert notification for driver
+                          await supabase.from('driver_communications').insert({
+                            driver_id: driver.id,
+                            type: 'notification',
+                            subject: 'Zmiana częstotliwości rozliczeń',
+                            content: `${managerName} zmienił częstotliwość rozliczeń z "${oldLabel}" na "${option.label}"`,
+                            status: 'pending'
+                          });
+                          
+                          setSettlementFrequency(option.value);
+                          toast.success(`Zmieniono na: ${option.label}`);
+                          onUpdate();
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>

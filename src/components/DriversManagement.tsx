@@ -591,11 +591,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                         
                          {/* Payment Method Badge - Popover with options */}
                          <Popover>
-                           <PopoverTrigger asChild>
+                           <PopoverTrigger onClick={(e) => e.stopPropagation()}>
                              <Badge 
                                variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
                                className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
-                               onClick={(e) => e.stopPropagation()}
                              >
                                {driver.payment_method === 'cash' ? (
                                  <><Banknote className="h-3 w-3" /> Gotówka</>
@@ -604,11 +603,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                )}
                              </Badge>
                            </PopoverTrigger>
-                           <PopoverContent className="w-40 p-2" onClick={(e) => e.stopPropagation()}>
+                           <PopoverContent 
+                             className="w-40 p-2 bg-popover border shadow-lg z-50" 
+                             onClick={(e) => e.stopPropagation()}
+                           >
                              <div className="space-y-1">
                                <button
                                  className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'cash' ? 'bg-muted font-medium' : ''}`}
-                                 onClick={async () => {
+                                 onClick={async (e) => {
+                                   e.stopPropagation();
                                    await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', driver.id);
                                    toast.success('Zmieniono na: Gotówka');
                                    refetch();
@@ -618,7 +621,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                </button>
                                <button
                                  className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'transfer' ? 'bg-muted font-medium' : ''}`}
-                                 onClick={async () => {
+                                 onClick={async (e) => {
+                                   e.stopPropagation();
                                    await supabase.from('drivers').update({ payment_method: 'transfer' }).eq('id', driver.id);
                                    toast.success('Zmieniono na: Przelew');
                                    refetch();
