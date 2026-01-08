@@ -1015,7 +1015,9 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
       const { data: plans } = await supabase
         .from('settlement_plans')
         .select('*')
-        .order('fee_amount');
+        .eq('is_active', true)
+        .eq('is_visible', true)
+        .order('base_fee');
       
       if (plans) {
         setSettlementPlans(plans);
@@ -1180,7 +1182,7 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
                     <SelectContent>
                       {settlementPlans.map(plan => (
                         <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name} ({plan.fee_amount} zł + {plan.tax_rate}%)
+                          {plan.name} ({plan.base_fee} zł + {plan.tax_percentage}%)
                         </SelectItem>
                       ))}
                     </SelectContent>

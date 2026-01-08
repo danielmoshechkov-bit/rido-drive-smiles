@@ -348,139 +348,149 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        {/* Registration Link Section */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Link className="h-4 w-4" />
-              Link rejestracyjny dla kierowców
-            </CardTitle>
-            <CardDescription>
-              Kierowcy rejestrujący się przez ten link zostaną automatycznie przypisani do Twojej floty
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Input 
-                readOnly 
-                value={registrationCode ? `${window.location.origin}/rejestracja?fleet=${registrationCode}` : 'Generowanie...'} 
-                className="font-mono text-sm"
-              />
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={copyRegistrationLink}
-                disabled={!registrationCode}
-                title="Kopiuj link"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={regenerateRegistrationCode}
-                disabled={regeneratingCode}
-                title="Wygeneruj nowy kod"
-              >
-                <RefreshCw className={`h-4 w-4 ${regeneratingCode ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Kod: <span className="font-mono font-bold">{registrationCode || '...'}</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Fleet-level VAT and Base Fee Settings */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Settings className="h-4 w-4" />
-              Ustawienia rozliczeń
-            </CardTitle>
-            <CardDescription>
-              Globalne ustawienia dotyczące wszystkich rozliczeń kierowców w tej flocie
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vat-rate">Stawka VAT (%)</Label>
-                <Input
-                  id="vat-rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder="8"
-                  value={vatRate}
-                  onChange={(e) => setVatRate(e.target.value)}
+      <div className="space-y-4">
+        {/* Row 1: Registration Link + Settlement Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          {/* Registration Link Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Link className="h-4 w-4" />
+                Link rejestracyjny
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Kierowcy rejestrujący się przez ten link zostaną automatycznie przypisani do floty
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Input 
+                  readOnly 
+                  value={registrationCode ? `${window.location.origin}/rejestracja?fleet=${registrationCode}` : 'Generowanie...'} 
+                  className="font-mono text-xs"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Stawka VAT odejmowana od zarobków kierowców
-                </p>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={copyRegistrationLink}
+                  disabled={!registrationCode}
+                  title="Kopiuj link"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={regenerateRegistrationCode}
+                  disabled={regeneratingCode}
+                  title="Wygeneruj nowy kod"
+                >
+                  <RefreshCw className={`h-4 w-4 ${regeneratingCode ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="base-fee">Opłata stała (zł)</Label>
-                <Input
-                  id="base-fee"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0"
-                  value={baseFee}
-                  onChange={(e) => setBaseFee(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Stała opłata tygodniowa pobierana od kierowców
-                </p>
-              </div>
-            </div>
-            <Button onClick={handleSaveSettings} disabled={savingSettings}>
-              {savingSettings ? 'Zapisywanie...' : 'Zapisz ustawienia'}
-            </Button>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-muted-foreground mt-2">
+                Kod: <span className="font-mono font-bold">{registrationCode || '...'}</span>
+              </p>
+            </CardContent>
+          </Card>
 
-        {/* Driver Plan Selection Toggle - Compact */}
-        <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
-          <div className="flex items-center gap-3">
-            <span className="font-medium">Wybór planu przez kierowców</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>Gdy wyłączone, kierowcy nie mogą samodzielnie zmieniać planu rozliczeniowego. Tylko flota może przypisać plan.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <Switch
-            checked={driverPlanSelectionEnabled}
-            onCheckedChange={handleToggleDriverPlanSelection}
-            disabled={savingToggle}
-          />
+          {/* Fleet-level VAT and Base Fee Settings */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Settings className="h-4 w-4" />
+                Ustawienia rozliczeń
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Globalne ustawienia dla wszystkich kierowców
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="vat-rate" className="text-xs">VAT (%)</Label>
+                  <Input
+                    id="vat-rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="8"
+                    value={vatRate}
+                    onChange={(e) => setVatRate(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="base-fee" className="text-xs">Opłata stała (zł)</Label>
+                  <Input
+                    id="base-fee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    value={baseFee}
+                    onChange={(e) => setBaseFee(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+              <Button onClick={handleSaveSettings} disabled={savingSettings} size="sm" className="w-full">
+                {savingSettings ? 'Zapisywanie...' : 'Zapisz'}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Settlement Frequency Toggle */}
-        <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
-          <div className="flex items-center gap-3">
-            <span className="font-medium">Częstotliwość rozliczeń</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>Gdy włączone, kierowcy mogą wybrać jak często chcą otrzymywać wypłaty (tygodniowo, co 2 tygodnie, co 3 tygodnie, miesięcznie). Opłata za rozliczenie jest pobierana tylko raz przy wypłacie, a środki są akumulowane.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <Switch
-            checked={settlementFrequencyEnabled}
-            onCheckedChange={handleToggleSettlementFrequency}
-            disabled={savingFrequencyToggle}
-          />
+        {/* Row 2: Toggles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          {/* Driver Plan Selection Toggle */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">Wybór planu przez kierowców</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Gdy wyłączone, kierowcy nie mogą samodzielnie zmieniać planu rozliczeniowego.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Switch
+                  checked={driverPlanSelectionEnabled}
+                  onCheckedChange={handleToggleDriverPlanSelection}
+                  disabled={savingToggle}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Settlement Frequency Toggle */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">Częstotliwość rozliczeń</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Gdy włączone, kierowcy mogą wybrać częstotliwość wypłat.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Switch
+                  checked={settlementFrequencyEnabled}
+                  onCheckedChange={handleToggleSettlementFrequency}
+                  disabled={savingFrequencyToggle}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
       {/* Fees Management */}
