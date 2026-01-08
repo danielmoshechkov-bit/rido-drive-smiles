@@ -1080,6 +1080,26 @@ export const DriverSettlements = ({
                   )}
                 </div>
               )}
+              {/* Settlement Frequency Selector - Desktop */}
+              {fleetFrequencyEnabled && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Label className="text-sm whitespace-nowrap">Częstotliwość:</Label>
+                  <Select 
+                    value={settlementFrequency} 
+                    onValueChange={handleFrequencyChange}
+                  >
+                    <SelectTrigger className="h-9 w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Co tydzień</SelectItem>
+                      <SelectItem value="biweekly">Co 2 tygodnie</SelectItem>
+                      <SelectItem value="triweekly">Co 3 tygodnie</SelectItem>
+                      <SelectItem value="monthly">Raz w miesiącu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             {/* Mobile: collapsible controls */}
@@ -1199,6 +1219,26 @@ export const DriverSettlements = ({
                           {plan.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Settlement Frequency Selector - Mobile */}
+              {fleetFrequencyEnabled && (
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm">Częstotliwość rozliczeń:</Label>
+                  <Select 
+                    value={settlementFrequency} 
+                    onValueChange={handleFrequencyChange}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Co tydzień</SelectItem>
+                      <SelectItem value="biweekly">Co 2 tygodnie</SelectItem>
+                      <SelectItem value="triweekly">Co 3 tygodnie</SelectItem>
+                      <SelectItem value="monthly">Raz w miesiącu</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

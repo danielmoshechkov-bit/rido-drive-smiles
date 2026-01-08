@@ -1103,6 +1103,8 @@ export type Database = {
           name: string
           type: string
           updated_at: string
+          valid_from: string | null
+          valid_to: string | null
           vat_rate: number
         }
         Insert: {
@@ -1115,6 +1117,8 @@ export type Database = {
           name: string
           type?: string
           updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
           vat_rate?: number
         }
         Update: {
@@ -1127,6 +1131,8 @@ export type Database = {
           name?: string
           type?: string
           updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
           vat_rate?: number
         }
         Relationships: [
