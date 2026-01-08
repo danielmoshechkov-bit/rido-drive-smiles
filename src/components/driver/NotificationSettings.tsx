@@ -114,7 +114,7 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
   }
 
   return (
-    <Card className="max-w-md">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Bell className="h-4 w-4" />
