@@ -345,6 +345,7 @@ export type Database = {
           city_id: string | null
           created_at: string | null
           driver_id: string | null
+          payout_requested_at: string | null
           phone: string | null
           plan_type: string | null
           rodo_accepted_at: string | null
@@ -357,6 +358,7 @@ export type Database = {
           city_id?: string | null
           created_at?: string | null
           driver_id?: string | null
+          payout_requested_at?: string | null
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null
@@ -369,6 +371,7 @@ export type Database = {
           city_id?: string | null
           created_at?: string | null
           driver_id?: string | null
+          payout_requested_at?: string | null
           phone?: string | null
           plan_type?: string | null
           rodo_accepted_at?: string | null

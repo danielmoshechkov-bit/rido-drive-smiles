@@ -967,6 +967,7 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
   const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
   const [fleetBaseFee, setFleetBaseFee] = useState<number | null>(null);
+  const [payoutRequested, setPayoutRequested] = useState(false);
 
   useEffect(() => {
     loadDriverInfo();
@@ -1030,13 +1031,14 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
       // Get driver's current settings
       const { data: appUser } = await supabase
         .from('driver_app_users')
-        .select('settlement_plan_id, settlement_frequency')
+        .select('settlement_plan_id, settlement_frequency, payout_requested_at')
         .eq('driver_id', driverId)
         .maybeSingle();
       
       if (appUser) {
         setSelectedPlanId(appUser.settlement_plan_id || "");
         setSettlementFrequency(appUser.settlement_frequency || "weekly");
+        setPayoutRequested(!!(appUser as any).payout_requested_at);
       }
     } catch (error) {
       console.error('Error loading settlement settings:', error);
@@ -1168,6 +1170,43 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
                   onChange={handleIbanChange}
                   placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
                 />
+              </div>
+            )}
+            
+            {/* Request payout button - only for non-weekly frequencies */}
+            {settlementFrequency !== 'weekly' && (
+              <div className="pt-3 border-t">
+                <Button 
+                  variant={payoutRequested ? "secondary" : "outline"}
+                  className="w-full gap-2"
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('driver_app_users')
+                        .update({ payout_requested_at: new Date().toISOString() })
+                        .eq('driver_id', driverId);
+                      
+                      if (error) throw error;
+                      setPayoutRequested(true);
+                      toast.success('Wypłata zlecona! Otrzymasz ją przy najbliższym terminie.');
+                    } catch (error) {
+                      console.error('Error requesting payout:', error);
+                      toast.error('Błąd zlecania wypłaty');
+                    }
+                  }}
+                  disabled={payoutRequested}
+                >
+                  {payoutRequested ? (
+                    <>✓ Wypłata zlecona</>
+                  ) : (
+                    <>💰 Zleć wypłatę</>
+                  )}
+                </Button>
+                {payoutRequested && (
+                  <p className="text-xs text-green-600 mt-2 text-center">
+                    Twoja wypłata trafi do najbliższej listy wypłat
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
