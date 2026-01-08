@@ -234,6 +234,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           first_name, 
           last_name,
           city_id,
+          fuel_card_number,
           driver_app_users!inner(settlement_plan_id)
         `)
         .eq('fleet_id', fleetId);
@@ -292,6 +293,29 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         `)
         .in('driver_id', driverIds)
         .eq('status', 'active');
+
+      // Pobierz transakcje paliwowe dla okresu - dynamicznie jak w DriverSettlements
+      const periodStart = currentWeek?.start || periodFrom;
+      const periodEnd = currentWeek?.end || periodTo;
+      
+      let fuelQuery = supabase
+        .from('fuel_transactions')
+        .select('card_number, total_amount');
+      
+      if (periodStart) fuelQuery = fuelQuery.gte('period_from', periodStart);
+      if (periodEnd) fuelQuery = fuelQuery.lte('period_to', periodEnd);
+      
+      const { data: fuelTransactions } = await fuelQuery;
+      console.log('⛽ Fuel transactions found:', fuelTransactions?.length || 0);
+
+      // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
+      const driverFuelCards: Record<string, string> = {};
+      driversData.forEach(d => {
+        const driver = d as any;
+        if (driver.fuel_card_number) {
+          driverFuelCards[driver.id] = driver.fuel_card_number.replace(/^0+/, '');
+        }
+      });
 
       // Agreguj rozliczenia per kierowca
       const aggregated = driversData.map(driver => {
@@ -355,16 +379,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_cash = uber_cash + bolt_cash + freenow_cash;
 
-        // Aggregate fuel costs and VAT refunds
-        const total_fuel = driverSettlements.reduce((sum, s) => {
-          const amounts = s.amounts as any || {};
-          return sum + parseFloat(amounts.fuel || '0');
-        }, 0);
+        // Aggregate fuel costs and VAT refunds - DYNAMICZNIE z fuel_transactions
+        const driverCardNumber = driverFuelCards[driver.id];
+        let total_fuel = 0;
+        let total_fuel_vat_refund = 0;
 
-        const total_fuel_vat_refund = driverSettlements.reduce((sum, s) => {
-          const amounts = s.amounts as any || {};
-          return sum + parseFloat(amounts.fuel_vat_refund || amounts.fuelVatRefund || '0');
-        }, 0);
+        if (driverCardNumber && fuelTransactions) {
+          const matchingFuel = fuelTransactions.filter(tx => 
+            tx.card_number?.replace(/^0+/, '') === driverCardNumber
+          );
+          total_fuel = matchingFuel.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
+          // VAT refund = (fuel - fuel/1.23) / 2 (50% zwrotu VAT)
+          total_fuel_vat_refund = (total_fuel - total_fuel / 1.23) / 2;
+        }
 
         const tax = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
