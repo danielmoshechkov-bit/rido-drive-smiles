@@ -15,6 +15,7 @@ interface RegisterDriverRequest {
   payment_method: string;
   iban?: string;
   language?: string;
+  fleet_code?: string;
 }
 
 Deno.serve(async (req) => {
@@ -32,9 +33,26 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterDriverRequest = await req.json();
-    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl" } = body;
+    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl", fleet_code } = body;
 
-    console.log("📝 Starting driver registration for:", email, "language:", language);
+    console.log("📝 Starting driver registration for:", email, "language:", language, "fleet_code:", fleet_code);
+
+    // Resolve fleet_id from fleet_code if provided
+    let fleetId: string | null = null;
+    if (fleet_code) {
+      const { data: fleetData } = await supabaseAdmin
+        .from("fleets")
+        .select("id")
+        .eq("registration_code", fleet_code)
+        .maybeSingle();
+      
+      if (fleetData) {
+        fleetId = fleetData.id;
+        console.log("🏢 Fleet found for code:", fleet_code, "->", fleetId);
+      } else {
+        console.log("⚠️ Fleet code not found:", fleet_code);
+      }
+    }
 
     // 1. Create auth user with email_confirm: true (user can login immediately)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -96,40 +114,56 @@ Deno.serve(async (req) => {
       driverId = existingDriver.id;
       console.log("📋 Updating existing driver:", driverId, "getrido_id:", existingDriver.getrido_id);
       
+      const updateData: Record<string, any> = {
+        first_name,  // Update name to what driver entered
+        last_name,   // Update surname to what driver entered
+        email,       // Update email if changed
+        phone,       // Update phone if changed
+        payment_method,
+        iban: payment_method === "transfer" ? iban : null,
+        preferred_language: language,
+        updated_at: new Date().toISOString()
+        // NOTE: getrido_id, city_id, driver_platform_ids are NOT updated - preserved!
+      };
+      
+      // If registering via fleet link, update fleet_id and registered_via_code
+      if (fleetId) {
+        updateData.fleet_id = fleetId;
+        updateData.registered_via_code = fleet_code;
+      }
+      
       await supabaseAdmin
         .from("drivers")
-        .update({
-          first_name,  // Update name to what driver entered
-          last_name,   // Update surname to what driver entered
-          email,       // Update email if changed
-          phone,       // Update phone if changed
-          payment_method,
-          iban: payment_method === "transfer" ? iban : null,
-          preferred_language: language,
-          updated_at: new Date().toISOString()
-          // NOTE: getrido_id, city_id, driver_platform_ids are NOT updated - preserved!
-        })
+        .update(updateData)
         .eq("id", driverId);
       
-      console.log("✅ Driver updated, getrido_id preserved:", existingDriver.getrido_id);
+      console.log("✅ Driver updated, getrido_id preserved:", existingDriver.getrido_id, "fleet_id:", fleetId);
     } else {
       // Create new driver with getrido_id
       const getrido_id = Math.random().toString(36).substring(2, 8).toUpperCase();
       
+      const insertData: Record<string, any> = {
+        first_name,
+        last_name,
+        email,
+        phone,
+        city_id,
+        payment_method,
+        iban: payment_method === "transfer" ? iban : null,
+        getrido_id,
+        preferred_language: language,
+        registration_date: new Date().toISOString()
+      };
+      
+      // If registering via fleet link, set fleet_id and registered_via_code
+      if (fleetId) {
+        insertData.fleet_id = fleetId;
+        insertData.registered_via_code = fleet_code;
+      }
+      
       const { data: newDriver, error: driverError } = await supabaseAdmin
         .from("drivers")
-        .insert({
-          first_name,
-          last_name,
-          email,
-          phone,
-          city_id,
-          payment_method,
-          iban: payment_method === "transfer" ? iban : null,
-          getrido_id,
-          preferred_language: language,
-          registration_date: new Date().toISOString()
-        })
+        .insert(insertData)
         .select("id")
         .single();
 
@@ -144,7 +178,7 @@ Deno.serve(async (req) => {
       }
       
       driverId = newDriver.id;
-      console.log("✅ New driver created:", driverId);
+      console.log("✅ New driver created:", driverId, "fleet_id:", fleetId);
     }
 
     // 3. Create driver_app_users link

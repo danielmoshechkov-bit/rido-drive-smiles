@@ -793,6 +793,7 @@ export type Database = {
           payment_method: string | null
           phone: string | null
           preferred_language: string | null
+          registered_via_code: string | null
           registration_date: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
@@ -813,6 +814,7 @@ export type Database = {
           payment_method?: string | null
           phone?: string | null
           preferred_language?: string | null
+          registered_via_code?: string | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -833,6 +835,7 @@ export type Database = {
           payment_method?: string | null
           phone?: string | null
           preferred_language?: string | null
+          registered_via_code?: string | null
           registration_date?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
@@ -1162,6 +1165,7 @@ export type Database = {
           owner_phone: string | null
           phone: string | null
           postal_code: string | null
+          registration_code: string | null
           settlement_frequency_enabled: boolean | null
           street: string | null
         }
@@ -1181,6 +1185,7 @@ export type Database = {
           owner_phone?: string | null
           phone?: string | null
           postal_code?: string | null
+          registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
         }
@@ -1200,6 +1205,7 @@ export type Database = {
           owner_phone?: string | null
           phone?: string | null
           postal_code?: string | null
+          registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
         }

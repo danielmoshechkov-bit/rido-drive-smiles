@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe, Building2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const languages = [
@@ -21,6 +21,7 @@ const languages = [
 
 export default function DriverRegister() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -36,6 +37,11 @@ export default function DriverRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || "pl");
+  
+  // Fleet registration
+  const fleetCode = searchParams.get('fleet');
+  const [fleetInfo, setFleetInfo] = useState<{id: string; name: string} | null>(null);
+  const [fleetLoading, setFleetLoading] = useState(false);
   
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer");
@@ -60,6 +66,24 @@ export default function DriverRegister() {
     };
     loadCities();
   }, []);
+
+  // Load fleet info if code provided
+  useEffect(() => {
+    if (fleetCode) {
+      setFleetLoading(true);
+      supabase
+        .from('fleets')
+        .select('id, name')
+        .eq('registration_code', fleetCode)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setFleetInfo(data);
+          }
+          setFleetLoading(false);
+        });
+    }
+  }, [fleetCode]);
 
   const handleLanguageChange = (langCode: string) => {
     setSelectedLanguage(langCode);
@@ -102,7 +126,8 @@ export default function DriverRegister() {
             password,
             payment_method: paymentMethod,
             iban: paymentMethod === "transfer" ? iban : null,
-            language: selectedLanguage
+            language: selectedLanguage,
+            fleet_code: fleetCode || null
           })
         }
       );
@@ -159,6 +184,30 @@ export default function DriverRegister() {
             
             <CardTitle className="text-3xl">{t("register.title")}</CardTitle>
             <p className="text-muted-foreground">{t("register.subtitle")}</p>
+            
+            {/* Fleet info banner */}
+            {fleetCode && (
+              <div className={`mt-4 p-3 rounded-lg border ${fleetInfo ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-muted/50 border-border'}`}>
+                {fleetLoading ? (
+                  <p className="text-sm text-muted-foreground">Sprawdzanie kodu floty...</p>
+                ) : fleetInfo ? (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-green-600" />
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Rejestrujesz się do floty:
+                      </p>
+                      <p className="text-lg font-bold text-green-900 dark:text-green-100">
+                        {fleetInfo.name}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-amber-600">⚠️ Nieprawidłowy kod floty</p>
+                )}
+              </div>
+            )}
+            
             <p className="text-xs text-muted-foreground mt-2">{t("register.requiredFields")}</p>
           </CardHeader>
           <CardContent className="space-y-4">
