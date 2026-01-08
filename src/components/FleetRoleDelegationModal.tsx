@@ -43,6 +43,10 @@ export const FleetRoleDelegationModal = ({
   const [loading, setLoading] = useState(false);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const { canViewTab } = useTabPermissions();
+  
+  // New: assignment type - driver from fleet or external person
+  const [assignmentType, setAssignmentType] = useState<'driver' | 'other'>('driver');
+  const [externalEmail, setExternalEmail] = useState('');
 
   // Permissions state
   const [permissions, setPermissions] = useState({
@@ -97,6 +101,8 @@ export const FleetRoleDelegationModal = ({
   const resetForm = () => {
     setSelectedDriverId('');
     setRoleName('');
+    setAssignmentType('driver');
+    setExternalEmail('');
     setPermissions({
       settlements: {
         enabled: false,
@@ -172,10 +178,29 @@ export const FleetRoleDelegationModal = ({
   };
 
   const handleSubmit = async () => {
-    if (!selectedDriverId || !roleName.trim()) {
+    // Validate based on assignment type
+    if (assignmentType === 'driver' && !selectedDriverId) {
       toast({
         title: 'Błąd walidacji',
-        description: 'Wybierz kierowcę i wpisz nazwę stanowiska',
+        description: 'Wybierz kierowcę',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (assignmentType === 'other' && !externalEmail.trim()) {
+      toast({
+        title: 'Błąd walidacji',
+        description: 'Wprowadź adres email',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!roleName.trim()) {
+      toast({
+        title: 'Błąd walidacji',
+        description: 'Wpisz nazwę stanowiska',
         variant: 'destructive',
       });
       return;
@@ -208,12 +233,69 @@ export const FleetRoleDelegationModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nie znaleziono użytkownika');
 
-      // Pobierz user_id kierowcy
-      const { data: driverAppUser } = await supabase
-        .from('driver_app_users')
-        .select('user_id')
-        .eq('driver_id', selectedDriverId)
-        .maybeSingle();
+      let assignedDriverId: string | null = null;
+      let assignedUserId: string | null = null;
+
+      if (assignmentType === 'driver') {
+        assignedDriverId = selectedDriverId;
+        // Pobierz user_id kierowcy
+        const { data: driverAppUser } = await supabase
+          .from('driver_app_users')
+          .select('user_id')
+          .eq('driver_id', selectedDriverId)
+          .maybeSingle();
+        assignedUserId = driverAppUser?.user_id || null;
+      } else {
+        // Search for user by email
+        const emailLower = externalEmail.trim().toLowerCase();
+        
+        // First check driver_app_users (via drivers table email)
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('id, email')
+          .ilike('email', emailLower)
+          .maybeSingle();
+        
+        if (driverData) {
+          assignedDriverId = driverData.id;
+          const { data: appUser } = await supabase
+            .from('driver_app_users')
+            .select('user_id')
+            .eq('driver_id', driverData.id)
+            .maybeSingle();
+          assignedUserId = appUser?.user_id || null;
+        } else {
+          // Check marketplace_user_profiles
+          const { data: marketplaceUser } = await supabase
+            .from('marketplace_user_profiles')
+            .select('id, user_id')
+            .ilike('email', emailLower)
+            .maybeSingle();
+          
+          if (marketplaceUser) {
+            assignedUserId = marketplaceUser.user_id;
+            // No driver_id for marketplace users - need to handle this
+          } else {
+            toast({
+              title: 'Nie znaleziono użytkownika',
+              description: 'Osoba z tym adresem email nie ma konta w systemie (kierowcy lub giełdy)',
+              variant: 'destructive',
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      if (!assignedDriverId && !assignedUserId) {
+        toast({
+          title: 'Błąd',
+          description: 'Nie można przypisać roli - brak przypisanego użytkownika',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
 
       const permissionsData = {
         tabs: {
@@ -230,7 +312,7 @@ export const FleetRoleDelegationModal = ({
           .update({
             role_name: roleName,
             permissions: permissionsData,
-            assigned_to_user_id: driverAppUser?.user_id || null,
+            assigned_to_user_id: assignedUserId,
           })
           .eq('id', editRole.id);
 
@@ -241,14 +323,26 @@ export const FleetRoleDelegationModal = ({
           description: 'Rola została zaktualizowana',
         });
       } else {
-        // Create new role
+        // Create new role - need driver_id (required field)
+        if (!assignedDriverId) {
+          // For marketplace users without driver record, we cannot assign currently
+          // as assigned_to_driver_id is required
+          toast({
+            title: 'Błąd',
+            description: 'Ta osoba nie jest kierowcą w systemie. Może dodać się jako kierowca lub skontaktować się z flotą.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+        
         const { error } = await supabase
           .from('fleet_delegated_roles')
           .insert({
             fleet_id: fleetId,
             created_by: user.id,
-            assigned_to_driver_id: selectedDriverId,
-            assigned_to_user_id: driverAppUser?.user_id || null,
+            assigned_to_driver_id: assignedDriverId,
+            assigned_to_user_id: assignedUserId,
             role_name: roleName,
             permissions: permissionsData,
           });
@@ -285,29 +379,72 @@ export const FleetRoleDelegationModal = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Driver Selection */}
-          <div className="space-y-2">
-            <Label>Kierowca</Label>
-            {loadingDrivers ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Ładowanie kierowców...
-              </div>
-            ) : (
-              <Select value={selectedDriverId} onValueChange={setSelectedDriverId} disabled={!!editRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Wybierz kierowcę" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.first_name} {driver.last_name} ({driver.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+          {/* Assignment Type Selection */}
+          <div className="space-y-3">
+            <Label>Przydziel rolę do</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  checked={assignmentType === 'driver'} 
+                  onChange={() => setAssignmentType('driver')}
+                  disabled={!!editRole}
+                  className="accent-primary"
+                />
+                <span className="text-sm">Kierowca z floty</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  checked={assignmentType === 'other'} 
+                  onChange={() => setAssignmentType('other')}
+                  disabled={!!editRole}
+                  className="accent-primary"
+                />
+                <span className="text-sm">Inna osoba (email)</span>
+              </label>
+            </div>
           </div>
+
+          {/* Driver Selection or Email Input */}
+          {assignmentType === 'driver' ? (
+            <div className="space-y-2">
+              <Label>Kierowca</Label>
+              {loadingDrivers ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Ładowanie kierowców...
+                </div>
+              ) : (
+                <Select value={selectedDriverId} onValueChange={setSelectedDriverId} disabled={!!editRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz kierowcę" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.first_name} {driver.last_name} ({driver.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Email osoby</Label>
+              <Input
+                type="email"
+                value={externalEmail}
+                onChange={(e) => setExternalEmail(e.target.value)}
+                placeholder="jan@example.com"
+                disabled={!!editRole}
+              />
+              <p className="text-xs text-muted-foreground">
+                Osoba musi mieć konto w systemie (kierowcy lub giełdy)
+              </p>
+            </div>
+          )}
 
           {/* Role Name */}
           <div className="space-y-2">

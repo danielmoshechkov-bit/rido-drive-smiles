@@ -25,6 +25,8 @@ import { VehicleListingModal } from "./fleet/VehicleListingModal";
 import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
 import { DriverVehiclesTab } from "./DriverVehiclesTab";
 import { CarBrandsManagement } from "./CarBrandsManagement";
+import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -70,6 +72,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [listingVehicle, setListingVehicle] = useState<Vehicle | null>(null);
   const [listedVehicleIds, setListedVehicleIds] = useState<Set<string>>(new Set());
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
+  const { isMarketplaceEnabled } = useFeatureToggles();
 
   const loadDrivers = async () => {
     let query = supabase
@@ -529,7 +532,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                        <ExpiryBadges vehicleId={vehicle.id} />
                                      </div>
                                    </div>
-                                   {userType === 'fleet' && fleetId && (
+                                   {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
                                       <div className="min-w-[120px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         <Switch
                                           checked={listedVehicleIds.has(vehicle.id)}
@@ -574,11 +577,12 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                       <CollapsibleContent>
                         <div className="border-t p-4">
                           <Tabs defaultValue="info" className="w-full">
-                            <TabsList className="grid w-full grid-cols-4 rounded-lg">
+                            <TabsList className="grid w-full grid-cols-5 rounded-lg">
                               <TabsTrigger value="info">Info</TabsTrigger>
                               <TabsTrigger value="documents">Dokumenty</TabsTrigger>
                               <TabsTrigger value="history">Historia Kierowców</TabsTrigger>
                               <TabsTrigger value="service">Serwis</TabsTrigger>
+                              <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
                             </TabsList>
 
                             <div className="mt-4">
@@ -599,6 +603,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
                               <TabsContent value="service">
                                 <VehicleServiceTab vehicleId={vehicle.id} />
+                              </TabsContent>
+
+                              <TabsContent value="photos">
+                                <VehiclePhotosTab vehicleId={vehicle.id} />
                               </TabsContent>
                             </div>
                           </Tabs>
