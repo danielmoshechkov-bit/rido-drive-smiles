@@ -60,6 +60,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
+  const [cities, setCities] = useState<{id: string, name: string}[]>([]);
+  const [selectedCityId, setSelectedCityId] = useState<string>('all');
+
+  // Fetch cities for filter
+  useEffect(() => {
+    const fetchCities = async () => {
+      const { data } = await supabase.from('cities').select('id, name').order('name');
+      if (data) setCities(data);
+    };
+    fetchCities();
+  }, []);
 
   // Format currency in Polish style
   const formatCurrency = (amount: number): string => {
@@ -94,7 +105,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (fleetId && selectedWeek !== null) {
       fetchSettlements();
     }
-  }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek]);
+  }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId]);
 
   useEffect(() => {
     // For admin, default to "my" (Przychód firmy)
@@ -202,19 +213,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const fetchSettlements = async () => {
     setLoading(true);
     try {
-      console.log('🔍 Fetching settlements for fleetId:', fleetId);
+      console.log('🔍 Fetching settlements for fleetId:', fleetId, 'cityId:', selectedCityId);
       console.log('📅 Selected period:', { year: selectedYear, week: selectedWeek, currentWeek });
 
       // Pobierz kierowców z floty wraz z danymi o pojazdach i planach
-      const { data: driversData, error: driversError } = await supabase
+      let driversQuery = supabase
         .from('drivers')
         .select(`
           id, 
           first_name, 
           last_name,
+          city_id,
           driver_app_users!inner(settlement_plan_id)
         `)
         .eq('fleet_id', fleetId);
+
+      // Filter by city if selected
+      if (selectedCityId && selectedCityId !== 'all') {
+        driversQuery = driversQuery.eq('city_id', selectedCityId);
+      }
+
+      const { data: driversData, error: driversError } = await driversQuery;
 
       if (driversError) throw driversError;
       console.log('👥 Drivers found:', driversData?.length || 0);
@@ -331,6 +350,52 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
+
+        // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
+        // Jeśli kierowca nie jeździł (suma zarobków = 0), nie naliczaj żadnych opłat
+        if (total_base === 0) {
+          return {
+            driver_id: driver.id,
+            driver_name: `${driver.first_name} ${driver.last_name}`,
+            uber_base: 0,
+            bolt_base: 0,
+            freenow_base: 0,
+            total_base: 0,
+            uber_commission: 0,
+            bolt_commission: 0,
+            freenow_commission: 0,
+            total_commission: 0,
+            total_cash: 0,
+            tax_8_percent: 0,
+            service_fee: 0,
+            rental: 0,
+            net_without_commission: 0,
+            final_payout: 0,
+          };
+        }
+
+        // Jeśli zarobki są ujemne (np. kara z aplikacji do 10 zł), tylko to pokazuj bez opłat
+        if (total_base < 0 && total_base > -10) {
+          return {
+            driver_id: driver.id,
+            driver_name: `${driver.first_name} ${driver.last_name}`,
+            uber_base,
+            bolt_base,
+            freenow_base,
+            total_base,
+            uber_commission: 0,
+            bolt_commission: 0,
+            freenow_commission: 0,
+            total_commission: 0,
+            total_cash: 0,
+            tax_8_percent: 0,
+            service_fee: 0,
+            rental: 0,
+            net_without_commission: total_base,
+            final_payout: total_base,
+          };
+        }
+
         const payout = total_base - total_commission - tax - service_fee - rental + total_cash;
 
         return {
@@ -508,9 +573,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         />
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle>Rozliczenia kierowców</CardTitle>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Miasto:</Label>
+                  <Select value={selectedCityId} onValueChange={setSelectedCityId}>
+                    <SelectTrigger className="h-9 px-3 w-[160px]">
+                      <SelectValue placeholder="Wszystkie miasta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie miasta</SelectItem>
+                      {cities.map(city => (
+                        <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">Rok:</Label>
                   <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
@@ -531,7 +610,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     onValueChange={(v) => setSelectedWeek(parseInt(v))}
                     disabled={selectedWeek === null}
                   >
-                    <SelectTrigger className="h-9 px-3 w-[240px]">
+                    <SelectTrigger className="h-9 px-3 w-[200px]">
                       <SelectValue placeholder="Wybierz okres" />
                     </SelectTrigger>
                     <SelectContent>
@@ -636,13 +715,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       />
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
             <CardTitle>Rozliczenia kierowców</CardTitle>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Miasto:</Label>
+                <Select value={selectedCityId} onValueChange={setSelectedCityId}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Wszystkie miasta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie miasta</SelectItem>
+                    {cities.map(city => (
+                      <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rok:</Label>
                 <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -659,7 +752,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   onValueChange={(v) => setSelectedWeek(parseInt(v))}
                   disabled={selectedWeek === null}
                 >
-                  <SelectTrigger className="w-[280px]">
+                  <SelectTrigger className="w-[240px]">
                     <SelectValue placeholder="Wybierz okres" />
                   </SelectTrigger>
                   <SelectContent>

@@ -88,12 +88,15 @@ export const DriverSettlements = ({
   const [ibanUpdateTimeout, setIbanUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
   const [fleetPlanSelectionDisabled, setFleetPlanSelectionDisabled] = useState(false);
+  const [settlementFrequency, setSettlementFrequency] = useState<string>('weekly');
+  const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
+  const [accumulatedEarnings, setAccumulatedEarnings] = useState<number>(0);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
-  // Check if fleet has disabled plan selection for drivers
+  // Check if fleet has disabled plan selection for drivers and if frequency is enabled
   useEffect(() => {
-    const checkFleetPlanSetting = async () => {
+    const checkFleetSettings = async () => {
       if (!driverId || role === 'admin') return;
       
       const { data: driver } = await supabase
@@ -106,17 +109,69 @@ export const DriverSettlements = ({
       
       const { data: fleet } = await supabase
         .from('fleets')
-        .select('driver_plan_selection_enabled')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled')
         .eq('id', driver.fleet_id)
         .maybeSingle();
       
-      if (fleet && fleet.driver_plan_selection_enabled === false) {
-        setFleetPlanSelectionDisabled(true);
+      if (fleet) {
+        if (fleet.driver_plan_selection_enabled === false) {
+          setFleetPlanSelectionDisabled(true);
+        }
+        setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
+      }
+      
+      // Get driver's current frequency setting
+      const { data: appUser } = await supabase
+        .from('driver_app_users')
+        .select('settlement_frequency')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+      
+      if (appUser?.settlement_frequency) {
+        setSettlementFrequency(appUser.settlement_frequency);
+      }
+      
+      // Get accumulated earnings
+      const { data: accumulated } = await supabase
+        .from('driver_accumulated_earnings')
+        .select('net_earnings')
+        .eq('driver_id', driverId)
+        .eq('is_paid', false);
+      
+      if (accumulated && accumulated.length > 0) {
+        const total = accumulated.reduce((sum, a) => sum + Number(a.net_earnings || 0), 0);
+        setAccumulatedEarnings(total);
       }
     };
     
-    checkFleetPlanSetting();
+    checkFleetSettings();
   }, [driverId, role]);
+
+  const handleFrequencyChange = async (newFrequency: string) => {
+    if (!driverId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('driver_app_users')
+        .update({ settlement_frequency: newFrequency })
+        .eq('driver_id', driverId);
+      
+      if (error) throw error;
+      
+      setSettlementFrequency(newFrequency);
+      
+      const frequencyLabels: Record<string, string> = {
+        weekly: 'Co tydzień',
+        biweekly: 'Co 2 tygodnie',
+        triweekly: 'Co 3 tygodnie',
+        monthly: 'Raz w miesiącu'
+      };
+      
+      toast.success(`Częstotliwość rozliczeń zmieniona na: ${frequencyLabels[newFrequency]}`);
+    } catch (error: any) {
+      toast.error('Błąd zmiany częstotliwości: ' + error.message);
+    }
+  };
 
   const weeks = getAvailableWeeks(selectedYear);
   const displayedWeeks = showAllWeeks ? weeks : weeks.slice(0, 2);
@@ -813,6 +868,32 @@ export const DriverSettlements = ({
     const planFee = driverPlan?.base_fee ?? 50;
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
+    // Calculate total earnings before any deductions
+    const totalEarnings = uberNet + boltNet + freenowNet;
+    
+    // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
+    // Jeśli kierowca nie jeździł (suma zarobków = 0 lub ujemna do -10 zł), nie naliczaj opłat
+    if (totalEarnings === 0) {
+      console.log('⛔ Zero earnings protection: Driver did not drive, no fees applied');
+      return { 
+        payout: 0, 
+        fee: 0, 
+        totalTax: 0, 
+        breakdown: { totalEarnings: 0, zeroEarningsProtection: true }
+      };
+    }
+    
+    // Jeśli zarobki są ujemne (np. kara z aplikacji do 10 zł), tylko to pokazuj bez opłat
+    if (totalEarnings < 0 && totalEarnings > -10) {
+      console.log('⚠️ Small negative balance protection:', totalEarnings);
+      return {
+        payout: totalEarnings,
+        fee: 0,
+        totalTax: 0,
+        breakdown: { totalEarnings, smallNegativeProtection: true }
+      };
+    }
+    
     // FORMUŁA WYPŁATY (dla planu "50+8%"):
     // WYPŁATA = (UBER_NET + BOLT_NET + FREENOW_NET) - GOTÓWKA_POBRANA + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
     const payout = uberNet + boltNet + freenowNet - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
@@ -830,8 +911,6 @@ export const DriverSettlements = ({
       Additional fees: -${additionalFees.toFixed(2)}
       = ${payout.toFixed(2)} PLN
     `);
-    
-    const totalEarnings = uberNet + boltNet + freenowNet;
     
     return {
       payout,

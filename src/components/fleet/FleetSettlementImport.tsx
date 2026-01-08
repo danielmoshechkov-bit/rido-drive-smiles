@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Upload, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, Upload, FileText, AlertCircle, Loader2, Plus, Minus, Trash2 } from 'lucide-react';
 import { SettlementImportTabs } from '../SettlementImportTabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { format, differenceInDays, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
@@ -35,15 +39,59 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
   const [fuelFile, setFuelFile] = useState<File | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
+  const [addCityDialogOpen, setAddCityDialogOpen] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+  const [addingCity, setAddingCity] = useState(false);
 
   // Load cities
+  const fetchCities = async () => {
+    const { data } = await supabase.from('cities').select('id, name').order('name');
+    if (data) setCities(data);
+  };
+
   useEffect(() => {
-    const fetchCities = async () => {
-      const { data } = await supabase.from('cities').select('id, name').order('name');
-      if (data) setCities(data);
-    };
     fetchCities();
   }, []);
+
+  const handleAddCity = async () => {
+    if (!newCityName.trim()) {
+      toast.error('Podaj nazwę miasta');
+      return;
+    }
+
+    setAddingCity(true);
+    try {
+      const { error } = await supabase.from('cities').insert({ name: newCityName.trim() });
+      if (error) throw error;
+
+      toast.success('Miasto dodane');
+      setNewCityName('');
+      setAddCityDialogOpen(false);
+      fetchCities();
+    } catch (error: any) {
+      toast.error('Błąd dodawania miasta: ' + error.message);
+    } finally {
+      setAddingCity(false);
+    }
+  };
+
+  const handleDeleteCity = async (cityId: string, cityName: string) => {
+    const confirmed = confirm(`⚠️ Czy na pewno chcesz usunąć miasto "${cityName}"?\n\nTa operacja jest NIEODWRACALNA i usunie wszystkie powiązane dane!`);
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('cities').delete().eq('id', cityId);
+      if (error) throw error;
+
+      toast.success('Miasto usunięte');
+      if (selectedCityId === cityId) {
+        setSelectedCityId('all');
+      }
+      fetchCities();
+    } catch (error: any) {
+      toast.error('Błąd usuwania miasta: ' + error.message);
+    }
+  };
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -255,11 +303,69 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
                 <SelectContent>
                   <SelectItem value="all">Wszystkie miasta</SelectItem>
                   {cities.map(city => (
-                    <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                    <div key={city.id} className="flex items-center justify-between group px-2 py-1.5 hover:bg-muted rounded-sm">
+                      <SelectItem value={city.id} className="flex-1 p-0">
+                        {city.name}
+                      </SelectItem>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDeleteCity(city.id, city.name);
+                        }}
+                      >
+                        <Minus className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
                   ))}
+                  <Separator className="my-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAddCityDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Dodaj miasto
+                  </Button>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Add City Dialog */}
+            <Dialog open={addCityDialogOpen} onOpenChange={setAddCityDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Dodaj nowe miasto</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city-name">Nazwa miasta</Label>
+                    <Input
+                      id="city-name"
+                      placeholder="np. Warszawa"
+                      value={newCityName}
+                      onChange={(e) => setNewCityName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddCity()}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAddCityDialogOpen(false)}>
+                    Anuluj
+                  </Button>
+                  <Button onClick={handleAddCity} disabled={addingCity}>
+                    {addingCity ? 'Dodawanie...' : 'Dodaj miasto'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Import Tabs */}
