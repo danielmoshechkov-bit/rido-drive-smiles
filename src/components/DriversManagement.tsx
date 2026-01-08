@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -588,32 +589,46 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                           </>
                         )}
                         
-                        {/* Payment Method Badge - clickable to toggle */}
-                        <Badge 
-                          variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
-                          className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const newMethod = driver.payment_method === 'cash' ? 'transfer' : 'cash';
-                            try {
-                              await supabase
-                                .from('drivers')
-                                .update({ payment_method: newMethod })
-                                .eq('id', driver.id);
-                              toast.success(`Zmieniono metodę płatności na: ${newMethod === 'cash' ? 'Gotówka' : 'Przelew'}`);
-                              refetch();
-                            } catch (error) {
-                              toast.error('Błąd zmiany metody płatności');
-                            }
-                          }}
-                        >
-                          {driver.payment_method === 'cash' ? (
-                            <><Banknote className="h-3 w-3" /> Gotówka</>
-                          ) : (
-                            <><CreditCard className="h-3 w-3" /> Przelew</>
-                          )}
-                        </Badge>
-                      </div>
+                         {/* Payment Method Badge - Popover with options */}
+                         <Popover>
+                           <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                             <Badge 
+                               variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
+                               className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                             >
+                               {driver.payment_method === 'cash' ? (
+                                 <><Banknote className="h-3 w-3" /> Gotówka</>
+                               ) : (
+                                 <><CreditCard className="h-3 w-3" /> Przelew</>
+                               )}
+                             </Badge>
+                           </PopoverTrigger>
+                           <PopoverContent className="w-40 p-2" onClick={(e) => e.stopPropagation()}>
+                             <div className="space-y-1">
+                               <button
+                                 className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'cash' ? 'bg-muted font-medium' : ''}`}
+                                 onClick={async () => {
+                                   await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', driver.id);
+                                   toast.success('Zmieniono na: Gotówka');
+                                   refetch();
+                                 }}
+                               >
+                                 <Banknote className="h-4 w-4" /> Gotówka
+                               </button>
+                               <button
+                                 className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'transfer' ? 'bg-muted font-medium' : ''}`}
+                                 onClick={async () => {
+                                   await supabase.from('drivers').update({ payment_method: 'transfer' }).eq('id', driver.id);
+                                   toast.success('Zmieniono na: Przelew');
+                                   refetch();
+                                 }}
+                               >
+                                 <CreditCard className="h-4 w-4" /> Przelew
+                               </button>
+                             </div>
+                           </PopoverContent>
+                         </Popover>
+                       </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">
                            <div className="flex items-center gap-2">

@@ -128,7 +128,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return '-';
   };
 
-  // Generate cash payout document (KW)
+  // Generate cash payout document (KW) - as printable HTML
   const handleGenerateCashPayouts = async (cityId: string) => {
     try {
       // Filter settlements by city (need to get driver city data) + settlement frequency
@@ -174,30 +174,73 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const totalPayout = payouts.reduce((sum, s) => sum + s.final_payout, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
-      // Use Monday date of the settlement period, not today
+      // Use Monday date of the settlement period
       const mondayDate = currentWeek?.start 
         ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
         : format(new Date(), 'dd.MM.yyyy');
       
-      // Build CSV content matching the PDF format
-      let csvContent = `${mondayDate}  KW / Gotówka\n\nImię i nazwisko;Kwota;Podpis\n`;
+      // Generate printable HTML document
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>KW Gotówka - ${mondayDate}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; }
+            h1 { text-align: center; margin-bottom: 30px; font-size: 18px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+            th { background-color: #f0f0f0; font-weight: bold; }
+            .amount { text-align: right; }
+            .payout { color: #16a34a; }
+            .debt { color: #dc2626; }
+            .signature { width: 150px; }
+            .totals { margin-top: 30px; font-size: 16px; }
+            .totals p { margin: 10px 0; }
+            @media print {
+              body { padding: 20px; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${mondayDate} &nbsp;&nbsp; KW / Gotówka</h1>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">Lp.</th>
+                <th>Imię i nazwisko</th>
+                <th class="amount" style="width: 120px;">Kwota</th>
+                <th class="signature">Podpis</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[...payouts, ...debts].map((s, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${s.driver_name}</td>
+                  <td class="amount ${s.final_payout >= 0 ? 'payout' : 'debt'}">${s.final_payout.toFixed(2).replace('.', ',')} zł</td>
+                  <td class="signature"></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="totals">
+            <p class="payout"><strong>WYPŁATA:</strong> ${totalPayout.toFixed(2).replace('.', ',')} zł</p>
+            <p class="debt"><strong>DŁUG:</strong> ${totalDebt.toFixed(2).replace('.', ',')} zł</p>
+          </div>
+        </body>
+        </html>
+      `;
       
-      // Add all drivers (payouts first, then debts)
-      [...payouts, ...debts].forEach(s => {
-        // Format with comma as decimal separator
-        const amount = s.final_payout.toFixed(2).replace('.', ',');
-        csvContent += `${s.driver_name};${amount};\n`;
-      });
-      
-      csvContent += `\nWYPŁATA: ${totalPayout.toFixed(2).replace('.', ',')}\n`;
-      csvContent += `DŁUG: ${totalDebt.toFixed(2).replace('.', ',')}`;
-      
-      // Download CSV
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${mondayDate}_KW_Gotowka.csv`;
-      link.click();
+      // Open in new window for print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.print();
+      }
       
       // Clear payout_requested_at for processed drivers
       const processedDriverIds = cashDrivers.map(s => s.driver_id);
