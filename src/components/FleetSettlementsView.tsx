@@ -5,10 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Check, X, AlertCircle, Search } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
@@ -62,6 +64,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [cities, setCities] = useState<{id: string, name: string}[]>([]);
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [hideZeroRows, setHideZeroRows] = useState<boolean>(false);
 
   // Fetch cities for filter
   useEffect(() => {
@@ -396,7 +400,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
-        const payout = total_base - total_commission - tax - service_fee - rental + total_cash;
+        // FIXED: Subtract cash (driver already collected it from passengers)
+        const payout = total_base - total_commission - tax - service_fee - rental - total_cash;
 
         return {
           driver_id: driver.id,
@@ -764,94 +769,132 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   </SelectContent>
                 </Select>
               </div>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Szukaj kierowcy..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-[180px] h-9"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="hideZero"
+                  checked={hideZeroRows}
+                  onCheckedChange={(checked) => setHideZeroRows(checked === true)}
+                />
+                <Label htmlFor="hideZero" className="text-sm cursor-pointer">
+                  Ukryj 0
+                </Label>
+              </div>
             </div>
           </div>
         </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Uber</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Bolt</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">FreeNow</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Prowizja</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Gotówka</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Podatek</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Opłata</TableHead>
-                <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
-                <TableHead className="text-right font-bold p-1.5 text-xs">Wypłata</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {settlements.map((settlement) => (
-                <TableRow key={settlement.driver_id}>
-                  <TableCell className="font-medium p-1.5 text-xs">{settlement.driver_name}</TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.uber_base)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.bolt_base)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.freenow_base)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    -{formatCurrency(settlement.total_commission)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.total_cash)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    -{formatCurrency(settlement.tax_8_percent)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    -{formatCurrency(settlement.service_fee)}
-                  </TableCell>
-                  <TableCell className="text-right p-1.5 text-xs">
-                    -{formatCurrency(settlement.rental || 0)}
-                  </TableCell>
-                  <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlement.final_payout)}`}>
-                    {formatCurrency(settlement.final_payout)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow className="bg-muted/50 font-bold">
-                <TableCell className="p-1.5 text-xs">RAZEM</TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  {formatCurrency(settlements.reduce((sum, s) => sum + s.uber_base, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  {formatCurrency(settlements.reduce((sum, s) => sum + s.bolt_base, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  {formatCurrency(settlements.reduce((sum, s) => sum + s.freenow_base, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.total_commission, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  {formatCurrency(settlements.reduce((sum, s) => sum + s.total_cash, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.tax_8_percent, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  -{formatCurrency(settlements.reduce((sum, s) => sum + s.service_fee, 0))}
-                </TableCell>
-                <TableCell className="text-right p-1.5 text-xs">
-                  -{formatCurrency(settlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
-                </TableCell>
-                <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
-                  {formatCurrency(settlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
+        {(() => {
+          // Filter settlements based on search and hide zero
+          const filteredSettlements = settlements.filter(s => {
+            // Search filter
+            if (searchQuery.trim()) {
+              const query = searchQuery.toLowerCase();
+              if (!s.driver_name.toLowerCase().includes(query)) return false;
+            }
+            // Hide zero filter
+            if (hideZeroRows && s.total_base === 0 && s.final_payout === 0) {
+              return false;
+            }
+            return true;
+          });
+
+          return (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Uber</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Bolt</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">FreeNow</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Prowizja</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs text-red-600">Gotówka</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Podatek</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Opłata</TableHead>
+                    <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
+                    <TableHead className="text-right font-bold p-1.5 text-xs">Wypłata</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSettlements.map((settlement) => (
+                    <TableRow key={settlement.driver_id}>
+                      <TableCell className="font-medium p-1.5 text-xs">{settlement.driver_name}</TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        {formatCurrency(settlement.uber_base)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        {formatCurrency(settlement.bolt_base)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        {formatCurrency(settlement.freenow_base)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        -{formatCurrency(settlement.total_commission)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs text-red-600">
+                        -{formatCurrency(settlement.total_cash)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        -{formatCurrency(settlement.tax_8_percent)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        -{formatCurrency(settlement.service_fee)}
+                      </TableCell>
+                      <TableCell className="text-right p-1.5 text-xs">
+                        -{formatCurrency(settlement.rental || 0)}
+                      </TableCell>
+                      <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(settlement.final_payout)}`}>
+                        {formatCurrency(settlement.final_payout)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell className="p-1.5 text-xs">RAZEM ({filteredSettlements.length})</TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs text-red-600">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.tax_8_percent, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
+                    </TableCell>
+                    <TableCell className="text-right p-1.5 text-xs">
+                      -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
+                    </TableCell>
+                    <TableCell className={`text-right font-bold p-1.5 text-xs ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
+                    </TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
     </div>
