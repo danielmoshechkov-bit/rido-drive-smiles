@@ -965,6 +965,8 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   const [settlementFrequency, setSettlementFrequency] = useState<string>("weekly");
   const [fleetPlanSelectionDisabled, setFleetPlanSelectionDisabled] = useState(false);
   const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
+  const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
+  const [fleetBaseFee, setFleetBaseFee] = useState<number | null>(null);
 
   useEffect(() => {
     loadDriverInfo();
@@ -999,16 +1001,18 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
       
       if (!driver?.fleet_id) return;
       
-      // Get fleet settings
+      // Get fleet settings (including VAT and base_fee)
       const { data: fleet } = await supabase
         .from('fleets')
-        .select('driver_plan_selection_enabled, settlement_frequency_enabled')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate, base_fee')
         .eq('id', driver.fleet_id)
         .maybeSingle();
       
       if (fleet) {
         setFleetPlanSelectionDisabled(fleet.driver_plan_selection_enabled === false);
         setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
+        setFleetVatRate((fleet as any).vat_rate ?? null);
+        setFleetBaseFee((fleet as any).base_fee ?? null);
       }
       
       // Get settlement plans
@@ -1127,10 +1131,15 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
     }
   };
 
+  // Determine what to display: fleet settings if set, otherwise plan
+  const displayVat = fleetVatRate !== null ? fleetVatRate : null;
+  const displayBaseFee = fleetBaseFee !== null ? fleetBaseFee : null;
+  const hasFleetSettings = displayVat !== null && displayBaseFee !== null && (displayVat > 0 || displayBaseFee > 0);
+  
   return (
     <div className="space-y-4">
       {/* Row 1: Payment Method + Settlement Settings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {/* Payment Method Settings */}
         <Card>
           <CardHeader className="pb-3">
@@ -1165,14 +1174,24 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
         </Card>
 
         {/* Settlement Plan & Frequency Settings */}
-        {(!fleetPlanSelectionDisabled || fleetFrequencyEnabled) && settlementPlans.length > 0 ? (
+        {(hasFleetSettings || !fleetPlanSelectionDisabled || fleetFrequencyEnabled) ? (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Ustawienia rozliczeń</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Plan Selection */}
-              {!fleetPlanSelectionDisabled && settlementPlans.length > 0 && (
+              {/* Show fleet VAT + base_fee if set */}
+              {hasFleetSettings && (
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <p className="text-sm font-medium">
+                    {displayBaseFee} zł + {displayVat}% VAT
+                  </p>
+                  <p className="text-xs text-muted-foreground">Stawki floty</p>
+                </div>
+              )}
+              
+              {/* Plan Selection - only show if fleet allows AND has plans */}
+              {!fleetPlanSelectionDisabled && settlementPlans.length > 0 && !hasFleetSettings && (
                 <div className="space-y-2">
                   <Label className="text-sm">Plan rozliczeń</Label>
                   <Select value={selectedPlanId} onValueChange={handlePlanChange}>
@@ -1210,7 +1229,14 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
             </CardContent>
           </Card>
         ) : (
-          <div /> // Empty placeholder for grid alignment
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Ustawienia rozliczeń</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Brak ustawień</p>
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -1222,10 +1248,12 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
         {/* Notifications */}
         {driverAlerts.length === 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle>{t('driver.noNotifications')}</CardTitle>
-              <CardDescription>{t('driver.allNotificationsRead')}</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{t('driver.noNotifications')}</CardTitle>
             </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">{t('driver.allNotificationsRead')}</p>
+            </CardContent>
           </Card>
         ) : (
           <Card>
