@@ -114,24 +114,22 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
+    <Card className="max-w-md">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Bell className="h-4 w-4" />
           {t('notifications.settings') || 'Ustawienia powiadomień'}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {/* Push notification permission status */}
         {pushSupported && pushPermission !== 'granted' && (
-          <div className="p-4 bg-muted rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BellOff className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm">
-                  {t('notifications.notEnabled') || 'Powiadomienia nie są włączone'}
-                </span>
-              </div>
+          <div className="p-3 bg-muted rounded-lg">
+            <div className="flex items-center gap-3">
+              <BellOff className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm flex-1">
+                {t('notifications.notEnabled') || 'Powiadomienia nie są włączone'}
+              </span>
               <Button 
                 size="sm" 
                 onClick={requestPushPermission}
@@ -150,57 +148,49 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
           </div>
         )}
 
-        {/* Settings toggles */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="push-enabled" className="flex flex-col gap-1">
-              <span>{t('notifications.pushEnabled') || 'Powiadomienia push'}</span>
-              <span className="text-xs text-muted-foreground font-normal">
-                {t('notifications.pushDescription') || 'Otrzymuj powiadomienia na urządzeniu'}
-              </span>
-            </Label>
+        {/* Settings toggles - compact layout */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
             <Switch
               id="push-enabled"
               checked={pushEnabled}
               onCheckedChange={setPushEnabled}
               disabled={!pushSupported || pushPermission !== 'granted'}
             />
+            <Label htmlFor="push-enabled" className="flex-1">
+              <span className="text-sm">{t('notifications.pushEnabled') || 'Powiadomienia push'}</span>
+            </Label>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="settlement-notifications" className="flex flex-col gap-1">
-              <span>{t('notifications.settlements') || 'Rozliczenia'}</span>
-              <span className="text-xs text-muted-foreground font-normal">
-                {t('notifications.settlementsDescription') || 'Powiadomienia o nowych rozliczeniach'}
-              </span>
-            </Label>
+          <div className="flex items-center gap-4">
             <Switch
               id="settlement-notifications"
               checked={settlementNotifications}
               onCheckedChange={setSettlementNotifications}
               disabled={!pushEnabled}
             />
+            <Label htmlFor="settlement-notifications" className="flex-1">
+              <span className="text-sm">{t('notifications.settlements') || 'Rozliczenia'}</span>
+            </Label>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="document-expiry" className="flex flex-col gap-1">
-              <span>{t('notifications.documentExpiry') || 'Dokumenty'}</span>
-              <span className="text-xs text-muted-foreground font-normal">
-                {t('notifications.documentExpiryDescription') || 'Przypomnienia o wygasających dokumentach'}
-              </span>
-            </Label>
+          <div className="flex items-center gap-4">
             <Switch
               id="document-expiry"
               checked={documentExpiryNotifications}
               onCheckedChange={setDocumentExpiryNotifications}
               disabled={!pushEnabled}
             />
+            <Label htmlFor="document-expiry" className="flex-1">
+              <span className="text-sm">{t('notifications.documentExpiry') || 'Dokumenty'}</span>
+            </Label>
           </div>
         </div>
 
         <Button 
           onClick={saveSettings} 
           disabled={saving}
+          size="sm"
           className="w-full"
         >
           {saving ? (

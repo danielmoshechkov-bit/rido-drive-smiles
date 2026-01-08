@@ -316,7 +316,11 @@
   "common": {
     "save": "Save",
     "saving": "Saving...",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "driverPanel": "Driver Panel",
+    "fleet": "Fleet",
+    "supervisor": "Supervisor",
+    "contact": "Contact"
   },
   "register": {
     "title": "Driver Registration",
@@ -420,8 +424,7 @@
       "otherDocument": "Other document"
     }
   },
-  "common": {
-    "loading": "Loading...",
+  "commonExtra": {
     "driverPanel": "Driver Panel",
     "fleet": "Fleet",
     "supervisor": "Supervisor",

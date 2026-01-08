@@ -316,7 +316,11 @@
   "common": {
     "save": "Zapisz",
     "saving": "Zapisywanie...",
-    "loading": "Ładowanie..."
+    "loading": "Ładowanie...",
+    "driverPanel": "Panel kierowcy",
+    "fleet": "Flota",
+    "supervisor": "Opiekun",
+    "contact": "Kontakt"
   },
   "register": {
     "title": "Rejestracja kierowcy",
@@ -420,8 +424,7 @@
       "otherDocument": "Inny dokument"
     }
   },
-  "common": {
-    "loading": "Ładowanie...",
+  "commonExtra": {
     "driverPanel": "Panel kierowcy",
     "fleet": "Flota",
     "supervisor": "Opiekun",

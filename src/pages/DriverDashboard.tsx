@@ -958,9 +958,17 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   const [driverInfo, setDriverInfo] = useState<any>(null);
   const [loadingInfo, setLoadingInfo] = useState(true);
   const { t } = useTranslation();
+  
+  // Settlement plan & frequency state
+  const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [settlementFrequency, setSettlementFrequency] = useState<string>("weekly");
+  const [fleetPlanSelectionDisabled, setFleetPlanSelectionDisabled] = useState(false);
+  const [fleetFrequencyEnabled, setFleetFrequencyEnabled] = useState(false);
 
   useEffect(() => {
     loadDriverInfo();
+    loadSettlementSettings();
   }, [driverId]);
 
   const loadDriverInfo = async () => {
@@ -977,6 +985,96 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
       console.error('Error loading driver info:', error);
     } finally {
       setLoadingInfo(false);
+    }
+  };
+  
+  const loadSettlementSettings = async () => {
+    try {
+      // Get driver's fleet
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('fleet_id')
+        .eq('id', driverId)
+        .maybeSingle();
+      
+      if (!driver?.fleet_id) return;
+      
+      // Get fleet settings
+      const { data: fleet } = await supabase
+        .from('fleets')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled')
+        .eq('id', driver.fleet_id)
+        .maybeSingle();
+      
+      if (fleet) {
+        setFleetPlanSelectionDisabled(fleet.driver_plan_selection_enabled === false);
+        setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
+      }
+      
+      // Get settlement plans
+      const { data: plans } = await supabase
+        .from('settlement_plans')
+        .select('*')
+        .order('fee_amount');
+      
+      if (plans) {
+        setSettlementPlans(plans);
+      }
+      
+      // Get driver's current settings
+      const { data: appUser } = await supabase
+        .from('driver_app_users')
+        .select('settlement_plan_id, settlement_frequency')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+      
+      if (appUser) {
+        setSelectedPlanId(appUser.settlement_plan_id || "");
+        setSettlementFrequency(appUser.settlement_frequency || "weekly");
+      }
+    } catch (error) {
+      console.error('Error loading settlement settings:', error);
+    }
+  };
+  
+  const handlePlanChange = async (planId: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_app_users')
+        .update({ settlement_plan_id: planId })
+        .eq('driver_id', driverId);
+      
+      if (error) throw error;
+      
+      setSelectedPlanId(planId);
+      const plan = settlementPlans.find(p => p.id === planId);
+      toast.success(`Plan zmieniony na: ${plan?.name || planId}`);
+    } catch (error: any) {
+      toast.error('Błąd zmiany planu: ' + error.message);
+    }
+  };
+  
+  const handleFrequencyChange = async (newFrequency: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_app_users')
+        .update({ settlement_frequency: newFrequency })
+        .eq('driver_id', driverId);
+      
+      if (error) throw error;
+      
+      setSettlementFrequency(newFrequency);
+      
+      const frequencyLabels: Record<string, string> = {
+        weekly: 'Co tydzień',
+        biweekly: 'Co 2 tygodnie',
+        triweekly: 'Co 3 tygodnie',
+        monthly: 'Raz w miesiącu'
+      };
+      
+      toast.success(`Częstotliwość rozliczeń zmieniona na: ${frequencyLabels[newFrequency]}`);
+    } catch (error: any) {
+      toast.error('Błąd zmiany częstotliwości: ' + error.message);
     }
   };
 
@@ -1028,14 +1126,13 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-md">
       {/* Payment Method Settings */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('driver.paymentMethod')}</CardTitle>
-          <CardDescription>{t('driver.paymentMethodDescription')}</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t('driver.paymentMethod')}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <Select 
             value={driverInfo?.payment_method || 'transfer'} 
             onValueChange={handlePaymentMethodChange}
@@ -1051,7 +1148,7 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
           
           {driverInfo?.payment_method === 'transfer' && (
             <div className="space-y-2">
-              <Label htmlFor="iban">{t('driver.iban')}</Label>
+              <Label htmlFor="iban" className="text-sm">{t('driver.iban')}</Label>
               <Input 
                 id="iban"
                 value={driverInfo?.iban || ''} 
@@ -1062,6 +1159,53 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
           )}
         </CardContent>
       </Card>
+
+      {/* Settlement Plan & Frequency Settings */}
+      {(!fleetPlanSelectionDisabled || fleetFrequencyEnabled) && settlementPlans.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Ustawienia rozliczeń</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Plan Selection */}
+            {!fleetPlanSelectionDisabled && settlementPlans.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm">Plan rozliczeń</Label>
+                <Select value={selectedPlanId} onValueChange={handlePlanChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {settlementPlans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} ({plan.fee_amount} zł + {plan.tax_rate}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Frequency Selection */}
+            {fleetFrequencyEnabled && (
+              <div className="space-y-2">
+                <Label className="text-sm">Częstotliwość rozliczeń</Label>
+                <Select value={settlementFrequency} onValueChange={handleFrequencyChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Co tydzień</SelectItem>
+                    <SelectItem value="biweekly">Co 2 tygodnie</SelectItem>
+                    <SelectItem value="triweekly">Co 3 tygodnie</SelectItem>
+                    <SelectItem value="monthly">Raz w miesiącu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Push Notification Settings */}
       <NotificationSettings userId={userId} />

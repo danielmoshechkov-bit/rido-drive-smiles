@@ -118,7 +118,7 @@ export const VehicleInfoTab = ({ vehicle, onSave }: VehicleInfoTabProps) => {
             placeholder="Wpisz kolor"
           />
         </div>
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-sm font-medium text-muted-foreground">Rodzaj paliwa</label>
           <Select 
             value={formData.fuel_type} 
