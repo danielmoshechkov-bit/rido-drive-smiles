@@ -131,10 +131,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   // Generate cash payout document (KW)
   const handleGenerateCashPayouts = async (cityId: string) => {
     try {
-      // Filter settlements by city (need to get driver city data)
+      // Filter settlements by city (need to get driver city data) + settlement frequency
       const { data: driversWithCity } = await supabase
         .from('drivers')
-        .select('id, city_id, payment_method, first_name, last_name, phone')
+        .select(`
+          id, city_id, payment_method, first_name, last_name, phone,
+          driver_app_users!left(settlement_frequency, payout_requested_at)
+        `)
         .eq('fleet_id', fleetId);
       
       if (!driversWithCity) {
@@ -142,14 +145,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         return;
       }
 
-      const driverMap = new Map(driversWithCity.map(d => [d.id, d]));
+      const driverMap = new Map(driversWithCity.map(d => [d.id, d as any]));
       
       // Filter by city and cash payment method
+      // Include drivers with weekly frequency OR those who requested payout
       const cashDrivers = settlements.filter(s => {
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
         if (cityId !== 'all' && driver.city_id !== cityId) return false;
-        return driver.payment_method === 'cash';
+        if (driver.payment_method !== 'cash') return false;
+        
+        const appUser = driver.driver_app_users?.[0];
+        const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
+        const requestedPayout = !!appUser?.payout_requested_at;
+        
+        return isWeekly || requestedPayout;
       });
 
       if (cashDrivers.length === 0) {
@@ -164,25 +174,37 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const totalPayout = payouts.reduce((sum, s) => sum + s.final_payout, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
-      const today = format(new Date(), 'dd.MM.yyyy');
+      // Use Monday date of the settlement period, not today
+      const mondayDate = currentWeek?.start 
+        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
+        : format(new Date(), 'dd.MM.yyyy');
       
-      // Build CSV content
-      let csvContent = `${today}  KW / Gotówka\n\nImię i nazwisko;Kwota;Podpis\n`;
+      // Build CSV content matching the PDF format
+      let csvContent = `${mondayDate}  KW / Gotówka\n\nImię i nazwisko;Kwota;Podpis\n`;
       
       // Add all drivers (payouts first, then debts)
       [...payouts, ...debts].forEach(s => {
-        csvContent += `${s.driver_name};${formatCurrency(s.final_payout)};\n`;
+        // Format with comma as decimal separator
+        const amount = s.final_payout.toFixed(2).replace('.', ',');
+        csvContent += `${s.driver_name};${amount};\n`;
       });
       
-      csvContent += `\nWYPŁATA: ${formatCurrency(totalPayout)}\n`;
-      csvContent += `DŁUG: ${formatCurrency(totalDebt)}`;
+      csvContent += `\nWYPŁATA: ${totalPayout.toFixed(2).replace('.', ',')}\n`;
+      csvContent += `DŁUG: ${totalDebt.toFixed(2).replace('.', ',')}`;
       
       // Download CSV
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${today}_KW_Gotowka.csv`;
+      link.download = `${mondayDate}_KW_Gotowka.csv`;
       link.click();
+      
+      // Clear payout_requested_at for processed drivers
+      const processedDriverIds = cashDrivers.map(s => s.driver_id);
+      await supabase
+        .from('driver_app_users')
+        .update({ payout_requested_at: null })
+        .in('driver_id', processedDriverIds);
       
       toast.success('Lista wypłat gotówkowych została wygenerowana');
     } catch (error) {
@@ -191,13 +213,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
-  // Generate transfer list (placeholder)
+  // Generate transfer list
   const handleGenerateTransfers = async (cityId: string) => {
     try {
-      // Filter settlements by city and transfer payment method
+      // Filter settlements by city and transfer payment method + settlement frequency
       const { data: driversWithCity } = await supabase
         .from('drivers')
-        .select('id, city_id, payment_method, iban, first_name, last_name')
+        .select(`
+          id, city_id, payment_method, iban, first_name, last_name,
+          driver_app_users!left(settlement_frequency, payout_requested_at)
+        `)
         .eq('fleet_id', fleetId);
       
       if (!driversWithCity) {
@@ -205,14 +230,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         return;
       }
 
-      const driverMap = new Map(driversWithCity.map(d => [d.id, d]));
+      const driverMap = new Map(driversWithCity.map(d => [d.id, d as any]));
       
       // Filter by city and transfer payment method with positive payout
+      // Include drivers with weekly frequency OR those who requested payout
       const transferDrivers = settlements.filter(s => {
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
         if (cityId !== 'all' && driver.city_id !== cityId) return false;
-        return driver.payment_method === 'transfer' && s.final_payout > 0;
+        if (driver.payment_method !== 'transfer') return false;
+        if (s.final_payout <= 0) return false;
+        
+        const appUser = driver.driver_app_users?.[0];
+        const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
+        const requestedPayout = !!appUser?.payout_requested_at;
+        
+        return isWeekly || requestedPayout;
       });
 
       if (transferDrivers.length === 0) {
@@ -228,15 +261,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       transferDrivers.forEach(s => {
         const driver = driverMap.get(s.driver_id);
         const iban = driver?.iban || '';
-        csvContent += `${s.driver_name};${iban};${formatCurrency(s.final_payout)};Rozliczenie ${periodLabel}\n`;
+        const amount = s.final_payout.toFixed(2).replace('.', ',');
+        csvContent += `${s.driver_name};${iban};${amount};Rozliczenie ${periodLabel}\n`;
       });
       
-      const today = format(new Date(), 'dd.MM.yyyy');
+      // Use Monday date for filename
+      const mondayDate = currentWeek?.start 
+        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
+        : format(new Date(), 'dd.MM.yyyy');
+      
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${today}_Przelewy.csv`;
+      link.download = `${mondayDate}_Przelewy.csv`;
       link.click();
+      
+      // Clear payout_requested_at for processed drivers
+      const processedDriverIds = transferDrivers.map(s => s.driver_id);
+      await supabase
+        .from('driver_app_users')
+        .update({ payout_requested_at: null })
+        .in('driver_id', processedDriverIds);
       
       toast.success('Lista przelewów została wygenerowana');
     } catch (error) {

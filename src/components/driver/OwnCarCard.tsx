@@ -363,7 +363,7 @@ export const OwnCarCard = ({ vehicle: initialVehicle, onDeleted }: { vehicle: Ow
           <CollapsibleContent>
             <div className="border-t px-4 py-4">
               {/* Rental price section - only show if listed or has listing data */}
-              {(isListed || listingData.weekly_price) && (
+              {isMarketplaceEnabled && (isListed || listingData.weekly_price) && (
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg">
                   <Label className="text-sm font-medium">Stawka za wynajem (giełda)</Label>
                   <div className="flex items-center gap-2 mt-2">
