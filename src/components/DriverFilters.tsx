@@ -6,13 +6,18 @@ import { Filter, ChevronDown } from "lucide-react";
 import { useDropdownState } from "@/hooks/useGlobalDropdown";
 
 interface DriverFiltersProps {
-  onFilterChange: (filters: any) => void;
+  onFilterChange: (filters: {
+    fleets: string[];
+    statuses: string[];
+    paymentMethods: string[];
+  }) => void;
 }
 
 export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
   const { isOpen, toggle, close } = useDropdownState("driver-filters");
   const [selectedFleets, setSelectedFleets] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
 
   const fleetOptions = [
     { id: 'uber', label: 'Uber' },
@@ -27,12 +32,18 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
     { id: 'nowi', label: 'Nowi kierowcy' }
   ];
 
+  const paymentMethodOptions = [
+    { id: 'cash', label: 'Gotówka' },
+    { id: 'transfer', label: 'Przelew' },
+    { id: 'b2b', label: 'B2B (faktury)' }
+  ];
+
   const handleFleetChange = (fleetId: string, checked: boolean) => {
     const updated = checked 
       ? [...selectedFleets, fleetId]
       : selectedFleets.filter(id => id !== fleetId);
     setSelectedFleets(updated);
-    onFilterChange({ fleets: updated, statuses: selectedStatuses });
+    onFilterChange({ fleets: updated, statuses: selectedStatuses, paymentMethods: selectedPaymentMethods });
   };
 
   const handleStatusChange = (statusId: string, checked: boolean) => {
@@ -40,8 +51,18 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
       ? [...selectedStatuses, statusId]
       : selectedStatuses.filter(id => id !== statusId);
     setSelectedStatuses(updated);
-    onFilterChange({ fleets: selectedFleets, statuses: updated });
+    onFilterChange({ fleets: selectedFleets, statuses: updated, paymentMethods: selectedPaymentMethods });
   };
+
+  const handlePaymentMethodChange = (methodId: string, checked: boolean) => {
+    const updated = checked 
+      ? [...selectedPaymentMethods, methodId]
+      : selectedPaymentMethods.filter(id => id !== methodId);
+    setSelectedPaymentMethods(updated);
+    onFilterChange({ fleets: selectedFleets, statuses: selectedStatuses, paymentMethods: updated });
+  };
+
+  const activeFiltersCount = selectedFleets.length + selectedStatuses.length + selectedPaymentMethods.length;
 
   return (
     <div className="relative">
@@ -52,6 +73,11 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
       >
         <Filter className="h-4 w-4" />
         Filtry
+        {activeFiltersCount > 0 && (
+          <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+            {activeFiltersCount}
+          </span>
+        )}
         <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </Button>
 
@@ -74,6 +100,28 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
                       className="text-sm cursor-pointer"
                     >
                       {fleet.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">Metoda płatności</h4>
+              <div className="space-y-2">
+                {paymentMethodOptions.map((method) => (
+                  <div key={method.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`payment-${method.id}`}
+                      checked={selectedPaymentMethods.includes(method.id)}
+                      onCheckedChange={(checked) => handlePaymentMethodChange(method.id, checked as boolean)}
+                      className="rounded-sm"
+                    />
+                    <label
+                      htmlFor={`payment-${method.id}`}
+                      className="text-sm cursor-pointer"
+                    >
+                      {method.label}
                     </label>
                   </div>
                 ))}

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
@@ -36,6 +36,11 @@ interface DriversManagementProps {
 
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<{ fleets: string[]; statuses: string[]; paymentMethods: string[] }>({
+    fleets: [],
+    statuses: [],
+    paymentMethods: []
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFleetInviteModal, setShowFleetInviteModal] = useState(false);
   const [showDelegateRoleModal, setShowDelegateRoleModal] = useState(false);
@@ -180,11 +185,25 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
-  const filteredDrivers = displayDrivers.filter(driver => 
-    `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.phone?.includes(searchTerm)
-  );
+  const filteredDrivers = displayDrivers.filter(driver => {
+    // Search filter
+    const matchesSearch = 
+      `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      driver.phone?.includes(searchTerm);
+    
+    if (!matchesSearch) return false;
+    
+    // Payment method filter
+    if (filters.paymentMethods.length > 0) {
+      const driverPaymentMethod = driver.payment_method || 'transfer';
+      if (!filters.paymentMethods.includes(driverPaymentMethod)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   const toggleDriverExpansion = (driverId: string) => {
     const newExpanded = new Set(expandedDrivers);
@@ -451,7 +470,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                 className="pl-10 rounded-lg"
               />
             </div>
-            <DriverFilters onFilterChange={() => {}} />
+            <DriverFilters onFilterChange={setFilters} />
           </div>
         </CardHeader>
         
@@ -593,18 +612,20 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                          <Popover>
                            <PopoverTrigger onClick={(e) => e.stopPropagation()}>
                              <Badge 
-                               variant={driver.payment_method === 'cash' ? 'secondary' : 'outline'}
+                               variant={driver.payment_method === 'cash' ? 'secondary' : driver.payment_method === 'b2b' ? 'default' : 'outline'}
                                className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
                              >
                                {driver.payment_method === 'cash' ? (
                                  <><Banknote className="h-3 w-3" /> Gotówka</>
+                               ) : driver.payment_method === 'b2b' ? (
+                                 <><FileText className="h-3 w-3" /> B2B</>
                                ) : (
                                  <><CreditCard className="h-3 w-3" /> Przelew</>
                                )}
                              </Badge>
                            </PopoverTrigger>
                            <PopoverContent 
-                             className="w-40 p-2 bg-popover border shadow-lg z-50" 
+                             className="w-44 p-2 bg-popover border shadow-lg z-50" 
                              onClick={(e) => e.stopPropagation()}
                            >
                               <div className="space-y-1">
@@ -639,6 +660,22 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                   }}
                                 >
                                   <CreditCard className="h-4 w-4" /> Przelew
+                                </button>
+                                <button
+                                  className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'b2b' ? 'bg-muted font-medium' : ''}`}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const { error } = await supabase.from('drivers').update({ payment_method: 'b2b' }).eq('id', driver.id);
+                                    if (error) {
+                                      toast.error('Nie udało się zmienić metody płatności');
+                                      console.error('Update error:', error);
+                                      return;
+                                    }
+                                    toast.success('Zmieniono na: B2B (faktury)');
+                                    refetch();
+                                  }}
+                                >
+                                  <FileText className="h-4 w-4" /> B2B (faktury)
                                 </button>
                               </div>
                            </PopoverContent>
