@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Settings, Edit, Info } from 'lucide-react';
+import { Plus, Trash2, Settings, Edit, Info, Copy, RefreshCw, Link } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 interface FleetFee {
   id: string;
@@ -39,6 +39,8 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [settlementFrequencyEnabled, setSettlementFrequencyEnabled] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
   const [savingFrequencyToggle, setSavingFrequencyToggle] = useState(false);
+  const [registrationCode, setRegistrationCode] = useState<string | null>(null);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
   
   // Form state
   const [newFee, setNewFee] = useState<{
@@ -67,14 +69,41 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, registration_code')
       .eq('id', fleetId)
       .maybeSingle();
 
     if (!error && data) {
       setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
       setSettlementFrequencyEnabled(data.settlement_frequency_enabled ?? false);
+      setRegistrationCode((data as any).registration_code ?? null);
     }
+  };
+
+  const regenerateRegistrationCode = async () => {
+    setRegeneratingCode(true);
+    try {
+      const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const { error } = await supabase
+        .from('fleets')
+        .update({ registration_code: newCode } as any)
+        .eq('id', fleetId);
+
+      if (error) throw error;
+      setRegistrationCode(newCode);
+      toast.success('Kod rejestracyjny został zmieniony');
+    } catch (error) {
+      console.error('Error regenerating code:', error);
+      toast.error('Błąd podczas regeneracji kodu');
+    } finally {
+      setRegeneratingCode(false);
+    }
+  };
+
+  const copyRegistrationLink = () => {
+    const link = `${window.location.origin}/rejestracja?fleet=${registrationCode}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link skopiowany do schowka');
   };
 
   const fetchFees = async () => {
@@ -283,6 +312,49 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   return (
     <TooltipProvider>
       <div className="space-y-6">
+        {/* Registration Link Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link className="h-4 w-4" />
+              Link rejestracyjny dla kierowców
+            </CardTitle>
+            <CardDescription>
+              Kierowcy rejestrujący się przez ten link zostaną automatycznie przypisani do Twojej floty
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Input 
+                readOnly 
+                value={registrationCode ? `${window.location.origin}/rejestracja?fleet=${registrationCode}` : 'Generowanie...'} 
+                className="font-mono text-sm"
+              />
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={copyRegistrationLink}
+                disabled={!registrationCode}
+                title="Kopiuj link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={regenerateRegistrationCode}
+                disabled={regeneratingCode}
+                title="Wygeneruj nowy kod"
+              >
+                <RefreshCw className={`h-4 w-4 ${regeneratingCode ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Kod: <span className="font-mono font-bold">{registrationCode || '...'}</span>
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Driver Plan Selection Toggle - Compact */}
         <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
           <div className="flex items-center gap-3">

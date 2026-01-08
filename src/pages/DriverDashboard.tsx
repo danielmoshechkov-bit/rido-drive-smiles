@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -743,6 +743,7 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
 
   const subTabs = [
     { value: "payment", label: t('driver.paymentMethod') },
+    { value: "fleet", label: "Flota" },
     { value: "contact", label: "Dane kontaktowe (giełda)" }
   ];
 
@@ -759,9 +760,193 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
         <PaymentMethodSettings driverId={driverId} userId={userId} />
       )}
 
+      {activeSubTab === "fleet" && (
+        <FleetSettings driverId={driverId} />
+      )}
+
       {activeSubTab === "contact" && (
         <MarketplaceContactSettings driverId={driverId} />
       )}
+    </div>
+  );
+}
+
+// Fleet settings component - change fleet via registration code
+function FleetSettings({ driverId }: { driverId: string }) {
+  const [fleetInfo, setFleetInfo] = useState<{ name: string; registered_via_code?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [newFleetCode, setNewFleetCode] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [validatingCode, setValidatingCode] = useState(false);
+  const [validatedFleet, setValidatedFleet] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    loadFleetInfo();
+  }, [driverId]);
+
+  const loadFleetInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('fleet_id, registered_via_code, fleets(name)')
+        .eq('id', driverId)
+        .single();
+      
+      if (error) throw error;
+      if (data?.fleets) {
+        setFleetInfo({ 
+          name: (data.fleets as any).name, 
+          registered_via_code: data.registered_via_code 
+        });
+      }
+    } catch (error) {
+      console.error('Error loading fleet info:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateFleetCode = async (code: string) => {
+    if (code.length < 4) {
+      setValidatedFleet(null);
+      return;
+    }
+    
+    setValidatingCode(true);
+    try {
+      const { data } = await supabase
+        .from('fleets')
+        .select('id, name')
+        .eq('registration_code', code.toUpperCase())
+        .maybeSingle();
+      
+      setValidatedFleet(data);
+    } catch (error) {
+      console.error('Error validating code:', error);
+    } finally {
+      setValidatingCode(false);
+    }
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value.toUpperCase();
+    setNewFleetCode(code);
+    validateFleetCode(code);
+  };
+
+  const handleChangeFleet = async () => {
+    if (!validatedFleet) return;
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ 
+          fleet_id: validatedFleet.id,
+          registered_via_code: newFleetCode 
+        })
+        .eq('id', driverId);
+      
+      if (error) throw error;
+      
+      toast.success(`Zmieniono flotę na: ${validatedFleet.name}`);
+      setFleetInfo({ name: validatedFleet.name, registered_via_code: newFleetCode });
+      setNewFleetCode("");
+      setValidatedFleet(null);
+    } catch (error) {
+      console.error('Error changing fleet:', error);
+      toast.error('Błąd podczas zmiany floty');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Ładowanie...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Current Fleet Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Twoja flota
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fleetInfo ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Nazwa floty:</span>
+                <span className="font-semibold">{fleetInfo.name}</span>
+              </div>
+              {fleetInfo.registered_via_code && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Kod rejestracji:</span>
+                  <span className="font-mono bg-muted px-2 py-0.5 rounded">{fleetInfo.registered_via_code}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Nie jesteś przypisany do żadnej floty.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Change Fleet */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link className="h-5 w-5" />
+            Zmień flotę
+          </CardTitle>
+          <CardDescription>
+            Wpisz kod rejestracyjny nowej floty, aby zostać do niej przypisanym.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Kod floty</Label>
+            <Input
+              value={newFleetCode}
+              onChange={handleCodeChange}
+              placeholder="np. ABC12345"
+              className="font-mono uppercase"
+            />
+          </div>
+          
+          {validatingCode && (
+            <p className="text-sm text-muted-foreground">Sprawdzanie kodu...</p>
+          )}
+          
+          {newFleetCode.length >= 4 && !validatingCode && (
+            validatedFleet ? (
+              <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Znaleziono flotę: <strong>{validatedFleet.name}</strong>
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  ⚠️ Nieprawidłowy kod floty
+                </p>
+              </div>
+            )
+          )}
+          
+          <Button 
+            onClick={handleChangeFleet} 
+            disabled={!validatedFleet || saving}
+            className="w-full"
+          >
+            {saving ? 'Zapisywanie...' : 'Zmień flotę'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
