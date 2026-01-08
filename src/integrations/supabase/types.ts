@@ -644,6 +644,62 @@ export type Database = {
           },
         ]
       }
+      driver_invoices: {
+        Row: {
+          created_at: string
+          driver_id: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          invoice_amount: number
+          paid_amount: number
+          period_month: number
+          period_year: number
+          sent_at: string | null
+          status: string
+          updated_at: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          invoice_amount?: number
+          paid_amount?: number
+          period_month: number
+          period_year: number
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          invoice_amount?: number
+          paid_amount?: number
+          period_month?: number
+          period_year?: number
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_invoices_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_platform_ids: {
         Row: {
           created_at: string
