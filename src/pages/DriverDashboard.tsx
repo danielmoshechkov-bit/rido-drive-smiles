@@ -420,9 +420,9 @@ const DriverDashboard = () => {
         </div>
         
         {/* Desktop Tabs */}
-        <div className="hidden md:block">
-          <div className="flex items-center gap-4 mb-6">
-            <TabsPill value={activeTab} onValueChange={setActiveTab}>
+        <div className="hidden md:block mb-6">
+          <div className="flex items-center justify-between gap-4">
+            <TabsPill value={activeTab} onValueChange={setActiveTab} className="flex-1">
               <TabsTrigger value="weekly-report">
                 <DollarSign className="h-4 w-4 mr-2" />
                 {t('driver.tabs.settlements')}
@@ -451,7 +451,7 @@ const DriverDashboard = () => {
             {features.account_switching_enabled && (features.marketplace_enabled || isFleetAccount) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 shrink-0">
                     <Repeat className="h-4 w-4" />
                     Przełącz konto
                   </Button>
