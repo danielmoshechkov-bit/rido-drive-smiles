@@ -1151,6 +1151,7 @@ export type Database = {
       fleets: {
         Row: {
           address: string | null
+          base_fee: number | null
           city: string | null
           contact_name: string | null
           contact_phone_for_drivers: string | null
@@ -1168,9 +1169,11 @@ export type Database = {
           registration_code: string | null
           settlement_frequency_enabled: boolean | null
           street: string | null
+          vat_rate: number | null
         }
         Insert: {
           address?: string | null
+          base_fee?: number | null
           city?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
@@ -1188,9 +1191,11 @@ export type Database = {
           registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
+          vat_rate?: number | null
         }
         Update: {
           address?: string | null
+          base_fee?: number | null
           city?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
@@ -1208,6 +1213,7 @@ export type Database = {
           registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
+          vat_rate?: number | null
         }
         Relationships: []
       }

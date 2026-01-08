@@ -42,6 +42,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [registrationCode, setRegistrationCode] = useState<string | null>(null);
   const [regeneratingCode, setRegeneratingCode] = useState(false);
   
+  // Fleet-level VAT and base fee settings
+  const [vatRate, setVatRate] = useState<string>('8');
+  const [baseFee, setBaseFee] = useState<string>('0');
+  const [savingSettings, setSavingSettings] = useState(false);
+  
   // Form state
   const [newFee, setNewFee] = useState<{
     name: string;
@@ -69,7 +74,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, registration_code')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, registration_code, vat_rate, base_fee')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -77,6 +82,38 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
       setSettlementFrequencyEnabled(data.settlement_frequency_enabled ?? false);
       setRegistrationCode((data as any).registration_code ?? null);
+      setVatRate(((data as any).vat_rate ?? 8).toString());
+      setBaseFee(((data as any).base_fee ?? 0).toString());
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    const vat = parseFloat(vatRate);
+    const fee = parseFloat(baseFee);
+    
+    if (isNaN(vat) || vat < 0 || vat > 100) {
+      toast.error('Stawka VAT musi być między 0 a 100');
+      return;
+    }
+    if (isNaN(fee) || fee < 0) {
+      toast.error('Opłata stała musi być dodatnia');
+      return;
+    }
+    
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('fleets')
+        .update({ vat_rate: vat, base_fee: fee } as any)
+        .eq('id', fleetId);
+      
+      if (error) throw error;
+      toast.success('Ustawienia zapisane');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error('Błąd zapisywania ustawień');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -352,6 +389,57 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             <p className="text-xs text-muted-foreground mt-2">
               Kod: <span className="font-mono font-bold">{registrationCode || '...'}</span>
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Fleet-level VAT and Base Fee Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Settings className="h-4 w-4" />
+              Ustawienia rozliczeń
+            </CardTitle>
+            <CardDescription>
+              Globalne ustawienia dotyczące wszystkich rozliczeń kierowców w tej flocie
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="vat-rate">Stawka VAT (%)</Label>
+                <Input
+                  id="vat-rate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="8"
+                  value={vatRate}
+                  onChange={(e) => setVatRate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Stawka VAT odejmowana od zarobków kierowców
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="base-fee">Opłata stała (zł)</Label>
+                <Input
+                  id="base-fee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  value={baseFee}
+                  onChange={(e) => setBaseFee(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Stała opłata tygodniowa pobierana od kierowców
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleSaveSettings} disabled={savingSettings}>
+              {savingSettings ? 'Zapisywanie...' : 'Zapisz ustawienia'}
+            </Button>
           </CardContent>
         </Card>
 
