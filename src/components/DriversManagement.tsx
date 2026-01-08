@@ -607,30 +607,40 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                              className="w-40 p-2 bg-popover border shadow-lg z-50" 
                              onClick={(e) => e.stopPropagation()}
                            >
-                             <div className="space-y-1">
-                               <button
-                                 className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'cash' ? 'bg-muted font-medium' : ''}`}
-                                 onClick={async (e) => {
-                                   e.stopPropagation();
-                                   await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', driver.id);
-                                   toast.success('Zmieniono na: Gotówka');
-                                   refetch();
-                                 }}
-                               >
-                                 <Banknote className="h-4 w-4" /> Gotówka
-                               </button>
-                               <button
-                                 className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'transfer' ? 'bg-muted font-medium' : ''}`}
-                                 onClick={async (e) => {
-                                   e.stopPropagation();
-                                   await supabase.from('drivers').update({ payment_method: 'transfer' }).eq('id', driver.id);
-                                   toast.success('Zmieniono na: Przelew');
-                                   refetch();
-                                 }}
-                               >
-                                 <CreditCard className="h-4 w-4" /> Przelew
-                               </button>
-                             </div>
+                              <div className="space-y-1">
+                                <button
+                                  className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'cash' ? 'bg-muted font-medium' : ''}`}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const { error } = await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', driver.id);
+                                    if (error) {
+                                      toast.error('Nie udało się zmienić metody płatności');
+                                      console.error('Update error:', error);
+                                      return;
+                                    }
+                                    toast.success('Zmieniono na: Gotówka');
+                                    refetch();
+                                  }}
+                                >
+                                  <Banknote className="h-4 w-4" /> Gotówka
+                                </button>
+                                <button
+                                  className={`w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm ${driver.payment_method === 'transfer' ? 'bg-muted font-medium' : ''}`}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const { error } = await supabase.from('drivers').update({ payment_method: 'transfer' }).eq('id', driver.id);
+                                    if (error) {
+                                      toast.error('Nie udało się zmienić metody płatności');
+                                      console.error('Update error:', error);
+                                      return;
+                                    }
+                                    toast.success('Zmieniono na: Przelew');
+                                    refetch();
+                                  }}
+                                >
+                                  <CreditCard className="h-4 w-4" /> Przelew
+                                </button>
+                              </div>
                            </PopoverContent>
                          </Popover>
                        </div>
