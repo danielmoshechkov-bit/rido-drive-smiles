@@ -1184,7 +1184,7 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
               {hasFleetSettings && (
                 <div className="p-3 bg-primary/10 rounded-lg">
                   <p className="text-sm font-medium">
-                    {displayBaseFee} zł + {displayVat}% VAT
+                    {displayBaseFee} zł + {displayVat}%
                   </p>
                   <p className="text-xs text-muted-foreground">Stawki floty</p>
                 </div>

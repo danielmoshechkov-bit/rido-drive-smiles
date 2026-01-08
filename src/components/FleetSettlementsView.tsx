@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download } from 'lucide-react';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
@@ -85,6 +87,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [hideZeroRows, setHideZeroRows] = useState<boolean>(false);
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [payoutType, setPayoutType] = useState<'cash' | 'transfer' | null>(null);
 
   // Fetch cities for filter
   useEffect(() => {
@@ -108,6 +112,137 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (amount > 0) return 'text-green-600 font-semibold';
     if (amount < 0) return 'text-red-600 font-semibold';
     return 'text-muted-foreground';
+  };
+
+  // Helper function for displaying values: 
+  // - Shows value if > 0
+  // - Shows "0,00" if driver worked on platform but no value (base > 0)
+  // - Shows "-" if driver didn't work on platform at all (base === 0)
+  const displayValue = (value: number, hasActivity: boolean, isDeduction = false): string => {
+    if (value > 0) {
+      return isDeduction ? `-${formatCurrency(value)}` : formatCurrency(value);
+    }
+    if (hasActivity) {
+      return '0,00';
+    }
+    return '-';
+  };
+
+  // Generate cash payout document (KW)
+  const handleGenerateCashPayouts = async (cityId: string) => {
+    try {
+      // Filter settlements by city (need to get driver city data)
+      const { data: driversWithCity } = await supabase
+        .from('drivers')
+        .select('id, city_id, payment_method, first_name, last_name, phone')
+        .eq('fleet_id', fleetId);
+      
+      if (!driversWithCity) {
+        toast.error('Brak danych kierowców');
+        return;
+      }
+
+      const driverMap = new Map(driversWithCity.map(d => [d.id, d]));
+      
+      // Filter by city and cash payment method
+      const cashDrivers = settlements.filter(s => {
+        const driver = driverMap.get(s.driver_id);
+        if (!driver) return false;
+        if (cityId !== 'all' && driver.city_id !== cityId) return false;
+        return driver.payment_method === 'cash';
+      });
+
+      if (cashDrivers.length === 0) {
+        toast.info('Brak kierowców z rozliczeniem gotówkowym dla wybranego miasta');
+        return;
+      }
+
+      // Separate payouts from debts
+      const payouts = cashDrivers.filter(s => s.final_payout > 0);
+      const debts = cashDrivers.filter(s => s.final_payout < 0);
+      
+      const totalPayout = payouts.reduce((sum, s) => sum + s.final_payout, 0);
+      const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
+      
+      const today = format(new Date(), 'dd.MM.yyyy');
+      
+      // Build CSV content
+      let csvContent = `${today}  KW / Gotówka\n\nImię i nazwisko;Kwota;Podpis\n`;
+      
+      // Add all drivers (payouts first, then debts)
+      [...payouts, ...debts].forEach(s => {
+        csvContent += `${s.driver_name};${formatCurrency(s.final_payout)};\n`;
+      });
+      
+      csvContent += `\nWYPŁATA: ${formatCurrency(totalPayout)}\n`;
+      csvContent += `DŁUG: ${formatCurrency(totalDebt)}`;
+      
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${today}_KW_Gotowka.csv`;
+      link.click();
+      
+      toast.success('Lista wypłat gotówkowych została wygenerowana');
+    } catch (error) {
+      console.error('Error generating cash payouts:', error);
+      toast.error('Błąd podczas generowania listy');
+    }
+  };
+
+  // Generate transfer list (placeholder)
+  const handleGenerateTransfers = async (cityId: string) => {
+    try {
+      // Filter settlements by city and transfer payment method
+      const { data: driversWithCity } = await supabase
+        .from('drivers')
+        .select('id, city_id, payment_method, iban, first_name, last_name')
+        .eq('fleet_id', fleetId);
+      
+      if (!driversWithCity) {
+        toast.error('Brak danych kierowców');
+        return;
+      }
+
+      const driverMap = new Map(driversWithCity.map(d => [d.id, d]));
+      
+      // Filter by city and transfer payment method with positive payout
+      const transferDrivers = settlements.filter(s => {
+        const driver = driverMap.get(s.driver_id);
+        if (!driver) return false;
+        if (cityId !== 'all' && driver.city_id !== cityId) return false;
+        return driver.payment_method === 'transfer' && s.final_payout > 0;
+      });
+
+      if (transferDrivers.length === 0) {
+        toast.info('Brak kierowców z przelewem dla wybranego miasta');
+        return;
+      }
+
+      // Build CSV for bank import
+      let csvContent = `Odbiorca;IBAN;Kwota;Tytuł\n`;
+      
+      const periodLabel = currentWeek?.label || `Tydzień ${selectedWeek}`;
+      
+      transferDrivers.forEach(s => {
+        const driver = driverMap.get(s.driver_id);
+        const iban = driver?.iban || '';
+        csvContent += `${s.driver_name};${iban};${formatCurrency(s.final_payout)};Rozliczenie ${periodLabel}\n`;
+      });
+      
+      const today = format(new Date(), 'dd.MM.yyyy');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${today}_Przelewy.csv`;
+      link.click();
+      
+      toast.success('Lista przelewów została wygenerowana');
+    } catch (error) {
+      console.error('Error generating transfers:', error);
+      toast.error('Błąd podczas generowania listy');
+    }
   };
 
   // Fetch latest settlement week on mount
@@ -935,9 +1070,66 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   Ukryj 0
                 </Label>
               </div>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => { setPayoutType('cash'); setPayoutDialogOpen(true); }}
+                  className="gap-1.5"
+                >
+                  <Banknote className="h-4 w-4" />
+                  Generuj KW gotówka
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => { setPayoutType('transfer'); setPayoutDialogOpen(true); }}
+                  className="gap-1.5"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Generuj przelew
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
+
+        {/* City Selection Dialog for Payouts */}
+        <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {payoutType === 'cash' ? 'Generuj listę wypłat gotówkowych' : 'Generuj listę przelewów'}
+              </DialogTitle>
+              <DialogDescription>
+                Wybierz miasto, dla którego chcesz wygenerować {payoutType === 'cash' ? 'dokument KW' : 'listę przelewów'}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Select
+                onValueChange={(cityId) => {
+                  if (payoutType === 'cash') {
+                    handleGenerateCashPayouts(cityId);
+                  } else {
+                    handleGenerateTransfers(cityId);
+                  }
+                  setPayoutDialogOpen(false);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz miasto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie miasta</SelectItem>
+                  {cities.map(city => (
+                    <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </DialogContent>
+        </Dialog>
       <CardContent>
         {(() => {
           // Filter settlements based on search and hide zero
@@ -958,7 +1150,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             <>
               {/* Mobile View - Collapsible per driver */}
               <div className="md:hidden space-y-2">
-                {filteredSettlements.map((settlement) => (
+                {filteredSettlements.map((settlement) => {
+                  // Check platform activity (driver worked if base > 0)
+                  const hasUberActivity = settlement.uber_base > 0;
+                  const hasBoltActivity = settlement.bolt_base > 0;
+                  const hasFreenowActivity = settlement.freenow_base > 0;
+                  
+                  return (
                   <Collapsible key={settlement.driver_id} className="border rounded-lg bg-white">
                     <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/50">
                       <span className="font-medium text-sm">{settlement.driver_name}</span>
@@ -984,21 +1182,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <tbody>
                             <tr className="border-t">
                               <td className="p-2 text-xs text-muted-foreground">Podstawa</td>
-                              <td className="p-2 text-right text-xs text-gray-900 tabular-nums">{settlement.uber_base > 0 ? formatCurrency(settlement.uber_base) : '-'}</td>
-                              <td className="p-2 text-right text-xs text-green-600 tabular-nums">{settlement.bolt_base > 0 ? formatCurrency(settlement.bolt_base) : '-'}</td>
-                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.freenow_base > 0 ? formatCurrency(settlement.freenow_base) : '-'}</td>
+                              <td className="p-2 text-right text-xs text-gray-900 tabular-nums">{hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}</td>
+                              <td className="p-2 text-right text-xs text-green-600 tabular-nums">{hasBoltActivity ? formatCurrency(settlement.bolt_base) : '-'}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{hasFreenowActivity ? formatCurrency(settlement.freenow_base) : '-'}</td>
                             </tr>
                             <tr className="border-t">
                               <td className="p-2 text-xs text-muted-foreground">Prowizja</td>
-                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.uber_commission > 0 ? `-${formatCurrency(settlement.uber_commission)}` : '-'}</td>
-                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}</td>
-                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{displayValue(settlement.uber_commission, hasUberActivity, true)}</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{displayValue(settlement.bolt_commission, hasBoltActivity, true)}</td>
+                              <td className="p-2 text-right text-xs text-orange-600 tabular-nums">{displayValue(settlement.freenow_commission, hasFreenowActivity, true)}</td>
                             </tr>
                             <tr className="border-t">
                               <td className="p-2 text-xs text-muted-foreground">Gotówka</td>
-                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}</td>
-                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}</td>
-                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{displayValue(settlement.uber_cash, hasUberActivity, true)}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{displayValue(settlement.bolt_cash, hasBoltActivity, true)}</td>
+                              <td className="p-2 text-right text-xs text-red-600 tabular-nums">{displayValue(settlement.freenow_cash, hasFreenowActivity, true)}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -1055,7 +1253,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
-                ))}
+                )})}
+                
                 
                 {/* Mobile total summary */}
                 <div className="bg-muted/50 rounded-lg p-3 mt-4">
@@ -1096,47 +1295,54 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSettlements.map((settlement) => (
+                    {filteredSettlements.map((settlement) => {
+                      // Check platform activity (driver worked if base > 0)
+                      const hasUberActivity = settlement.uber_base > 0;
+                      const hasBoltActivity = settlement.bolt_base > 0;
+                      const hasFreenowActivity = settlement.freenow_base > 0;
+                      const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
+                      
+                      return (
                       <TableRow key={settlement.driver_id}>
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">{settlement.driver_name}</TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                          {formatCurrency(settlement.uber_base)}
+                          {hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                          {settlement.uber_cash > 0 ? `-${formatCurrency(settlement.uber_cash)}` : '-'}
+                          {displayValue(settlement.uber_cash, hasUberActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {formatCurrency(settlement.bolt_base)}
+                          {hasBoltActivity ? formatCurrency(settlement.bolt_base) : '-'}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {settlement.bolt_cash > 0 ? `-${formatCurrency(settlement.bolt_cash)}` : '-'}
+                          {displayValue(settlement.bolt_cash, hasBoltActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {settlement.bolt_commission > 0 ? `-${formatCurrency(settlement.bolt_commission)}` : '-'}
+                          {displayValue(settlement.bolt_commission, hasBoltActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {formatCurrency(settlement.freenow_base)}
+                          {hasFreenowActivity ? formatCurrency(settlement.freenow_base) : '-'}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {settlement.freenow_cash > 0 ? `-${formatCurrency(settlement.freenow_cash)}` : '-'}
+                          {displayValue(settlement.freenow_cash, hasFreenowActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {settlement.freenow_commission > 0 ? `-${formatCurrency(settlement.freenow_commission)}` : '-'}
+                          {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
-                          {settlement.total_cash > 0 ? `-${formatCurrency(settlement.total_cash)}` : '-'}
+                          {displayValue(settlement.total_cash, hasAnyActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
-                          {settlement.total_commission > 0 ? `-${formatCurrency(settlement.total_commission)}` : '-'}
+                          {displayValue(settlement.total_commission, hasAnyActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {settlement.fuel > 0 ? `-${formatCurrency(settlement.fuel)}` : '-'}
+                          {displayValue(settlement.fuel, hasAnyActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
-                          {settlement.vat_amount > 0 ? `-${formatCurrency(settlement.vat_amount)}` : '-'}
+                          {displayValue(settlement.vat_amount, hasAnyActivity, true)}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : '-'}
+                          {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>
                         {settlement.additional_fees.map((fee, idx) => (
                           <TableCell key={idx} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
@@ -1144,16 +1350,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           </TableCell>
                         ))}
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          -{formatCurrency(settlement.service_fee)}
+                          {settlement.service_fee > 0 ? `-${formatCurrency(settlement.service_fee)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          -{formatCurrency(settlement.rental || 0)}
+                          {(settlement.rental || 0) > 0 ? `-${formatCurrency(settlement.rental || 0)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>
                         <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                   <TableFooter>
                     <TableRow className="bg-muted/50 font-bold">
