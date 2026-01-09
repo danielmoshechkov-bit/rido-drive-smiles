@@ -15,7 +15,7 @@ interface RegisterDriverRequest {
   payment_method: string;
   iban?: string;
   language?: string;
-  fleet_code?: string;
+  fleet_nip?: string;
 }
 
 Deno.serve(async (req) => {
@@ -33,24 +33,24 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterDriverRequest = await req.json();
-    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl", fleet_code } = body;
+    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl", fleet_nip } = body;
 
-    console.log("📝 Starting driver registration for:", email, "language:", language, "fleet_code:", fleet_code);
+    console.log("📝 Starting driver registration for:", email, "language:", language, "fleet_nip:", fleet_nip);
 
-    // Resolve fleet_id from fleet_code if provided
+    // Resolve fleet_id from fleet NIP if provided
     let fleetId: string | null = null;
-    if (fleet_code) {
+    if (fleet_nip) {
       const { data: fleetData } = await supabaseAdmin
         .from("fleets")
         .select("id")
-        .eq("registration_code", fleet_code)
+        .eq("nip", fleet_nip)
         .maybeSingle();
       
       if (fleetData) {
         fleetId = fleetData.id;
-        console.log("🏢 Fleet found for code:", fleet_code, "->", fleetId);
+        console.log("🏢 Fleet found for NIP:", fleet_nip, "->", fleetId);
       } else {
-        console.log("⚠️ Fleet code not found:", fleet_code);
+        console.log("⚠️ Fleet NIP not found:", fleet_nip);
       }
     }
 
@@ -126,10 +126,10 @@ Deno.serve(async (req) => {
         // NOTE: getrido_id, city_id, driver_platform_ids are NOT updated - preserved!
       };
       
-      // If registering via fleet link, update fleet_id and registered_via_code
+      // If registering via fleet NIP, update fleet_id and registered_via_code
       if (fleetId) {
         updateData.fleet_id = fleetId;
-        updateData.registered_via_code = fleet_code;
+        updateData.registered_via_code = fleet_nip;
       }
       
       await supabaseAdmin
@@ -155,10 +155,10 @@ Deno.serve(async (req) => {
         registration_date: new Date().toISOString()
       };
       
-      // If registering via fleet link, set fleet_id and registered_via_code
+      // If registering via fleet NIP, set fleet_id and registered_via_code
       if (fleetId) {
         insertData.fleet_id = fleetId;
-        insertData.registered_via_code = fleet_code;
+        insertData.registered_via_code = fleet_nip;
       }
       
       const { data: newDriver, error: driverError } = await supabaseAdmin

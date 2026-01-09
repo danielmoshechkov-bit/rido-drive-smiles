@@ -38,8 +38,8 @@ export default function DriverRegister() {
   const [loading, setLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || "pl");
   
-  // Fleet registration
-  const fleetCode = searchParams.get('fleet');
+  // Fleet registration - now uses NIP instead of code
+  const fleetNip = searchParams.get('nip');
   const [fleetInfo, setFleetInfo] = useState<{id: string; name: string} | null>(null);
   const [fleetLoading, setFleetLoading] = useState(false);
   
@@ -67,14 +67,14 @@ export default function DriverRegister() {
     loadCities();
   }, []);
 
-  // Load fleet info if code provided
+  // Load fleet info if NIP provided
   useEffect(() => {
-    if (fleetCode) {
+    if (fleetNip) {
       setFleetLoading(true);
       supabase
         .from('fleets')
         .select('id, name')
-        .eq('registration_code', fleetCode)
+        .eq('nip', fleetNip)
         .maybeSingle()
         .then(({ data, error }) => {
           if (!error && data) {
@@ -83,7 +83,7 @@ export default function DriverRegister() {
           setFleetLoading(false);
         });
     }
-  }, [fleetCode]);
+  }, [fleetNip]);
 
   const handleLanguageChange = (langCode: string) => {
     setSelectedLanguage(langCode);
@@ -127,7 +127,7 @@ export default function DriverRegister() {
             payment_method: paymentMethod,
             iban: paymentMethod === "transfer" ? iban : null,
             language: selectedLanguage,
-            fleet_code: fleetCode || null
+            fleet_nip: fleetNip || null
           })
         }
       );
@@ -186,10 +186,10 @@ export default function DriverRegister() {
             <p className="text-muted-foreground">{t("register.subtitle")}</p>
             
             {/* Fleet info banner */}
-            {fleetCode && (
+            {fleetNip && (
               <div className={`mt-4 p-3 rounded-lg border ${fleetInfo ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-muted/50 border-border'}`}>
                 {fleetLoading ? (
-                  <p className="text-sm text-muted-foreground">Sprawdzanie kodu floty...</p>
+                  <p className="text-sm text-muted-foreground">Sprawdzanie NIP floty...</p>
                 ) : fleetInfo ? (
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-green-600" />
@@ -203,7 +203,7 @@ export default function DriverRegister() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-amber-600">⚠️ Nieprawidłowy kod floty</p>
+                  <p className="text-sm text-amber-600">⚠️ Nie znaleziono floty o podanym NIP</p>
                 )}
               </div>
             )}
