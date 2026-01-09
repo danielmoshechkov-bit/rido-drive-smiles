@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Settings, Edit, Info, Copy, RefreshCw, Link } from 'lucide-react';
+import { Plus, Trash2, Settings, Edit, Info, Copy, Link } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 interface FleetFee {
   id: string;
@@ -39,8 +39,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [settlementFrequencyEnabled, setSettlementFrequencyEnabled] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
   const [savingFrequencyToggle, setSavingFrequencyToggle] = useState(false);
-  const [registrationCode, setRegistrationCode] = useState<string | null>(null);
-  const [regeneratingCode, setRegeneratingCode] = useState(false);
+  const [fleetNip, setFleetNip] = useState<string | null>(null);
   
   // Fleet-level VAT and base fee settings
   const [vatRate, setVatRate] = useState<string>('8');
@@ -74,14 +73,14 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, registration_code, vat_rate, base_fee')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee')
       .eq('id', fleetId)
       .maybeSingle();
 
     if (!error && data) {
       setDriverPlanSelectionEnabled(data.driver_plan_selection_enabled ?? true);
       setSettlementFrequencyEnabled(data.settlement_frequency_enabled ?? false);
-      setRegistrationCode((data as any).registration_code ?? null);
+      setFleetNip(data.nip ?? null);
       setVatRate(((data as any).vat_rate ?? 8).toString());
       setBaseFee(((data as any).base_fee ?? 0).toString());
     }
@@ -117,28 +116,12 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     }
   };
 
-  const regenerateRegistrationCode = async () => {
-    setRegeneratingCode(true);
-    try {
-      const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const { error } = await supabase
-        .from('fleets')
-        .update({ registration_code: newCode } as any)
-        .eq('id', fleetId);
-
-      if (error) throw error;
-      setRegistrationCode(newCode);
-      toast.success('Kod rejestracyjny został zmieniony');
-    } catch (error) {
-      console.error('Error regenerating code:', error);
-      toast.error('Błąd podczas regeneracji kodu');
-    } finally {
-      setRegeneratingCode(false);
-    }
-  };
-
   const copyRegistrationLink = () => {
-    const link = `${window.location.origin}/rejestracja?fleet=${registrationCode}`;
+    if (!fleetNip) {
+      toast.error('Brak NIP floty - uzupełnij dane firmy');
+      return;
+    }
+    const link = `${window.location.origin}/rejestracja?nip=${fleetNip}`;
     navigator.clipboard.writeText(link);
     toast.success('Link skopiowany do schowka');
   };
@@ -366,30 +349,21 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
               <div className="flex items-center gap-2">
                 <Input 
                   readOnly 
-                  value={registrationCode ? `${window.location.origin}/rejestracja?fleet=${registrationCode}` : 'Generowanie...'} 
+                  value={fleetNip ? `${window.location.origin}/rejestracja?nip=${fleetNip}` : 'Brak NIP - uzupełnij dane firmy'} 
                   className="font-mono text-xs"
                 />
                 <Button 
                   variant="outline" 
                   size="icon"
                   onClick={copyRegistrationLink}
-                  disabled={!registrationCode}
+                  disabled={!fleetNip}
                   title="Kopiuj link"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={regenerateRegistrationCode}
-                  disabled={regeneratingCode}
-                  title="Wygeneruj nowy kod"
-                >
-                  <RefreshCw className={`h-4 w-4 ${regeneratingCode ? 'animate-spin' : ''}`} />
-                </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Kod: <span className="font-mono font-bold">{registrationCode || '...'}</span>
+                NIP floty: <span className="font-mono font-bold">{fleetNip || 'nie ustawiono'}</span>
               </p>
             </CardContent>
           </Card>
