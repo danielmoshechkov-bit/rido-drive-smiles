@@ -16,6 +16,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from "@/lib/utils";
 import { useTranslation } from 'react-i18next';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { B2BInvoiceCard } from "@/components/driver/B2BInvoiceCard";
 
 interface Settlement {
   id: string;
@@ -93,21 +94,39 @@ export const DriverSettlements = ({
   const [accumulatedEarnings, setAccumulatedEarnings] = useState<number>(0);
   const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
   const [fleetBaseFee, setFleetBaseFee] = useState<number | null>(null);
+  const [isB2BDriver, setIsB2BDriver] = useState(false);
+  const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
+  const [driverName, setDriverName] = useState<string>('');
   const { role } = useUserRole();
   const { t } = useTranslation();
 
   // Check if fleet has disabled plan selection for drivers and if frequency is enabled
   useEffect(() => {
     const checkFleetSettings = async () => {
-      if (!driverId || role === 'admin') return;
+      if (!driverId) return;
       
       const { data: driver } = await supabase
         .from('drivers')
-        .select('fleet_id')
+        .select('fleet_id, payment_method, first_name, last_name')
         .eq('id', driverId)
         .maybeSingle();
       
-      if (!driver?.fleet_id) return;
+      // Check if B2B driver
+      if (driver?.payment_method === 'b2b') {
+        setIsB2BDriver(true);
+      }
+      
+      // Set driver name for B2B invoice
+      if (driver?.first_name || driver?.last_name) {
+        setDriverName(`${driver.first_name || ''} ${driver.last_name || ''}`.trim());
+      }
+      
+      // Set fleet ID
+      if (driver?.fleet_id) {
+        setDriverFleetId(driver.fleet_id);
+      }
+      
+      if (!driver?.fleet_id || role === 'admin') return;
       
       const { data: fleet } = await supabase
         .from('fleets')
@@ -856,9 +875,11 @@ export const DriverSettlements = ({
     const freenowNet = amounts.freenow_net || 0;
     
     // Get taxes - dynamically calculate based on fleet VAT rate if different from 8%
-    const effectiveVatRate = fleetVatRate ?? 8;
+    // B2B drivers don't pay VAT - they issue their own invoices
+    const effectiveVatRate = isB2BDriver ? 0 : (fleetVatRate ?? 8);
     
     const calculateDynamicTax = (netAmount: number, originalTax8: number) => {
+      if (effectiveVatRate === 0) return 0; // B2B - no tax
       if (effectiveVatRate === 8) return originalTax8;
       // Reconstruct gross from net (net = gross * 0.92)
       // gross = net / 0.92
@@ -1197,16 +1218,24 @@ export const DriverSettlements = ({
                           </div>
                         )}
                         
-                        {/* Razem podatek - DUŻA CZCIONKA */}
-                        <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                          <span className="font-bold">
-                            {(fleetVatRate ?? 8) === 8 
-                              ? t('weekly.totalTax')
-                              : `${t('weekly.totalTax')} + inne opłaty ${fleetVatRate}%`
-                            }:
-                          </span>
-                          <span className="font-bold text-foreground text-lg">-{totalTax.toFixed(2)} zł</span>
-                        </div>
+                        {/* Razem podatek - DUŻA CZCIONKA (ukryty dla B2B) */}
+                        {!isB2BDriver && (
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
+                            <span className="font-bold">
+                              {(fleetVatRate ?? 8) === 8 
+                                ? t('weekly.totalTax')
+                                : `${t('weekly.totalTax')} + inne opłaty ${fleetVatRate}%`
+                              }:
+                            </span>
+                            <span className="font-bold text-foreground text-lg">-{totalTax.toFixed(2)} zł</span>
+                          </div>
+                        )}
+                        {isB2BDriver && (
+                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
+                            <span className="font-bold text-blue-600">B2B - bez podatku:</span>
+                            <span className="font-bold text-blue-600 text-lg">0.00 zł</span>
+                          </div>
+                        )}
                         
                         {/* Opłata za rozliczenie - DUŻA CZCIONKA */}
                         {fee > 0 && (
@@ -1429,6 +1458,31 @@ export const DriverSettlements = ({
                           </div>
                         </CardContent>
                       </Card>
+                    )}
+                    
+                    {/* B2B Invoice Card - for B2B drivers */}
+                    {isB2BDriver && (
+                      <div className="flex-1 min-w-[300px]">
+                        <B2BInvoiceCard
+                          driverId={driverId}
+                          driverName={driverName}
+                          periodFrom={period.period_from}
+                          periodTo={period.period_to}
+                          invoiceAmount={
+                            // Suma platform z prowizją (brutto)
+                            (amounts.uber_base || 0) +
+                            (amounts.bolt_projected_d || 0) +
+                            (amounts.freenow_base_s || 0)
+                          }
+                          paidAmount={
+                            // Suma gotówek
+                            Math.abs(amounts.uber_cash || 0) +
+                            Math.abs(amounts.bolt_cash || 0) +
+                            Math.abs(amounts.freenow_cash_f || 0)
+                          }
+                          fleetId={driverFleetId}
+                        />
+                      </div>
                     )}
                     
                   </div>
