@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ChevronDown, ChevronUp, CreditCard, Banknote } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, CreditCard, Banknote, AlertTriangle, Phone } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { pl } from 'date-fns/locale';
 import { supabase } from "@/integrations/supabase/client";
@@ -97,6 +97,7 @@ export const DriverSettlements = ({
   const [isB2BDriver, setIsB2BDriver] = useState(false);
   const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
   const [driverName, setDriverName] = useState<string>('');
+  const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -130,7 +131,7 @@ export const DriverSettlements = ({
       
       const { data: fleet } = await supabase
         .from('fleets')
-        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate, base_fee')
+        .select('driver_plan_selection_enabled, settlement_frequency_enabled, vat_rate, base_fee, contact_name, contact_phone_for_drivers')
         .eq('id', driver.fleet_id)
         .maybeSingle();
       
@@ -141,6 +142,14 @@ export const DriverSettlements = ({
         setFleetFrequencyEnabled(fleet.settlement_frequency_enabled ?? false);
         setFleetVatRate(fleet.vat_rate ?? null);
         setFleetBaseFee((fleet as any).base_fee ?? null);
+        
+        // Set fleet contact for no-settlement message
+        if (fleet.contact_name || fleet.contact_phone_for_drivers) {
+          setFleetContact({
+            name: fleet.contact_name || '',
+            phone: fleet.contact_phone_for_drivers || ''
+          });
+        }
       }
       
       // Get driver's current frequency setting
@@ -1169,22 +1178,98 @@ export const DriverSettlements = ({
         {loading ? (
           <div className="text-center py-4">{t('weekly.loading')}</div>
         ) : settlements.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-muted-foreground mb-2">
-              {t('weekly.noData')}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {t('weekly.contactAdmin')}
-            </p>
-            {lastAvailableWeek && (
-              <p className="text-xs text-blue-600 mt-4">
-                💡 Ostatnie dostępne rozliczenie: {lastAvailableWeek}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-4">
-              {t('weekly.driverId')}: {driverId}
-            </p>
-          </Card>
+          <div className="space-y-4">
+            {/* Warning banner with fleet contact */}
+            <Card className="border-amber-300 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-800">
+                    Rozliczenie nie sporządzone
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Skontaktuj się z administratorem swojej floty:
+                  </p>
+                  {fleetContact && (fleetContact.name || fleetContact.phone) && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-amber-600" />
+                      <span className="font-medium text-amber-800">
+                        {fleetContact.name}{fleetContact.name && fleetContact.phone ? ': ' : ''}{fleetContact.phone}
+                      </span>
+                    </div>
+                  )}
+                  {lastAvailableWeek && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      💡 Ostatnie dostępne rozliczenie: {lastAvailableWeek}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+            
+            {/* Zeroed-out settlement view */}
+            <div className="flex flex-wrap gap-4">
+              {/* White summary box with zeros */}
+              <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px]">
+                <div className="bg-white p-4 space-y-3">
+                  <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
+                    <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
+                    <span className="font-bold text-muted-foreground text-lg">0.00 zł</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
+                    <span className="font-bold">{isB2BDriver ? 'B2B - bez podatku' : t('weekly.totalTax')}:</span>
+                    <span className="font-bold text-muted-foreground text-lg">0.00 zł</span>
+                  </div>
+                </div>
+                <div className="border-t bg-purple-100 p-4 rounded-b-lg">
+                  <div className="flex justify-between">
+                    <span className="font-extrabold text-xl">{t('weekly.payout')}:</span>
+                    <span className="font-extrabold text-xl text-muted-foreground">0.00 zł</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Platform table with dashes */}
+              <div className="border rounded-lg overflow-hidden flex-1 min-w-[300px] bg-white">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs">
+                      <th className="text-left p-2">{t('weekly.category')}</th>
+                      <th className="text-right p-2">Uber</th>
+                      <th className="text-right p-2">Bolt</th>
+                      <th className="text-right p-2">FreeNow</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="p-2">{t('weekly.base')}</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-2">{t('weekly.commission')}</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-2">{t('weekly.cashCollected')}</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="p-2">{t('weekly.tax8')}</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                      <td className="text-right p-2 text-muted-foreground">-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-6">
             {periods.map((period) => {
