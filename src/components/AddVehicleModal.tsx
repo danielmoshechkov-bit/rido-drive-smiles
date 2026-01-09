@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
@@ -17,6 +18,26 @@ type Props = {
   userType?: 'admin' | 'fleet';
 };
 
+const BODY_TYPES = [
+  { value: "sedan", label: "Sedan" },
+  { value: "kombi", label: "Kombi" },
+  { value: "hatchback", label: "Hatchback" },
+  { value: "suv", label: "SUV" },
+  { value: "coupe", label: "Coupe" },
+  { value: "cabrio", label: "Cabrio" },
+  { value: "minivan", label: "Minivan" },
+  { value: "pickup", label: "Pickup" },
+];
+
+const FUEL_TYPES = [
+  { value: "benzyna", label: "Benzyna" },
+  { value: "diesel", label: "Diesel" },
+  { value: "hybryda", label: "Hybryda" },
+  { value: "elektryczny", label: "Elektryczny" },
+  { value: "lpg", label: "LPG" },
+  { value: "hybryda_gaz", label: "Hybryda + Gaz" },
+];
+
 export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, fleetName, userType = 'admin' }: Props) {
   const isFleetUser = userType === 'fleet' && fleetId;
   const [loading, setLoading] = useState(false);
@@ -27,13 +48,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
+  const [bodyType, setBodyType] = useState("");
+  const [fuelType, setFuelType] = useState("");
+  const [weeklyRentalFee, setWeeklyRentalFee] = useState<number | "">("");
   const [ownerName, setOwnerName] = useState(fleetName || "");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
 
   const handleSave = async () => {
-    if (!plate || !brand || !model) {
-      toast.error("Uzupełnij przynajmniej: nr rejestracyjny, markę i model.");
+    if (!plate || !brand || !model || !bodyType || !fuelType) {
+      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
       return;
     }
     setLoading(true);
@@ -48,6 +72,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           model: model,
           year: year === "" ? null : Number(year),
           color: color || null,
+          body_type: bodyType,
+          fuel_type: fuelType,
+          weekly_rental_fee: weeklyRentalFee === "" ? null : Number(weeklyRentalFee),
           odometer: 0,
           status: "aktywne",
           owner_name: ownerName || null,
@@ -126,6 +153,43 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           <div>
             <Label>Kolor</Label>
             <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
+          </div>
+
+          <div>
+            <Label>Rodzaj nadwozia *</Label>
+            <Select value={bodyType} onValueChange={setBodyType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz rodzaj nadwozia" />
+              </SelectTrigger>
+              <SelectContent>
+                {BODY_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Rodzaj paliwa *</Label>
+            <Select value={fuelType} onValueChange={setFuelType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz rodzaj paliwa" />
+              </SelectTrigger>
+              <SelectContent>
+                {FUEL_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Kwota za wynajem (opcjonalnie)</Label>
+            <Input 
+              type="number" 
+              value={weeklyRentalFee} 
+              onChange={(e) => setWeeklyRentalFee(e.target.value === "" ? "" : Number(e.target.value))} 
+              placeholder="zł/tydzień" 
+            />
           </div>
           <div>
             <Label>Właściciel / Flota (nazwa spółki)</Label>

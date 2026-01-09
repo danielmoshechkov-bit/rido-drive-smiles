@@ -187,6 +187,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
   const assignDriver = async (vehicleId: string, driverId: string) => {
     try {
+      console.log('🚗 Assigning driver:', { vehicleId, driverId });
+      
       // Zakończ poprzednie przypisania pojazdu
       const { error: updateError } = await supabase
         .from('driver_vehicle_assignments')
@@ -197,7 +199,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         .eq('vehicle_id', vehicleId)
         .eq('status', 'active');
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error deactivating vehicle assignments:', updateError);
+        throw updateError;
+      }
 
       // Zakończ poprzednie przypisania kierowcy
       const { error: deactivateDriverError } = await supabase
@@ -209,7 +214,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         .eq('driver_id', driverId)
         .eq('status', 'active');
 
-      if (deactivateDriverError) throw deactivateDriverError;
+      if (deactivateDriverError) {
+        console.error('Error deactivating driver assignments:', deactivateDriverError);
+        throw deactivateDriverError;
+      }
 
       // Dodaj nowe przypisanie
       const { error } = await supabase
@@ -218,15 +226,21 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           vehicle_id: vehicleId,
           driver_id: driverId,
           assigned_at: new Date().toISOString(),
-          status: 'active'
+          status: 'active',
+          fleet_id: fleetId
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating new assignment:', error);
+        throw error;
+      }
       
+      console.log('✅ Driver assigned successfully');
       toast.success('Kierowca przypisany do pojazdu');
       fetchVehicles();
-    } catch (error) {
-      toast.error('Błąd przy przypisywaniu kierowcy');
+    } catch (error: any) {
+      console.error('Full assignment error:', error);
+      toast.error(`Błąd przy przypisywaniu kierowcy: ${error?.message || 'Nieznany błąd'}`);
     }
   };
 

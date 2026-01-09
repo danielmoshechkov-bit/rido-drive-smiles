@@ -1428,76 +1428,79 @@ export const DriverSettlements = ({
                       ) : null}
                     </div>
                     
-                    {/* Chart - SECOND */}
-                    {platformData.length > 0 && (
-                      <Card className="flex-1 min-w-[300px]">
-                        <CardHeader className="pb-2">
-                          <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
-                          {/* Percentages as text */}
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {platformData.map((platform, idx) => {
-                              const total = platformData.reduce((sum, p) => sum + p.value, 0);
-                              const percentage = total > 0 ? ((platform.value / total) * 100).toFixed(0) : 0;
-                              return (
-                                <span key={platform.name}>
-                                  {idx > 0 && ', '}
-                                  <span style={{ color: platform.fill }} className="font-medium">
-                                    {platform.name} {percentage}%
+                    {/* Chart and B2B Invoice - side by side */}
+                    <div className="flex flex-wrap gap-4 w-full">
+                      {/* Chart */}
+                      {platformData.length > 0 && (
+                        <Card className="flex-1 min-w-[280px] max-w-md">
+                          <CardHeader className="pb-2">
+                            <h4 className="text-sm font-medium">{t('weekly.earningsByPlatform')}</h4>
+                            {/* Percentages as text */}
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {platformData.map((platform, idx) => {
+                                const total = platformData.reduce((sum, p) => sum + p.value, 0);
+                                const percentage = total > 0 ? ((platform.value / total) * 100).toFixed(0) : 0;
+                                return (
+                                  <span key={platform.name}>
+                                    {idx > 0 && ', '}
+                                    <span style={{ color: platform.fill }} className="font-medium">
+                                      {platform.name} {percentage}%
+                                    </span>
                                   </span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="h-48 md:h-56">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={platformData}
-                                  cx="50%"
-                                  cy="50%"
-                                  labelLine={false}
-                                  label={false}
-                                  outerRadius="70%"
-                                  dataKey="value"
-                                >
-                                  {platformData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                    
-                    {/* B2B Invoice Card - for B2B drivers */}
-                    {isB2BDriver && (
-                      <div className="flex-1 min-w-[300px]">
-                        <B2BInvoiceCard
-                          driverId={driverId}
-                          driverName={driverName}
-                          periodFrom={period.period_from}
-                          periodTo={period.period_to}
-                          invoiceAmount={
-                            // Suma platform z prowizją (brutto)
-                            (amounts.uber_base || 0) +
-                            (amounts.bolt_projected_d || 0) +
-                            (amounts.freenow_base_s || 0)
-                          }
-                          paidAmount={
-                            // Suma gotówek
-                            Math.abs(amounts.uber_cash || 0) +
-                            Math.abs(amounts.bolt_cash || 0) +
-                            Math.abs(amounts.freenow_cash_f || 0)
-                          }
-                          fleetId={driverFleetId}
-                        />
-                      </div>
-                    )}
+                                );
+                              })}
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-48 md:h-56">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={platformData}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={false}
+                                    outerRadius="70%"
+                                    dataKey="value"
+                                  >
+                                    {platformData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip formatter={(value: number) => `${value.toFixed(2)} zł`} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      
+                      {/* B2B Invoice Card - for B2B drivers */}
+                      {isB2BDriver && (
+                        <div className="flex-1 min-w-[280px] max-w-md">
+                          <B2BInvoiceCard
+                            driverId={driverId}
+                            driverName={driverName}
+                            periodFrom={period.period_from}
+                            periodTo={period.period_to}
+                            invoiceAmount={
+                              // Suma platform z prowizją (brutto)
+                              (amounts.uber_base || 0) +
+                              (amounts.bolt_projected_d || 0) +
+                              (amounts.freenow_base_s || 0)
+                            }
+                            paidAmount={
+                              // Suma gotówek - używamy uber_cash_f (poprawne pole)
+                              Math.abs(amounts.uber_cash_f || 0) +
+                              Math.abs(amounts.bolt_cash || 0) +
+                              Math.abs(amounts.freenow_cash_f || 0)
+                            }
+                            fleetId={driverFleetId}
+                          />
+                        </div>
+                      )}
+                    </div>
                     
                   </div>
                 );
