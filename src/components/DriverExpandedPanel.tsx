@@ -4,14 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverDocumentStatuses } from "./DriverDocumentStatuses";
 import { PlatformIdEditor } from "./PlatformIdEditor";
 import { DriverRoleManager } from "./DriverRoleManager";
 import { VehicleHistorySection } from "./VehicleHistorySection";
+import { DriverDocumentsView } from "./driver/DriverDocumentsView";
 import { Driver } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Key, UserCircle, Settings } from "lucide-react";
+import { Key, UserCircle, Settings, FileText, Car } from "lucide-react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 
@@ -374,6 +376,15 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
           )}
 
           <DriverDocumentStatuses documentStatuses={driver.document_statuses || []} />
+
+          {/* Documents Tab for Fleet */}
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Dokumenty kierowcy
+            </h4>
+            <DriverDocumentsView driverId={driver.id} />
+          </div>
           
           {driver.vehicle_assignment?.status === 'active' && (
             <div className="space-y-2">

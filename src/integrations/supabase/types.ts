@@ -850,8 +850,16 @@ export type Database = {
       }
       drivers: {
         Row: {
+          address_city: string | null
+          address_country: string | null
+          address_postal_code: string | null
+          address_street: string | null
           billing_method: string | null
           city_id: string
+          correspondence_city: string | null
+          correspondence_country: string | null
+          correspondence_postal_code: string | null
+          correspondence_street: string | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -861,18 +869,36 @@ export type Database = {
           getrido_id: string | null
           iban: string | null
           id: string
+          is_foreigner: boolean | null
           last_name: string | null
+          license_expiry_date: string | null
+          license_is_unlimited: boolean | null
+          license_issue_date: string | null
+          license_number: string | null
           payment_method: string | null
+          pesel: string | null
           phone: string | null
           preferred_language: string | null
           registered_via_code: string | null
           registration_date: string | null
+          rodo_consent_data_sharing: boolean | null
+          rodo_consent_data_storage: boolean | null
+          rodo_consent_date: string | null
+          taxi_id_number: string | null
           updated_at: string
           user_role: Database["public"]["Enums"]["user_role_type"] | null
         }
         Insert: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
           billing_method?: string | null
           city_id: string
+          correspondence_city?: string | null
+          correspondence_country?: string | null
+          correspondence_postal_code?: string | null
+          correspondence_street?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -882,18 +908,36 @@ export type Database = {
           getrido_id?: string | null
           iban?: string | null
           id?: string
+          is_foreigner?: boolean | null
           last_name?: string | null
+          license_expiry_date?: string | null
+          license_is_unlimited?: boolean | null
+          license_issue_date?: string | null
+          license_number?: string | null
           payment_method?: string | null
+          pesel?: string | null
           phone?: string | null
           preferred_language?: string | null
           registered_via_code?: string | null
           registration_date?: string | null
+          rodo_consent_data_sharing?: boolean | null
+          rodo_consent_data_storage?: boolean | null
+          rodo_consent_date?: string | null
+          taxi_id_number?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }
         Update: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
           billing_method?: string | null
           city_id?: string
+          correspondence_city?: string | null
+          correspondence_country?: string | null
+          correspondence_postal_code?: string | null
+          correspondence_street?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -903,12 +947,22 @@ export type Database = {
           getrido_id?: string | null
           iban?: string | null
           id?: string
+          is_foreigner?: boolean | null
           last_name?: string | null
+          license_expiry_date?: string | null
+          license_is_unlimited?: boolean | null
+          license_issue_date?: string | null
+          license_number?: string | null
           payment_method?: string | null
+          pesel?: string | null
           phone?: string | null
           preferred_language?: string | null
           registered_via_code?: string | null
           registration_date?: string | null
+          rodo_consent_data_sharing?: boolean | null
+          rodo_consent_data_storage?: boolean | null
+          rodo_consent_date?: string | null
+          taxi_id_number?: string | null
           updated_at?: string
           user_role?: Database["public"]["Enums"]["user_role_type"] | null
         }

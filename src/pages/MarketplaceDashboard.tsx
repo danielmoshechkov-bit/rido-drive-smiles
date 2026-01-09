@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { DriverOnboardingWizard } from "@/components/driver/DriverOnboardingWizard";
 
 interface MarketplaceProfile {
   id: string;
@@ -640,105 +641,35 @@ export default function MarketplaceDashboard() {
         </Tabs>
       </main>
 
-      {/* Driver Registration Modal */}
+      {/* Driver Registration Modal - Full Wizard */}
       <Dialog open={showDriverModal} onOpenChange={setShowDriverModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Car className="h-5 w-5" />
-              Zarejestruj się jako kierowca
+              Rejestracja kierowcy
             </DialogTitle>
             <DialogDescription>
-              Podaj dane, aby dołączyć do floty partnera
+              Wypełnij formularz, aby zarejestrować się jako kierowca
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="fleet_nip">NIP partnera flotowego *</Label>
-              <Input
-                id="fleet_nip"
-                placeholder="np. 5223252793"
-                value={driverForm.fleet_nip}
-                onChange={(e) => setDriverForm({ ...driverForm, fleet_nip: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Podaj NIP floty, do której chcesz dołączyć
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="city">Miasto *</Label>
-              <Select 
-                value={driverForm.city_id} 
-                onValueChange={(value) => setDriverForm({ ...driverForm, city_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Wybierz miasto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Metoda płatności *</Label>
-              <RadioGroup 
-                value={driverForm.payment_method}
-                onValueChange={(value: "transfer" | "cash") => 
-                  setDriverForm({ ...driverForm, payment_method: value })
-                }
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="transfer" id="transfer" />
-                  <Label htmlFor="transfer" className="cursor-pointer">Przelew</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cash" id="cash" />
-                  <Label htmlFor="cash" className="cursor-pointer">Gotówka</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {driverForm.payment_method === "transfer" && (
-              <div className="space-y-2">
-                <Label htmlFor="iban">Numer konta IBAN *</Label>
-                <Input
-                  id="iban"
-                  placeholder="PL 00 0000 0000 0000 0000 0000 0000"
-                  value={driverForm.iban}
-                  onChange={(e) => setDriverForm({ ...driverForm, iban: e.target.value })}
-                />
-              </div>
-            )}
-
-            {driverForm.payment_method === "cash" && (
-              <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                💵 Gotówka do odbioru w każdy wtorek w biurze partnera
-              </p>
-            )}
-
-            <Button 
-              onClick={handleDriverRegistration} 
-              className="w-full"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rejestracja...
-                </>
-              ) : (
-                "Zarejestruj jako kierowca"
-              )}
-            </Button>
-          </div>
+          {profile && (
+            <DriverOnboardingWizard
+              profile={{
+                first_name: profile.first_name,
+                last_name: profile.last_name,
+                email: profile.email,
+                phone: profile.phone
+              }}
+              onComplete={() => {
+                setShowDriverModal(false);
+                setIsDriverAccount(true);
+                navigate("/driver");
+              }}
+              onCancel={() => setShowDriverModal(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
