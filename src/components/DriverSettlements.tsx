@@ -605,16 +605,30 @@ export const DriverSettlements = ({
   const loadRentalFee = async () => {
     if (!driverId) return;
 
+    // Only get rental fee for fleet vehicles (fleet_id != null)
     const { data, error } = await supabase
       .from('driver_vehicle_assignments')
-      .select('vehicle_id, vehicles(weekly_rental_fee)')
+      .select('vehicle_id, vehicles(weekly_rental_fee, fleet_id)')
       .eq('driver_id', driverId)
       .eq('status', 'active')
-      .maybeSingle();
+      .is('unassigned_at', null);
 
-    if (!error && data?.vehicles) {
-      const vehicleData = data.vehicles as any;
-      setRentalFee(vehicleData.weekly_rental_fee || 0);
+    if (!error && data && data.length > 0) {
+      // Find first fleet vehicle (has fleet_id)
+      const fleetAssignment = data.find(d => {
+        const vehicle = d.vehicles as any;
+        return vehicle?.fleet_id !== null && vehicle?.fleet_id !== undefined;
+      });
+
+      if (fleetAssignment?.vehicles) {
+        const vehicleData = fleetAssignment.vehicles as any;
+        setRentalFee(vehicleData.weekly_rental_fee || 0);
+      } else {
+        // Driver has own vehicles only (no fleet_id) = no rental
+        setRentalFee(0);
+      }
+    } else {
+      setRentalFee(0);
     }
   };
 
