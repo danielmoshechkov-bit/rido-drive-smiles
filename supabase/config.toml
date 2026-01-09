@@ -75,3 +75,9 @@ verify_jwt = false
 
 [functions.register-marketplace-user]
 verify_jwt = false
+
+[functions.send-driver-invoice]
+verify_jwt = false
+
+[functions.create-fleet-account]
+verify_jwt = false

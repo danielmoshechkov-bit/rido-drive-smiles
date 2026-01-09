@@ -655,7 +655,9 @@ export type Database = {
           paid_amount: number
           period_month: number
           period_year: number
+          remaining_amount: number | null
           sent_at: string | null
+          settlement_id: string | null
           status: string
           updated_at: string
           uploaded_at: string | null
@@ -670,7 +672,9 @@ export type Database = {
           paid_amount?: number
           period_month: number
           period_year: number
+          remaining_amount?: number | null
           sent_at?: string | null
+          settlement_id?: string | null
           status?: string
           updated_at?: string
           uploaded_at?: string | null
@@ -685,7 +689,9 @@ export type Database = {
           paid_amount?: number
           period_month?: number
           period_year?: number
+          remaining_amount?: number | null
           sent_at?: string | null
+          settlement_id?: string | null
           status?: string
           updated_at?: string
           uploaded_at?: string | null
@@ -696,6 +702,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_invoices_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
             referencedColumns: ["id"]
           },
         ]
@@ -1219,6 +1232,7 @@ export type Database = {
           email: string | null
           house_number: string | null
           id: string
+          invoice_email: string | null
           name: string
           nip: string | null
           owner_name: string | null
@@ -1241,6 +1255,7 @@ export type Database = {
           email?: string | null
           house_number?: string | null
           id?: string
+          invoice_email?: string | null
           name: string
           nip?: string | null
           owner_name?: string | null
@@ -1263,6 +1278,7 @@ export type Database = {
           email?: string | null
           house_number?: string | null
           id?: string
+          invoice_email?: string | null
           name?: string
           nip?: string | null
           owner_name?: string | null

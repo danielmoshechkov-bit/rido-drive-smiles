@@ -44,6 +44,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   // Fleet-level VAT and base fee settings
   const [vatRate, setVatRate] = useState<string>('8');
   const [baseFee, setBaseFee] = useState<string>('0');
+  const [invoiceEmail, setInvoiceEmail] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
   
   // Form state
@@ -73,7 +74,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -83,6 +84,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setFleetNip(data.nip ?? null);
       setVatRate(((data as any).vat_rate ?? 8).toString());
       setBaseFee(((data as any).base_fee ?? 0).toString());
+      setInvoiceEmail((data as any).invoice_email ?? '');
     }
   };
 
@@ -103,7 +105,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     try {
       const { error } = await supabase
         .from('fleets')
-        .update({ vat_rate: vat, base_fee: fee } as any)
+        .update({ vat_rate: vat, base_fee: fee, invoice_email: invoiceEmail || null } as any)
         .eq('id', fleetId);
       
       if (error) throw error;
@@ -408,6 +410,20 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                     className="h-8"
                   />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="invoice-email" className="text-xs">Mail do faktur (B2B)</Label>
+                <Input
+                  id="invoice-email"
+                  type="email"
+                  placeholder="faktury@firma.pl"
+                  value={invoiceEmail}
+                  onChange={(e) => setInvoiceEmail(e.target.value)}
+                  className="h-8"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Na ten adres kierowcy B2B będą wysyłać swoje faktury
+                </p>
               </div>
               <Button onClick={handleSaveSettings} disabled={savingSettings} size="sm" className="w-full">
                 {savingSettings ? 'Zapisywanie...' : 'Zapisz'}
