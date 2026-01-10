@@ -8,6 +8,7 @@ import { SettlementVisibilitySettings } from './SettlementVisibilitySettings';
 import { TabVisibilityManager } from './TabVisibilityManager';
 import { EmailSettings } from './EmailSettings';
 import { FeatureTogglesManagement } from './FeatureTogglesManagement';
+import { AISettingsPanel } from './ai/AISettingsPanel';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
@@ -15,6 +16,7 @@ export function AdminSettingsView() {
   const subTabs = [
     { value: "system", label: "Ustawienia systemu", visible: true },
     { value: "features", label: "Funkcje", visible: true },
+    { value: "ai", label: "Ustawienia AI", visible: true },
     { value: "user-roles", label: "Uprawnienia", visible: true },
     { value: "plans", label: "Plany", visible: true },
     { value: "fleet-accounts", label: "Konta flotowe", visible: true },
@@ -34,6 +36,7 @@ export function AdminSettingsView() {
 
       {activeSubTab === "system" && <RidoSettings />}
       {activeSubTab === "features" && <FeatureTogglesManagement />}
+      {activeSubTab === "ai" && <AISettingsPanel />}
       {activeSubTab === "user-roles" && <UserRolesManager />}
       {activeSubTab === "plans" && <SettlementPlansManagement />}
       {activeSubTab === "fleet-accounts" && <FleetAccountsManagement />}

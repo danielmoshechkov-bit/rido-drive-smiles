@@ -65,6 +65,252 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_admin_audit_log: {
+        Row: {
+          action_details: Json
+          action_type: string
+          admin_user_id: string | null
+          affected_entities: Json | null
+          ai_conversation_id: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          id: string
+          requires_confirmation: boolean | null
+        }
+        Insert: {
+          action_details?: Json
+          action_type: string
+          admin_user_id?: string | null
+          affected_entities?: Json | null
+          ai_conversation_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          id?: string
+          requires_confirmation?: boolean | null
+        }
+        Update: {
+          action_details?: Json
+          action_type?: string
+          admin_user_id?: string | null
+          affected_entities?: Json | null
+          ai_conversation_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          id?: string
+          requires_confirmation?: boolean | null
+        }
+        Relationships: []
+      }
+      ai_credit_history: {
+        Row: {
+          created_at: string | null
+          credits_used: number
+          id: string
+          query_summary: string | null
+          query_type: string
+          user_id: string | null
+          was_free: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_used: number
+          id?: string
+          query_summary?: string | null
+          query_type: string
+          user_id?: string | null
+          was_free?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_used?: number
+          id?: string
+          query_summary?: string | null
+          query_type?: string
+          user_id?: string | null
+          was_free?: boolean | null
+        }
+        Relationships: []
+      }
+      ai_credit_packages: {
+        Row: {
+          created_at: string | null
+          credits: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price_pln: number
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_pln: number
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          credits?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_pln?: number
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      ai_guest_usage: {
+        Row: {
+          created_at: string | null
+          device_fingerprint: string | null
+          id: string
+          ip_address: string
+          query_count: number | null
+          usage_date: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          ip_address: string
+          query_count?: number | null
+          usage_date?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          ip_address?: string
+          query_count?: number | null
+          usage_date?: string | null
+        }
+        Relationships: []
+      }
+      ai_knowledge_base: {
+        Row: {
+          answer: string
+          category: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          question: string
+          updated_at: string | null
+          use_count: number | null
+        }
+        Insert: {
+          answer: string
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          question: string
+          updated_at?: string | null
+          use_count?: number | null
+        }
+        Update: {
+          answer?: string
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          question?: string
+          updated_at?: string | null
+          use_count?: number | null
+        }
+        Relationships: []
+      }
+      ai_query_costs: {
+        Row: {
+          cost_credits: number
+          created_at: string | null
+          description: string | null
+          id: string
+          query_type: string
+        }
+        Insert: {
+          cost_credits?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          query_type: string
+        }
+        Update: {
+          cost_credits?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          query_type?: string
+        }
+        Relationships: []
+      }
+      ai_settings: {
+        Row: {
+          ai_enabled: boolean | null
+          ai_model: string | null
+          created_at: string | null
+          guest_daily_limit: number | null
+          id: string
+          system_prompt: string | null
+          updated_at: string | null
+          user_monthly_limit: number | null
+        }
+        Insert: {
+          ai_enabled?: boolean | null
+          ai_model?: string | null
+          created_at?: string | null
+          guest_daily_limit?: number | null
+          id?: string
+          system_prompt?: string | null
+          updated_at?: string | null
+          user_monthly_limit?: number | null
+        }
+        Update: {
+          ai_enabled?: boolean | null
+          ai_model?: string | null
+          created_at?: string | null
+          guest_daily_limit?: number | null
+          id?: string
+          system_prompt?: string | null
+          updated_at?: string | null
+          user_monthly_limit?: number | null
+        }
+        Relationships: []
+      }
+      ai_user_credits: {
+        Row: {
+          created_at: string | null
+          credits_balance: number | null
+          id: string
+          monthly_free_used: number | null
+          monthly_reset_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credits_balance?: number | null
+          id?: string
+          monthly_free_used?: number | null
+          monthly_reset_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credits_balance?: number | null
+          id?: string
+          monthly_free_used?: number | null
+          monthly_reset_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       car_brands: {
         Row: {
           created_at: string
@@ -406,12 +652,14 @@ export type Database = {
       }
       driver_communications: {
         Row: {
+          ai_generated: boolean | null
           content: string
           created_at: string
           created_by: string | null
           delivered_at: string | null
           driver_id: string
           error_message: string | null
+          escalated_to: string | null
           id: string
           metadata: Json | null
           sent_at: string | null
@@ -420,12 +668,14 @@ export type Database = {
           type: string
         }
         Insert: {
+          ai_generated?: boolean | null
           content: string
           created_at?: string
           created_by?: string | null
           delivered_at?: string | null
           driver_id: string
           error_message?: string | null
+          escalated_to?: string | null
           id?: string
           metadata?: Json | null
           sent_at?: string | null
@@ -434,12 +684,14 @@ export type Database = {
           type: string
         }
         Update: {
+          ai_generated?: boolean | null
           content?: string
           created_at?: string
           created_by?: string | null
           delivered_at?: string | null
           driver_id?: string
           error_message?: string | null
+          escalated_to?: string | null
           id?: string
           metadata?: Json | null
           sent_at?: string | null

@@ -81,3 +81,12 @@ verify_jwt = false
 
 [functions.create-fleet-account]
 verify_jwt = false
+
+[functions.ai-search]
+verify_jwt = false
+
+[functions.ai-chat-support]
+verify_jwt = false
+
+[functions.ai-admin-assistant]
+verify_jwt = false
