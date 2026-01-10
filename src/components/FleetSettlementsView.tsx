@@ -817,6 +817,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
     { value: "vehicles", label: "Przychody aut", visible: true },
     { value: "fuel", label: "Paliwo", visible: true },
+    { value: "reports", label: "Raporty", visible: true },
     { value: "settings", label: "Ustawienia rozliczeń", visible: true }
   ];
 
@@ -905,6 +906,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           periodFrom={currentWeek?.start}
           periodTo={currentWeek?.end}
         />
+      </div>
+    );
+  }
+
+  // Render "Raporty" tab
+  if (activeSubTab === "reports") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <p>Moduł raportów w budowie.</p>
+            <p className="text-sm mt-2">Dodatkowe raporty i analizy zostaną wkrótce dodane.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }

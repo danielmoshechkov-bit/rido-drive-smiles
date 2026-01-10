@@ -892,6 +892,9 @@ export const DriverSettlements = ({
       return { payout: 0, fee: 0, totalTax: 0, breakdown: {} };
     }
     
+    // Check if driver is B2B (at the start of function)
+    const isB2BDriver = driverPaymentMethod === 'b2b';
+    
     // Get calculated net amounts (already have 8% tax deducted)
     const uberNet = amounts.uber_net || 0;
     const boltNet = amounts.bolt_net || 0;
@@ -930,7 +933,23 @@ export const DriverSettlements = ({
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // Calculate total earnings before any deductions
-    const totalEarnings = uberNet + boltNet + freenowNet;
+    // Dla B2B używamy wartości BRUTTO (przed podatkiem 8%), dla standardowych - NETTO
+    // isB2BDriver is already defined at the start of calculatePayout
+    
+    let earningsForPayout: number;
+    if (isB2BDriver) {
+      // B2B: użyj wartości brutto (przed podatkiem platformy) - kierowca sam rozlicza VAT
+      const uberBase = amounts.uber_base || 0;
+      const boltBase = amounts.bolt_projected_d || 0;
+      const freenowBase = amounts.freenow_base_s || 0;
+      earningsForPayout = uberBase + boltBase + freenowBase;
+      console.log(`💼 B2B Driver: Using BRUTTO values - Uber: ${uberBase}, Bolt: ${boltBase}, FreeNow: ${freenowBase}`);
+    } else {
+      // Standardowo: użyj wartości netto (po 8% podatku platformy)
+      earningsForPayout = uberNet + boltNet + freenowNet;
+    }
+    
+    const totalEarnings = earningsForPayout;
     
     // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
     // Jeśli kierowca nie jeździł (suma zarobków = 0 lub ujemna do -10 zł), nie naliczaj opłat
@@ -955,9 +974,10 @@ export const DriverSettlements = ({
       };
     }
     
-    // FORMUŁA WYPŁATY (dla planu "50+8%"):
-    // WYPŁATA = (UBER_NET + BOLT_NET + FREENOW_NET) - GOTÓWKA_POBRANA + ZWROT_VAT - Paliwo - 50 - Wynajem - Dodatkowe opłaty
-    const payout = uberNet + boltNet + freenowNet - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
+    // FORMUŁA WYPŁATY:
+    // Dla B2B: BRUTTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (bez podatku 8%)
+    // Dla standardowych: NETTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe
+    const payout = earningsForPayout - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
     
     console.log(`💰 Payout calculation (Plan: ${planName}):
       Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})
