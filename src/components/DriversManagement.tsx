@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -13,6 +14,7 @@ import { DriverExpandedPanel } from './DriverExpandedPanel';
 import { FleetInvitationModal } from './fleet/FleetInvitationModal';
 import { FleetRoleDelegationModal } from './FleetRoleDelegationModal';
 import { useDrivers, Driver } from '@/hooks/useDrivers';
+import { useCities } from '@/hooks/useCities';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { InlineEdit } from './InlineEdit';
@@ -36,6 +38,7 @@ interface DriversManagementProps {
 
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCityFilter, setSelectedCityFilter] = useState<string>('all');
   const [filters, setFilters] = useState<{ fleets: string[]; statuses: string[]; paymentMethods: string[] }>({
     fleets: [],
     statuses: [],
@@ -51,6 +54,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
+  
+  const { cities } = useCities();
   
   const { drivers, loading, error, refetch } = useDrivers({ 
     cityId: cityId || undefined, 
@@ -186,6 +191,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   };
 
   const filteredDrivers = displayDrivers.filter(driver => {
+    // City filter (for fleet mode - allows filtering by city)
+    if (mode === 'fleet' && selectedCityFilter !== 'all') {
+      if (driver.city_id !== selectedCityFilter) {
+        return false;
+      }
+    }
+    
     // Search filter
     const matchesSearch = 
       `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -460,15 +472,33 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
             </div>
           </div>
           
-          <div className="flex items-center justify-between mt-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Szukaj kierowców..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 rounded-lg"
-              />
+          <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Szukaj kierowców..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 rounded-lg"
+                />
+              </div>
+              
+              {/* City filter for fleet mode */}
+              {mode === 'fleet' && cities.length > 0 && (
+                <Select value={selectedCityFilter} onValueChange={setSelectedCityFilter}>
+                  <SelectTrigger className="w-48">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Wszystkie miasta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie miasta</SelectItem>
+                    {cities.map(city => (
+                      <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <DriverFilters onFilterChange={setFilters} />
           </div>

@@ -548,6 +548,17 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                       </Button>
                     </SheetTrigger>
                   )}
+                  {/* Account switcher - always visible */}
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'accounts' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('accounts')}
+                    >
+                      <Repeat className="h-4 w-4 mr-2" />
+                      Przełącz konto
+                    </Button>
+                  </SheetTrigger>
                 </div>
               </SheetContent>
             </Sheet>
@@ -769,6 +780,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               isMarketplaceEnabled={isMarketplaceEnabled}
               currentAccountType="fleet"
               navigate={navigate}
+              hideDriverForFleet={true}
             />
           </TabsContent>
         </Tabs>
