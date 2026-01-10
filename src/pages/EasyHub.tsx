@@ -59,7 +59,7 @@ const marketplaceTiles: MarketplaceTile[] = [
     description: 'Panel dla właścicieli flot',
     icon: Building2,
     image: tileFleet,
-    link: '/fleet/dashboard',
+    link: '/fleet',
     available: true
   },
   {
