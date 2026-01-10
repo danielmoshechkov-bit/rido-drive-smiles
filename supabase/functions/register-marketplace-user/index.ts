@@ -32,11 +32,21 @@ Deno.serve(async (req) => {
 
     console.log("📝 Starting marketplace user registration for:", email);
 
-    // 1. Create auth user with email_confirm: false (requires email verification)
+    // Check feature toggle for email confirmation requirement
+    const { data: toggleData } = await supabaseAdmin
+      .from('feature_toggles')
+      .select('is_enabled')
+      .eq('feature_key', 'marketplace_email_confirmation_required')
+      .single();
+
+    const requireEmailConfirmation = toggleData?.is_enabled ?? false;
+    console.log("📧 Email confirmation required:", requireEmailConfirmation);
+
+    // 1. Create auth user - email_confirm: true means auto-confirm, false means requires confirmation
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // User must confirm email via link
+      email_confirm: !requireEmailConfirmation, // true = auto-confirm, false = requires email link
       user_metadata: { first_name, last_name, account_type: 'marketplace' }
     });
 
@@ -98,46 +108,50 @@ Deno.serve(async (req) => {
       console.log("✅ Marketplace role assigned");
     }
 
-    // 4. Generate activation link and send email
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin
-      .generateLink({
-        type: 'signup',
-        email,
-        password,
-        options: { redirectTo: `${siteUrl}/gielda/logowanie` }
-      });
-
-    if (linkError) {
-      console.error("❌ Link generation error:", linkError);
-    } else {
-      console.log("✅ Activation link generated");
-      
-      // Send registration email asynchronously
-      try {
-        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`
-          },
-          body: JSON.stringify({
-            email,
-            first_name,
-            last_name: last_name || '',
-            activation_link: linkData.properties?.action_link || '',
-            language: "pl"
-          })
+    // 4. Generate activation link and send email ONLY if email confirmation is required
+    if (requireEmailConfirmation) {
+      const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin
+        .generateLink({
+          type: 'signup',
+          email,
+          password,
+          options: { redirectTo: `${siteUrl}/gielda/logowanie` }
         });
+
+      if (linkError) {
+        console.error("❌ Link generation error:", linkError);
+      } else {
+        console.log("✅ Activation link generated");
         
-        if (emailResponse.ok) {
-          console.log("✅ Registration email sent");
-        } else {
-          console.error("❌ Email send failed:", await emailResponse.text());
+        // Send registration email asynchronously
+        try {
+          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceRoleKey}`
+            },
+            body: JSON.stringify({
+              email,
+              first_name,
+              last_name: last_name || '',
+              activation_link: linkData.properties?.action_link || '',
+              language: "pl"
+            })
+          });
+          
+          if (emailResponse.ok) {
+            console.log("✅ Registration email sent");
+          } else {
+            console.error("❌ Email send failed:", await emailResponse.text());
+          }
+        } catch (emailError) {
+          console.error("❌ Email send error:", emailError);
         }
-      } catch (emailError) {
-        console.error("❌ Email send error:", emailError);
       }
+    } else {
+      console.log("⏭️ Email confirmation not required, skipping activation email");
     }
 
     console.log("🎉 Marketplace registration completed for:", email);
@@ -145,7 +159,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Rejestracja zakończona! Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.",
+        message: requireEmailConfirmation 
+          ? "Rejestracja zakończona! Sprawdź swoją skrzynkę email i kliknij link aktywacyjny."
+          : "Rejestracja zakończona! Możesz się teraz zalogować.",
         user_id: userId
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
