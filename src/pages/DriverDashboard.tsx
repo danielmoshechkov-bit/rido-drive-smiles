@@ -31,14 +31,7 @@ import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -421,99 +414,36 @@ const DriverDashboard = () => {
         
         {/* Desktop Tabs */}
         <div className="hidden md:block mb-6">
-          <div className="flex items-center justify-between gap-4">
-            <TabsPill value={activeTab} onValueChange={setActiveTab} className="flex-1">
-              <TabsTrigger value="weekly-report">
-                <DollarSign className="h-4 w-4 mr-2" />
-                {t('driver.tabs.settlements')}
+          <TabsPill value={activeTab} onValueChange={setActiveTab}>
+            <TabsTrigger value="weekly-report">
+              <DollarSign className="h-4 w-4 mr-2" />
+              {t('driver.tabs.settlements')}
+            </TabsTrigger>
+            <TabsTrigger value="cars">
+              <Car className="h-4 w-4 mr-2" />
+              {t('driver.tabs.cars')}
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              <FileText className="h-4 w-4 mr-2" />
+              {t('driver.tabs.documents')}
+            </TabsTrigger>
+            <TabsTrigger value="informacje">
+              <Info className="h-4 w-4 mr-2" />
+              {t('driver.tabs.information')}
+            </TabsTrigger>
+            {isMarketplaceEnabled && (
+              <TabsTrigger value="marketplace">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {t('driver.tabs.marketplace')}
               </TabsTrigger>
-              <TabsTrigger value="cars">
-                <Car className="h-4 w-4 mr-2" />
-                {t('driver.tabs.cars')}
+            )}
+            {features.account_switching_enabled && (
+              <TabsTrigger value="accounts">
+                <Repeat className="h-4 w-4 mr-2" />
+                Przełącz konto
               </TabsTrigger>
-              <TabsTrigger value="documents">
-                <FileText className="h-4 w-4 mr-2" />
-                {t('driver.tabs.documents')}
-              </TabsTrigger>
-              <TabsTrigger value="informacje">
-                <Info className="h-4 w-4 mr-2" />
-                {t('driver.tabs.information')}
-              </TabsTrigger>
-              {isMarketplaceEnabled && (
-                <TabsTrigger value="marketplace">
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  {t('driver.tabs.marketplace')}
-                </TabsTrigger>
-              )}
-            </TabsPill>
-
-            {/* Przełącz konto - tab-like dropdown w stylu TabsPill */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full cursor-pointer bg-white/20 hover:bg-white/90 hover:text-primary transition-all shrink-0">
-                  <Repeat className="h-4 w-4" />
-                  Przełącz konto
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 bg-white z-50">
-                <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                
-                {/* Current account - Driver */}
-                <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                  <Car className="h-4 w-4" />
-                  <span>Konto kierowcy</span>
-                  <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
-                </DropdownMenuItem>
-
-                {/* Fleet account - if available */}
-                {isFleetAccount && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/fleet/dashboard")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Truck className="h-4 w-4" />
-                    <span>Konto flotowe</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Marketplace account - if available */}
-                {isMarketplaceAccount && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/gielda/panel")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Konto giełda</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Add new accounts section */}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Dodaj konto</DropdownMenuLabel>
-
-                {/* Add marketplace account - if not already and feature enabled */}
-                {!isMarketplaceAccount && isMarketplaceEnabled && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/gielda/rejestracja")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Konto giełda</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Add fleet account - disabled, coming soon */}
-                {!isFleetAccount && (
-                  <DropdownMenuItem disabled className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Konto flotowe</span>
-                    <Badge variant="secondary" className="ml-auto text-xs">wkrótce</Badge>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+            )}
+          </TabsPill>
         </div>
 
         {/* Mobile Hamburger Menu - Redesigned */}
@@ -583,34 +513,17 @@ const DriverDashboard = () => {
                     </SheetTrigger>
                   )}
                   
-                  {features.account_switching_enabled && (features.marketplace_enabled || isFleetAccount) && (
-                    <div className="border-t pt-2 mt-2">
-                      <p className="text-xs text-muted-foreground px-2 mb-2">Przełącz konto</p>
-                      {features.marketplace_enabled && (
-                        <SheetTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            className="w-full justify-start rounded-xl transition-all"
-                            onClick={() => navigate("/gielda/panel")}
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            Konto główne (giełda)
-                          </Button>
-                        </SheetTrigger>
-                      )}
-                      {isFleetAccount && (
-                        <SheetTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            className="w-full justify-start rounded-xl transition-all"
-                            onClick={() => navigate("/fleet/dashboard")}
-                          >
-                            <Truck className="h-4 w-4 mr-2" />
-                            Konto flotowe
-                          </Button>
-                        </SheetTrigger>
-                      )}
-                    </div>
+                  {features.account_switching_enabled && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'accounts' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('accounts')}
+                      >
+                        <Repeat className="h-4 w-4 mr-2" />
+                        Przełącz konto
+                      </Button>
+                    </SheetTrigger>
                   )}
                 </div>
               </SheetContent>
@@ -657,6 +570,16 @@ const DriverDashboard = () => {
         {activeTab === 'documents' && <DriverDocuments driverData={driverData} />}
         {activeTab === 'informacje' && user && <DriverNotifications driverId={driverData.driver_id} userId={user.id} />}
         {activeTab === 'marketplace' && <MarketplaceRedirect navigate={navigate} />}
+        {activeTab === 'accounts' && (
+          <AccountSwitcherPanel 
+            isDriverAccount={true}
+            isFleetAccount={isFleetAccount}
+            isMarketplaceAccount={isMarketplaceAccount}
+            isMarketplaceEnabled={isMarketplaceEnabled}
+            currentAccountType="driver"
+            navigate={navigate}
+          />
+        )}
       </div>
     </div>
   );

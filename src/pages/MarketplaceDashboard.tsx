@@ -18,20 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { DriverOnboardingWizard } from "@/components/driver/DriverOnboardingWizard";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 
 interface MarketplaceProfile {
   id: string;
@@ -350,110 +343,48 @@ export default function MarketplaceDashboard() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Tab bar with account switcher */}
-          <div className="flex items-center justify-between gap-4">
-            <TabsList className="flex gap-2 overflow-x-auto scrollbar-hide bg-primary text-white rounded-full p-1 shadow-soft h-12 flex-1">
-              <TabsTrigger 
-                value="start"
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
-              >
-                Start
-              </TabsTrigger>
-              <TabsTrigger 
-                value="listings"
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
-              >
-                Ogłoszenia
-              </TabsTrigger>
-              <TabsTrigger 
-                value="messages"
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
-              >
-                Wiadomości
-              </TabsTrigger>
-              <TabsTrigger 
-                value="favorites"
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
-              >
-                Ulubione
-              </TabsTrigger>
-              <TabsTrigger 
-                value="settings"
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
-              >
-                Ustawienia
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Account switcher - tab-like style */}
+          {/* Tab bar with account switcher as a tab */}
+          <TabsList className="flex gap-2 overflow-x-auto scrollbar-hide bg-primary text-white rounded-full p-1 shadow-soft h-12">
+            <TabsTrigger 
+              value="start"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Start
+            </TabsTrigger>
+            <TabsTrigger 
+              value="listings"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Ogłoszenia
+            </TabsTrigger>
+            <TabsTrigger 
+              value="messages"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Wiadomości
+            </TabsTrigger>
+            <TabsTrigger 
+              value="favorites"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Ulubione
+            </TabsTrigger>
+            <TabsTrigger 
+              value="settings"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Ustawienia
+            </TabsTrigger>
             {features.account_switching_enabled && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full cursor-pointer bg-primary text-white hover:bg-primary/90 transition-all shrink-0">
-                    <Repeat className="h-4 w-4" />
-                    Przełącz konto
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 bg-white z-50">
-                  <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  {/* Current account - Marketplace */}
-                  <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                    <User className="h-4 w-4" />
-                    <span>Konto giełda</span>
-                    <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
-                  </DropdownMenuItem>
-
-                  {/* Driver account - if available */}
-                  {isDriverAccount && (
-                    <DropdownMenuItem 
-                      onClick={() => handleSwitchAccount('driver')}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Car className="h-4 w-4" />
-                      <span>Konto kierowcy</span>
-                    </DropdownMenuItem>
-                  )}
-
-                  {/* Fleet account - if available */}
-                  {isFleetAccount && (
-                    <DropdownMenuItem 
-                      onClick={() => handleSwitchAccount('fleet')}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Truck className="h-4 w-4" />
-                      <span>Konto flotowe</span>
-                    </DropdownMenuItem>
-                  )}
-
-                  {/* Add new accounts section */}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Dodaj konto</DropdownMenuLabel>
-
-                  {/* Add driver account - if not already */}
-                  {!isDriverAccount && (
-                    <DropdownMenuItem 
-                      onClick={() => setShowDriverModal(true)}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Zostań kierowcą</span>
-                    </DropdownMenuItem>
-                  )}
-
-                  {/* Add fleet account - disabled, coming soon */}
-                  {!isFleetAccount && (
-                    <DropdownMenuItem disabled className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      <span>Konto flotowe</span>
-                      <Badge variant="secondary" className="ml-auto text-xs">wkrótce</Badge>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <TabsTrigger 
+                value="accounts"
+                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+              >
+                <Repeat className="h-4 w-4 mr-2" />
+                Przełącz konto
+              </TabsTrigger>
             )}
-          </div>
+          </TabsList>
 
           {/* START TAB */}
           <TabsContent value="start" className="space-y-6">

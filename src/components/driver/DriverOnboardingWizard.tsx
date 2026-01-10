@@ -171,7 +171,29 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
     }
   };
 
+  // Format postal code: 99999 -> 99-999
+  const formatPostalCode = (value: string): string => {
+    // If already has format XX-XXX, keep it
+    if (/^\d{2}-\d{0,3}$/.test(value)) {
+      return value;
+    }
+    
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    
+    // Format as XX-XXX
+    if (digits.length <= 2) {
+      return digits;
+    }
+    return `${digits.slice(0, 2)}-${digits.slice(2, 5)}`;
+  };
+
   const handleInputChange = (field: keyof FormData, value: any) => {
+    // Auto-format postal codes
+    if (field === 'address_postal_code' || field === 'correspondence_postal_code') {
+      value = formatPostalCode(value);
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
     
     if (field === "fleet_nip") {

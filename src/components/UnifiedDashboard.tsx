@@ -36,7 +36,7 @@ import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -420,76 +420,11 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   Moje rozliczenia
                 </TabsTrigger>
               )}
+              <TabsTrigger value="accounts">
+                <Repeat className="h-4 w-4 mr-2" />
+                Przełącz konto
+              </TabsTrigger>
             </TabsPill>
-
-            {/* Account switcher - tab-like style */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full cursor-pointer bg-white/20 hover:bg-white/90 hover:text-primary transition-all shrink-0">
-                  <Repeat className="h-4 w-4" />
-                  Przełącz konto
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 bg-white z-50">
-                <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                
-                {/* Current account - always show */}
-                <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                  <Truck className="h-4 w-4" />
-                  <span>{userType === 'admin' ? 'Panel Admin' : 'Konto flotowe'}</span>
-                  <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
-                </DropdownMenuItem>
-
-                {/* Driver account - if available */}
-                {isDriverAccount && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/driver")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Car className="h-4 w-4" />
-                    <span>Konto kierowcy</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Marketplace account - if available */}
-                {isMarketplaceAccount && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/gielda/panel")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Konto giełda</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Add new accounts section */}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Dodaj konto</DropdownMenuLabel>
-
-                {/* Add driver account - if not already driver */}
-                {!isDriverAccount && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/driver-register")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Zostań kierowcą</span>
-                  </DropdownMenuItem>
-                )}
-
-                {/* Add marketplace account - if not already and feature enabled */}
-                {!isMarketplaceAccount && isMarketplaceEnabled && (
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/gielda/rejestracja")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Konto giełda</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
             </div>
           </div>
 
@@ -825,6 +760,17 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               <FleetSystemAlerts fleetId={fleetId} />
             </TabsContent>
           )}
+
+          <TabsContent value="accounts" className="space-y-6">
+            <AccountSwitcherPanel 
+              isDriverAccount={isDriverAccount}
+              isFleetAccount={true}
+              isMarketplaceAccount={isMarketplaceAccount}
+              isMarketplaceEnabled={isMarketplaceEnabled}
+              currentAccountType="fleet"
+              navigate={navigate}
+            />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
