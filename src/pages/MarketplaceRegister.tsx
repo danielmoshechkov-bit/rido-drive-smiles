@@ -90,7 +90,10 @@ export default function MarketplaceRegister() {
         throw new Error(response.error.message);
       }
 
-      toast.success("Rejestracja zakończona! Zaloguj się teraz.");
+      toast.success("Sprawdź swoją skrzynkę email i kliknij link aktywacyjny!", {
+        duration: 8000,
+        description: "Email z linkiem aktywacyjnym został wysłany na adres " + formData.email
+      });
       navigate("/gielda/logowanie");
     } catch (error: any) {
       console.error("Registration error:", error);

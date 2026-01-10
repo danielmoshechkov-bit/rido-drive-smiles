@@ -32,11 +32,11 @@ Deno.serve(async (req) => {
 
     console.log("📝 Starting marketplace user registration for:", email);
 
-    // 1. Create auth user with email_confirm: true
+    // 1. Create auth user with email_confirm: false (requires email verification)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: false, // User must confirm email via link
       user_metadata: { first_name, last_name, account_type: 'marketplace' }
     });
 
@@ -98,12 +98,54 @@ Deno.serve(async (req) => {
       console.log("✅ Marketplace role assigned");
     }
 
+    // 4. Generate activation link and send email
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin
+      .generateLink({
+        type: 'signup',
+        email,
+        password,
+        options: { redirectTo: `${siteUrl}/gielda/logowanie` }
+      });
+
+    if (linkError) {
+      console.error("❌ Link generation error:", linkError);
+    } else {
+      console.log("✅ Activation link generated");
+      
+      // Send registration email asynchronously
+      try {
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-registration-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`
+          },
+          body: JSON.stringify({
+            email,
+            first_name,
+            last_name: last_name || '',
+            activation_link: linkData.properties?.action_link || '',
+            language: "pl"
+          })
+        });
+        
+        if (emailResponse.ok) {
+          console.log("✅ Registration email sent");
+        } else {
+          console.error("❌ Email send failed:", await emailResponse.text());
+        }
+      } catch (emailError) {
+        console.error("❌ Email send error:", emailError);
+      }
+    }
+
     console.log("🎉 Marketplace registration completed for:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Rejestracja zakończona. Możesz się teraz zalogować.",
+        message: "Rejestracja zakończona! Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.",
         user_id: userId
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
