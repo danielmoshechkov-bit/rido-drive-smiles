@@ -1972,6 +1972,48 @@ export type Database = {
           },
         ]
       }
+      location_integrations: {
+        Row: {
+          api_key_secret_name: string | null
+          config: Json | null
+          created_at: string
+          id: string
+          integration_type: string
+          is_enabled: boolean | null
+          provider: string | null
+          updated_at: string
+          visible_in_listings: boolean | null
+          visible_in_map: boolean | null
+          visible_in_search: boolean | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          config?: Json | null
+          created_at?: string
+          id?: string
+          integration_type: string
+          is_enabled?: boolean | null
+          provider?: string | null
+          updated_at?: string
+          visible_in_listings?: boolean | null
+          visible_in_map?: boolean | null
+          visible_in_search?: boolean | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          config?: Json | null
+          created_at?: string
+          id?: string
+          integration_type?: string
+          is_enabled?: boolean | null
+          provider?: string | null
+          updated_at?: string
+          visible_in_listings?: boolean | null
+          visible_in_map?: boolean | null
+          visible_in_search?: boolean | null
+        }
+        Relationships: []
+      }
       manual_driver_matches: {
         Row: {
           created_at: string

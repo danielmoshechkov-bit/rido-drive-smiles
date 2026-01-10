@@ -26,7 +26,9 @@ import {
   LayoutDashboard,
   CreditCard,
   ChevronDown,
+  MapPin,
 } from 'lucide-react';
+import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegrationsPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Table,
@@ -278,6 +280,7 @@ const AdminRealEstate = () => {
     { value: 'agents', label: 'Agenci', icon: Users },
     { value: 'listings', label: 'Ogłoszenia', icon: FileText },
     { value: 'paid-services', label: 'Płatne usługi', icon: CreditCard },
+    { value: 'integrations', label: 'Integracje', icon: MapPin },
     { value: 'settings', label: 'Ustawienia', icon: Settings },
   ];
 
@@ -658,6 +661,11 @@ const AdminRealEstate = () => {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integrations" className="space-y-6">
+            <LocationIntegrationsPanel />
           </TabsContent>
 
           {/* Settings Tab */}
