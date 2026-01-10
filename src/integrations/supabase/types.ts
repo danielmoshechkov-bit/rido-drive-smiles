@@ -3141,11 +3141,15 @@ export type Database = {
         Row: {
           active_listings_count: number | null
           company_address: string
+          company_apartment_number: string | null
+          company_building_number: string | null
           company_city: string
           company_name: string
           company_nip: string
           company_postal_code: string | null
           company_regon: string | null
+          company_short_name: string | null
+          company_street: string | null
           created_at: string | null
           guardian_email: string | null
           guardian_first_name: string | null
@@ -3165,11 +3169,15 @@ export type Database = {
         Insert: {
           active_listings_count?: number | null
           company_address: string
+          company_apartment_number?: string | null
+          company_building_number?: string | null
           company_city: string
           company_name: string
           company_nip: string
           company_postal_code?: string | null
           company_regon?: string | null
+          company_short_name?: string | null
+          company_street?: string | null
           created_at?: string | null
           guardian_email?: string | null
           guardian_first_name?: string | null
@@ -3189,11 +3197,15 @@ export type Database = {
         Update: {
           active_listings_count?: number | null
           company_address?: string
+          company_apartment_number?: string | null
+          company_building_number?: string | null
           company_city?: string
           company_name?: string
           company_nip?: string
           company_postal_code?: string | null
           company_regon?: string | null
+          company_short_name?: string | null
+          company_street?: string | null
           created_at?: string | null
           guardian_email?: string | null
           guardian_first_name?: string | null
