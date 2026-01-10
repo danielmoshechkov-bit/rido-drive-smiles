@@ -81,6 +81,9 @@ const Auth = () => {
         if (roles.includes('admin')) {
           navigate('/admin/dashboard');
           return;
+        } else if (roles.includes('real_estate_agent') || roles.includes('real_estate_admin')) {
+          navigate('/nieruchomosci/agent/panel');
+          return;
         } else if (roles.includes('fleet_settlement') || roles.includes('fleet_rental')) {
           navigate('/fleet/dashboard');
           return;
