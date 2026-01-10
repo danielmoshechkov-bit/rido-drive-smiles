@@ -20,7 +20,8 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
     { value: "revenue", label: "Przychód firmy", visible: true },
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
     { value: "vehicles", label: "Przychody aut", visible: true },
-    { value: "fuel", label: "Paliwo", visible: true }
+    { value: "fuel", label: "Paliwo", visible: true },
+    { value: "reports", label: "Raporty", visible: true }
   ];
 
   // Company revenue view
@@ -84,6 +85,25 @@ export function AdminSettlementsView({ cityId, cityName }: AdminSettlementsViewP
           <CardContent className="py-8 text-center text-muted-foreground">
             <p>Ta funkcjonalność będzie dostępna wkrótce.</p>
             <p className="text-sm mt-2">Dla szczegółowych danych użyj zakładki "Flota" i wybierz konkretną flotę.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Reports tab (moved from main tabs)
+  if (activeSubTab === "reports") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <p>Moduł raportów w budowie.</p>
+            <p className="text-sm mt-2">Dodatkowe raporty i analizy zostaną wkrótce dodane.</p>
           </CardContent>
         </Card>
       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +30,7 @@ const AdminDashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isMarketplaceEnabled } = useFeatureToggles();
   const [activeTab, setActiveTab] = useState('weekly-report');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [showRebuildModal, setShowRebuildModal] = useState(false);
@@ -262,15 +264,14 @@ const AdminDashboard = () => {
               <TabsTrigger value="documents">
                 {t('admin.documents')}
               </TabsTrigger>
-              <TabsTrigger value="marketplace" onClick={() => navigate('/admin/marketplace')}>
-                <ShoppingCart className="h-4 w-4 mr-1" />
-                Marketplace
-              </TabsTrigger>
+              {isMarketplaceEnabled && (
+                <TabsTrigger value="marketplace" onClick={() => navigate('/admin/marketplace')}>
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  Marketplace
+                </TabsTrigger>
+              )}
               <TabsTrigger value="settings">
                 {t('admin.settings')}
-              </TabsTrigger>
-              <TabsTrigger value="reports">
-                {t('admin.reports')}
               </TabsTrigger>
               <TabsTrigger value="system-alerts">
                 {t('admin.information')}
@@ -335,16 +336,18 @@ const AdminDashboard = () => {
                       {t('admin.documents')}
                     </Button>
                   </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => navigate('/admin/marketplace')}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Marketplace
-                    </Button>
-                  </SheetTrigger>
+                  {isMarketplaceEnabled && (
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => navigate('/admin/marketplace')}
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Marketplace
+                      </Button>
+                    </SheetTrigger>
+                  )}
                   <SheetTrigger asChild>
                     <Button 
                       variant={activeTab === 'settings' ? 'default' : 'ghost'} 
@@ -352,15 +355,6 @@ const AdminDashboard = () => {
                       onClick={() => setActiveTab('settings')}
                     >
                       {t('admin.settings')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'reports' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('reports')}
-                    >
-                      {t('admin.reports')}
                     </Button>
                   </SheetTrigger>
                   <SheetTrigger asChild>
@@ -490,16 +484,6 @@ const AdminDashboard = () => {
             <AdminSettingsView />
           </TabsContent>
 
-          <TabsContent value="reports" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin.reports')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">Dodatkowe raporty i analizy zostaną wkrótce dodane.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="system-alerts" className="space-y-6">
             <SystemAlerts />

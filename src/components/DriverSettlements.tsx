@@ -1301,18 +1301,18 @@ export const DriverSettlements = ({
                         <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                           <span className="font-bold">{t('weekly.totalBeforeCommission')}:</span>
                           <span className="font-bold text-green-600 text-lg">
-                            {((amounts.uber_payout_d || 0) +
-                              ((amounts.bolt_projected_d || 0) - (amounts.bolt_commission || 0)) +
-                              ((amounts.freenow_base_s || 0) - (amounts.freenow_commission_t || 0))).toFixed(2)} zł
+                            {((amounts.uber_base || 0) +
+                              (amounts.bolt_projected_d || 0) +
+                              (amounts.freenow_base_s || 0)).toFixed(2)} zł
                           </span>
                         </div>
                         
                         {/* Razem gotówka - DUŻA CZCIONKA */}
-                        {((amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f) !== 0) && (
+                        {((amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0)) !== 0 && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
                             <span className="font-bold">{t('weekly.totalCash')}:</span>
-                            <span className="font-bold text-foreground text-lg">
-                              -{Math.abs(amounts.uber_cash + amounts.bolt_cash + amounts.freenow_cash_f).toFixed(2)} zł
+                            <span className="font-bold text-red-600 text-lg">
+                              -{Math.abs((amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0)).toFixed(2)} zł
                             </span>
                           </div>
                         )}
@@ -1435,19 +1435,21 @@ export const DriverSettlements = ({
                               </td>
                             </tr>
                             
-                            {/* Podatek 8% - use Math.abs() to fix double minus display */}
-                            <tr className="border-t hover:bg-muted/50">
-                              <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.tax8')}</td>
-                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.uber_tax_8 ? `-${Math.abs(amounts.uber_tax_8).toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.bolt_tax_8 ? `-${Math.abs(amounts.bolt_tax_8).toFixed(2)} zł` : '-'}
-                              </td>
-                              <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
-                                {amounts.freenow_tax_8 ? `-${Math.abs(amounts.freenow_tax_8).toFixed(2)} zł` : '-'}
-                              </td>
-                            </tr>
+                            {/* Podatek 8% - ukryty dla B2B */}
+                            {!isB2BDriver && (
+                              <tr className="border-t hover:bg-muted/50">
+                                <td className="p-1.5 text-muted-foreground text-xs">{t('weekly.tax8')}</td>
+                                <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
+                                  {amounts.uber_tax_8 ? `-${Math.abs(amounts.uber_tax_8).toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
+                                  {amounts.bolt_tax_8 ? `-${Math.abs(amounts.bolt_tax_8).toFixed(2)} zł` : '-'}
+                                </td>
+                                <td className="p-1.5 text-right font-medium text-destructive whitespace-nowrap text-xs">
+                                  {amounts.freenow_tax_8 ? `-${Math.abs(amounts.freenow_tax_8).toFixed(2)} zł` : '-'}
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
