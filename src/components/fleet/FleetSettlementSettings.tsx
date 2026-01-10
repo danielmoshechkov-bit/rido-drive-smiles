@@ -51,8 +51,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [cashEnabled, setCashEnabled] = useState(false);
   const [cashPickupDay, setCashPickupDay] = useState('wtorek');
   const [cashPickupLocation, setCashPickupLocation] = useState<'office' | 'delivery'>('office');
-  const [cashPickupAddress, setCashPickupAddress] = useState('');
+  const [cashAddressPostalCode, setCashAddressPostalCode] = useState('');
+  const [cashAddressStreet, setCashAddressStreet] = useState('');
+  const [cashAddressNumber, setCashAddressNumber] = useState('');
   const [b2bEnabled, setB2bEnabled] = useState(false);
+  const [b2bInvoiceFrequency, setB2bInvoiceFrequency] = useState<'weekly' | 'monthly' | 'on_request'>('monthly');
   const [transferEnabled, setTransferEnabled] = useState(true);
   const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
   
@@ -83,7 +86,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_pickup_address, b2b_enabled, transfer_enabled')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_address_postal_code, cash_address_street, cash_address_number, b2b_enabled, b2b_invoice_frequency, transfer_enabled')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -98,8 +101,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setCashEnabled((data as any).cash_enabled ?? false);
       setCashPickupDay((data as any).cash_pickup_day ?? 'wtorek');
       setCashPickupLocation((data as any).cash_pickup_location ?? 'office');
-      setCashPickupAddress((data as any).cash_pickup_address ?? '');
+      setCashAddressPostalCode((data as any).cash_address_postal_code ?? '');
+      setCashAddressStreet((data as any).cash_address_street ?? '');
+      setCashAddressNumber((data as any).cash_address_number ?? '');
       setB2bEnabled((data as any).b2b_enabled ?? false);
+      setB2bInvoiceFrequency((data as any).b2b_invoice_frequency ?? 'monthly');
       setTransferEnabled((data as any).transfer_enabled ?? true);
     }
   };
@@ -573,21 +579,44 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="office">W biurze</SelectItem>
-                          <SelectItem value="delivery">Dostawa pod adres</SelectItem>
+                          <SelectItem value="delivery">Dodaj adres wypłaty</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   
                   {cashPickupLocation === 'delivery' && (
-                    <div className="space-y-1">
-                      <Label className="text-xs">Adres dostawy</Label>
-                      <Input
-                        placeholder="np. ul. Przykładowa 1, Warszawa"
-                        value={cashPickupAddress}
-                        onChange={(e) => setCashPickupAddress(e.target.value)}
-                        className="h-8"
-                      />
+                    <div className="space-y-2">
+                      <Label className="text-xs">Adres wypłaty</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Kod pocztowy</Label>
+                          <Input
+                            placeholder="00-000"
+                            value={cashAddressPostalCode}
+                            onChange={(e) => setCashAddressPostalCode(e.target.value)}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="space-y-1 col-span-1">
+                          <Label className="text-[10px] text-muted-foreground">Ulica</Label>
+                          <Input
+                            placeholder="ul. Przykładowa"
+                            value={cashAddressStreet}
+                            onChange={(e) => setCashAddressStreet(e.target.value)}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Nr domu</Label>
+                          <Input
+                            placeholder="1A"
+                            value={cashAddressNumber}
+                            onChange={(e) => setCashAddressNumber(e.target.value)}
+                            className="h-8"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -595,18 +624,61 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             </div>
 
             {/* B2B */}
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-lg">📋</span>
-                <div>
-                  <p className="font-medium text-sm">B2B (faktury)</p>
-                  <p className="text-xs text-muted-foreground">Kierowcy wystawiają faktury</p>
+            <div className="space-y-3 p-3 border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">📋</span>
+                  <div>
+                    <p className="font-medium text-sm">B2B (faktury)</p>
+                    <p className="text-xs text-muted-foreground">Kierowcy wystawiają faktury</p>
+                  </div>
                 </div>
+                <Switch
+                  checked={b2bEnabled}
+                  onCheckedChange={setB2bEnabled}
+                />
               </div>
-              <Switch
-                checked={b2bEnabled}
-                onCheckedChange={setB2bEnabled}
-              />
+              
+              {b2bEnabled && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs">Częstotliwość faktury</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${b2bInvoiceFrequency === 'weekly' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                      <input
+                        type="radio"
+                        name="b2b_frequency"
+                        value="weekly"
+                        checked={b2bInvoiceFrequency === 'weekly'}
+                        onChange={() => setB2bInvoiceFrequency('weekly')}
+                        className="sr-only"
+                      />
+                      <span className="text-xs text-center">Raz w tygodniu</span>
+                    </label>
+                    <label className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${b2bInvoiceFrequency === 'monthly' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                      <input
+                        type="radio"
+                        name="b2b_frequency"
+                        value="monthly"
+                        checked={b2bInvoiceFrequency === 'monthly'}
+                        onChange={() => setB2bInvoiceFrequency('monthly')}
+                        className="sr-only"
+                      />
+                      <span className="text-xs text-center">Raz w miesiącu</span>
+                    </label>
+                    <label className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${b2bInvoiceFrequency === 'on_request' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                      <input
+                        type="radio"
+                        name="b2b_frequency"
+                        value="on_request"
+                        checked={b2bInvoiceFrequency === 'on_request'}
+                        onChange={() => setB2bInvoiceFrequency('on_request')}
+                        className="sr-only"
+                      />
+                      <span className="text-xs text-center">Na zlecenie wypłaty</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button 
@@ -619,8 +691,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                       cash_enabled: cashEnabled,
                       cash_pickup_day: cashPickupDay,
                       cash_pickup_location: cashPickupLocation,
-                      cash_pickup_address: cashPickupAddress || null,
+                      cash_address_postal_code: cashAddressPostalCode || null,
+                      cash_address_street: cashAddressStreet || null,
+                      cash_address_number: cashAddressNumber || null,
                       b2b_enabled: b2bEnabled,
+                      b2b_invoice_frequency: b2bInvoiceFrequency,
                       transfer_enabled: transferEnabled
                     } as any)
                     .eq('id', fleetId);
