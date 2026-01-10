@@ -63,6 +63,14 @@ interface FormData {
   // Step 4 - Consents
   rodo_consent_data_storage: boolean;
   rodo_consent_data_sharing: boolean;
+  
+  // Step 5 - Vehicle Data
+  vehicle_plate: string;
+  vehicle_vin: string;
+  vehicle_brand: string;
+  vehicle_model: string;
+  vehicle_year: string;
+  vehicle_fuel_type: string;
 }
 
 interface DocumentFile {
@@ -75,6 +83,7 @@ interface DocumentFile {
 export function DriverOnboardingWizard({ profile, onComplete, onCancel }: DriverOnboardingWizardProps) {
   const [step, setStep] = useState(1);
   const [cities, setCities] = useState<City[]>([]);
+  const [carBrands, setCarBrands] = useState<{ id: string; name: string }[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [fleetInfo, setFleetInfo] = useState<{ id: string; name: string } | null>(null);
@@ -108,6 +117,13 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
     correspondence_postal_code: "",
     rodo_consent_data_storage: false,
     rodo_consent_data_sharing: false,
+    // Vehicle data
+    vehicle_plate: "",
+    vehicle_vin: "",
+    vehicle_brand: "",
+    vehicle_model: "",
+    vehicle_year: "",
+    vehicle_fuel_type: "",
   });
 
   const [documents, setDocuments] = useState<DocumentFile[]>([
@@ -127,13 +143,15 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
 
   useEffect(() => {
     const loadData = async () => {
-      const [citiesRes, docTypesRes] = await Promise.all([
+      const [citiesRes, docTypesRes, brandsRes] = await Promise.all([
         supabase.from("cities").select("id, name").order("name"),
-        supabase.from("document_types").select("id, name, required")
+        supabase.from("document_types").select("id, name, required"),
+        supabase.from("car_brands").select("id, name").order("name")
       ]);
       
       if (citiesRes.data) setCities(citiesRes.data);
       if (docTypesRes.data) setDocumentTypes(docTypesRes.data);
+      if (brandsRes.data) setCarBrands(brandsRes.data);
     };
     loadData();
   }, []);
@@ -312,11 +330,40 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
     return true;
   };
 
+  const validateStep5 = () => {
+    if (!formData.vehicle_plate) {
+      toast.error("Podaj numer rejestracyjny pojazdu");
+      return false;
+    }
+    if (!formData.vehicle_vin || formData.vehicle_vin.length !== 17) {
+      toast.error("Podaj prawidłowy numer VIN (17 znaków)");
+      return false;
+    }
+    if (!formData.vehicle_brand) {
+      toast.error("Wybierz markę pojazdu");
+      return false;
+    }
+    if (!formData.vehicle_model) {
+      toast.error("Podaj model pojazdu");
+      return false;
+    }
+    if (!formData.vehicle_year || parseInt(formData.vehicle_year) < 1990 || parseInt(formData.vehicle_year) > new Date().getFullYear() + 1) {
+      toast.error("Podaj prawidłowy rok produkcji");
+      return false;
+    }
+    if (!formData.vehicle_fuel_type) {
+      toast.error("Wybierz rodzaj paliwa");
+      return false;
+    }
+    return true;
+  };
+
   const nextStep = () => {
     if (step === 1 && !validateStep1()) return;
     if (step === 2 && !validateStep2()) return;
     if (step === 3 && !validateStep3()) return;
-    setStep(prev => Math.min(prev + 1, 4));
+    if (step === 4 && !validateStep4()) return;
+    setStep(prev => Math.min(prev + 1, 5));
   };
 
   const prevStep = () => {
@@ -360,7 +407,7 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
   };
 
   const handleSubmit = async () => {
-    if (!validateStep4()) return;
+    if (!validateStep5()) return;
     
     setSubmitting(true);
     try {
@@ -429,6 +476,38 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
         }
       }
 
+      // Create vehicle record
+      if (formData.vehicle_plate && formData.vehicle_vin) {
+        const { data: vehicle, error: vehicleError } = await supabase
+          .from("vehicles")
+          .insert({
+            plate: formData.vehicle_plate.toUpperCase().replace(/\s/g, ''),
+            vin: formData.vehicle_vin.toUpperCase(),
+            brand: formData.vehicle_brand,
+            model: formData.vehicle_model,
+            year: parseInt(formData.vehicle_year),
+            fuel_type: formData.vehicle_fuel_type,
+            city_id: formData.city_id,
+            fleet_id: fleetInfo?.id || null,
+          })
+          .select()
+          .single();
+
+        if (vehicleError) {
+          console.error("Vehicle creation error:", vehicleError);
+          // Don't fail the whole registration, just log it
+        } else if (vehicle) {
+          // Create vehicle assignment
+          await supabase.from("driver_vehicle_assignments").insert({
+            driver_id: driver.id,
+            vehicle_id: vehicle.id,
+            fleet_id: fleetInfo?.id || null,
+            status: "active",
+            assigned_at: new Date().toISOString(),
+          });
+        }
+      }
+
       toast.success(fleetInfo 
         ? `Zarejestrowano jako kierowca w flocie ${fleetInfo.name}!` 
         : "Rejestracja zakończona pomyślnie!");
@@ -447,6 +526,7 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
     { num: 2, title: "Dokumenty", icon: FileText },
     { num: 3, title: "Adres", icon: MapPin },
     { num: 4, title: "Zgody RODO", icon: Shield },
+    { num: 5, title: "Pojazd", icon: Car },
   ];
 
   return (
@@ -466,6 +546,7 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
                   if (step === 1 && validateStep1()) setStep(s.num);
                   if (step === 2 && validateStep2()) setStep(s.num);
                   if (step === 3 && validateStep3()) setStep(s.num);
+                  if (step === 4 && validateStep4()) setStep(s.num);
                 }
               }}
             >
@@ -1052,6 +1133,118 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
         </Card>
       )}
 
+      {/* Step 5 - Vehicle Data */}
+      {step === 5 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Dane pojazdu
+            </CardTitle>
+            <CardDescription>
+              Podaj dane swojego samochodu (wymagane do generowania umów)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Plate Number */}
+            <div className="space-y-2">
+              <Label>Numer rejestracyjny *</Label>
+              <Input
+                placeholder="np. WA 12345"
+                value={formData.vehicle_plate}
+                onChange={(e) => handleInputChange("vehicle_plate", e.target.value.toUpperCase())}
+              />
+            </div>
+
+            {/* VIN */}
+            <div className="space-y-2">
+              <Label>Numer VIN *</Label>
+              <Input
+                placeholder="17 znaków"
+                maxLength={17}
+                value={formData.vehicle_vin}
+                onChange={(e) => handleInputChange("vehicle_vin", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Numer VIN znajdziesz w dowodzie rejestracyjnym lub na tabliczce w pojeździe
+              </p>
+            </div>
+
+            {/* Brand */}
+            <div className="space-y-2">
+              <Label>Marka *</Label>
+              <Select
+                value={formData.vehicle_brand}
+                onValueChange={(v) => handleInputChange("vehicle_brand", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz markę" />
+                </SelectTrigger>
+                <SelectContent>
+                  {carBrands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.name}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Model */}
+            <div className="space-y-2">
+              <Label>Model *</Label>
+              <Input
+                placeholder="np. Model 3, Camry, Octavia"
+                value={formData.vehicle_model}
+                onChange={(e) => handleInputChange("vehicle_model", e.target.value)}
+              />
+            </div>
+
+            {/* Year */}
+            <div className="space-y-2">
+              <Label>Rok produkcji *</Label>
+              <Input
+                type="number"
+                placeholder="np. 2022"
+                min={1990}
+                max={new Date().getFullYear() + 1}
+                value={formData.vehicle_year}
+                onChange={(e) => handleInputChange("vehicle_year", e.target.value)}
+              />
+            </div>
+
+            {/* Fuel Type */}
+            <div className="space-y-2">
+              <Label>Rodzaj paliwa *</Label>
+              <Select
+                value={formData.vehicle_fuel_type}
+                onValueChange={(v) => handleInputChange("vehicle_fuel_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz paliwo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="petrol">Benzyna</SelectItem>
+                  <SelectItem value="diesel">Diesel</SelectItem>
+                  <SelectItem value="lpg">LPG</SelectItem>
+                  <SelectItem value="hybrid">Hybryda</SelectItem>
+                  <SelectItem value="electric">Elektryczny</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {fleetInfo && (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700">
+                  <Building2 className="h-5 w-5" />
+                  <span className="font-medium">Pojazd zostanie przypisany do floty: {fleetInfo.name}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Navigation Buttons */}
       <div className="flex justify-between">
         <div>
@@ -1068,7 +1261,7 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
         </div>
         
         <div>
-          {step < 4 ? (
+          {step < 5 ? (
             <Button onClick={nextStep}>
               Dalej
               <ArrowRight className="h-4 w-4 ml-2" />
