@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, Menu, Download, ShoppingCart } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
+import { AdminPortalSwitcher } from "@/components/admin/AdminPortalSwitcher";
 import { UserDropdown } from "@/components/UserDropdown";
 
 const AdminDashboard = () => {
@@ -181,13 +182,13 @@ const AdminDashboard = () => {
         <div className="container mx-auto px-4 py-3">
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
                 className="h-6 w-6"
               />
-              <h1 className="text-base font-bold text-primary">{t('admin.dashboard')}</h1>
+              <AdminPortalSwitcher />
             </div>
             <div className="flex items-center space-x-3">
               <UserDropdown 
