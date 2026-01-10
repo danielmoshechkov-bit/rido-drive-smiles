@@ -447,8 +447,8 @@ const DriverDashboard = () => {
               )}
             </TabsPill>
 
-            {/* Przełącz konto dropdown - only if enabled */}
-            {features.account_switching_enabled && (features.marketplace_enabled || isFleetAccount) && (
+            {/* Przełącz konto dropdown - show if user has other accounts */}
+            {(isFleetAccount || isMarketplaceAccount) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2 shrink-0">

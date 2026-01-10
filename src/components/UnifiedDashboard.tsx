@@ -30,12 +30,13 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart, Repeat, User, Truck } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -63,6 +64,8 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
   const { roles } = useUserRole();
   const { isMarketplaceEnabled } = useFeatureToggles();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
+  const [isDriverAccount, setIsDriverAccount] = useState(false);
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
 
   // PWA install prompt detection
   useEffect(() => {
@@ -112,26 +115,35 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
     }
   }, [cities, selectedCity, userType]);
 
-  // Fetch my driver_id if I'm also a driver
+  // Fetch my driver_id if I'm also a driver, and check other accounts
   useEffect(() => {
-    if (roles.includes('driver')) {
-      const fetchMyDriverId = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase
-            .from('driver_app_users')
-            .select('driver_id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          
-          if (data?.driver_id) {
-            setMyDriverId(data.driver_id);
-          }
-        }
-      };
-      fetchMyDriverId();
-    }
-  }, [roles]);
+    const checkUserAccounts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check driver account
+      const { data: driverAppUser } = await supabase
+        .from('driver_app_users')
+        .select('driver_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (driverAppUser?.driver_id) {
+        setMyDriverId(driverAppUser.driver_id);
+        setIsDriverAccount(true);
+      }
+
+      // Check marketplace account
+      const { data: marketplaceProfile } = await supabase
+        .from('marketplace_user_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setIsMarketplaceAccount(!!marketplaceProfile);
+    };
+    
+    checkUserAccounts();
+  }, []);
 
   const handleSanitizeGetRidoIds = async () => {
     if (!selectedCity) {
@@ -257,6 +269,47 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   <ShoppingCart className="h-4 w-4" />
                   Giełda aut
                 </Button>
+              )}
+              {/* Account switcher - desktop */}
+              {(isDriverAccount || isMarketplaceAccount) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Repeat className="h-4 w-4" />
+                      Przełącz konto
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                      <Truck className="h-4 w-4" />
+                      <span>{userType === 'admin' ? 'Panel Admin' : 'Konto flotowe'}</span>
+                      <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                    </DropdownMenuItem>
+
+                    {isDriverAccount && (
+                      <DropdownMenuItem 
+                        onClick={() => navigate("/driver")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Car className="h-4 w-4" />
+                        <span>Konto kierowcy</span>
+                      </DropdownMenuItem>
+                    )}
+
+                    {isMarketplaceAccount && (
+                      <DropdownMenuItem 
+                        onClick={() => navigate("/gielda/panel")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>Konto giełda</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <UserDropdown 
                 userName={userName || (userType === 'admin' ? 'Admin' : 'Fleet Manager')}
