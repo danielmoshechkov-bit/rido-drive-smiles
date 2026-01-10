@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -447,53 +447,72 @@ const DriverDashboard = () => {
               )}
             </TabsPill>
 
-            {/* Przełącz konto dropdown - show if user has other accounts */}
-            {(isFleetAccount || isMarketplaceAccount) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 shrink-0">
-                    <Repeat className="h-4 w-4" />
-                    Przełącz konto
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
-                    <Car className="h-4 w-4" />
-                    <span>Konto kierowcy</span>
-                    <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+            {/* Przełącz konto dropdown - always show for account switching and adding */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                  <Repeat className="h-4 w-4" />
+                  Przełącz konto
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 bg-white z-50">
+                <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {/* Current account - Driver */}
+                <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted">
+                  <Car className="h-4 w-4" />
+                  <span>Konto kierowcy</span>
+                  <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                </DropdownMenuItem>
+
+                {/* Fleet account - if available */}
+                {isFleetAccount && (
+                  <DropdownMenuItem 
+                    onClick={() => navigate("/fleet/dashboard")}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Truck className="h-4 w-4" />
+                    <span>Konto flotowe</span>
                   </DropdownMenuItem>
+                )}
 
-                  {features.marketplace_enabled && (
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/gielda/panel")}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <User className="h-4 w-4" />
-                      <span>Konto główne (giełda)</span>
-                      {isMarketplaceAccount ? (
-                        <Badge variant="secondary" className="ml-auto text-xs">zarejestrowany</Badge>
-                      ) : (
-                        <Badge variant="outline" className="ml-auto text-xs">dołącz</Badge>
-                      )}
-                    </DropdownMenuItem>
-                  )}
+                {/* Marketplace account - if available */}
+                {isMarketplaceAccount && (
+                  <DropdownMenuItem 
+                    onClick={() => navigate("/gielda/panel")}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Konto giełda</span>
+                  </DropdownMenuItem>
+                )}
 
-                  {isFleetAccount && (
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/fleet/dashboard")}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Truck className="h-4 w-4" />
-                      <span>Konto flotowe</span>
-                      <Badge variant="secondary" className="ml-auto text-xs">aktywne</Badge>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                {/* Add new accounts section */}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Dodaj konto</DropdownMenuLabel>
+
+                {/* Add marketplace account - if not already and feature enabled */}
+                {!isMarketplaceAccount && isMarketplaceEnabled && (
+                  <DropdownMenuItem 
+                    onClick={() => navigate("/gielda/rejestracja")}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Konto giełda</span>
+                  </DropdownMenuItem>
+                )}
+
+                {/* Add fleet account - disabled, coming soon */}
+                {!isFleetAccount && (
+                  <DropdownMenuItem disabled className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span>Konto flotowe</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">wkrótce</Badge>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
