@@ -2916,6 +2916,214 @@ export type Database = {
           },
         ]
       }
+      real_estate_agents: {
+        Row: {
+          active_listings_count: number | null
+          company_address: string
+          company_city: string
+          company_name: string
+          company_nip: string
+          company_postal_code: string | null
+          company_regon: string | null
+          created_at: string | null
+          guardian_email: string | null
+          guardian_first_name: string | null
+          guardian_last_name: string | null
+          guardian_phone: string | null
+          id: string
+          max_employees: number | null
+          owner_email: string
+          owner_first_name: string
+          owner_last_name: string
+          owner_phone: string
+          parent_agent_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          active_listings_count?: number | null
+          company_address: string
+          company_city: string
+          company_name: string
+          company_nip: string
+          company_postal_code?: string | null
+          company_regon?: string | null
+          created_at?: string | null
+          guardian_email?: string | null
+          guardian_first_name?: string | null
+          guardian_last_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          max_employees?: number | null
+          owner_email: string
+          owner_first_name: string
+          owner_last_name: string
+          owner_phone: string
+          parent_agent_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          active_listings_count?: number | null
+          company_address?: string
+          company_city?: string
+          company_name?: string
+          company_nip?: string
+          company_postal_code?: string | null
+          company_regon?: string | null
+          created_at?: string | null
+          guardian_email?: string | null
+          guardian_first_name?: string | null
+          guardian_last_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          max_employees?: number | null
+          owner_email?: string
+          owner_first_name?: string
+          owner_last_name?: string
+          owner_phone?: string
+          parent_agent_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_agents_parent_agent_id_fkey"
+            columns: ["parent_agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_listings: {
+        Row: {
+          address: string | null
+          agent_id: string
+          area: number | null
+          build_year: number | null
+          city: string
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string | null
+          description: string | null
+          district: string | null
+          favorites_count: number | null
+          floor: number | null
+          has_balcony: boolean | null
+          has_elevator: boolean | null
+          has_garden: boolean | null
+          has_parking: boolean | null
+          id: string
+          latitude: number | null
+          listing_number: string | null
+          location: string
+          longitude: number | null
+          photos: string[] | null
+          price: number
+          price_per_sqm: number | null
+          price_type: string | null
+          property_type: string
+          property_unique_id: string | null
+          rating: number | null
+          rooms: number | null
+          status: string | null
+          title: string
+          total_floors: number | null
+          transaction_type: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          address?: string | null
+          agent_id: string
+          area?: number | null
+          build_year?: number | null
+          city: string
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          description?: string | null
+          district?: string | null
+          favorites_count?: number | null
+          floor?: number | null
+          has_balcony?: boolean | null
+          has_elevator?: boolean | null
+          has_garden?: boolean | null
+          has_parking?: boolean | null
+          id?: string
+          latitude?: number | null
+          listing_number?: string | null
+          location: string
+          longitude?: number | null
+          photos?: string[] | null
+          price: number
+          price_per_sqm?: number | null
+          price_type?: string | null
+          property_type: string
+          property_unique_id?: string | null
+          rating?: number | null
+          rooms?: number | null
+          status?: string | null
+          title: string
+          total_floors?: number | null
+          transaction_type: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          address?: string | null
+          agent_id?: string
+          area?: number | null
+          build_year?: number | null
+          city?: string
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          description?: string | null
+          district?: string | null
+          favorites_count?: number | null
+          floor?: number | null
+          has_balcony?: boolean | null
+          has_elevator?: boolean | null
+          has_garden?: boolean | null
+          has_parking?: boolean | null
+          id?: string
+          latitude?: number | null
+          listing_number?: string | null
+          location?: string
+          longitude?: number | null
+          photos?: string[] | null
+          price?: number
+          price_per_sqm?: number | null
+          price_type?: string | null
+          property_type?: string
+          property_unique_id?: string | null
+          rating?: number | null
+          rooms?: number | null
+          status?: string | null
+          title?: string
+          total_floors?: number | null
+          transaction_type?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_listings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_reviews: {
         Row: {
           approved_at: string | null
