@@ -55,26 +55,38 @@ export default function RealEstateAgentDashboard() {
 
   const fetchAgentProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!user) {
-        navigate("/easy/login");
+      if (sessionError || !session) {
+        console.error("Session error:", sessionError);
+        navigate("/easy/login?redirect=/nieruchomosci/agent/panel");
         return;
       }
 
+      const user = session.user;
+      console.log("Fetching agent for user_id:", user.id);
+
       const { data: agentData, error } = await supabase
-        .from("real_estate_agents" as any)
+        .from("real_estate_agents")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (error || !agentData) {
+      console.log("Agent query result:", { agentData, error });
+
+      if (error) {
+        console.error("Error fetching agent:", error);
+        toast.error("Błąd pobierania danych agencji");
+        return;
+      }
+
+      if (!agentData) {
         toast.error("Nie znaleziono profilu agenta");
         navigate("/nieruchomosci/agent/rejestracja");
         return;
       }
 
-      setAgent(agentData as any);
+      setAgent(agentData as AgentProfile);
       // TODO: Fetch listings from database
       // For now using mock data
       setListings([
