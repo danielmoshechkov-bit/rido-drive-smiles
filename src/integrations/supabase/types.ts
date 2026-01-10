@@ -1373,6 +1373,63 @@ export type Database = {
         }
         Relationships: []
       }
+      fleet_city_payment_settings: {
+        Row: {
+          cash_address_number: string | null
+          cash_address_postal_code: string | null
+          cash_address_street: string | null
+          cash_enabled: boolean | null
+          cash_pickup_day: string | null
+          cash_pickup_location: string | null
+          city_id: string
+          created_at: string | null
+          fleet_id: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cash_address_number?: string | null
+          cash_address_postal_code?: string | null
+          cash_address_street?: string | null
+          cash_enabled?: boolean | null
+          cash_pickup_day?: string | null
+          cash_pickup_location?: string | null
+          city_id: string
+          created_at?: string | null
+          fleet_id: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          cash_address_number?: string | null
+          cash_address_postal_code?: string | null
+          cash_address_street?: string | null
+          cash_enabled?: boolean | null
+          cash_pickup_day?: string | null
+          cash_pickup_location?: string | null
+          city_id?: string
+          created_at?: string | null
+          fleet_id?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_city_payment_settings_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_city_payment_settings_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_delegated_roles: {
         Row: {
           assigned_to_driver_id: string
