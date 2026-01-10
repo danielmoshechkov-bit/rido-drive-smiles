@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus, ChevronDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -447,17 +448,19 @@ const DriverDashboard = () => {
           </TabsPill>
         </div>
 
-        {/* Mobile Hamburger Menu - Redesigned */}
+        {/* Mobile Hamburger Menu - Compact single line */}
         <div className="md:hidden mb-3">
-          <div className="flex items-center gap-3">
-            {/* Hamburger w zaokrąglonym kontenerze */}
+          <div className="flex items-center gap-2">
+            {/* Hamburger - compact */}
             <Sheet>
               <SheetTrigger asChild>
-                <div className="rounded-xl bg-primary shadow-sm p-1.5">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
-                    <Menu className="h-4 w-4 text-white" />
-                  </Button>
-                </div>
+                <Button 
+                  variant="default" 
+                  size="icon" 
+                  className="h-10 w-10 rounded-xl shrink-0"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
                 <div className="space-y-2 mt-4">
@@ -530,39 +533,120 @@ const DriverDashboard = () => {
               </SheetContent>
             </Sheet>
 
-            {/* Sub-tab buttons obok hamburgera - tylko dla zakładki rozliczenia */}
-            {activeTab === 'weekly-report' && (
-              <div className="flex gap-2 flex-1">
-                <Button
-                  variant={activeSubTab === 'my' ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full px-4 shadow-sm text-xs flex-1"
-                  onClick={() => setActiveSubTab('my')}
-                >
-                  {t('driver.settlements.mySettlements')}
-                </Button>
-                <Button
-                  variant={activeSubTab === 'fuel' ? 'default' : 'outline'}
-                  size="sm"
-                  className="rounded-full px-4 shadow-sm text-xs flex-1"
-                  onClick={() => setActiveSubTab('fuel')}
-                >
-                  {t('driver.settlements.fuel')}
-                </Button>
-              </div>
-            )}
+            {/* Current tab label - collapsible with sub-tabs */}
+            <Collapsible className="flex-1">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+                  <span className="font-medium text-sm truncate">
+                    {activeTab === 'weekly-report' && t('driver.tabs.settlements')}
+                    {activeTab === 'cars' && t('driver.tabs.cars')}
+                    {activeTab === 'documents' && t('driver.tabs.documents')}
+                    {activeTab === 'informacje' && t('driver.tabs.information')}
+                    {activeTab === 'marketplace' && t('driver.tabs.marketplace')}
+                    {activeTab === 'accounts' && 'Przełącz konto'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1">
+                <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
+                  <Button 
+                    variant={activeTab === 'weekly-report' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('weekly-report')}
+                  >
+                    <DollarSign className="h-3 w-3 mr-2" />
+                    {t('driver.tabs.settlements')}
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'cars' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('cars')}
+                  >
+                    <Car className="h-3 w-3 mr-2" />
+                    {t('driver.tabs.cars')}
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'documents' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('documents')}
+                  >
+                    <FileText className="h-3 w-3 mr-2" />
+                    {t('driver.tabs.documents')}
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'informacje' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('informacje')}
+                  >
+                    <Info className="h-3 w-3 mr-2" />
+                    {t('driver.tabs.information')}
+                  </Button>
+                  {isMarketplaceEnabled && (
+                    <Button 
+                      variant={activeTab === 'marketplace' ? 'secondary' : 'ghost'} 
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() => setActiveTab('marketplace')}
+                    >
+                      <ShoppingCart className="h-3 w-3 mr-2" />
+                      {t('driver.tabs.marketplace')}
+                    </Button>
+                  )}
+                  {features.account_switching_enabled && (
+                    <Button 
+                      variant={activeTab === 'accounts' ? 'secondary' : 'ghost'} 
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() => setActiveTab('accounts')}
+                    >
+                      <Repeat className="h-3 w-3 mr-2" />
+                      Przełącz konto
+                    </Button>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
 
-            {/* Przycisk Dodaj auto obok hamburgera - dla zakładki cars */}
-            {activeTab === 'cars' && (
+          {/* Sub-tab buttons - pod spodem dla zakładki rozliczenia */}
+          {activeTab === 'weekly-report' && (
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant={activeSubTab === 'my' ? 'default' : 'outline'}
+                size="sm"
+                className="rounded-full px-4 shadow-sm text-xs flex-1"
+                onClick={() => setActiveSubTab('my')}
+              >
+                {t('driver.settlements.mySettlements')}
+              </Button>
+              <Button
+                variant={activeSubTab === 'fuel' ? 'default' : 'outline'}
+                size="sm"
+                className="rounded-full px-4 shadow-sm text-xs flex-1"
+                onClick={() => setActiveSubTab('fuel')}
+              >
+                {t('driver.settlements.fuel')}
+              </Button>
+            </div>
+          )}
+
+          {/* Przycisk Dodaj auto - dla zakładki cars */}
+          {activeTab === 'cars' && (
+            <div className="mt-2">
               <Button 
-                className="flex-1 rounded-full"
+                className="w-full rounded-full"
                 onClick={() => setShowAddOwnCarModal(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 {t('driver.cars.addCar')}
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Tab Content - rendered based on activeTab state */}
