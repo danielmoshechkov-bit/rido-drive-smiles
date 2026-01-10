@@ -65,6 +65,117 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_crm_integrations: {
+        Row: {
+          added_count: number | null
+          agency_id: string | null
+          api_base_url: string | null
+          api_key_secret_name: string | null
+          api_login: string | null
+          api_password_secret_name: string | null
+          created_at: string | null
+          deactivated_count: number | null
+          error_count: number | null
+          ftp_host: string | null
+          ftp_login: string | null
+          ftp_password_secret_name: string | null
+          ftp_photos_path: string | null
+          ftp_port: number | null
+          ftp_xml_path: string | null
+          id: string
+          import_mode: string
+          import_schedule: string | null
+          is_enabled: boolean | null
+          last_import_at: string | null
+          last_import_message: string | null
+          last_import_status: string | null
+          provider_code: string | null
+          total_offers_in_feed: number | null
+          updated_at: string | null
+          updated_count: number | null
+          xml_login: string | null
+          xml_password_secret_name: string | null
+          xml_url: string | null
+        }
+        Insert: {
+          added_count?: number | null
+          agency_id?: string | null
+          api_base_url?: string | null
+          api_key_secret_name?: string | null
+          api_login?: string | null
+          api_password_secret_name?: string | null
+          created_at?: string | null
+          deactivated_count?: number | null
+          error_count?: number | null
+          ftp_host?: string | null
+          ftp_login?: string | null
+          ftp_password_secret_name?: string | null
+          ftp_photos_path?: string | null
+          ftp_port?: number | null
+          ftp_xml_path?: string | null
+          id?: string
+          import_mode: string
+          import_schedule?: string | null
+          is_enabled?: boolean | null
+          last_import_at?: string | null
+          last_import_message?: string | null
+          last_import_status?: string | null
+          provider_code?: string | null
+          total_offers_in_feed?: number | null
+          updated_at?: string | null
+          updated_count?: number | null
+          xml_login?: string | null
+          xml_password_secret_name?: string | null
+          xml_url?: string | null
+        }
+        Update: {
+          added_count?: number | null
+          agency_id?: string | null
+          api_base_url?: string | null
+          api_key_secret_name?: string | null
+          api_login?: string | null
+          api_password_secret_name?: string | null
+          created_at?: string | null
+          deactivated_count?: number | null
+          error_count?: number | null
+          ftp_host?: string | null
+          ftp_login?: string | null
+          ftp_password_secret_name?: string | null
+          ftp_photos_path?: string | null
+          ftp_port?: number | null
+          ftp_xml_path?: string | null
+          id?: string
+          import_mode?: string
+          import_schedule?: string | null
+          is_enabled?: boolean | null
+          last_import_at?: string | null
+          last_import_message?: string | null
+          last_import_status?: string | null
+          provider_code?: string | null
+          total_offers_in_feed?: number | null
+          updated_at?: string | null
+          updated_count?: number | null
+          xml_login?: string | null
+          xml_password_secret_name?: string | null
+          xml_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_crm_integrations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_crm_integrations_provider_code_fkey"
+            columns: ["provider_code"]
+            isOneToOne: false
+            referencedRelation: "crm_integration_providers"
+            referencedColumns: ["provider_code"]
+          },
+        ]
+      }
       ai_admin_audit_log: {
         Row: {
           action_details: Json
@@ -385,6 +496,74 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      crm_import_logs: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          id: string
+          integration_id: string | null
+          log_type: string
+          message: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          integration_id?: string | null
+          log_type: string
+          message: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          integration_id?: string | null
+          log_type?: string
+          message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_import_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "agency_crm_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_integration_providers: {
+        Row: {
+          created_at: string | null
+          default_config: Json | null
+          id: string
+          is_enabled: boolean | null
+          provider_code: string
+          provider_name: string
+          supported_import_modes: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_config?: Json | null
+          id?: string
+          is_enabled?: boolean | null
+          provider_code: string
+          provider_name: string
+          supported_import_modes?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_config?: Json | null
+          id?: string
+          is_enabled?: boolean | null
+          provider_code?: string
+          provider_name?: string
+          supported_import_modes?: string[] | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -3041,19 +3220,59 @@ export type Database = {
           },
         ]
       }
+      real_estate_listing_interactions: {
+        Row: {
+          created_at: string | null
+          id: string
+          interaction_type: string
+          listing_id: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          interaction_type: string
+          listing_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          interaction_type?: string
+          listing_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_listing_interactions_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       real_estate_listings: {
         Row: {
           address: string | null
+          agency_id: string | null
           agent_id: string
           area: number | null
           build_year: number | null
           city: string
+          comparison_count: number | null
           contact_email: string | null
           contact_person: string | null
           contact_phone: string | null
+          contact_reveals_count: number | null
           created_at: string | null
+          crm_source: string | null
           description: string | null
           district: string | null
+          external_id: string | null
           favorites_count: number | null
           floor: number | null
           has_balcony: boolean | null
@@ -3082,16 +3301,21 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          agency_id?: string | null
           agent_id: string
           area?: number | null
           build_year?: number | null
           city: string
+          comparison_count?: number | null
           contact_email?: string | null
           contact_person?: string | null
           contact_phone?: string | null
+          contact_reveals_count?: number | null
           created_at?: string | null
+          crm_source?: string | null
           description?: string | null
           district?: string | null
+          external_id?: string | null
           favorites_count?: number | null
           floor?: number | null
           has_balcony?: boolean | null
@@ -3120,16 +3344,21 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          agency_id?: string | null
           agent_id?: string
           area?: number | null
           build_year?: number | null
           city?: string
+          comparison_count?: number | null
           contact_email?: string | null
           contact_person?: string | null
           contact_phone?: string | null
+          contact_reveals_count?: number | null
           created_at?: string | null
+          crm_source?: string | null
           description?: string | null
           district?: string | null
+          external_id?: string | null
           favorites_count?: number | null
           floor?: number | null
           has_balcony?: boolean | null
@@ -3157,6 +3386,13 @@ export type Database = {
           views?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "real_estate_listings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "real_estate_listings_agent_id_fkey"
             columns: ["agent_id"]
