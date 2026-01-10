@@ -1,243 +1,334 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import LanguageSelector from "@/components/LanguageSelector";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Mail, Lock } from "lucide-react";
 
-export default function MarketplaceAuth() {
+const MarketplaceAuth = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showTermsError, setShowTermsError] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
-  useEffect(() => {
-    // Check if already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        checkUserTypeAndRedirect(session.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        checkUserTypeAndRedirect(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const checkUserTypeAndRedirect = async (userId: string) => {
-    // Check if this is a marketplace user
-    const { data: marketplaceProfile } = await supabase
-      .from("marketplace_user_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (marketplaceProfile) {
-      navigate("/gielda/panel");
-      return;
-    }
-
-    // Check if this is a driver
-    const { data: driverUser } = await supabase
-      .from("driver_app_users")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (driverUser) {
-      navigate("/driver");
-      return;
-    }
-
-    // Check user roles
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-
-    if (roles?.some(r => r.role === "admin")) {
-      navigate("/admin/dashboard");
-      return;
-    }
-
-    if (roles?.some(r => r.role === "fleet_settlement" || r.role === "fleet_rental")) {
-      navigate("/fleet/dashboard");
-      return;
-    }
-
-    // Default to marketplace panel
-    navigate("/gielda/panel");
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
+    
+    if (!acceptedTerms) {
+      setShowTermsError(true);
+      return;
+    }
+    setShowTermsError(false);
+    setIsLoading(true);
+    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // If rememberMe is false, sign out first to clear any existing session
+      if (!rememberMe) {
+        await supabase.auth.signOut();
+      }
+      
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
+      if (authError) {
+        console.error('Auth error:', authError);
+        if (authError.message.includes("Invalid login credentials")) {
           toast.error("Nieprawidłowy email lub hasło");
         } else {
-          toast.error(error.message);
+          toast.error(authError.message);
         }
         return;
       }
-
-      if (data.user) {
-        toast.success("Zalogowano pomyślnie!");
-        // Redirect will happen via onAuthStateChange
+      
+      // Store rememberMe preference in localStorage
+      if (rememberMe) {
+        localStorage.setItem('rido_remember_me', 'true');
+      } else {
+        localStorage.removeItem('rido_remember_me');
+        // For non-remembered sessions, we'll check on page load
+        sessionStorage.setItem('rido_session_active', 'true');
       }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      toast.error("Błąd logowania. Spróbuj ponownie.");
+
+      if (!authData.user) {
+        toast.error('Błąd logowania!');
+        return;
+      }
+
+      // Check user roles and redirect appropriately
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role, fleet_id')
+        .eq('user_id', authData.user.id);
+
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+        toast.error('Błąd pobierania uprawnień!');
+        return;
+      }
+
+      if (userRoles && userRoles.length > 0) {
+        const roles = userRoles.map((r: any) => r.role);
+        
+        if (roles.includes('admin')) {
+          navigate('/admin/dashboard');
+          return;
+        } else if (roles.includes('fleet_settlement') || roles.includes('fleet_rental')) {
+          navigate('/fleet/dashboard');
+          return;
+        } else if (roles.includes('driver')) {
+          navigate('/driver');
+          return;
+        } else if (roles.includes('marketplace_user')) {
+          navigate('/gielda/panel');
+          return;
+        }
+      }
+
+      // Check if marketplace user without role
+      const { data: marketplaceProfile } = await supabase
+        .from("marketplace_user_profiles")
+        .select("id")
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+
+      if (marketplaceProfile) {
+        navigate("/gielda/panel");
+        return;
+      }
+
+      // Check if driver without role
+      const { data: driverUser } = await supabase
+        .from("driver_app_users")
+        .select("id")
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+
+      if (driverUser) {
+        navigate("/driver");
+        return;
+      }
+
+      // Default to marketplace panel for marketplace login page
+      navigate("/gielda/panel");
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Wystąpił błąd podczas logowania!');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast.error("Wpisz adres email");
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast.error(t('auth.enterYourEmail'));
       return;
     }
-
-    setLoading(true);
+    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke('send-password-reset-email', {
+        body: { 
+          email: resetEmail,
+          language: i18n.language
+        }
       });
-
-      if (error) throw error;
-
-      toast.success("Link do resetowania hasła został wysłany na Twój email");
-    } catch (error: any) {
-      toast.error(error.message || "Błąd wysyłania linku");
+      if (error) {
+        toast.error(t('auth.passwordResetError'));
+      } else {
+        toast.success(t('auth.passwordResetEmailSent'));
+        setShowResetModal(false);
+        setResetEmail('');
+      }
+    } catch (err) {
+      console.error('Password reset error:', err);
+      toast.error(t('auth.passwordResetError'));
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate("/gielda")}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Powrót do giełdy
-        </Button>
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 to-blue-50">
+      {/* Background Animation with Mascots */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute top-[10%] left-[15%] h-8 w-8 animate-float-slow opacity-5" />
+        <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute top-[25%] right-[20%] h-6 w-6 animate-float-medium opacity-6" />
+        <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute bottom-[20%] left-[10%] h-10 w-10 animate-float-fast opacity-7" />
+        <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute bottom-[30%] right-[15%] h-7 w-7 animate-float-slow opacity-5" />
+      </div>
 
-        <Card className="shadow-xl">
+      {/* Header */}
+      <div className="relative z-10 flex justify-between items-center p-6">
+        <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/gielda')}>
+          <img 
+            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+            alt="Get RIDO Logo" 
+            className="h-8 w-8"
+          />
+          <span className="text-xl font-bold text-primary">Get RIDO</span>
+        </div>
+        <LanguageSelector />
+      </div>
+
+      {/* Main Content */}
+      <div className="relative z-10 flex items-center justify-center px-4 py-8" style={{ minHeight: 'calc(100vh - 200px)', marginTop: '-40px' }}>
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-xl">
           <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="RIDO" 
-                className="h-12 w-12"
-              />
-            </div>
-            <CardTitle className="text-2xl">Zaloguj się</CardTitle>
-            <CardDescription>
-              Wejdź na swoje konto RIDO
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold">
+              {t('auth.login')}
+            </CardTitle>
           </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jan@example.com"
-                    className="pl-10"
-                    required
-                  />
-                </div>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">{t('auth.email')}</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="password">{t('auth.password')}</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="mt-1"
+                />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Hasło</Label>
-                  <Button 
-                    type="button"
-                    variant="link" 
-                    className="p-0 h-auto text-xs"
-                    onClick={handleForgotPassword}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <label
+                  htmlFor="rememberMe"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  {t('auth.rememberMe')}
+                </label>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="terms"
+                    checked={acceptedTerms}
+                    onCheckedChange={(checked) => {
+                      setAcceptedTerms(checked as boolean);
+                      if (checked) setShowTermsError(false);
+                    }}
+                    className={showTermsError ? "border-red-500" : ""}
+                  />
+                  <label
+                    htmlFor="terms"
+                    className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${showTermsError ? "text-red-500" : ""}`}
                   >
-                    Zapomniałeś hasła?
-                  </Button>
+                    {t('auth.accept')}{' '}
+                    <a href="/regulamin" className="text-primary hover:underline" target="_blank">
+                      {t('auth.termsAndPrivacy')}
+                    </a>
+                  </label>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Twoje hasło"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Logowanie...
-                  </>
-                ) : (
-                  "Zaloguj się"
+                {showTermsError && (
+                  <p className="text-sm text-red-500 ml-6">
+                    {t('auth.mustAcceptTerms')}
+                  </p>
                 )}
-              </Button>
-
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">lub</span>
-                </div>
               </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Nie masz jeszcze konta?{" "}
-                <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/gielda/rejestracja")}>
-                  Zarejestruj się za darmo
-                </Button>
-              </p>
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Logowanie...' : t('auth.loginButton')}
+              </Button>
             </form>
+
+            <div className="text-center space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(true)}
+                className="text-primary hover:underline text-sm block w-full"
+              >
+                {t('auth.forgotPassword')}
+              </button>
+              <Link
+                to="/gielda/rejestracja"
+                className="text-primary hover:underline text-sm block"
+              >
+                {t('auth.noAccount')}
+              </Link>
+            </div>
           </CardContent>
         </Card>
-
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Jesteś kierowcą RIDO?{" "}
-          <Button variant="link" className="p-0 h-auto text-xs" onClick={() => navigate("/auth")}>
-            Zaloguj się tutaj
-          </Button>
-        </p>
       </div>
+
+      {/* Password Reset Modal */}
+      <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
+        <DialogContent className="sm:max-w-[400px] p-6 bg-background">
+          <DialogHeader className="space-y-3 text-center">
+            <DialogTitle className="text-xl font-semibold text-foreground">
+              {t('auth.resetPasswordTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('auth.resetPasswordDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email" className="text-sm font-medium">
+                {t('auth.email')}
+              </Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder={t('auth.enterYourEmail')}
+                className="h-10"
+              />
+            </div>
+            <Button 
+              onClick={handlePasswordReset}
+              className="w-full h-10"
+              disabled={isLoading || !resetEmail}
+            >
+              {isLoading ? t('common.loading') : t('auth.sendResetLink')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
+
+export default MarketplaceAuth;

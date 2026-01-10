@@ -992,7 +992,8 @@ export const DriverSettlements = ({
     const fuelVatRefund = amounts.fuel_vat_refund || 0;
     
     // Cash collected on platforms (always reduce payout)
-    const cashTotal = Math.abs(amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
+    // Use uber_cash_f (correct field) with fallback to uber_cash for legacy data
+    const cashTotal = Math.abs(amounts.uber_cash_f || amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
     
     // Use fleet base_fee if set (priority), otherwise driver plan fee, default to 50 PLN
     const planFee = (fleetBaseFee !== null && fleetBaseFee > 0) 
