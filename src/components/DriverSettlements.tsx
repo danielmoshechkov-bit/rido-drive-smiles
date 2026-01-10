@@ -98,6 +98,7 @@ export const DriverSettlements = ({
   const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
   const [driverName, setDriverName] = useState<string>('');
   const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
+  const [fleetHasSettlement, setFleetHasSettlement] = useState<boolean | null>(null);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -414,8 +415,36 @@ export const DriverSettlements = ({
         } else {
           setLastAvailableWeek(null);
         }
+        
+        // Check if fleet has a settlement for this period
+        if (driverFleetId && currentWeek) {
+          try {
+            // Cast to any early to avoid TS type depth issues with chained filters
+            const spQuery = supabase.from('settlement_periods') as any;
+            const { data: fleetPeriods, error: fpError } = await spQuery
+              .select('id, week_start, week_end')
+              .eq('fleet_id', driverFleetId);
+            
+            if (!fpError && fleetPeriods) {
+              // Filter in JS to check if any period matches
+              const hasFleetSettlement = fleetPeriods.some((p: any) => 
+                p.week_start >= currentWeek.start && p.week_end <= currentWeek.end
+              );
+              setFleetHasSettlement(hasFleetSettlement);
+              console.log('📅 Fleet has settlement for this period:', hasFleetSettlement);
+            } else {
+              setFleetHasSettlement(false);
+            }
+          } catch (e) {
+            console.error('Error checking fleet settlement period:', e);
+            setFleetHasSettlement(false);
+          }
+        } else {
+          setFleetHasSettlement(false);
+        }
       } else {
         setLastAvailableWeek(null);
+        setFleetHasSettlement(true);
       }
     } catch (error: any) {
       console.error('[ERROR] loadSettlements exception:', error);
@@ -663,7 +692,8 @@ export const DriverSettlements = ({
     
     console.log('📅 fetchLatestSettlement called for driver:', driverId);
     
-    const { data, error } = await supabase
+    // 1. First try to find driver's own settlements
+    const { data: driverSettlement, error } = await supabase
       .from('settlements')
       .select('period_from')
       .eq('driver_id', driverId)
@@ -671,22 +701,60 @@ export const DriverSettlements = ({
       .limit(1)
       .maybeSingle();
     
-    console.log('📅 fetchLatestSettlement result:', { data, error });
+    console.log('📅 fetchLatestSettlement result:', { driverSettlement, error });
     
-    if (data) {
-      const periodDate = new Date(data.period_from);
+    if (driverSettlement) {
+      const periodDate = new Date(driverSettlement.period_from);
       const year = periodDate.getFullYear();
       
       // Calculate week number from date
       const weekData = getWeekDates(year);
       const foundWeek = weekData.find(w => 
-        data.period_from >= w.start && data.period_from <= w.end
+        driverSettlement.period_from >= w.start && driverSettlement.period_from <= w.end
       );
       
       if (foundWeek) {
-        console.log('📅 Setting to latest week:', year, foundWeek.number, foundWeek.label);
+        console.log('📅 Setting to latest week from driver settlements:', year, foundWeek.number);
         setSelectedYear(year);
         setSelectedWeek(foundWeek.number);
+      }
+      setInitialLoad(false);
+      return;
+    }
+    
+    // 2. Driver has no settlements - fallback to fleet's latest period
+    const { data: driver } = await supabase
+      .from('drivers')
+      .select('fleet_id')
+      .eq('id', driverId)
+      .maybeSingle();
+    
+    if (driver?.fleet_id) {
+      console.log('📅 Driver has no settlements, checking fleet periods for:', driver.fleet_id);
+      
+      // Cast to any early to avoid TS type depth issues with chained filters
+      const spQuery = supabase.from('settlement_periods') as any;
+      const { data: fleetPeriods, error: fpErr } = await spQuery
+        .select('week_start, week_end')
+        .eq('fleet_id', driver.fleet_id)
+        .order('week_start', { ascending: false })
+        .limit(1);
+      
+      const fleetPeriod = fleetPeriods && fleetPeriods.length > 0 ? fleetPeriods[0] : null;
+      
+      if (fleetPeriod) {
+        const periodDate = new Date(fleetPeriod.week_start);
+        const year = periodDate.getFullYear();
+        const weekData = getWeekDates(year);
+        const foundWeek = weekData.find(w => 
+          fleetPeriod.week_start >= w.start && fleetPeriod.week_start <= w.end
+        );
+        
+        if (foundWeek) {
+          console.log('📅 Setting to latest week from fleet periods:', year, foundWeek.number);
+          setSelectedYear(year);
+          setSelectedWeek(foundWeek.number);
+        }
       }
     }
     
@@ -1199,27 +1267,46 @@ export const DriverSettlements = ({
           <div className="text-center py-4">{t('weekly.loading')}</div>
         ) : settlements.length === 0 ? (
           <div className="space-y-4">
-            {/* Warning banner with fleet contact */}
-            <Card className="border-amber-300 bg-amber-50 p-4">
+            {/* Warning banner with fleet contact - different message based on fleet settlement status */}
+            <Card className={fleetHasSettlement 
+              ? "border-blue-300 bg-blue-50 p-4"
+              : "border-amber-300 bg-amber-50 p-4"
+            }>
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                  fleetHasSettlement ? 'text-blue-600' : 'text-amber-600'
+                }`} />
                 <div>
-                  <p className="font-semibold text-amber-800">
-                    Rozliczenie nie sporządzone
-                  </p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Skontaktuj się z administratorem swojej floty:
-                  </p>
+                  {fleetHasSettlement ? (
+                    <>
+                      <p className="font-semibold text-blue-800">
+                        Nie byłeś w tym rozliczeniu
+                      </p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Twoje dane nie zostały uwzględnione w tym okresie rozliczeniowym.
+                        Jeśli uważasz, że to błąd, skontaktuj się z administratorem floty:
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-amber-800">
+                        Rozliczenie nie sporządzone
+                      </p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Skontaktuj się z administratorem swojej floty:
+                      </p>
+                    </>
+                  )}
                   {fleetContact && (fleetContact.name || fleetContact.phone) && (
                     <div className="mt-2 flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-amber-600" />
-                      <span className="font-medium text-amber-800">
+                      <Phone className={`h-4 w-4 ${fleetHasSettlement ? 'text-blue-600' : 'text-amber-600'}`} />
+                      <span className={`font-medium ${fleetHasSettlement ? 'text-blue-800' : 'text-amber-800'}`}>
                         {fleetContact.name}{fleetContact.name && fleetContact.phone ? ': ' : ''}{fleetContact.phone}
                       </span>
                     </div>
                   )}
                   {lastAvailableWeek && (
-                    <p className="text-xs text-amber-600 mt-2">
+                    <p className={`text-xs mt-2 ${fleetHasSettlement ? 'text-blue-600' : 'text-amber-600'}`}>
                       💡 Ostatnie dostępne rozliczenie: {lastAvailableWeek}
                     </p>
                   )}
