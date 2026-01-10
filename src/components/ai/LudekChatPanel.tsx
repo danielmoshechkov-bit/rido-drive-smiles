@@ -175,7 +175,7 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Ludek GetRido</CardTitle>
+            <CardTitle className="text-lg">Rido AI</CardTitle>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
             ×

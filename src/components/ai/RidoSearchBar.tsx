@@ -158,7 +158,7 @@ export function RidoSearchBar({ onSearchResults, className }: RidoSearchBarProps
             </div>
           </div>
 
-          {/* Ludek Mascot */}
+          {/* Rido AI Mascot */}
           <div className="hidden md:flex items-start gap-2 shrink-0">
             {/* Speech Bubble */}
             <div className="relative bg-background rounded-xl px-4 py-2 shadow-md border animate-bounce-gentle">
@@ -169,7 +169,7 @@ export function RidoSearchBar({ onSearchResults, className }: RidoSearchBarProps
             {/* Mascot Image */}
             <img
               src="/lovable-uploads/getrido-mascot-email.png"
-              alt="Ludek GetRido"
+              alt="Rido AI"
               className="h-16 w-16 object-contain drop-shadow-lg"
             />
           </div>
@@ -198,7 +198,7 @@ export function RidoSearchBar({ onSearchResults, className }: RidoSearchBarProps
                 <Sparkles className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-primary mb-1">Ludek znalazł:</p>
+                <p className="text-sm font-medium text-primary mb-1">Rido AI znalazł:</p>
                 <p className="text-sm text-muted-foreground">{lastExplanation}</p>
                 {lastFilters && (
                   <div className="flex flex-wrap gap-1 mt-2">

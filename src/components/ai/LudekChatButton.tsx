@@ -23,17 +23,17 @@ export function LudekChatButton({ onClick, isOpen = false, className }: LudekCha
         isOpen && "rotate-180",
         className
       )}
-      aria-label={isOpen ? "Zamknij Ludka" : "Zapytaj Ludka"}
+      aria-label={isOpen ? "Zamknij Rido AI" : "Zapytaj Rido AI"}
     >
       {isOpen ? (
         <X className="h-6 w-6 text-primary-foreground" />
       ) : (
         <div className="relative">
-          {/* GetRido mascot placeholder - using chat icon for now */}
+          {/* Rido AI mascot placeholder - using chat icon for now */}
           <MessageCircle className="h-6 w-6 text-primary-foreground" />
           {isHovered && (
             <span className="absolute -top-12 -left-16 bg-background border rounded-lg px-3 py-1.5 text-sm whitespace-nowrap shadow-md animate-in fade-in slide-in-from-bottom-2">
-              Zapytaj Ludka! 🚗
+              Zapytaj Rido AI! 🚗
             </span>
           )}
         </div>
