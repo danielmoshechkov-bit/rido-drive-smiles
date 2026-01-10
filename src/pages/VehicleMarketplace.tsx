@@ -10,6 +10,8 @@ import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeCh
 import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
+import { LudekChatButton } from "@/components/ai/LudekChatButton";
+import { LudekChatPanel } from "@/components/ai/LudekChatPanel";
 
 interface VehicleListing {
   id: string;
@@ -64,6 +66,7 @@ export default function VehicleMarketplace() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(null);
   const [selectedVehicleSlug, setSelectedVehicleSlug] = useState<string | null>(null);
   const [selectedTransactionTypes, setSelectedTransactionTypes] = useState<string[]>([]);
+  const [showLudekChat, setShowLudekChat] = useState(false);
 
   useEffect(() => {
     loadListings();
@@ -412,6 +415,22 @@ export default function VehicleMarketplace() {
           </div>
         )}
       </div>
+
+      {/* Ludek AI Chat */}
+      <LudekChatButton 
+        onClick={() => setShowLudekChat(!showLudekChat)} 
+        isOpen={showLudekChat}
+      />
+      {showLudekChat && (
+        <LudekChatPanel 
+          onClose={() => setShowLudekChat(false)}
+          onSearchResults={(results) => {
+            // Transform AI results to match our listing format if needed
+            console.log('AI Search results:', results);
+            toast.success(`Znaleziono ${results.length} wyników przez AI`);
+          }}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t mt-16 py-12 bg-card">
