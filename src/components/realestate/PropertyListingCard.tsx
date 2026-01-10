@@ -7,6 +7,7 @@ import {
   Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PropertyListingCardProps {
   listing: {
@@ -300,56 +301,66 @@ export function PropertyListingCard({
 
         {/* Expandable Contact Section */}
         <button
-          onClick={() => setShowContact(!showContact)}
+          onClick={async () => {
+            if (!showContact) {
+              // Track contact reveal
+              try {
+                await supabase.functions.invoke("track-listing-interaction", {
+                  body: { listingId: listing.id, interactionType: "contact_reveal" }
+                });
+              } catch (err) {
+                console.error("Failed to track contact reveal:", err);
+              }
+            }
+            setShowContact(!showContact);
+          }}
           className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
         >
           {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
         </button>
         
         {showContact && (
-          <div className="mt-3 space-y-3 text-sm">
+          <div className="mt-2 space-y-1.5 text-sm">
             {/* Agency Name */}
             {listing.agencyName && (
-              <div className="flex items-center gap-2 text-foreground font-medium">
-                <Building2 className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                <Building2 className="h-3.5 w-3.5 text-primary" />
                 {listing.agencyName}
               </div>
             )}
             
             {/* Contact Info */}
-            <div className="space-y-2">
-              {listing.contactName && (
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{listing.contactName}</span>
-                </div>
-              )}
-              {listing.contactPhone && (
-                <a 
-                  href={`tel:${listing.contactPhone}`}
-                  className="flex items-center gap-2 text-primary hover:underline"
-                >
-                  <Phone className="h-4 w-4" />
-                  <span>{listing.contactPhone}</span>
-                </a>
-              )}
-              {listing.contactEmail && (
-                <a 
-                  href={`mailto:${listing.contactEmail}`}
-                  className="flex items-center gap-2 text-primary hover:underline"
-                >
-                  <Mail className="h-4 w-4" />
-                  <span>{listing.contactEmail}</span>
-                </a>
-              )}
-              
-              {/* Listing Number */}
-              {listing.listingNumber && (
-                <div className="pt-2 text-xs text-muted-foreground">
-                  Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
-                </div>
-              )}
-            </div>
+            {listing.contactName && (
+              <div className="flex items-center gap-2 text-xs">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{listing.contactName}</span>
+              </div>
+            )}
+            {listing.contactPhone && (
+              <a 
+                href={`tel:${listing.contactPhone}`}
+                className="flex items-center gap-2 text-xs text-primary hover:underline"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                <span>{listing.contactPhone}</span>
+              </a>
+            )}
+            {listing.contactEmail && (
+              <a 
+                href={`mailto:${listing.contactEmail}`}
+                className="flex items-center gap-2 text-xs text-primary hover:underline"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span>{listing.contactEmail}</span>
+              </a>
+            )}
+            
+            {/* Listing Number - at the very bottom */}
+            {listing.listingNumber && (
+              <div className="pt-2 mt-1 border-t text-xs text-muted-foreground">
+                Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

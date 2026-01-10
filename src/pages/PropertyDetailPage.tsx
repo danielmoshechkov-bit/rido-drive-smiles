@@ -490,47 +490,6 @@ export default function PropertyDetailPage() {
           </div>
         </div>
 
-        {/* Statistics Section */}
-        <div className="mt-12 mb-8">
-          <Card className="p-6">
-            <h3 className="font-semibold text-lg mb-4">📈 Statystyki ogłoszenia</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <Eye className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-2xl font-bold">{listing.viewCount?.toLocaleString() || 0}</p>
-                <p className="text-sm text-muted-foreground">wyświetleń</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <Heart className="h-5 w-5 mx-auto mb-2 text-red-500" />
-                <p className="text-2xl font-bold">{listing.favoriteCount || 0}</p>
-                <p className="text-sm text-muted-foreground">polubiło</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <GitCompare className="h-5 w-5 mx-auto mb-2 text-blue-500" />
-                <p className="text-2xl font-bold">{listing.compareCount || 0}</p>
-                <p className="text-sm text-muted-foreground">porównało</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <Phone className="h-5 w-5 mx-auto mb-2 text-green-500" />
-                <p className="text-2xl font-bold">{listing.contactRevealCount || 0}</p>
-                <p className="text-sm text-muted-foreground">kontaktów</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t text-sm text-muted-foreground">
-              {listing.crmSource && (
-                <span>Źródło: <span className="font-medium">{listing.crmSource}</span></span>
-              )}
-              {listing.createdAt && (
-                <span>Dodano: <span className="font-medium">{listing.createdAt}</span></span>
-              )}
-              {listing.updatedAt && (
-                <span>Aktualizacja: <span className="font-medium">{listing.updatedAt}</span></span>
-              )}
-            </div>
-          </Card>
-        </div>
-
         {/* Similar Listings */}
         <SimilarListings 
           currentListingId={listing.id}

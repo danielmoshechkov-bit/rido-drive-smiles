@@ -200,7 +200,7 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
-          Ocena AI – Ludek GetRido
+          Ocena Rido AI
         </h3>
         <Button
           variant="ghost"

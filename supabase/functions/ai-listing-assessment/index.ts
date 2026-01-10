@@ -36,7 +36,7 @@ serve(async (req) => {
 
     console.log("Generating AI assessment for listing:", listing.title);
 
-    const systemPrompt = `Jesteś Ludek - asystentem AI platformy GetRido specjalizującym się w ocenie nieruchomości.
+    const systemPrompt = `Jesteś Rido AI - asystentem sztucznej inteligencji platformy RIDO specjalizującym się w ocenie nieruchomości.
 Twoim zadaniem jest przeanalizowanie oferty nieruchomości i przygotowanie krótkiej, rzeczowej oceny.
 
 Odpowiadaj ZAWSZE w języku polskim.
