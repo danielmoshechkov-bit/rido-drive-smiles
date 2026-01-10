@@ -79,12 +79,15 @@ export default function MarketplaceRegister() {
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      // Najpierw sprawdź błąd w danych - zawiera właściwy komunikat z Edge Function
+      if (response.data?.error) {
+        toast.error(response.data.error);
+        return;
       }
 
-      if (response.data?.error) {
-        throw new Error(response.data.error);
+      // Dopiero potem sprawdź błąd transportu
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
       toast.success("Rejestracja zakończona! Zaloguj się teraz.");
