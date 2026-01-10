@@ -90,3 +90,9 @@ verify_jwt = false
 
 [functions.ai-admin-assistant]
 verify_jwt = false
+
+[functions.track-listing-interaction]
+verify_jwt = false
+
+[functions.ai-listing-assessment]
+verify_jwt = false
