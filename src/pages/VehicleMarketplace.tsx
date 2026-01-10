@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Car } from "lucide-react";
+import { Car, Plus, Home, Sparkles, ArrowRight, Building } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
-import { MarketplaceHeader } from "@/components/marketplace/MarketplaceHeader";
 import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
 import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
-import { RidoSearchBar } from "@/components/ai/RidoSearchBar";
+import { CompareBar } from "@/components/marketplace/CompareBar";
+import { useCompare } from "@/contexts/CompareContext";
+
+// Import hero image (same style as real estate)
+import heroImage from "@/assets/tile-cars.jpg";
 
 interface VehicleListing {
   id: string;
@@ -61,17 +67,17 @@ export default function VehicleMarketplace() {
   const [user, setUser] = useState<any>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
   
-  // New filter states
+  // Filter states
   const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(null);
   const [selectedVehicleSlug, setSelectedVehicleSlug] = useState<string | null>(null);
   const [selectedTransactionTypes, setSelectedTransactionTypes] = useState<string[]>([]);
 
-  // AI Search results
-  const handleAISearchResults = (results: any[], filters: any, explanation: string) => {
-    console.log('AI Search results:', results, filters, explanation);
-    // For now, we can use these results to show listings from AI search
-    // In future: map AI results back to listing IDs and filter
-  };
+  // AI Search
+  const [aiQuery, setAiQuery] = useState("");
+  const [isSearchingAI, setIsSearchingAI] = useState(false);
+
+  // Compare context
+  const { addVehicle, removeVehicle, isVehicleSelected } = useCompare();
 
   useEffect(() => {
     loadListings();
@@ -254,7 +260,6 @@ export default function VehicleMarketplace() {
   const handleVehicleTypeSelect = (typeId: string | null, slug: string | null) => {
     setSelectedVehicleType(typeId);
     setSelectedVehicleSlug(slug);
-    // In future: filter listings by vehicle type
   };
 
   const handleTransactionTypeToggle = (typeId: string) => {
@@ -263,7 +268,15 @@ export default function VehicleMarketplace() {
         ? prev.filter(t => t !== typeId)
         : [...prev, typeId]
     );
-    // In future: filter listings by transaction type
+  };
+
+  const handleAISearch = async () => {
+    if (!aiQuery.trim()) return;
+    setIsSearchingAI(true);
+    // TODO: Integrate with AI search edge function
+    setTimeout(() => {
+      setIsSearchingAI(false);
+    }, 1000);
   };
 
   const handleReserve = async (listing: VehicleListing) => {
@@ -299,6 +312,33 @@ export default function VehicleMarketplace() {
     }
   };
 
+  const handleToggleCompare = (listing: VehicleListing) => {
+    const photos = listing.vehicle.photos || [];
+    const compareItem = {
+      id: listing.id,
+      title: `${listing.vehicle.brand} ${listing.vehicle.model}`,
+      price: listing.weekly_price,
+      priceType: "weekly",
+      photo: photos[0] || "/placeholder.svg",
+      year: listing.vehicle.year || undefined,
+      fuelType: listing.vehicle.fuel_type || undefined,
+      mileage: listing.vehicle.odometer || undefined,
+      engineCapacity: listing.vehicle.engine_capacity || undefined,
+      power: listing.vehicle.power || undefined,
+      bodyType: listing.vehicle.body_type || undefined,
+      location: listing.cityName || undefined,
+      rating: listing.avgRating || undefined,
+      contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
+      contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
+    };
+
+    if (isVehicleSelected(listing.id)) {
+      removeVehicle(listing.id);
+    } else {
+      addVehicle(compareItem);
+    }
+  };
+
   // Map old listing format to new ListingCard format
   const mapToListingCard = (listing: VehicleListing) => ({
     id: listing.id,
@@ -314,7 +354,7 @@ export default function VehicleMarketplace() {
     power: listing.vehicle.power || undefined,
     bodyType: listing.vehicle.body_type || undefined,
     rating: listing.avgRating || undefined,
-    transactionType: "Wynajem", // Default for now
+    transactionType: "Wynajem",
     transactionColor: "#3b82f6",
     contactName: listing.contact_name || listing.driver?.first_name || undefined,
     contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
@@ -324,74 +364,175 @@ export default function VehicleMarketplace() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <MarketplaceHeader user={user} />
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* GetRido Easy link */}
+            <a 
+              href="/easy" 
+              className="hidden md:flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              <Home className="h-4 w-4" />
+              GetRido Easy
+            </a>
+            <div 
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={() => navigate("/easy")}
+            >
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="RIDO" 
+                className="h-8 w-8"
+              />
+              <span className="font-bold text-lg md:text-xl">
+                <span className="text-primary">RIDO</span> Giełda
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {user ? (
+              <>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/gielda/panel')}
+                  className="hidden sm:inline-flex"
+                >
+                  Mój panel
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => navigate('/gielda/panel?tab=add')}
+                  className="rounded-full"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Dodaj ogłoszenie
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/gielda/rejestracja')}
+                  className="hidden sm:inline-flex"
+                >
+                  Zarejestruj się
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => navigate('/gielda/logowanie')}
+                  className="rounded-full"
+                >
+                  Zaloguj
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
 
-      {/* AI Search Bar - Always at top */}
-      <div className="container mx-auto px-4 py-6">
-        <RidoSearchBar onSearchResults={handleAISearchResults} />
-      </div>
+      {/* Hero Section with Background */}
+      <section className="relative overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImage})` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
+        </div>
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-        <div className="container mx-auto px-4 py-8 md:py-12">
-          <div className="max-w-3xl">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              Znajdź idealne auto
-              <span className="text-primary"> dla siebie</span>
+        <div className="relative container mx-auto px-4 py-8 md:py-12">
+          {/* AI Search Bar */}
+          <div className="max-w-3xl mx-auto mb-6">
+            <div className="relative">
+              <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+              <Input
+                type="text"
+                placeholder="Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'"
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
+                className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-background/95 backdrop-blur"
+              />
+              <Button
+                onClick={handleAISearch}
+                disabled={isSearchingAI || !aiQuery.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
+              >
+                {isSearchingAI ? "..." : "Szukaj AI"}
+              </Button>
+            </div>
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Powered by <span className="text-primary font-medium">Ludek AI</span> • 
+              Szukaj naturalnym językiem
+            </p>
+          </div>
+
+          {/* Title */}
+          <div className="text-center mb-6">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+              Znajdź idealne <span className="text-primary">auto</span> dla siebie
             </h1>
             <p className="text-muted-foreground">
-              Tysiące sprawdzonych ofert od flot i prywatnych właścicieli. 
-              Wynajem, leasing, sprzedaż – wszystko w jednym miejscu.
+              Tysiące sprawdzonych ofert od flot i prywatnych właścicieli
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 -mt-6">
-        {/* Vehicle Type Selector (tabs) */}
-        <div className="mb-6">
-          <VehicleTypeSelector 
-            selectedType={selectedVehicleType}
-            onSelect={handleVehicleTypeSelect}
+      {/* Vehicle Type Selector */}
+      <section className="container mx-auto px-4 py-4">
+        <VehicleTypeSelector 
+          selectedType={selectedVehicleType}
+          onSelect={handleVehicleTypeSelect}
+        />
+      </section>
+
+      {/* Transaction Type Chips */}
+      {selectedVehicleType && (
+        <section className="container mx-auto px-4 py-2">
+          <p className="text-sm font-medium text-muted-foreground mb-2 text-center">Typ transakcji:</p>
+          <TransactionTypeChips 
+            selectedTypes={selectedTransactionTypes}
+            onToggle={handleTransactionTypeToggle}
+            vehicleTypeSlug={selectedVehicleSlug}
           />
-        </div>
+        </section>
+      )}
 
-        {/* Transaction Type Chips - only show when category is selected */}
-        {selectedVehicleType && (
-          <div className="mb-6">
-            <p className="text-sm font-medium text-muted-foreground mb-2">Typ transakcji:</p>
-            <TransactionTypeChips 
-              selectedTypes={selectedTransactionTypes}
-              onToggle={handleTransactionTypeToggle}
-              vehicleTypeSlug={selectedVehicleSlug}
-            />
-          </div>
-        )}
+      {/* Search Filters */}
+      <section className="container mx-auto px-4 py-4">
+        <MarketplaceSearch 
+          onSearch={handleSearch}
+          resultCount={filteredListings.length}
+        />
+      </section>
 
-        {/* Search Filters */}
-        <div className="mb-4">
-          <MarketplaceSearch 
-            onSearch={handleSearch}
-            resultCount={filteredListings.length}
-          />
-        </div>
+      {/* Ad Banner - below search */}
+      <section className="container mx-auto px-4">
+        <AdBanner slotKey="search_below" className="mb-6" />
+      </section>
 
-        {/* Ad Banner - below search */}
-        <AdBanner slotKey="search_below" className="mb-8" />
-
-        {/* Results Count & Sort */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-muted-foreground">
-            Znaleziono: <strong className="text-foreground">{filteredListings.length.toLocaleString()}</strong> ogłoszeń
+      {/* Results Count */}
+      <section className="container mx-auto px-4 py-2">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <p className="text-sm text-muted-foreground">
+            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
           </p>
-          {/* Sort dropdown could go here */}
+          <Badge variant="outline" className="gap-1">
+            <Car className="h-3 w-3" />
+            Tylko zweryfikowane floty
+          </Badge>
         </div>
+      </section>
 
-        {/* Listings Grid */}
+      {/* Listings Grid */}
+      <section className="container mx-auto px-4 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="bg-card rounded-xl overflow-hidden animate-pulse">
                 <div className="aspect-[4/3] bg-muted" />
@@ -404,30 +545,51 @@ export default function VehicleMarketplace() {
             ))}
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="text-center py-16">
-            <Car className="h-20 w-20 text-muted-foreground/20 mx-auto mb-6" />
-            <h3 className="text-2xl font-semibold mb-3">Brak wyników</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Nie znaleziono ogłoszeń spełniających kryteria. 
-              Spróbuj zmienić filtry lub wróć później.
+          <div className="text-center py-12">
+            <Car className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
+            <p className="text-muted-foreground mb-4">
+              Spróbuj zmienić kryteria wyszukiwania
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
             {filteredListings.map(listing => (
               <ListingCard
                 key={listing.id}
                 listing={mapToListingCard(listing)}
                 onReserve={() => handleReserve(listing)}
+                onToggleCompare={() => handleToggleCompare(listing)}
                 isLoggedIn={!!user && !!driverId}
+                isSelectedForCompare={isVehicleSelected(listing.id)}
               />
             ))}
           </div>
         )}
-      </div>
+      </section>
+
+      {/* CTA for Fleets */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
+          <Car className="h-12 w-12 mx-auto text-primary mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Masz flotę pojazdów?</h2>
+          <p className="text-muted-foreground mb-6">
+            Dołącz do GetRido i docieraj do tysięcy kierowców. 
+            Dodawaj ogłoszenia, zarządzaj wynajmem i rozliczeniami.
+          </p>
+          <Button 
+            size="lg" 
+            onClick={() => navigate('/fleet')}
+            className="rounded-full"
+          >
+            Zarejestruj flotę
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t mt-16 py-12 bg-card">
+      <footer className="border-t py-12 bg-card">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div 
@@ -439,7 +601,7 @@ export default function VehicleMarketplace() {
                 alt="RIDO" 
                 className="h-8 w-8"
               />
-              <span className="font-semibold">RIDO Marketplace</span>
+              <span className="font-semibold">RIDO Giełda</span>
             </div>
             <div className="flex items-center gap-4">
               <a 
@@ -455,6 +617,9 @@ export default function VehicleMarketplace() {
           </div>
         </div>
       </footer>
+
+      {/* Compare Bar */}
+      <CompareBar type="vehicle" className="pb-safe" />
     </div>
   );
 }

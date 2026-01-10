@@ -13,6 +13,8 @@ import { PropertyListingCard } from "@/components/realestate/PropertyListingCard
 import { RealEstateSearch, RealEstateFilters } from "@/components/realestate/RealEstateSearch";
 import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
+import { CompareBar } from "@/components/marketplace/CompareBar";
+import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -110,6 +112,9 @@ export default function RealEstateMarketplace() {
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
 
+  // Compare context
+  const { addProperty, removeProperty, isPropertySelected } = useCompare();
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -137,8 +142,36 @@ export default function RealEstateMarketplace() {
     // TODO: Integrate with AI search edge function
     setTimeout(() => {
       setIsSearchingAI(false);
-      // Mock result
     }, 1000);
+  };
+
+  const handleToggleCompare = (listing: typeof MOCK_LISTINGS[0]) => {
+    const compareItem: PropertyCompareItem = {
+      id: listing.id,
+      title: listing.title,
+      price: listing.price,
+      priceType: listing.priceType,
+      photo: listing.photos[0] || "/placeholder.svg",
+      propertyType: listing.propertyType,
+      areaM2: listing.areaM2,
+      rooms: listing.rooms,
+      floor: listing.floor,
+      buildYear: listing.buildYear,
+      location: listing.location,
+      district: listing.district,
+      hasBalcony: listing.hasBalcony,
+      hasElevator: listing.hasElevator,
+      hasParking: listing.hasParking,
+      hasGarden: listing.hasGarden,
+      agencyName: listing.agencyName,
+      contactPhone: listing.contactPhone,
+    };
+
+    if (isPropertySelected(listing.id)) {
+      removeProperty(listing.id);
+    } else {
+      addProperty(compareItem);
+    }
   };
 
   return (
@@ -309,7 +342,9 @@ export default function RealEstateMarketplace() {
               listing={listing}
               onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
               onFavorite={() => console.log("Favorite:", listing.id)}
+              onToggleCompare={() => handleToggleCompare(listing)}
               isLoggedIn={!!user}
+              isSelectedForCompare={isPropertySelected(listing.id)}
             />
           ))}
         </div>
@@ -374,6 +409,9 @@ export default function RealEstateMarketplace() {
           </div>
         </div>
       </footer>
+
+      {/* Compare Bar */}
+      <CompareBar type="property" className="pb-safe" />
     </div>
   );
 }

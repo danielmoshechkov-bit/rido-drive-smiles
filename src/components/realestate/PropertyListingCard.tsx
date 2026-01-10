@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft, ChevronRight, Star, MapPin, Calendar, 
-  Heart, Phone, Mail, User, Home, Building2, Layers, Maximize
+  Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +41,10 @@ interface PropertyListingCardProps {
   };
   onView?: () => void;
   onFavorite?: () => void;
+  onToggleCompare?: () => void;
   isLoggedIn?: boolean;
   isFavorited?: boolean;
+  isSelectedForCompare?: boolean;
 }
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
@@ -65,8 +67,10 @@ export function PropertyListingCard({
   listing, 
   onView, 
   onFavorite, 
+  onToggleCompare,
   isLoggedIn = false,
-  isFavorited = false 
+  isFavorited = false,
+  isSelectedForCompare = false 
 }: PropertyListingCardProps) {
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
@@ -91,7 +95,10 @@ export function PropertyListingCard({
     : null;
 
   return (
-    <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md">
+    <Card className={cn(
+      "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md",
+      isSelectedForCompare && "ring-2 ring-primary"
+    )}>
       {/* Photo Gallery */}
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
         <img
@@ -99,6 +106,27 @@ export function PropertyListingCard({
           alt={listing.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
+
+        {/* Compare Checkbox - top left corner */}
+        {onToggleCompare && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCompare();
+            }}
+            className={cn(
+              "absolute top-2 left-2 p-2 rounded-lg transition-all flex items-center gap-1.5 z-10",
+              isSelectedForCompare 
+                ? "bg-primary text-primary-foreground" 
+                : "bg-white/90 hover:bg-white text-muted-foreground shadow-md"
+            )}
+          >
+            <GitCompare className="h-4 w-4" />
+            <span className="text-xs font-medium hidden sm:inline">
+              {isSelectedForCompare ? "Wybrano" : "Porównaj"}
+            </span>
+          </button>
+        )}
         
         {/* Photo Navigation */}
         {photos.length > 1 && (
