@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2 } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,6 +19,8 @@ interface AISettings {
   guest_daily_limit: number;
   user_monthly_limit: number;
   ai_enabled: boolean;
+  ai_provider?: string;
+  custom_api_key?: string;
 }
 
 interface CreditPackage {
@@ -36,12 +39,22 @@ interface QueryCost {
   description: string | null;
 }
 
+const AI_PROVIDERS = [
+  { value: 'lovable', label: 'Lovable AI Gateway (zalecane)', requiresKey: false },
+  { value: 'openai', label: 'OpenAI (własny klucz)', requiresKey: true },
+  { value: 'google', label: 'Google AI (własny klucz)', requiresKey: true },
+];
+
 const AI_MODELS = [
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki, zalecany)' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (stabilny)' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (zaawansowany)' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (dobry balans)' },
-  { value: 'openai/gpt-5', label: 'GPT-5 (najlepszy, drogi)' },
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki, zalecany)', provider: 'lovable' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (stabilny)', provider: 'lovable' },
+  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (zaawansowany)', provider: 'lovable' },
+  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (dobry balans)', provider: 'lovable' },
+  { value: 'openai/gpt-5', label: 'GPT-5 (najlepszy, drogi)', provider: 'lovable' },
+  { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'google' },
+  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', provider: 'google' },
 ];
 
 export function AISettingsPanel() {
@@ -235,6 +248,49 @@ export function AISettingsPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* AI Provider Selection */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Dostawca AI
+            </Label>
+            <Select
+              value={settings.ai_provider || 'lovable'}
+              onValueChange={(value) => setSettings({ ...settings, ai_provider: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AI_PROVIDERS.map((provider) => (
+                  <SelectItem key={provider.value} value={provider.value}>
+                    {provider.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Custom API Key - only show when not using Lovable */}
+          {settings.ai_provider && settings.ai_provider !== 'lovable' && (
+            <div className="space-y-2">
+              <Label>Klucz API</Label>
+              <Input
+                type="password"
+                value={settings.custom_api_key || ''}
+                onChange={(e) => setSettings({ ...settings, custom_api_key: e.target.value })}
+                placeholder={settings.ai_provider === 'openai' ? 'sk-...' : 'AIza...'}
+              />
+              <Alert variant="default" className="mt-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Klucz będzie zaszyfrowany i używany tylko po stronie serwera.
+                  Upewnij się, że masz odpowiednie limity ustawione na koncie dostawcy.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Model AI</Label>
@@ -246,11 +302,17 @@ export function AISettingsPanel() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {AI_MODELS.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
+                  {AI_MODELS
+                    .filter(model => 
+                      (settings.ai_provider || 'lovable') === 'lovable' 
+                        ? model.provider === 'lovable'
+                        : model.provider === settings.ai_provider
+                    )
+                    .map((model) => (
+                      <SelectItem key={model.value} value={model.value}>
+                        {model.label}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

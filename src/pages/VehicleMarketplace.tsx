@@ -10,8 +10,7 @@ import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeCh
 import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
-import { LudekChatButton } from "@/components/ai/LudekChatButton";
-import { LudekChatPanel } from "@/components/ai/LudekChatPanel";
+import { RidoSearchBar } from "@/components/ai/RidoSearchBar";
 
 interface VehicleListing {
   id: string;
