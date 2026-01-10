@@ -274,12 +274,22 @@ export default function RealEstateAgentRegister() {
       if (agentError) throw agentError;
 
       // Add real_estate_agent role
-      await supabase
+      const { error: roleError } = await supabase
         .from("user_roles")
         .insert({
           user_id: user.id,
           role: "real_estate_agent",
         });
+
+      if (roleError) {
+        console.error("Failed to add real_estate_agent role:", roleError);
+        // Rollback: delete the created agent record
+        await supabase
+          .from("real_estate_agents")
+          .delete()
+          .eq("user_id", user.id);
+        throw new Error("Nie udało się dodać uprawnień. Spróbuj ponownie.");
+      }
 
       toast.success("Agencja została zarejestrowana! Oczekuj na weryfikację.");
       navigate("/nieruchomosci/agent/panel");
