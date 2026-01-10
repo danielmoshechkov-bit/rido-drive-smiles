@@ -25,6 +25,9 @@ import MarketplaceAuth from "./pages/MarketplaceAuth";
 import MarketplaceDashboard from "./pages/MarketplaceDashboard";
 import EasyHub from "./pages/EasyHub";
 import EasyAuth from "./pages/EasyAuth";
+import RealEstateMarketplace from "./pages/RealEstateMarketplace";
+import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
+import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +50,9 @@ const App = () => (
           <Route path="/easy" element={<EasyHub />} />
           <Route path="/easy/login" element={<EasyAuth mode="login" />} />
           <Route path="/easy/register" element={<EasyAuth mode="register" />} />
+          <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
+          <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
+          <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/marketplace" element={<AdminMarketplace />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
