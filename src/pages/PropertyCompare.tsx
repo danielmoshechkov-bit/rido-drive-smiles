@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
-  ArrowLeft, Phone, Mail, GitCompare, Check
+  ArrowLeft, Phone, Mail, GitCompare, Check, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
@@ -111,11 +111,15 @@ export default function PropertyCompare() {
                     />
                   </th>
                 ))}
-                {/* Empty slots */}
+                {/* Empty slots - clickable */}
                 {Array.from({ length: 4 - propertyItems.length }).map((_, i) => (
                   <th key={`empty-${i}`} className="p-2 min-w-[220px]">
-                    <div className="h-52 border-2 border-dashed border-muted-foreground/20 rounded-lg flex items-center justify-center text-muted-foreground/40 text-sm">
-                      Wybierz ofertę
+                    <div 
+                      onClick={() => navigate('/nieruchomosci')}
+                      className="h-52 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground/50 cursor-pointer hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                    >
+                      <Plus className="h-8 w-8 mb-2" />
+                      <span className="text-sm font-medium">Dodaj ofertę</span>
                     </div>
                   </th>
                 ))}

@@ -61,38 +61,38 @@ export function ComparePhotoCarousel({
           className="w-full h-full object-cover transition-opacity duration-300"
         />
 
-        {/* Navigation arrows */}
+        {/* Navigation arrows - always visible */}
         {images.length > 1 && (
           <>
             <button
               onClick={prevPhoto}
-              className="absolute left-1 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+              className="absolute left-1 top-1/2 -translate-y-1/2 bg-background/90 hover:bg-background rounded-full p-1.5 shadow-md z-10 border border-border/50"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={nextPhoto}
-              className="absolute right-1 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+              className="absolute right-1 top-1/2 -translate-y-1/2 bg-background/90 hover:bg-background rounded-full p-1.5 shadow-md z-10 border border-border/50"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {/* Photo indicators */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            {/* Photo indicators - always visible */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-background/70 backdrop-blur-sm rounded-full px-2 py-1">
               {images.slice(0, 5).map((_, idx) => (
                 <button
                   key={idx}
                   onClick={(e) => goToPhoto(idx, e)}
                   className={cn(
-                    "w-1.5 h-1.5 rounded-full transition-colors",
+                    "w-2 h-2 rounded-full transition-colors",
                     idx === currentIndex
                       ? "bg-primary"
-                      : "bg-background/60 hover:bg-background"
+                      : "bg-muted-foreground/40 hover:bg-muted-foreground/60"
                   )}
                 />
               ))}
               {images.length > 5 && (
-                <span className="text-[10px] text-background bg-foreground/50 px-1 rounded">
+                <span className="text-[10px] text-foreground/70 px-1">
                   +{images.length - 5}
                 </span>
               )}
