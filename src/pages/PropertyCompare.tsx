@@ -1,12 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft, X, MapPin, Home, Maximize, Layers, Calendar, Phone, Mail, GitCompare, Building2, Check
+  ArrowLeft, Phone, Mail, GitCompare, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
+import { ComparePhotoCarousel } from "@/components/marketplace/ComparePhotoCarousel";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   mieszkanie: "Mieszkanie",
@@ -95,35 +94,26 @@ export default function PropertyCompare() {
       <div className="container mx-auto px-4 py-6">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px]">
-            {/* Property Headers */}
+            {/* Property Headers with Photo Carousel */}
             <thead>
               <tr>
                 <th className="w-40 p-2 text-left text-sm font-medium text-muted-foreground">
                   Parametr
                 </th>
                 {propertyItems.map((item) => (
-                  <th key={item.id} className="p-2 min-w-[200px]">
-                    <Card className="relative overflow-hidden group">
-                      <button
-                        onClick={() => removeProperty(item.id)}
-                        className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <img
-                        src={item.photo || "/placeholder.svg"}
-                        alt={item.title}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="p-3 text-center">
-                        <h3 className="font-semibold text-sm line-clamp-2">{item.title}</h3>
-                      </div>
-                    </Card>
+                  <th key={item.id} className="p-2 min-w-[220px]">
+                    <ComparePhotoCarousel
+                      photos={item.photos}
+                      title={item.title}
+                      transactionType={item.transactionType}
+                      transactionColor={item.transactionColor}
+                      onRemove={() => removeProperty(item.id)}
+                    />
                   </th>
                 ))}
                 {/* Empty slots */}
                 {Array.from({ length: 4 - propertyItems.length }).map((_, i) => (
-                  <th key={`empty-${i}`} className="p-2 min-w-[200px]">
+                  <th key={`empty-${i}`} className="p-2 min-w-[220px]">
                     <div className="h-52 border-2 border-dashed border-muted-foreground/20 rounded-lg flex items-center justify-center text-muted-foreground/40 text-sm">
                       Wybierz ofertę
                     </div>
