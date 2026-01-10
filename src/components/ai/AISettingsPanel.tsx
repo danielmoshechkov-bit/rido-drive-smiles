@@ -244,7 +244,7 @@ export function AISettingsPanel() {
             </div>
           </div>
           <CardDescription>
-            Konfiguracja asystenta AI "Ludek GetRido"
+            Konfiguracja asystenta Rido AI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

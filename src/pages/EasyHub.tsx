@@ -272,7 +272,7 @@ export default function EasyHub() {
             </Button>
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            Powered by <span className="text-primary font-medium">Ludek AI</span>
+            Powered by <span className="text-primary font-medium">Rido AI</span>
           </p>
         </div>
       </section>
@@ -297,7 +297,7 @@ export default function EasyHub() {
             <MessageCircle className="absolute -top-2 -left-2 h-6 w-6 text-primary" />
             <p className="text-sm md:text-base leading-relaxed">
               <span className="font-bold text-primary">"Cześć!</span> Jestem{" "}
-              <strong>Ludek GetRido</strong>. Pomagam znaleźć wszystko czego 
+              <strong>Rido AI</strong>. Pomagam znaleźć wszystko czego 
               potrzebujesz - od aut po usługi. Portal cały czas się rozwija - 
               wkrótce więcej kategorii!"
             </p>
@@ -305,7 +305,7 @@ export default function EasyHub() {
           <div className="shrink-0">
             <img 
               src="/lovable-uploads/getrido-mascot-email.png" 
-              alt="Ludek GetRido"
+              alt="Rido AI"
               className="h-24 w-24 md:h-32 md:w-32 drop-shadow-lg animate-bounce-slow"
             />
           </div>

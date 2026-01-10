@@ -467,7 +467,7 @@ export default function VehicleMarketplace() {
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground mt-2">
-              Powered by <span className="text-primary font-medium">Ludek AI</span> • 
+              Powered by <span className="text-primary font-medium">Rido AI</span> • 
               Szukaj naturalnym językiem
             </p>
           </div>

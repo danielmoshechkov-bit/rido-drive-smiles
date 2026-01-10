@@ -22,7 +22,7 @@ interface SearchFilters {
   transactionType?: 'rent' | 'buy' | 'all';
 }
 
-const SYSTEM_PROMPT = `Jesteś "Ludkiem GetRido" - inteligentnym asystentem wyszukiwania na portalu GetRido.
+const SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania na portalu RIDO.
 Twoim JEDYNYM zadaniem jest analizowanie zapytań użytkowników w języku naturalnym i zamienianie ich na filtry JSON.
 
 ZASADY:
