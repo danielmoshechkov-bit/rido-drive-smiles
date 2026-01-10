@@ -21,8 +21,9 @@ import { AdminSettingsView } from "@/components/AdminSettingsView";
 import SystemAlerts from "@/pages/SystemAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Menu, Download, ShoppingCart } from "lucide-react";
+import { Loader2, Menu, Download, ShoppingCart, ChevronDown, BarChart, DollarSign, Users, Car, FileText, Info, Settings } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { AdminPortalSwitcher } from "@/components/admin/AdminPortalSwitcher";
 import { UserDropdown } from "@/components/UserDropdown";
@@ -280,96 +281,174 @@ const AdminDashboard = () => {
             </TabsPill>
           </div>
 
-          {/* Mobile - Hamburger menu */}
+          {/* Mobile - Hamburger menu with collapsible tab bar */}
           <div className="md:hidden mb-3">
-            <Sheet>
-              <SheetTrigger asChild>
-                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
-                    <Menu className="h-4 w-4 text-white" />
+            <div className="flex items-center gap-2">
+              {/* Hamburger button */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant="default" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-xl shrink-0"
+                  >
+                    <Menu className="h-4 w-4" />
                   </Button>
-                </div>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
-                <div className="space-y-2 mt-6">
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('weekly-report')}
-                    >
-                      {t('admin.weeklyReport')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('settlements')}
-                    >
-                      {t('admin.settlements')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('drivers-list')}
-                    >
-                      {t('admin.driversList')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('fleet')}
-                    >
-                      {t('admin.fleet')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'documents' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('documents')}
-                    >
-                      {t('admin.documents')}
-                    </Button>
-                  </SheetTrigger>
-                  {isMarketplaceEnabled && (
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                  <div className="space-y-2 mt-6">
                     <SheetTrigger asChild>
                       <Button 
-                        variant="ghost" 
+                        variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
                         className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => navigate('/admin/marketplace')}
+                        onClick={() => setActiveTab('weekly-report')}
                       >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Marketplace
+                        <BarChart className="h-4 w-4 mr-2" />
+                        {t('admin.weeklyReport')}
                       </Button>
                     </SheetTrigger>
-                  )}
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'settings' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('settings')}
-                    >
-                      {t('admin.settings')}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('system-alerts')}
-                    >
-                      {t('admin.information')}
-                    </Button>
-                  </SheetTrigger>
-                </div>
-              </SheetContent>
-            </Sheet>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('settlements')}
+                      >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        {t('admin.settlements')}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('drivers-list')}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        {t('admin.driversList')}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('fleet')}
+                      >
+                        <Car className="h-4 w-4 mr-2" />
+                        {t('admin.fleet')}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('documents')}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {t('admin.documents')}
+                      </Button>
+                    </SheetTrigger>
+                    {isMarketplaceEnabled && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => navigate('/admin/marketplace')}
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          Marketplace
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'settings' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('settings')}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        {t('admin.settings')}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab('system-alerts')}
+                      >
+                        <Info className="h-4 w-4 mr-2" />
+                        {t('admin.information')}
+                      </Button>
+                    </SheetTrigger>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Purple collapsible tab bar showing current tab */}
+              <Collapsible className="flex-1">
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+                    <span className="font-medium text-sm truncate">
+                      {activeTab === 'weekly-report' && t('admin.weeklyReport')}
+                      {activeTab === 'settlements' && t('admin.settlements')}
+                      {activeTab === 'drivers-list' && t('admin.driversList')}
+                      {activeTab === 'fleet' && t('admin.fleet')}
+                      {activeTab === 'documents' && t('admin.documents')}
+                      {activeTab === 'settings' && t('admin.settings')}
+                      {activeTab === 'system-alerts' && t('admin.information')}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1">
+                  <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
+                    {activeTab !== 'weekly-report' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('weekly-report')}
+                      >
+                        <BarChart className="h-3 w-3 mr-2" />
+                        {t('admin.weeklyReport')}
+                      </Button>
+                    )}
+                    {activeTab !== 'settlements' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('settlements')}
+                      >
+                        <DollarSign className="h-3 w-3 mr-2" />
+                        {t('admin.settlements')}
+                      </Button>
+                    )}
+                    {activeTab !== 'drivers-list' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('drivers-list')}
+                      >
+                        <Users className="h-3 w-3 mr-2" />
+                        {t('admin.driversList')}
+                      </Button>
+                    )}
+                    {activeTab !== 'fleet' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('fleet')}
+                      >
+                        <Car className="h-3 w-3 mr-2" />
+                        {t('admin.fleet')}
+                      </Button>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </div>
 
           <TabsContent value="weekly-report" className="space-y-6">

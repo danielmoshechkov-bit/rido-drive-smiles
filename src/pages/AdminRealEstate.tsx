@@ -25,7 +25,9 @@ import {
   XCircle,
   LayoutDashboard,
   CreditCard,
+  ChevronDown,
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Table,
   TableBody,
@@ -366,40 +368,69 @@ const AdminRealEstate = () => {
             </TabsPill>
           </div>
 
-          {/* Mobile - Hamburger menu */}
+          {/* Mobile - Hamburger menu with collapsible tab bar */}
           <div className="md:hidden mb-3">
-            <Sheet>
-              <SheetTrigger asChild>
-                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 hover:bg-primary/90"
+            <div className="flex items-center gap-2">
+              {/* Hamburger button */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant="default" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-xl shrink-0"
                   >
-                    <Menu className="h-4 w-4 text-white" />
+                    <Menu className="h-4 w-4" />
                   </Button>
-                </div>
-              </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="w-64 bg-gradient-to-b from-primary/5 to-background"
-              >
-                <div className="space-y-2 mt-6">
-                  {tabItems.map((item) => (
-                    <SheetTrigger key={item.value} asChild>
-                      <Button
-                        variant={activeTab === item.value ? 'default' : 'ghost'}
-                        className="w-full justify-start rounded-xl transition-all"
+                </SheetTrigger>
+                <SheetContent
+                  side="left"
+                  className="w-64 bg-gradient-to-b from-primary/5 to-background"
+                >
+                  <div className="space-y-2 mt-6">
+                    {tabItems.map((item) => (
+                      <SheetTrigger key={item.value} asChild>
+                        <Button
+                          variant={activeTab === item.value ? 'default' : 'ghost'}
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab(item.value)}
+                        >
+                          <item.icon className="h-4 w-4 mr-2" />
+                          {item.label}
+                        </Button>
+                      </SheetTrigger>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Purple collapsible tab bar showing current tab */}
+              <Collapsible className="flex-1">
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+                    <span className="font-medium text-sm truncate">
+                      {tabItems.find(t => t.value === activeTab)?.label || 'Dashboard'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1">
+                  <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
+                    {tabItems.filter(t => t.value !== activeTab).map((item) => (
+                      <Button 
+                        key={item.value}
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
                         onClick={() => setActiveTab(item.value)}
                       >
-                        <item.icon className="h-4 w-4 mr-2" />
+                        <item.icon className="h-3 w-3 mr-2" />
                         {item.label}
                       </Button>
-                    </SheetTrigger>
-                  ))}
-                </div>
-              </SheetContent>
-            </Sheet>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </div>
 
           {/* Dashboard Tab */}
