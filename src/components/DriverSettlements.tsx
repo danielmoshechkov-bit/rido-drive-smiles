@@ -1162,6 +1162,15 @@ export const DriverSettlements = ({
     );
   }
 
+  // Wait for selectedWeek to be initialized before rendering Select components
+  if (selectedWeek === null || !isDefaultsInitialized) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">{t('weekly.loading')}</p>
+      </div>
+    );
+  }
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).sort((a, b) => b - a);
 
   return (
