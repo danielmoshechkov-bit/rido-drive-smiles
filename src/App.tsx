@@ -39,10 +39,10 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <CompareProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <CompareProvider>
           <Routes>
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Auth />} />
@@ -74,12 +74,11 @@ const App = () => (
             <Route path="/register-success" element={<RegisterSuccess />} />
             <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route path="/driver" element={<DriverDashboard />} />
-            <Route path="/settlement/:id" element={<SettlementSheet />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </CompareProvider>
+        </CompareProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
