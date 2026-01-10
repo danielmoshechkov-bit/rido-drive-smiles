@@ -519,33 +519,49 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
             {/* Payment Method */}
             <div className="space-y-2">
               <Label>Metoda płatności *</Label>
-              <RadioGroup
-                value={formData.payment_method}
-                onValueChange={(v) => handleInputChange("payment_method", v as any)}
-                className="flex gap-4"
-              >
-                {/* Show transfer option if fleet allows it or no fleet selected */}
-                {(!fleetPaymentSettings || fleetPaymentSettings.transfer_enabled) && (
+              {/* Without fleet NIP - only show transfer */}
+              {!fleetPaymentSettings ? (
+                <RadioGroup
+                  value="transfer"
+                  className="flex gap-4"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="transfer" id="transfer" />
                     <Label htmlFor="transfer">Przelew</Label>
                   </div>
-                )}
-                {/* Show cash option only if fleet allows it */}
-                {(!fleetPaymentSettings || fleetPaymentSettings.cash_enabled) && (
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cash" id="cash" />
-                    <Label htmlFor="cash">Gotówka</Label>
-                  </div>
-                )}
-                {/* Show B2B option only if fleet allows it */}
-                {(!fleetPaymentSettings || fleetPaymentSettings.b2b_enabled) && (
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="b2b" id="b2b" />
-                    <Label htmlFor="b2b">B2B (faktura)</Label>
-                  </div>
-                )}
-              </RadioGroup>
+                </RadioGroup>
+              ) : (
+                /* With fleet NIP - show fleet's enabled payment methods */
+                <RadioGroup
+                  value={formData.payment_method}
+                  onValueChange={(v) => handleInputChange("payment_method", v as any)}
+                  className="flex gap-4"
+                >
+                  {fleetPaymentSettings.transfer_enabled && (
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="transfer" id="transfer" />
+                      <Label htmlFor="transfer">Przelew</Label>
+                    </div>
+                  )}
+                  {fleetPaymentSettings.cash_enabled && (
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cash" id="cash" />
+                      <Label htmlFor="cash">Gotówka</Label>
+                    </div>
+                  )}
+                  {fleetPaymentSettings.b2b_enabled && (
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="b2b" id="b2b" />
+                      <Label htmlFor="b2b">B2B (faktura)</Label>
+                    </div>
+                  )}
+                </RadioGroup>
+              )}
+              {!fleetPaymentSettings && (
+                <p className="text-xs text-muted-foreground">
+                  Podaj NIP partnera flotowego, aby zobaczyć dostępne metody płatności
+                </p>
+              )}
             </div>
 
             {formData.payment_method === "transfer" && (

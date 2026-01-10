@@ -1536,7 +1536,11 @@ export type Database = {
         Row: {
           address: string | null
           b2b_enabled: boolean | null
+          b2b_invoice_frequency: string | null
           base_fee: number | null
+          cash_address_number: string | null
+          cash_address_postal_code: string | null
+          cash_address_street: string | null
           cash_enabled: boolean | null
           cash_pickup_address: string | null
           cash_pickup_day: string | null
@@ -1565,7 +1569,11 @@ export type Database = {
         Insert: {
           address?: string | null
           b2b_enabled?: boolean | null
+          b2b_invoice_frequency?: string | null
           base_fee?: number | null
+          cash_address_number?: string | null
+          cash_address_postal_code?: string | null
+          cash_address_street?: string | null
           cash_enabled?: boolean | null
           cash_pickup_address?: string | null
           cash_pickup_day?: string | null
@@ -1594,7 +1602,11 @@ export type Database = {
         Update: {
           address?: string | null
           b2b_enabled?: boolean | null
+          b2b_invoice_frequency?: string | null
           base_fee?: number | null
+          cash_address_number?: string | null
+          cash_address_postal_code?: string | null
+          cash_address_street?: string | null
           cash_enabled?: boolean | null
           cash_pickup_address?: string | null
           cash_pickup_day?: string | null

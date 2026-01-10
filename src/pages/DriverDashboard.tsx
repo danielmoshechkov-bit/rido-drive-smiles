@@ -447,13 +447,13 @@ const DriverDashboard = () => {
               )}
             </TabsPill>
 
-            {/* Przełącz konto dropdown - always show for account switching and adding */}
+            {/* Przełącz konto - tab-like dropdown w stylu TabsPill */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                <div className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full cursor-pointer bg-white/20 hover:bg-white/90 hover:text-primary transition-all shrink-0">
                   <Repeat className="h-4 w-4" />
                   Przełącz konto
-                </Button>
+                </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 bg-white z-50">
                 <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
