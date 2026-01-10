@@ -557,16 +557,20 @@
     "street": "Ulica i numer",
     "city": "Miasto",
     "postalCode": "Kod pocztowy",
+    "correspondenceAddress": "Adres do korespondencji",
     "driversLicense": "Prawo jazdy",
     "licenseNumber": "Numer prawa jazdy",
     "issueDate": "Data wydania",
     "expiryDate": "Ważne do",
+    "unlimited": "Bezterminowe",
     "medicalExams": "Badania",
     "medicalExam": "Badanie lekarskie",
     "psychologicalExam": "Badanie psychologiczne",
     "validUntil": "Ważne do",
     "noData": "Brak danych",
-    "editNote": "Aby zaktualizować dane, skontaktuj się z administratorem lub opiekunem floty."
+    "editNote": "Kliknij na pole, aby je edytować. Zmiany są zapisywane automatycznie.",
+    "fieldUpdated": "Dane zaktualizowane",
+    "saveError": "Błąd podczas zapisywania"
   },
   "vehicleData": {
     "title": "Dane pojazdu",
@@ -587,6 +591,9 @@
     "diesel": "Diesel",
     "lpg": "LPG",
     "hybrid": "Hybryda",
-    "electric": "Elektryczny"
+    "electric": "Elektryczny",
+    "bodyType": "Rodzaj nadwozia",
+    "color": "Kolor",
+    "requiredFields": "Pola oznaczone * są wymagane"
   }
 }

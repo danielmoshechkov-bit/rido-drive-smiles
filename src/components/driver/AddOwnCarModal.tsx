@@ -17,6 +17,15 @@ const FUEL_TYPES = [
   { value: "hybryda+gaz", label: "Hybryda + Gaz" },
 ];
 
+const BODY_TYPES = [
+  { value: "sedan", label: "Sedan" },
+  { value: "kombi", label: "Kombi" },
+  { value: "hatchback", label: "Hatchback" },
+  { value: "suv", label: "SUV" },
+  { value: "van", label: "Van" },
+  { value: "minivan", label: "Minivan" },
+];
+
 // AddOwnCarModal — kierowca dodaje swoje auto (bez pola Flota)
 export function AddOwnCarModal({
   open,
@@ -37,13 +46,15 @@ export function AddOwnCarModal({
   const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [bodyType, setBodyType] = useState("");
   const [weeklyPrice, setWeeklyPrice] = useState<number | "">("");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
 
   const save = async () => {
-    if (!plate || !brand || !model) {
-      toast.error("Uzupełnij: nr rejestracyjny, marka, model");
+    // Validate all required fields
+    if (!plate || !vin || !brand || !model || !year || !color || !fuelType || !bodyType) {
+      toast.error("Uzupełnij wszystkie wymagane pola oznaczone *");
       return;
     }
 
@@ -88,12 +99,13 @@ export function AddOwnCarModal({
         .from("vehicles")
         .insert({
           plate: plate.toUpperCase().trim(),
-          vin: vin.toUpperCase().trim() || null,
+          vin: vin.toUpperCase().trim(),
           brand: brand.trim(),
           model: model.trim(),
-          year: year || null,
-          color: color || null,
-          fuel_type: fuelType || null,
+          year: Number(year),
+          color: color.trim(),
+          fuel_type: fuelType,
+          body_type: bodyType,
           status: "aktywne",
           city_id: cityId,
           fleet_id: null,
@@ -174,9 +186,10 @@ export function AddOwnCarModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Dodaj pojazd</DialogTitle>
+          <p className="text-sm text-muted-foreground">Pola oznaczone * są wymagane</p>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -190,7 +203,7 @@ export function AddOwnCarModal({
             />
           </div>
           <div>
-            <Label>VIN</Label>
+            <Label>VIN *</Label>
             <Input 
               value={vin} 
               onChange={(e) => setVin(e.target.value.toUpperCase())} 
@@ -201,6 +214,7 @@ export function AddOwnCarModal({
           
           {/* Car Brand/Model Selector - spans full width */}
           <div className="md:col-span-2">
+            <p className="text-sm font-medium mb-1.5">Marka i model *</p>
             <CarBrandModelSelector
               brand={brand}
               model={model}
@@ -210,16 +224,18 @@ export function AddOwnCarModal({
           </div>
 
           <div>
-            <Label>Rok</Label>
+            <Label>Rok produkcji *</Label>
             <Input 
               type="number" 
               value={year} 
               onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} 
               placeholder="np. 2018" 
+              min="1990"
+              max={new Date().getFullYear() + 1}
             />
           </div>
           <div>
-            <Label>Kolor</Label>
+            <Label>Kolor *</Label>
             <Input 
               value={color} 
               onChange={(e) => setColor(e.target.value)} 
@@ -227,7 +243,7 @@ export function AddOwnCarModal({
             />
           </div>
           <div>
-            <Label>Rodzaj paliwa</Label>
+            <Label>Rodzaj paliwa *</Label>
             <Select value={fuelType} onValueChange={setFuelType}>
               <SelectTrigger>
                 <SelectValue placeholder="Wybierz..." />
@@ -242,7 +258,27 @@ export function AddOwnCarModal({
             </Select>
           </div>
           <div>
-            <Label>Cena wynajmu (zł/tydzień) - opcjonalnie</Label>
+            <Label>Rodzaj nadwozia *</Label>
+            <Select value={bodyType} onValueChange={setBodyType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz..." />
+              </SelectTrigger>
+              <SelectContent>
+                {BODY_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="md:col-span-2 border-t pt-4 mt-2">
+            <p className="text-sm text-muted-foreground mb-3">Pola opcjonalne</p>
+          </div>
+          
+          <div>
+            <Label>Cena wynajmu (zł/tydzień)</Label>
             <Input 
               type="number" 
               value={weeklyPrice} 
@@ -252,7 +288,7 @@ export function AddOwnCarModal({
             />
           </div>
           <div>
-            <Label>Przegląd ważny do (opcjonalnie)</Label>
+            <Label>Przegląd ważny do</Label>
             <Input 
               type="date" 
               value={inspValidTo} 
@@ -260,7 +296,7 @@ export function AddOwnCarModal({
             />
           </div>
           <div>
-            <Label>Polisa OC ważna do (opcjonalnie)</Label>
+            <Label>Polisa OC ważna do</Label>
             <Input 
               type="date" 
               value={policyValidTo} 
