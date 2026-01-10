@@ -33,7 +33,7 @@ import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import FleetLanding from "./pages/FleetLanding";
-
+import PropertyDetailPage from "./pages/PropertyDetailPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -58,6 +58,7 @@ const App = () => (
             <Route path="/easy/login" element={<EasyAuth mode="login" />} />
             <Route path="/easy/register" element={<EasyAuth mode="register" />} />
             <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
+            <Route path="/nieruchomosci/ogloszenie/:id" element={<PropertyDetailPage />} />
             <Route path="/nieruchomosci/porownaj" element={<PropertyCompare />} />
             <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
             <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
