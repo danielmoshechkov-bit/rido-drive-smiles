@@ -12,6 +12,13 @@ import {
   Truck, Users, Repeat
 } from "lucide-react";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -19,13 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,6 +58,7 @@ export default function MarketplaceDashboard() {
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [driverForm, setDriverForm] = useState({
     city_id: "",
@@ -401,7 +402,7 @@ export default function MarketplaceDashboard() {
 
           {/* START TAB */}
           <TabsContent value="start" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               {/* Search Card */}
               <Card 
                 className="cursor-pointer hover:shadow-lg transition-shadow group"
@@ -441,6 +442,23 @@ export default function MarketplaceDashboard() {
                       ? "Aktywuj tryb sprzedawcy, aby wystawiać ogłoszenia"
                       : "Dodaj nowe ogłoszenie lub zarządzaj istniejącymi"
                     }
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Switch Account Card */}
+              <Card 
+                className="cursor-pointer hover:shadow-lg transition-shadow group"
+                onClick={() => setShowAccountsModal(true)}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <Users className="h-10 w-10 text-green-500" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  <CardTitle className="text-xl">Przełącz konto</CardTitle>
+                  <CardDescription>
+                    Zarządzaj kontami kierowcy, floty i sprzedawcy
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -640,6 +658,142 @@ export default function MarketplaceDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Accounts Management Modal */}
+      <Dialog open={showAccountsModal} onOpenChange={setShowAccountsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Twoje konta</DialogTitle>
+            <DialogDescription>
+              Przełącz na inne konto lub utwórz nowe
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            {/* Main Account - always visible */}
+            <Card className="bg-muted/50 border-primary">
+              <CardContent className="p-4 flex items-center gap-3">
+                <User className="h-6 w-6 text-primary" />
+                <div className="flex-1">
+                  <p className="font-medium">Konto główne (Giełda)</p>
+                  <p className="text-sm text-muted-foreground">{profile?.email}</p>
+                </div>
+                <Badge variant="outline" className="text-primary border-primary">Aktywne</Badge>
+              </CardContent>
+            </Card>
+            
+            {/* Driver Account */}
+            {isDriverAccount ? (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/driver");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Car className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto kierowcy</p>
+                    <p className="text-sm text-muted-foreground">Zarejestrowany</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  setShowDriverModal(true);
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Car className="h-6 w-6 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto kierowcy</p>
+                    <p className="text-sm text-muted-foreground">Zarejestruj się jako kierowca</p>
+                  </div>
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Fleet Account */}
+            {isFleetAccount ? (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/fleet/dashboard");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Truck className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto flotowe</p>
+                    <p className="text-sm text-muted-foreground">Partner flotowy</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => toast.info("Rejestracja floty - wkrótce dostępna")}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Truck className="h-6 w-6 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto flotowe</p>
+                    <p className="text-sm text-muted-foreground">Zarządzaj flotą pojazdów</p>
+                  </div>
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Seller Account */}
+            {(profile?.account_mode === 'private_seller' || profile?.account_mode === 'business') ? (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  setActiveTab("listings");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Building2 className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto sprzedawcy</p>
+                    <p className="text-sm text-muted-foreground">
+                      {profile?.account_mode === 'business' ? 'Firma' : 'Osoba prywatna'}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">Aktywne</Badge>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  setActiveTab("listings");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Building2 className="h-6 w-6 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto sprzedawcy</p>
+                    <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy</p>
+                  </div>
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Driver Registration Modal - Full Wizard */}
       <Dialog open={showDriverModal} onOpenChange={setShowDriverModal}>
