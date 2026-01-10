@@ -23,6 +23,8 @@ import VehicleMarketplace from "./pages/VehicleMarketplace";
 import MarketplaceRegister from "./pages/MarketplaceRegister";
 import MarketplaceAuth from "./pages/MarketplaceAuth";
 import MarketplaceDashboard from "./pages/MarketplaceDashboard";
+import EasyHub from "./pages/EasyHub";
+import EasyAuth from "./pages/EasyAuth";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,9 @@ const App = () => (
           <Route path="/gielda/logowanie" element={<MarketplaceAuth />} />
           <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
           <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
+          <Route path="/easy" element={<EasyHub />} />
+          <Route path="/easy/login" element={<EasyAuth mode="login" />} />
+          <Route path="/easy/register" element={<EasyAuth mode="register" />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/marketplace" element={<AdminMarketplace />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
