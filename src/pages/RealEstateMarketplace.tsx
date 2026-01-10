@@ -18,6 +18,10 @@ import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
+import tileCars from "@/assets/tile-cars.jpg";
+import tileDriver from "@/assets/tile-driver.jpg";
+import tileFleet from "@/assets/tile-fleet.jpg";
+import tileRealestate from "@/assets/tile-realestate.jpg";
 
 // Mock listings for demo
 const MOCK_LISTINGS = [
@@ -26,7 +30,7 @@ const MOCK_LISTINGS = [
     title: "Przestronne mieszkanie 3-pokojowe, Kazimierz",
     price: 450000,
     priceType: "sale",
-    photos: [heroImage],
+    photos: [heroImage, tileRealestate, tileFleet],
     location: "Kraków",
     district: "Kazimierz",
     buildYear: 2019,
@@ -49,7 +53,7 @@ const MOCK_LISTINGS = [
     title: "Nowoczesne studio w centrum",
     price: 2800,
     priceType: "rent_monthly",
-    photos: [heroImage],
+    photos: [heroImage, tileCars, tileDriver],
     location: "Warszawa",
     district: "Śródmieście",
     buildYear: 2022,
@@ -72,7 +76,7 @@ const MOCK_LISTINGS = [
     title: "Dom jednorodzinny z ogrodem",
     price: 890000,
     priceType: "sale",
-    photos: [heroImage],
+    photos: [heroImage, tileFleet, tileRealestate, tileCars],
     location: "Gdańsk",
     district: "Osowa",
     buildYear: 2015,
@@ -91,7 +95,7 @@ const MOCK_LISTINGS = [
     title: "Działka budowlana 1200m²",
     price: 320000,
     priceType: "sale",
-    photos: [heroImage],
+    photos: [heroImage, tileRealestate, tileDriver],
     location: "Wrocław",
     district: "Krzyki",
     areaM2: 1200,
