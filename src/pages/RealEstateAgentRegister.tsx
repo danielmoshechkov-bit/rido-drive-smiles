@@ -186,6 +186,30 @@ export default function RealEstateAgentRegister() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
+  const goToStep = (stepNumber: number) => {
+    // Allow going back to any completed step immediately
+    if (stepNumber < currentStep) {
+      setCurrentStep(stepNumber);
+      return;
+    }
+    
+    // Already on this step
+    if (stepNumber === currentStep) {
+      return;
+    }
+    
+    // To go forward, validate all previous steps
+    for (let i = 1; i < stepNumber; i++) {
+      if (!validateStep(i)) {
+        setCurrentStep(i);
+        toast.error(`Uzupełnij wymagane pola w kroku: ${STEPS[i - 1].title}`);
+        return;
+      }
+    }
+    
+    setCurrentStep(stepNumber);
+  };
+
   const handleSubmit = async () => {
     if (!validateStep(4)) return;
 
@@ -651,7 +675,7 @@ export default function RealEstateAgentRegister() {
           Wróć
         </Button>
 
-        {/* Progress steps */}
+        {/* Progress steps - clickable */}
         <div className="flex items-center justify-between mb-8">
           {STEPS.map((step, index) => {
             const StepIcon = step.icon;
@@ -661,22 +685,29 @@ export default function RealEstateAgentRegister() {
 
             return (
               <div key={index} className="flex items-center">
-                <div className="flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => goToStep(stepNumber)}
+                  className="flex flex-col items-center group cursor-pointer"
+                  aria-label={`Przejdź do kroku: ${step.title}`}
+                >
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : isCompleted
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
+                        ? "bg-primary/20 text-primary group-hover:bg-primary/30 group-hover:scale-110"
+                        : "bg-muted text-muted-foreground group-hover:bg-muted/80"
                     }`}
                   >
                     <StepIcon className="h-5 w-5" />
                   </div>
-                  <span className="text-xs mt-1 text-center hidden sm:block">
+                  <span className={`text-xs mt-1 text-center hidden sm:block transition-colors ${
+                    isCompleted ? "text-primary group-hover:underline" : ""
+                  }`}>
                     {step.title}
                   </span>
-                </div>
+                </button>
                 {index < STEPS.length - 1 && (
                   <div
                     className={`w-12 sm:w-24 h-0.5 mx-2 ${
