@@ -87,6 +87,19 @@ export default function RealEstateAgentRegister() {
         return;
       }
       
+      // Check if user already has an agent profile
+      const { data: existingAgent } = await supabase
+        .from("real_estate_agents")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (existingAgent) {
+        toast.info("Masz już zarejestrowaną agencję.");
+        navigate("/nieruchomosci/agent/panel");
+        return;
+      }
+      
       setLoggedInEmail(session.user.email || null);
       setCheckingAuth(false);
     };
