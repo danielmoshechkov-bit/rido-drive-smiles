@@ -10,11 +10,13 @@ import { EmailSettings } from './EmailSettings';
 import { FeatureTogglesManagement } from './FeatureTogglesManagement';
 import { AISettingsPanel } from './ai/AISettingsPanel';
 import { PaidServicesPanel } from './admin/PaidServicesPanel';
+import { LocationIntegrationsPanel } from './admin/LocationIntegrationsPanel';
 
 export function AdminSettingsView() {
-  const [activeSubTab, setActiveSubTab] = useState("system");
+  const [activeSubTab, setActiveSubTab] = useState("integrations");
 
   const subTabs = [
+    { value: "integrations", label: "Integracje", visible: true },
     { value: "system", label: "Ustawienia systemu", visible: true },
     { value: "features", label: "Funkcje", visible: true },
     { value: "ai", label: "Ustawienia AI", visible: true },
@@ -36,6 +38,7 @@ export function AdminSettingsView() {
         tabs={subTabs}
       />
 
+      {activeSubTab === "integrations" && <LocationIntegrationsPanel />}
       {activeSubTab === "system" && <RidoSettings />}
       {activeSubTab === "features" && <FeatureTogglesManagement />}
       {activeSubTab === "ai" && <AISettingsPanel />}
