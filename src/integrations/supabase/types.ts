@@ -4702,6 +4702,7 @@ export type Database = {
         | "driver"
         | "marketplace_user"
         | "real_estate_admin"
+        | "real_estate_agent"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -4837,6 +4838,7 @@ export const Constants = {
         "driver",
         "marketplace_user",
         "real_estate_admin",
+        "real_estate_agent",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
