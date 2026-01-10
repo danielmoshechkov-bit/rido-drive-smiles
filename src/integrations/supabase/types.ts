@@ -1535,7 +1535,12 @@ export type Database = {
       fleets: {
         Row: {
           address: string | null
+          b2b_enabled: boolean | null
           base_fee: number | null
+          cash_enabled: boolean | null
+          cash_pickup_address: string | null
+          cash_pickup_day: string | null
+          cash_pickup_location: string | null
           city: string | null
           contact_name: string | null
           contact_phone_for_drivers: string | null
@@ -1554,11 +1559,17 @@ export type Database = {
           registration_code: string | null
           settlement_frequency_enabled: boolean | null
           street: string | null
+          transfer_enabled: boolean | null
           vat_rate: number | null
         }
         Insert: {
           address?: string | null
+          b2b_enabled?: boolean | null
           base_fee?: number | null
+          cash_enabled?: boolean | null
+          cash_pickup_address?: string | null
+          cash_pickup_day?: string | null
+          cash_pickup_location?: string | null
           city?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
@@ -1577,11 +1588,17 @@ export type Database = {
           registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
+          transfer_enabled?: boolean | null
           vat_rate?: number | null
         }
         Update: {
           address?: string | null
+          b2b_enabled?: boolean | null
           base_fee?: number | null
+          cash_enabled?: boolean | null
+          cash_pickup_address?: string | null
+          cash_pickup_day?: string | null
+          cash_pickup_location?: string | null
           city?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
@@ -1600,6 +1617,7 @@ export type Database = {
           registration_code?: string | null
           settlement_frequency_enabled?: boolean | null
           street?: string | null
+          transfer_enabled?: boolean | null
           vat_rate?: number | null
         }
         Relationships: []

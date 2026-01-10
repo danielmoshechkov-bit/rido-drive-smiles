@@ -47,6 +47,15 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [invoiceEmail, setInvoiceEmail] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
   
+  // Payment methods settings
+  const [cashEnabled, setCashEnabled] = useState(false);
+  const [cashPickupDay, setCashPickupDay] = useState('wtorek');
+  const [cashPickupLocation, setCashPickupLocation] = useState<'office' | 'delivery'>('office');
+  const [cashPickupAddress, setCashPickupAddress] = useState('');
+  const [b2bEnabled, setB2bEnabled] = useState(false);
+  const [transferEnabled, setTransferEnabled] = useState(true);
+  const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
+  
   // Form state
   const [newFee, setNewFee] = useState<{
     name: string;
@@ -74,7 +83,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_pickup_address, b2b_enabled, transfer_enabled')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -85,6 +94,13 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setVatRate(((data as any).vat_rate ?? 8).toString());
       setBaseFee(((data as any).base_fee ?? 0).toString());
       setInvoiceEmail((data as any).invoice_email ?? '');
+      // Payment methods
+      setCashEnabled((data as any).cash_enabled ?? false);
+      setCashPickupDay((data as any).cash_pickup_day ?? 'wtorek');
+      setCashPickupLocation((data as any).cash_pickup_location ?? 'office');
+      setCashPickupAddress((data as any).cash_pickup_address ?? '');
+      setB2bEnabled((data as any).b2b_enabled ?? false);
+      setTransferEnabled((data as any).transfer_enabled ?? true);
     }
   };
 
@@ -482,6 +498,150 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
             </CardContent>
           </Card>
         </div>
+
+        {/* Row 3: Payment Methods for Drivers */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Settings className="h-4 w-4" />
+              Metody płatności dla kierowców
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Określ jakie metody płatności są dostępne dla kierowców podczas rejestracji
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Transfer */}
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">💳</span>
+                <div>
+                  <p className="font-medium text-sm">Przelew bankowy</p>
+                  <p className="text-xs text-muted-foreground">Wypłaty na konto bankowe kierowcy</p>
+                </div>
+              </div>
+              <Switch
+                checked={transferEnabled}
+                onCheckedChange={setTransferEnabled}
+              />
+            </div>
+
+            {/* Cash */}
+            <div className="space-y-3 p-3 border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">💵</span>
+                  <div>
+                    <p className="font-medium text-sm">Gotówka</p>
+                    <p className="text-xs text-muted-foreground">Odbiór gotówki przez kierowców</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={cashEnabled}
+                  onCheckedChange={setCashEnabled}
+                />
+              </div>
+              
+              {cashEnabled && (
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Dzień wypłaty</Label>
+                      <Select value={cashPickupDay} onValueChange={setCashPickupDay}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="poniedziałek">Poniedziałek</SelectItem>
+                          <SelectItem value="wtorek">Wtorek</SelectItem>
+                          <SelectItem value="środa">Środa</SelectItem>
+                          <SelectItem value="czwartek">Czwartek</SelectItem>
+                          <SelectItem value="piątek">Piątek</SelectItem>
+                          <SelectItem value="sobota">Sobota</SelectItem>
+                          <SelectItem value="niedziela">Niedziela</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Lokalizacja</Label>
+                      <Select 
+                        value={cashPickupLocation} 
+                        onValueChange={(v: 'office' | 'delivery') => setCashPickupLocation(v)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="office">W biurze</SelectItem>
+                          <SelectItem value="delivery">Dostawa pod adres</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {cashPickupLocation === 'delivery' && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Adres dostawy</Label>
+                      <Input
+                        placeholder="np. ul. Przykładowa 1, Warszawa"
+                        value={cashPickupAddress}
+                        onChange={(e) => setCashPickupAddress(e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* B2B */}
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📋</span>
+                <div>
+                  <p className="font-medium text-sm">B2B (faktury)</p>
+                  <p className="text-xs text-muted-foreground">Kierowcy wystawiają faktury</p>
+                </div>
+              </div>
+              <Switch
+                checked={b2bEnabled}
+                onCheckedChange={setB2bEnabled}
+              />
+            </div>
+
+            <Button 
+              onClick={async () => {
+                setSavingPaymentMethods(true);
+                try {
+                  const { error } = await supabase
+                    .from('fleets')
+                    .update({
+                      cash_enabled: cashEnabled,
+                      cash_pickup_day: cashPickupDay,
+                      cash_pickup_location: cashPickupLocation,
+                      cash_pickup_address: cashPickupAddress || null,
+                      b2b_enabled: b2bEnabled,
+                      transfer_enabled: transferEnabled
+                    } as any)
+                    .eq('id', fleetId);
+                  
+                  if (error) throw error;
+                  toast.success('Metody płatności zapisane');
+                } catch (error) {
+                  console.error('Error saving payment methods:', error);
+                  toast.error('Błąd zapisywania ustawień');
+                } finally {
+                  setSavingPaymentMethods(false);
+                }
+              }} 
+              disabled={savingPaymentMethods} 
+              size="sm" 
+              className="w-full"
+            >
+              {savingPaymentMethods ? 'Zapisywanie...' : 'Zapisz metody płatności'}
+            </Button>
+          </CardContent>
+        </Card>
 
       {/* Fees Management */}
       <Card>
