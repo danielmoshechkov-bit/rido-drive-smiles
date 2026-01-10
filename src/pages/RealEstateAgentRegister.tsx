@@ -75,19 +75,34 @@ export default function RealEstateAgentRegister() {
   const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Check if user is logged in on mount
+  // Check if user is logged in on mount - use getSession for fresh data
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Use getSession to get the current session from server (not cached)
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
         toast.error("Musisz być zalogowany, aby zarejestrować agencję.");
         navigate("/auth");
         return;
       }
-      setLoggedInEmail(user.email || null);
+      
+      setLoggedInEmail(session.user.email || null);
       setCheckingAuth(false);
     };
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        navigate("/auth");
+      } else if (session) {
+        setLoggedInEmail(session.user.email || null);
+      }
+    });
+    
     checkAuth();
+    
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const formatPostalCode = (value: string) => {
@@ -176,13 +191,21 @@ export default function RealEstateAgentRegister() {
 
     setLoading(true);
     try {
-      // Get the logged-in user
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get fresh session from server (not cached)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!user) {
-        toast.error("Musisz być zalogowany, aby zarejestrować agencję.");
+      if (sessionError || !session) {
+        toast.error("Sesja wygasła. Zaloguj się ponownie.");
         navigate("/auth");
         return;
+      }
+      
+      const user = session.user;
+      
+      // Verify session matches displayed email
+      if (user.email !== loggedInEmail) {
+        console.warn("Session mismatch detected - using current session user:", user.email);
+        setLoggedInEmail(user.email || null);
       }
 
       // Check if user already has an agent profile
@@ -379,12 +402,25 @@ export default function RealEstateAgentRegister() {
           <div className="space-y-4">
             <Alert>
               <Mail className="h-4 w-4" />
-              <AlertDescription>
-                Email właściciela: <strong>{loggedInEmail}</strong>
-                <br />
-                <span className="text-muted-foreground text-xs">
-                  (pobrane z Twojego zalogowanego konta)
-                </span>
+              <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  Email właściciela: <strong>{loggedInEmail}</strong>
+                  <br />
+                  <span className="text-muted-foreground text-xs">
+                    (pobrane z Twojego zalogowanego konta)
+                  </span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate("/auth");
+                  }}
+                >
+                  Zmień konto
+                </Button>
               </AlertDescription>
             </Alert>
 

@@ -172,7 +172,7 @@ export default function MarketplaceDashboard() {
     navigate("/gielda");
   };
 
-  const handleUpgradeToSeller = async (mode: 'private_seller' | 'business') => {
+  const handleUpgradeToSeller = async (mode: 'buyer' | 'private_seller' | 'business') => {
     if (!profile) return;
 
     const { error } = await supabase
@@ -635,17 +635,51 @@ export default function MarketplaceDashboard() {
                   </div>
                 )}
 
-                {profile?.account_mode === 'business' && (
+                {(profile?.account_mode === 'private_seller' || profile?.account_mode === 'business') && (
                   <div className="pt-4 border-t space-y-3">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Nazwa firmy</p>
-                        <p className="font-medium">{profile.company_name || 'Nie podano'}</p>
+                    {profile?.account_mode === 'business' && (
+                      <div className="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Nazwa firmy</p>
+                          <p className="font-medium">{profile.company_name || 'Nie podano'}</p>
+                        </div>
                       </div>
+                    )}
+                    
+                    <p className="text-sm text-muted-foreground">Zmień typ konta:</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpgradeToSeller('buyer')}
+                      >
+                        Kupujący
+                      </Button>
+                      <Button 
+                        variant={profile?.account_mode === 'private_seller' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleUpgradeToSeller('private_seller')}
+                        disabled={profile?.account_mode === 'private_seller'}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Osoba prywatna
+                      </Button>
+                      <Button 
+                        variant={profile?.account_mode === 'business' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleUpgradeToSeller('business')}
+                        disabled={profile?.account_mode === 'business'}
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Firma
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm">
-                      Edytuj dane firmowe
-                    </Button>
+                    
+                    {profile?.account_mode === 'business' && (
+                      <Button variant="outline" size="sm" className="mt-2">
+                        Edytuj dane firmowe
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
