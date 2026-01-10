@@ -51,7 +51,7 @@ const MOCK_LISTINGS: Record<string, any> = {
     contactName: "Jan Kowalski",
     contactPhone: "+48 123 456 789",
     contactEmail: "jan.kowalski@premium.pl",
-    listingNumber: "NIE-000001",
+    listingNumber: "33928",
     description: `Piękne, jasne mieszkanie o powierzchni 65m² zlokalizowane w samym sercu Kazimierza. Mieszkanie składa się z 3 pokoi, kuchni, łazienki oraz przestronnego balkonu z widokiem na dziedziniec.
 
 Budynek z 2019 roku, z windą, monitoringiem i wjazdem do podziemnego garażu. Mieszkanie jest w stanie deweloperskim, gotowe do własnej aranżacji.
@@ -94,7 +94,7 @@ W okolicy liczne restauracje, kawiarnie, sklepy oraz doskonała komunikacja miej
     contactName: "Anna Nowak",
     contactPhone: "+48 987 654 321",
     contactEmail: "anna@cityapartments.pl",
-    listingNumber: "NIE-000002",
+    listingNumber: "78421",
     description: `Nowoczesne studio w prestiżowym wieżowcu w samym centrum Warszawy. Idealne dla singla lub pary.`,
     amenities: ["Winda", "Parking", "Portiernia 24h", "Siłownia w budynku"],
     heating: "miejskie",
