@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { 
   Search, Plus, MessageSquare, Heart, Settings, LogOut, 
   Car, Building2, User, ChevronRight, Package, Loader2,
-  Truck, Users, Repeat
+  Truck, Users, Repeat, Home
 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +50,7 @@ export default function MarketplaceDashboard() {
   const [activeTab, setActiveTab] = useState("start");
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showAccountsModal, setShowAccountsModal] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
@@ -93,6 +94,14 @@ export default function MarketplaceDashboard() {
         .eq("user_id", session.user.id)
         .in("role", ["fleet_settlement", "fleet_rental"]);
       setIsFleetAccount(!!fleetRoles && fleetRoles.length > 0);
+
+      // Check if user has real estate account
+      const { data: realEstateRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["real_estate_agent", "real_estate_admin"]);
+      setIsRealEstateAccount(!!realEstateRoles && realEstateRoles.length > 0);
 
       const { data, error } = await supabase
         .from("marketplace_user_profiles")
@@ -772,6 +781,43 @@ export default function MarketplaceDashboard() {
                   <div className="flex-1">
                     <p className="font-medium">Konto sprzedawcy</p>
                     <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy</p>
+                  </div>
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Real Estate Agent Account */}
+            {isRealEstateAccount ? (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/nieruchomosci/agent/panel");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Home className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto agenta nieruchomości</p>
+                    <p className="text-sm text-muted-foreground">Zarejestrowany</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/nieruchomosci/agent/rejestracja");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Home className="h-6 w-6 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="font-medium">Konto agenta nieruchomości</p>
+                    <p className="text-sm text-muted-foreground">Publikuj oferty nieruchomości</p>
                   </div>
                   <Plus className="h-5 w-5 text-muted-foreground" />
                 </CardContent>

@@ -52,6 +52,7 @@ const DriverDashboard = () => {
   const [priceChangeNotification, setPriceChangeNotification] = useState<any>(null);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
   const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
 
   // Check for other account types
   useEffect(() => {
@@ -74,6 +75,14 @@ const DriverDashboard = () => {
         .eq("user_id", session.user.id)
         .maybeSingle();
       setIsMarketplaceAccount(!!marketplaceProfile);
+
+      // Check for real estate account
+      const { data: realEstateRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["real_estate_agent", "real_estate_admin"]);
+      setIsRealEstateAccount(!!realEstateRoles && realEstateRoles.length > 0);
     };
     checkAccounts();
   }, []);
@@ -661,6 +670,7 @@ const DriverDashboard = () => {
             isDriverAccount={true}
             isFleetAccount={isFleetAccount}
             isMarketplaceAccount={isMarketplaceAccount}
+            isRealEstateAccount={isRealEstateAccount}
             isMarketplaceEnabled={isMarketplaceEnabled}
             currentAccountType="driver"
             navigate={navigate}
