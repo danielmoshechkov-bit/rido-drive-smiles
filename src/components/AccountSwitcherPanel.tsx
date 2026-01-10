@@ -19,6 +19,7 @@ interface AccountSwitcherPanelProps {
   isMarketplaceEnabled: boolean;
   currentAccountType: 'driver' | 'fleet' | 'marketplace';
   navigate: ReturnType<typeof useNavigate>;
+  hideDriverForFleet?: boolean; // Hide driver option for fleet users since they have access in the same panel
 }
 
 export function AccountSwitcherPanel({
@@ -27,9 +28,13 @@ export function AccountSwitcherPanel({
   isMarketplaceAccount,
   isMarketplaceEnabled,
   currentAccountType,
-  navigate
+  navigate,
+  hideDriverForFleet = false
 }: AccountSwitcherPanelProps) {
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
+  
+  // For fleet users, don't show driver switch option since they have access in the same panel
+  const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
   const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace') => {
     if (type === currentAccountType) return;
@@ -60,8 +65,8 @@ export function AccountSwitcherPanel({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Driver account */}
-          {isDriverAccount && (
+          {/* Driver account - hide for fleet users since they already have driver access */}
+          {showDriverOption && (
             <div 
               className={`border-2 rounded-xl p-4 text-center transition-colors ${
                 currentAccountType === 'driver' 
@@ -187,7 +192,10 @@ export function AccountSwitcherPanel({
               </Button>
             )}
 
-            {isDriverAccount && isFleetAccount && (isMarketplaceAccount || !isMarketplaceEnabled) && (
+            {/* Show "all accounts" message only when truly all account types are present */}
+            {(isDriverAccount || hideDriverForFleet) && 
+             isFleetAccount && 
+             (isMarketplaceAccount || !isMarketplaceEnabled) && (
               <p className="text-center text-muted-foreground py-4">
                 Masz już wszystkie dostępne typy kont
               </p>

@@ -48,6 +48,22 @@ export const useCities = () => {
 
   useEffect(() => {
     fetchCities();
+    
+    // Subscribe to realtime changes on cities table for automatic sync
+    const channel = supabase
+      .channel('cities-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cities' },
+        () => {
+          fetchCities(); // Refetch all cities on any change
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return {
