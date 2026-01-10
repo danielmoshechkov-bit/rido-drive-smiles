@@ -313,13 +313,14 @@ export default function VehicleMarketplace() {
   };
 
   const handleToggleCompare = (listing: VehicleListing) => {
-    const photos = listing.vehicle.photos || [];
     const compareItem = {
       id: listing.id,
       title: `${listing.vehicle.brand} ${listing.vehicle.model}`,
       price: listing.weekly_price,
       priceType: "weekly",
-      photo: photos[0] || "/placeholder.svg",
+      photos: listing.vehicle.photos || [],
+      transactionType: "Wynajem",
+      transactionColor: "#3b82f6",
       year: listing.vehicle.year || undefined,
       fuelType: listing.vehicle.fuel_type || undefined,
       mileage: listing.vehicle.odometer || undefined,

@@ -52,7 +52,7 @@ export function CompareBar({ type, className }: CompareBarProps) {
                   className="relative group shrink-0 bg-muted rounded-lg overflow-hidden"
                 >
                   <img
-                    src={item.photo || "/placeholder.svg"}
+                    src={item.photos?.[0] || "/placeholder.svg"}
                     alt={item.title}
                     className="h-12 w-16 object-cover"
                   />

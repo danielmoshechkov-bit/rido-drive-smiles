@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft, X, Star, MapPin, Calendar, Fuel, Gauge, Zap, Phone, Mail, GitCompare
+  ArrowLeft, X, Phone, Mail, GitCompare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, VehicleCompareItem } from "@/contexts/CompareContext";
+import { ComparePhotoCarousel } from "@/components/marketplace/ComparePhotoCarousel";
 
 const FUEL_LABELS: Record<string, string> = {
   benzyna: "Benzyna",
@@ -81,36 +81,27 @@ export default function VehicleCompare() {
       <div className="container mx-auto px-4 py-6">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px]">
-            {/* Vehicle Headers */}
+            {/* Vehicle Headers with Photo Carousel */}
             <thead>
               <tr>
                 <th className="w-40 p-2 text-left text-sm font-medium text-muted-foreground">
                   Parametr
                 </th>
                 {vehicleItems.map((item) => (
-                  <th key={item.id} className="p-2 min-w-[200px]">
-                    <Card className="relative overflow-hidden group">
-                      <button
-                        onClick={() => removeVehicle(item.id)}
-                        className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <img
-                        src={item.photo || "/placeholder.svg"}
-                        alt={item.title}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="p-3 text-center">
-                        <h3 className="font-semibold text-sm line-clamp-1">{item.title}</h3>
-                      </div>
-                    </Card>
+                  <th key={item.id} className="p-2 min-w-[220px]">
+                    <ComparePhotoCarousel
+                      photos={item.photos}
+                      title={item.title}
+                      transactionType={item.transactionType}
+                      transactionColor={item.transactionColor}
+                      onRemove={() => removeVehicle(item.id)}
+                    />
                   </th>
                 ))}
                 {/* Empty slots */}
                 {Array.from({ length: 4 - vehicleItems.length }).map((_, i) => (
-                  <th key={`empty-${i}`} className="p-2 min-w-[200px]">
-                    <div className="h-48 border-2 border-dashed border-muted-foreground/20 rounded-lg flex items-center justify-center text-muted-foreground/40 text-sm">
+                  <th key={`empty-${i}`} className="p-2 min-w-[220px]">
+                    <div className="h-52 border-2 border-dashed border-muted-foreground/20 rounded-lg flex items-center justify-center text-muted-foreground/40 text-sm">
                       Wybierz ofertę
                     </div>
                   </th>

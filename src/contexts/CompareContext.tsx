@@ -5,7 +5,9 @@ export interface VehicleCompareItem {
   title: string;
   price: number;
   priceType?: string;
-  photo: string;
+  photos: string[];
+  transactionType?: string;
+  transactionColor?: string;
   year?: number;
   fuelType?: string;
   mileage?: number;
@@ -23,7 +25,9 @@ export interface PropertyCompareItem {
   title: string;
   price: number;
   priceType?: string;
-  photo: string;
+  photos: string[];
+  transactionType?: string;
+  transactionColor?: string;
   propertyType?: string;
   areaM2?: number;
   rooms?: number;
