@@ -87,6 +87,9 @@ const Auth = () => {
         } else if (roles.includes('driver')) {
           navigate('/driver');
           return;
+        } else if (roles.includes('marketplace_user')) {
+          navigate('/gielda/panel');
+          return;
         }
       }
 
