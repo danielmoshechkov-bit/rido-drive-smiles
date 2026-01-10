@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Building, Plus, Home, Users, BarChart3, Settings,
-  ArrowLeft, Eye, Edit, Trash2, AlertCircle
+  ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
+  GitCompare, Phone, ChevronDown, ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -31,6 +33,10 @@ interface Listing {
   location: string;
   status: string;
   views: number;
+  favorites: number;
+  compares: number;
+  contact_reveals: number;
+  listing_number: string;
   created_at: string;
 }
 
@@ -41,6 +47,7 @@ export default function RealEstateAgentDashboard() {
   const [agent, setAgent] = useState<AgentProfile | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "listings");
+  const [expandedListings, setExpandedListings] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchAgentProfile();
@@ -68,13 +75,50 @@ export default function RealEstateAgentDashboard() {
       }
 
       setAgent(agentData as any);
-      // TODO: Fetch listings
-      setListings([]);
+      // TODO: Fetch listings from database
+      // For now using mock data
+      setListings([
+        {
+          id: "1",
+          title: "Przestronne mieszkanie 3-pokojowe, Kazimierz",
+          price: 450000,
+          property_type: "Mieszkanie",
+          location: "Kraków, Kazimierz",
+          status: "active",
+          views: 1234,
+          favorites: 45,
+          compares: 12,
+          contact_reveals: 8,
+          listing_number: "33928",
+          created_at: "2026-01-10",
+        },
+        {
+          id: "2",
+          title: "Nowoczesne studio w centrum",
+          price: 2800,
+          property_type: "Kawalerka",
+          location: "Warszawa, Śródmieście",
+          status: "active",
+          views: 567,
+          favorites: 23,
+          compares: 5,
+          contact_reveals: 3,
+          listing_number: "78421",
+          created_at: "2026-01-08",
+        },
+      ]);
     } catch (error) {
       console.error("Error fetching agent:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleListingExpanded = (listingId: string) => {
+    setExpandedListings(prev => ({
+      ...prev,
+      [listingId]: !prev[listingId]
+    }));
   };
 
   if (loading) {
@@ -101,6 +145,23 @@ export default function RealEstateAgentDashboard() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  const getListingStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return <Badge className="bg-green-500 text-xs">Aktywne</Badge>;
+      case "pending":
+        return <Badge variant="secondary" className="text-xs">Oczekuje</Badge>;
+      case "expired":
+        return <Badge variant="destructive" className="text-xs">Wygasłe</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
+    }
+  };
+
+  // Calculate totals for stats cards
+  const totalViews = listings.reduce((sum, l) => sum + (l.views || 0), 0);
+  const totalContacts = listings.reduce((sum, l) => sum + (l.contact_reveals || 0), 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -158,7 +219,7 @@ export default function RealEstateAgentDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
                 <Home className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-bold">{agent.active_listings_count}</span>
+                <span className="text-2xl font-bold">{listings.length}</span>
               </div>
               <p className="text-sm text-muted-foreground">Aktywne ogłoszenia</p>
             </CardContent>
@@ -167,7 +228,7 @@ export default function RealEstateAgentDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
                 <Eye className="h-5 w-5 text-blue-500" />
-                <span className="text-2xl font-bold">0</span>
+                <span className="text-2xl font-bold">{totalViews.toLocaleString()}</span>
               </div>
               <p className="text-sm text-muted-foreground">Wyświetlenia (7 dni)</p>
             </CardContent>
@@ -184,8 +245,8 @@ export default function RealEstateAgentDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-purple-500" />
-                <span className="text-2xl font-bold">0</span>
+                <Phone className="h-5 w-5 text-purple-500" />
+                <span className="text-2xl font-bold">{totalContacts}</span>
               </div>
               <p className="text-sm text-muted-foreground">Kontakty (7 dni)</p>
             </CardContent>
@@ -238,28 +299,80 @@ export default function RealEstateAgentDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {listings.map((listing) => (
-                      <div
+                      <Collapsible 
                         key={listing.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        open={expandedListings[listing.id]}
+                        onOpenChange={() => toggleListingExpanded(listing.id)}
                       >
-                        <div>
-                          <h4 className="font-medium">{listing.title}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {listing.property_type} • {listing.location}
-                          </p>
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="flex items-center justify-between p-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium">{listing.title}</h4>
+                                {getListingStatusBadge(listing.status)}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {listing.property_type} • {listing.location}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-primary text-lg">
+                                {listing.price.toLocaleString()} zł
+                              </span>
+                              <Button variant="ghost" size="icon">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  {expandedListings[listing.id] ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                            </div>
+                          </div>
+                          
+                          <CollapsibleContent>
+                            <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
+                              {/* Statistics */}
+                              <p className="text-sm font-medium mb-3">📊 Statystyki ogłoszenia</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Eye className="h-4 w-4 text-blue-500" />
+                                  <span className="font-semibold">{listing.views.toLocaleString()}</span>
+                                  <span className="text-muted-foreground">wyśw.</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Heart className="h-4 w-4 text-red-500" />
+                                  <span className="font-semibold">{listing.favorites}</span>
+                                  <span className="text-muted-foreground">polub.</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <GitCompare className="h-4 w-4 text-purple-500" />
+                                  <span className="font-semibold">{listing.compares}</span>
+                                  <span className="text-muted-foreground">porów.</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Phone className="h-4 w-4 text-green-500" />
+                                  <span className="font-semibold">{listing.contact_reveals}</span>
+                                  <span className="text-muted-foreground">kontaktów</span>
+                                </div>
+                              </div>
+                              
+                              {/* Meta info */}
+                              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                                <span>Nr oferty: <span className="font-mono font-medium">{listing.listing_number}</span></span>
+                                <span>Dodano: <span className="font-medium">{listing.created_at}</span></span>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary">
-                            {listing.price.toLocaleString()} zł
-                          </span>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      </Collapsible>
                     ))}
                   </div>
                 )}
