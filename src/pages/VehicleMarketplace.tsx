@@ -65,7 +65,13 @@ export default function VehicleMarketplace() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(null);
   const [selectedVehicleSlug, setSelectedVehicleSlug] = useState<string | null>(null);
   const [selectedTransactionTypes, setSelectedTransactionTypes] = useState<string[]>([]);
-  const [showLudekChat, setShowLudekChat] = useState(false);
+
+  // AI Search results
+  const handleAISearchResults = (results: any[], filters: any, explanation: string) => {
+    console.log('AI Search results:', results, filters, explanation);
+    // For now, we can use these results to show listings from AI search
+    // In future: map AI results back to listing IDs and filter
+  };
 
   useEffect(() => {
     loadListings();
@@ -321,15 +327,20 @@ export default function VehicleMarketplace() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <MarketplaceHeader user={user} />
 
+      {/* AI Search Bar - Always at top */}
+      <div className="container mx-auto px-4 py-6">
+        <RidoSearchBar onSearchResults={handleAISearchResults} />
+      </div>
+
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-        <div className="container mx-auto px-4 py-12 md:py-16">
+      <div className="bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+        <div className="container mx-auto px-4 py-8 md:py-12">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold mb-3">
               Znajdź idealne auto
               <span className="text-primary"> dla siebie</span>
             </h1>
-            <p className="text-lg text-muted-foreground mb-8">
+            <p className="text-muted-foreground">
               Tysiące sprawdzonych ofert od flot i prywatnych właścicieli. 
               Wynajem, leasing, sprzedaż – wszystko w jednym miejscu.
             </p>
@@ -414,22 +425,6 @@ export default function VehicleMarketplace() {
           </div>
         )}
       </div>
-
-      {/* Ludek AI Chat */}
-      <LudekChatButton 
-        onClick={() => setShowLudekChat(!showLudekChat)} 
-        isOpen={showLudekChat}
-      />
-      {showLudekChat && (
-        <LudekChatPanel 
-          onClose={() => setShowLudekChat(false)}
-          onSearchResults={(results) => {
-            // Transform AI results to match our listing format if needed
-            console.log('AI Search results:', results);
-            toast.success(`Znaleziono ${results.length} wyników przez AI`);
-          }}
-        />
-      )}
 
       {/* Footer */}
       <footer className="border-t mt-16 py-12 bg-card">
