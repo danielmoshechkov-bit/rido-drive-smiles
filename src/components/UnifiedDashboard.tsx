@@ -395,12 +395,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   {t('admin.settings')}
                 </TabsTrigger>
               )}
-              {canViewTab('reports') && (
-                <TabsTrigger value="reports">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  {t('admin.reports')}
-                </TabsTrigger>
-              )}
               {userType === 'fleet' && (
                 <TabsTrigger value="informacje">
                   <Info className="h-4 w-4 mr-2" />
@@ -509,18 +503,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         {t('admin.settings')}
-                      </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('reports') && (
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant={activeTab === 'reports' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('reports')}
-                      >
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        {t('admin.reports')}
                       </Button>
                     </SheetTrigger>
                   )}
@@ -754,15 +736,6 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             </TabsContent>
           )}
 
-          {canViewTab('reports') && (
-            <TabsContent value="reports" className="space-y-6">
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Moduł raportów w budowie</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
 
           {userType === 'fleet' && fleetId && (
             <TabsContent value="informacje" className="space-y-6">
