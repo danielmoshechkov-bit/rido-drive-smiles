@@ -13,6 +13,7 @@ interface UseUserRoleReturn {
   isFleetSettlement: boolean;
   isFleetRental: boolean;
   isDriver: boolean;
+  isRealEstateAdmin: boolean;
   refetch: () => Promise<void>;
   delegatedRole?: {
     fleet_id: string;
@@ -146,6 +147,7 @@ export const useUserRole = (): UseUserRoleReturn => {
     isFleetSettlement: roles.includes('fleet_settlement'),
     isFleetRental: roles.includes('fleet_rental'),
     isDriver: role === 'driver',
+    isRealEstateAdmin: role === 'admin' || roles.includes('real_estate_admin' as UserRole),
     refetch: fetchUserRole,
     delegatedRole,
     isDelegatedFleetManager: !!delegatedRole,

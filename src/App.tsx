@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminRealEstate from "./pages/AdminRealEstate";
 import AdminMarketplace from "./pages/AdminMarketplace";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/fleet" element={<FleetLanding />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/marketplace" element={<AdminMarketplace />} />
+          <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
           <Route path="/fleet/dashboard" element={<FleetDashboard />} />
           <Route path="/admin/system-alerts" element={<SystemAlerts />} />
           <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />
