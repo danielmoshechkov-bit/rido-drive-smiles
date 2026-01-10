@@ -12,7 +12,8 @@ import {
   Sparkles, 
   Search,
   ArrowRight,
-  MessageCircle
+  MessageCircle,
+  Building
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -21,6 +22,7 @@ import Footer from "@/components/Footer";
 import tileCars from "@/assets/tile-cars.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
+import tileRealEstate from "@/assets/tile-realestate.jpg";
 
 interface MarketplaceTile {
   id: string;
@@ -40,6 +42,15 @@ const marketplaceTiles: MarketplaceTile[] = [
     icon: Car,
     image: tileCars,
     link: '/gielda',
+    available: true
+  },
+  {
+    id: 'realestate',
+    title: 'Nieruchomości',
+    description: 'Mieszkania, domy, działki, lokale',
+    icon: Building,
+    image: tileRealEstate,
+    link: '/nieruchomosci',
     available: true
   },
   {
@@ -211,14 +222,14 @@ export default function EasyHub() {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => navigate('/easy/login')}
+                  onClick={() => navigate('/auth?redirect=/easy')}
                   className="hidden sm:inline-flex"
                 >
                   Zaloguj
                 </Button>
                 <Button 
                   size="sm"
-                  onClick={() => navigate('/easy/register')}
+                  onClick={() => navigate('/gielda/rejestracja?redirect=/easy')}
                   className="rounded-full"
                 >
                   Zarejestruj
