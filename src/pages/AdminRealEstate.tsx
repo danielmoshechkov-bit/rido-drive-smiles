@@ -26,7 +26,10 @@ import {
   LayoutDashboard,
   CreditCard,
   ChevronDown,
+  MapPin,
 } from 'lucide-react';
+import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegrationsPanel';
+import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Table,
@@ -63,6 +66,7 @@ const AdminRealEstate = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [settingsSubTab, setSettingsSubTab] = useState('integrations');
   const [userEmail, setUserEmail] = useState('');
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -663,19 +667,32 @@ const AdminRealEstate = () => {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Ustawienia modułu nieruchomości
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-muted-foreground">
-                  Limity, reguły publikacji, konfiguracja - w przygotowaniu
-                </p>
-              </CardContent>
-            </Card>
+            <UniversalSubTabBar
+              activeTab={settingsSubTab}
+              onTabChange={setSettingsSubTab}
+              tabs={[
+                { value: "integrations", label: "Integracje lokalizacji", visible: true },
+                { value: "module-settings", label: "Ustawienia modułu", visible: true },
+              ]}
+            />
+
+            {settingsSubTab === "integrations" && <LocationIntegrationsPanel />}
+            
+            {settingsSubTab === "module-settings" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Ustawienia modułu nieruchomości
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center py-8 text-muted-foreground">
+                    Limity, reguły publikacji, konfiguracja - w przygotowaniu
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
