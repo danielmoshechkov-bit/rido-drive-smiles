@@ -16,6 +16,13 @@ interface DriverVehicleInfo {
   vehicleId: string;
 }
 
+interface DriverInfo {
+  driverId: string;
+  driverEmail: string;
+  driverFirstName: string;
+}
+
+// Email template for vehicle documents (OC, inspection)
 async function sendDriverExpiryEmail(
   info: DriverVehicleInfo,
   expiryType: 'oc' | 'inspection',
@@ -83,6 +90,73 @@ async function sendDriverExpiryEmail(
   }
 }
 
+// Email template for driver documents (license, medical, psychological exams)
+async function sendDriverDocumentExpiryEmail(
+  info: DriverInfo,
+  documentType: string,
+  expiryDate: string,
+  daysLeft: number
+) {
+  const formattedDate = new Date(expiryDate).toLocaleDateString('pl-PL');
+  
+  const subject = `[get RIDO] ${documentType} wygasa ${daysLeft <= 1 ? 'jutro!' : `za ${daysLeft} dni`}`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #333; margin: 0;">get RIDO</h1>
+      </div>
+      
+      <h2 style="color: ${daysLeft <= 3 ? '#dc2626' : '#f59e0b'};">
+        ⚠️ ${documentType} wygasa ${daysLeft <= 1 ? 'jutro!' : `za ${daysLeft} dni`}
+      </h2>
+      
+      <p>Cześć ${info.driverFirstName || 'Kierowco'},</p>
+      
+      <p>Przypominamy, że Twój dokument <strong>${documentType}</strong> 
+         wygasa <strong>${formattedDate}</strong>.</p>
+      
+      ${daysLeft <= 3 
+        ? '<p style="color: #dc2626; font-weight: bold;">⚠️ Pilne! Zostało bardzo mało czasu - działaj teraz!</p>'
+        : '<p>Pamiętaj o przedłużeniu ważności, aby móc kontynuować współpracę.</p>'
+      }
+      
+      <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>Dokument:</strong> ${documentType}</p>
+        <p style="margin: 5px 0 0 0;"><strong>Ważny do:</strong> ${formattedDate}</p>
+        <p style="margin: 5px 0 0 0;"><strong>Pozostało dni:</strong> ${daysLeft}</p>
+      </div>
+      
+      <p>Możesz sprawdzić swoje dokumenty w panelu kierowcy w sekcji "Informacje kierowcy".</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+      <p style="color: #999; font-size: 12px; text-align: center;">
+        © ${new Date().getFullYear()} get RIDO. Wszelkie prawa zastrzeżone.
+      </p>
+    </div>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: 'get RIDO <no-reply@getrido.pl>',
+      to: [info.driverEmail],
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return false;
+    }
+    
+    console.log(`Email sent to ${info.driverEmail} for ${documentType} expiring on ${expiryDate}`);
+    return true;
+  } catch (err) {
+    console.error('Error sending email:', err);
+    return false;
+  }
+}
+
 async function getDriverForVehicle(supabaseClient: any, vehicleId: string): Promise<DriverVehicleInfo | null> {
   // Get vehicle plate
   const { data: vehicle } = await supabaseClient
@@ -128,7 +202,9 @@ async function checkDriverExpiryDates(supabaseClient: any) {
   // Warning thresholds in days
   const warningDays = [14, 7, 3, 1];
 
-  // Check vehicle policies (OC)
+  // =====================================================
+  // 1. Check vehicle policies (OC)
+  // =====================================================
   for (const days of warningDays) {
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + days);
@@ -205,7 +281,9 @@ async function checkDriverExpiryDates(supabaseClient: any) {
     }
   }
 
-  // Check vehicle inspections
+  // =====================================================
+  // 2. Check vehicle inspections
+  // =====================================================
   for (const days of warningDays) {
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + days);
@@ -276,6 +354,178 @@ async function checkDriverExpiryDates(supabaseClient: any) {
           driver: driverInfo.driverEmail,
           days,
           date: inspection.valid_to
+        });
+      }
+    }
+  }
+
+  // =====================================================
+  // 3. Check driver's license expiry dates
+  // =====================================================
+  for (const days of warningDays) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    console.log(`Checking driver licenses expiring on ${targetDateStr} (${days} days from now)`);
+    
+    const { data: drivers, error } = await supabaseClient
+      .from('drivers')
+      .select('id, email, first_name, license_expiry_date')
+      .eq('license_expiry_date', targetDateStr)
+      .eq('license_is_unlimited', false)
+      .not('email', 'is', null);
+
+    if (error) {
+      console.error('Error fetching drivers with expiring licenses:', error);
+      continue;
+    }
+
+    console.log(`Found ${drivers?.length || 0} expiring driver licenses`);
+
+    for (const driver of drivers || []) {
+      if (!driver.email) continue;
+
+      // Check if we already sent notification for this
+      const { data: existingSent } = await supabaseClient
+        .from('reminders')
+        .select('id')
+        .eq('entity_type', 'DriverLicense')
+        .eq('entity_id', driver.id)
+        .eq('due_date', driver.license_expiry_date)
+        .eq('channel', 'driver_email')
+        .maybeSingle();
+
+      if (existingSent) {
+        console.log(`Already sent notification for driver license ${driver.id}`);
+        continue;
+      }
+
+      // Send email to driver
+      const emailSent = await sendDriverDocumentExpiryEmail(
+        {
+          driverId: driver.id,
+          driverEmail: driver.email,
+          driverFirstName: driver.first_name || ''
+        },
+        'Prawo jazdy',
+        driver.license_expiry_date,
+        days
+      );
+
+      if (emailSent) {
+        // Record that we sent this notification
+        await supabaseClient
+          .from('reminders')
+          .insert([{
+            entity_type: 'DriverLicense',
+            entity_id: driver.id,
+            due_date: driver.license_expiry_date,
+            title: `Email do kierowcy: Prawo jazdy wygasa`,
+            notes: `Wysłano email do ${driver.email}`,
+            channel: 'driver_email',
+            status: 'sent'
+          }]);
+
+        results.push({
+          type: 'driver_license',
+          driver: driver.email,
+          days,
+          date: driver.license_expiry_date
+        });
+      }
+    }
+  }
+
+  // =====================================================
+  // 4. Check driver documents (medical, psychological exams)
+  // =====================================================
+  for (const days of warningDays) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    console.log(`Checking driver documents expiring on ${targetDateStr} (${days} days from now)`);
+    
+    const { data: documents, error } = await supabaseClient
+      .from('driver_documents')
+      .select(`
+        id,
+        driver_id,
+        expires_at,
+        document_types(name)
+      `)
+      .eq('expires_at', targetDateStr);
+
+    if (error) {
+      console.error('Error fetching driver documents:', error);
+      continue;
+    }
+
+    console.log(`Found ${documents?.length || 0} expiring driver documents`);
+
+    for (const doc of documents || []) {
+      // Get driver info
+      const { data: driver } = await supabaseClient
+        .from('drivers')
+        .select('id, email, first_name')
+        .eq('id', doc.driver_id)
+        .single();
+
+      if (!driver?.email) {
+        console.log(`No email found for driver ${doc.driver_id}`);
+        continue;
+      }
+
+      const documentName = doc.document_types?.name || 'Dokument';
+
+      // Check if we already sent notification for this
+      const { data: existingSent } = await supabaseClient
+        .from('reminders')
+        .select('id')
+        .eq('entity_type', 'DriverDocument')
+        .eq('entity_id', doc.id)
+        .eq('due_date', doc.expires_at)
+        .eq('channel', 'driver_email')
+        .maybeSingle();
+
+      if (existingSent) {
+        console.log(`Already sent notification for driver document ${doc.id}`);
+        continue;
+      }
+
+      // Send email to driver
+      const emailSent = await sendDriverDocumentExpiryEmail(
+        {
+          driverId: driver.id,
+          driverEmail: driver.email,
+          driverFirstName: driver.first_name || ''
+        },
+        documentName,
+        doc.expires_at,
+        days
+      );
+
+      if (emailSent) {
+        // Record that we sent this notification
+        await supabaseClient
+          .from('reminders')
+          .insert([{
+            entity_type: 'DriverDocument',
+            entity_id: doc.id,
+            due_date: doc.expires_at,
+            title: `Email do kierowcy: ${documentName} wygasa`,
+            notes: `Wysłano email do ${driver.email}`,
+            channel: 'driver_email',
+            status: 'sent'
+          }]);
+
+        results.push({
+          type: 'driver_document',
+          documentType: documentName,
+          driver: driver.email,
+          days,
+          date: doc.expires_at
         });
       }
     }
