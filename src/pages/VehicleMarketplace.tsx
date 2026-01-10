@@ -430,13 +430,24 @@ export default function VehicleMarketplace() {
       <footer className="border-t mt-16 py-12 bg-card">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate('/easy')}
+            >
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="RIDO" 
                 className="h-8 w-8"
               />
               <span className="font-semibold">RIDO Marketplace</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <a 
+                href="/easy" 
+                className="text-sm text-primary hover:underline"
+              >
+                ← Wróć do GetRido Easy
+              </a>
             </div>
             <p className="text-muted-foreground text-sm">
               © 2025 get RIDO. Wszystkie prawa zastrzeżone.

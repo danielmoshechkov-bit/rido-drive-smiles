@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, User, Heart, Bell, LayoutGrid, Car, Truck, Store } from "lucide-react";
+import { LogIn, User, Heart, Bell, LayoutGrid, Car, Truck, Store, Home } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +74,13 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-6">
+            <a 
+              href="/easy" 
+              className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+            >
+              <Home className="h-4 w-4" />
+              GetRido Easy
+            </a>
             <a href="/gielda" className="text-sm font-medium hover:text-primary transition-colors">
               Pojazdy
             </a>

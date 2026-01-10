@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight
+  Building, Search, Plus, Sparkles, ArrowRight, Home
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -146,18 +146,28 @@ export default function RealEstateMarketplace() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => navigate("/easy")}
-          >
-            <img 
-              src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
-              alt="RIDO" 
-              className="h-8 w-8"
-            />
-            <span className="font-bold text-lg md:text-xl">
-              <span className="text-primary">RIDO</span> Nieruchomości
-            </span>
+          <div className="flex items-center gap-4">
+            {/* GetRido Easy link */}
+            <a 
+              href="/easy" 
+              className="hidden md:flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              <Home className="h-4 w-4" />
+              GetRido Easy
+            </a>
+            <div 
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={() => navigate("/easy")}
+            >
+              <img 
+                src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
+                alt="RIDO" 
+                className="h-8 w-8"
+              />
+              <span className="font-bold text-lg md:text-xl">
+                <span className="text-primary">RIDO</span> Nieruchomości
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
             {user ? (
@@ -191,7 +201,7 @@ export default function RealEstateMarketplace() {
                 </Button>
                 <Button 
                   size="sm"
-                  onClick={() => navigate('/easy/login')}
+                  onClick={() => navigate('/auth?redirect=/nieruchomosci')}
                   className="rounded-full"
                 >
                   Zaloguj
@@ -335,7 +345,35 @@ export default function RealEstateMarketplace() {
         </div>
       </section>
 
-      <Footer />
+      {/* Footer with back link */}
+      <footer className="border-t py-12 bg-card">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate('/easy')}
+            >
+              <img 
+                src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
+                alt="RIDO" 
+                className="h-8 w-8"
+              />
+              <span className="font-semibold">RIDO Nieruchomości</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <a 
+                href="/easy" 
+                className="text-sm text-primary hover:underline"
+              >
+                ← Wróć do GetRido Easy
+              </a>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
