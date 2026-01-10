@@ -4153,6 +4153,27 @@ export type Database = {
         }
         Relationships: []
       }
+      universal_listing_numbers: {
+        Row: {
+          created_at: string
+          listing_id: string
+          listing_number: string
+          marketplace_type: string
+        }
+        Insert: {
+          created_at?: string
+          listing_id: string
+          listing_number: string
+          marketplace_type: string
+        }
+        Update: {
+          created_at?: string
+          listing_id?: string
+          listing_number?: string
+          marketplace_type?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -4625,6 +4646,7 @@ export type Database = {
         Args: { p_vehicle_id: string }
         Returns: boolean
       }
+      generate_random_listing_number: { Args: never; Returns: string }
       get_driver_city_id: { Args: never; Returns: string }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       get_user_marketplace_profile_id: {
