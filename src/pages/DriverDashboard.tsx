@@ -34,6 +34,7 @@ import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { DriverDocumentsPanel } from "@/components/driver/DriverDocumentsPanel";
+import { DriverPersonalInfo } from "@/components/driver/DriverPersonalInfo";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -765,10 +766,11 @@ function SettlementsWithSubTabs({
 
 // Component to display driver notifications and settings with sub-tabs
 function DriverNotifications({ driverId, userId }: { driverId: string; userId: string }) {
-  const [activeSubTab, setActiveSubTab] = useState("payment");
+  const [activeSubTab, setActiveSubTab] = useState("personal");
   const { t } = useTranslation();
 
   const subTabs = [
+    { value: "personal", label: t('driver.personalInfo') },
     { value: "payment", label: t('driver.paymentMethod') },
     { value: "fleet", label: "Flota" },
     { value: "contact", label: "Dane kontaktowe (giełda)" }
@@ -782,6 +784,10 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
         onTabChange={setActiveSubTab}
         tabs={subTabs.map(t => ({ ...t, visible: true }))}
       />
+
+      {activeSubTab === "personal" && (
+        <DriverPersonalInfo driverId={driverId} />
+      )}
 
       {activeSubTab === "payment" && (
         <PaymentMethodSettings driverId={driverId} userId={userId} />
