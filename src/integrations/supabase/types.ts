@@ -252,7 +252,9 @@ export type Database = {
         Row: {
           ai_enabled: boolean | null
           ai_model: string | null
+          ai_provider: string | null
           created_at: string | null
+          custom_api_key_encrypted: string | null
           guest_daily_limit: number | null
           id: string
           system_prompt: string | null
@@ -262,7 +264,9 @@ export type Database = {
         Insert: {
           ai_enabled?: boolean | null
           ai_model?: string | null
+          ai_provider?: string | null
           created_at?: string | null
+          custom_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
           system_prompt?: string | null
@@ -272,7 +276,9 @@ export type Database = {
         Update: {
           ai_enabled?: boolean | null
           ai_model?: string | null
+          ai_provider?: string | null
           created_at?: string | null
+          custom_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
           system_prompt?: string | null
@@ -2656,6 +2662,89 @@ export type Database = {
           settlement_notifications?: boolean | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      paid_service_subscriptions: {
+        Row: {
+          amount_paid: number | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          metadata: Json | null
+          service_id: string | null
+          started_at: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount_paid?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          service_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount_paid?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          service_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_service_subscriptions_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "paid_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_services: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price_pln: number
+          pricing_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_pln?: number
+          pricing_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_pln?: number
+          pricing_type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

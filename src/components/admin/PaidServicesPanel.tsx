@@ -32,7 +32,6 @@ interface ServiceSubscription {
   started_at: string;
   expires_at: string | null;
   amount_paid: number;
-  service?: PaidService;
 }
 
 const PRICING_TYPES = [
@@ -70,16 +69,23 @@ export function PaidServicesPanel() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [servicesRes, subsRes] = await Promise.all([
-        supabase.from('paid_services').select('*').order('category, name'),
-        supabase.from('paid_service_subscriptions').select('*, service:paid_services(*)').order('started_at', { ascending: false }).limit(50),
-      ]);
+      // Use type assertion for new tables not yet in generated types
+      const servicesRes = await supabase
+        .from('paid_services' as any)
+        .select('*')
+        .order('category');
+
+      const subsRes = await supabase
+        .from('paid_service_subscriptions' as any)
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(50);
 
       if (servicesRes.data) {
-        setServices(servicesRes.data as PaidService[]);
+        setServices(servicesRes.data as unknown as PaidService[]);
       }
       if (subsRes.data) {
-        setSubscriptions(subsRes.data as ServiceSubscription[]);
+        setSubscriptions(subsRes.data as unknown as ServiceSubscription[]);
       }
     } catch (error) {
       console.error('Error loading paid services:', error);
@@ -96,7 +102,7 @@ export function PaidServicesPanel() {
   const addService = async () => {
     try {
       const { data, error } = await supabase
-        .from('paid_services')
+        .from('paid_services' as any)
         .insert({
           name: 'Nowa usługa',
           description: '',
@@ -110,8 +116,8 @@ export function PaidServicesPanel() {
 
       if (error) throw error;
       if (data) {
-        setServices([...services, data as PaidService]);
-        setEditingService(data as PaidService);
+        setServices([...services, data as unknown as PaidService]);
+        setEditingService(data as unknown as PaidService);
       }
     } catch (error) {
       console.error('Error adding service:', error);
@@ -129,7 +135,7 @@ export function PaidServicesPanel() {
     setIsSaving(true);
     try {
       const { error } = await supabase
-        .from('paid_services')
+        .from('paid_services' as any)
         .update({
           name: editingService.name,
           description: editingService.description,
@@ -163,7 +169,7 @@ export function PaidServicesPanel() {
   const deleteService = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('paid_services')
+        .from('paid_services' as any)
         .delete()
         .eq('id', id);
 
@@ -421,7 +427,7 @@ export function PaidServicesPanel() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Usługa</TableHead>
+                <TableHead>ID usługi</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Kwota</TableHead>
                 <TableHead>Data</TableHead>
@@ -430,8 +436,8 @@ export function PaidServicesPanel() {
             <TableBody>
               {subscriptions.slice(0, 10).map((sub) => (
                 <TableRow key={sub.id}>
-                  <TableCell className="font-medium">
-                    {(sub as any).service?.name || 'Nieznana usługa'}
+                  <TableCell className="font-mono text-xs">
+                    {sub.service_id?.substring(0, 8)}...
                   </TableCell>
                   <TableCell>
                     <Badge className={STATUS_COLORS[sub.status] || ''}>
