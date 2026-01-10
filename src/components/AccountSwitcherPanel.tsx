@@ -10,14 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Truck, User, Plus, Building2 } from "lucide-react";
+import { Car, Truck, User, Plus, Building2, Home } from "lucide-react";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
   isFleetAccount: boolean;
   isMarketplaceAccount: boolean;
+  isRealEstateAccount?: boolean;
   isMarketplaceEnabled: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'marketplace';
+  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean; // Hide driver option for fleet users since they have access in the same panel
 }
@@ -26,6 +27,7 @@ export function AccountSwitcherPanel({
   isDriverAccount,
   isFleetAccount,
   isMarketplaceAccount,
+  isRealEstateAccount = false,
   isMarketplaceEnabled,
   currentAccountType,
   navigate,
@@ -36,7 +38,7 @@ export function AccountSwitcherPanel({
   // For fleet users, don't show driver switch option since they have access in the same panel
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
-  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace') => {
+  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate') => {
     if (type === currentAccountType) return;
     
     switch (type) {
@@ -48,6 +50,9 @@ export function AccountSwitcherPanel({
         break;
       case 'marketplace':
         navigate('/gielda/panel');
+        break;
+      case 'real_estate':
+        navigate('/nieruchomosci/agent/panel');
         break;
     }
   };
@@ -119,6 +124,24 @@ export function AccountSwitcherPanel({
             </div>
           )}
 
+          {/* Real Estate account */}
+          {isRealEstateAccount && (
+            <div 
+              className={`border-2 rounded-xl p-4 text-center transition-colors ${
+                currentAccountType === 'real_estate' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border cursor-pointer hover:bg-muted'
+              }`}
+              onClick={() => handleAccountClick('real_estate')}
+            >
+              <Home className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'real_estate' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <p className="font-medium text-sm">Nieruchomości</p>
+              {currentAccountType === 'real_estate' && (
+                <Badge className="mt-2 text-xs">aktywne</Badge>
+              )}
+            </div>
+          )}
+
           {/* Add account */}
           <div 
             className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
@@ -176,6 +199,24 @@ export function AccountSwitcherPanel({
               </Button>
             )}
 
+            {/* Add real estate agent account */}
+            {!isRealEstateAccount && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-auto py-3"
+                onClick={() => {
+                  setShowAddAccountDialog(false);
+                  navigate("/nieruchomosci/agent/rejestracja");
+                }}
+              >
+                <Home className="h-5 w-5 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">Konto agenta nieruchomości</p>
+                  <p className="text-xs text-muted-foreground">Publikuj oferty nieruchomości</p>
+                </div>
+              </Button>
+            )}
+
             {/* Add fleet account - coming soon */}
             {!isFleetAccount && (
               <Button 
@@ -195,7 +236,8 @@ export function AccountSwitcherPanel({
             {/* Show "all accounts" message only when truly all account types are present */}
             {(isDriverAccount || hideDriverForFleet) && 
              isFleetAccount && 
-             (isMarketplaceAccount || !isMarketplaceEnabled) && (
+             (isMarketplaceAccount || !isMarketplaceEnabled) &&
+             isRealEstateAccount && (
               <p className="text-center text-muted-foreground py-4">
                 Masz już wszystkie dostępne typy kont
               </p>

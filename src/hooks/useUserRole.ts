@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
-export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | null;
+export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | null;
 
 interface UseUserRoleReturn {
   role: UserRole;
@@ -13,6 +13,7 @@ interface UseUserRoleReturn {
   isFleetSettlement: boolean;
   isFleetRental: boolean;
   isDriver: boolean;
+  isRealEstateAgent: boolean;
   isRealEstateAdmin: boolean;
   refetch: () => Promise<void>;
   delegatedRole?: {
@@ -67,9 +68,15 @@ export const useUserRole = (): UseUserRoleReturn => {
       const userRoles = data.map(r => r.role as UserRole);
       setRoles(userRoles);
 
-      // Priority: admin > fleet_settlement > fleet_rental > driver
+      // Priority: admin > real_estate_admin > real_estate_agent > fleet_settlement > fleet_rental > marketplace_user > driver
       if (userRoles.includes('admin')) {
         setRole('admin');
+        setFleetId(null);
+      } else if (userRoles.includes('real_estate_admin' as UserRole)) {
+        setRole('real_estate_admin');
+        setFleetId(null);
+      } else if (userRoles.includes('real_estate_agent' as UserRole)) {
+        setRole('real_estate_agent');
         setFleetId(null);
       } else if (userRoles.includes('fleet_settlement')) {
         setRole('fleet_settlement');
@@ -79,8 +86,15 @@ export const useUserRole = (): UseUserRoleReturn => {
         setRole('fleet_rental');
         const fleetRole = data.find(r => r.role === 'fleet_rental');
         setFleetId(fleetRole?.fleet_id || null);
-      } else {
+      } else if (userRoles.includes('marketplace_user' as UserRole)) {
+        setRole('marketplace_user');
+        setFleetId(null);
+      } else if (userRoles.includes('driver')) {
         setRole('driver');
+        setFleetId(null);
+      } else {
+        // Fallback - set the first role found
+        setRole(userRoles[0] || null);
         setFleetId(null);
       }
 
@@ -146,7 +160,8 @@ export const useUserRole = (): UseUserRoleReturn => {
     isAdmin: role === 'admin',
     isFleetSettlement: roles.includes('fleet_settlement'),
     isFleetRental: roles.includes('fleet_rental'),
-    isDriver: role === 'driver',
+    isDriver: role === 'driver' || roles.includes('driver'),
+    isRealEstateAgent: role === 'real_estate_agent' || roles.includes('real_estate_agent' as UserRole),
     isRealEstateAdmin: role === 'admin' || roles.includes('real_estate_admin' as UserRole),
     refetch: fetchUserRole,
     delegatedRole,
