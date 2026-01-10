@@ -29,6 +29,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegrationsPanel';
+import { CRMIntegrationsPanel } from '@/components/admin/CRMIntegrationsPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -672,11 +673,14 @@ const AdminRealEstate = () => {
               onTabChange={setSettingsSubTab}
               tabs={[
                 { value: "integrations", label: "Integracje lokalizacji", visible: true },
+                { value: "crm", label: "Integracje CRM", visible: true },
                 { value: "module-settings", label: "Ustawienia modułu", visible: true },
               ]}
             />
 
             {settingsSubTab === "integrations" && <LocationIntegrationsPanel />}
+            
+            {settingsSubTab === "crm" && <CRMIntegrationsPanel />}
             
             {settingsSubTab === "module-settings" && (
               <Card>
