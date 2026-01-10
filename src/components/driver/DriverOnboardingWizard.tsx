@@ -79,6 +79,14 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
   const [submitting, setSubmitting] = useState(false);
   const [fleetInfo, setFleetInfo] = useState<{ id: string; name: string } | null>(null);
   const [fleetError, setFleetError] = useState<string>("");
+  const [fleetPaymentSettings, setFleetPaymentSettings] = useState<{
+    cash_enabled: boolean;
+    cash_pickup_day: string | null;
+    cash_pickup_location: string | null;
+    cash_pickup_address: string | null;
+    b2b_enabled: boolean;
+    transfer_enabled: boolean;
+  } | null>(null);
   
   const [formData, setFormData] = useState<FormData>({
     fleet_nip: "",
@@ -135,21 +143,31 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
     if (cleanNip.length < 10) {
       setFleetInfo(null);
       setFleetError("");
+      setFleetPaymentSettings(null);
       return;
     }
 
     const { data, error } = await supabase
       .from("fleets")
-      .select("id, name")
+      .select("id, name, cash_enabled, cash_pickup_day, cash_pickup_location, cash_pickup_address, b2b_enabled, transfer_enabled")
       .eq("nip", cleanNip)
       .maybeSingle();
 
     if (error || !data) {
       setFleetInfo(null);
       setFleetError("Nie znaleziono floty o podanym NIP");
+      setFleetPaymentSettings(null);
     } else {
-      setFleetInfo(data);
+      setFleetInfo({ id: data.id, name: data.name });
       setFleetError("");
+      setFleetPaymentSettings({
+        cash_enabled: (data as any).cash_enabled ?? false,
+        cash_pickup_day: (data as any).cash_pickup_day ?? null,
+        cash_pickup_location: (data as any).cash_pickup_location ?? null,
+        cash_pickup_address: (data as any).cash_pickup_address ?? null,
+        b2b_enabled: (data as any).b2b_enabled ?? false,
+        transfer_enabled: (data as any).transfer_enabled ?? true,
+      });
     }
   };
 
@@ -411,11 +429,24 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
 
   return (
     <div className="space-y-6">
-      {/* Progress Steps */}
+      {/* Progress Steps - Clickable */}
       <div className="flex items-center justify-between mb-8">
         {stepTitles.map((s, i) => (
           <div key={s.num} className="flex items-center flex-1">
-            <div className={`flex items-center gap-2 ${step >= s.num ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div 
+              className={`flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 ${step >= s.num ? 'text-primary' : 'text-muted-foreground'}`}
+              onClick={() => {
+                // Can always go back
+                if (s.num < step) {
+                  setStep(s.num);
+                } else if (s.num === step + 1) {
+                  // Next step - validate current
+                  if (step === 1 && validateStep1()) setStep(s.num);
+                  if (step === 2 && validateStep2()) setStep(s.num);
+                  if (step === 3 && validateStep3()) setStep(s.num);
+                }
+              }}
+            >
               <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 
                 ${step >= s.num ? 'bg-primary text-primary-foreground border-primary' : 'border-muted-foreground'}`}>
                 {step > s.num ? <CheckCircle2 className="h-5 w-5" /> : <s.icon className="h-5 w-5" />}
@@ -449,10 +480,11 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
                 placeholder="Np. 1234567890"
                 value={formData.fleet_nip}
                 onChange={(e) => handleInputChange("fleet_nip", e.target.value)}
+                className="max-w-xs"
               />
               {fleetInfo && (
-                <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <Building2 className="h-4 w-4 text-green-600" />
+                <div className="flex items-center gap-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg max-w-md">
+                  <Building2 className="h-4 w-4 text-green-600 shrink-0" />
                   <span className="text-sm text-green-700">Dołączysz do floty: <strong>{fleetInfo.name}</strong></span>
                 </div>
               )}
@@ -471,7 +503,7 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
                 value={formData.city_id}
                 onValueChange={(v) => handleInputChange("city_id", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="max-w-xs">
                   <SelectValue placeholder="Wybierz miasto" />
                 </SelectTrigger>
                 <SelectContent>
@@ -492,18 +524,27 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
                 onValueChange={(v) => handleInputChange("payment_method", v as any)}
                 className="flex gap-4"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="transfer" id="transfer" />
-                  <Label htmlFor="transfer">Przelew</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cash" id="cash" />
-                  <Label htmlFor="cash">Gotówka</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="b2b" id="b2b" />
-                  <Label htmlFor="b2b">B2B (faktura)</Label>
-                </div>
+                {/* Show transfer option if fleet allows it or no fleet selected */}
+                {(!fleetPaymentSettings || fleetPaymentSettings.transfer_enabled) && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="transfer" id="transfer" />
+                    <Label htmlFor="transfer">Przelew</Label>
+                  </div>
+                )}
+                {/* Show cash option only if fleet allows it */}
+                {(!fleetPaymentSettings || fleetPaymentSettings.cash_enabled) && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="cash" id="cash" />
+                    <Label htmlFor="cash">Gotówka</Label>
+                  </div>
+                )}
+                {/* Show B2B option only if fleet allows it */}
+                {(!fleetPaymentSettings || fleetPaymentSettings.b2b_enabled) && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="b2b" id="b2b" />
+                    <Label htmlFor="b2b">B2B (faktura)</Label>
+                  </div>
+                )}
               </RadioGroup>
             </div>
 
@@ -518,9 +559,19 @@ export function DriverOnboardingWizard({ profile, onComplete, onCancel }: Driver
               </div>
             )}
 
-            {formData.payment_method === "cash" && (
+            {formData.payment_method === "cash" && fleetPaymentSettings?.cash_enabled && (
               <div className="p-3 bg-muted rounded-lg text-sm">
-                💵 Gotówka do odbioru w każdy wtorek w naszym biurze
+                💵 Gotówka do odbioru w każdy <strong>{fleetPaymentSettings.cash_pickup_day || 'wtorek'}</strong>
+                {fleetPaymentSettings.cash_pickup_location === 'delivery' && fleetPaymentSettings.cash_pickup_address
+                  ? <> - dostawa pod adres: <strong>{fleetPaymentSettings.cash_pickup_address}</strong></>
+                  : <> w biurze floty</>
+                }
+              </div>
+            )}
+
+            {formData.payment_method === "cash" && !fleetPaymentSettings && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                💵 Szczegóły odbioru gotówki zostaną ustalone po rejestracji
               </div>
             )}
 
