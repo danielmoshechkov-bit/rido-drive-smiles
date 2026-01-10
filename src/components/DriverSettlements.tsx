@@ -71,13 +71,62 @@ export const DriverSettlements = ({
   const [loading, setLoading] = useState(false);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(preSelectedYear ?? currentYear);
-  const [selectedWeek, setSelectedWeek] = useState<number>(preSelectedWeek ?? getCurrentWeekNumber(currentYear));
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(preSelectedWeek ?? null);
+  const [isDefaultsInitialized, setIsDefaultsInitialized] = useState(false);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
   const [driverPlan, setDriverPlan] = useState<any>(null);
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
   const [additionalFees, setAdditionalFees] = useState<number>(0);
   const [initialLoad, setInitialLoad] = useState(true);
+
+  // Initialize default week to last settlement period
+  useEffect(() => {
+    const initializeDefaultWeek = async () => {
+      if (!driverId || isDefaultsInitialized || preSelectedWeek) {
+        if (preSelectedWeek) {
+          setSelectedWeek(preSelectedWeek);
+          setIsDefaultsInitialized(true);
+        }
+        return;
+      }
+      
+      // Fetch last settlement for this driver
+      const { data: lastSettlement } = await supabase
+        .from('settlements')
+        .select('period_from, period_to')
+        .eq('driver_id', driverId)
+        .order('period_to', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (lastSettlement) {
+        // Parse the date from last settlement
+        const periodDate = new Date(lastSettlement.period_from);
+        const year = periodDate.getFullYear();
+        
+        // Find matching week number
+        const weeks = getWeekDates(year);
+        const matchingWeek = weeks.find(w => 
+          w.start === lastSettlement.period_from || 
+          w.end === lastSettlement.period_to
+        );
+        
+        setSelectedYear(year);
+        setSelectedWeek(matchingWeek?.number || getCurrentWeekNumber(year));
+        console.log('📅 Initialized to last settlement period:', { year, week: matchingWeek?.number, period_from: lastSettlement.period_from });
+      } else {
+        // No settlements - use current week
+        setSelectedYear(currentYear);
+        setSelectedWeek(getCurrentWeekNumber(currentYear));
+        console.log('📅 No settlements found, using current week');
+      }
+      
+      setIsDefaultsInitialized(true);
+    };
+    
+    initializeDefaultWeek();
+  }, [driverId, preSelectedWeek, isDefaultsInitialized, currentYear]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("all");
   const [settlementPlans, setSettlementPlans] = useState<any[]>([]);
   const [canChangePlan, setCanChangePlan] = useState(true);
@@ -209,7 +258,7 @@ export const DriverSettlements = ({
   const weeks = getAvailableWeeks(selectedYear);
   const displayedWeeks = showAllWeeks ? weeks : weeks.slice(0, 2);
   const currentWeek = useMemo(() => 
-    weeks.find(w => w.number === selectedWeek), 
+    selectedWeek !== null ? weeks.find(w => w.number === selectedWeek) : undefined, 
     [weeks, selectedWeek]
   );
 
@@ -910,12 +959,12 @@ export const DriverSettlements = ({
   }, [driverId, selectedPlanId]);
 
   useEffect(() => {
-    // Czekaj aż fetchLatestSettlement się zakończy (initialLoad będzie false)
-    if (!initialLoad) {
+    // Wait until defaults are initialized (selectedWeek is not null) and initialLoad is done
+    if (!initialLoad && isDefaultsInitialized && selectedWeek !== null) {
       loadSettlements();
       loadAdditionalFees();
     }
-  }, [driverId, selectedYear, selectedWeek, initialLoad]);
+  }, [driverId, selectedYear, selectedWeek, initialLoad, isDefaultsInitialized]);
 
   // Helper: Convert 0-based index to Excel-style column letter (0→A, 25→Z, 26→AA)
   const indexToLetter = (index: number): string => {
