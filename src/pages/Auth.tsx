@@ -33,11 +33,10 @@ const Auth = () => {
     }
     setShowTermsError(false);
     
+    setIsLoading(true);
     try {
-      // If rememberMe is false, sign out first to clear any existing session
-      if (!rememberMe) {
-        await supabase.auth.signOut();
-      }
+      // ALWAYS sign out first to clear any stale session before new login
+      await supabase.auth.signOut();
       
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -47,6 +46,7 @@ const Auth = () => {
       if (authError) {
         console.error('Auth error:', authError);
         toast.error(t('auth.invalidCredentials') || 'Nieprawidłowy email lub hasło!');
+        setIsLoading(false);
         return;
       }
       
@@ -101,9 +101,10 @@ const Auth = () => {
     } catch (error) {
       console.error('Login error:', error);
       toast.error(t('auth.loginError') || 'Wystąpił błąd podczas logowania!');
+    } finally {
+      setIsLoading(false);
     }
   };
-
   const handlePasswordReset = async () => {
     if (!resetEmail) {
       toast.error(t('auth.enterYourEmail'));
