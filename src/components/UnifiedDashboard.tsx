@@ -30,7 +30,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart, Repeat, User, Truck, Plus } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart, Repeat, User, Truck, Plus, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate } from 'react-router-dom';
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -428,140 +429,231 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             </div>
           </div>
 
-          {/* Mobile - Hamburger menu */}
+          {/* Mobile - Hamburger menu with collapsible tab bar */}
           <div className="md:hidden mb-3">
-            <Sheet>
-              <SheetTrigger asChild>
-                <div className="rounded-xl bg-primary shadow-sm p-1.5 w-fit">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/90">
-                    <Menu className="h-4 w-4 text-white" />
+            <div className="flex items-center gap-2">
+              {/* Hamburger button */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button 
+                    variant="default" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-xl shrink-0"
+                  >
+                    <Menu className="h-4 w-4" />
                   </Button>
-                </div>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
-                <div className="space-y-2 mt-6">
-                  {canViewTab('weekly-report') && (
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                  <div className="space-y-2 mt-6">
+                    {canViewTab('weekly-report') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('weekly-report')}
+                        >
+                          <BarChart className="h-4 w-4 mr-2" />
+                          {t('admin.weeklyReport')}
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('settlements') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('settlements')}
+                        >
+                          <DollarSign className="h-4 w-4 mr-2" />
+                          {t('admin.settlements')}
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('drivers-list') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('drivers-list')}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          {t('admin.driversList')}
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('fleet') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('fleet')}
+                        >
+                          <Car className="h-4 w-4 mr-2" />
+                          Flota
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('documents') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'documents' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('documents')}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Dokumenty
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('system-alerts') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('system-alerts')}
+                        >
+                          <Info className="h-4 w-4 mr-2" />
+                          Informacje
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {canViewTab('settings') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'settings' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('settings')}
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          {t('admin.settings')}
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {userType === 'fleet' && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('informacje')}
+                        >
+                          <Info className="h-4 w-4 mr-2" />
+                          Informacje
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {roles.includes('driver') && myDriverId && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'my-settlements' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('my-settlements')}
+                        >
+                          <DollarSign className="h-4 w-4 mr-2" />
+                          Moje rozliczenia
+                        </Button>
+                      </SheetTrigger>
+                    )}
+                    {/* Account switcher - always visible */}
                     <SheetTrigger asChild>
                       <Button 
-                        variant={activeTab === 'weekly-report' ? 'default' : 'ghost'} 
+                        variant={activeTab === 'accounts' ? 'default' : 'ghost'} 
                         className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('weekly-report')}
+                        onClick={() => setActiveTab('accounts')}
                       >
-                        <BarChart className="h-4 w-4 mr-2" />
-                        {t('admin.weeklyReport')}
+                        <Repeat className="h-4 w-4 mr-2" />
+                        Przełącz konto
                       </Button>
                     </SheetTrigger>
-                  )}
-                  {canViewTab('settlements') && (
-                    <SheetTrigger asChild>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Purple collapsible tab bar showing current tab */}
+              <Collapsible className="flex-1">
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+                    <span className="font-medium text-sm truncate">
+                      {activeTab === 'weekly-report' && t('admin.weeklyReport')}
+                      {activeTab === 'settlements' && t('admin.settlements')}
+                      {activeTab === 'drivers-list' && t('admin.driversList')}
+                      {activeTab === 'fleet' && 'Flota'}
+                      {activeTab === 'documents' && 'Dokumenty'}
+                      {activeTab === 'system-alerts' && 'Informacje'}
+                      {activeTab === 'settings' && t('admin.settings')}
+                      {activeTab === 'informacje' && 'Informacje'}
+                      {activeTab === 'my-settlements' && 'Moje rozliczenia'}
+                      {activeTab === 'accounts' && 'Przełącz konto'}
+                      {activeTab === 'fleet-accounts' && 'Konta flotowe'}
+                      {activeTab === 'user-roles' && 'Uprawnienia'}
+                      {activeTab === 'plans' && 'Plany'}
+                      {activeTab === 'visibility' && 'Widoczność'}
+                      {activeTab === 'tab-visibility' && 'Widoczność zakładek'}
+                      {activeTab === 'data-import' && t('admin.dataImport')}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1">
+                  <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
+                    {canViewTab('settlements') && activeTab !== 'settlements' && (
                       <Button 
-                        variant={activeTab === 'settlements' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
                         onClick={() => setActiveTab('settlements')}
                       >
-                        <DollarSign className="h-4 w-4 mr-2" />
+                        <DollarSign className="h-3 w-3 mr-2" />
                         {t('admin.settlements')}
                       </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('drivers-list') && (
-                    <SheetTrigger asChild>
+                    )}
+                    {canViewTab('fleet') && activeTab !== 'fleet' && (
                       <Button 
-                        variant={activeTab === 'drivers-list' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('drivers-list')}
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        {t('admin.driversList')}
-                      </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('fleet') && (
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant={activeTab === 'fleet' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
                         onClick={() => setActiveTab('fleet')}
                       >
-                        <Car className="h-4 w-4 mr-2" />
+                        <Car className="h-3 w-3 mr-2" />
                         Flota
                       </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('documents') && (
-                    <SheetTrigger asChild>
+                    )}
+                    {canViewTab('drivers-list') && activeTab !== 'drivers-list' && (
                       <Button 
-                        variant={activeTab === 'documents' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('documents')}
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('drivers-list')}
                       >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Dokumenty
+                        <Users className="h-3 w-3 mr-2" />
+                        {t('admin.driversList')}
                       </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('system-alerts') && (
-                    <SheetTrigger asChild>
+                    )}
+                    {userType === 'fleet' && activeTab !== 'informacje' && (
                       <Button 
-                        variant={activeTab === 'system-alerts' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('system-alerts')}
-                      >
-                        <Info className="h-4 w-4 mr-2" />
-                        Informacje
-                      </Button>
-                    </SheetTrigger>
-                  )}
-                  {canViewTab('settings') && (
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant={activeTab === 'settings' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('settings')}
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        {t('admin.settings')}
-                      </Button>
-                    </SheetTrigger>
-                  )}
-                  {userType === 'fleet' && (
-                    <SheetTrigger asChild>
-                      <Button 
-                        variant={activeTab === 'informacje' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
                         onClick={() => setActiveTab('informacje')}
                       >
-                        <Info className="h-4 w-4 mr-2" />
+                        <Info className="h-3 w-3 mr-2" />
                         Informacje
                       </Button>
-                    </SheetTrigger>
-                  )}
-                  {roles.includes('driver') && myDriverId && (
-                    <SheetTrigger asChild>
+                    )}
+                    {activeTab !== 'accounts' && (
                       <Button 
-                        variant={activeTab === 'my-settlements' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl transition-all"
-                        onClick={() => setActiveTab('my-settlements')}
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => setActiveTab('accounts')}
                       >
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        Moje rozliczenia
+                        <Repeat className="h-3 w-3 mr-2" />
+                        Przełącz konto
                       </Button>
-                    </SheetTrigger>
-                  )}
-                  {/* Account switcher - always visible */}
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'accounts' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('accounts')}
-                    >
-                      <Repeat className="h-4 w-4 mr-2" />
-                      Przełącz konto
-                    </Button>
-                  </SheetTrigger>
-                </div>
-              </SheetContent>
-            </Sheet>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </div>
 
           {canViewTab('weekly-report') && (
