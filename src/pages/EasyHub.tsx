@@ -222,14 +222,14 @@ export default function EasyHub() {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => navigate('/auth?redirect=/easy')}
+                  onClick={() => navigate('/auth')}
                   className="hidden sm:inline-flex"
                 >
                   Zaloguj
                 </Button>
                 <Button 
                   size="sm"
-                  onClick={() => navigate('/gielda/rejestracja?redirect=/easy')}
+                  onClick={() => navigate('/gielda/rejestracja')}
                   className="rounded-full"
                 >
                   Zarejestruj

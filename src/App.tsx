@@ -29,6 +29,7 @@ import MarketplaceDashboard from "./pages/MarketplaceDashboard";
 import EasyHub from "./pages/EasyHub";
 import EasyAuth from "./pages/EasyAuth";
 import RealEstateMarketplace from "./pages/RealEstateMarketplace";
+import OfertaPage from "./pages/OfertaPage";
 import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
@@ -44,10 +45,10 @@ const App = () => (
       <BrowserRouter>
         <CompareProvider>
           <Routes>
-            <Route path="/" element={<Auth />} />
+            <Route path="/" element={<EasyHub />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/landing" element={<Index />} />
+            <Route path="/oferta" element={<OfertaPage />} />
             <Route path="/install" element={<Install />} />
             <Route path="/gielda" element={<VehicleMarketplace />} />
             <Route path="/gielda/porownaj" element={<VehicleCompare />} />
