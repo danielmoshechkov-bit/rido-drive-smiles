@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const Footer = () => {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -7,29 +9,29 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-primary text-primary-foreground py-12">
+    <footer className="bg-primary text-primary-foreground py-6">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-4 gap-6">
           {/* Logo and Description */}
           <div className="md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
+            <div className="flex items-center space-x-2 mb-3">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
                 className="h-8 w-8"
               />
-              <span className="text-xl font-bold">Get RIDO</span>
+              <span className="text-xl font-bold">GetRido</span>
             </div>
             <p className="text-primary-foreground/80 text-sm max-w-md">
-              Partner kierowców Uber i Bolt. Proste rozliczenia, przejrzysty cennik, 
-              wypłaty co tydzień, wsparcie 7 dni w tygodniu.
+              GetRido - inteligentna platforma AI dla motoryzacji i nieruchomości. 
+              Giełda aut, wynajem, leasing, rozliczenia flot i portal kierowców w jednym miejscu.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-semibold mb-4">Menu</h4>
-            <nav className="space-y-2 text-sm">
+            <h4 className="font-semibold mb-3">Menu</h4>
+            <nav className="space-y-1.5 text-sm">
               <button 
                 onClick={() => scrollToSection('home')}
                 className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
@@ -59,33 +61,39 @@ const Footer = () => {
 
           {/* Legal Links */}
           <div>
-            <h4 className="font-semibold mb-4">Informacje</h4>
-            <nav className="space-y-2 text-sm">
-              <a 
-                href="#" 
+            <h4 className="font-semibold mb-3">Informacje prawne</h4>
+            <nav className="space-y-1.5 text-sm">
+              <Link 
+                to="/prawne?tab=polityka" 
                 className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 Polityka prywatności
-              </a>
-              <a 
-                href="#" 
+              </Link>
+              <Link 
+                to="/prawne?tab=rodo" 
                 className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 RODO
-              </a>
-              <a 
-                href="#" 
+              </Link>
+              <Link 
+                to="/prawne?tab=regulamin" 
                 className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 Regulamin
-              </a>
+              </Link>
+              <Link 
+                to="/prawne?tab=cookies" 
+                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+              >
+                Cookies 🍪
+              </Link>
             </nav>
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/20 mt-8 pt-8 text-center">
+        <div className="border-t border-primary-foreground/20 mt-6 pt-4 text-center">
           <p className="text-primary-foreground/60 text-sm">
-            getrido.pl - Get RIDO. Wszystkie prawa zastrzeżone.
+            © 2025 GetRido by CAR4RIDE SP. Z O.O. Wszystkie prawa zastrzeżone.
           </p>
         </div>
       </div>
