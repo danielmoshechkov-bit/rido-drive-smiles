@@ -9,15 +9,16 @@ jobs:
   ftp-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
 
       - name: Show versions
         run: |
@@ -25,25 +26,33 @@ jobs:
           npm --version
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npm run build
 
-      - name: Copy .htaccess to dist
-        run: cp public/.htaccess dist/.htaccess
+      - name: Copy .htaccess to dist (if exists)
+        run: |
+          if [ -f "public/.htaccess" ]; then
+            cp public/.htaccess dist/.htaccess
+          else
+            echo "No public/.htaccess found - skipping"
+          fi
 
-      - name: Copy mascot email image to dist
-        run: cp public/getrido-mascot-email.png dist/getrido-mascot-email.png
+      - name: Copy mascot email image to dist (if exists)
+        run: |
+          if [ -f "public/getrido-mascot-email.png" ]; then
+            cp public/getrido-mascot-email.png dist/getrido-mascot-email.png
+          else
+            echo "No public/getrido-mascot-email.png found - skipping"
+          fi
 
       - name: Debug - List dist contents
         run: |
           echo "=== dist/ root ==="
-          ls -la dist/
-          echo "=== dist/lovable-uploads/ ==="
-          ls -la dist/lovable-uploads/ || echo "No lovable-uploads folder!"
+          ls -la dist/ || true
           echo "=== dist/assets/ ==="
-          ls -la dist/assets/ | head -20 || echo "No assets folder!"
+          ls -la dist/assets/ | head -50 || echo "No assets folder!"
 
       - name: Upload to LH.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -52,5 +61,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /public_html/getrido-test.pl/
-          local-dir: dist/
+          local-dir: ./dist/
           dangerous-clean-slate: true
