@@ -1,4 +1,4 @@
-name: Deploy to nazwa.pl
+name: Deploy to LH.pl
 
 on:
   push:
@@ -45,12 +45,12 @@ jobs:
           echo "=== dist/assets/ ==="
           ls -la dist/assets/ | head -20 || echo "No assets folder!"
 
-      - name: Upload to nazwa.pl
+      - name: Upload to LH.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: ${{secrets.FTP_SERVER}}
-          username: ${{secrets.FTP_USERNAME}}
-          password: ${{secrets.FTP_PASSWORD}}
-          server-dir: /migracja/public_html/getrido/
-          local-dir: ./dist/
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /public_html/getrido-test.pl/
+          local-dir: dist/
           dangerous-clean-slate: true
