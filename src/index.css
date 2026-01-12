@@ -1,10 +1,10 @@
+/* Import theme and chat styles - must be at the very top before @tailwind */
+@import './styles/theme.css';
+@import './styles/chat.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import theme and chat styles - must be before other CSS rules */
-@import './styles/theme.css';
-@import './styles/chat.css';
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
