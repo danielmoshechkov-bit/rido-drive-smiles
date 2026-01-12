@@ -35,6 +35,7 @@ import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import FleetLanding from "./pages/FleetLanding";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
+import LegalPage from "./pages/LegalPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -76,6 +77,7 @@ const App = () => (
             <Route path="/register-success" element={<RegisterSuccess />} />
             <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route path="/driver" element={<DriverDashboard />} />
+            <Route path="/prawne" element={<LegalPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
