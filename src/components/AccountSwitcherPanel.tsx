@@ -49,7 +49,7 @@ export function AccountSwitcherPanel({
         navigate('/fleet/dashboard');
         break;
       case 'marketplace':
-        navigate('/gielda/panel');
+        navigate('/gielda');
         break;
       case 'real_estate':
         navigate('/nieruchomosci/agent/panel');
