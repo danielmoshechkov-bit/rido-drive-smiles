@@ -67,25 +67,30 @@ export function LocationMapModal({
   useEffect(() => {
     if (!open || !isLoaded || !mapRef.current || !google) return;
 
-    // Longer timeout to ensure modal DOM is fully rendered
-    const initTimeout = setTimeout(() => {
-      if (!mapRef.current) {
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    const initMap = () => {
+      const container = mapRef.current;
+      if (!container) {
         console.error("Map container ref is null");
         return;
       }
       
-      const container = mapRef.current;
-      console.log("Map container dimensions:", container.offsetWidth, "x", container.offsetHeight);
+      const width = container.offsetWidth;
+      const height = container.offsetHeight;
+      console.log("Map container dimensions:", width, "x", height, "retry:", retryCount);
       
-      // If container has no dimensions, retry after a delay
-      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-        console.warn("Map container has no dimensions, will retry...");
+      // If no dimensions, retry with increasing delays
+      if ((width === 0 || height === 0) && retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(initMap, 200 * retryCount);
         return;
       }
       
       const center = initialCenter || DEFAULT_CENTER;
 
-      // Create map without mapId to avoid requiring Cloud Console configuration
+      // Create map - using basic style without mapId
       const map = new google.maps.Map(container, {
         center,
         zoom: 12,
@@ -94,6 +99,7 @@ export function LocationMapModal({
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
+        gestureHandling: 'greedy',
       });
 
       mapInstanceRef.current = map;
@@ -118,7 +124,6 @@ export function LocationMapModal({
 
       // Handle polygon complete
       google.maps.event.addListener(drawingManager, "polygoncomplete", (polygon: google.maps.Polygon) => {
-        // Remove previous polygon
         if (polygonRef.current) {
           polygonRef.current.setMap(null);
         }
@@ -126,7 +131,6 @@ export function LocationMapModal({
         setIsDrawing(false);
         drawingManager.setDrawingMode(null);
 
-        // Extract points
         const path = polygon.getPath();
         const points: Array<{ lat: number; lng: number }> = [];
         for (let i = 0; i < path.getLength(); i++) {
@@ -135,7 +139,6 @@ export function LocationMapModal({
         }
         setPolygonPoints(points);
 
-        // Update on edit
         google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygon));
         google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygon));
       });
@@ -159,8 +162,8 @@ export function LocationMapModal({
         }
       });
 
-      // Trigger multiple resize events to ensure proper rendering
-      [100, 300, 500].forEach(delay => {
+      // Trigger multiple resize events
+      [100, 300, 600].forEach(delay => {
         setTimeout(() => {
           if (mapInstanceRef.current && google) {
             google.maps.event.trigger(mapInstanceRef.current, 'resize');
@@ -168,7 +171,10 @@ export function LocationMapModal({
           }
         }, delay);
       });
-    }, 200);
+    };
+
+    // Start initialization with a small delay
+    const initTimeout = setTimeout(initMap, 100);
 
     return () => {
       clearTimeout(initTimeout);
