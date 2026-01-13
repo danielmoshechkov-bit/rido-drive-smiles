@@ -60,42 +60,44 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return Math.round(R * c);
 }
 
-// Get Google API key from Supabase
+// Get Google API key from Supabase - prioritize backend key for POI
 async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  // Try to get from environment first (stored via Supabase Secrets)
-  const envKey = Deno.env.get("GOOGLE_API_KEY");
-  if (envKey) {
-    console.log("Using Google API key from environment variable");
-    return envKey;
-  }
-
-  // Fallback: check location_integrations table for google_places provider
+  // First check location_integrations table for dedicated backend/POI key
   try {
     const { data: integration, error } = await supabase
       .from("location_integrations")
       .select("config")
       .eq("provider", "google_places")
-      .eq("is_enabled", true)
       .limit(1)
       .single();
 
-    if (error) {
-      console.log("Error fetching location_integrations:", error.message);
-      return null;
-    }
-
-    if (integration?.config && typeof integration.config === 'object') {
+    if (!error && integration?.config && typeof integration.config === 'object') {
       const config = integration.config as Record<string, unknown>;
+      
+      // Priority 1: Dedicated backend/POI key (google_places_api_key)
+      if (config.google_places_api_key && typeof config.google_places_api_key === 'string') {
+        console.log("Using dedicated Google Places API key from database (backend/POI key)");
+        return config.google_places_api_key;
+      }
+      
+      // Priority 2: General google_api_key from database
       if (config.google_api_key && typeof config.google_api_key === 'string') {
-        console.log("Using Google API key from location_integrations table");
+        console.log("Using Google API key from location_integrations table (general key)");
         return config.google_api_key;
       }
     }
   } catch (error) {
-    console.error("Exception fetching Google API key:", error);
+    console.log("Error fetching location_integrations:", error);
   }
 
-  console.log("No Google API key found in environment or database");
+  // Priority 3: Fallback to environment variable (Supabase Secrets)
+  const envKey = Deno.env.get("GOOGLE_API_KEY");
+  if (envKey) {
+    console.log("Using Google API key from environment variable (Supabase Secrets)");
+    return envKey;
+  }
+
+  console.log("No Google API key found in database or environment");
   return null;
 }
 
