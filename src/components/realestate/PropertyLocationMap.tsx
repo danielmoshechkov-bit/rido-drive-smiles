@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2,
-  Heart, Building2, Pill, Settings2
+  Heart, Building2, Pill, ChevronDown, Check
 } from "lucide-react";
 
 interface PropertyLocationMapProps {
@@ -66,18 +66,25 @@ interface LocationApiData {
   mock?: boolean;
 }
 
+type RatingLevel = 'excellent' | 'very_good' | 'good' | 'average' | 'poor';
+
 const RADIUS_OPTIONS = [200, 300, 500, 1000];
 
-const TRAFFIC_COLORS: Record<string, string> = {
-  low: "bg-green-500",
-  medium: "bg-yellow-500",
-  high: "bg-red-500"
+// Rating color gradient: green → lime → yellow → orange → amber
+const RATING_COLORS: Record<RatingLevel, string> = {
+  excellent: "bg-green-500",
+  very_good: "bg-lime-500",
+  good: "bg-yellow-500",
+  average: "bg-orange-500",
+  poor: "bg-amber-600"
 };
 
-const TRAFFIC_LABELS: Record<string, string> = {
-  low: "Niskie",
-  medium: "Średnie", 
-  high: "Wysokie"
+const RATING_LABELS: Record<RatingLevel, string> = {
+  excellent: "Doskonała",
+  very_good: "Bardzo dobra",
+  good: "Dobra",
+  average: "Średnia",
+  poor: "Słaba"
 };
 
 const TRANSIT_TYPE_LABELS: Record<string, string> = {
@@ -88,12 +95,46 @@ const TRANSIT_TYPE_LABELS: Record<string, string> = {
   light_rail_station: "Tramwaj"
 };
 
+// Rating functions
+const getTransitRating = (stopsCount: number): RatingLevel => {
+  if (stopsCount >= 5) return 'excellent';
+  if (stopsCount >= 4) return 'very_good';
+  if (stopsCount >= 2) return 'good';
+  if (stopsCount >= 1) return 'average';
+  return 'poor';
+};
+
+const getTrafficRating = (trafficRatio: number): RatingLevel => {
+  if (trafficRatio < 1.1) return 'excellent';
+  if (trafficRatio < 1.25) return 'very_good';
+  if (trafficRatio < 1.4) return 'good';
+  if (trafficRatio < 1.6) return 'average';
+  return 'poor';
+};
+
+const getAirQualityRating = (aqi: number): RatingLevel => {
+  if (aqi <= 50) return 'excellent';
+  if (aqi <= 75) return 'very_good';
+  if (aqi <= 100) return 'good';
+  if (aqi <= 150) return 'average';
+  return 'poor';
+};
+
+const getPoiRating = (count: number, nearestDistance?: number): RatingLevel => {
+  if (count >= 3 && nearestDistance && nearestDistance < 200) return 'excellent';
+  if (count >= 2 && nearestDistance && nearestDistance < 300) return 'very_good';
+  if (count >= 1 && nearestDistance && nearestDistance < 500) return 'good';
+  if (count >= 1) return 'average';
+  return 'poor';
+};
+
 export function PropertyLocationMap({ latitude, longitude, address }: PropertyLocationMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedRadius, setSelectedRadius] = useState(300);
   const [customRadius, setCustomRadius] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [radiusOpen, setRadiusOpen] = useState(false);
   const [locationData, setLocationData] = useState<LocationApiData | null>(null);
   const [isMock, setIsMock] = useState(true);
 
@@ -141,14 +182,10 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     fetchLocationData(selectedRadius);
   }, [latitude, longitude]);
 
-  const handleRadiusChange = (value: string) => {
-    if (value === "custom") {
-      setShowCustomInput(true);
-      return;
-    }
-    setShowCustomInput(false);
-    const radius = parseInt(value);
+  const handleRadiusSelect = (radius: number) => {
     setSelectedRadius(radius);
+    setRadiusOpen(false);
+    setShowCustomInput(false);
     fetchLocationData(radius);
   };
 
@@ -157,6 +194,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     if (radius >= 100 && radius <= 2000) {
       setSelectedRadius(radius);
       setShowCustomInput(false);
+      setRadiusOpen(false);
       fetchLocationData(radius);
     }
   };
@@ -165,8 +203,10 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const poi = locationData?.poi;
   const traffic = locationData?.traffic;
 
-  const trafficColor = traffic ? TRAFFIC_COLORS[traffic.traffic_level] : "bg-gray-500";
-  const trafficLabel = traffic ? TRAFFIC_LABELS[traffic.traffic_level] : "Brak danych";
+  // Calculate ratings
+  const transitRating = transit ? getTransitRating(transit.stops_within_radius) : 'poor';
+  const trafficRating = traffic ? getTrafficRating(traffic.traffic_ratio) : 'average';
+  const airQualityRating = getAirQualityRating(42); // Mock AQI for now
 
   return (
     <div>
@@ -215,43 +255,74 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
             <h3 className="font-semibold flex items-center gap-2">
               📊 Wskaźniki lokalizacji
             </h3>
+          </div>
+
+          {/* Radius Selector - Framed clickable button */}
+          <div className="flex items-center justify-center p-3 mb-4 rounded-lg bg-primary/5 border border-primary/20">
+            <MapPin className="h-4 w-4 text-primary mr-2" />
+            <span className="text-sm text-muted-foreground">Sprawdzam w promieniu</span>
             
-            {/* Radius Selector */}
-            <div className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4 text-muted-foreground" />
-              {showCustomInput ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    value={customRadius}
-                    onChange={(e) => setCustomRadius(e.target.value)}
-                    placeholder="100-2000"
-                    className="w-20 h-8 text-sm"
-                    min={100}
-                    max={2000}
-                  />
-                  <span className="text-xs text-muted-foreground">m</span>
-                  <Button size="sm" variant="outline" className="h-8 px-2" onClick={handleCustomRadiusSubmit}>
-                    OK
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setShowCustomInput(false)}>
-                    ✕
-                  </Button>
+            <Popover open={radiusOpen} onOpenChange={setRadiusOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-3 mx-2 font-medium border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors"
+                >
+                  {selectedRadius}m
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="center">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+                    Wybierz promień wyszukiwania
+                  </p>
+                  {RADIUS_OPTIONS.map(r => (
+                    <Button
+                      key={r}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-between h-9"
+                      onClick={() => handleRadiusSelect(r)}
+                    >
+                      {r}m
+                      {selectedRadius === r && <Check className="h-4 w-4 text-primary" />}
+                    </Button>
+                  ))}
+                  <div className="border-t my-2" />
+                  {showCustomInput ? (
+                    <div className="flex items-center gap-1 px-2">
+                      <Input
+                        type="number"
+                        value={customRadius}
+                        onChange={(e) => setCustomRadius(e.target.value)}
+                        placeholder="100-2000"
+                        className="h-8 text-sm"
+                        min={100}
+                        max={2000}
+                        autoFocus
+                      />
+                      <span className="text-xs text-muted-foreground">m</span>
+                      <Button size="sm" variant="default" className="h-8 px-2" onClick={handleCustomRadiusSubmit}>
+                        OK
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-9 text-muted-foreground"
+                      onClick={() => setShowCustomInput(true)}
+                    >
+                      Inny promień...
+                    </Button>
+                  )}
                 </div>
-              ) : (
-                <Select value={selectedRadius.toString()} onValueChange={handleRadiusChange}>
-                  <SelectTrigger className="w-[100px] h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RADIUS_OPTIONS.map(r => (
-                      <SelectItem key={r} value={r.toString()}>{r}m</SelectItem>
-                    ))}
-                    <SelectItem value="custom">Inny...</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+              </PopoverContent>
+            </Popover>
+
+            <span className="text-sm text-muted-foreground">od lokalizacji</span>
           </div>
 
           {loading ? (
@@ -271,7 +342,9 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                     <p className="text-sm text-muted-foreground">AQI: 42</p>
                   </div>
                 </div>
-                <Badge className="bg-green-500 text-white">Dobra</Badge>
+                <Badge className={`${RATING_COLORS[airQualityRating]} text-white`}>
+                  {RATING_LABELS[airQualityRating]}
+                </Badge>
               </div>
 
               {/* Traffic */}
@@ -292,7 +365,12 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge className={`${trafficColor} text-white`}>{trafficLabel}</Badge>
+                  <Badge className={`${RATING_COLORS[trafficRating]} text-white`}>
+                    {traffic?.traffic_ratio 
+                      ? `${(traffic.traffic_ratio * 100 - 100).toFixed(0)}% więcej`
+                      : RATING_LABELS[trafficRating]
+                    }
+                  </Badge>
                   {traffic && traffic.duration_minutes > 0 && (
                     <span className="text-xs text-muted-foreground">
                       ({traffic.distance_km} km)
@@ -319,11 +397,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge className={transit && transit.stops_within_radius > 3 ? "bg-green-500 text-white" : transit && transit.stops_within_radius > 0 ? "bg-yellow-500 text-white" : "bg-red-500 text-white"}>
+                  <Badge className={`${RATING_COLORS[transitRating]} text-white`}>
                     {transit?.stops_within_radius || 0} przystanków
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    w promieniu {selectedRadius}m
+                    {RATING_LABELS[transitRating]}
                   </span>
                 </div>
               </div>
@@ -344,136 +422,184 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
               )}
 
               {/* POI: Grocery */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <ShoppingBag className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.grocery.count || 0, poi?.categories.grocery.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <ShoppingBag className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Sklepy spożywcze</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.grocery.nearest ? (
+                            <>Najbliższy: {poi.categories.grocery.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.grocery.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Sklepy spożywcze</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.grocery.nearest ? (
-                        <>Najbliższy: {poi.categories.grocery.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.grocery.count || 0}
-                </span>
-              </div>
+                );
+              })()}
 
               {/* POI: Schools */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <GraduationCap className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.school.count || 0, poi?.categories.school.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <GraduationCap className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Szkoły</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.school.nearest ? (
+                            <>Najbliższa: {poi.categories.school.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.school.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Szkoły</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.school.nearest ? (
-                        <>Najbliższa: {poi.categories.school.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.school.count || 0}
-                </span>
-              </div>
+                );
+              })()}
 
               {/* POI: Pharmacy */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Pill className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.pharmacy.count || 0, poi?.categories.pharmacy.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Pill className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Apteki</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.pharmacy.nearest ? (
+                            <>Najbliższa: {poi.categories.pharmacy.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.pharmacy.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Apteki</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.pharmacy.nearest ? (
-                        <>Najbliższa: {poi.categories.pharmacy.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.pharmacy.count || 0}
-                </span>
-              </div>
+                );
+              })()}
 
               {/* POI: Restaurants */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Building2 className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.restaurant.count || 0, poi?.categories.restaurant.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Restauracje i kawiarnie</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.restaurant.nearest ? (
+                            <>Najbliższa: {poi.categories.restaurant.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.restaurant.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Restauracje i kawiarnie</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.restaurant.nearest ? (
-                        <>Najbliższa: {poi.categories.restaurant.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.restaurant.count || 0}
-                </span>
-              </div>
+                );
+              })()}
 
               {/* POI: Health */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Heart className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.health.count || 0, poi?.categories.health.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Heart className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Służba zdrowia</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.health.nearest ? (
+                            <>Najbliższa: {poi.categories.health.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.health.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Służba zdrowia</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.health.nearest ? (
-                        <>Najbliższa: {poi.categories.health.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.health.count || 0}
-                </span>
-              </div>
+                );
+              })()}
 
               {/* POI: Parks */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <TreePine className="h-5 w-5 text-primary" />
+              {(() => {
+                const rating = getPoiRating(poi?.categories.park.count || 0, poi?.categories.park.nearest?.distance_m);
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <TreePine className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Parki i zieleń</p>
+                        <p className="text-sm text-muted-foreground">
+                          {poi?.categories.park.nearest ? (
+                            <>Najbliższy: {poi.categories.park.nearest.distance_m}m</>
+                          ) : (
+                            `W promieniu ${selectedRadius}m`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-primary">
+                        {poi?.categories.park.count || 0}
+                      </span>
+                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Parki i zieleń</p>
-                    <p className="text-sm text-muted-foreground">
-                      {poi?.categories.park.nearest ? (
-                        <>Najbliższy: {poi.categories.park.nearest.distance_m}m</>
-                      ) : (
-                        `W promieniu ${selectedRadius}m`
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  {poi?.categories.park.count || 0}
-                </span>
-              </div>
+                );
+              })()}
             </div>
           )}
 
