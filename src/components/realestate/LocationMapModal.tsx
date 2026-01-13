@@ -645,29 +645,27 @@ export function LocationMapModal({
     }
   }, [circleCenter, radius, mode, google]);
 
-  // Handle polygon mode - draw existing polygon
+  // Handle polygon mode - draw existing polygon (LOCKED - no editable handles)
   useEffect(() => {
     if (!google || !mapInstanceRef.current) return;
 
     if (mode === "polygon") {
       circleRef.current?.setMap(null);
       
-      // If we have existing polygon points and not drawing, draw them
+      // If we have existing polygon points and not drawing, draw them LOCKED
       if (polygonPoints.length > 0 && !polygonRef.current && !isDrawing) {
         polygonRef.current = new google.maps.Polygon({
           map: mapInstanceRef.current,
           paths: polygonPoints,
           fillColor: "#3b82f6",
-          fillOpacity: 0.2,
+          fillOpacity: 0.25,
           strokeColor: "#3b82f6",
-          strokeWeight: 2,
-          editable: true,
-          draggable: true,
+          strokeWeight: 2.5,
+          editable: false,   // LOCKED - no visible vertex handles
+          draggable: false,  // LOCKED - cannot drag
+          clickable: true,   // Allow click for info
         });
-
-        const path = polygonRef.current.getPath();
-        google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygonRef.current!));
-        google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygonRef.current!));
+        // NO path listeners - polygon is locked
       }
     } else {
       polygonRef.current?.setMap(null);
@@ -738,21 +736,19 @@ export function LocationMapModal({
       console.log('[LocationMapModal] Polygon created with', drawingPoints.length, 'points');
       setPolygonPoints([...drawingPoints]);
 
-      // Create final editable polygon
+      // Create final LOCKED polygon (no visible vertex handles)
       polygonRef.current = new google.maps.Polygon({
         map: mapInstanceRef.current,
         paths: drawingPoints,
         fillColor: "#3b82f6",
-        fillOpacity: 0.2,
+        fillOpacity: 0.25,
         strokeColor: "#3b82f6",
-        strokeWeight: 2,
-        editable: true,
-        draggable: true,
+        strokeWeight: 2.5,
+        editable: false,   // LOCKED - no visible vertex handles
+        draggable: false,  // LOCKED - cannot drag
+        clickable: true,   // Allow click for info
       });
-
-      const path = polygonRef.current.getPath();
-      google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygonRef.current!));
-      google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygonRef.current!));
+      // NO path listeners - polygon is locked after drawing
     }
 
     // Cleanup temp drawing
@@ -889,7 +885,10 @@ export function LocationMapModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0" aria-describedby="location-modal-description">
+        <span id="location-modal-description" className="sr-only">
+          Modal do wyboru obszaru na mapie - rysuj okrąg lub własny kształt
+        </span>
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
