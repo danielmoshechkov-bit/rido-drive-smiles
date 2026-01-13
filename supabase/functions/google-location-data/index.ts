@@ -200,7 +200,8 @@ async function fetchPoiData(
   latitude: number,
   longitude: number,
   radius: number,
-  apiKey: string
+  apiKey: string,
+  filterCategories?: string[] // Optional: only fetch specific categories
 ): Promise<{
   radius_m: number;
   categories: Record<string, { 
@@ -210,7 +211,12 @@ async function fetchPoiData(
 }> {
   const categories: Record<string, { count: number; nearest: { name: string; distance_m: number } | null }> = {};
 
-  for (const [categoryKey, types] of Object.entries(POI_CATEGORIES)) {
+  // If specific categories are requested, filter POI_CATEGORIES
+  const categoriesToFetch = filterCategories 
+    ? Object.entries(POI_CATEGORIES).filter(([key]) => filterCategories.includes(key))
+    : Object.entries(POI_CATEGORIES);
+
+  for (const [categoryKey, types] of categoriesToFetch) {
     const pois: Array<{ name: string; distance_m: number }> = [];
 
     for (const type of types) {
@@ -333,7 +339,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, latitude, longitude, radius = 300, reference_point } = await req.json();
+    const { action, latitude, longitude, radius = 300, reference_point, categories: filterCategories } = await req.json();
 
     if (!latitude || !longitude) {
       return new Response(
@@ -393,7 +399,7 @@ serve(async (req) => {
         break;
 
       case "poi":
-        response = await fetchPoiData(latitude, longitude, radius, apiKey);
+        response = await fetchPoiData(latitude, longitude, radius, apiKey, filterCategories);
         break;
 
       case "traffic":
