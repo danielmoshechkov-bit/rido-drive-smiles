@@ -958,7 +958,7 @@ export function LocationMapModal({
         <div className="px-2 sm:px-4 pb-2 sm:pb-3">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 border rounded-lg p-2 sm:p-3 bg-muted/30">
             {/* Location Search - Compact */}
-            <div className="w-20 sm:w-28 max-w-[80px] sm:max-w-[120px]">
+            <div className="w-40 sm:w-56 max-w-[160px] sm:max-w-[220px]">
               <LocationSearchInput
                 value={searchLocation}
                 onChange={setSearchLocation}
