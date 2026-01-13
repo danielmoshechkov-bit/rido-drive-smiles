@@ -328,7 +328,7 @@ export function LocationMapModal({
     });
   }, [mode, google, isDrawing, drawingMode, drawingPoints.length]);
 
-  // BRUSH mode: mousedown, mousemove, mouseup handlers
+  // BRUSH mode: mousedown, mousemove, mouseup handlers + TOUCH support
   useEffect(() => {
     if (!mapInstanceRef.current || !google || mode !== "polygon" || !isDrawing || drawingMode !== "brush") {
       return;
@@ -337,74 +337,86 @@ export function LocationMapModal({
     const map = mapInstanceRef.current;
     const mapDiv = map.getDiv();
 
-    const handleMouseDown = (e: MouseEvent) => {
-      console.log('[LocationMapModal] BRUSH: mousedown');
-      isBrushDrawingRef.current = true;
-      lastBrushPointRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    // Convert pixel to lat/lng
+    const pixelToLatLng = (clientX: number, clientY: number): { lat: number; lng: number } | null => {
+      const bounds = mapDiv.getBoundingClientRect();
+      const x = clientX - bounds.left;
+      const y = clientY - bounds.top;
       
-      // Clear previous drawing
+      const mapBounds = map.getBounds();
+      if (!mapBounds) return null;
+      
+      const ne = mapBounds.getNorthEast();
+      const sw = mapBounds.getSouthWest();
+      
+      const lat = sw.lat() + (1 - y / bounds.height) * (ne.lat() - sw.lat());
+      const lng = sw.lng() + (x / bounds.width) * (ne.lng() - sw.lng());
+      
+      return { lat, lng };
+    };
+
+    // Unified start handler
+    const handleStart = (clientX: number, clientY: number) => {
+      console.log('[LocationMapModal] BRUSH: start');
+      isBrushDrawingRef.current = true;
+      lastBrushPointRef.current = { x: clientX, y: clientY, time: Date.now() };
+      
       cleanupTempDrawing();
       setDrawingPoints([]);
       
-      // Get lat/lng from pixel
-      const point = pixelToLatLng(e.clientX, e.clientY);
+      const point = pixelToLatLng(clientX, clientY);
       if (point) {
         setDrawingPoints([point]);
         console.log('[LocationMapModal] BRUSH: first point', point);
       }
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
+    // Unified move handler
+    const handleMove = (clientX: number, clientY: number) => {
       if (!isBrushDrawingRef.current) return;
       
       const now = Date.now();
       const last = lastBrushPointRef.current;
       
-      // Throttle: min 10px distance OR 40ms since last point
+      // Throttle: min 8px distance OR 30ms since last point
       if (last) {
-        const dx = e.clientX - last.x;
-        const dy = e.clientY - last.y;
+        const dx = clientX - last.x;
+        const dy = clientY - last.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const timeDiff = now - last.time;
         
-        if (dist < 10 && timeDiff < 40) {
+        if (dist < 8 && timeDiff < 30) {
           return;
         }
       }
       
-      lastBrushPointRef.current = { x: e.clientX, y: e.clientY, time: now };
+      lastBrushPointRef.current = { x: clientX, y: clientY, time: now };
       
-      const point = pixelToLatLng(e.clientX, e.clientY);
+      const point = pixelToLatLng(clientX, clientY);
       if (point) {
         setDrawingPoints(prev => {
           const updated = [...prev, point];
-          updateBrushPolyline(updated); // Use polyline (line only) instead of polygon
+          updateBrushPolyline(updated);
           return updated;
         });
       }
     };
 
-    const handleMouseUp = () => {
+    // Unified end handler
+    const handleEnd = () => {
       if (!isBrushDrawingRef.current) return;
-      console.log('[LocationMapModal] BRUSH: mouseup');
+      console.log('[LocationMapModal] BRUSH: end');
       isBrushDrawingRef.current = false;
       lastBrushPointRef.current = null;
       
-      // Auto-finish if enough points
       setDrawingPoints(prev => {
         if (prev.length >= 3) {
-          // 1. Simplify polygon to max ~150 points
           let simplified = simplifyPolygonToMaxPoints(prev, 150);
-          
-          // 2. Smooth polygon (Chaikin) for rounder edges
           const smoothed = smoothPolygon(simplified, 2);
-          
-          // 3. Re-simplify after smoothing (Chaikin increases point count)
           const final = simplifyPolygonToMaxPoints(smoothed, 200);
           
-          console.log('[LocationMapModal] BRUSH: original', prev.length, '-> simplified', simplified.length, '-> smoothed', smoothed.length, '-> final', final.length);
+          console.log('[LocationMapModal] BRUSH: original', prev.length, '-> final', final.length);
           
-          // Schedule finish drawing
           setTimeout(() => {
             finishBrushDrawing(final);
           }, 50);
@@ -415,49 +427,51 @@ export function LocationMapModal({
       });
     };
 
-    // Convert pixel to lat/lng
-    const pixelToLatLng = (clientX: number, clientY: number): { lat: number; lng: number } | null => {
-      const bounds = mapDiv.getBoundingClientRect();
-      const x = clientX - bounds.left;
-      const y = clientY - bounds.top;
-      
-      const projection = map.getProjection();
-      if (!projection) return null;
-      
-      const mapBounds = map.getBounds();
-      if (!mapBounds) return null;
-      
-      const ne = mapBounds.getNorthEast();
-      const sw = mapBounds.getSouthWest();
-      
-      const nePoint = projection.fromLatLngToPoint(ne);
-      const swPoint = projection.fromLatLngToPoint(sw);
-      
-      if (!nePoint || !swPoint) return null;
-      
-      const scale = Math.pow(2, map.getZoom() || 10);
-      const worldPoint = new google.maps.Point(
-        swPoint.x + (x / scale) * (nePoint.x - swPoint.x) / bounds.width * scale,
-        nePoint.y + (y / scale) * (swPoint.y - nePoint.y) / bounds.height * scale
-      );
-      
-      // Simpler approach: use overlay
-      const lat = sw.lat() + (1 - y / bounds.height) * (ne.lat() - sw.lat());
-      const lng = sw.lng() + (x / bounds.width) * (ne.lng() - sw.lng());
-      
-      return { lat, lng };
+    // Mouse event handlers
+    const handleMouseDown = (e: MouseEvent) => handleStart(e.clientX, e.clientY);
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+    const handleMouseUp = () => handleEnd();
+    const handleMouseLeave = () => handleEnd();
+
+    // Touch event handlers
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault(); // Prevent scroll/zoom during drawing
+      handleStart(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault(); // Prevent scroll/zoom during drawing
+      handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      handleEnd();
     };
 
+    // Add mouse listeners
     mapDiv.addEventListener('mousedown', handleMouseDown);
     mapDiv.addEventListener('mousemove', handleMouseMove);
     mapDiv.addEventListener('mouseup', handleMouseUp);
     mapDiv.addEventListener('mouseleave', handleMouseUp);
+    
+    // Add touch listeners with passive: false to allow preventDefault
+    mapDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
+    mapDiv.addEventListener('touchmove', handleTouchMove, { passive: false });
+    mapDiv.addEventListener('touchend', handleTouchEnd, { passive: false });
+    mapDiv.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
     return () => {
       mapDiv.removeEventListener('mousedown', handleMouseDown);
       mapDiv.removeEventListener('mousemove', handleMouseMove);
       mapDiv.removeEventListener('mouseup', handleMouseUp);
       mapDiv.removeEventListener('mouseleave', handleMouseUp);
+      mapDiv.removeEventListener('touchstart', handleTouchStart);
+      mapDiv.removeEventListener('touchmove', handleTouchMove);
+      mapDiv.removeEventListener('touchend', handleTouchEnd);
+      mapDiv.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [mode, google, isDrawing, drawingMode]);
 
@@ -926,63 +940,67 @@ export function LocationMapModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0" aria-describedby="location-modal-description">
+      <DialogContent 
+        className="max-w-4xl h-[95vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden" 
+        aria-describedby="location-modal-description"
+      >
         <span id="location-modal-description" className="sr-only">
           Modal do wyboru obszaru na mapie - rysuj okrąg lub własny kształt
         </span>
-        <DialogHeader className="p-4 pb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
+        <DialogHeader className="p-3 sm:p-4 pb-2">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             Wybierz obszar na mapie
           </DialogTitle>
         </DialogHeader>
 
         {/* Controls Row - Location + Mode + Radius */}
-        <div className="px-4 pb-3">
-          <div className="flex flex-wrap items-center gap-3 border rounded-lg p-3 bg-muted/30">
+        <div className="px-2 sm:px-4 pb-2 sm:pb-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 border rounded-lg p-2 sm:p-3 bg-muted/30">
             {/* Location Search */}
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[140px] sm:min-w-[200px]">
               <LocationSearchInput
                 value={searchLocation}
                 onChange={setSearchLocation}
                 onLocationSelect={handleLocationSelect}
-                placeholder="Wpisz miasto, dzielnicę..."
+                placeholder="Szukaj..."
+                className="h-8 sm:h-9 text-sm"
               />
             </div>
             
             {/* Mode Selector */}
             <Tabs value={mode} onValueChange={(v) => setMode(v as "circle" | "polygon")}>
-              <TabsList className="h-9">
-                <TabsTrigger value="circle" className="gap-1 px-3 h-8">
+              <TabsList className="h-8 sm:h-9">
+                <TabsTrigger value="circle" className="gap-1 px-2 sm:px-3 h-7 sm:h-8 text-xs">
                   <Circle className="h-3 w-3" />
-                  Okrąg
+                  <span className="hidden xs:inline">Okrąg</span>
                 </TabsTrigger>
-                <TabsTrigger value="polygon" className="gap-1 px-3 h-8">
+                <TabsTrigger value="polygon" className="gap-1 px-2 sm:px-3 h-7 sm:h-8 text-xs">
                   <Pentagon className="h-3 w-3" />
-                  Własny obszar
+                  <span className="hidden xs:inline">Własny</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
             
             {/* Radius Input (only for circle mode) */}
             {mode === "circle" && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Promień:</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap hidden sm:inline">Promień:</span>
                 <Input
                   type="number"
                   value={radiusInput}
                   onChange={(e) => handleRadiusInputChange(e.target.value)}
-                  className="w-20 h-9"
+                  className="w-16 sm:w-20 h-8 sm:h-9 text-xs sm:text-sm"
                   min={MIN_RADIUS}
                   max={MAX_RADIUS}
                 />
-                <span className="text-sm text-muted-foreground">m</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">m</span>
               </div>
             )}
             
             {/* Polygon mode controls */}
             {mode === "polygon" && (
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap">
                 {/* Drawing mode indicator and switch to points */}
                 {isDrawing && (
                   <>
@@ -997,10 +1015,10 @@ export function LocationMapModal({
                           setTimeout(() => handleStartDrawing(), 50);
                         }
                       }}
-                      className="h-8 text-xs gap-1"
+                      className="h-7 sm:h-8 text-xs gap-1 px-2"
                     >
                       <Paintbrush className="h-3 w-3" />
-                      Rysuj pędzlem
+                      <span className="hidden xs:inline">Pędzel</span>
                     </Button>
                     
                     {/* Points mode button */}
@@ -1014,10 +1032,10 @@ export function LocationMapModal({
                           setTimeout(() => handleStartDrawing(), 50);
                         }
                       }}
-                      className="h-8 text-xs gap-1"
+                      className="h-7 sm:h-8 text-xs gap-1 px-2"
                     >
                       <MapPin className="h-3 w-3" />
-                      Stawiaj punkty
+                      <span className="hidden xs:inline">Punkty</span>
                     </Button>
                     
                     {drawingMode === "points" && drawingPoints.length >= 3 && (
@@ -1025,37 +1043,37 @@ export function LocationMapModal({
                         size="sm" 
                         variant="default" 
                         onClick={handleFinishDrawing}
-                        className="h-8"
+                        className="h-7 sm:h-8 text-xs px-2"
                       >
-                        <Check className="h-4 w-4 mr-1" />
-                        Zamknij
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        OK
                       </Button>
                     )}
                     <Button 
                       size="sm" 
                       variant="ghost" 
                       onClick={handleCancelDrawing}
-                      className="h-8"
+                      className="h-7 sm:h-8 px-2"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </>
                 )}
                 
                 {/* Buffer radius - show when polygon is drawn */}
                 {!isDrawing && polygonPoints.length >= 3 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Bufor:</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap hidden sm:inline">Bufor:</span>
                     <Input
                       type="number"
                       value={bufferRadiusInput}
                       onChange={(e) => handleBufferRadiusChange(e.target.value)}
-                      className="w-20 h-9"
+                      className="w-14 sm:w-20 h-8 sm:h-9 text-xs"
                       min={0}
                       max={10000}
                       placeholder="0"
                     />
-                    <span className="text-sm text-muted-foreground">m</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">m</span>
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -1065,9 +1083,10 @@ export function LocationMapModal({
                         setDrawingMode("brush");
                         setTimeout(() => handleStartDrawing(), 50);
                       }}
-                      className="h-8 text-xs"
+                      className="h-7 sm:h-8 text-xs px-2"
                     >
-                      Rysuj nowy
+                      <Paintbrush className="h-3 w-3 mr-1" />
+                      <span className="hidden xs:inline">Nowy</span>
                     </Button>
                   </div>
                 )}
@@ -1077,63 +1096,76 @@ export function LocationMapModal({
         </div>
 
         {/* Instruction Line */}
-        <div className="px-4 pb-2">
+        <div className="px-2 sm:px-4 pb-1 sm:pb-2">
           <p className="text-xs text-muted-foreground">
             {mode === "circle" 
               ? (circleCenter 
                   ? `✓ Wybrany obszar: okrąg ${formatRadius(radius)}` 
-                  : "Kliknij na mapie lub wyszukaj lokalizację aby wybrać środek okręgu")
+                  : "Dotknij mapę lub wyszukaj lokalizację")
               : (isDrawing 
                   ? (drawingMode === "points"
-                      ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3)`
-                      : `Rysuj palcem/myszką po mapie`)
+                      ? `Dotknij punkty (${drawingPoints.length}/min.3)`
+                      : `🎨 Rysuj palcem po mapie...`)
                   : polygonPoints.length >= 3 
                     ? `✓ Obszar narysowany${bufferRadius > 0 ? ` + bufor ${bufferRadius}m` : ""}`
-                    : "Rysuj po mapie aby zaznaczyć obszar")
+                    : "Narysuj obszar na mapie")
             }
           </p>
         </div>
 
-        {/* Map - explicit dimensions to ensure proper rendering */}
+        {/* Map - responsive dimensions */}
         <div 
-          className="relative mx-4 mb-4 rounded-lg overflow-hidden border flex-1"
+          className="relative mx-2 sm:mx-4 mb-2 sm:mb-4 rounded-lg overflow-hidden border flex-1"
           style={{ 
-            width: 'calc(100% - 2rem)', 
-            minHeight: '460px'
+            width: 'calc(100% - 1rem)', 
+            minHeight: '280px'
           }}
         >
           {!isLoaded && !error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2" style={{ minHeight: '460px' }}>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Ładowanie Google Maps...</p>
+              <p className="text-sm text-muted-foreground">Ładowanie mapy...</p>
             </div>
           ) : error || isTimedOut ? (
             renderErrorState()
           ) : (
             <div 
               ref={mapRef} 
-              style={{ width: '100%', height: '100%', minHeight: '460px' }}
+              className="w-full h-full min-h-[280px] sm:min-h-[400px]"
+              style={{ touchAction: isDrawing ? 'none' : 'auto' }}
             />
           )}
         </div>
 
         {/* Actions */}
-        <div className="p-4 pt-0 flex items-center justify-between border-t bg-muted/50">
+        <div className="p-2 sm:p-4 pt-0 flex items-center justify-between border-t bg-muted/50">
           <Button
             variant="outline"
+            size="sm"
             onClick={handleClear}
             disabled={!hasValidArea && !isDrawing}
+            className="h-8 sm:h-9 text-xs sm:text-sm"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Wyczyść obszar
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Wyczyść</span>
           </Button>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 sm:h-9 text-xs sm:text-sm"
+            >
               Anuluj
             </Button>
-            <Button onClick={handleConfirm} disabled={!hasValidArea}>
-              <Check className="h-4 w-4 mr-2" />
+            <Button 
+              onClick={handleConfirm} 
+              disabled={!hasValidArea}
+              size="sm"
+              className="h-8 sm:h-9 text-xs sm:text-sm"
+            >
+              <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Zatwierdź
             </Button>
           </div>
