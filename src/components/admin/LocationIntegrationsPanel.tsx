@@ -24,7 +24,9 @@ import {
   XCircle,
   Loader2,
   Info,
-  Settings
+  Settings,
+  AlertTriangle,
+  Server
 } from "lucide-react";
 
 interface Integration {
@@ -120,6 +122,15 @@ export function LocationIntegrationsPanel() {
   const [savingGoogleKey, setSavingGoogleKey] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"success" | "error" | null>(null);
+  
+  // Backend/POI API key state
+  const [googlePlacesApiKey, setGooglePlacesApiKey] = useState("");
+  const [showGooglePlacesApiKey, setShowGooglePlacesApiKey] = useState(false);
+  const [editingPlacesKey, setEditingPlacesKey] = useState(false);
+  const [hasGooglePlacesApiKey, setHasGooglePlacesApiKey] = useState(false);
+  const [savingPlacesKey, setSavingPlacesKey] = useState(false);
+  const [testingPoiConnection, setTestingPoiConnection] = useState(false);
+  const [poiConnectionStatus, setPoiConnectionStatus] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
     fetchIntegrations();
@@ -133,11 +144,18 @@ export function LocationIntegrationsPanel() {
         .from("location_integrations")
         .select("api_key_secret_name, config")
         .or("provider.eq.google_places,provider.eq.google_maps,provider.eq.google_traffic")
-        .not("api_key_secret_name", "is", null)
         .limit(1);
 
       if (data && data.length > 0) {
-        setHasGoogleApiKey(true);
+        const config = data[0]?.config as Record<string, unknown> | null;
+        // Check for frontend key
+        if (data[0]?.api_key_secret_name || config?.google_api_key) {
+          setHasGoogleApiKey(true);
+        }
+        // Check for backend/POI key
+        if (config?.google_places_api_key) {
+          setHasGooglePlacesApiKey(true);
+        }
       }
     } catch (error) {
       console.error("Error checking Google API key:", error);
@@ -249,6 +267,96 @@ export function LocationIntegrationsPanel() {
       toast.error("Test połączenia nie powiódł się");
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  // Save backend/POI API key
+  const handleSaveGooglePlacesApiKey = async () => {
+    if (!googlePlacesApiKey.trim()) {
+      toast.error("Wprowadź klucz Google Places API");
+      return;
+    }
+
+    setSavingPlacesKey(true);
+    try {
+      // Save to the google_places integration config
+      const integration = integrations.find(i => i.integration_type === "poi" || i.provider === "google_places");
+      if (integration) {
+        const { error } = await supabase
+          .from("location_integrations")
+          .update({ 
+            config: { 
+              ...integration.config,
+              google_places_api_key: googlePlacesApiKey 
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", integration.id);
+
+        if (error) throw error;
+      } else {
+        // Create new entry if doesn't exist
+        const { error } = await supabase
+          .from("location_integrations")
+          .upsert({
+            integration_type: "poi",
+            provider: "google_places",
+            is_enabled: true,
+            config: { google_places_api_key: googlePlacesApiKey }
+          }, { onConflict: "integration_type" });
+
+        if (error) throw error;
+      }
+
+      setHasGooglePlacesApiKey(true);
+      setGooglePlacesApiKey("");
+      setEditingPlacesKey(false);
+      await fetchIntegrations();
+      toast.success("Klucz Google Places API (backend) zapisany pomyślnie");
+    } catch (error) {
+      console.error("Error saving Google Places API key:", error);
+      toast.error("Błąd zapisywania klucza API");
+    } finally {
+      setSavingPlacesKey(false);
+    }
+  };
+
+  // Test POI connection
+  const handleTestPoiConnection = async () => {
+    setTestingPoiConnection(true);
+    setPoiConnectionStatus(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("google-location-data", {
+        body: {
+          action: "poi",
+          latitude: 52.2297,
+          longitude: 21.0122,
+          radius: 500,
+          categories: ["grocery"]
+        }
+      });
+
+      if (error) throw error;
+
+      console.log("POI test result:", data);
+
+      if (data && !data.mock && data.categories?.grocery?.count > 0) {
+        setPoiConnectionStatus("success");
+        toast.success(`POI działa! Znaleziono ${data.categories.grocery.count} sklepów w promieniu 500m od centrum Warszawy`);
+      } else if (data?.mock) {
+        setPoiConnectionStatus("error");
+        toast.error("Klucz API backend nie jest skonfigurowany");
+      } else if (data?.categories?.grocery?.count === 0) {
+        setPoiConnectionStatus("error");
+        toast.error("Klucz API ma nieprawidłowe ograniczenia. Zmień na 'None' lub 'IP addresses' w Google Cloud Console.");
+      }
+    } catch (error) {
+      console.error("POI connection test failed:", error);
+      setPoiConnectionStatus("error");
+      toast.error("Test połączenia POI nie powiódł się");
+    } finally {
+      setTestingPoiConnection(false);
     }
   };
 
@@ -429,6 +537,129 @@ export function LocationIntegrationsPanel() {
                     <XCircle className="h-4 w-4 text-destructive mr-2" />
                   ) : null}
                   Testuj połączenie
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Google Places API Key for Backend/POI - Separate key for Edge Functions */}
+      <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <Server className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Klucz Google Places API (Backend/POI)</CardTitle>
+                <CardDescription>
+                  Dedykowany klucz dla punktów POI: sklepy, szkoły, apteki, restauracje
+                </CardDescription>
+              </div>
+            </div>
+            {hasGooglePlacesApiKey ? (
+              <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                <CheckCircle2 className="h-3 w-3" />
+                Skonfigurowany
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                <AlertTriangle className="h-3 w-3" />
+                Brak klucza backend
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Warning about key restrictions */}
+          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                <p className="font-medium mb-1">⚠️ Ważne: Ograniczenia klucza API</p>
+                <p className="text-xs mb-2">
+                  Ten klucz jest używany przez Edge Functions (serwer). Klucz z ograniczeniem "HTTP referrers" 
+                  <strong> NIE zadziała</strong> i zawsze zwróci 0 wyników.
+                </p>
+                <p className="text-xs font-medium">
+                  W Google Cloud Console ustaw: Application restrictions → <strong>"None"</strong> lub <strong>"IP addresses"</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium mb-1">Wymagane API dla tego klucza:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-xs">
+                  <li>Places API (New) - punkty POI</li>
+                  <li>Distance Matrix API - czas dojazdu</li>
+                  <li>Geocoding API - geokodowanie</li>
+                </ul>
+                <p className="mt-2 text-xs opacity-80">
+                  Możesz użyć tego samego klucza co powyżej, jeśli ma odpowiednie ograniczenia (nie "HTTP referrers").
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {editingPlacesKey ? (
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showGooglePlacesApiKey ? "text" : "password"}
+                  placeholder="Wprowadź klucz Google Places API (backend)"
+                  value={googlePlacesApiKey}
+                  onChange={(e) => setGooglePlacesApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-10 px-3"
+                  onClick={() => setShowGooglePlacesApiKey(!showGooglePlacesApiKey)}
+                >
+                  {showGooglePlacesApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button onClick={handleSaveGooglePlacesApiKey} disabled={savingPlacesKey}>
+                {savingPlacesKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingPlacesKey(false)}>
+                Anuluj
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingPlacesKey(true)}
+              >
+                <Key className="h-4 w-4 mr-2" />
+                {hasGooglePlacesApiKey ? "Zmień klucz backend/POI" : "Dodaj klucz backend/POI"}
+              </Button>
+              {hasGooglePlacesApiKey && (
+                <Button
+                  variant="secondary"
+                  onClick={handleTestPoiConnection}
+                  disabled={testingPoiConnection}
+                >
+                  {testingPoiConnection ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : poiConnectionStatus === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                  ) : poiConnectionStatus === "error" ? (
+                    <XCircle className="h-4 w-4 text-destructive mr-2" />
+                  ) : (
+                    <MapPin className="h-4 w-4 mr-2" />
+                  )}
+                  Testuj POI
                 </Button>
               )}
             </div>
