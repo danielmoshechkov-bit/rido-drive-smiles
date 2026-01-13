@@ -35,74 +35,69 @@ const LegalPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
+      {/* White Header */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <Link to="/easy" className="flex items-center space-x-2">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
-                className="h-10 w-10"
+                className="h-6 w-6"
               />
-              <span className="text-2xl font-bold">GetRido</span>
+              <span className="text-xl font-bold text-primary">GetRido</span>
             </Link>
-            <img 
-              src="/lovable-uploads/98af44ce-0003-4b10-a988-d8dd9a60f459.png" 
-              alt="RIDO Mascot" 
-              className="h-16 w-16 object-contain"
-            />
           </div>
         </div>
+      </div>
 
-        {/* Tab Bar */}
-        <div className="border-t border-primary-foreground/20">
-          <div className="container mx-auto px-4">
-            {/* Desktop tabs */}
-            <div className="hidden md:flex gap-2 py-3">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => handleTabChange(tab.key)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                    activeTab === tab.key
-                      ? "bg-white text-primary shadow-md"
-                      : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+      {/* Purple Tab Bar */}
+      <div className="bg-primary">
+        <div className="container mx-auto px-4">
+          {/* Desktop tabs */}
+          <div className="hidden md:flex gap-2 py-3">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  activeTab === tab.key
+                    ? "bg-white text-primary shadow-md"
+                    : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-            {/* Mobile collapsible */}
-            <div className="md:hidden py-3">
-              <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-white text-primary rounded-lg font-medium">
-                  <span className="flex items-center gap-2">
-                    {activeTabData?.icon}
-                    {activeTabData?.label}
-                  </span>
-                  <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 space-y-1">
-                  {tabs.filter(t => t.key !== activeTab).map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => handleTabChange(tab.key)}
-                      className="flex items-center gap-2 w-full px-4 py-3 bg-primary-foreground/10 text-primary-foreground rounded-lg font-medium hover:bg-primary-foreground/20 transition-all"
-                    >
-                      {tab.icon}
-                      {tab.label}
-                    </button>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+          {/* Mobile collapsible */}
+          <div className="md:hidden py-3">
+            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-white text-primary rounded-lg font-medium">
+                <span className="flex items-center gap-2">
+                  {activeTabData?.icon}
+                  {activeTabData?.label}
+                </span>
+                <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 space-y-1">
+                {tabs.filter(t => t.key !== activeTab).map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => handleTabChange(tab.key)}
+                    className="flex items-center gap-2 w-full px-4 py-3 bg-primary-foreground/10 text-primary-foreground rounded-lg font-medium hover:bg-primary-foreground/20 transition-all"
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Content */}
       <main className="flex-1 container mx-auto px-4 py-8">

@@ -11,78 +11,78 @@ const Footer = () => {
   return (
     <footer className="bg-primary text-primary-foreground py-3">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Logo and Description */}
-          <div className="md:col-span-2">
-            <div className="flex items-center space-x-2 mb-3">
+          <div>
+            <Link to="/easy" className="flex items-center space-x-2 mb-2">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 
-                className="h-8 w-8"
+                className="h-6 w-6"
               />
-              <span className="text-xl font-bold">GetRido</span>
-            </div>
-            <p className="text-primary-foreground/80 text-sm max-w-md">
-              GetRido – inteligentny portal ogłoszeń i usług z AI na co dzień.
+              <span className="text-lg font-bold">GetRido</span>
+            </Link>
+            <p className="text-primary-foreground/80 text-xs max-w-xs">
+              GetRido – inteligentny portal, gdzie sprzedajesz, kupujesz i zlecasz z AI na co dzień.
             </p>
           </div>
 
-          {/* Quick Links */}
+          {/* Menu - 2x2 grid */}
           <div>
-            <h4 className="font-semibold mb-3">Menu</h4>
-            <nav className="space-y-1.5 text-sm">
+            <h4 className="font-semibold mb-2 text-sm">Menu</h4>
+            <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <button 
                 onClick={() => scrollToSection('home')}
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Strona główna
               </button>
               <button 
                 onClick={() => scrollToSection('cennik')}
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Cennik
               </button>
               <button 
                 onClick={() => scrollToSection('jak-zaczac')}
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Jak zacząć
               </button>
               <button 
                 onClick={() => scrollToSection('kontakt')}
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Kontakt
               </button>
             </nav>
           </div>
 
-          {/* Legal Links */}
+          {/* Legal Links - 2x2 grid */}
           <div>
-            <h4 className="font-semibold mb-3">Informacje prawne</h4>
-            <nav className="space-y-1.5 text-sm">
+            <h4 className="font-semibold mb-2 text-sm">Informacje prawne</h4>
+            <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <Link 
                 to="/prawne?tab=polityka" 
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Polityka prywatności
               </Link>
               <Link 
                 to="/prawne?tab=rodo" 
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 RODO
               </Link>
               <Link 
                 to="/prawne?tab=regulamin" 
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Regulamin
               </Link>
               <Link 
                 to="/prawne?tab=cookies" 
-                className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 Cookies 🍪
               </Link>
@@ -90,9 +90,9 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/20 mt-6 pt-4 text-center">
-          <p className="text-primary-foreground/60 text-sm">
-            © 2025 GetRido by CAR4RIDE SP. Z O.O. Wszystkie prawa zastrzeżone.
+        <div className="border-t border-primary-foreground/20 mt-4 pt-3 text-center">
+          <p className="text-primary-foreground/60 text-xs">
+            © 2025 GetRido. Wszystkie prawa zastrzeżone.
           </p>
         </div>
       </div>

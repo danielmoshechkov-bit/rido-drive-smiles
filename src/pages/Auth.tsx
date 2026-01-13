@@ -145,14 +145,14 @@ const Auth = () => {
 
       {/* Header */}
       <div className="relative z-10 flex justify-between items-center p-6">
-        <div className="flex items-center space-x-2">
+        <Link to="/easy" className="flex items-center space-x-2">
           <img 
             src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
             alt="Get RIDO Logo" 
             className="h-8 w-8"
           />
-          <span className="text-xl font-bold text-primary">Get RIDO</span>
-        </div>
+          <span className="text-xl font-bold text-primary">GetRido</span>
+        </Link>
         <LanguageSelector />
       </div>
 
@@ -224,9 +224,9 @@ const Auth = () => {
                     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${showTermsError ? "text-red-500" : ""}`}
                   >
                     {t('auth.accept')}{' '}
-                    <a href="/regulamin" className="text-primary hover:underline" target="_blank">
+                    <Link to="/prawne?tab=regulamin" className="text-primary hover:underline">
                       {t('auth.termsAndPrivacy')}
-                    </a>
+                    </Link>
                   </label>
                 </div>
                 {showTermsError && (
