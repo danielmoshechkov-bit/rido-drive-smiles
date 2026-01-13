@@ -64,21 +64,38 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promise<string | null> {
   // Try to get from environment first (stored via Supabase Secrets)
   const envKey = Deno.env.get("GOOGLE_API_KEY");
-  if (envKey) return envKey;
-
-  // Fallback: check if any integration has the key configured
-  const { data: integration } = await supabase
-    .from("location_integrations")
-    .select("api_key_secret_name, config")
-    .or("provider.eq.google_places,provider.eq.google_maps,provider.eq.google_traffic")
-    .not("api_key_secret_name", "is", null)
-    .limit(1)
-    .single();
-
-  if (integration?.config && typeof integration.config === 'object' && 'google_api_key' in integration.config) {
-    return (integration.config as { google_api_key?: string }).google_api_key || null;
+  if (envKey) {
+    console.log("Using Google API key from environment variable");
+    return envKey;
   }
 
+  // Fallback: check location_integrations table for google_places provider
+  try {
+    const { data: integration, error } = await supabase
+      .from("location_integrations")
+      .select("config")
+      .eq("provider", "google_places")
+      .eq("is_enabled", true)
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.log("Error fetching location_integrations:", error.message);
+      return null;
+    }
+
+    if (integration?.config && typeof integration.config === 'object') {
+      const config = integration.config as Record<string, unknown>;
+      if (config.google_api_key && typeof config.google_api_key === 'string') {
+        console.log("Using Google API key from location_integrations table");
+        return config.google_api_key;
+      }
+    }
+  } catch (error) {
+    console.error("Exception fetching Google API key:", error);
+  }
+
+  console.log("No Google API key found in environment or database");
   return null;
 }
 

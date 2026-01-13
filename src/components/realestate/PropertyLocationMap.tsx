@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { cn } from "@/lib/utils";
 import { 
   MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2,
   Heart, Building2, Pill, ChevronDown, Check, RefreshCw
@@ -600,187 +601,157 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
         </Card>
       </div>
 
-      {/* POI Categories Section */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* POI Categories Section - Compact Row */}
+      <div className="mt-4 flex flex-wrap gap-2">
         {/* Grocery */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-primary" />
-              <span className="font-medium">Sklepy spożywcze</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.grocery} 
-              onChange={(r) => handleCategoryRadiusChange('grocery', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <ShoppingBag className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Sklepy</span>
+          <RadiusSelector 
+            value={categoryRadii.grocery} 
+            onChange={(r) => handleCategoryRadiusChange('grocery', r)}
+          />
           {categoryLoading.grocery ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.grocery ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.grocery.count, categoryPoiData.grocery.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.grocery.count} w pobliżu
-              </Badge>
-              {categoryPoiData.grocery.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższy: {categoryPoiData.grocery.nearest.name} ({categoryPoiData.grocery.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.grocery && categoryPoiData.grocery.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.grocery.count, categoryPoiData.grocery.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.grocery?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
 
         {/* Schools */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              <span className="font-medium">Szkoły</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.school} 
-              onChange={(r) => handleCategoryRadiusChange('school', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <GraduationCap className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Szkoły</span>
+          <RadiusSelector 
+            value={categoryRadii.school} 
+            onChange={(r) => handleCategoryRadiusChange('school', r)}
+          />
           {categoryLoading.school ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.school ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.school.count, categoryPoiData.school.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.school.count} w pobliżu
-              </Badge>
-              {categoryPoiData.school.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższa: {categoryPoiData.school.nearest.name} ({categoryPoiData.school.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.school && categoryPoiData.school.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.school.count, categoryPoiData.school.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.school?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
 
         {/* Pharmacy */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Pill className="h-5 w-5 text-primary" />
-              <span className="font-medium">Apteki</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.pharmacy} 
-              onChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <Pill className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Apteki</span>
+          <RadiusSelector 
+            value={categoryRadii.pharmacy} 
+            onChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
+          />
           {categoryLoading.pharmacy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.pharmacy ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.pharmacy.count, categoryPoiData.pharmacy.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.pharmacy.count} w pobliżu
-              </Badge>
-              {categoryPoiData.pharmacy.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższa: {categoryPoiData.pharmacy.nearest.name} ({categoryPoiData.pharmacy.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.pharmacy && categoryPoiData.pharmacy.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.pharmacy.count, categoryPoiData.pharmacy.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.pharmacy?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
 
         {/* Restaurants */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <span className="font-medium">Restauracje</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.restaurant} 
-              onChange={(r) => handleCategoryRadiusChange('restaurant', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Restauracje</span>
+          <RadiusSelector 
+            value={categoryRadii.restaurant} 
+            onChange={(r) => handleCategoryRadiusChange('restaurant', r)}
+          />
           {categoryLoading.restaurant ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.restaurant ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.restaurant.count, categoryPoiData.restaurant.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.restaurant.count} w pobliżu
-              </Badge>
-              {categoryPoiData.restaurant.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższa: {categoryPoiData.restaurant.nearest.name} ({categoryPoiData.restaurant.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.restaurant && categoryPoiData.restaurant.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.restaurant.count, categoryPoiData.restaurant.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.restaurant?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
 
         {/* Health */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-primary" />
-              <span className="font-medium">Przychodnie</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.health} 
-              onChange={(r) => handleCategoryRadiusChange('health', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <Heart className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Przychodnie</span>
+          <RadiusSelector 
+            value={categoryRadii.health} 
+            onChange={(r) => handleCategoryRadiusChange('health', r)}
+          />
           {categoryLoading.health ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.health ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.health.count, categoryPoiData.health.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.health.count} w pobliżu
-              </Badge>
-              {categoryPoiData.health.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższa: {categoryPoiData.health.nearest.name} ({categoryPoiData.health.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.health && categoryPoiData.health.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.health.count, categoryPoiData.health.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.health?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
 
         {/* Parks */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <TreePine className="h-5 w-5 text-primary" />
-              <span className="font-medium">Parki</span>
-            </div>
-            <RadiusSelector 
-              value={categoryRadii.park} 
-              onChange={(r) => handleCategoryRadiusChange('park', r)}
-            />
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border">
+          <TreePine className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Parki</span>
+          <RadiusSelector 
+            value={categoryRadii.park} 
+            onChange={(r) => handleCategoryRadiusChange('park', r)}
+          />
           {categoryLoading.park ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : categoryPoiData.park ? (
-            <div className="space-y-1">
-              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.park.count, categoryPoiData.park.nearest?.distance_m)]} text-white`}>
-                {categoryPoiData.park.count} w pobliżu
-              </Badge>
-              {categoryPoiData.park.nearest && (
-                <p className="text-sm text-muted-foreground">
-                  Najbliższy: {categoryPoiData.park.nearest.name} ({categoryPoiData.park.nearest.distance_m}m)
-                </p>
-              )}
-            </div>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <p className="text-sm text-muted-foreground">Brak danych</p>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-xs",
+                categoryPoiData.park && categoryPoiData.park.count > 0 
+                  ? `${RATING_COLORS[getPoiRating(categoryPoiData.park.count, categoryPoiData.park.nearest?.distance_m)]} text-white` 
+                  : ""
+              )}
+            >
+              {categoryPoiData.park?.count || 0}
+            </Badge>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

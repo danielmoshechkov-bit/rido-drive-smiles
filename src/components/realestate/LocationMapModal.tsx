@@ -2,14 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, Search
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -65,17 +63,23 @@ export function LocationMapModal({
     }
   }, [mode]);
 
-  // Initialize map
+  // Initialize map with improved timing
   useEffect(() => {
     if (!open || !isLoaded || !mapRef.current || !google) return;
 
-    // Timeout to ensure modal DOM is fully rendered
+    // Longer timeout to ensure modal DOM is fully rendered
     const initTimeout = setTimeout(() => {
       if (!mapRef.current) return;
       
+      // Check container dimensions
+      const container = mapRef.current;
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        console.warn("Map container has no dimensions");
+      }
+      
       const center = initialCenter || DEFAULT_CENTER;
 
-      const map = new google.maps.Map(mapRef.current, {
+      const map = new google.maps.Map(container, {
         center,
         zoom: 12,
         mapId: "location-picker-map",
@@ -88,73 +92,74 @@ export function LocationMapModal({
 
       mapInstanceRef.current = map;
 
-    // Initialize DrawingManager for polygon mode
-    const drawingManager = new google.maps.drawing.DrawingManager({
-      drawingMode: null,
-      drawingControl: false,
-      polygonOptions: {
-        fillColor: "#3b82f6",
-        fillOpacity: 0.2,
-        strokeColor: "#3b82f6",
-        strokeWeight: 2,
-        editable: true,
-        draggable: true,
-      },
-    });
+      // Initialize DrawingManager for polygon mode
+      const drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        polygonOptions: {
+          fillColor: "#3b82f6",
+          fillOpacity: 0.2,
+          strokeColor: "#3b82f6",
+          strokeWeight: 2,
+          editable: true,
+          draggable: true,
+        },
+      });
 
-    drawingManager.setMap(map);
-    drawingManagerRef.current = drawingManager;
+      drawingManager.setMap(map);
+      drawingManagerRef.current = drawingManager;
 
-    // Handle polygon complete
-    google.maps.event.addListener(drawingManager, "polygoncomplete", (polygon: google.maps.Polygon) => {
-      // Remove previous polygon
-      if (polygonRef.current) {
-        polygonRef.current.setMap(null);
+      // Handle polygon complete
+      google.maps.event.addListener(drawingManager, "polygoncomplete", (polygon: google.maps.Polygon) => {
+        // Remove previous polygon
+        if (polygonRef.current) {
+          polygonRef.current.setMap(null);
+        }
+        polygonRef.current = polygon;
+        setIsDrawing(false);
+        drawingManager.setDrawingMode(null);
+
+        // Extract points
+        const path = polygon.getPath();
+        const points: Array<{ lat: number; lng: number }> = [];
+        for (let i = 0; i < path.getLength(); i++) {
+          const point = path.getAt(i);
+          points.push({ lat: point.lat(), lng: point.lng() });
+        }
+        setPolygonPoints(points);
+
+        // Update on edit
+        google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygon));
+        google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygon));
+      });
+
+      // Initialize with existing area
+      if (initialArea?.type === "circle" && initialArea.circle) {
+        setMode("circle");
+        setCircleCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
+        setRadius(initialArea.circle.radiusMeters);
+        setRadiusInput(initialArea.circle.radiusMeters.toString());
+        map.setCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
+      } else if (initialArea?.type === "polygon" && initialArea.polygon) {
+        setMode("polygon");
+        setPolygonPoints(initialArea.polygon.points);
       }
-      polygonRef.current = polygon;
-      setIsDrawing(false);
-      drawingManager.setDrawingMode(null);
 
-      // Extract points
-      const path = polygon.getPath();
-      const points: Array<{ lat: number; lng: number }> = [];
-      for (let i = 0; i < path.getLength(); i++) {
-        const point = path.getAt(i);
-        points.push({ lat: point.lat(), lng: point.lng() });
-      }
-      setPolygonPoints(points);
+      // Click to set circle center
+      map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        if (mode === "circle" && e.latLng) {
+          setCircleCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+        }
+      });
 
-      // Update on edit
-      google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygon));
-      google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygon));
-    });
-
-    // Initialize with existing area
-    if (initialArea?.type === "circle" && initialArea.circle) {
-      setMode("circle");
-      setCircleCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
-      setRadius(initialArea.circle.radiusMeters);
-      setRadiusInput(initialArea.circle.radiusMeters.toString());
-      map.setCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
-    } else if (initialArea?.type === "polygon" && initialArea.polygon) {
-      setMode("polygon");
-      setPolygonPoints(initialArea.polygon.points);
-    }
-
-    // Click to set circle center
-    map.addListener("click", (e: google.maps.MapMouseEvent) => {
-      if (mode === "circle" && e.latLng) {
-        setCircleCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-      }
-    });
-
-      // Trigger resize after map is ready
+      // Trigger resize after additional delay
       setTimeout(() => {
         if (mapInstanceRef.current && google) {
           google.maps.event.trigger(mapInstanceRef.current, 'resize');
+          mapInstanceRef.current.setCenter(center);
         }
-      }, 100);
-    }, 50);
+      }, 200);
+    }, 100);
 
     return () => {
       clearTimeout(initTimeout);
@@ -164,6 +169,18 @@ export function LocationMapModal({
       markerRef.current = null;
     };
   }, [open, isLoaded, google, initialCenter]);
+
+  // Force resize when modal opens
+  useEffect(() => {
+    if (open && mapInstanceRef.current && google) {
+      const resizeTimeout = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          google.maps.event.trigger(mapInstanceRef.current, 'resize');
+        }
+      }, 150);
+      return () => clearTimeout(resizeTimeout);
+    }
+  }, [open, google]);
 
   // Update click listener when mode changes
   useEffect(() => {
@@ -394,98 +411,74 @@ export function LocationMapModal({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Mode Selector */}
-        <div className="px-4 pb-2">
-          <Tabs value={mode} onValueChange={(v) => setMode(v as "circle" | "polygon")}>
-            <TabsList className="grid grid-cols-2 w-full max-w-xs">
-              <TabsTrigger value="circle" className="gap-2">
-                <Circle className="h-4 w-4" />
-                Okrąg
-              </TabsTrigger>
-              <TabsTrigger value="polygon" className="gap-2">
-                <Pentagon className="h-4 w-4" />
-                Własny obszar
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {/* Location Search */}
-        <div className="px-4 pb-2">
-          <div className="border rounded-lg p-3 bg-muted/30">
-            <Label className="text-sm font-medium mb-2 block">
-              <Search className="h-4 w-4 inline mr-1" />
-              Szukaj lokalizacji
-            </Label>
-            <LocationSearchInput
-              value={searchLocation}
-              onChange={setSearchLocation}
-              onLocationSelect={handleLocationSelect}
-              placeholder="Wpisz miasto, dzielnicę lub adres..."
-            />
-          </div>
-        </div>
-
-        {/* Instructions */}
-        <div className="px-4 pb-2">
-          {mode === "circle" ? (
-            <p className="text-sm text-muted-foreground">
-              Wpisz lokalizację powyżej lub kliknij na mapie, aby wybrać środek okręgu.
-            </p>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-muted-foreground flex-1">
-                {isDrawing 
-                  ? "Kliknij na mapie, aby dodać punkty. Zamknij obszar klikając pierwszy punkt."
-                  : "Narysuj własny obszar wyszukiwania."
-                }
-              </p>
-              {!isDrawing && (
-                <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded}>
-                  <Pentagon className="h-4 w-4 mr-2" />
-                  Rysuj obszar
-                </Button>
-              )}
+        {/* Controls Row - Location + Mode + Radius */}
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap items-center gap-3 border rounded-lg p-3 bg-muted/30">
+            {/* Location Search */}
+            <div className="flex-1 min-w-[200px]">
+              <LocationSearchInput
+                value={searchLocation}
+                onChange={setSearchLocation}
+                onLocationSelect={handleLocationSelect}
+                placeholder="Wpisz miasto, dzielnicę..."
+              />
             </div>
-          )}
-        </div>
-
-        {/* Circle Radius Controls */}
-        {mode === "circle" && (
-          <div className="px-4 pb-2">
-            <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
-              <div>
-                <Label className="text-sm font-medium">Promień wyszukiwania</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    value={radiusInput}
-                    onChange={(e) => handleRadiusInputChange(e.target.value)}
-                    className="flex-1"
-                    min={MIN_RADIUS}
-                    max={MAX_RADIUS}
-                    placeholder="np. 300"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">metrów</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Zakres: 100 m - 50 km
-                </p>
-              </div>
-              
-              {circleCenter ? (
-                <Badge variant="secondary" className="gap-1">
+            
+            {/* Mode Selector */}
+            <Tabs value={mode} onValueChange={(v) => setMode(v as "circle" | "polygon")}>
+              <TabsList className="h-9">
+                <TabsTrigger value="circle" className="gap-1 px-3 h-8">
                   <Circle className="h-3 w-3" />
-                  Wybrany obszar: {formatRadius(radius)}
-                </Badge>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  👆 Kliknij na mapie aby wybrać środek okręgu
-                </p>
-              )}
-            </div>
+                  Okrąg
+                </TabsTrigger>
+                <TabsTrigger value="polygon" className="gap-1 px-3 h-8">
+                  <Pentagon className="h-3 w-3" />
+                  Własny obszar
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            {/* Radius Input (only for circle mode) */}
+            {mode === "circle" && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Promień:</span>
+                <Input
+                  type="number"
+                  value={radiusInput}
+                  onChange={(e) => handleRadiusInputChange(e.target.value)}
+                  className="w-20 h-9"
+                  min={MIN_RADIUS}
+                  max={MAX_RADIUS}
+                />
+                <span className="text-sm text-muted-foreground">m</span>
+              </div>
+            )}
+            
+            {/* Draw Button (only for polygon mode) */}
+            {mode === "polygon" && !isDrawing && (
+              <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded} className="h-9">
+                <Pentagon className="h-4 w-4 mr-1" />
+                Rysuj
+              </Button>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Instruction Line */}
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground">
+            {mode === "circle" 
+              ? (circleCenter 
+                  ? `✓ Wybrany obszar: ${formatRadius(radius)}` 
+                  : "Kliknij na mapie lub wyszukaj lokalizację aby wybrać środek okręgu")
+              : (isDrawing 
+                  ? "Kliknij punkty na mapie, zamknij klikając pierwszy punkt" 
+                  : polygonPoints.length >= 3 
+                    ? `✓ Obszar narysowany (${polygonPoints.length} punktów)`
+                    : "Kliknij 'Rysuj' aby narysować własny obszar")
+            }
+          </p>
+        </div>
 
         {/* Map */}
         <div className="flex-1 relative mx-4 mb-4 rounded-lg overflow-hidden border min-h-[420px]">
