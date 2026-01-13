@@ -1,16 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { AreaSelection } from "./LocationSearchInput";
+import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, Search
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -47,28 +46,47 @@ export function LocationMapModal({
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS.toString());
   const [polygonPoints, setPolygonPoints] = useState<Array<{ lat: number; lng: number }>>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [searchLocation, setSearchLocation] = useState("");
 
   // Check if the error is a configuration error
   const isConfigError = error && (error as any).isConfigError;
+
+  // Handler for location search selection
+  const handleLocationSelect = useCallback((location: LocationSelection) => {
+    setSearchLocation(location.text);
+    if (location.lat && location.lng && mapInstanceRef.current) {
+      const center = { lat: location.lat, lng: location.lng };
+      mapInstanceRef.current.setCenter(center);
+      mapInstanceRef.current.setZoom(14);
+      // In circle mode - automatically set center
+      if (mode === "circle") {
+        setCircleCenter(center);
+      }
+    }
+  }, [mode]);
 
   // Initialize map
   useEffect(() => {
     if (!open || !isLoaded || !mapRef.current || !google) return;
 
-    const center = initialCenter || DEFAULT_CENTER;
+    // Timeout to ensure modal DOM is fully rendered
+    const initTimeout = setTimeout(() => {
+      if (!mapRef.current) return;
+      
+      const center = initialCenter || DEFAULT_CENTER;
 
-    const map = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: 12,
-      mapId: "location-picker-map",
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
+      const map = new google.maps.Map(mapRef.current, {
+        center,
+        zoom: 12,
+        mapId: "location-picker-map",
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
 
-    mapInstanceRef.current = map;
+      mapInstanceRef.current = map;
 
     // Initialize DrawingManager for polygon mode
     const drawingManager = new google.maps.drawing.DrawingManager({
@@ -130,14 +148,16 @@ export function LocationMapModal({
       }
     });
 
-    // Trigger resize after map is ready
-    requestAnimationFrame(() => {
-      if (mapInstanceRef.current && google) {
-        google.maps.event.trigger(mapInstanceRef.current, 'resize');
-      }
-    });
+      // Trigger resize after map is ready
+      setTimeout(() => {
+        if (mapInstanceRef.current && google) {
+          google.maps.event.trigger(mapInstanceRef.current, 'resize');
+        }
+      }, 100);
+    }, 50);
 
     return () => {
+      clearTimeout(initTimeout);
       circleRef.current?.setMap(null);
       polygonRef.current?.setMap(null);
       drawingManagerRef.current?.setMap(null);
@@ -274,11 +294,6 @@ export function LocationMapModal({
     }
   };
 
-  const handleRadiusSliderChange = (value: number[]) => {
-    const r = value[0];
-    setRadius(r);
-    setRadiusInput(r.toString());
-  };
 
   const handleConfirm = () => {
     if (mode === "circle" && circleCenter) {
@@ -395,11 +410,27 @@ export function LocationMapModal({
           </Tabs>
         </div>
 
+        {/* Location Search */}
+        <div className="px-4 pb-2">
+          <div className="border rounded-lg p-3 bg-muted/30">
+            <Label className="text-sm font-medium mb-2 block">
+              <Search className="h-4 w-4 inline mr-1" />
+              Szukaj lokalizacji
+            </Label>
+            <LocationSearchInput
+              value={searchLocation}
+              onChange={setSearchLocation}
+              onLocationSelect={handleLocationSelect}
+              placeholder="Wpisz miasto, dzielnicę lub adres..."
+            />
+          </div>
+        </div>
+
         {/* Instructions */}
         <div className="px-4 pb-2">
           {mode === "circle" ? (
             <p className="text-sm text-muted-foreground">
-              Kliknij na mapie, aby wybrać środek okręgu, następnie ustaw promień.
+              Wpisz lokalizację powyżej lub kliknij na mapie, aby wybrać środek okręgu.
             </p>
           ) : (
             <div className="flex items-center gap-2">
@@ -421,47 +452,38 @@ export function LocationMapModal({
 
         {/* Circle Radius Controls */}
         {mode === "circle" && (
-          <div className="px-4 pb-2 space-y-2">
-            <div className="flex items-center gap-4">
-              <Label className="text-sm whitespace-nowrap">Promień:</Label>
-              <Slider
-                value={[radius]}
-                onValueChange={handleRadiusSliderChange}
-                min={MIN_RADIUS}
-                max={MAX_RADIUS}
-                step={100}
-                className="flex-1"
-              />
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  value={radiusInput}
-                  onChange={(e) => handleRadiusInputChange(e.target.value)}
-                  className="w-24 h-8"
-                  min={MIN_RADIUS}
-                  max={MAX_RADIUS}
-                />
-                <span className="text-sm text-muted-foreground">m</span>
+          <div className="px-4 pb-2">
+            <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
+              <div>
+                <Label className="text-sm font-medium">Promień wyszukiwania</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="number"
+                    value={radiusInput}
+                    onChange={(e) => handleRadiusInputChange(e.target.value)}
+                    className="flex-1"
+                    min={MIN_RADIUS}
+                    max={MAX_RADIUS}
+                    placeholder="np. 300"
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">metrów</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Zakres: 100 m - 50 km
+                </p>
               </div>
+              
+              {circleCenter ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Circle className="h-3 w-3" />
+                  Wybrany obszar: {formatRadius(radius)}
+                </Badge>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  👆 Kliknij na mapie aby wybrać środek okręgu
+                </p>
+              )}
             </div>
-            {circleCenter && (
-              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80" 
-                onClick={() => {
-                  const input = document.querySelector('input[type="number"]') as HTMLInputElement;
-                  input?.focus();
-                  input?.select();
-                }}
-                title="Kliknij aby zmienić promień"
-              >
-                <Circle className="h-3 w-3" />
-                {formatRadius(radius)} - kliknij aby zmienić
-              </Badge>
-            )}
-            {!circleCenter && (
-              <p className="text-xs text-muted-foreground">
-                👆 Kliknij na mapie aby wybrać środek okręgu
-              </p>
-            )}
           </div>
         )}
 
