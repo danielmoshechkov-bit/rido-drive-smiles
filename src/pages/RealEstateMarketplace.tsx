@@ -67,6 +67,92 @@ function isPointInCircle(
   return distance <= radiusMeters;
 }
 
+// Calculate distance from point to nearest polygon edge (for buffer check)
+function getDistanceToPolygon(
+  lat: number,
+  lng: number,
+  polygon: Array<{ lat: number; lng: number }>
+): number {
+  const R = 6371000; // Earth radius in meters
+  let minDistance = Infinity;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+    
+    // Calculate distance to this edge segment
+    const distance = pointToSegmentDistance(lat, lng, p1.lat, p1.lng, p2.lat, p2.lng, R);
+    if (distance < minDistance) {
+      minDistance = distance;
+    }
+  }
+
+  return minDistance;
+}
+
+// Helper: distance from point to line segment
+function pointToSegmentDistance(
+  pLat: number, pLng: number,
+  aLat: number, aLng: number,
+  bLat: number, bLng: number,
+  R: number
+): number {
+  // Convert to radians
+  const pLatR = pLat * Math.PI / 180;
+  const pLngR = pLng * Math.PI / 180;
+  const aLatR = aLat * Math.PI / 180;
+  const aLngR = aLng * Math.PI / 180;
+  const bLatR = bLat * Math.PI / 180;
+  const bLngR = bLng * Math.PI / 180;
+
+  // Project point onto line
+  const dx = bLngR - aLngR;
+  const dy = bLatR - aLatR;
+  const lenSq = dx * dx + dy * dy;
+
+  if (lenSq === 0) {
+    // Segment is a point
+    const dLat = pLatR - aLatR;
+    const dLng = pLngR - aLngR;
+    const a = Math.sin(dLat/2) ** 2 + Math.cos(aLatR) * Math.cos(pLatR) * Math.sin(dLng/2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  let t = ((pLngR - aLngR) * dx + (pLatR - aLatR) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t)); // Clamp to segment
+
+  const closestLng = aLngR + t * dx;
+  const closestLat = aLatR + t * dy;
+
+  // Haversine distance to closest point
+  const dLat = pLatR - closestLat;
+  const dLng = pLngR - closestLng;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(closestLat) * Math.cos(pLatR) * Math.sin(dLng/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Check if point is inside polygon OR within buffer distance of polygon edge
+function isPointInPolygonWithBuffer(
+  lat: number,
+  lng: number,
+  polygon: Array<{ lat: number; lng: number }>,
+  bufferMeters: number
+): boolean {
+  // First check if inside polygon
+  if (isPointInPolygon(lat, lng, polygon)) {
+    return true;
+  }
+  
+  // If buffer is 0, just return inside check result
+  if (bufferMeters <= 0) {
+    return false;
+  }
+  
+  // Check if within buffer distance of any edge
+  const distance = getDistanceToPolygon(lat, lng, polygon);
+  return distance <= bufferMeters;
+}
+
 // Mock listings for demo with coordinates
 const MOCK_LISTINGS = [
   {
@@ -202,12 +288,12 @@ export default function RealEstateMarketplace() {
         );
         console.log(`Filtered by circle (${radiusMeters}m): ${filteredListings.length} results`);
       } else if (filters.area.type === "polygon" && filters.area.polygon) {
-        const { points } = filters.area.polygon;
+        const { points, bufferMeters = 0 } = filters.area.polygon;
         filteredListings = filteredListings.filter(listing => 
           listing.lat && listing.lng && 
-          isPointInPolygon(listing.lat, listing.lng, points)
+          isPointInPolygonWithBuffer(listing.lat, listing.lng, points, bufferMeters)
         );
-        console.log(`Filtered by polygon (${points.length} points): ${filteredListings.length} results`);
+        console.log(`Filtered by polygon (${points.length} pts, buffer: ${bufferMeters}m): ${filteredListings.length} results`);
       }
     }
     
