@@ -257,7 +257,7 @@ export default function EasyHub() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Zapytaj AI: 'Szukam auta do Ubera', 'Zaplanuj wesele'..."
+              placeholder="AI, które znajdzie to za Ciebie…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -297,9 +297,9 @@ export default function EasyHub() {
             <MessageCircle className="absolute -top-2 -left-2 h-6 w-6 text-primary" />
             <p className="text-sm md:text-base leading-relaxed">
               <span className="font-bold text-primary">"Cześć!</span> Jestem{" "}
-              <strong>Rido AI</strong>. Pomagam znaleźć wszystko czego 
-              potrzebujesz - od aut po usługi. Portal cały czas się rozwija - 
-              wkrótce więcej kategorii!"
+              <strong>Rido AI</strong>.<br /><br />
+              GetRido to inteligentny portal ogłoszeń, ofert i usług.<br /><br />
+              Pomagam znaleźć, porównać i wybrać to, czego potrzebujesz."
             </p>
           </div>
           <div className="shrink-0">
