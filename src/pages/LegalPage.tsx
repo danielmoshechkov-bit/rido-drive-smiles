@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { FileText, Shield, ScrollText, Cookie, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TabsPill } from "@/components/ui/TabsPill";
+import { TabsTrigger } from "@/components/ui/tabs";
 import Footer from "@/components/Footer";
 
 type TabKey = "polityka" | "rodo" | "regulamin" | "cookies";
@@ -51,31 +53,27 @@ const LegalPage = () => {
         </div>
       </div>
 
-      {/* Purple Tab Bar */}
+      {/* Purple Tab Bar - TabsPill jak w DriverDashboard */}
       <div className="bg-primary">
-        <div className="container mx-auto px-4">
-          {/* Desktop tabs */}
-          <div className="hidden md:flex gap-2 py-3">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeTab === tab.key
-                    ? "bg-white text-primary shadow-md"
-                    : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
+        <div className="container mx-auto px-4 py-3">
+          {/* Desktop - TabsPill */}
+          <div className="hidden md:block">
+            <TabsPill value={activeTab} onValueChange={(v) => handleTabChange(v as TabKey)}>
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.key} value={tab.key}>
+                  <span className="flex items-center gap-2">
+                    {tab.icon}
+                    {tab.label}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsPill>
           </div>
 
           {/* Mobile collapsible */}
-          <div className="md:hidden py-3">
+          <div className="md:hidden">
             <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-white text-primary rounded-lg font-medium">
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-white text-primary rounded-full font-medium">
                 <span className="flex items-center gap-2">
                   {activeTabData?.icon}
                   {activeTabData?.label}
@@ -87,7 +85,7 @@ const LegalPage = () => {
                   <button
                     key={tab.key}
                     onClick={() => handleTabChange(tab.key)}
-                    className="flex items-center gap-2 w-full px-4 py-3 bg-primary-foreground/10 text-primary-foreground rounded-lg font-medium hover:bg-primary-foreground/20 transition-all"
+                    className="flex items-center gap-2 w-full px-4 py-3 bg-white/10 text-white rounded-full font-medium hover:bg-white/20 transition-all"
                   >
                     {tab.icon}
                     {tab.label}
