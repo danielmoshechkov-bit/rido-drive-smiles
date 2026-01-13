@@ -79,10 +79,9 @@ export function useGoogleMaps() {
           region: "PL",
         });
 
-        // Load required libraries with timeout
+        // Load required libraries with timeout (drawing library removed - deprecated)
         const loadPromise = Promise.all([
           importLibrary("places"),
-          importLibrary("drawing"),
           importLibrary("geometry"),
           importLibrary("maps"),
           importLibrary("marker"),

@@ -77,12 +77,13 @@ export function LocationMapModal({
     let mapCreated = false;
 
     const tryInitMap = () => {
+      console.log('[LocationMapModal] tryInitMap called');
       const container = mapRef.current;
       if (!container || mapCreated) return;
 
       const width = container.offsetWidth;
       const height = container.offsetHeight;
-      console.log(`[Map Init] Attempt ${initAttempt + 1}: ${width}x${height}px`);
+      console.log(`[LocationMapModal] Init attempt ${initAttempt + 1}: ${width}x${height}px`);
 
       // Require minimum 100x100px
       if (width < 100 || height < 100) {
@@ -112,7 +113,7 @@ export function LocationMapModal({
       });
 
       mapInstanceRef.current = map;
-      console.log("[Map Init] Success!");
+      console.log("[LocationMapModal] Map created successfully!");
 
       // Initialize with existing area
       if (initialArea?.type === "circle" && initialArea.circle) {
@@ -217,6 +218,7 @@ export function LocationMapModal({
         // Add point to drawing
         setDrawingPoints(prev => {
           const updated = [...prev, newPoint];
+          console.log('[LocationMapModal] Point added:', newPoint, 'Total points:', updated.length);
           
           // Update temp polygon visualization
           if (tempPolygonRef.current) {
@@ -352,6 +354,7 @@ export function LocationMapModal({
 
   // Start drawing - DISABLE map drag
   const handleStartDrawing = () => {
+    console.log('[LocationMapModal] handleStartDrawing - disabling map drag');
     if (polygonRef.current) {
       polygonRef.current.setMap(null);
       polygonRef.current = null;
@@ -368,11 +371,13 @@ export function LocationMapModal({
         gestureHandling: 'none',
         scrollwheel: false,
       });
+      console.log('[LocationMapModal] Drawing mode activated, draggable disabled');
     }
   };
 
   // Finish drawing - RESTORE map drag
   const handleFinishDrawing = useCallback(() => {
+    console.log('[LocationMapModal] handleFinishDrawing - restoring map controls');
     if (!google || !mapInstanceRef.current) return;
 
     // RESTORE normal map controls
@@ -383,6 +388,7 @@ export function LocationMapModal({
     });
 
     if (drawingPoints.length >= 3) {
+      console.log('[LocationMapModal] Polygon created with', drawingPoints.length, 'points');
       setPolygonPoints([...drawingPoints]);
 
       // Create final editable polygon
