@@ -238,13 +238,21 @@ export function ResultsMapModal({
         map.fitBounds(bounds, 50);
       }
 
-      // Force resize after render
+      // Force resize after render - multiple triggers for stability
       setTimeout(() => {
         google.maps.event.trigger(map, "resize");
         if (listingsWithCoords.length > 0) {
           map.setCenter(center);
         }
       }, 100);
+
+      setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+      }, 300);
+
+      setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+      }, 800);
 
     }, 100);
 
@@ -259,23 +267,36 @@ export function ResultsMapModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[85vh] p-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
-          <div className="flex items-center gap-3">
-            <MapPin className="h-5 w-5 text-primary" />
-            <DialogTitle>Mapa wyników ({listingsWithCoords.length} nieruchomości)</DialogTitle>
+      <DialogContent 
+        className="max-w-5xl h-[95vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden"
+        aria-describedby="results-map-modal-description"
+      >
+        <span id="results-map-modal-description" className="sr-only">
+          Modal z mapą wyników wyszukiwania nieruchomości
+        </span>
+        
+        <DialogHeader className="px-2 sm:px-4 py-2 sm:py-3 border-b flex flex-row items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <DialogTitle className="text-sm sm:text-base">
+              Mapa wyników ({listingsWithCoords.length})
+            </DialogTitle>
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-8 w-8"
+            className="h-7 w-7 sm:h-8 sm:w-8"
             onClick={() => onOpenChange(false)}
           >
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
         
-        <div className="relative flex-1 h-full" style={{ minHeight: "500px" }}>
+        {/* Map Container */}
+        <div 
+          className="relative mx-2 sm:mx-4 my-2 sm:my-4 rounded-lg overflow-hidden border flex-1"
+          style={{ width: 'calc(100% - 1rem)', minHeight: '280px' }}
+        >
           {!isLoaded ? (
             <div className="absolute inset-0 flex items-center justify-center bg-muted">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -283,39 +304,26 @@ export function ResultsMapModal({
           ) : listingsWithCoords.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3">
               <Home className="h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">Brak nieruchomości z lokalizacją do wyświetlenia</p>
+              <p className="text-muted-foreground text-sm text-center px-4">
+                Brak nieruchomości z lokalizacją do wyświetlenia
+              </p>
             </div>
           ) : (
-            <div ref={mapContainerRef} className="absolute inset-0" />
+            <div ref={mapContainerRef} className="absolute inset-0 min-h-[280px] sm:min-h-[400px]" />
           )}
-
-          {/* Legend */}
-          <div className="absolute bottom-4 left-4 bg-background/95 backdrop-blur rounded-lg shadow-lg p-3 border">
-            <p className="text-xs font-medium mb-2 text-muted-foreground">Legenda</p>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-xs">Sprzedaż</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <span className="text-xs">Wynajem</span>
-              </div>
-            </div>
-          </div>
 
           {/* Selected Listing Card */}
           {selectedListing && (
-            <div className="absolute bottom-4 right-4 max-w-xs bg-background rounded-lg shadow-xl border overflow-hidden">
+            <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 max-w-[calc(100%-1rem)] sm:max-w-xs bg-background rounded-lg shadow-xl border overflow-hidden">
               {selectedListing.photos?.[0] && (
                 <img 
                   src={selectedListing.photos[0]} 
                   alt={selectedListing.title}
-                  className="w-full h-24 object-cover"
+                  className="w-full h-20 sm:h-24 object-cover"
                 />
               )}
-              <div className="p-3">
-                <h4 className="font-medium text-sm line-clamp-2 mb-1">{selectedListing.title}</h4>
+              <div className="p-2 sm:p-3">
+                <h4 className="font-medium text-xs sm:text-sm line-clamp-2 mb-1">{selectedListing.title}</h4>
                 <div className="flex items-center gap-2 mb-2">
                   <Badge 
                     style={{ backgroundColor: selectedListing.transactionColor }}
@@ -323,19 +331,20 @@ export function ResultsMapModal({
                   >
                     {selectedListing.transactionType}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">{selectedListing.location}</span>
+                  <span className="text-xs text-muted-foreground truncate">{selectedListing.location}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-primary">{selectedListing.price.toLocaleString('pl-PL')} zł</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {selectedListing.areaM2}m² {selectedListing.rooms ? `• ${selectedListing.rooms} pok.` : ''}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-primary text-sm">{selectedListing.price.toLocaleString('pl-PL')} zł</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      {selectedListing.areaM2}m²
                     </span>
                   </div>
                   {onViewListing && (
                     <Button 
                       size="sm" 
                       variant="outline"
+                      className="h-7 text-xs shrink-0"
                       onClick={() => onViewListing(selectedListing.id)}
                     >
                       Zobacz
@@ -353,6 +362,28 @@ export function ResultsMapModal({
               </Button>
             </div>
           )}
+        </div>
+
+        {/* Footer with Legend and Close Button */}
+        <div className="px-2 sm:px-4 pb-2 sm:pb-4 pt-0 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-xs">Sprzedaż</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-xs">Wynajem</span>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={() => onOpenChange(false)}
+            size="sm"
+            className="h-8 sm:h-9 text-xs sm:text-sm"
+          >
+            Zamknij
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
