@@ -312,31 +312,11 @@ export default function EasyHub() {
         </div>
       </section>
 
-      {/* Quick Links */}
-      <section className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3">
-          <Badge 
-            variant="outline" 
-            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors px-3 py-1.5"
-            onClick={() => navigate('/gielda')}
-          >
-            🚗 Przeglądaj auta
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors px-3 py-1.5"
-            onClick={() => navigate('/driver/register')}
-          >
-            👤 Zostań kierowcą
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors px-3 py-1.5"
-            onClick={() => navigate('/auth')}
-          >
-            🏢 Panel floty
-          </Badge>
-        </div>
+      {/* Tagline */}
+      <section className="container mx-auto px-4 py-6 md:py-8 text-center">
+        <p className="text-muted-foreground text-sm md:text-base">
+          Tworzymy jedno miejsce, które upraszcza życie.
+        </p>
       </section>
 
       <Footer />

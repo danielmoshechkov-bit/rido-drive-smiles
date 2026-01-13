@@ -9,7 +9,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-primary text-primary-foreground py-6">
+    <footer className="bg-primary text-primary-foreground py-3">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-6">
           {/* Logo and Description */}
@@ -23,8 +23,7 @@ const Footer = () => {
               <span className="text-xl font-bold">GetRido</span>
             </div>
             <p className="text-primary-foreground/80 text-sm max-w-md">
-              GetRido - inteligentna platforma AI dla motoryzacji i nieruchomości. 
-              Giełda aut, wynajem, leasing, rozliczenia flot i portal kierowców w jednym miejscu.
+              GetRido – inteligentny portal ogłoszeń i usług z AI na co dzień.
             </p>
           </div>
 
