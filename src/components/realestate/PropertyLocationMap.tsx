@@ -220,10 +220,16 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   }, [isLoaded, google, latitude, longitude, address]);
 
   const fetchLocationData = async (radius: number) => {
-    if (!latitude || !longitude) return;
+    console.log('[LocationMap] fetchLocationData called:', { latitude, longitude, radius });
+    
+    if (!latitude || !longitude) {
+      console.warn('[LocationMap] Missing coordinates, skipping fetch');
+      return;
+    }
     
     setLoading(true);
     try {
+      console.log('[LocationMap] Invoking google-location-data with action: full');
       const { data, error } = await supabase.functions.invoke('google-location-data', {
         body: { 
           action: 'full',
@@ -234,16 +240,19 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
       });
 
       if (error) {
-        console.error('Error fetching location data:', error);
+        console.error('[LocationMap] Error fetching location data:', error);
         return;
       }
 
+      console.log('[LocationMap] Received full data:', data);
+      
       if (data) {
         setLocationData(data);
         setIsMock(data.mock === true);
         
         // Initialize category POI data from full fetch
         if (data.poi?.categories) {
+          console.log('[LocationMap] Setting POI data from full fetch:', data.poi.categories);
           setCategoryPoiData({
             grocery: data.poi.categories.grocery || null,
             school: data.poi.categories.school || null,
@@ -255,7 +264,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
         }
       }
     } catch (error) {
-      console.error('Error fetching location data:', error);
+      console.error('[LocationMap] Exception:', error);
     } finally {
       setLoading(false);
     }
@@ -263,11 +272,17 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
   // Fetch POI data for a single category with specific radius
   const fetchCategoryPoi = async (category: PoiCategoryKey, radius: number) => {
-    if (!latitude || !longitude) return;
+    console.log(`[LocationMap] fetchCategoryPoi called:`, { category, radius, latitude, longitude });
+    
+    if (!latitude || !longitude) {
+      console.warn(`[LocationMap] Missing coordinates for category ${category} fetch`);
+      return;
+    }
     
     setCategoryLoading(prev => ({ ...prev, [category]: true }));
     
     try {
+      console.log(`[LocationMap] Invoking google-location-data for category: ${category}, radius: ${radius}`);
       const { data, error } = await supabase.functions.invoke('google-location-data', {
         body: { 
           action: 'poi',
@@ -278,19 +293,29 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
         }
       });
 
+      console.log(`[LocationMap] Response for ${category}:`, data);
+
       if (error) {
-        console.error(`Error fetching ${category} data:`, error);
+        console.error(`[LocationMap] Error fetching ${category}:`, error);
         return;
       }
 
       if (data?.categories?.[category]) {
+        console.log(`[LocationMap] Setting ${category} data:`, data.categories[category]);
         setCategoryPoiData(prev => ({
           ...prev,
           [category]: data.categories[category]
         }));
+      } else {
+        console.warn(`[LocationMap] No data for category ${category} in response`);
+        // Set empty data to show 0
+        setCategoryPoiData(prev => ({
+          ...prev,
+          [category]: { count: 0, nearest: null }
+        }));
       }
     } catch (error) {
-      console.error(`Error fetching ${category} data:`, error);
+      console.error(`[LocationMap] Exception for ${category}:`, error);
     } finally {
       setCategoryLoading(prev => ({ ...prev, [category]: false }));
     }
@@ -298,12 +323,34 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
   // Handle radius change for a specific category
   const handleCategoryRadiusChange = (category: PoiCategoryKey, radius: number) => {
+    console.log(`[LocationMap] handleCategoryRadiusChange:`, { category, radius });
     setCategoryRadii(prev => ({ ...prev, [category]: radius }));
     fetchCategoryPoi(category, radius);
   };
 
+  // Fetch location data when coordinates are available
   useEffect(() => {
-    fetchLocationData(selectedRadius);
+    console.log('[LocationMap] Main useEffect triggered:', { latitude, longitude, selectedRadius });
+    if (latitude && longitude) {
+      fetchLocationData(selectedRadius);
+    }
+  }, [latitude, longitude]);
+
+  // Fetch all POI categories on mount when coordinates are available
+  useEffect(() => {
+    if (!latitude || !longitude) {
+      console.log('[LocationMap] POI useEffect: no coordinates yet');
+      return;
+    }
+    
+    console.log('[LocationMap] Fetching initial POI data for all categories');
+    
+    const categories: PoiCategoryKey[] = ['grocery', 'school', 'pharmacy', 'restaurant', 'health', 'park'];
+    
+    // Fetch each category with its default radius
+    categories.forEach(category => {
+      fetchCategoryPoi(category, categoryRadii[category]);
+    });
   }, [latitude, longitude]);
 
   const handleRadiusSelect = (radius: number) => {
