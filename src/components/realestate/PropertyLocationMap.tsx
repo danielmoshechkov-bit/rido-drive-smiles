@@ -33,9 +33,18 @@ interface TransitData {
   radius_m: number;
 }
 
+interface PoiItem {
+  name: string;
+  distance_m: number;
+  lat: number;
+  lng: number;
+  place_id: string;
+}
+
 interface PoiCategory {
   count: number;
-  nearest: { name: string; distance_m: number } | null;
+  nearest: PoiItem | null;
+  items?: PoiItem[];
 }
 
 interface PoiData {
@@ -50,6 +59,8 @@ interface PoiData {
     gym: PoiCategory;
     bank: PoiCategory;
   };
+  error?: string;
+  details?: string;
 }
 
 interface TrafficData {
@@ -140,6 +151,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
+  const poiMarkersRef = useRef<google.maps.Marker[]>([]);
   
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -149,6 +161,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const [radiusOpen, setRadiusOpen] = useState(false);
   const [locationData, setLocationData] = useState<LocationApiData | null>(null);
   const [isMock, setIsMock] = useState(true);
+  const [showPoiMarkers, setShowPoiMarkers] = useState(false);
   
   // Independent radius for each POI category
   const [categoryRadii, setCategoryRadii] = useState<Record<PoiCategoryKey, number>>({
@@ -216,8 +229,73 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
     return () => {
       markerRef.current = null;
+      // Clear POI markers on unmount
+      poiMarkersRef.current.forEach(m => m.setMap(null));
+      poiMarkersRef.current = [];
     };
   }, [isLoaded, google, latitude, longitude, address]);
+
+  // POI marker icons by category
+  const getPoiMarkerIcon = (category: PoiCategoryKey): google.maps.Symbol | google.maps.Icon | undefined => {
+    if (!google) return undefined;
+    
+    const colors: Record<PoiCategoryKey, string> = {
+      grocery: "#ef4444", // red
+      school: "#3b82f6", // blue
+      pharmacy: "#10b981", // green
+      restaurant: "#f59e0b", // amber
+      health: "#ec4899", // pink
+      park: "#22c55e", // green
+    };
+    
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: colors[category],
+      fillOpacity: 0.9,
+      strokeColor: "#fff",
+      strokeWeight: 2,
+      scale: 8,
+    };
+  };
+
+  // Draw POI markers on map
+  const drawPoiMarkers = () => {
+    if (!mapInstanceRef.current || !google || !showPoiMarkers) return;
+    
+    // Clear existing POI markers
+    poiMarkersRef.current.forEach(m => m.setMap(null));
+    poiMarkersRef.current = [];
+    
+    const categories: PoiCategoryKey[] = ['grocery', 'school', 'pharmacy', 'restaurant', 'health', 'park'];
+    
+    categories.forEach(category => {
+      const data = categoryPoiData[category];
+      if (data?.items && data.items.length > 0) {
+        data.items.forEach(item => {
+          const marker = new google.maps.Marker({
+            map: mapInstanceRef.current!,
+            position: { lat: item.lat, lng: item.lng },
+            title: `${item.name} (${item.distance_m}m)`,
+            icon: getPoiMarkerIcon(category),
+          });
+          poiMarkersRef.current.push(marker);
+        });
+      }
+    });
+    
+    console.log(`[LocationMap] Drew ${poiMarkersRef.current.length} POI markers`);
+  };
+
+  // Effect to redraw POI markers when data changes
+  useEffect(() => {
+    if (showPoiMarkers && mapLoaded) {
+      drawPoiMarkers();
+    } else if (!showPoiMarkers) {
+      // Clear markers when toggled off
+      poiMarkersRef.current.forEach(m => m.setMap(null));
+      poiMarkersRef.current = [];
+    }
+  }, [categoryPoiData, showPoiMarkers, mapLoaded, google]);
 
   const fetchLocationData = async (radius: number) => {
     console.log('[LocationMap] fetchLocationData called:', { latitude, longitude, radius });
@@ -450,6 +528,18 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
           <div className="absolute inset-0 flex items-center justify-center bg-muted">
             <div className="animate-pulse text-muted-foreground">Ładowanie mapy...</div>
           </div>
+        )}
+        {/* POI Toggle Button */}
+        {mapLoaded && (
+          <Button
+            variant={showPoiMarkers ? "default" : "outline"}
+            size="sm"
+            className="absolute top-3 right-3 gap-1.5 shadow-md z-10"
+            onClick={() => setShowPoiMarkers(!showPoiMarkers)}
+          >
+            <MapPin className="h-4 w-4" />
+            {showPoiMarkers ? "Ukryj POI" : "Pokaż POI"}
+          </Button>
         )}
       </>
     );

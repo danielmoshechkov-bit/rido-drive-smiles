@@ -337,19 +337,39 @@ export function LocationIntegrationsPanel() {
         }
       });
 
-      if (error) throw error;
+      console.log("POI test result:", data, "error:", error);
 
-      console.log("POI test result:", data);
+      // Check if edge function returned an error in the response body
+      if (data?.error) {
+        setPoiConnectionStatus("error");
+        toast.error(`Błąd POI: ${data.error}`, {
+          description: data.details || "Sprawdź konfigurację API w Google Cloud Console",
+          duration: 8000
+        });
+        return;
+      }
 
-      if (data && !data.mock && data.categories?.grocery?.count > 0) {
-        setPoiConnectionStatus("success");
-        toast.success(`POI działa! Znaleziono ${data.categories.grocery.count} sklepów w promieniu 500m od centrum Warszawy`);
-      } else if (data?.mock) {
+      if (error) {
+        setPoiConnectionStatus("error");
+        toast.error(`Błąd połączenia: ${error.message}`);
+        return;
+      }
+
+      if (data?.mock) {
         setPoiConnectionStatus("error");
         toast.error("Klucz API backend nie jest skonfigurowany");
+        return;
+      }
+      
+      if (data?.categories?.grocery?.count > 0) {
+        setPoiConnectionStatus("success");
+        toast.success(`POI działa! Znaleziono ${data.categories.grocery.count} sklepów w promieniu 500m od centrum Warszawy`);
       } else if (data?.categories?.grocery?.count === 0) {
         setPoiConnectionStatus("error");
-        toast.error("Klucz API ma nieprawidłowe ograniczenia. Zmień na 'None' lub 'IP addresses' w Google Cloud Console.");
+        toast.error("Brak wyników POI - klucz API może mieć nieprawidłowe ograniczenia", {
+          description: "Zmień w Google Cloud Console: Credentials → API Key → Application restrictions → 'None' lub 'IP addresses'",
+          duration: 8000
+        });
       }
     } catch (error) {
       console.error("POI connection test failed:", error);
