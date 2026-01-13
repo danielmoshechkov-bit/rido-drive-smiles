@@ -19,7 +19,7 @@ interface LocationMapModalProps {
 
 type DrawingMode = "points" | "brush";
 
-const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw
+const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw - fallback only
 const DEFAULT_RADIUS = 1000; // 1000m - default for local search
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 50000;
@@ -204,43 +204,77 @@ export function LocationMapModal({
       }
 
       mapCreated = true;
-      const center = initialCenter || DEFAULT_CENTER;
+      
+      // Use initialCenter if provided, otherwise try geolocation, fallback to DEFAULT_CENTER
+      const createMap = (center: { lat: number; lng: number }, zoom: number = 12) => {
+        // Create map without mapId to avoid configuration conflicts
+        const map = new google.maps.Map(container, {
+          center,
+          zoom,
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          gestureHandling: 'greedy',
+          draggable: true,
+        });
 
-      // Create map without mapId to avoid configuration conflicts
-      const map = new google.maps.Map(container, {
-        center,
-        zoom: 12,
-        disableDefaultUI: false,
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-        gestureHandling: 'greedy',
-        draggable: true,
-      });
+        mapInstanceRef.current = map;
+        console.log("[LocationMapModal] Map created successfully at:", center);
 
-      mapInstanceRef.current = map;
-      console.log("[LocationMapModal] Map created successfully!");
+        // Initialize with existing area
+        if (initialArea?.type === "circle" && initialArea.circle) {
+          setMode("circle");
+          setCircleCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
+          setRadius(initialArea.circle.radiusMeters);
+          setRadiusInput(initialArea.circle.radiusMeters.toString());
+          map.setCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
+        } else if (initialArea?.type === "polygon" && initialArea.polygon) {
+          setMode("polygon");
+          setPolygonPoints(initialArea.polygon.points);
+        }
 
-      // Initialize with existing area
-      if (initialArea?.type === "circle" && initialArea.circle) {
-        setMode("circle");
-        setCircleCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
-        setRadius(initialArea.circle.radiusMeters);
-        setRadiusInput(initialArea.circle.radiusMeters.toString());
-        map.setCenter({ lat: initialArea.circle.centerLat, lng: initialArea.circle.centerLng });
-      } else if (initialArea?.type === "polygon" && initialArea.polygon) {
-        setMode("polygon");
-        setPolygonPoints(initialArea.polygon.points);
+        // Force resize and setCenter after initialization
+        setTimeout(() => {
+          if (mapInstanceRef.current && google) {
+            google.maps.event.trigger(mapInstanceRef.current, 'resize');
+            mapInstanceRef.current.setCenter(map.getCenter()!);
+          }
+        }, 100);
+      };
+
+      // If initialCenter is provided, use it directly
+      if (initialCenter) {
+        createMap(initialCenter);
+        return;
       }
 
-      // Force resize and setCenter after initialization
-      setTimeout(() => {
-        if (mapInstanceRef.current && google) {
-          google.maps.event.trigger(mapInstanceRef.current, 'resize');
-          mapInstanceRef.current.setCenter(center);
-        }
-      }, 100);
+      // Try to get user's location via geolocation
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            console.log('[LocationMapModal] Using user geolocation:', userLocation);
+            createMap(userLocation, 13); // Closer zoom for user location
+          },
+          (error) => {
+            console.warn('[LocationMapModal] Geolocation error, using default:', error.message);
+            createMap(DEFAULT_CENTER);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 300000 // 5 minutes cache
+          }
+        );
+      } else {
+        // No geolocation support, use default
+        createMap(DEFAULT_CENTER);
+      }
     };
 
     // Start initialization after 50ms (wait for modal to fully open)
