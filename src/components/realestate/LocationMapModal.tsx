@@ -20,7 +20,7 @@ interface LocationMapModalProps {
 type DrawingMode = "points" | "brush";
 
 const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw
-const DEFAULT_RADIUS = 300; // 300m - default for local search
+const DEFAULT_RADIUS = 1000; // 1000m - default for local search
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 50000;
 
@@ -122,7 +122,7 @@ export function LocationMapModal({
   const lastBrushPointRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
-  const [drawingMode, setDrawingMode] = useState<DrawingMode>("points");
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>("brush"); // Default to brush
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS.toString());
@@ -132,6 +132,10 @@ export function LocationMapModal({
   
   // Custom drawing state
   const [drawingPoints, setDrawingPoints] = useState<Array<{ lat: number; lng: number }>>([]);
+  
+  // Buffer radius for polygon mode
+  const [bufferRadius, setBufferRadius] = useState(0);
+  const [bufferRadiusInput, setBufferRadiusInput] = useState("0");
 
   // Check if the error is a configuration error
   const isConfigError = error && (error as any).isConfigError;
@@ -149,6 +153,27 @@ export function LocationMapModal({
       }
     }
   }, [mode]);
+
+  // Auto-start brush drawing when switching to polygon mode
+  useEffect(() => {
+    if (mode === "polygon" && !isDrawing && polygonPoints.length === 0 && mapInstanceRef.current && isLoaded) {
+      // Small delay to ensure mode change is processed
+      const timer = setTimeout(() => {
+        setDrawingMode("brush");
+        handleStartDrawing();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [mode, isDrawing, polygonPoints.length, isLoaded]);
+
+  // Handle buffer radius input change
+  const handleBufferRadiusChange = (value: string) => {
+    setBufferRadiusInput(value);
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num >= 0 && num <= 10000) {
+      setBufferRadius(num);
+    }
+  };
 
   // Initialize map ONLY when modal is open and container has proper dimensions
   useEffect(() => {
@@ -795,6 +820,7 @@ export function LocationMapModal({
             east: Math.max(...lngs),
             west: Math.min(...lngs),
           },
+          bufferMeters: bufferRadius > 0 ? bufferRadius : undefined,
         },
       });
     } else {
@@ -914,54 +940,80 @@ export function LocationMapModal({
               </div>
             )}
             
-            {/* Draw/Finish Buttons (only for polygon mode) */}
-            {mode === "polygon" && !isDrawing && (
-              <>
-                {/* Drawing Mode Selector */}
-                <Tabs value={drawingMode} onValueChange={(v) => setDrawingMode(v as DrawingMode)}>
-                  <TabsList className="h-9">
-                    <TabsTrigger value="points" className="gap-1 px-2 h-8 text-xs">
+            {/* Polygon mode controls */}
+            {mode === "polygon" && (
+              <div className="flex gap-2 items-center">
+                {/* Drawing mode indicator and switch to points */}
+                {isDrawing && (
+                  <>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                      {drawingMode === "brush" ? "Rysuj pędzlem" : "Kliknij punkty"}
+                    </span>
+                    {/* Switch to points mode button */}
+                    <Button 
+                      size="sm" 
+                      variant={drawingMode === "points" ? "secondary" : "ghost"}
+                      onClick={() => {
+                        handleCancelDrawing();
+                        setDrawingMode("points");
+                        setTimeout(() => handleStartDrawing(), 50);
+                      }}
+                      className="h-8 text-xs gap-1"
+                    >
                       <MousePointer className="h-3 w-3" />
                       Punkty
-                    </TabsTrigger>
-                    <TabsTrigger value="brush" className="gap-1 px-2 h-8 text-xs">
-                      <Pencil className="h-3 w-3" />
-                      Pędzel
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded} className="h-9">
-                  <Pentagon className="h-4 w-4 mr-1" />
-                  Rysuj
-                </Button>
-              </>
-            )}
-            
-            {mode === "polygon" && isDrawing && (
-              <div className="flex gap-2 items-center">
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                  {drawingMode === "points" ? "Tryb: Punkty" : "Tryb: Pędzel"}
-                </span>
-                {drawingMode === "points" && (
-                  <Button 
-                    size="sm" 
-                    variant="default" 
-                    onClick={handleFinishDrawing}
-                    disabled={drawingPoints.length < 3}
-                    className="h-9"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Zamknij ({drawingPoints.length} pkt)
-                  </Button>
+                    </Button>
+                    {drawingMode === "points" && drawingPoints.length >= 3 && (
+                      <Button 
+                        size="sm" 
+                        variant="default" 
+                        onClick={handleFinishDrawing}
+                        className="h-8"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Zamknij
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={handleCancelDrawing}
+                      className="h-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={handleCancelDrawing}
-                  className="h-9"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                
+                {/* Buffer radius - show when polygon is drawn */}
+                {!isDrawing && polygonPoints.length >= 3 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">Bufor:</span>
+                    <Input
+                      type="number"
+                      value={bufferRadiusInput}
+                      onChange={(e) => handleBufferRadiusChange(e.target.value)}
+                      className="w-20 h-9"
+                      min={0}
+                      max={10000}
+                      placeholder="0"
+                    />
+                    <span className="text-sm text-muted-foreground">m</span>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        cleanupTempDrawing();
+                        setPolygonPoints([]);
+                        setDrawingMode("brush");
+                        setTimeout(() => handleStartDrawing(), 50);
+                      }}
+                      className="h-8 text-xs"
+                    >
+                      Rysuj nowy
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -972,15 +1024,15 @@ export function LocationMapModal({
           <p className="text-xs text-muted-foreground">
             {mode === "circle" 
               ? (circleCenter 
-                  ? `✓ Wybrany obszar: ${formatRadius(radius)}` 
+                  ? `✓ Wybrany obszar: okrąg ${formatRadius(radius)}` 
                   : "Kliknij na mapie lub wyszukaj lokalizację aby wybrać środek okręgu")
               : (isDrawing 
                   ? (drawingMode === "points"
-                      ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3), zamknij klikając pierwszy punkt lub przycisk "Zamknij"`
-                      : `Przytrzymaj i przeciągnij myszką aby narysować obszar (${drawingPoints.length} pkt)`)
+                      ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3)`
+                      : `Rysuj palcem/myszką po mapie`)
                   : polygonPoints.length >= 3 
-                    ? `✓ Obszar narysowany (${polygonPoints.length} punktów)`
-                    : "Wybierz tryb (Punkty/Pędzel) i kliknij 'Rysuj'")
+                    ? `✓ Obszar narysowany${bufferRadius > 0 ? ` + bufor ${bufferRadius}m` : ""}`
+                    : "Rysuj po mapie aby zaznaczyć obszar")
             }
           </p>
         </div>

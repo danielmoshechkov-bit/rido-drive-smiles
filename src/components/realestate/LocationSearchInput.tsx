@@ -32,6 +32,7 @@ export interface AreaSelection {
       east: number;
       west: number;
     };
+    bufferMeters?: number; // Buffer around the drawn polygon
   };
 }
 
@@ -322,7 +323,11 @@ export function LocationSearchInput({
         : `${selectedArea.circle.radiusMeters} m`;
       return `Okrąg ${km}`;
     }
-    if (selectedArea.type === "polygon") {
+    if (selectedArea.type === "polygon" && selectedArea.polygon) {
+      const buffer = selectedArea.polygon.bufferMeters;
+      if (buffer && buffer > 0) {
+        return `Własny +${buffer}m`;
+      }
       return "Własny obszar";
     }
     return null;
