@@ -22,7 +22,9 @@ import {
   EyeOff,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Info,
+  Settings
 } from "lucide-react";
 
 interface Integration {
@@ -43,7 +45,8 @@ interface IntegrationConfig {
   label: string;
   description: string;
   icon: typeof Map;
-  providers: { value: string; label: string }[];
+  providers: { value: string; label: string; usesGoogleApi?: boolean }[];
+  requiresGoogleApi?: boolean;
 }
 
 const INTEGRATION_CONFIGS: IntegrationConfig[] = [
@@ -53,8 +56,8 @@ const INTEGRATION_CONFIGS: IntegrationConfig[] = [
     description: "Wyświetlanie lokalizacji na mapie",
     icon: Map,
     providers: [
-      { value: "google_maps", label: "Google Maps" },
       { value: "openstreetmap", label: "OpenStreetMap" },
+      { value: "google_maps", label: "Google Maps", usesGoogleApi: true },
       { value: "mapbox", label: "Mapbox" },
     ],
   },
@@ -72,35 +75,36 @@ const INTEGRATION_CONFIGS: IntegrationConfig[] = [
   {
     type: "public_transport",
     label: "Komunikacja miejska",
-    description: "Informacje o transporcie publicznym",
+    description: "Przystanki i ocena komunikacji (Google Places API)",
     icon: Bus,
+    requiresGoogleApi: true,
     providers: [
-      { value: "gtfs", label: "GTFS" },
-      { value: "ztm_warszawa", label: "ZTM Warszawa" },
-      { value: "mpk_krakow", label: "MPK Kraków" },
-      { value: "jakdojade", label: "Jakdojade" },
+      { value: "google_places", label: "Google Places API", usesGoogleApi: true },
+      { value: "gtfs", label: "GTFS (lokalne)" },
     ],
   },
   {
     type: "traffic",
     label: "Natężenie ruchu",
-    description: "Aktualne dane o ruchu drogowym",
+    description: "Czas dojazdu i natężenie (Google Distance Matrix)",
     icon: Car,
+    requiresGoogleApi: true,
     providers: [
+      { value: "google_traffic", label: "Google Distance Matrix", usesGoogleApi: true },
       { value: "here", label: "HERE" },
       { value: "tomtom", label: "TomTom" },
-      { value: "google_traffic", label: "Google Traffic" },
     ],
   },
   {
     type: "poi",
     label: "Punkty POI",
-    description: "Pobliskie sklepy, szkoły, restauracje",
+    description: "Sklepy, szkoły, restauracje (Google Places API)",
     icon: MapPin,
+    requiresGoogleApi: true,
     providers: [
+      { value: "google_places", label: "Google Places API", usesGoogleApi: true },
       { value: "openstreetmap", label: "OpenStreetMap" },
       { value: "foursquare", label: "Foursquare" },
-      { value: "google_places", label: "Google Places" },
     ],
   },
 ];
@@ -109,13 +113,36 @@ export function LocationIntegrationsPanel() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
-  const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
-  const [editingApiKey, setEditingApiKey] = useState<Record<string, boolean>>({});
+  const [googleApiKey, setGoogleApiKey] = useState("");
+  const [showGoogleApiKey, setShowGoogleApiKey] = useState(false);
+  const [editingGoogleKey, setEditingGoogleKey] = useState(false);
+  const [hasGoogleApiKey, setHasGoogleApiKey] = useState(false);
+  const [savingGoogleKey, setSavingGoogleKey] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
     fetchIntegrations();
+    checkGoogleApiKey();
   }, []);
+
+  const checkGoogleApiKey = async () => {
+    try {
+      // Check if any integration has Google API configured
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("api_key_secret_name, config")
+        .or("provider.eq.google_places,provider.eq.google_maps,provider.eq.google_traffic")
+        .not("api_key_secret_name", "is", null)
+        .limit(1);
+
+      if (data && data.length > 0) {
+        setHasGoogleApiKey(true);
+      }
+    } catch (error) {
+      console.error("Error checking Google API key:", error);
+    }
+  };
 
   const fetchIntegrations = async () => {
     try {
@@ -126,7 +153,6 @@ export function LocationIntegrationsPanel() {
 
       if (error) throw error;
 
-      // Type assertion since we know the structure
       const typedData = (data || []).map((item: Record<string, unknown>) => ({
         id: item.id as string,
         integration_type: item.integration_type as string,
@@ -146,6 +172,83 @@ export function LocationIntegrationsPanel() {
       toast.error("Błąd pobierania integracji");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveGoogleApiKey = async () => {
+    if (!googleApiKey.trim()) {
+      toast.error("Wprowadź klucz Google API");
+      return;
+    }
+
+    setSavingGoogleKey(true);
+    try {
+      // Save to all Google-based integrations
+      const googleIntegrationTypes = ["public_transport", "traffic", "poi"];
+      
+      for (const intType of googleIntegrationTypes) {
+        const integration = integrations.find(i => i.integration_type === intType);
+        if (integration) {
+          // Update the config to store the API key reference
+          const { error } = await supabase
+            .from("location_integrations")
+            .update({ 
+              api_key_secret_name: "GOOGLE_API_KEY",
+              config: { 
+                ...integration.config,
+                google_api_key: googleApiKey 
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", integration.id);
+
+          if (error) throw error;
+        }
+      }
+
+      setHasGoogleApiKey(true);
+      setGoogleApiKey("");
+      setEditingGoogleKey(false);
+      await fetchIntegrations();
+      toast.success("Klucz Google API zapisany pomyślnie");
+    } catch (error) {
+      console.error("Error saving Google API key:", error);
+      toast.error("Błąd zapisywania klucza API");
+    } finally {
+      setSavingGoogleKey(false);
+    }
+  };
+
+  const handleTestGoogleConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus(null);
+
+    try {
+      // Test the connection by making a simple request
+      const { data, error } = await supabase.functions.invoke("google-location-data", {
+        body: {
+          action: "transit",
+          latitude: 50.0647,
+          longitude: 19.9450,
+          radius: 300
+        }
+      });
+
+      if (error) throw error;
+
+      if (data && !data.mock) {
+        setConnectionStatus("success");
+        toast.success("Połączenie z Google API działa poprawnie!");
+      } else if (data?.mock) {
+        setConnectionStatus("error");
+        toast.error("Klucz API nie jest skonfigurowany lub jest nieprawidłowy");
+      }
+    } catch (error) {
+      console.error("Connection test failed:", error);
+      setConnectionStatus("error");
+      toast.error("Test połączenia nie powiódł się");
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -211,57 +314,8 @@ export function LocationIntegrationsPanel() {
     }
   };
 
-  const handleSaveApiKey = async (integration: Integration) => {
-    const apiKey = apiKeyInputs[integration.integration_type];
-    if (!apiKey) {
-      toast.error("Wprowadź klucz API");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const secretName = `${integration.integration_type.toUpperCase()}_API_KEY`;
-      
-      // Call edge function to save API key securely
-      const { error } = await supabase.functions.invoke("location-integrations", {
-        body: {
-          action: "save_api_key",
-          integration_type: integration.integration_type,
-          api_key: apiKey,
-          secret_name: secretName,
-        },
-      });
-
-      if (error) throw error;
-
-      // Update the local state with secret name reference
-      setIntegrations((prev) =>
-        prev.map((item) =>
-          item.id === integration.id ? { ...item, api_key_secret_name: secretName, hasApiKey: true } : item
-        )
-      );
-
-      setApiKeyInputs((prev) => ({ ...prev, [integration.integration_type]: "" }));
-      setEditingApiKey((prev) => ({ ...prev, [integration.integration_type]: false }));
-      
-      // Refresh integrations
-      await fetchIntegrations();
-      
-      toast.success("Klucz API zapisany bezpiecznie");
-    } catch (error) {
-      console.error("Error saving API key:", error);
-      toast.error("Błąd zapisywania klucza API");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const getIntegrationData = (type: string): Integration | undefined => {
     return integrations.find((i) => i.integration_type === type);
-  };
-
-  const getConfig = (type: string): IntegrationConfig | undefined => {
-    return INTEGRATION_CONFIGS.find((c) => c.type === type);
   };
 
   if (loading) {
@@ -281,6 +335,107 @@ export function LocationIntegrationsPanel() {
         </p>
       </div>
 
+      {/* Google API Key Card - Main configuration */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Settings className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Klucz Google API</CardTitle>
+                <CardDescription>
+                  Jeden klucz dla: Places API, Distance Matrix API, Geocoding API
+                </CardDescription>
+              </div>
+            </div>
+            {hasGoogleApiKey ? (
+              <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                <CheckCircle2 className="h-3 w-3" />
+                Skonfigurowany
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 bg-destructive/10 text-destructive border-destructive/30">
+                <XCircle className="h-3 w-3" />
+                Brak klucza
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium mb-1">Wymagane API w Google Cloud Console:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-xs">
+                  <li>Places API (New) - przystanki i POI</li>
+                  <li>Distance Matrix API - natężenie ruchu i czas dojazdu</li>
+                  <li>Geocoding API - określanie centrum miasta</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {editingGoogleKey ? (
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showGoogleApiKey ? "text" : "password"}
+                  placeholder="Wprowadź klucz Google API"
+                  value={googleApiKey}
+                  onChange={(e) => setGoogleApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-10 px-3"
+                  onClick={() => setShowGoogleApiKey(!showGoogleApiKey)}
+                >
+                  {showGoogleApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button onClick={handleSaveGoogleApiKey} disabled={savingGoogleKey}>
+                {savingGoogleKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingGoogleKey(false)}>
+                Anuluj
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditingGoogleKey(true)}
+              >
+                <Key className="h-4 w-4 mr-2" />
+                {hasGoogleApiKey ? "Zmień klucz Google API" : "Dodaj klucz Google API"}
+              </Button>
+              {hasGoogleApiKey && (
+                <Button
+                  variant="secondary"
+                  onClick={handleTestGoogleConnection}
+                  disabled={testingConnection}
+                >
+                  {testingConnection ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : connectionStatus === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                  ) : connectionStatus === "error" ? (
+                    <XCircle className="h-4 w-4 text-destructive mr-2" />
+                  ) : null}
+                  Testuj połączenie
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Integration Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {INTEGRATION_CONFIGS.map((config) => {
@@ -288,6 +443,8 @@ export function LocationIntegrationsPanel() {
           if (!integration) return null;
 
           const Icon = config.icon;
+          const selectedProvider = config.providers.find(p => p.value === integration.provider);
+          const usesGoogleApi = selectedProvider?.usesGoogleApi || config.requiresGoogleApi;
 
           return (
             <Card key={config.type} className={integration.is_enabled ? "border-primary/50" : ""}>
@@ -323,92 +480,34 @@ export function LocationIntegrationsPanel() {
                     <SelectContent>
                       {config.providers.map((provider) => (
                         <SelectItem key={provider.value} value={provider.value}>
-                          {provider.label}
+                          <div className="flex items-center gap-2">
+                            {provider.label}
+                            {provider.usesGoogleApi && (
+                              <Badge variant="secondary" className="text-xs py-0 px-1">Google</Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* API Key Section */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Klucz API</Label>
-                    {integration.hasApiKey ? (
-                      <Badge variant="outline" className="text-xs gap-1">
+                {/* Google API Status for Google-based providers */}
+                {usesGoogleApi && (
+                  <div className="flex items-center gap-2 text-xs">
+                    {hasGoogleApiKey ? (
+                      <>
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
-                        Skonfigurowany
-                      </Badge>
+                        <span className="text-muted-foreground">Używa wspólnego klucza Google API</span>
+                      </>
                     ) : (
-                      <Badge variant="outline" className="text-xs gap-1">
+                      <>
                         <XCircle className="h-3 w-3 text-destructive" />
-                        Brak
-                      </Badge>
+                        <span className="text-destructive">Wymaga klucza Google API</span>
+                      </>
                     )}
                   </div>
-                  
-                  {editingApiKey[config.type] ? (
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          type={showApiKey[config.type] ? "text" : "password"}
-                          placeholder="Wprowadź klucz API"
-                          value={apiKeyInputs[config.type] || ""}
-                          onChange={(e) =>
-                            setApiKeyInputs((prev) => ({
-                              ...prev,
-                              [config.type]: e.target.value,
-                            }))
-                          }
-                          className="h-9 pr-10"
-                          disabled={!integration.is_enabled}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-9 px-3"
-                          onClick={() =>
-                            setShowApiKey((prev) => ({
-                              ...prev,
-                              [config.type]: !prev[config.type],
-                            }))
-                          }
-                        >
-                          {showApiKey[config.type] ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="h-9"
-                        onClick={() => handleSaveApiKey(integration)}
-                        disabled={saving || !integration.is_enabled}
-                      >
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-9"
-                      onClick={() =>
-                        setEditingApiKey((prev) => ({
-                          ...prev,
-                          [config.type]: true,
-                        }))
-                      }
-                      disabled={!integration.is_enabled}
-                    >
-                      <Key className="h-4 w-4 mr-2" />
-                      {integration.hasApiKey ? "Zmień klucz" : "Dodaj klucz"}
-                    </Button>
-                  )}
-                </div>
+                )}
 
                 <Separator />
 
