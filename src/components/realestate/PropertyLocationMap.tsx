@@ -638,6 +638,20 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
             </div>
           )}
 
+          {/* POI API Warning */}
+          {!loading && categoryPoiData.grocery?.count === 0 && categoryPoiData.school?.count === 0 && 
+           categoryPoiData.pharmacy?.count === 0 && categoryPoiData.restaurant?.count === 0 &&
+           categoryPoiData.health?.count === 0 && categoryPoiData.park?.count === 0 && (
+            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Nie można pobrać danych o okolicy</p>
+                <p className="text-xs mt-1 opacity-80">
+                  Sprawdź konfigurację klucza Google API w panelu administratora (ustawienia → integracje lokalizacji).
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* POI Categories - Inside the same Card */}
           <div className="mt-6 pt-4 border-t space-y-3">

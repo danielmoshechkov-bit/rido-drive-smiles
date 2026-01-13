@@ -15,6 +15,7 @@ import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelect
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
 import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
+import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -254,6 +255,7 @@ export default function RealEstateMarketplace() {
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
+  const [showResultsMap, setShowResultsMap] = useState(false);
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
@@ -319,9 +321,12 @@ export default function RealEstateMarketplace() {
       const transactionMap: Record<string, string> = {
         'sprzedaz': 'Na sprzedaż',
         'wynajem': 'Wynajem',
+        'wynajem-krotkoterminowy': 'Krótkoterminowy',
       };
+      const mappedType = transactionMap[filters.transactionType];
+      console.log("Filter transactionType:", filters.transactionType, "-> mapped:", mappedType);
       filteredListings = filteredListings.filter(listing => 
-        listing.transactionType === transactionMap[filters.transactionType!]
+        listing.transactionType === mappedType
       );
     }
     
@@ -527,6 +532,7 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 py-4">
         <RealEstateSearch
           onSearch={handleSearch}
+          onShowMapResults={() => setShowResultsMap(true)}
           className="max-w-5xl mx-auto"
         />
       </section>
@@ -650,6 +656,17 @@ export default function RealEstateMarketplace() {
 
       {/* Compare Bar */}
       <CompareBar type="property" className="pb-safe" />
+
+      {/* Results Map Modal */}
+      <ResultsMapModal
+        open={showResultsMap}
+        onOpenChange={setShowResultsMap}
+        listings={listings}
+        onViewListing={(id) => {
+          setShowResultsMap(false);
+          navigate(`/nieruchomosci/ogloszenie/${id}`);
+        }}
+      />
     </div>
   );
 }
