@@ -62,6 +62,13 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 // Get Google API key from Supabase - prioritize backend key for POI
 async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  // Priority 0: Check for dedicated Supabase Secret GOOGLE_MAPS_API_KEY
+  const mapsEnvKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if (mapsEnvKey) {
+    console.log("[API Key] Using GOOGLE_MAPS_API_KEY from Supabase Secrets");
+    return mapsEnvKey;
+  }
+
   try {
     // Priority 1: Check for dedicated backend key in POI integration type
     const { data: poiIntegration } = await supabase
@@ -73,8 +80,9 @@ async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promi
       .maybeSingle();
     
     if (poiIntegration?.config?.google_places_api_key) {
-      console.log("Using dedicated Google Places API key from POI integration");
-      return poiIntegration.config.google_places_api_key;
+      const key = poiIntegration.config.google_places_api_key;
+      console.log(`[API Key] Using dedicated Google Places API key from POI integration (starts with: ${key.substring(0, 10)}...)`);
+      return key;
     }
 
     // Priority 2: Check any google_places provider for backend key
@@ -88,30 +96,31 @@ async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promi
       // First look for google_places_api_key in any row
       for (const row of integrations) {
         if (row.config?.google_places_api_key) {
-          console.log("Using Google Places API key from integration row");
-          return row.config.google_places_api_key;
+          const key = row.config.google_places_api_key;
+          console.log(`[API Key] Using Google Places API key from integration row (starts with: ${key.substring(0, 10)}...)`);
+          return key;
         }
       }
       // Fallback to general google_api_key
       for (const row of integrations) {
         if (row.config?.google_api_key) {
-          console.log("Using general Google API key from integration");
+          console.log("[API Key] Using general Google API key from integration");
           return row.config.google_api_key;
         }
       }
     }
   } catch (error) {
-    console.error("Error fetching API key from database:", error);
+    console.error("[API Key] Error fetching API key from database:", error);
   }
   
   // Priority 3: Fallback to environment variable (Supabase Secrets)
   const envKey = Deno.env.get("GOOGLE_API_KEY");
   if (envKey) {
-    console.log("Using Google API key from environment (Supabase Secrets)");
+    console.log("[API Key] Using GOOGLE_API_KEY from environment (Supabase Secrets)");
     return envKey;
   }
   
-  console.warn("No Google API key found - will return mock data");
+  console.warn("[API Key] No Google API key found - will return mock data");
   return null;
 }
 
@@ -258,6 +267,15 @@ async function fetchTransitData(
   };
 }
 
+// POI item with full data
+interface PoiItem {
+  name: string;
+  distance_m: number;
+  lat: number;
+  lng: number;
+  place_id: string;
+}
+
 // Fetch POI data using Google Places API (New)
 async function fetchPoiData(
   latitude: number,
@@ -269,10 +287,15 @@ async function fetchPoiData(
   radius_m: number;
   categories: Record<string, { 
     count: number; 
-    nearest: { name: string; distance_m: number } | null 
+    nearest: PoiItem | null;
+    items: PoiItem[];
   }>;
+  error?: string;
+  details?: string;
 }> {
-  const categories: Record<string, { count: number; nearest: { name: string; distance_m: number } | null }> = {};
+  const categories: Record<string, { count: number; nearest: PoiItem | null; items: PoiItem[] }> = {};
+  let lastApiError: string | null = null;
+  let lastApiDetails: string | null = null;
 
   // If specific categories are requested, filter
   const categoriesToFetch = filterCategories 
@@ -280,9 +303,10 @@ async function fetchPoiData(
     : Object.entries(POI_CATEGORIES_NEW);
 
   console.log(`[POI] Fetching ${categoriesToFetch.length} categories for ${latitude}, ${longitude} with radius ${radius}m`);
+  console.log(`[POI] API Key present: ${!!apiKey}, starts with: ${apiKey ? apiKey.substring(0, 10) + '...' : 'N/A'}`);
 
   for (const [categoryKey, types] of categoriesToFetch) {
-    const pois: Array<{ name: string; distance_m: number }> = [];
+    const pois: PoiItem[] = [];
 
     try {
       // Use Places API (New) - nearbySearch endpoint
@@ -306,7 +330,7 @@ async function fetchPoiData(
           headers: {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": "places.displayName,places.location"
+            "X-Goog-FieldMask": "places.displayName,places.location,places.id"
           },
           body: JSON.stringify(requestBody)
         }
@@ -315,12 +339,19 @@ async function fetchPoiData(
       const data = await response.json();
       console.log(`[POI] Category ${categoryKey}: API status ${response.status}, places: ${data.places?.length || 0}`);
 
-      // Handle 403 errors (API key configuration issues)
-      if (response.status === 403) {
+      // Handle 403/400 errors (API key configuration issues)
+      if (response.status === 403 || response.status === 400) {
         const errorReason = data.error?.details?.[0]?.reason || data.error?.status || "PERMISSION_DENIED";
+        const errorMessage = data.error?.message || "Unknown API error";
+        
         console.error(`[POI] Category ${categoryKey}: API Key blocked - ${errorReason}`);
-        console.error(`[POI] Full error:`, JSON.stringify(data.error));
-        // Continue to next category, this one will have 0 results
+        console.error(`[POI] Full error response:`, JSON.stringify(data.error || data));
+        
+        lastApiError = `Google API błąd: ${errorReason}`;
+        lastApiDetails = errorMessage;
+        
+        // Set empty category but continue to collect errors for all categories
+        categories[categoryKey] = { count: 0, nearest: null, items: [] };
         continue;
       }
 
@@ -328,6 +359,7 @@ async function fetchPoiData(
         for (const place of data.places) {
           const placeLat = place.location?.latitude;
           const placeLng = place.location?.longitude;
+          const placeId = place.id || "";
           
           if (placeLat && placeLng) {
             const distance = calculateDistance(latitude, longitude, placeLat, placeLng);
@@ -335,19 +367,25 @@ async function fetchPoiData(
             if (distance <= radius) {
               pois.push({
                 name: place.displayName?.text || "Unknown",
-                distance_m: distance
+                distance_m: distance,
+                lat: placeLat,
+                lng: placeLng,
+                place_id: placeId
               });
             }
           }
         }
       }
 
-      // Check for API errors (non-403)
-      if (data.error && response.status !== 403) {
+      // Check for API errors (non-403/400)
+      if (data.error && response.status !== 403 && response.status !== 400) {
         console.error(`[POI] Category ${categoryKey} API error:`, data.error);
+        lastApiError = `Google API błąd: ${data.error.status || "UNKNOWN"}`;
+        lastApiDetails = data.error.message || "Unknown error";
       }
     } catch (error) {
       console.error(`[POI] Category ${categoryKey} fetch error:`, error);
+      lastApiError = `Błąd sieci: ${error instanceof Error ? error.message : "Unknown"}`;
     }
 
     // Remove duplicates by name
@@ -360,10 +398,23 @@ async function fetchPoiData(
 
     categories[categoryKey] = {
       count: uniquePois.length,
-      nearest: uniquePois[0] || null
+      nearest: uniquePois[0] || null,
+      items: uniquePois
     };
 
     console.log(`[POI] Category ${categoryKey}: final count = ${uniquePois.length}`);
+  }
+
+  // If we have API errors and ALL categories are empty, return error response
+  const allEmpty = Object.values(categories).every(c => c.count === 0);
+  if (lastApiError && allEmpty) {
+    console.error(`[POI] All categories empty due to API error: ${lastApiError}`);
+    return {
+      radius_m: radius,
+      categories,
+      error: lastApiError,
+      details: lastApiDetails || "Sprawdź czy Places API (New) jest włączone i klucz nie ma ograniczeń HTTP referrers."
+    };
   }
 
   return {
@@ -506,7 +557,23 @@ serve(async (req) => {
         break;
 
       case "poi":
-        response = await fetchPoiData(latitude, longitude, radius, apiKey, filterCategories);
+        const poiResult = await fetchPoiData(latitude, longitude, radius, apiKey, filterCategories);
+        
+        // If POI returned an error and all categories empty, return HTTP 500
+        if (poiResult.error && Object.values(poiResult.categories).every(c => c.count === 0)) {
+          console.error(`[POI] Returning HTTP 500 due to API error: ${poiResult.error}`);
+          return new Response(
+            JSON.stringify({
+              error: poiResult.error,
+              details: poiResult.details,
+              radius_m: poiResult.radius_m,
+              categories: poiResult.categories
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        response = poiResult;
         break;
 
       case "traffic":
