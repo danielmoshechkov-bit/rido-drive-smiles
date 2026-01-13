@@ -638,13 +638,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
             </div>
           )}
 
-          {isMock && (
-            <div className="mt-4 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <p className="text-xs text-amber-600 text-center">
-                ⚠️ Dane demonstracyjne - skonfiguruj Google API w ustawieniach
-              </p>
-            </div>
-          )}
 
           {/* POI Categories - Inside the same Card */}
           <div className="mt-6 pt-4 border-t space-y-3">
@@ -846,13 +839,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
               </div>
             </div>
 
-            {/* API Attribution */}
-            <div className="mt-4 pt-3 border-t">
-              <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-                <Check className="h-3 w-3" />
-                Dane z Google Places API i Distance Matrix API
-              </p>
-            </div>
           </div>
         </Card>
       </div>
