@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { 
   MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2,
-  Heart, Building2, Pill, ChevronDown, Check
+  Heart, Building2, Pill, ChevronDown, Check, RefreshCw
 } from "lucide-react";
 import { RadiusSelector } from "./RadiusSelector";
 
@@ -134,6 +135,11 @@ type PoiCategoryKey = 'grocery' | 'school' | 'pharmacy' | 'restaurant' | 'health
 const DEFAULT_CATEGORY_RADIUS = 300;
 
 export function PropertyLocationMap({ latitude, longitude, address }: PropertyLocationMapProps) {
+  const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedRadius, setSelectedRadius] = useState(300);
@@ -176,11 +182,41 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const lat = latitude || 50.0614;
   const lon = longitude || 19.9366;
 
-  // Generate OpenStreetMap embed URL
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.01},${lat - 0.01},${lon + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lon}`;
-  
-  // Generate link to full OpenStreetMap
-  const fullMapUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+  // Initialize Google Map
+  useEffect(() => {
+    if (!isLoaded || !google || !mapContainerRef.current) return;
+    if (!latitude || !longitude) return;
+
+    const position = { lat: latitude, lng: longitude };
+
+    // Initialize map
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: position,
+      zoom: 15,
+      mapId: "property-location-map",
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: true,
+      fullscreenControl: true,
+    });
+
+    mapInstanceRef.current = map;
+
+    // Add marker
+    const marker = new google.maps.marker.AdvancedMarkerElement({
+      map,
+      position,
+      title: address || "Lokalizacja nieruchomości",
+    });
+
+    markerRef.current = marker;
+    setMapLoaded(true);
+
+    return () => {
+      markerRef.current = null;
+    };
+  }, [isLoaded, google, latitude, longitude, address]);
 
   const fetchLocationData = async (radius: number) => {
     if (!latitude || !longitude) return;
@@ -295,6 +331,82 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const trafficRating = traffic ? getTrafficRating(traffic.traffic_ratio) : 'average';
   const airQualityRating = getAirQualityRating(42); // Mock AQI for now
 
+  // Check if the error is a configuration error
+  const isConfigError = error && (error as any).isConfigError;
+
+  // Render map content
+  const renderMapContent = () => {
+    if (!latitude || !longitude) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+          <AlertCircle className="h-10 w-10" />
+          <p>Brak współrzędnych lokalizacji</p>
+          {address && <p className="text-sm text-center px-4">{address}</p>}
+        </div>
+      );
+    }
+
+    if (!isLoaded && !error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-2 bg-muted">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Ładowanie Google Maps...</p>
+        </div>
+      );
+    }
+
+    if (isConfigError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 p-4 bg-muted">
+          <AlertCircle className="h-10 w-10 text-amber-500" />
+          <p className="text-lg font-medium text-center">Google Maps nie jest skonfigurowany</p>
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Aby korzystać z mapy, dodaj klucz API w:
+            <br />
+            <strong>Admin → Ustawienia → Integracje lokalizacji</strong>
+          </p>
+        </div>
+      );
+    }
+
+    if (isTimedOut) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 p-4 bg-muted">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-lg font-medium text-center">Nie udało się wczytać mapy</p>
+          <Button onClick={retryLoad} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Ponów ładowanie
+          </Button>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 p-4 bg-muted">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-lg font-medium text-center">Błąd ładowania mapy</p>
+          <Button onClick={retryLoad} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Ponów ładowanie
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div ref={mapContainerRef} className="absolute inset-0" />
+        {!mapLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <div className="animate-pulse text-muted-foreground">Ładowanie mapy...</div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -303,37 +415,9 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
       </h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Map */}
+        {/* Google Map */}
         <div className="relative rounded-xl overflow-hidden border bg-muted h-[300px] lg:h-[400px]">
-          {latitude && longitude ? (
-            <>
-              <iframe
-                src={mapUrl}
-                className="w-full h-full border-0"
-                title="Lokalizacja nieruchomości"
-                onLoad={() => setMapLoaded(true)}
-              />
-              {!mapLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <div className="animate-pulse text-muted-foreground">Ładowanie mapy...</div>
-                </div>
-              )}
-              <a 
-                href={fullMapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute bottom-3 right-3 bg-background/90 backdrop-blur px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-background transition-colors shadow-lg"
-              >
-                Otwórz większą mapę →
-              </a>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-              <AlertCircle className="h-10 w-10" />
-              <p>Brak współrzędnych lokalizacji</p>
-              {address && <p className="text-sm text-center px-4">{address}</p>}
-            </div>
-          )}
+          {renderMapContent()}
         </div>
 
         {/* Location Indicators */}
@@ -493,255 +577,211 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                 </div>
               </div>
 
-              {/* Transit Details */}
-              {transit?.top_3_stops && transit.top_3_stops.length > 0 && (
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-                  <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-2">Najbliższe przystanki:</p>
-                  <div className="space-y-1">
-                    {transit.top_3_stops.map((stop, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs">
-                        <span className="text-blue-700 dark:text-blue-300 truncate max-w-[180px]">{stop.name}</span>
-                        <span className="text-blue-600 dark:text-blue-400">{stop.distance_m}m</span>
-                      </div>
-                    ))}
-                  </div>
+              {/* Transport types */}
+              {transit?.transport_types && transit.transport_types.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pl-12">
+                  {transit.transport_types.map(type => (
+                    <Badge key={type} variant="outline" className="text-xs">
+                      {TRANSIT_TYPE_LABELS[type] || type}
+                    </Badge>
+                  ))}
                 </div>
               )}
-
-              {/* POI: Grocery */}
-              {(() => {
-                const catData = categoryPoiData.grocery;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <ShoppingBag className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Sklepy spożywcze</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.grocery} 
-                            onChange={(r) => handleCategoryRadiusChange('grocery', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.grocery ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* POI: Schools */}
-              {(() => {
-                const catData = categoryPoiData.school;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <GraduationCap className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Szkoły</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.school} 
-                            onChange={(r) => handleCategoryRadiusChange('school', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.school ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* POI: Pharmacy */}
-              {(() => {
-                const catData = categoryPoiData.pharmacy;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Pill className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Apteki</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.pharmacy} 
-                            onChange={(r) => handleCategoryRadiusChange('pharmacy', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.pharmacy ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* POI: Restaurants */}
-              {(() => {
-                const catData = categoryPoiData.restaurant;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Restauracje i kawiarnie</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.restaurant} 
-                            onChange={(r) => handleCategoryRadiusChange('restaurant', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.restaurant ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* POI: Health */}
-              {(() => {
-                const catData = categoryPoiData.health;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Heart className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Służba zdrowia</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.health} 
-                            onChange={(r) => handleCategoryRadiusChange('health', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.health ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* POI: Parks */}
-              {(() => {
-                const catData = categoryPoiData.park;
-                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
-                return (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <TreePine className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Parki i zieleń</p>
-                        <p className="text-sm text-muted-foreground">
-                          W promieniu{" "}
-                          <RadiusSelector 
-                            value={categoryRadii.park} 
-                            onChange={(r) => handleCategoryRadiusChange('park', r)} 
-                          />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {categoryLoading.park ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <span className="text-lg font-bold text-primary">
-                            {catData?.count || 0}
-                          </span>
-                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground mt-4 text-center">
-            {isMock ? (
-              "⚠️ Dane przykładowe • Skonfiguruj klucz Google API w panelu admina"
-            ) : (
-              "✓ Dane z Google Places API i Distance Matrix API"
-            )}
-          </p>
+          {isMock && (
+            <div className="mt-4 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-xs text-amber-600 text-center">
+                ⚠️ Dane demonstracyjne - skonfiguruj Google API w ustawieniach
+              </p>
+            </div>
+          )}
         </Card>
       </div>
 
+      {/* POI Categories Section */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Grocery */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-primary" />
+              <span className="font-medium">Sklepy spożywcze</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.grocery} 
+              onChange={(r) => handleCategoryRadiusChange('grocery', r)}
+            />
+          </div>
+          {categoryLoading.grocery ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.grocery ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.grocery.count, categoryPoiData.grocery.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.grocery.count} w pobliżu
+              </Badge>
+              {categoryPoiData.grocery.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższy: {categoryPoiData.grocery.nearest.name} ({categoryPoiData.grocery.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+
+        {/* Schools */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-primary" />
+              <span className="font-medium">Szkoły</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.school} 
+              onChange={(r) => handleCategoryRadiusChange('school', r)}
+            />
+          </div>
+          {categoryLoading.school ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.school ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.school.count, categoryPoiData.school.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.school.count} w pobliżu
+              </Badge>
+              {categoryPoiData.school.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższa: {categoryPoiData.school.nearest.name} ({categoryPoiData.school.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+
+        {/* Pharmacy */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Pill className="h-5 w-5 text-primary" />
+              <span className="font-medium">Apteki</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.pharmacy} 
+              onChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
+            />
+          </div>
+          {categoryLoading.pharmacy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.pharmacy ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.pharmacy.count, categoryPoiData.pharmacy.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.pharmacy.count} w pobliżu
+              </Badge>
+              {categoryPoiData.pharmacy.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższa: {categoryPoiData.pharmacy.nearest.name} ({categoryPoiData.pharmacy.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+
+        {/* Restaurants */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <span className="font-medium">Restauracje</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.restaurant} 
+              onChange={(r) => handleCategoryRadiusChange('restaurant', r)}
+            />
+          </div>
+          {categoryLoading.restaurant ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.restaurant ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.restaurant.count, categoryPoiData.restaurant.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.restaurant.count} w pobliżu
+              </Badge>
+              {categoryPoiData.restaurant.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższa: {categoryPoiData.restaurant.nearest.name} ({categoryPoiData.restaurant.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+
+        {/* Health */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-primary" />
+              <span className="font-medium">Przychodnie</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.health} 
+              onChange={(r) => handleCategoryRadiusChange('health', r)}
+            />
+          </div>
+          {categoryLoading.health ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.health ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.health.count, categoryPoiData.health.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.health.count} w pobliżu
+              </Badge>
+              {categoryPoiData.health.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższa: {categoryPoiData.health.nearest.name} ({categoryPoiData.health.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+
+        {/* Parks */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TreePine className="h-5 w-5 text-primary" />
+              <span className="font-medium">Parki</span>
+            </div>
+            <RadiusSelector 
+              value={categoryRadii.park} 
+              onChange={(r) => handleCategoryRadiusChange('park', r)}
+            />
+          </div>
+          {categoryLoading.park ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : categoryPoiData.park ? (
+            <div className="space-y-1">
+              <Badge className={`${RATING_COLORS[getPoiRating(categoryPoiData.park.count, categoryPoiData.park.nearest?.distance_m)]} text-white`}>
+                {categoryPoiData.park.count} w pobliżu
+              </Badge>
+              {categoryPoiData.park.nearest && (
+                <p className="text-sm text-muted-foreground">
+                  Najbliższy: {categoryPoiData.park.nearest.name} ({categoryPoiData.park.nearest.distance_m}m)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Brak danych</p>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
