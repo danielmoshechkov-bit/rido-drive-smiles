@@ -2010,6 +2010,63 @@ export type Database = {
         }
         Relationships: []
       }
+      gtfs_data_sources: {
+        Row: {
+          api_endpoint: string | null
+          api_key_secret_name: string | null
+          config: Json | null
+          country: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          last_sync_at: string | null
+          name: string
+          region: string | null
+          source_type: string
+          source_url: string | null
+          supports_realtime: boolean | null
+          sync_interval_hours: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_key_secret_name?: string | null
+          config?: Json | null
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          name: string
+          region?: string | null
+          source_type: string
+          source_url?: string | null
+          supports_realtime?: boolean | null
+          sync_interval_hours?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_key_secret_name?: string | null
+          config?: Json | null
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          name?: string
+          region?: string | null
+          source_type?: string
+          source_url?: string | null
+          supports_realtime?: boolean | null
+          sync_interval_hours?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       import_errors: {
         Row: {
           code: string
@@ -4164,6 +4221,77 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      transit_location_data: {
+        Row: {
+          ai_summary: string | null
+          avg_frequency_minutes: number | null
+          calculated_at: string | null
+          data_source_id: string | null
+          geohash: string
+          has_night_service: boolean | null
+          id: string
+          latitude: number
+          line_count: number | null
+          longitude: number
+          nearest_stop_distance_m: number | null
+          nearest_stop_name: string | null
+          stops_within_1000m: number | null
+          stops_within_500m: number | null
+          transport_rating: string | null
+          transport_score: number | null
+          transport_types: string[] | null
+          valid_until: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          avg_frequency_minutes?: number | null
+          calculated_at?: string | null
+          data_source_id?: string | null
+          geohash: string
+          has_night_service?: boolean | null
+          id?: string
+          latitude: number
+          line_count?: number | null
+          longitude: number
+          nearest_stop_distance_m?: number | null
+          nearest_stop_name?: string | null
+          stops_within_1000m?: number | null
+          stops_within_500m?: number | null
+          transport_rating?: string | null
+          transport_score?: number | null
+          transport_types?: string[] | null
+          valid_until?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          avg_frequency_minutes?: number | null
+          calculated_at?: string | null
+          data_source_id?: string | null
+          geohash?: string
+          has_night_service?: boolean | null
+          id?: string
+          latitude?: number
+          line_count?: number | null
+          longitude?: number
+          nearest_stop_distance_m?: number | null
+          nearest_stop_name?: string | null
+          stops_within_1000m?: number | null
+          stops_within_500m?: number | null
+          transport_rating?: string | null
+          transport_score?: number | null
+          transport_types?: string[] | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transit_location_data_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "gtfs_data_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       universal_listing_numbers: {
         Row: {
