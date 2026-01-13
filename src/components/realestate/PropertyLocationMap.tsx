@@ -139,7 +139,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -194,7 +194,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     const map = new google.maps.Map(mapContainerRef.current, {
       center: position,
       zoom: 15,
-      mapId: "property-location-map",
+      // No mapId - use classic markers for stability
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: false,
@@ -204,8 +204,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
     mapInstanceRef.current = map;
 
-    // Add marker
-    const marker = new google.maps.marker.AdvancedMarkerElement({
+    // Add classic marker (no mapId required)
+    const marker = new google.maps.Marker({
       map,
       position,
       title: address || "Lokalizacja nieruchomości",
