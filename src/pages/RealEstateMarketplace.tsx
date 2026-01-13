@@ -23,7 +23,51 @@ import tileDriver from "@/assets/tile-driver.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileRealestate from "@/assets/tile-realestate.jpg";
 
-// Mock listings for demo
+// Point-in-polygon algorithm (Ray casting)
+function isPointInPolygon(
+  lat: number, 
+  lng: number, 
+  polygon: Array<{ lat: number; lng: number }>
+): boolean {
+  let inside = false;
+  
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat, yi = polygon[i].lng;
+    const xj = polygon[j].lat, yj = polygon[j].lng;
+    
+    if (
+      ((yi > lng) !== (yj > lng)) &&
+      (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi)
+    ) {
+      inside = !inside;
+    }
+  }
+  
+  return inside;
+}
+
+// Check if point is within circle (Haversine)
+function isPointInCircle(
+  lat: number, 
+  lng: number, 
+  centerLat: number, 
+  centerLng: number, 
+  radiusMeters: number
+): boolean {
+  const R = 6371000; // Earth radius in meters
+  const dLat = (lat - centerLat) * Math.PI / 180;
+  const dLng = (lng - centerLng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + 
+            Math.cos(centerLat * Math.PI / 180) * 
+            Math.cos(lat * Math.PI / 180) * 
+            Math.sin(dLng/2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+  
+  return distance <= radiusMeters;
+}
+
+// Mock listings for demo with coordinates
 const MOCK_LISTINGS = [
   {
     id: "1",
@@ -47,6 +91,8 @@ const MOCK_LISTINGS = [
     agencyName: "Nieruchomości Premium",
     contactName: "Jan Kowalski",
     contactPhone: "+48 123 456 789",
+    lat: 50.0514,
+    lng: 19.9450,
   },
   {
     id: "2",
@@ -70,6 +116,8 @@ const MOCK_LISTINGS = [
     agencyName: "City Apartments",
     contactName: "Anna Nowak",
     contactPhone: "+48 987 654 321",
+    lat: 52.2297,
+    lng: 21.0122,
   },
   {
     id: "3",
@@ -89,6 +137,8 @@ const MOCK_LISTINGS = [
     hasParking: true,
     agencyName: "Trójmiasto Nieruchomości",
     contactName: "Piotr Wiśniewski",
+    lat: 54.4220,
+    lng: 18.4866,
   },
   {
     id: "4",
@@ -103,6 +153,8 @@ const MOCK_LISTINGS = [
     transactionType: "Na sprzedaż",
     transactionColor: "#10b981",
     agencyName: "Grunty Plus",
+    lat: 51.0879,
+    lng: 17.0185,
   },
 ];
 
@@ -139,6 +191,25 @@ export default function RealEstateMarketplace() {
     setLoading(true);
     
     let filteredListings = [...MOCK_LISTINGS];
+    
+    // Filter by area (circle or polygon) - NEW
+    if (filters.area) {
+      if (filters.area.type === "circle" && filters.area.circle) {
+        const { centerLat, centerLng, radiusMeters } = filters.area.circle;
+        filteredListings = filteredListings.filter(listing => 
+          listing.lat && listing.lng && 
+          isPointInCircle(listing.lat, listing.lng, centerLat, centerLng, radiusMeters)
+        );
+        console.log(`Filtered by circle (${radiusMeters}m): ${filteredListings.length} results`);
+      } else if (filters.area.type === "polygon" && filters.area.polygon) {
+        const { points } = filters.area.polygon;
+        filteredListings = filteredListings.filter(listing => 
+          listing.lat && listing.lng && 
+          isPointInPolygon(listing.lat, listing.lng, points)
+        );
+        console.log(`Filtered by polygon (${points.length} points): ${filteredListings.length} results`);
+      }
+    }
     
     // Filter by location (text search)
     if (filters.location) {
