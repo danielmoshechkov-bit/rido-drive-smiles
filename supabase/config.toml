@@ -96,3 +96,9 @@ verify_jwt = false
 
 [functions.ai-listing-assessment]
 verify_jwt = false
+
+[functions.transit-data]
+verify_jwt = false
+
+[functions.location-integrations]
+verify_jwt = false

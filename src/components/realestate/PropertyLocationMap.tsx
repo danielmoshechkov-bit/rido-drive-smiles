@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { 
-  MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle
+  MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2
 } from "lucide-react";
 
 interface PropertyLocationMapProps {
@@ -11,8 +12,57 @@ interface PropertyLocationMapProps {
   address?: string;
 }
 
-// Mock data for location indicators (to be replaced with real API calls later)
-const MOCK_LOCATION_DATA = {
+interface TransitData {
+  stops_within_500m: number;
+  stops_within_1000m: number;
+  transport_types: string[];
+  line_count: number;
+  avg_frequency_minutes: number | null;
+  has_night_service: boolean;
+  nearest_stop: {
+    name: string;
+    distance_m: number;
+  };
+  transport_score: number;
+  transport_rating: 'excellent' | 'good' | 'moderate' | 'limited' | 'poor';
+  ai_summary: string;
+}
+
+interface LocationData {
+  airQuality: {
+    status: string;
+    aqi: number;
+    color: string;
+  };
+  traffic: {
+    status: string;
+    color: string;
+  };
+  publicTransport: {
+    lines: number;
+    nearestStop: string;
+    transportTypes: string[];
+    score: number;
+    rating: string;
+    aiSummary: string;
+    hasNightService: boolean;
+  };
+  shops: {
+    count: number;
+    radius: string;
+  };
+  schools: {
+    count: number;
+    nearestDistance: string;
+  };
+  parks: {
+    count: number;
+    nearestDistance: string;
+  };
+}
+
+// Default mock data for non-transit indicators (to be replaced with real API calls later)
+const DEFAULT_LOCATION_DATA: LocationData = {
   airQuality: {
     status: "Dobra",
     aqi: 42,
@@ -23,8 +73,13 @@ const MOCK_LOCATION_DATA = {
     color: "bg-green-500",
   },
   publicTransport: {
-    lines: 5,
-    nearestStop: "150m",
+    lines: 0,
+    nearestStop: "-",
+    transportTypes: [],
+    score: 0,
+    rating: 'poor',
+    aiSummary: 'Ładowanie danych...',
+    hasNightService: false,
   },
   shops: {
     count: 8,
@@ -40,9 +95,26 @@ const MOCK_LOCATION_DATA = {
   },
 };
 
+const RATING_COLORS: Record<string, string> = {
+  excellent: 'bg-green-500',
+  good: 'bg-green-400',
+  moderate: 'bg-yellow-500',
+  limited: 'bg-orange-500',
+  poor: 'bg-red-500',
+};
+
+const RATING_LABELS: Record<string, string> = {
+  excellent: 'Doskonała',
+  good: 'Dobra',
+  moderate: 'Średnia',
+  limited: 'Ograniczona',
+  poor: 'Słaba',
+};
+
 export function PropertyLocationMap({ latitude, longitude, address }: PropertyLocationMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [locationData, setLocationData] = useState(MOCK_LOCATION_DATA);
+  const [locationData, setLocationData] = useState<LocationData>(DEFAULT_LOCATION_DATA);
+  const [loadingTransit, setLoadingTransit] = useState(false);
 
   // Default to Kraków if no coordinates provided
   const lat = latitude || 50.0614;
@@ -55,10 +127,47 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const fullMapUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
 
   useEffect(() => {
-    // TODO: Fetch real location data from APIs
-    // This will integrate with the Location Integrations panel (Airly, HERE, etc.)
-    setLocationData(MOCK_LOCATION_DATA);
+    const fetchTransitData = async () => {
+      if (!latitude || !longitude) return;
+      
+      setLoadingTransit(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('transit-data', {
+          body: { latitude, longitude }
+        });
+
+        if (error) {
+          console.error('Error fetching transit data:', error);
+          return;
+        }
+
+        if (data) {
+          const transitData = data as TransitData;
+          setLocationData(prev => ({
+            ...prev,
+            publicTransport: {
+              lines: transitData.line_count,
+              nearestStop: `${transitData.nearest_stop.distance_m}m`,
+              transportTypes: transitData.transport_types,
+              score: transitData.transport_score,
+              rating: transitData.transport_rating,
+              aiSummary: transitData.ai_summary,
+              hasNightService: transitData.has_night_service,
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching transit data:', error);
+      } finally {
+        setLoadingTransit(false);
+      }
+    };
+
+    fetchTransitData();
   }, [latitude, longitude]);
+
+  const transportRatingColor = RATING_COLORS[locationData.publicTransport.rating] || 'bg-gray-500';
+  const transportRatingLabel = RATING_LABELS[locationData.publicTransport.rating] || 'Brak danych';
 
   return (
     <div>
@@ -140,7 +249,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
               </Badge>
             </div>
 
-            {/* Public Transport */}
+            {/* Public Transport - Enhanced with real data */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -149,14 +258,35 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                 <div>
                   <p className="font-medium">Komunikacja miejska</p>
                   <p className="text-sm text-muted-foreground">
-                    Najbliższy przystanek: {locationData.publicTransport.nearestStop}
+                    {loadingTransit ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Ładowanie...
+                      </span>
+                    ) : (
+                      `Najbliższy przystanek: ${locationData.publicTransport.nearestStop}`
+                    )}
                   </p>
                 </div>
               </div>
-              <span className="text-lg font-bold text-primary">
-                {locationData.publicTransport.lines} linii
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <Badge className={`${transportRatingColor} text-white`}>
+                  {transportRatingLabel}
+                </Badge>
+                <span className="text-sm font-bold text-primary">
+                  {locationData.publicTransport.lines} linii
+                </span>
+              </div>
             </div>
+
+            {/* Transport AI Summary */}
+            {locationData.publicTransport.aiSummary && !loadingTransit && (
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  🤖 {locationData.publicTransport.aiSummary}
+                </p>
+              </div>
+            )}
 
             {/* Shops */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -214,7 +344,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
           </div>
 
           <p className="text-xs text-muted-foreground mt-4 text-center">
-            Dane lokalizacyjne zostaną uzupełnione po integracji z API
+            Dane komunikacyjne z systemu GTFS • Inne wskaźniki zostaną uzupełnione
           </p>
         </Card>
       </div>
