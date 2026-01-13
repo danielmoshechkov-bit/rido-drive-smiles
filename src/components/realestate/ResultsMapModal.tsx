@@ -46,6 +46,12 @@ export function ResultsMapModal({
 
   // Filter listings that have coordinates
   const listingsWithCoords = listings.filter(l => l.lat && l.lng);
+  
+  // Debug: log what we receive
+  console.log('[ResultsMapModal] listings:', listings.length, 'with coords:', listingsWithCoords.length);
+  if (listings.length > 0) {
+    console.log('[ResultsMapModal] Sample listing:', listings[0]);
+  }
 
   const formatPrice = (price: number, priceType?: string) => {
     if (price >= 1000000) {

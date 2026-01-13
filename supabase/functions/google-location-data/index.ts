@@ -299,6 +299,15 @@ async function fetchPoiData(
       const data = await response.json();
       console.log(`[POI] Category ${categoryKey}: API status ${response.status}, places: ${data.places?.length || 0}`);
 
+      // Handle 403 errors (API key configuration issues)
+      if (response.status === 403) {
+        const errorReason = data.error?.details?.[0]?.reason || data.error?.status || "PERMISSION_DENIED";
+        console.error(`[POI] Category ${categoryKey}: API Key blocked - ${errorReason}`);
+        console.error(`[POI] Full error:`, JSON.stringify(data.error));
+        // Continue to next category, this one will have 0 results
+        continue;
+      }
+
       if (data.places && data.places.length > 0) {
         for (const place of data.places) {
           const placeLat = place.location?.latitude;
@@ -317,8 +326,8 @@ async function fetchPoiData(
         }
       }
 
-      // Check for API errors
-      if (data.error) {
+      // Check for API errors (non-403)
+      if (data.error && response.status !== 403) {
         console.error(`[POI] Category ${categoryKey} API error:`, data.error);
       }
     } catch (error) {

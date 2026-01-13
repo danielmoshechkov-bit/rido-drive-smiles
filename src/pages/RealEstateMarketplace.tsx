@@ -661,7 +661,11 @@ export default function RealEstateMarketplace() {
       <ResultsMapModal
         open={showResultsMap}
         onOpenChange={setShowResultsMap}
-        listings={listings}
+        listings={listings.map(l => ({
+          ...l,
+          lat: l.lat ?? undefined,
+          lng: l.lng ?? undefined,
+        }))}
         onViewListing={(id) => {
           setShowResultsMap(false);
           navigate(`/nieruchomosci/ogloszenie/${id}`);
