@@ -2,12 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -35,8 +34,11 @@ export function LocationMapModal({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  
+  // Custom polygon drawing refs (no DrawingManager)
+  const tempPolygonRef = useRef<google.maps.Polygon | null>(null);
+  const tempMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -45,6 +47,9 @@ export function LocationMapModal({
   const [polygonPoints, setPolygonPoints] = useState<Array<{ lat: number; lng: number }>>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [searchLocation, setSearchLocation] = useState("");
+  
+  // Custom drawing state
+  const [drawingPoints, setDrawingPoints] = useState<Array<{ lat: number; lng: number }>>([]);
 
   // Check if the error is a configuration error
   const isConfigError = error && (error as any).isConfigError;
@@ -65,7 +70,6 @@ export function LocationMapModal({
 
   // Initialize map ONLY when modal is open and container has proper dimensions
   useEffect(() => {
-    // Don't initialize if modal is closed or Google Maps not loaded
     if (!open || !isLoaded || !google) return;
 
     let initAttempt = 0;
@@ -104,48 +108,11 @@ export function LocationMapModal({
         streetViewControl: false,
         fullscreenControl: true,
         gestureHandling: 'greedy',
+        draggable: true,
       });
 
       mapInstanceRef.current = map;
       console.log("[Map Init] Success!");
-
-      // Initialize DrawingManager for polygon mode
-      const drawingManager = new google.maps.drawing.DrawingManager({
-        drawingMode: null,
-        drawingControl: false,
-        polygonOptions: {
-          fillColor: "#3b82f6",
-          fillOpacity: 0.2,
-          strokeColor: "#3b82f6",
-          strokeWeight: 2,
-          editable: true,
-          draggable: true,
-        },
-      });
-
-      drawingManager.setMap(map);
-      drawingManagerRef.current = drawingManager;
-
-      // Handle polygon complete
-      google.maps.event.addListener(drawingManager, "polygoncomplete", (polygon: google.maps.Polygon) => {
-        if (polygonRef.current) {
-          polygonRef.current.setMap(null);
-        }
-        polygonRef.current = polygon;
-        setIsDrawing(false);
-        drawingManager.setDrawingMode(null);
-
-        const path = polygon.getPath();
-        const points: Array<{ lat: number; lng: number }> = [];
-        for (let i = 0; i < path.getLength(); i++) {
-          const point = path.getAt(i);
-          points.push({ lat: point.lat(), lng: point.lng() });
-        }
-        setPolygonPoints(points);
-
-        google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygon));
-        google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygon));
-      });
 
       // Initialize with existing area
       if (initialArea?.type === "circle" && initialArea.circle) {
@@ -159,20 +126,13 @@ export function LocationMapModal({
         setPolygonPoints(initialArea.polygon.points);
       }
 
-      // Click to set circle center
-      map.addListener("click", (e: google.maps.MapMouseEvent) => {
-        if (mode === "circle" && e.latLng) {
-          setCircleCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-        }
-      });
-
       // Force resize and setCenter after initialization
       setTimeout(() => {
         if (mapInstanceRef.current && google) {
           google.maps.event.trigger(mapInstanceRef.current, 'resize');
           mapInstanceRef.current.setCenter(center);
         }
-      }, 50);
+      }, 100);
     };
 
     // Start initialization after 50ms (wait for modal to fully open)
@@ -182,30 +142,34 @@ export function LocationMapModal({
       clearTimeout(initTimeout);
       circleRef.current?.setMap(null);
       polygonRef.current?.setMap(null);
-      drawingManagerRef.current?.setMap(null);
+      tempPolygonRef.current?.setMap(null);
+      tempMarkersRef.current.forEach(m => m.map = null);
       markerRef.current = null;
     };
   }, [open, isLoaded, google, initialCenter]);
 
-  // Force resize and setCenter when modal opens
+  // Force resize and setCenter when modal opens - with saved center
   useEffect(() => {
     if (!open || !mapInstanceRef.current || !google) return;
 
-    const center = initialCenter || DEFAULT_CENTER;
+    // Save current center before resize
+    const savedCenter = mapInstanceRef.current.getCenter() || new google.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
 
     // Force redraw at multiple intervals after modal opens
-    const resizes = [50, 150, 300, 500].map(delay =>
+    const resizes = [50, 100, 200, 400, 800].map(delay =>
       setTimeout(() => {
         if (mapInstanceRef.current) {
           google.maps.event.trigger(mapInstanceRef.current, 'resize');
-          mapInstanceRef.current.setCenter(center);
+          mapInstanceRef.current.setCenter(savedCenter);
         }
       }, delay)
     );
 
     const handleResize = () => {
       if (mapInstanceRef.current) {
+        const center = mapInstanceRef.current.getCenter();
         google.maps.event.trigger(mapInstanceRef.current, 'resize');
+        if (center) mapInstanceRef.current.setCenter(center);
       }
     };
 
@@ -215,9 +179,9 @@ export function LocationMapModal({
       resizes.forEach(clearTimeout);
       window.removeEventListener('resize', handleResize);
     };
-  }, [open, google, initialCenter]);
+  }, [open, google]);
 
-  // Update click listener when mode changes
+  // Update click listener when mode or drawing state changes
   useEffect(() => {
     if (!mapInstanceRef.current || !google) return;
 
@@ -225,11 +189,72 @@ export function LocationMapModal({
     google.maps.event.clearListeners(map, "click");
 
     map.addListener("click", (e: google.maps.MapMouseEvent) => {
-      if (mode === "circle" && e.latLng) {
+      if (!e.latLng) return;
+
+      // Circle mode - set center on click
+      if (mode === "circle") {
         setCircleCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+        return;
+      }
+
+      // Polygon mode with active drawing
+      if (mode === "polygon" && isDrawing) {
+        const newPoint = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+
+        // Check if clicking near first point to close polygon (20m tolerance)
+        if (drawingPoints.length >= 3) {
+          const firstPoint = drawingPoints[0];
+          const distance = google.maps.geometry?.spherical?.computeDistanceBetween(
+            new google.maps.LatLng(newPoint.lat, newPoint.lng),
+            new google.maps.LatLng(firstPoint.lat, firstPoint.lng)
+          );
+          if (distance && distance < 30) {
+            handleFinishDrawing();
+            return;
+          }
+        }
+
+        // Add point to drawing
+        setDrawingPoints(prev => {
+          const updated = [...prev, newPoint];
+          
+          // Update temp polygon visualization
+          if (tempPolygonRef.current) {
+            tempPolygonRef.current.setPath(updated);
+          } else if (updated.length >= 2 && mapInstanceRef.current) {
+            tempPolygonRef.current = new google.maps.Polygon({
+              map: mapInstanceRef.current,
+              paths: updated,
+              fillColor: "#3b82f6",
+              fillOpacity: 0.15,
+              strokeColor: "#3b82f6",
+              strokeWeight: 2,
+              strokeOpacity: 0.9,
+              editable: false,
+              draggable: false,
+            });
+          }
+
+          // Add marker for the point (simple div marker)
+          if (mapInstanceRef.current) {
+            const markerDiv = document.createElement('div');
+            markerDiv.className = 'w-3 h-3 bg-primary rounded-full border-2 border-white shadow-lg';
+            markerDiv.style.cssText = 'width: 12px; height: 12px; background: #3b82f6; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);';
+            
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+              map: mapInstanceRef.current,
+              position: newPoint,
+              content: markerDiv,
+              title: updated.length === 1 ? "Punkt startowy (kliknij aby zamknąć)" : `Punkt ${updated.length}`,
+            });
+            tempMarkersRef.current.push(marker);
+          }
+
+          return updated;
+        });
       }
     });
-  }, [mode, google]);
+  }, [mode, google, isDrawing, drawingPoints.length]);
 
   // Draw/update circle
   useEffect(() => {
@@ -275,15 +300,15 @@ export function LocationMapModal({
     }
   }, [circleCenter, radius, mode, google]);
 
-  // Handle polygon mode
+  // Handle polygon mode - draw existing polygon
   useEffect(() => {
-    if (!drawingManagerRef.current || !google) return;
+    if (!google || !mapInstanceRef.current) return;
 
     if (mode === "polygon") {
       circleRef.current?.setMap(null);
       
-      // If we have existing polygon points, draw them
-      if (polygonPoints.length > 0 && !polygonRef.current) {
+      // If we have existing polygon points and not drawing, draw them
+      if (polygonPoints.length > 0 && !polygonRef.current && !isDrawing) {
         polygonRef.current = new google.maps.Polygon({
           map: mapInstanceRef.current,
           paths: polygonPoints,
@@ -302,10 +327,11 @@ export function LocationMapModal({
     } else {
       polygonRef.current?.setMap(null);
       polygonRef.current = null;
-      drawingManagerRef.current.setDrawingMode(null);
       setIsDrawing(false);
+      setDrawingPoints([]);
+      cleanupTempDrawing();
     }
-  }, [mode, google, polygonPoints.length]);
+  }, [mode, google, polygonPoints.length, isDrawing]);
 
   const updatePolygonPoints = (polygon: google.maps.Polygon) => {
     const path = polygon.getPath();
@@ -317,14 +343,83 @@ export function LocationMapModal({
     setPolygonPoints(points);
   };
 
+  const cleanupTempDrawing = () => {
+    tempPolygonRef.current?.setMap(null);
+    tempPolygonRef.current = null;
+    tempMarkersRef.current.forEach(m => m.map = null);
+    tempMarkersRef.current = [];
+  };
+
+  // Start drawing - DISABLE map drag
   const handleStartDrawing = () => {
     if (polygonRef.current) {
       polygonRef.current.setMap(null);
       polygonRef.current = null;
     }
     setPolygonPoints([]);
+    setDrawingPoints([]);
+    cleanupTempDrawing();
     setIsDrawing(true);
-    drawingManagerRef.current?.setDrawingMode(google!.maps.drawing.OverlayType.POLYGON);
+
+    // DISABLE map dragging during drawing
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setOptions({
+        draggable: false,
+        gestureHandling: 'none',
+        scrollwheel: false,
+      });
+    }
+  };
+
+  // Finish drawing - RESTORE map drag
+  const handleFinishDrawing = useCallback(() => {
+    if (!google || !mapInstanceRef.current) return;
+
+    // RESTORE normal map controls
+    mapInstanceRef.current.setOptions({
+      draggable: true,
+      gestureHandling: 'greedy',
+      scrollwheel: true,
+    });
+
+    if (drawingPoints.length >= 3) {
+      setPolygonPoints([...drawingPoints]);
+
+      // Create final editable polygon
+      polygonRef.current = new google.maps.Polygon({
+        map: mapInstanceRef.current,
+        paths: drawingPoints,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.2,
+        strokeColor: "#3b82f6",
+        strokeWeight: 2,
+        editable: true,
+        draggable: true,
+      });
+
+      const path = polygonRef.current.getPath();
+      google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygonRef.current!));
+      google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygonRef.current!));
+    }
+
+    // Cleanup temp drawing
+    cleanupTempDrawing();
+    setDrawingPoints([]);
+    setIsDrawing(false);
+  }, [google, drawingPoints]);
+
+  // Cancel drawing
+  const handleCancelDrawing = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setOptions({
+        draggable: true,
+        gestureHandling: 'greedy',
+        scrollwheel: true,
+      });
+    }
+    cleanupTempDrawing();
+    setDrawingPoints([]);
+    setIsDrawing(false);
   };
 
   const handleClear = () => {
@@ -332,10 +427,13 @@ export function LocationMapModal({
     circleRef.current = null;
     polygonRef.current?.setMap(null);
     polygonRef.current = null;
+    cleanupTempDrawing();
     setCircleCenter(null);
     setPolygonPoints([]);
+    setDrawingPoints([]);
     setRadius(DEFAULT_RADIUS);
     setRadiusInput(DEFAULT_RADIUS.toString());
+    setIsDrawing(false);
   };
 
   const handleRadiusInputChange = (value: string) => {
@@ -345,7 +443,6 @@ export function LocationMapModal({
       setRadius(num);
     }
   };
-
 
   const handleConfirm = () => {
     if (mode === "circle" && circleCenter) {
@@ -489,12 +586,35 @@ export function LocationMapModal({
               </div>
             )}
             
-            {/* Draw Button (only for polygon mode) */}
+            {/* Draw/Finish Buttons (only for polygon mode) */}
             {mode === "polygon" && !isDrawing && (
               <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded} className="h-9">
                 <Pentagon className="h-4 w-4 mr-1" />
                 Rysuj
               </Button>
+            )}
+            
+            {mode === "polygon" && isDrawing && (
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="default" 
+                  onClick={handleFinishDrawing}
+                  disabled={drawingPoints.length < 3}
+                  className="h-9"
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Zamknij ({drawingPoints.length} pkt)
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={handleCancelDrawing}
+                  className="h-9"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -507,7 +627,7 @@ export function LocationMapModal({
                   ? `✓ Wybrany obszar: ${formatRadius(radius)}` 
                   : "Kliknij na mapie lub wyszukaj lokalizację aby wybrać środek okręgu")
               : (isDrawing 
-                  ? "Kliknij punkty na mapie, zamknij klikając pierwszy punkt" 
+                  ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3), zamknij klikając pierwszy punkt lub przycisk "Zamknij"` 
                   : polygonPoints.length >= 3 
                     ? `✓ Obszar narysowany (${polygonPoints.length} punktów)`
                     : "Kliknij 'Rysuj' aby narysować własny obszar")
@@ -517,11 +637,14 @@ export function LocationMapModal({
 
         {/* Map - explicit dimensions to ensure proper rendering */}
         <div 
-          className="relative mx-4 mb-4 rounded-lg overflow-hidden border"
-          style={{ width: '100%', height: '55vh', minHeight: '420px' }}
+          className="relative mx-4 mb-4 rounded-lg overflow-hidden border flex-1"
+          style={{ 
+            width: 'calc(100% - 2rem)', 
+            minHeight: '460px'
+          }}
         >
           {!isLoaded && !error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2" style={{ minHeight: '460px' }}>
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Ładowanie Google Maps...</p>
             </div>
@@ -530,7 +653,7 @@ export function LocationMapModal({
           ) : (
             <div 
               ref={mapRef} 
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: '100%', height: '100%', minHeight: '460px' }}
             />
           )}
         </div>
@@ -540,7 +663,7 @@ export function LocationMapModal({
           <Button
             variant="outline"
             onClick={handleClear}
-            disabled={!hasValidArea}
+            disabled={!hasValidArea && !isDrawing}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Wyczyść obszar
