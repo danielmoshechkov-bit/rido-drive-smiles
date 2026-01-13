@@ -231,6 +231,17 @@ export function RealEstateSearch({ onSearch, className }: RealEstateSearchProps)
   const handleAreaConfirm = (area: AreaSelection | null) => {
     setSelectedArea(area);
     setFilters(prev => ({ ...prev, area }));
+    
+    // Automatyczne wyszukiwanie po zatwierdzeniu obszaru
+    if (area) {
+      onSearch({ 
+        ...filters, 
+        location: locationText || undefined,
+        locationLat: selectedLocation?.lat,
+        locationLng: selectedLocation?.lng,
+        area,
+      });
+    }
   };
 
   const handleClearArea = () => {
