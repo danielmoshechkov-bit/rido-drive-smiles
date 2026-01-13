@@ -692,10 +692,10 @@ export default function RealEstateAgentRegister() {
         <Button
           variant="ghost"
           className="mb-6"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/nieruchomosci")}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Wróć
+          Wróć do giełdy
         </Button>
 
         {/* Progress steps - clickable */}

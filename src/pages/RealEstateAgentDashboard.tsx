@@ -44,6 +44,7 @@ export default function RealEstateAgentDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [noProfile, setNoProfile] = useState(false);
   const [agent, setAgent] = useState<AgentProfile | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "listings");
@@ -81,8 +82,8 @@ export default function RealEstateAgentDashboard() {
       }
 
       if (!agentData) {
-        toast.error("Nie znaleziono profilu agenta");
-        navigate("/nieruchomosci/agent/rejestracja");
+        setNoProfile(true);
+        setLoading(false);
         return;
       }
 
@@ -137,6 +138,39 @@ export default function RealEstateAgentDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (noProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-orange-500 mb-4" />
+            <CardTitle>Nie masz jeszcze agencji</CardTitle>
+            <CardDescription>
+              Aby korzystać z panelu agenta, zarejestruj swoją agencję nieruchomości.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/nieruchomosci")} 
+              className="flex-1"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Wróć do giełdy
+            </Button>
+            <Button 
+              onClick={() => navigate("/nieruchomosci/agent/rejestracja")} 
+              className="flex-1"
+            >
+              <Building className="h-4 w-4 mr-2" />
+              Zarejestruj agencję
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
