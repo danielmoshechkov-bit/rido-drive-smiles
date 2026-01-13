@@ -53,47 +53,45 @@ const LegalPage = () => {
         </div>
       </div>
 
-      {/* Purple Tab Bar - TabsPill jak w DriverDashboard */}
-      <div className="bg-primary">
-        <div className="container mx-auto px-4 py-3">
-          {/* Desktop - TabsPill */}
-          <div className="hidden md:block">
-            <TabsPill value={activeTab} onValueChange={(v) => handleTabChange(v as TabKey)}>
-              {tabs.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key}>
-                  <span className="flex items-center gap-2">
-                    {tab.icon}
-                    {tab.label}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsPill>
-          </div>
-
-          {/* Mobile collapsible */}
-          <div className="md:hidden">
-            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-white text-primary rounded-full font-medium">
+      {/* Tab Bar - TabsPill jak w DriverDashboard */}
+      <div className="container mx-auto px-4 py-3 bg-background">
+        {/* Desktop - TabsPill */}
+        <div className="hidden md:block">
+          <TabsPill value={activeTab} onValueChange={(v) => handleTabChange(v as TabKey)}>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.key} value={tab.key}>
                 <span className="flex items-center gap-2">
-                  {activeTabData?.icon}
-                  {activeTabData?.label}
+                  {tab.icon}
+                  {tab.label}
                 </span>
-                <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-1">
-                {tabs.filter(t => t.key !== activeTab).map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => handleTabChange(tab.key)}
-                    className="flex items-center gap-2 w-full px-4 py-3 bg-white/10 text-white rounded-full font-medium hover:bg-white/20 transition-all"
-                  >
-                    {tab.icon}
-                    {tab.label}
-                  </button>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
+              </TabsTrigger>
+            ))}
+          </TabsPill>
+        </div>
+
+        {/* Mobile - Collapsible */}
+        <div className="md:hidden">
+          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-primary text-white rounded-full font-medium">
+              <span className="flex items-center gap-2">
+                {activeTabData?.icon}
+                {activeTabData?.label}
+              </span>
+              <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-1">
+              {tabs.filter(t => t.key !== activeTab).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => handleTabChange(tab.key)}
+                  className="flex items-center gap-2 w-full px-4 py-3 bg-primary/80 text-white rounded-full font-medium hover:bg-primary transition-all"
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
 
