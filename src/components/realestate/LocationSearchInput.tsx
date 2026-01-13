@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { 
-  MapPin, Map, Search, Clock, Building2, ChevronRight, X, Loader2, Navigation, List
+  MapPin, Map, Search, Clock, Building2, ChevronRight, X, Loader2, Navigation, List, RefreshCw, AlertCircle
 } from "lucide-react";
 
 export interface LocationSelection {
@@ -48,6 +48,22 @@ interface LocationSearchInputProps {
 
 const RECENT_LOCATIONS_KEY = "rido_recent_locations";
 const MAX_RECENT = 5;
+const SEARCH_TIMEOUT = 6000; // 6 seconds
+
+// Types for new Places API
+interface PlacePrediction {
+  placeId: string;
+  text: {
+    text: string;
+    matches?: Array<{ startOffset: number; endOffset: number }>;
+  };
+  structuredFormat: {
+    mainText: { text: string };
+    secondaryText?: { text: string };
+  };
+  types?: string[];
+  toPlace: () => google.maps.places.Place;
+}
 
 function getRecentLocations(): LocationSelection[] {
   try {
@@ -78,31 +94,20 @@ export function LocationSearchInput({
   placeholder = "Wpisz lokalizację",
   className,
 }: LocationSearchInputProps) {
-  const { isLoaded, error: mapsError, google } = useGoogleMaps();
+  const { isLoaded, error: mapsError, isTimedOut, retryLoad, google } = useGoogleMaps();
   const [isFocused, setIsFocused] = useState(false);
-  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [recentLocations, setRecentLocations] = useState<LocationSelection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   
   // Check if the error is a configuration error
   const isConfigError = mapsError && (mapsError as any).isConfigError;
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesService = useRef<google.maps.places.PlacesService | null>(null);
-  const sessionToken = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
-
-  // Initialize services
-  useEffect(() => {
-    if (isLoaded && google) {
-      autocompleteService.current = new google.maps.places.AutocompleteService();
-      // Create a dummy div for PlacesService
-      const dummyDiv = document.createElement("div");
-      placesService.current = new google.maps.places.PlacesService(dummyDiv);
-      sessionToken.current = new google.maps.places.AutocompleteSessionToken();
-    }
-  }, [isLoaded, google]);
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load recent locations
   useEffect(() => {
@@ -120,35 +125,79 @@ export function LocationSearchInput({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch predictions
+  // Fetch predictions using new Places API
   const fetchPredictions = useCallback(async (input: string) => {
-    if (!autocompleteService.current || !input.trim()) {
+    if (!isLoaded || !google || !input.trim()) {
       setPredictions([]);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const request: google.maps.places.AutocompletionRequest = {
-        input,
-        componentRestrictions: { country: "pl" },
-        types: ["geocode", "establishment"],
-        sessionToken: sessionToken.current!,
-      };
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
-      autocompleteService.current.getPlacePredictions(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          setPredictions(results);
-        } else {
-          setPredictions([]);
-        }
-        setIsLoading(false);
+    setIsLoading(true);
+    setSearchError(null);
+
+    try {
+      // Create session token if not exists
+      if (!sessionTokenRef.current) {
+        const { AutocompleteSessionToken } = google.maps.places;
+        sessionTokenRef.current = new AutocompleteSessionToken();
+      }
+
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("SEARCH_TIMEOUT"));
+        }, SEARCH_TIMEOUT);
       });
-    } catch {
+
+      // Use new Places API - AutocompleteSuggestion
+      const { AutocompleteSuggestion } = google.maps.places;
+      
+      console.log("[Google Maps] Fetching autocomplete suggestions for:", input);
+      
+      const searchPromise = AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input,
+        includedRegionCodes: ["pl"],
+        language: "pl",
+        sessionToken: sessionTokenRef.current,
+      });
+
+      const response = await Promise.race([searchPromise, timeoutPromise]);
+      
+      if (response.suggestions) {
+        const placePredictions = response.suggestions
+          .filter((s: any) => s.placePrediction)
+          .map((s: any) => s.placePrediction as PlacePrediction);
+        
+        console.log("[Google Maps] Got", placePredictions.length, "predictions");
+        setPredictions(placePredictions);
+      } else {
+        setPredictions([]);
+      }
+    } catch (error: any) {
+      console.error("[Google Maps] Autocomplete failed:", error);
+      
+      if (error.name === "AbortError") {
+        // Request was cancelled, ignore
+        return;
+      }
+      
+      if (error.message === "SEARCH_TIMEOUT") {
+        console.warn("[Google Maps] Search timed out after", SEARCH_TIMEOUT / 1000, "seconds");
+        setSearchError("Przekroczono czas oczekiwania. Spróbuj ponownie.");
+      } else {
+        setSearchError("Nie udało się wczytać wyników.");
+      }
       setPredictions([]);
+    } finally {
       setIsLoading(false);
     }
-  }, [google]);
+  }, [isLoaded, google]);
 
   // Debounced search
   useEffect(() => {
@@ -157,50 +206,65 @@ export function LocationSearchInput({
         fetchPredictions(value);
       } else {
         setPredictions([]);
+        setSearchError(null);
       }
     }, 300);
     return () => clearTimeout(timer);
   }, [value, isFocused, fetchPredictions]);
 
-  // Handle selection
-  const handleSelect = (prediction: google.maps.places.AutocompletePrediction) => {
-    if (!placesService.current || !google) return;
+  // Handle selection using new Places API
+  const handleSelect = async (prediction: PlacePrediction) => {
+    if (!google) return;
 
     setIsLoading(true);
-    placesService.current.getDetails(
-      {
-        placeId: prediction.place_id,
-        fields: ["geometry", "name", "types", "formatted_address"],
-        sessionToken: sessionToken.current!,
-      },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-          const location: LocationSelection = {
-            text: prediction.description,
-            placeId: prediction.place_id,
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
-            types: place.types,
-          };
+    setSearchError(null);
 
-          saveRecentLocation(location);
-          setRecentLocations(getRecentLocations());
-          onChange(prediction.description);
-          onLocationSelect?.(location);
-          setIsFocused(false);
-          
-          // Reset session token after selection
-          sessionToken.current = new google.maps.places.AutocompleteSessionToken();
-        }
-        setIsLoading(false);
-      }
-    );
+    try {
+      console.log("[Google Maps] Fetching place details for:", prediction.placeId);
+      
+      // Use the new API - toPlace() and fetchFields()
+      const place = prediction.toPlace();
+      await place.fetchFields({ 
+        fields: ["displayName", "formattedAddress", "location", "types"] 
+      });
+
+      const location: LocationSelection = {
+        text: place.formattedAddress || prediction.text.text,
+        placeId: prediction.placeId,
+        lat: place.location?.lat(),
+        lng: place.location?.lng(),
+        types: place.types || prediction.types,
+      };
+
+      console.log("[Google Maps] Place details fetched:", location);
+
+      saveRecentLocation(location);
+      setRecentLocations(getRecentLocations());
+      onChange(prediction.text.text);
+      onLocationSelect?.(location);
+      setIsFocused(false);
+
+      // Reset session token after selection
+      sessionTokenRef.current = null;
+    } catch (error) {
+      console.error("[Google Maps] Place details failed:", error);
+      setSearchError("Nie udało się pobrać szczegółów miejsca.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRecentSelect = (location: LocationSelection) => {
     onChange(location.text);
     onLocationSelect?.(location);
     setIsFocused(false);
+  };
+
+  const handleRetrySearch = () => {
+    setSearchError(null);
+    if (value.trim()) {
+      fetchPredictions(value);
+    }
   };
 
   const getAreaLabel = () => {
@@ -225,7 +289,7 @@ export function LocationSearchInput({
     return <MapPin className="h-4 w-4" />;
   };
 
-  const showDropdown = isFocused && (recentLocations.length > 0 || predictions.length > 0 || !value);
+  const showDropdown = isFocused && (recentLocations.length > 0 || predictions.length > 0 || searchError || !value);
 
   // Show config error message
   if (isConfigError) {
@@ -242,6 +306,35 @@ export function LocationSearchInput({
         </div>
         <p className="text-xs text-amber-600 mt-1">
           ⚠️ Aby włączyć wyszukiwarkę, dodaj klucz API w: Admin → Ustawienia → Integracje lokalizacji
+        </p>
+      </div>
+    );
+  }
+
+  // Show timeout error with retry
+  if (isTimedOut) {
+    return (
+      <div ref={containerRef} className={cn("relative", className)}>
+        <div className="relative flex items-center">
+          <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive z-10" />
+          <Input
+            type="text"
+            disabled
+            placeholder="Nie udało się wczytać Google Maps"
+            className="pl-9 text-muted-foreground bg-destructive/5 border-destructive/20"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={retryLoad}
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 gap-1"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Ponów
+          </Button>
+        </div>
+        <p className="text-xs text-destructive mt-1">
+          ⚠️ Przekroczono czas oczekiwania. Sprawdź połączenie internetowe i spróbuj ponownie.
         </p>
       </div>
     );
@@ -292,8 +385,25 @@ export function LocationSearchInput({
       {/* Dropdown */}
       {showDropdown && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-xl z-50 overflow-hidden max-h-[400px] overflow-y-auto">
+          {/* Search Error with Retry */}
+          {searchError && (
+            <div className="p-4 text-center">
+              <AlertCircle className="h-5 w-5 text-destructive mx-auto mb-2" />
+              <p className="text-sm text-destructive mb-2">{searchError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetrySearch}
+                className="gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Ponów wyszukiwanie
+              </Button>
+            </div>
+          )}
+
           {/* Recent Locations */}
-          {!value && recentLocations.length > 0 && (
+          {!searchError && !value && recentLocations.length > 0 && (
             <div className="p-2">
               <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">
                 Ostatnio wybrane
@@ -315,22 +425,22 @@ export function LocationSearchInput({
           )}
 
           {/* Predictions */}
-          {predictions.length > 0 && (
+          {!searchError && predictions.length > 0 && (
             <div className="p-2">
               {value && <Separator className="mb-2" />}
               {predictions.map((prediction) => (
                 <button
-                  key={prediction.place_id}
+                  key={prediction.placeId}
                   className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
                   onClick={() => handleSelect(prediction)}
                 >
                   {getIconForType(prediction.types)}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {prediction.structured_formatting.main_text}
+                      {prediction.structuredFormat.mainText.text}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {prediction.structured_formatting.secondary_text}
+                      {prediction.structuredFormat.secondaryText?.text}
                     </p>
                   </div>
                 </button>
@@ -338,63 +448,65 @@ export function LocationSearchInput({
             </div>
           )}
 
-          <Separator />
+          {!searchError && <Separator />}
 
           {/* Action Buttons */}
-          <div className="p-2 space-y-1">
-            <button
-              className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
-              onClick={() => {
-                setIsFocused(false);
-                onOpenMapModal?.();
-              }}
-            >
-              <Map className="h-4 w-4 text-primary" />
-              <span className="flex-1 text-sm font-medium">Szukaj na mapie</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+          {!searchError && (
+            <div className="p-2 space-y-1">
+              <button
+                className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
+                onClick={() => {
+                  setIsFocused(false);
+                  onOpenMapModal?.();
+                }}
+              >
+                <Map className="h-4 w-4 text-primary" />
+                <span className="flex-1 text-sm font-medium">Szukaj na mapie</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
 
-            <button
-              className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
-              onClick={() => {
-                setIsFocused(false);
-                if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                      const location: LocationSelection = {
-                        text: "Moja lokalizacja",
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                      };
-                      onLocationSelect?.(location);
-                      onChange("Moja lokalizacja");
-                    },
-                    () => {
-                      console.error("Geolocation failed");
-                    }
-                  );
-                }
-              }}
-            >
-              <Navigation className="h-4 w-4 text-primary" />
-              <span className="flex-1 text-sm font-medium">Szukaj w pobliżu adresu</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+              <button
+                className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
+                onClick={() => {
+                  setIsFocused(false);
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        const location: LocationSelection = {
+                          text: "Moja lokalizacja",
+                          lat: pos.coords.latitude,
+                          lng: pos.coords.longitude,
+                        };
+                        onLocationSelect?.(location);
+                        onChange("Moja lokalizacja");
+                      },
+                      () => {
+                        console.error("Geolocation failed");
+                      }
+                    );
+                  }
+                }}
+              >
+                <Navigation className="h-4 w-4 text-primary" />
+                <span className="flex-1 text-sm font-medium">Szukaj w pobliżu adresu</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
 
-            <button
-              className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
-              onClick={() => {
-                // Could open a list of popular cities
-                setIsFocused(false);
-              }}
-            >
-              <List className="h-4 w-4 text-primary" />
-              <span className="flex-1 text-sm font-medium">Wybierz lokalizację z listy</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
+              <button
+                className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
+                onClick={() => {
+                  // Could open a list of popular cities
+                  setIsFocused(false);
+                }}
+              >
+                <List className="h-4 w-4 text-primary" />
+                <span className="flex-1 text-sm font-medium">Wybierz lokalizację z listy</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+          )}
 
-          {!isLoaded && (
+          {!isLoaded && !searchError && (
             <div className="p-4 text-center">
               <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               <p className="text-xs text-muted-foreground mt-2">Ładowanie Google Maps...</p>
