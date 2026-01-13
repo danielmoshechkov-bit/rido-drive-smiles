@@ -957,14 +957,14 @@ export function LocationMapModal({
         {/* Controls Row - Location + Mode + Radius */}
         <div className="px-2 sm:px-4 pb-2 sm:pb-3">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 border rounded-lg p-2 sm:p-3 bg-muted/30">
-            {/* Location Search */}
-            <div className="flex-1 min-w-[140px] sm:min-w-[200px]">
+            {/* Location Search - Compact */}
+            <div className="w-20 sm:w-28 max-w-[80px] sm:max-w-[120px]">
               <LocationSearchInput
                 value={searchLocation}
                 onChange={setSearchLocation}
                 onLocationSelect={handleLocationSelect}
                 placeholder="Szukaj..."
-                className="h-8 sm:h-9 text-sm"
+                className="h-8 sm:h-9 text-xs"
               />
             </div>
             
@@ -973,11 +973,11 @@ export function LocationMapModal({
               <TabsList className="h-8 sm:h-9">
                 <TabsTrigger value="circle" className="gap-1 px-2 sm:px-3 h-7 sm:h-8 text-xs">
                   <Circle className="h-3 w-3" />
-                  <span className="hidden xs:inline">Okrąg</span>
+                  Okrąg
                 </TabsTrigger>
                 <TabsTrigger value="polygon" className="gap-1 px-2 sm:px-3 h-7 sm:h-8 text-xs">
                   <Pentagon className="h-3 w-3" />
-                  <span className="hidden xs:inline">Własny</span>
+                  Własny
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -1015,10 +1015,10 @@ export function LocationMapModal({
                           setTimeout(() => handleStartDrawing(), 50);
                         }
                       }}
-                      className="h-7 sm:h-8 text-xs gap-1 px-2"
+                    className="h-7 sm:h-8 text-xs gap-1 px-2"
                     >
                       <Paintbrush className="h-3 w-3" />
-                      <span className="hidden xs:inline">Pędzel</span>
+                      Pędzel
                     </Button>
                     
                     {/* Points mode button */}
@@ -1035,7 +1035,7 @@ export function LocationMapModal({
                       className="h-7 sm:h-8 text-xs gap-1 px-2"
                     >
                       <MapPin className="h-3 w-3" />
-                      <span className="hidden xs:inline">Punkty</span>
+                      Punkty
                     </Button>
                     
                     {drawingMode === "points" && drawingPoints.length >= 3 && (

@@ -638,8 +638,9 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
             </div>
           )}
 
-          {/* POI API Warning */}
-          {!loading && categoryPoiData.grocery?.count === 0 && categoryPoiData.school?.count === 0 && 
+          {/* POI API Warning - Only show if all categories are 0 and not mock data */}
+          {!loading && !isMock && 
+           categoryPoiData.grocery?.count === 0 && categoryPoiData.school?.count === 0 && 
            categoryPoiData.pharmacy?.count === 0 && categoryPoiData.restaurant?.count === 0 &&
            categoryPoiData.health?.count === 0 && categoryPoiData.park?.count === 0 && (
             <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
@@ -647,7 +648,10 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
               <div>
                 <p className="font-medium">Nie można pobrać danych o okolicy</p>
                 <p className="text-xs mt-1 opacity-80">
-                  Sprawdź konfigurację klucza Google API w panelu administratora (ustawienia → integracje lokalizacji).
+                  Klucz Google API ma ograniczenie "HTTP referrers" które blokuje zapytania z serwera.
+                </p>
+                <p className="text-xs mt-1 opacity-70">
+                  Zmień w Google Cloud Console: Credentials → API Key → Application restrictions → "None" lub "IP addresses"
                 </p>
               </div>
             </div>
