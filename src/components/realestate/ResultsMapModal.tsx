@@ -143,8 +143,14 @@ export function ResultsMapModal({
   useEffect(() => {
     if (!open || !isLoaded || !google || !mapContainerRef.current) return;
 
-    // Wait for container to have dimensions
-    const initTimeout = setTimeout(() => {
+    // Check if container has dimensions before initializing
+    const checkDimensions = (): boolean => {
+      if (!mapContainerRef.current) return false;
+      const rect = mapContainerRef.current.getBoundingClientRect();
+      return rect.width > 100 && rect.height > 100;
+    };
+
+    const initMap = () => {
       if (!mapContainerRef.current || !google) return;
 
       // Calculate center from listings or default to Poland center
@@ -154,6 +160,8 @@ export function ResultsMapModal({
         const avgLng = listingsWithCoords.reduce((sum, l) => sum + (l.lng || 0), 0) / listingsWithCoords.length;
         center = { lat: avgLat, lng: avgLng };
       }
+      
+      console.log('[ResultsMapModal] Initializing map with center:', center, 'listings:', listingsWithCoords.length);
 
       // Create map
       const map = new google.maps.Map(mapContainerRef.current, {
@@ -244,23 +252,34 @@ export function ResultsMapModal({
         map.fitBounds(bounds, 50);
       }
 
-      // Force resize after render - multiple triggers for stability
-      setTimeout(() => {
-        google.maps.event.trigger(map, "resize");
-        if (listingsWithCoords.length > 0) {
-          map.setCenter(center);
-        }
-      }, 100);
+      // Force resize after render - multiple triggers for stability at various intervals
+      [100, 300, 500, 800, 1200].forEach(delay => {
+        setTimeout(() => {
+          if (mapRef.current) {
+            google.maps.event.trigger(mapRef.current, "resize");
+            if (delay === 100 && listingsWithCoords.length > 0) {
+              mapRef.current.setCenter(center);
+            }
+          }
+        }, delay);
+      });
+    };
 
-      setTimeout(() => {
-        google.maps.event.trigger(map, "resize");
-      }, 300);
-
-      setTimeout(() => {
-        google.maps.event.trigger(map, "resize");
-      }, 800);
-
-    }, 100);
+    // Wait for container to have dimensions with retry logic
+    const initTimeout = setTimeout(() => {
+      if (!checkDimensions()) {
+        console.warn('[ResultsMapModal] Container has no dimensions, retrying in 200ms...');
+        setTimeout(() => {
+          if (checkDimensions()) {
+            initMap();
+          } else {
+            console.error('[ResultsMapModal] Container still has no dimensions after retry');
+          }
+        }, 200);
+        return;
+      }
+      initMap();
+    }, 150);
 
     return () => {
       clearTimeout(initTimeout);
@@ -281,21 +300,14 @@ export function ResultsMapModal({
           Modal z mapą wyników wyszukiwania nieruchomości
         </span>
         
-        <DialogHeader className="px-2 sm:px-4 py-2 sm:py-3 border-b flex flex-row items-center justify-between shrink-0">
+        <DialogHeader className="px-2 sm:px-4 py-2 sm:py-3 border-b shrink-0">
           <div className="flex items-center gap-2 sm:gap-3">
             <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             <DialogTitle className="text-sm sm:text-base">
               Mapa wyników ({listingsWithCoords.length})
             </DialogTitle>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-7 w-7 sm:h-8 sm:w-8"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {/* X button removed - DialogContent already has one built-in */}
         </DialogHeader>
         
         {/* Map Container */}
@@ -311,8 +323,16 @@ export function ResultsMapModal({
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3">
               <Home className="h-12 w-12 text-muted-foreground" />
               <p className="text-muted-foreground text-sm text-center px-4">
-                Brak nieruchomości z lokalizacją do wyświetlenia
+                {listings.length === 0 
+                  ? "Brak ogłoszeń do wyświetlenia"
+                  : `Brak nieruchomości z lokalizacją (${listings.length} ogłoszeń bez współrzędnych)`
+                }
               </p>
+              {listings.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Dodaj współrzędne w edycji ogłoszenia
+                </p>
+              )}
             </div>
           ) : (
             <div ref={mapContainerRef} className="absolute inset-0 min-h-[280px] sm:min-h-[400px]" />
