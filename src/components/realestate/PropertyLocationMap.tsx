@@ -9,6 +9,7 @@ import {
   MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2,
   Heart, Building2, Pill, ChevronDown, Check
 } from "lucide-react";
+import { RadiusSelector } from "./RadiusSelector";
 
 interface PropertyLocationMapProps {
   latitude?: number;
@@ -433,11 +434,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Sklepy spożywcze</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.grocery.nearest ? (
-                            <>Najbliższy: {poi.categories.grocery.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
@@ -463,11 +464,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Szkoły</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.school.nearest ? (
-                            <>Najbliższa: {poi.categories.school.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
@@ -493,11 +494,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Apteki</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.pharmacy.nearest ? (
-                            <>Najbliższa: {poi.categories.pharmacy.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
@@ -523,11 +524,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Restauracje i kawiarnie</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.restaurant.nearest ? (
-                            <>Najbliższa: {poi.categories.restaurant.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
@@ -553,11 +554,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Służba zdrowia</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.health.nearest ? (
-                            <>Najbliższa: {poi.categories.health.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
@@ -583,11 +584,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                       <div>
                         <p className="font-medium">Parki i zieleń</p>
                         <p className="text-sm text-muted-foreground">
-                          {poi?.categories.park.nearest ? (
-                            <>Najbliższy: {poi.categories.park.nearest.distance_m}m</>
-                          ) : (
-                            `W promieniu ${selectedRadius}m`
-                          )}
+                          W promieniu{" "}
+                          <RadiusSelector 
+                            value={selectedRadius} 
+                            onChange={(r) => handleRadiusSelect(r)} 
+                          />
                         </p>
                       </div>
                     </div>
