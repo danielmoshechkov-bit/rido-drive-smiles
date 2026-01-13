@@ -63,34 +63,38 @@ export function LocationMapModal({
     }
   }, [mode]);
 
-  // Initialize map with improved timing
+  // Initialize map ONLY when modal is open and container has proper dimensions
   useEffect(() => {
-    if (!open || !isLoaded || !mapRef.current || !google) return;
+    // Don't initialize if modal is closed or Google Maps not loaded
+    if (!open || !isLoaded || !google) return;
 
-    let retryCount = 0;
-    const maxRetries = 5;
-    
-    const initMap = () => {
+    let initAttempt = 0;
+    let initTimeout: ReturnType<typeof setTimeout>;
+    let mapCreated = false;
+
+    const tryInitMap = () => {
       const container = mapRef.current;
-      if (!container) {
-        console.error("Map container ref is null");
-        return;
-      }
-      
+      if (!container || mapCreated) return;
+
       const width = container.offsetWidth;
       const height = container.offsetHeight;
-      console.log("Map container dimensions:", width, "x", height, "retry:", retryCount);
-      
-      // If no dimensions, retry with increasing delays
-      if ((width === 0 || height === 0) && retryCount < maxRetries) {
-        retryCount++;
-        setTimeout(initMap, 200 * retryCount);
+      console.log(`[Map Init] Attempt ${initAttempt + 1}: ${width}x${height}px`);
+
+      // Require minimum 100x100px
+      if (width < 100 || height < 100) {
+        initAttempt++;
+        if (initAttempt < 10) {
+          initTimeout = setTimeout(tryInitMap, 100 * initAttempt);
+        } else {
+          console.error("[Map Init] Failed after 10 attempts - container too small");
+        }
         return;
       }
-      
+
+      mapCreated = true;
       const center = initialCenter || DEFAULT_CENTER;
 
-      // Create map - using basic style without mapId
+      // Create map without mapId to avoid configuration conflicts
       const map = new google.maps.Map(container, {
         center,
         zoom: 12,
@@ -103,7 +107,7 @@ export function LocationMapModal({
       });
 
       mapInstanceRef.current = map;
-      console.log("Map instance created successfully");
+      console.log("[Map Init] Success!");
 
       // Initialize DrawingManager for polygon mode
       const drawingManager = new google.maps.drawing.DrawingManager({
@@ -162,19 +166,17 @@ export function LocationMapModal({
         }
       });
 
-      // Trigger multiple resize events
-      [100, 300, 600].forEach(delay => {
-        setTimeout(() => {
-          if (mapInstanceRef.current && google) {
-            google.maps.event.trigger(mapInstanceRef.current, 'resize');
-            mapInstanceRef.current.setCenter(center);
-          }
-        }, delay);
-      });
+      // Force resize and setCenter after initialization
+      setTimeout(() => {
+        if (mapInstanceRef.current && google) {
+          google.maps.event.trigger(mapInstanceRef.current, 'resize');
+          mapInstanceRef.current.setCenter(center);
+        }
+      }, 50);
     };
 
-    // Start initialization with a small delay
-    const initTimeout = setTimeout(initMap, 100);
+    // Start initialization after 50ms (wait for modal to fully open)
+    initTimeout = setTimeout(tryInitMap, 50);
 
     return () => {
       clearTimeout(initTimeout);
@@ -185,28 +187,35 @@ export function LocationMapModal({
     };
   }, [open, isLoaded, google, initialCenter]);
 
-  // Force resize when modal opens with multiple attempts
+  // Force resize and setCenter when modal opens
   useEffect(() => {
-    if (!open || !google) return;
-    
+    if (!open || !mapInstanceRef.current || !google) return;
+
+    const center = initialCenter || DEFAULT_CENTER;
+
+    // Force redraw at multiple intervals after modal opens
+    const resizes = [50, 150, 300, 500].map(delay =>
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          google.maps.event.trigger(mapInstanceRef.current, 'resize');
+          mapInstanceRef.current.setCenter(center);
+        }
+      }, delay)
+    );
+
     const handleResize = () => {
       if (mapInstanceRef.current) {
         google.maps.event.trigger(mapInstanceRef.current, 'resize');
       }
     };
-    
-    // Multiple resize attempts at different intervals
-    const resizeTimeouts = [100, 250, 500, 1000].map(delay => 
-      setTimeout(handleResize, delay)
-    );
-    
+
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
-      resizeTimeouts.forEach(clearTimeout);
+      resizes.forEach(clearTimeout);
       window.removeEventListener('resize', handleResize);
     };
-  }, [open, google]);
+  }, [open, google, initialCenter]);
 
   // Update click listener when mode changes
   useEffect(() => {
@@ -506,8 +515,11 @@ export function LocationMapModal({
           </p>
         </div>
 
-        {/* Map */}
-        <div className="flex-1 relative mx-4 mb-4 rounded-lg overflow-hidden border min-h-[420px]">
+        {/* Map - explicit dimensions to ensure proper rendering */}
+        <div 
+          className="relative mx-4 mb-4 rounded-lg overflow-hidden border"
+          style={{ width: '100%', height: '55vh', minHeight: '420px' }}
+        >
           {!isLoaded && !error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -518,8 +530,7 @@ export function LocationMapModal({
           ) : (
             <div 
               ref={mapRef} 
-              className="absolute inset-0" 
-              style={{ width: '100%', height: '100%', minHeight: '420px' }}
+              style={{ width: '100%', height: '100%' }}
             />
           )}
         </div>
