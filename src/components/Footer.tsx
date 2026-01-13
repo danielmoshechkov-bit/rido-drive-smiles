@@ -60,7 +60,12 @@ const Footer = () => {
 
           {/* Legal Links - 2x2 grid */}
           <div>
-            <h4 className="font-semibold mb-2 text-sm">Informacje prawne</h4>
+            <Link 
+              to="/prawne" 
+              className="font-semibold mb-2 text-sm block hover:underline transition-colors"
+            >
+              Informacje prawne
+            </Link>
             <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <Link 
                 to="/prawne?tab=polityka" 
