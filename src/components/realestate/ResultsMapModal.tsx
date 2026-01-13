@@ -1,0 +1,360 @@
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { Loader2, X, MapPin, Home, Maximize2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface PropertyListing {
+  id: string;
+  title: string;
+  price: number;
+  priceType?: string;
+  photos?: string[];
+  location: string;
+  district?: string;
+  areaM2: number;
+  rooms?: number;
+  propertyType?: string;
+  transactionType?: string;
+  transactionColor?: string;
+  lat?: number;
+  lng?: number;
+}
+
+interface ResultsMapModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  listings: PropertyListing[];
+  onViewListing?: (id: string) => void;
+}
+
+export function ResultsMapModal({ 
+  open, 
+  onOpenChange, 
+  listings,
+  onViewListing 
+}: ResultsMapModalProps) {
+  const { isLoaded, google } = useGoogleMaps();
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  
+  const [selectedListing, setSelectedListing] = useState<PropertyListing | null>(null);
+  const overlaysRef = useRef<any[]>([]);
+
+  // Filter listings that have coordinates
+  const listingsWithCoords = listings.filter(l => l.lat && l.lng);
+
+  const formatPrice = (price: number, priceType?: string) => {
+    if (price >= 1000000) {
+      return `${(price / 1000000).toFixed(1)}M`;
+    }
+    if (price >= 1000) {
+      return `${(price / 1000).toFixed(0)}k`;
+    }
+    return price.toString();
+  };
+
+  const createMarkerContent = (listing: PropertyListing): HTMLDivElement => {
+    const bgColor = listing.transactionType === "Wynajem" ? "#3b82f6" : "#10b981";
+    const div = document.createElement("div");
+    div.style.cssText = `
+      background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transform: translateX(-50%);
+    `;
+    div.innerHTML = `
+      ${formatPrice(listing.price, listing.priceType)} zł
+      <span style="opacity: 0.8; font-weight: 400;">• ${listing.areaM2}m²</span>
+    `;
+    return div;
+  };
+
+  const showInfoWindow = (
+    map: google.maps.Map, 
+    infoWindow: google.maps.InfoWindow, 
+    listing: PropertyListing
+  ) => {
+    const content = `
+      <div style="max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
+        ${listing.photos?.[0] ? `
+          <img 
+            src="${listing.photos[0]}" 
+            alt="${listing.title}"
+            style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px 8px 0 0;"
+          />
+        ` : ''}
+        <div style="padding: 12px;">
+          <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.3;">
+            ${listing.title}
+          </h3>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="
+              background: ${listing.transactionColor || '#6b7280'};
+              color: white;
+              padding: 2px 8px;
+              border-radius: 12px;
+              font-size: 11px;
+              font-weight: 500;
+            ">${listing.transactionType}</span>
+            <span style="color: #6b7280; font-size: 12px;">
+              ${listing.location}${listing.district ? `, ${listing.district}` : ''}
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: #7c3aed;">
+                ${listing.price.toLocaleString('pl-PL')} zł
+                ${listing.priceType === 'rent_monthly' ? '<span style="font-size: 12px; font-weight: 400; color: #6b7280;">/mies.</span>' : ''}
+              </div>
+              <div style="font-size: 12px; color: #6b7280;">
+                ${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    infoWindow.setContent(content);
+    infoWindow.setPosition({ lat: listing.lat!, lng: listing.lng! });
+    infoWindow.open(map);
+  };
+
+  // Initialize map when modal opens
+  useEffect(() => {
+    if (!open || !isLoaded || !google || !mapContainerRef.current) return;
+
+    // Wait for container to have dimensions
+    const initTimeout = setTimeout(() => {
+      if (!mapContainerRef.current || !google) return;
+
+      // Calculate center from listings or default to Poland center
+      let center = { lat: 52.0, lng: 19.0 };
+      if (listingsWithCoords.length > 0) {
+        const avgLat = listingsWithCoords.reduce((sum, l) => sum + (l.lat || 0), 0) / listingsWithCoords.length;
+        const avgLng = listingsWithCoords.reduce((sum, l) => sum + (l.lng || 0), 0) / listingsWithCoords.length;
+        center = { lat: avgLat, lng: avgLng };
+      }
+
+      // Create map
+      const map = new google.maps.Map(mapContainerRef.current, {
+        center,
+        zoom: listingsWithCoords.length === 1 ? 14 : 6,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
+
+      mapRef.current = map;
+
+      // Create info window
+      const infoWindow = new google.maps.InfoWindow();
+      infoWindowRef.current = infoWindow;
+
+      // Create custom overlay class dynamically
+      class CustomMarkerOverlay extends google.maps.OverlayView {
+        private position: google.maps.LatLng;
+        private containerDiv: HTMLDivElement;
+        private onClickHandler: () => void;
+
+        constructor(
+          position: { lat: number; lng: number },
+          content: HTMLDivElement,
+          map: google.maps.Map,
+          onClick: () => void
+        ) {
+          super();
+          this.position = new google.maps.LatLng(position.lat, position.lng);
+          this.onClickHandler = onClick;
+          this.containerDiv = document.createElement("div");
+          this.containerDiv.style.position = "absolute";
+          this.containerDiv.appendChild(content);
+          this.containerDiv.addEventListener("click", this.onClickHandler);
+          this.setMap(map);
+        }
+
+        onAdd() {
+          const panes = this.getPanes();
+          panes?.floatPane.appendChild(this.containerDiv);
+        }
+
+        draw() {
+          const overlayProjection = this.getProjection();
+          const pos = overlayProjection.fromLatLngToDivPixel(this.position);
+          if (pos) {
+            this.containerDiv.style.left = pos.x + "px";
+            this.containerDiv.style.top = pos.y + "px";
+          }
+        }
+
+        onRemove() {
+          this.containerDiv.removeEventListener("click", this.onClickHandler);
+          this.containerDiv.parentNode?.removeChild(this.containerDiv);
+        }
+      }
+
+      // Create markers for each listing
+      listingsWithCoords.forEach(listing => {
+        if (!listing.lat || !listing.lng) return;
+
+        const markerContent = createMarkerContent(listing);
+        
+        const overlay = new CustomMarkerOverlay(
+          { lat: listing.lat, lng: listing.lng },
+          markerContent,
+          map,
+          () => {
+            setSelectedListing(listing);
+            showInfoWindow(map, infoWindow, listing);
+          }
+        );
+
+        overlaysRef.current.push(overlay);
+      });
+
+      // Fit bounds to show all markers
+      if (listingsWithCoords.length > 1) {
+        const bounds = new google.maps.LatLngBounds();
+        listingsWithCoords.forEach(l => {
+          if (l.lat && l.lng) {
+            bounds.extend({ lat: l.lat, lng: l.lng });
+          }
+        });
+        map.fitBounds(bounds, 50);
+      }
+
+      // Force resize after render
+      setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+        if (listingsWithCoords.length > 0) {
+          map.setCenter(center);
+        }
+      }, 100);
+
+    }, 100);
+
+    return () => {
+      clearTimeout(initTimeout);
+      // Cleanup overlays
+      overlaysRef.current.forEach(o => o.setMap(null));
+      overlaysRef.current = [];
+      mapRef.current = null;
+    };
+  }, [open, isLoaded, google, listingsWithCoords.length]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl h-[85vh] p-0 overflow-hidden">
+        <DialogHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <MapPin className="h-5 w-5 text-primary" />
+            <DialogTitle>Mapa wyników ({listingsWithCoords.length} nieruchomości)</DialogTitle>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={() => onOpenChange(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </DialogHeader>
+        
+        <div className="relative flex-1 h-full" style={{ minHeight: "500px" }}>
+          {!isLoaded ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : listingsWithCoords.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3">
+              <Home className="h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground">Brak nieruchomości z lokalizacją do wyświetlenia</p>
+            </div>
+          ) : (
+            <div ref={mapContainerRef} className="absolute inset-0" />
+          )}
+
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 bg-background/95 backdrop-blur rounded-lg shadow-lg p-3 border">
+            <p className="text-xs font-medium mb-2 text-muted-foreground">Legenda</p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                <span className="text-xs">Sprzedaż</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <span className="text-xs">Wynajem</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Listing Card */}
+          {selectedListing && (
+            <div className="absolute bottom-4 right-4 max-w-xs bg-background rounded-lg shadow-xl border overflow-hidden">
+              {selectedListing.photos?.[0] && (
+                <img 
+                  src={selectedListing.photos[0]} 
+                  alt={selectedListing.title}
+                  className="w-full h-24 object-cover"
+                />
+              )}
+              <div className="p-3">
+                <h4 className="font-medium text-sm line-clamp-2 mb-1">{selectedListing.title}</h4>
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge 
+                    style={{ backgroundColor: selectedListing.transactionColor }}
+                    className="text-white text-xs"
+                  >
+                    {selectedListing.transactionType}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">{selectedListing.location}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-primary">{selectedListing.price.toLocaleString('pl-PL')} zł</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {selectedListing.areaM2}m² {selectedListing.rooms ? `• ${selectedListing.rooms} pok.` : ''}
+                    </span>
+                  </div>
+                  {onViewListing && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onViewListing(selectedListing.id)}
+                    >
+                      Zobacz
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1 right-1 h-6 w-6 bg-background/80"
+                onClick={() => setSelectedListing(null)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

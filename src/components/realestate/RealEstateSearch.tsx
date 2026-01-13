@@ -23,6 +23,7 @@ import { LocationMapModal } from "./LocationMapModal";
 
 interface RealEstateSearchProps {
   onSearch: (filters: RealEstateFilters) => void;
+  onShowMapResults?: () => void;
   className?: string;
 }
 
@@ -141,7 +142,7 @@ function serializeAreaToParams(area: AreaSelection | null, params: URLSearchPara
   }
 }
 
-export function RealEstateSearch({ onSearch, className }: RealEstateSearchProps) {
+export function RealEstateSearch({ onSearch, onShowMapResults, className }: RealEstateSearchProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Initialize filters from URL params
@@ -404,26 +405,42 @@ export function RealEstateSearch({ onSearch, className }: RealEstateSearchProps)
         </div>
 
         {/* Advanced Filters */}
-        <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="mt-3">
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between">
-              <span className="flex items-center gap-2">
+        {/* Action Buttons Row */}
+        <div className="flex items-center gap-2 mt-3">
+          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="flex-shrink-0">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
                 <SlidersHorizontal className="h-4 w-4" />
                 Więcej filtrów
                 {activeFiltersCount > 0 && (
-                  <Badge variant="secondary" className="ml-1">
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     {activeFiltersCount}
                   </Badge>
                 )}
-              </span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  showAdvanced && "rotate-180"
-                )}
-              />
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    showAdvanced && "rotate-180"
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+          </Collapsible>
+
+          {onShowMapResults && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShowMapResults}
+              className="gap-2"
+            >
+              <Map className="h-4 w-4" />
+              Pokaż na mapie
             </Button>
-          </CollapsibleTrigger>
+          )}
+        </div>
+
+        <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
           <CollapsibleContent className="pt-3 space-y-3">
             {/* Rooms & Year */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
