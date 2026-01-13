@@ -34,11 +34,11 @@ export function LocationMapModal({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   
   // Custom polygon drawing refs (no DrawingManager)
   const tempPolygonRef = useRef<google.maps.Polygon | null>(null);
-  const tempMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const tempMarkersRef = useRef<google.maps.Marker[]>([]);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -144,7 +144,7 @@ export function LocationMapModal({
       circleRef.current?.setMap(null);
       polygonRef.current?.setMap(null);
       tempPolygonRef.current?.setMap(null);
-      tempMarkersRef.current.forEach(m => m.map = null);
+      tempMarkersRef.current.forEach(m => m.setMap(null));
       markerRef.current = null;
     };
   }, [open, isLoaded, google, initialCenter]);
@@ -237,19 +237,25 @@ export function LocationMapModal({
             });
           }
 
-          // Add marker for the point (simple div marker)
+          // Add marker for the point (classic Marker - works without mapId)
           if (mapInstanceRef.current) {
-            const markerDiv = document.createElement('div');
-            markerDiv.className = 'w-3 h-3 bg-primary rounded-full border-2 border-white shadow-lg';
-            markerDiv.style.cssText = 'width: 12px; height: 12px; background: #3b82f6; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);';
-            
-            const marker = new google.maps.marker.AdvancedMarkerElement({
+            const marker = new google.maps.Marker({
               map: mapInstanceRef.current,
               position: newPoint,
-              content: markerDiv,
               title: updated.length === 1 ? "Punkt startowy (kliknij aby zamknąć)" : `Punkt ${updated.length}`,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: "#3b82f6",
+                fillOpacity: 1,
+                strokeColor: "#ffffff",
+                strokeWeight: 2,
+              },
+              clickable: false,
+              optimized: true,
             });
             tempMarkersRef.current.push(marker);
+            console.log('[LocationMapModal] Marker created at:', newPoint);
           }
 
           return updated;
@@ -348,8 +354,10 @@ export function LocationMapModal({
   const cleanupTempDrawing = () => {
     tempPolygonRef.current?.setMap(null);
     tempPolygonRef.current = null;
-    tempMarkersRef.current.forEach(m => m.map = null);
+    // Classic Marker uses setMap(null) method
+    tempMarkersRef.current.forEach(m => m.setMap(null));
     tempMarkersRef.current = [];
+    console.log('[LocationMapModal] Temp drawing cleaned up');
   };
 
   // Start drawing - DISABLE map drag
