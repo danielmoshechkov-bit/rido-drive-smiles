@@ -102,3 +102,6 @@ verify_jwt = false
 
 [functions.location-integrations]
 verify_jwt = false
+
+[functions.google-location-data]
+verify_jwt = false
