@@ -139,19 +139,33 @@ export function ResultsMapModal({
     infoWindow.open(map);
   };
 
-  // Initialize map when modal opens
+  // Initialize map when modal opens - robust retry logic like LocationMapModal
   useEffect(() => {
-    if (!open || !isLoaded || !google || !mapContainerRef.current) return;
+    if (!open || !isLoaded || !google) return;
 
-    // Check if container has dimensions before initializing
-    const checkDimensions = (): boolean => {
-      if (!mapContainerRef.current) return false;
-      const rect = mapContainerRef.current.getBoundingClientRect();
-      return rect.width > 100 && rect.height > 100;
-    };
+    let initAttempt = 0;
+    let initTimeout: ReturnType<typeof setTimeout>;
+    let mapCreated = false;
 
-    const initMap = () => {
-      if (!mapContainerRef.current || !google) return;
+    const tryInitMap = () => {
+      const container = mapContainerRef.current;
+      if (!container || mapCreated) return;
+
+      const width = container.offsetWidth;
+      const height = container.offsetHeight;
+      console.log(`[ResultsMapModal] Init attempt ${initAttempt + 1}: ${width}x${height}px`);
+
+      if (width < 100 || height < 100) {
+        initAttempt++;
+        if (initAttempt < 10) {
+          initTimeout = setTimeout(tryInitMap, 100 * initAttempt);
+        } else {
+          console.error("[ResultsMapModal] Failed to init map after 10 attempts - container has no dimensions");
+        }
+        return;
+      }
+
+      mapCreated = true;
 
       // Calculate center from listings or default to Poland center
       let center = { lat: 52.0, lng: 19.0 };
@@ -163,8 +177,8 @@ export function ResultsMapModal({
       
       console.log('[ResultsMapModal] Initializing map with center:', center, 'listings:', listingsWithCoords.length);
 
-      // Create map
-      const map = new google.maps.Map(mapContainerRef.current, {
+      // Create map with same config as LocationMapModal
+      const map = new google.maps.Map(container, {
         center,
         zoom: listingsWithCoords.length === 1 ? 14 : 6,
         disableDefaultUI: false,
@@ -172,9 +186,15 @@ export function ResultsMapModal({
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
+        gestureHandling: 'greedy',
+        draggable: true,
       });
 
       mapRef.current = map;
+      
+      // Debug window reference
+      (window as any).__debugResultsMap = map;
+      (window as any).__debugResultsMapContainer = container;
 
       // Create info window
       const infoWindow = new google.maps.InfoWindow();
@@ -189,7 +209,7 @@ export function ResultsMapModal({
         constructor(
           position: { lat: number; lng: number },
           content: HTMLDivElement,
-          map: google.maps.Map,
+          mapInstance: google.maps.Map,
           onClick: () => void
         ) {
           super();
@@ -199,7 +219,7 @@ export function ResultsMapModal({
           this.containerDiv.style.position = "absolute";
           this.containerDiv.appendChild(content);
           this.containerDiv.addEventListener("click", this.onClickHandler);
-          this.setMap(map);
+          this.setMap(mapInstance);
         }
 
         onAdd() {
@@ -241,6 +261,8 @@ export function ResultsMapModal({
         overlaysRef.current.push(overlay);
       });
 
+      console.log('[ResultsMapModal] Created', overlaysRef.current.length, 'markers');
+
       // Fit bounds to show all markers
       if (listingsWithCoords.length > 1) {
         const bounds = new google.maps.LatLngBounds();
@@ -253,9 +275,9 @@ export function ResultsMapModal({
       }
 
       // Force resize after render - multiple triggers for stability at various intervals
-      [100, 300, 500, 800, 1200].forEach(delay => {
+      [50, 100, 200, 400, 800].forEach(delay => {
         setTimeout(() => {
-          if (mapRef.current) {
+          if (mapRef.current && google) {
             google.maps.event.trigger(mapRef.current, "resize");
             if (delay === 100 && listingsWithCoords.length > 0) {
               mapRef.current.setCenter(center);
@@ -263,28 +285,24 @@ export function ResultsMapModal({
           }
         }, delay);
       });
+
+      // Log gm-style count after 1 second to verify rendering
+      setTimeout(() => {
+        const gmStyles = container.querySelectorAll('.gm-style').length;
+        console.log("[ResultsMapModal] gm-style count:", gmStyles);
+        if (gmStyles === 0) {
+          console.error("[ResultsMapModal] Map failed to render properly - no .gm-style elements found");
+        }
+      }, 1000);
     };
 
-    // Wait for container to have dimensions with retry logic
-    const initTimeout = setTimeout(() => {
-      if (!checkDimensions()) {
-        console.warn('[ResultsMapModal] Container has no dimensions, retrying in 200ms...');
-        setTimeout(() => {
-          if (checkDimensions()) {
-            initMap();
-          } else {
-            console.error('[ResultsMapModal] Container still has no dimensions after retry');
-          }
-        }, 200);
-        return;
-      }
-      initMap();
-    }, 150);
+    // Start with a small delay to let the modal render
+    initTimeout = setTimeout(tryInitMap, 50);
 
     return () => {
       clearTimeout(initTimeout);
       // Cleanup overlays
-      overlaysRef.current.forEach(o => o.setMap(null));
+      overlaysRef.current.forEach(o => o.setMap?.(null));
       overlaysRef.current = [];
       mapRef.current = null;
     };
@@ -312,8 +330,8 @@ export function ResultsMapModal({
         
         {/* Map Container */}
         <div 
-          className="relative mx-2 sm:mx-4 my-2 sm:my-4 rounded-lg overflow-hidden border flex-1"
-          style={{ width: 'calc(100% - 1rem)', minHeight: '280px' }}
+          className="relative mx-2 sm:mx-4 my-2 sm:my-4 rounded-xl overflow-hidden border flex-1"
+          style={{ width: 'calc(100% - 1rem)', minHeight: '280px', height: '100%' }}
         >
           {!isLoaded ? (
             <div className="absolute inset-0 flex items-center justify-center bg-muted">

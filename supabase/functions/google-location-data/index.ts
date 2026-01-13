@@ -62,42 +62,56 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 // Get Google API key from Supabase - prioritize backend key for POI
 async function getGoogleApiKey(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  // First check location_integrations table for dedicated backend/POI key
   try {
-    const { data: integration, error } = await supabase
+    // Priority 1: Check for dedicated backend key in POI integration type
+    const { data: poiIntegration } = await supabase
+      .from("location_integrations")
+      .select("config")
+      .eq("integration_type", "poi")
+      .eq("provider", "google_places")
+      .limit(1)
+      .maybeSingle();
+    
+    if (poiIntegration?.config?.google_places_api_key) {
+      console.log("Using dedicated Google Places API key from POI integration");
+      return poiIntegration.config.google_places_api_key;
+    }
+
+    // Priority 2: Check any google_places provider for backend key
+    const { data: integrations } = await supabase
       .from("location_integrations")
       .select("config")
       .eq("provider", "google_places")
-      .limit(1)
-      .single();
-
-    if (!error && integration?.config && typeof integration.config === 'object') {
-      const config = integration.config as Record<string, unknown>;
-      
-      // Priority 1: Dedicated backend/POI key (google_places_api_key)
-      if (config.google_places_api_key && typeof config.google_places_api_key === 'string') {
-        console.log("Using dedicated Google Places API key from database (backend/POI key)");
-        return config.google_places_api_key;
+      .limit(10);
+    
+    if (integrations && integrations.length > 0) {
+      // First look for google_places_api_key in any row
+      for (const row of integrations) {
+        if (row.config?.google_places_api_key) {
+          console.log("Using Google Places API key from integration row");
+          return row.config.google_places_api_key;
+        }
       }
-      
-      // Priority 2: General google_api_key from database
-      if (config.google_api_key && typeof config.google_api_key === 'string') {
-        console.log("Using Google API key from location_integrations table (general key)");
-        return config.google_api_key;
+      // Fallback to general google_api_key
+      for (const row of integrations) {
+        if (row.config?.google_api_key) {
+          console.log("Using general Google API key from integration");
+          return row.config.google_api_key;
+        }
       }
     }
   } catch (error) {
-    console.log("Error fetching location_integrations:", error);
+    console.error("Error fetching API key from database:", error);
   }
-
+  
   // Priority 3: Fallback to environment variable (Supabase Secrets)
   const envKey = Deno.env.get("GOOGLE_API_KEY");
   if (envKey) {
-    console.log("Using Google API key from environment variable (Supabase Secrets)");
+    console.log("Using Google API key from environment (Supabase Secrets)");
     return envKey;
   }
-
-  console.log("No Google API key found in database or environment");
+  
+  console.warn("No Google API key found - will return mock data");
   return null;
 }
 
