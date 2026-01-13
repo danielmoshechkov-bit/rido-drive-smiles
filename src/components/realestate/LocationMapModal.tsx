@@ -69,20 +69,26 @@ export function LocationMapModal({
 
     // Longer timeout to ensure modal DOM is fully rendered
     const initTimeout = setTimeout(() => {
-      if (!mapRef.current) return;
+      if (!mapRef.current) {
+        console.error("Map container ref is null");
+        return;
+      }
       
-      // Check container dimensions
       const container = mapRef.current;
+      console.log("Map container dimensions:", container.offsetWidth, "x", container.offsetHeight);
+      
+      // If container has no dimensions, retry after a delay
       if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-        console.warn("Map container has no dimensions");
+        console.warn("Map container has no dimensions, will retry...");
+        return;
       }
       
       const center = initialCenter || DEFAULT_CENTER;
 
+      // Create map without mapId to avoid requiring Cloud Console configuration
       const map = new google.maps.Map(container, {
         center,
         zoom: 12,
-        mapId: "location-picker-map",
         disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: false,
@@ -91,6 +97,7 @@ export function LocationMapModal({
       });
 
       mapInstanceRef.current = map;
+      console.log("Map instance created successfully");
 
       // Initialize DrawingManager for polygon mode
       const drawingManager = new google.maps.drawing.DrawingManager({
@@ -152,14 +159,16 @@ export function LocationMapModal({
         }
       });
 
-      // Trigger resize after additional delay
-      setTimeout(() => {
-        if (mapInstanceRef.current && google) {
-          google.maps.event.trigger(mapInstanceRef.current, 'resize');
-          mapInstanceRef.current.setCenter(center);
-        }
-      }, 200);
-    }, 100);
+      // Trigger multiple resize events to ensure proper rendering
+      [100, 300, 500].forEach(delay => {
+        setTimeout(() => {
+          if (mapInstanceRef.current && google) {
+            google.maps.event.trigger(mapInstanceRef.current, 'resize');
+            mapInstanceRef.current.setCenter(center);
+          }
+        }, delay);
+      });
+    }, 200);
 
     return () => {
       clearTimeout(initTimeout);
@@ -170,16 +179,27 @@ export function LocationMapModal({
     };
   }, [open, isLoaded, google, initialCenter]);
 
-  // Force resize when modal opens
+  // Force resize when modal opens with multiple attempts
   useEffect(() => {
-    if (open && mapInstanceRef.current && google) {
-      const resizeTimeout = setTimeout(() => {
-        if (mapInstanceRef.current) {
-          google.maps.event.trigger(mapInstanceRef.current, 'resize');
-        }
-      }, 150);
-      return () => clearTimeout(resizeTimeout);
-    }
+    if (!open || !google) return;
+    
+    const handleResize = () => {
+      if (mapInstanceRef.current) {
+        google.maps.event.trigger(mapInstanceRef.current, 'resize');
+      }
+    };
+    
+    // Multiple resize attempts at different intervals
+    const resizeTimeouts = [100, 250, 500, 1000].map(delay => 
+      setTimeout(handleResize, delay)
+    );
+    
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      resizeTimeouts.forEach(clearTimeout);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [open, google]);
 
   // Update click listener when mode changes
@@ -490,7 +510,11 @@ export function LocationMapModal({
           ) : error || isTimedOut ? (
             renderErrorState()
           ) : (
-            <div ref={mapRef} className="absolute inset-0" />
+            <div 
+              ref={mapRef} 
+              className="absolute inset-0" 
+              style={{ width: '100%', height: '100%', minHeight: '420px' }}
+            />
           )}
         </div>
 

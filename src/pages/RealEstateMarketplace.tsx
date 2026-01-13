@@ -137,8 +137,55 @@ export default function RealEstateMarketplace() {
   const handleSearch = (filters: RealEstateFilters) => {
     console.log("Searching with filters:", filters);
     setLoading(true);
-    // TODO: Implement real search
-    setTimeout(() => setLoading(false), 500);
+    
+    let filteredListings = [...MOCK_LISTINGS];
+    
+    // Filter by location (text search)
+    if (filters.location) {
+      const locationLower = filters.location.toLowerCase();
+      filteredListings = filteredListings.filter(listing => 
+        listing.location.toLowerCase().includes(locationLower) ||
+        listing.district?.toLowerCase().includes(locationLower) ||
+        listing.title.toLowerCase().includes(locationLower)
+      );
+    }
+    
+    // Filter by property type
+    if (filters.propertyType) {
+      filteredListings = filteredListings.filter(listing => 
+        listing.propertyType === filters.propertyType
+      );
+    }
+    
+    // Filter by transaction type
+    if (filters.transactionType) {
+      const transactionMap: Record<string, string> = {
+        'sprzedaz': 'Na sprzedaż',
+        'wynajem': 'Wynajem',
+      };
+      filteredListings = filteredListings.filter(listing => 
+        listing.transactionType === transactionMap[filters.transactionType!]
+      );
+    }
+    
+    // Filter by price range
+    if (filters.priceFrom) {
+      filteredListings = filteredListings.filter(listing => listing.price >= filters.priceFrom!);
+    }
+    if (filters.priceTo) {
+      filteredListings = filteredListings.filter(listing => listing.price <= filters.priceTo!);
+    }
+    
+    // Filter by area range
+    if (filters.areaFrom) {
+      filteredListings = filteredListings.filter(listing => listing.areaM2 >= filters.areaFrom!);
+    }
+    if (filters.areaTo) {
+      filteredListings = filteredListings.filter(listing => listing.areaM2 <= filters.areaTo!);
+    }
+    
+    setListings(filteredListings);
+    setLoading(false);
   };
 
   const handleAISearch = async () => {
