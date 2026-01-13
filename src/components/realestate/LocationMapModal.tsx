@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, MousePointer, Pencil
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -17,10 +17,54 @@ interface LocationMapModalProps {
   onConfirm: (area: AreaSelection | null) => void;
 }
 
+type DrawingMode = "points" | "brush";
+
 const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw
 const DEFAULT_RADIUS = 300; // 300m - default for local search
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 50000;
+
+// Douglas-Peucker algorithm for polygon simplification
+function simplifyPolygon(points: Array<{ lat: number; lng: number }>, tolerance: number): Array<{ lat: number; lng: number }> {
+  if (points.length <= 2) return points;
+
+  // Find the point with the maximum distance
+  let maxDist = 0;
+  let maxIndex = 0;
+  const end = points.length - 1;
+
+  for (let i = 1; i < end; i++) {
+    const dist = perpendicularDistance(points[i], points[0], points[end]);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIndex = i;
+    }
+  }
+
+  // If max distance is greater than tolerance, recursively simplify
+  if (maxDist > tolerance) {
+    const left = simplifyPolygon(points.slice(0, maxIndex + 1), tolerance);
+    const right = simplifyPolygon(points.slice(maxIndex), tolerance);
+    return [...left.slice(0, -1), ...right];
+  }
+
+  return [points[0], points[end]];
+}
+
+function perpendicularDistance(point: { lat: number; lng: number }, lineStart: { lat: number; lng: number }, lineEnd: { lat: number; lng: number }): number {
+  const dx = lineEnd.lng - lineStart.lng;
+  const dy = lineEnd.lat - lineStart.lat;
+
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt(Math.pow(point.lng - lineStart.lng, 2) + Math.pow(point.lat - lineStart.lat, 2));
+  }
+
+  const t = ((point.lng - lineStart.lng) * dx + (point.lat - lineStart.lat) * dy) / (dx * dx + dy * dy);
+  const nearestLng = lineStart.lng + t * dx;
+  const nearestLat = lineStart.lat + t * dy;
+
+  return Math.sqrt(Math.pow(point.lng - nearestLng, 2) + Math.pow(point.lat - nearestLat, 2));
+}
 
 export function LocationMapModal({
   open,
@@ -39,8 +83,13 @@ export function LocationMapModal({
   // Custom polygon drawing refs (no DrawingManager)
   const tempPolygonRef = useRef<google.maps.Polygon | null>(null);
   const tempMarkersRef = useRef<google.maps.Marker[]>([]);
+  
+  // Brush drawing refs
+  const isBrushDrawingRef = useRef(false);
+  const lastBrushPointRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>("points");
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS.toString());
@@ -182,7 +231,7 @@ export function LocationMapModal({
     };
   }, [open, google]);
 
-  // Update click listener when mode or drawing state changes
+  // Update click listener when mode or drawing state changes (POINTS mode only)
   useEffect(() => {
     if (!mapInstanceRef.current || !google) return;
 
@@ -198,8 +247,8 @@ export function LocationMapModal({
         return;
       }
 
-      // Polygon mode with active drawing
-      if (mode === "polygon" && isDrawing) {
+      // Polygon mode with active drawing - POINTS mode only
+      if (mode === "polygon" && isDrawing && drawingMode === "points") {
         const newPoint = { lat: e.latLng.lat(), lng: e.latLng.lng() };
 
         // Check if clicking near first point to close polygon (20m tolerance)
@@ -216,53 +265,258 @@ export function LocationMapModal({
         }
 
         // Add point to drawing
+        addPointToDrawing(newPoint);
+      }
+    });
+  }, [mode, google, isDrawing, drawingMode, drawingPoints.length]);
+
+  // BRUSH mode: mousedown, mousemove, mouseup handlers
+  useEffect(() => {
+    if (!mapInstanceRef.current || !google || mode !== "polygon" || !isDrawing || drawingMode !== "brush") {
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    const mapDiv = map.getDiv();
+
+    const handleMouseDown = (e: MouseEvent) => {
+      console.log('[LocationMapModal] BRUSH: mousedown');
+      isBrushDrawingRef.current = true;
+      lastBrushPointRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+      
+      // Clear previous drawing
+      cleanupTempDrawing();
+      setDrawingPoints([]);
+      
+      // Get lat/lng from pixel
+      const point = pixelToLatLng(e.clientX, e.clientY);
+      if (point) {
+        setDrawingPoints([point]);
+        console.log('[LocationMapModal] BRUSH: first point', point);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isBrushDrawingRef.current) return;
+      
+      const now = Date.now();
+      const last = lastBrushPointRef.current;
+      
+      // Throttle: min 10px distance OR 40ms since last point
+      if (last) {
+        const dx = e.clientX - last.x;
+        const dy = e.clientY - last.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const timeDiff = now - last.time;
+        
+        if (dist < 10 && timeDiff < 40) {
+          return;
+        }
+      }
+      
+      lastBrushPointRef.current = { x: e.clientX, y: e.clientY, time: now };
+      
+      const point = pixelToLatLng(e.clientX, e.clientY);
+      if (point) {
         setDrawingPoints(prev => {
-          const updated = [...prev, newPoint];
-          console.log('[LocationMapModal] Point added:', newPoint, 'Total points:', updated.length);
-          
-          // Update temp polygon visualization
-          if (tempPolygonRef.current) {
-            tempPolygonRef.current.setPath(updated);
-          } else if (updated.length >= 2 && mapInstanceRef.current) {
-            tempPolygonRef.current = new google.maps.Polygon({
-              map: mapInstanceRef.current,
-              paths: updated,
-              fillColor: "#3b82f6",
-              fillOpacity: 0.15,
-              strokeColor: "#3b82f6",
-              strokeWeight: 2,
-              strokeOpacity: 0.9,
-              editable: false,
-              draggable: false,
-            });
-          }
-
-          // Add marker for the point (classic Marker - works without mapId)
-          if (mapInstanceRef.current) {
-            const marker = new google.maps.Marker({
-              map: mapInstanceRef.current,
-              position: newPoint,
-              title: updated.length === 1 ? "Punkt startowy (kliknij aby zamknąć)" : `Punkt ${updated.length}`,
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: "#3b82f6",
-                fillOpacity: 1,
-                strokeColor: "#ffffff",
-                strokeWeight: 2,
-              },
-              clickable: false,
-              optimized: true,
-            });
-            tempMarkersRef.current.push(marker);
-            console.log('[LocationMapModal] Marker created at:', newPoint);
-          }
-
+          const updated = [...prev, point];
+          updateTempPolygon(updated);
           return updated;
         });
       }
+    };
+
+    const handleMouseUp = () => {
+      if (!isBrushDrawingRef.current) return;
+      console.log('[LocationMapModal] BRUSH: mouseup');
+      isBrushDrawingRef.current = false;
+      lastBrushPointRef.current = null;
+      
+      // Auto-finish if enough points
+      setDrawingPoints(prev => {
+        if (prev.length >= 3) {
+          // Simplify polygon to max ~200 points
+          const simplified = simplifyPolygonToMaxPoints(prev, 200);
+          console.log('[LocationMapModal] BRUSH: finished with', prev.length, 'points, simplified to', simplified.length);
+          
+          // Schedule finish drawing
+          setTimeout(() => {
+            finishBrushDrawing(simplified);
+          }, 50);
+          
+          return simplified;
+        }
+        return prev;
+      });
+    };
+
+    // Convert pixel to lat/lng
+    const pixelToLatLng = (clientX: number, clientY: number): { lat: number; lng: number } | null => {
+      const bounds = mapDiv.getBoundingClientRect();
+      const x = clientX - bounds.left;
+      const y = clientY - bounds.top;
+      
+      const projection = map.getProjection();
+      if (!projection) return null;
+      
+      const mapBounds = map.getBounds();
+      if (!mapBounds) return null;
+      
+      const ne = mapBounds.getNorthEast();
+      const sw = mapBounds.getSouthWest();
+      
+      const nePoint = projection.fromLatLngToPoint(ne);
+      const swPoint = projection.fromLatLngToPoint(sw);
+      
+      if (!nePoint || !swPoint) return null;
+      
+      const scale = Math.pow(2, map.getZoom() || 10);
+      const worldPoint = new google.maps.Point(
+        swPoint.x + (x / scale) * (nePoint.x - swPoint.x) / bounds.width * scale,
+        nePoint.y + (y / scale) * (swPoint.y - nePoint.y) / bounds.height * scale
+      );
+      
+      // Simpler approach: use overlay
+      const lat = sw.lat() + (1 - y / bounds.height) * (ne.lat() - sw.lat());
+      const lng = sw.lng() + (x / bounds.width) * (ne.lng() - sw.lng());
+      
+      return { lat, lng };
+    };
+
+    mapDiv.addEventListener('mousedown', handleMouseDown);
+    mapDiv.addEventListener('mousemove', handleMouseMove);
+    mapDiv.addEventListener('mouseup', handleMouseUp);
+    mapDiv.addEventListener('mouseleave', handleMouseUp);
+
+    return () => {
+      mapDiv.removeEventListener('mousedown', handleMouseDown);
+      mapDiv.removeEventListener('mousemove', handleMouseMove);
+      mapDiv.removeEventListener('mouseup', handleMouseUp);
+      mapDiv.removeEventListener('mouseleave', handleMouseUp);
+    };
+  }, [mode, google, isDrawing, drawingMode]);
+
+  // Helper to add point and update visualization
+  const addPointToDrawing = useCallback((newPoint: { lat: number; lng: number }) => {
+    setDrawingPoints(prev => {
+      const updated = [...prev, newPoint];
+      console.log('[LocationMapModal] Point added:', newPoint, 'Total points:', updated.length);
+      
+      updateTempPolygon(updated);
+      
+      // Add marker for the point (classic Marker - works without mapId)
+      if (mapInstanceRef.current && google) {
+        const marker = new google.maps.Marker({
+          map: mapInstanceRef.current,
+          position: newPoint,
+          title: updated.length === 1 ? "Punkt startowy (kliknij aby zamknąć)" : `Punkt ${updated.length}`,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#3b82f6",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          clickable: false,
+          optimized: true,
+        });
+        tempMarkersRef.current.push(marker);
+        console.log('[LocationMapModal] Marker created at:', newPoint);
+      }
+
+      return updated;
     });
-  }, [mode, google, isDrawing, drawingPoints.length]);
+  }, [google]);
+
+  // Helper to update temp polygon visualization
+  const updateTempPolygon = useCallback((points: Array<{ lat: number; lng: number }>) => {
+    if (!google || !mapInstanceRef.current) return;
+    
+    if (tempPolygonRef.current) {
+      tempPolygonRef.current.setPath(points);
+    } else if (points.length >= 2) {
+      tempPolygonRef.current = new google.maps.Polygon({
+        map: mapInstanceRef.current,
+        paths: points,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.15,
+        strokeColor: "#3b82f6",
+        strokeWeight: 2,
+        strokeOpacity: 0.9,
+        editable: false,
+        draggable: false,
+      });
+    }
+  }, [google]);
+
+  // Helper to simplify polygon to max N points
+  const simplifyPolygonToMaxPoints = (points: Array<{ lat: number; lng: number }>, maxPoints: number): Array<{ lat: number; lng: number }> => {
+    if (points.length <= maxPoints) return points;
+    
+    // Calculate initial tolerance based on bounding box
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    points.forEach(p => {
+      minLat = Math.min(minLat, p.lat);
+      maxLat = Math.max(maxLat, p.lat);
+      minLng = Math.min(minLng, p.lng);
+      maxLng = Math.max(maxLng, p.lng);
+    });
+    
+    const diagonal = Math.sqrt(Math.pow(maxLat - minLat, 2) + Math.pow(maxLng - minLng, 2));
+    let tolerance = diagonal * 0.001; // Start with small tolerance
+    let simplified = simplifyPolygon(points, tolerance);
+    
+    // Iteratively increase tolerance until we have <= maxPoints
+    let iterations = 0;
+    while (simplified.length > maxPoints && iterations < 20) {
+      tolerance *= 1.5;
+      simplified = simplifyPolygon(points, tolerance);
+      iterations++;
+    }
+    
+    console.log('[LocationMapModal] Simplified from', points.length, 'to', simplified.length, 'points');
+    return simplified;
+  };
+
+  // Finish brush drawing
+  const finishBrushDrawing = useCallback((points: Array<{ lat: number; lng: number }>) => {
+    if (!google || !mapInstanceRef.current) return;
+    
+    console.log('[LocationMapModal] finishBrushDrawing with', points.length, 'points');
+    
+    // RESTORE normal map controls
+    mapInstanceRef.current.setOptions({
+      draggable: true,
+      gestureHandling: 'greedy',
+      scrollwheel: true,
+    });
+
+    if (points.length >= 3) {
+      setPolygonPoints([...points]);
+
+      // Create final editable polygon
+      polygonRef.current = new google.maps.Polygon({
+        map: mapInstanceRef.current,
+        paths: points,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.2,
+        strokeColor: "#3b82f6",
+        strokeWeight: 2,
+        editable: true,
+        draggable: true,
+      });
+
+      const path = polygonRef.current.getPath();
+      google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygonRef.current!));
+      google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygonRef.current!));
+    }
+
+    // Cleanup temp drawing
+    cleanupTempDrawing();
+    setDrawingPoints([]);
+    setIsDrawing(false);
+  }, [google]);
 
   // Draw/update circle
   useEffect(() => {
@@ -602,24 +856,44 @@ export function LocationMapModal({
             
             {/* Draw/Finish Buttons (only for polygon mode) */}
             {mode === "polygon" && !isDrawing && (
-              <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded} className="h-9">
-                <Pentagon className="h-4 w-4 mr-1" />
-                Rysuj
-              </Button>
+              <>
+                {/* Drawing Mode Selector */}
+                <Tabs value={drawingMode} onValueChange={(v) => setDrawingMode(v as DrawingMode)}>
+                  <TabsList className="h-9">
+                    <TabsTrigger value="points" className="gap-1 px-2 h-8 text-xs">
+                      <MousePointer className="h-3 w-3" />
+                      Punkty
+                    </TabsTrigger>
+                    <TabsTrigger value="brush" className="gap-1 px-2 h-8 text-xs">
+                      <Pencil className="h-3 w-3" />
+                      Pędzel
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded} className="h-9">
+                  <Pentagon className="h-4 w-4 mr-1" />
+                  Rysuj
+                </Button>
+              </>
             )}
             
             {mode === "polygon" && isDrawing && (
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  variant="default" 
-                  onClick={handleFinishDrawing}
-                  disabled={drawingPoints.length < 3}
-                  className="h-9"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Zamknij ({drawingPoints.length} pkt)
-                </Button>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                  {drawingMode === "points" ? "Tryb: Punkty" : "Tryb: Pędzel"}
+                </span>
+                {drawingMode === "points" && (
+                  <Button 
+                    size="sm" 
+                    variant="default" 
+                    onClick={handleFinishDrawing}
+                    disabled={drawingPoints.length < 3}
+                    className="h-9"
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Zamknij ({drawingPoints.length} pkt)
+                  </Button>
+                )}
                 <Button 
                   size="sm" 
                   variant="ghost" 
@@ -641,10 +915,12 @@ export function LocationMapModal({
                   ? `✓ Wybrany obszar: ${formatRadius(radius)}` 
                   : "Kliknij na mapie lub wyszukaj lokalizację aby wybrać środek okręgu")
               : (isDrawing 
-                  ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3), zamknij klikając pierwszy punkt lub przycisk "Zamknij"` 
+                  ? (drawingMode === "points"
+                      ? `Kliknij punkty na mapie (${drawingPoints.length}/min.3), zamknij klikając pierwszy punkt lub przycisk "Zamknij"`
+                      : `Przytrzymaj i przeciągnij myszką aby narysować obszar (${drawingPoints.length} pkt)`)
                   : polygonPoints.length >= 3 
                     ? `✓ Obszar narysowany (${polygonPoints.length} punktów)`
-                    : "Kliknij 'Rysuj' aby narysować własny obszar")
+                    : "Wybierz tryb (Punkty/Pędzel) i kliknij 'Rysuj'")
             }
           </p>
         </div>
