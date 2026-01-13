@@ -242,11 +242,16 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="Get RIDO Logo" 
-                className="h-6 w-6"
-              />
+              <div 
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/')}
+              >
+                <img 
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                  alt="Get RIDO Logo" 
+                  className="h-6 w-6"
+                />
+              </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold text-primary">
                   {userType === 'admin' ? 'Panel Administracyjny' : `Panel Flotowy - ${fleetName}`}
@@ -292,11 +297,16 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {/* Mobile header */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="Get RIDO Logo" 
-                className="h-6 w-6"
-              />
+              <div 
+                className="cursor-pointer"
+                onClick={() => navigate('/')}
+              >
+                <img 
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                  alt="Get RIDO Logo" 
+                  className="h-6 w-6"
+                />
+              </div>
               <span className="text-sm font-semibold text-primary truncate max-w-[150px]">
                 {userType === 'admin' ? 'Panel Admin' : fleetName}
               </span>

@@ -305,11 +305,16 @@ const AdminRealEstate = () => {
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <img
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-                alt="Get RIDO Logo"
-                className="h-6 w-6"
-              />
+              <div 
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/')}
+              >
+                <img
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
+                  alt="Get RIDO Logo"
+                  className="h-6 w-6"
+                />
+              </div>
               <AdminPortalSwitcher />
             </div>
             <div className="flex items-center space-x-3">
@@ -338,11 +343,16 @@ const AdminRealEstate = () => {
           {/* Mobile header */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <img
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-                alt="Get RIDO Logo"
-                className="h-6 w-6"
-              />
+              <div 
+                className="cursor-pointer"
+                onClick={() => navigate('/')}
+              >
+                <img
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
+                  alt="Get RIDO Logo"
+                  className="h-6 w-6"
+                />
+              </div>
               <span className="text-sm font-semibold text-primary">
                 Admin Nieruchomości
               </span>
