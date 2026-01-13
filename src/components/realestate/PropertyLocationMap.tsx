@@ -129,6 +129,10 @@ const getPoiRating = (count: number, nearestDistance?: number): RatingLevel => {
   return 'poor';
 };
 
+type PoiCategoryKey = 'grocery' | 'school' | 'pharmacy' | 'restaurant' | 'health' | 'park';
+
+const DEFAULT_CATEGORY_RADIUS = 300;
+
 export function PropertyLocationMap({ latitude, longitude, address }: PropertyLocationMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -138,6 +142,35 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const [radiusOpen, setRadiusOpen] = useState(false);
   const [locationData, setLocationData] = useState<LocationApiData | null>(null);
   const [isMock, setIsMock] = useState(true);
+  
+  // Independent radius for each POI category
+  const [categoryRadii, setCategoryRadii] = useState<Record<PoiCategoryKey, number>>({
+    grocery: DEFAULT_CATEGORY_RADIUS,
+    school: DEFAULT_CATEGORY_RADIUS,
+    pharmacy: DEFAULT_CATEGORY_RADIUS,
+    restaurant: DEFAULT_CATEGORY_RADIUS,
+    health: DEFAULT_CATEGORY_RADIUS,
+    park: DEFAULT_CATEGORY_RADIUS,
+  });
+  
+  // Separate POI data for each category (fetched with its own radius)
+  const [categoryPoiData, setCategoryPoiData] = useState<Record<PoiCategoryKey, PoiCategory | null>>({
+    grocery: null,
+    school: null,
+    pharmacy: null,
+    restaurant: null,
+    health: null,
+    park: null,
+  });
+  
+  const [categoryLoading, setCategoryLoading] = useState<Record<PoiCategoryKey, boolean>>({
+    grocery: false,
+    school: false,
+    pharmacy: false,
+    restaurant: false,
+    health: false,
+    park: false,
+  });
 
   // Default to Kraków if no coordinates provided
   const lat = latitude || 50.0614;
@@ -171,12 +204,65 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
       if (data) {
         setLocationData(data);
         setIsMock(data.mock === true);
+        
+        // Initialize category POI data from full fetch
+        if (data.poi?.categories) {
+          setCategoryPoiData({
+            grocery: data.poi.categories.grocery || null,
+            school: data.poi.categories.school || null,
+            pharmacy: data.poi.categories.pharmacy || null,
+            restaurant: data.poi.categories.restaurant || null,
+            health: data.poi.categories.health || null,
+            park: data.poi.categories.park || null,
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching location data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch POI data for a single category with specific radius
+  const fetchCategoryPoi = async (category: PoiCategoryKey, radius: number) => {
+    if (!latitude || !longitude) return;
+    
+    setCategoryLoading(prev => ({ ...prev, [category]: true }));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('google-location-data', {
+        body: { 
+          action: 'poi',
+          latitude, 
+          longitude,
+          radius,
+          categories: [category]
+        }
+      });
+
+      if (error) {
+        console.error(`Error fetching ${category} data:`, error);
+        return;
+      }
+
+      if (data?.categories?.[category]) {
+        setCategoryPoiData(prev => ({
+          ...prev,
+          [category]: data.categories[category]
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching ${category} data:`, error);
+    } finally {
+      setCategoryLoading(prev => ({ ...prev, [category]: false }));
+    }
+  };
+
+  // Handle radius change for a specific category
+  const handleCategoryRadiusChange = (category: PoiCategoryKey, radius: number) => {
+    setCategoryRadii(prev => ({ ...prev, [category]: radius }));
+    fetchCategoryPoi(category, radius);
   };
 
   useEffect(() => {
@@ -424,7 +510,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Grocery */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.grocery.count || 0, poi?.categories.grocery.nearest?.distance_m);
+                const catData = categoryPoiData.grocery;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -436,17 +523,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.grocery} 
+                            onChange={(r) => handleCategoryRadiusChange('grocery', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.grocery.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.grocery ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -454,7 +547,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Schools */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.school.count || 0, poi?.categories.school.nearest?.distance_m);
+                const catData = categoryPoiData.school;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -466,17 +560,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.school} 
+                            onChange={(r) => handleCategoryRadiusChange('school', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.school.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.school ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -484,7 +584,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Pharmacy */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.pharmacy.count || 0, poi?.categories.pharmacy.nearest?.distance_m);
+                const catData = categoryPoiData.pharmacy;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -496,17 +597,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.pharmacy} 
+                            onChange={(r) => handleCategoryRadiusChange('pharmacy', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.pharmacy.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.pharmacy ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -514,7 +621,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Restaurants */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.restaurant.count || 0, poi?.categories.restaurant.nearest?.distance_m);
+                const catData = categoryPoiData.restaurant;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -526,17 +634,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.restaurant} 
+                            onChange={(r) => handleCategoryRadiusChange('restaurant', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.restaurant.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.restaurant ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -544,7 +658,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Health */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.health.count || 0, poi?.categories.health.nearest?.distance_m);
+                const catData = categoryPoiData.health;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -556,17 +671,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.health} 
+                            onChange={(r) => handleCategoryRadiusChange('health', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.health.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.health ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -574,7 +695,8 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
               {/* POI: Parks */}
               {(() => {
-                const rating = getPoiRating(poi?.categories.park.count || 0, poi?.categories.park.nearest?.distance_m);
+                const catData = categoryPoiData.park;
+                const rating = getPoiRating(catData?.count || 0, catData?.nearest?.distance_m);
                 return (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
@@ -586,17 +708,23 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                         <p className="text-sm text-muted-foreground">
                           W promieniu{" "}
                           <RadiusSelector 
-                            value={selectedRadius} 
-                            onChange={(r) => handleRadiusSelect(r)} 
+                            value={categoryRadii.park} 
+                            onChange={(r) => handleCategoryRadiusChange('park', r)} 
                           />
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {poi?.categories.park.count || 0}
-                      </span>
-                      <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                      {categoryLoading.park ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <span className="text-lg font-bold text-primary">
+                            {catData?.count || 0}
+                          </span>
+                          <div className={`w-3 h-3 rounded-full ${RATING_COLORS[rating]}`} title={RATING_LABELS[rating]} />
+                        </>
+                      )}
                     </div>
                   </div>
                 );
