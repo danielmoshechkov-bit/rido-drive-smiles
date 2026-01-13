@@ -82,7 +82,7 @@ interface LocationApiData {
 
 type RatingLevel = 'excellent' | 'very_good' | 'good' | 'average' | 'poor';
 
-const RADIUS_OPTIONS = [200, 300, 500, 1000];
+const RADIUS_OPTIONS = [100, 200, 300, 500];
 
 // Rating color gradient: green → lime → yellow → orange → amber
 const RATING_COLORS: Record<RatingLevel, string> = {
@@ -104,6 +104,7 @@ const RATING_LABELS: Record<RatingLevel, string> = {
 const TRANSIT_TYPE_LABELS: Record<string, string> = {
   transit_station: "Stacja",
   bus_station: "Autobus",
+  bus_stop: "Autobus", // Map bus_stop to same label as bus_station
   train_station: "Pociąg",
   subway_station: "Metro",
   light_rail_station: "Tramwaj"
@@ -715,12 +716,14 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
                 </div>
               </div>
 
-              {/* Transport types */}
+              {/* Transport types - deduplicated */}
               {transit?.transport_types && transit.transport_types.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pl-12">
-                  {transit.transport_types.map(type => (
-                    <Badge key={type} variant="outline" className="text-xs">
-                      {TRANSIT_TYPE_LABELS[type] || type}
+                  {[...new Set(transit.transport_types.map(type => 
+                    TRANSIT_TYPE_LABELS[type] || type
+                  ))].map(label => (
+                    <Badge key={label} variant="outline" className="text-xs">
+                      {label}
                     </Badge>
                   ))}
                 </div>

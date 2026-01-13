@@ -10,7 +10,7 @@ interface RadiusSelectorProps {
   className?: string;
 }
 
-const RADIUS_OPTIONS = [200, 300, 500, 1000];
+const RADIUS_OPTIONS = [100, 200, 300, 500];
 
 export function RadiusSelector({ value, onChange, className }: RadiusSelectorProps) {
   const [open, setOpen] = useState(false);
@@ -47,19 +47,7 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
           <p className="text-xs font-medium text-muted-foreground px-2 py-1">
             Zmień promień
           </p>
-          {RADIUS_OPTIONS.map(r => (
-            <Button
-              key={r}
-              variant="ghost"
-              size="sm"
-              className="w-full justify-between h-8"
-              onClick={() => handleRadiusSelect(r)}
-            >
-              {r}m
-              {value === r && <Check className="h-4 w-4 text-primary" />}
-            </Button>
-          ))}
-          <div className="border-t my-2" />
+          {/* Inny promień na górze */}
           {showCustomInput ? (
             <div className="flex items-center gap-1 px-1">
               <Input
@@ -87,6 +75,19 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
               Inny promień...
             </Button>
           )}
+          <div className="border-t my-2" />
+          {RADIUS_OPTIONS.map(r => (
+            <Button
+              key={r}
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between h-8"
+              onClick={() => handleRadiusSelect(r)}
+            >
+              {r}m
+              {value === r && <Check className="h-4 w-4 text-primary" />}
+            </Button>
+          ))}
         </div>
       </PopoverContent>
     </Popover>
