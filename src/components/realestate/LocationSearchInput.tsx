@@ -50,19 +50,55 @@ const RECENT_LOCATIONS_KEY = "rido_recent_locations";
 const MAX_RECENT = 5;
 const SEARCH_TIMEOUT = 6000; // 6 seconds
 
-// Types for new Places API
+// Types for new Places API (with fallbacks for different API versions)
 interface PlacePrediction {
   placeId: string;
-  text: {
+  text?: {
     text: string;
     matches?: Array<{ startOffset: number; endOffset: number }>;
   };
-  structuredFormat: {
-    mainText: { text: string };
+  description?: string; // Legacy API fallback
+  structuredFormat?: {
+    mainText?: { text: string };
     secondaryText?: { text: string };
   };
+  structured_formatting?: { // REST API format
+    main_text?: string;
+    secondary_text?: string;
+  };
   types?: string[];
-  toPlace: () => google.maps.places.Place;
+  toPlace?: () => google.maps.places.Place;
+}
+
+// Safe helper functions to extract text from predictions
+function getPredictionMainText(prediction: PlacePrediction): string {
+  return (
+    prediction.structuredFormat?.mainText?.text ||
+    prediction.structured_formatting?.main_text ||
+    prediction.text?.text?.split(",")[0] ||
+    prediction.description?.split(",")[0] ||
+    "Nieznana lokalizacja"
+  );
+}
+
+function getPredictionSecondaryText(prediction: PlacePrediction): string {
+  return (
+    prediction.structuredFormat?.secondaryText?.text ||
+    prediction.structured_formatting?.secondary_text ||
+    prediction.text?.text?.split(",").slice(1).join(",").trim() ||
+    prediction.description?.split(",").slice(1).join(",").trim() ||
+    ""
+  );
+}
+
+function getPredictionFullText(prediction: PlacePrediction): string {
+  const main = getPredictionMainText(prediction);
+  const secondary = getPredictionSecondaryText(prediction);
+  return (
+    prediction.text?.text ||
+    prediction.description ||
+    (secondary ? `${main}, ${secondary}` : main)
+  );
 }
 
 function getRecentLocations(): LocationSelection[] {
@@ -222,25 +258,36 @@ export function LocationSearchInput({
     try {
       console.log("[Google Maps] Fetching place details for:", prediction.placeId);
       
-      // Use the new API - toPlace() and fetchFields()
-      const place = prediction.toPlace();
-      await place.fetchFields({ 
-        fields: ["displayName", "formattedAddress", "location", "types"] 
-      });
+      let location: LocationSelection;
 
-      const location: LocationSelection = {
-        text: place.formattedAddress || prediction.text.text,
-        placeId: prediction.placeId,
-        lat: place.location?.lat(),
-        lng: place.location?.lng(),
-        types: place.types || prediction.types,
-      };
+      // Try new API if toPlace exists
+      if (prediction.toPlace) {
+        const place = prediction.toPlace();
+        await place.fetchFields({ 
+          fields: ["displayName", "formattedAddress", "location", "types"] 
+        });
+
+        location = {
+          text: place.formattedAddress || getPredictionFullText(prediction),
+          placeId: prediction.placeId,
+          lat: place.location?.lat(),
+          lng: place.location?.lng(),
+          types: place.types || prediction.types,
+        };
+      } else {
+        // Fallback for legacy predictions without toPlace
+        location = {
+          text: getPredictionFullText(prediction),
+          placeId: prediction.placeId,
+          types: prediction.types,
+        };
+      }
 
       console.log("[Google Maps] Place details fetched:", location);
 
       saveRecentLocation(location);
       setRecentLocations(getRecentLocations());
-      onChange(prediction.text.text);
+      onChange(getPredictionFullText(prediction));
       onLocationSelect?.(location);
       setIsFocused(false);
 
@@ -428,23 +475,36 @@ export function LocationSearchInput({
           {!searchError && predictions.length > 0 && (
             <div className="p-2">
               {value && <Separator className="mb-2" />}
-              {predictions.map((prediction) => (
-                <button
-                  key={prediction.placeId}
-                  className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
-                  onClick={() => handleSelect(prediction)}
-                >
-                  {getIconForType(prediction.types)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {prediction.structuredFormat.mainText.text}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {prediction.structuredFormat.secondaryText?.text}
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {predictions
+                .filter((prediction) => getPredictionMainText(prediction) !== "Nieznana lokalizacja")
+                .map((prediction) => (
+                  <button
+                    key={prediction.placeId}
+                    className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
+                    onClick={() => handleSelect(prediction)}
+                  >
+                    {getIconForType(prediction.types)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {getPredictionMainText(prediction)}
+                      </p>
+                      {getPredictionSecondaryText(prediction) && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {getPredictionSecondaryText(prediction)}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* No results state */}
+          {!searchError && value && predictions.length === 0 && !isLoading && (
+            <div className="p-4 text-center">
+              <MapPin className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Brak wyników dla "{value}"</p>
+              <p className="text-xs text-muted-foreground mt-1">Spróbuj wpisać inną lokalizację</p>
             </div>
           )}
 
