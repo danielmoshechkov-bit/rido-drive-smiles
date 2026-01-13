@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { Loader2, X, MapPin, Home, Maximize2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, X, MapPin, Home, Search } from "lucide-react";
 
 interface PropertyListing {
   id: string;
@@ -44,14 +45,40 @@ export function ResultsMapModal({
   const [selectedListing, setSelectedListing] = useState<PropertyListing | null>(null);
   const overlaysRef = useRef<any[]>([]);
 
+  // Filter states
+  const [cityFilter, setCityFilter] = useState("");
+  const [showSale, setShowSale] = useState(true);
+  const [showRent, setShowRent] = useState(true);
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minArea, setMinArea] = useState("");
+
   // Filter listings that have coordinates
   const listingsWithCoords = listings.filter(l => l.lat && l.lng);
   
+  // Apply filters
+  const filteredListings = listingsWithCoords.filter(listing => {
+    // City filter
+    if (cityFilter && !listing.location?.toLowerCase().includes(cityFilter.toLowerCase())) {
+      return false;
+    }
+    
+    // Transaction type filter
+    const isSale = listing.transactionType === "Sprzedaż";
+    const isRent = listing.transactionType === "Wynajem" || listing.transactionType === "Wynajem krótkoterminowy";
+    if (isSale && !showSale) return false;
+    if (isRent && !showRent) return false;
+    
+    // Max price filter
+    if (maxPrice && listing.price > parseInt(maxPrice)) return false;
+    
+    // Min area filter
+    if (minArea && listing.areaM2 < parseInt(minArea)) return false;
+    
+    return true;
+  });
+  
   // Debug: log what we receive
-  console.log('[ResultsMapModal] listings:', listings.length, 'with coords:', listingsWithCoords.length);
-  if (listings.length > 0) {
-    console.log('[ResultsMapModal] Sample listing:', listings[0]);
-  }
+  console.log('[ResultsMapModal] listings:', listings.length, 'with coords:', listingsWithCoords.length, 'filtered:', filteredListings.length);
 
   const formatPrice = (price: number, priceType?: string) => {
     if (price >= 1000000) {
@@ -63,8 +90,8 @@ export function ResultsMapModal({
     return price.toString();
   };
 
-  const createMarkerContent = (listing: PropertyListing): HTMLDivElement => {
-    const bgColor = listing.transactionType === "Wynajem" ? "#3b82f6" : "#10b981";
+  const createMarkerContent = useCallback((listing: PropertyListing): HTMLDivElement => {
+    const bgColor = listing.transactionType === "Wynajem" || listing.transactionType === "Wynajem krótkoterminowy" ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = `
       background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
@@ -86,9 +113,9 @@ export function ResultsMapModal({
       <span style="opacity: 0.8; font-weight: 400;">• ${listing.areaM2}m²</span>
     `;
     return div;
-  };
+  }, []);
 
-  const showInfoWindow = (
+  const showInfoWindow = useCallback((
     map: google.maps.Map, 
     infoWindow: google.maps.InfoWindow, 
     listing: PropertyListing
@@ -137,9 +164,115 @@ export function ResultsMapModal({
     infoWindow.setContent(content);
     infoWindow.setPosition({ lat: listing.lat!, lng: listing.lng! });
     infoWindow.open(map);
-  };
+  }, []);
 
-  // Initialize map when modal opens - robust retry logic like LocationMapModal
+  // Create custom overlay class
+  const createOverlayClass = useCallback(() => {
+    if (!google) return null;
+    
+    return class CustomMarkerOverlay extends google.maps.OverlayView {
+      private position: google.maps.LatLng;
+      private containerDiv: HTMLDivElement;
+      private onClickHandler: () => void;
+
+      constructor(
+        position: { lat: number; lng: number },
+        content: HTMLDivElement,
+        mapInstance: google.maps.Map,
+        onClick: () => void
+      ) {
+        super();
+        this.position = new google.maps.LatLng(position.lat, position.lng);
+        this.onClickHandler = onClick;
+        this.containerDiv = document.createElement("div");
+        this.containerDiv.style.position = "absolute";
+        this.containerDiv.appendChild(content);
+        this.containerDiv.addEventListener("click", this.onClickHandler);
+        this.setMap(mapInstance);
+      }
+
+      onAdd() {
+        const panes = this.getPanes();
+        panes?.floatPane.appendChild(this.containerDiv);
+      }
+
+      draw() {
+        const overlayProjection = this.getProjection();
+        const pos = overlayProjection.fromLatLngToDivPixel(this.position);
+        if (pos) {
+          this.containerDiv.style.left = pos.x + "px";
+          this.containerDiv.style.top = pos.y + "px";
+        }
+      }
+
+      onRemove() {
+        this.containerDiv.removeEventListener("click", this.onClickHandler);
+        this.containerDiv.parentNode?.removeChild(this.containerDiv);
+      }
+    };
+  }, [google]);
+
+  // Update markers when filters change
+  const updateMarkers = useCallback(() => {
+    if (!mapRef.current || !google || !infoWindowRef.current) return;
+    
+    const map = mapRef.current;
+    const infoWindow = infoWindowRef.current;
+    
+    // Clear existing overlays
+    overlaysRef.current.forEach(o => o.setMap?.(null));
+    overlaysRef.current = [];
+    
+    const CustomMarkerOverlay = createOverlayClass();
+    if (!CustomMarkerOverlay) return;
+    
+    // Create markers for filtered listings
+    filteredListings.forEach(listing => {
+      if (!listing.lat || !listing.lng) return;
+
+      const markerContent = createMarkerContent(listing);
+      
+      const overlay = new CustomMarkerOverlay(
+        { lat: listing.lat, lng: listing.lng },
+        markerContent,
+        map,
+        () => {
+          setSelectedListing(listing);
+          showInfoWindow(map, infoWindow, listing);
+        }
+      );
+
+      overlaysRef.current.push(overlay);
+    });
+
+    console.log('[ResultsMapModal] Updated markers:', overlaysRef.current.length);
+
+    // Fit bounds to show all filtered markers
+    if (filteredListings.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      filteredListings.forEach(l => {
+        if (l.lat && l.lng) {
+          bounds.extend({ lat: l.lat, lng: l.lng });
+        }
+      });
+      map.fitBounds(bounds, 50);
+    } else if (filteredListings.length === 1) {
+      const single = filteredListings[0];
+      if (single.lat && single.lng) {
+        map.setCenter({ lat: single.lat, lng: single.lng });
+        map.setZoom(14);
+      }
+    }
+  }, [google, filteredListings, createMarkerContent, showInfoWindow, createOverlayClass]);
+
+  // Update markers when filters change (after initial map creation)
+  useEffect(() => {
+    if (mapRef.current && google) {
+      updateMarkers();
+    }
+  }, [cityFilter, showSale, showRent, maxPrice, minArea, updateMarkers, google]);
+
+  // Initialize map when modal opens
   useEffect(() => {
     if (!open || !isLoaded || !google) return;
 
@@ -160,7 +293,7 @@ export function ResultsMapModal({
         if (initAttempt < 10) {
           initTimeout = setTimeout(tryInitMap, 100 * initAttempt);
         } else {
-          console.error("[ResultsMapModal] Failed to init map after 10 attempts - container has no dimensions");
+          console.error("[ResultsMapModal] Failed to init map after 10 attempts");
         }
         return;
       }
@@ -169,18 +302,17 @@ export function ResultsMapModal({
 
       // Calculate center from listings or default to Poland center
       let center = { lat: 52.0, lng: 19.0 };
-      if (listingsWithCoords.length > 0) {
-        const avgLat = listingsWithCoords.reduce((sum, l) => sum + (l.lat || 0), 0) / listingsWithCoords.length;
-        const avgLng = listingsWithCoords.reduce((sum, l) => sum + (l.lng || 0), 0) / listingsWithCoords.length;
+      if (filteredListings.length > 0) {
+        const avgLat = filteredListings.reduce((sum, l) => sum + (l.lat || 0), 0) / filteredListings.length;
+        const avgLng = filteredListings.reduce((sum, l) => sum + (l.lng || 0), 0) / filteredListings.length;
         center = { lat: avgLat, lng: avgLng };
       }
       
-      console.log('[ResultsMapModal] Initializing map with center:', center, 'listings:', listingsWithCoords.length);
+      console.log('[ResultsMapModal] Initializing map with center:', center);
 
-      // Create map with same config as LocationMapModal
       const map = new google.maps.Map(container, {
         center,
-        zoom: listingsWithCoords.length === 1 ? 14 : 6,
+        zoom: filteredListings.length === 1 ? 14 : 6,
         disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: false,
@@ -191,122 +323,35 @@ export function ResultsMapModal({
       });
 
       mapRef.current = map;
-      
-      // Debug window reference
-      (window as any).__debugResultsMap = map;
-      (window as any).__debugResultsMapContainer = container;
 
-      // Create info window
       const infoWindow = new google.maps.InfoWindow();
       infoWindowRef.current = infoWindow;
 
-      // Create custom overlay class dynamically
-      class CustomMarkerOverlay extends google.maps.OverlayView {
-        private position: google.maps.LatLng;
-        private containerDiv: HTMLDivElement;
-        private onClickHandler: () => void;
+      // Create initial markers
+      updateMarkers();
 
-        constructor(
-          position: { lat: number; lng: number },
-          content: HTMLDivElement,
-          mapInstance: google.maps.Map,
-          onClick: () => void
-        ) {
-          super();
-          this.position = new google.maps.LatLng(position.lat, position.lng);
-          this.onClickHandler = onClick;
-          this.containerDiv = document.createElement("div");
-          this.containerDiv.style.position = "absolute";
-          this.containerDiv.appendChild(content);
-          this.containerDiv.addEventListener("click", this.onClickHandler);
-          this.setMap(mapInstance);
-        }
-
-        onAdd() {
-          const panes = this.getPanes();
-          panes?.floatPane.appendChild(this.containerDiv);
-        }
-
-        draw() {
-          const overlayProjection = this.getProjection();
-          const pos = overlayProjection.fromLatLngToDivPixel(this.position);
-          if (pos) {
-            this.containerDiv.style.left = pos.x + "px";
-            this.containerDiv.style.top = pos.y + "px";
-          }
-        }
-
-        onRemove() {
-          this.containerDiv.removeEventListener("click", this.onClickHandler);
-          this.containerDiv.parentNode?.removeChild(this.containerDiv);
-        }
-      }
-
-      // Create markers for each listing
-      listingsWithCoords.forEach(listing => {
-        if (!listing.lat || !listing.lng) return;
-
-        const markerContent = createMarkerContent(listing);
-        
-        const overlay = new CustomMarkerOverlay(
-          { lat: listing.lat, lng: listing.lng },
-          markerContent,
-          map,
-          () => {
-            setSelectedListing(listing);
-            showInfoWindow(map, infoWindow, listing);
-          }
-        );
-
-        overlaysRef.current.push(overlay);
-      });
-
-      console.log('[ResultsMapModal] Created', overlaysRef.current.length, 'markers');
-
-      // Fit bounds to show all markers
-      if (listingsWithCoords.length > 1) {
-        const bounds = new google.maps.LatLngBounds();
-        listingsWithCoords.forEach(l => {
-          if (l.lat && l.lng) {
-            bounds.extend({ lat: l.lat, lng: l.lng });
-          }
-        });
-        map.fitBounds(bounds, 50);
-      }
-
-      // Force resize after render - multiple triggers for stability at various intervals
+      // Force resize after render
       [50, 100, 200, 400, 800].forEach(delay => {
         setTimeout(() => {
           if (mapRef.current && google) {
             google.maps.event.trigger(mapRef.current, "resize");
-            if (delay === 100 && listingsWithCoords.length > 0) {
+            if (delay === 100 && filteredListings.length > 0) {
               mapRef.current.setCenter(center);
             }
           }
         }, delay);
       });
-
-      // Log gm-style count after 1 second to verify rendering
-      setTimeout(() => {
-        const gmStyles = container.querySelectorAll('.gm-style').length;
-        console.log("[ResultsMapModal] gm-style count:", gmStyles);
-        if (gmStyles === 0) {
-          console.error("[ResultsMapModal] Map failed to render properly - no .gm-style elements found");
-        }
-      }, 1000);
     };
 
-    // Start with a small delay to let the modal render
     initTimeout = setTimeout(tryInitMap, 50);
 
     return () => {
       clearTimeout(initTimeout);
-      // Cleanup overlays
       overlaysRef.current.forEach(o => o.setMap?.(null));
       overlaysRef.current = [];
       mapRef.current = null;
     };
-  }, [open, isLoaded, google, listingsWithCoords.length]);
+  }, [open, isLoaded, google]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -322,11 +367,85 @@ export function ResultsMapModal({
           <div className="flex items-center gap-2 sm:gap-3">
             <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             <DialogTitle className="text-sm sm:text-base">
-              Mapa wyników ({listingsWithCoords.length})
+              Mapa wyników
             </DialogTitle>
           </div>
-          {/* X button removed - DialogContent already has one built-in */}
         </DialogHeader>
+
+        {/* Filter Bar */}
+        <div className="px-2 sm:px-4 py-2 border-b bg-muted/50 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* City Filter */}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Miasto..."
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                className="h-8 w-28 sm:w-36 pl-7 text-xs"
+              />
+            </div>
+            
+            {/* Separator */}
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            
+            {/* Checkbox Sprzedaż */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox 
+                checked={showSale} 
+                onCheckedChange={(checked) => setShowSale(!!checked)}
+              />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-xs">Sprzedaż</span>
+              </div>
+            </label>
+            
+            {/* Checkbox Wynajem */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox 
+                checked={showRent} 
+                onCheckedChange={(checked) => setShowRent(!!checked)}
+              />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-xs">Wynajem</span>
+              </div>
+            </label>
+            
+            {/* Separator */}
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            
+            {/* Max Price */}
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                placeholder="Cena do"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="h-8 w-24 sm:w-28 text-xs"
+              />
+              <span className="text-xs text-muted-foreground">zł</span>
+            </div>
+            
+            {/* Min Area */}
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                placeholder="Metraż od"
+                value={minArea}
+                onChange={(e) => setMinArea(e.target.value)}
+                className="h-8 w-20 sm:w-24 text-xs"
+              />
+              <span className="text-xs text-muted-foreground">m²</span>
+            </div>
+            
+            {/* Results Counter */}
+            <Badge variant="secondary" className="text-xs ml-auto">
+              {filteredListings.length} z {listingsWithCoords.length}
+            </Badge>
+          </div>
+        </div>
         
         {/* Map Container */}
         <div 
@@ -346,11 +465,26 @@ export function ResultsMapModal({
                   : `Brak nieruchomości z lokalizacją (${listings.length} ogłoszeń bez współrzędnych)`
                 }
               </p>
-              {listings.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Dodaj współrzędne w edycji ogłoszenia
-                </p>
-              )}
+            </div>
+          ) : filteredListings.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3">
+              <Search className="h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground text-sm text-center px-4">
+                Brak wyników dla wybranych filtrów
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setCityFilter("");
+                  setShowSale(true);
+                  setShowRent(true);
+                  setMaxPrice("");
+                  setMinArea("");
+                }}
+              >
+                Wyczyść filtry
+              </Button>
             </div>
           ) : (
             <div ref={mapContainerRef} className="absolute inset-0 min-h-[280px] sm:min-h-[400px]" />
@@ -408,19 +542,8 @@ export function ResultsMapModal({
           )}
         </div>
 
-        {/* Footer with Legend and Close Button */}
-        <div className="px-2 sm:px-4 pb-2 sm:pb-4 pt-0 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span className="text-xs">Sprzedaż</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-xs">Wynajem</span>
-            </div>
-          </div>
-          
+        {/* Footer with Close Button only */}
+        <div className="px-2 sm:px-4 pb-2 sm:pb-4 pt-0 flex items-center justify-end shrink-0">
           <Button 
             onClick={() => onOpenChange(false)}
             size="sm"
