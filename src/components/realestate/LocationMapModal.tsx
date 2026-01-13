@@ -66,6 +66,38 @@ function perpendicularDistance(point: { lat: number; lng: number }, lineStart: {
   return Math.sqrt(Math.pow(point.lng - nearestLng, 2) + Math.pow(point.lat - nearestLat, 2));
 }
 
+// Chaikin's smoothing algorithm - makes polygon edges rounder
+function smoothPolygon(points: Array<{ lat: number; lng: number }>, iterations: number = 2): Array<{ lat: number; lng: number }> {
+  if (points.length < 3) return points;
+  
+  let result = [...points];
+  
+  for (let iter = 0; iter < iterations; iter++) {
+    const smoothed: Array<{ lat: number; lng: number }> = [];
+    
+    for (let i = 0; i < result.length; i++) {
+      const p0 = result[i];
+      const p1 = result[(i + 1) % result.length];
+      
+      // Q = 3/4 * P0 + 1/4 * P1
+      smoothed.push({
+        lat: 0.75 * p0.lat + 0.25 * p1.lat,
+        lng: 0.75 * p0.lng + 0.25 * p1.lng,
+      });
+      
+      // R = 1/4 * P0 + 3/4 * P1
+      smoothed.push({
+        lat: 0.25 * p0.lat + 0.75 * p1.lat,
+        lng: 0.25 * p0.lng + 0.75 * p1.lng,
+      });
+    }
+    
+    result = smoothed;
+  }
+  
+  return result;
+}
+
 export function LocationMapModal({
   open,
   onOpenChange,
@@ -86,6 +118,7 @@ export function LocationMapModal({
   
   // Brush drawing refs
   const isBrushDrawingRef = useRef(false);
+  const tempPolylineRef = useRef<google.maps.Polyline | null>(null);
   const lastBrushPointRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
@@ -320,7 +353,7 @@ export function LocationMapModal({
       if (point) {
         setDrawingPoints(prev => {
           const updated = [...prev, point];
-          updateTempPolygon(updated);
+          updateBrushPolyline(updated); // Use polyline (line only) instead of polygon
           return updated;
         });
       }
@@ -335,16 +368,23 @@ export function LocationMapModal({
       // Auto-finish if enough points
       setDrawingPoints(prev => {
         if (prev.length >= 3) {
-          // Simplify polygon to max ~200 points
-          const simplified = simplifyPolygonToMaxPoints(prev, 200);
-          console.log('[LocationMapModal] BRUSH: finished with', prev.length, 'points, simplified to', simplified.length);
+          // 1. Simplify polygon to max ~150 points
+          let simplified = simplifyPolygonToMaxPoints(prev, 150);
+          
+          // 2. Smooth polygon (Chaikin) for rounder edges
+          const smoothed = smoothPolygon(simplified, 2);
+          
+          // 3. Re-simplify after smoothing (Chaikin increases point count)
+          const final = simplifyPolygonToMaxPoints(smoothed, 200);
+          
+          console.log('[LocationMapModal] BRUSH: original', prev.length, '-> simplified', simplified.length, '-> smoothed', smoothed.length, '-> final', final.length);
           
           // Schedule finish drawing
           setTimeout(() => {
-            finishBrushDrawing(simplified);
+            finishBrushDrawing(final);
           }, 50);
           
-          return simplified;
+          return final;
         }
         return prev;
       });
@@ -450,6 +490,24 @@ export function LocationMapModal({
     }
   }, [google]);
 
+  // Helper to update brush mode polyline (line only, no fill) - for smooth Paint-like drawing
+  const updateBrushPolyline = useCallback((points: Array<{ lat: number; lng: number }>) => {
+    if (!google || !mapInstanceRef.current) return;
+    
+    if (tempPolylineRef.current) {
+      tempPolylineRef.current.setPath(points);
+    } else if (points.length >= 2) {
+      tempPolylineRef.current = new google.maps.Polyline({
+        map: mapInstanceRef.current,
+        path: points,
+        strokeColor: "#3b82f6",
+        strokeWeight: 3,
+        strokeOpacity: 0.9,
+      });
+      console.log('[LocationMapModal] BRUSH: Polyline created');
+    }
+  }, [google]);
+
   // Helper to simplify polygon to max N points
   const simplifyPolygonToMaxPoints = (points: Array<{ lat: number; lng: number }>, maxPoints: number): Array<{ lat: number; lng: number }> => {
     if (points.length <= maxPoints) return points;
@@ -492,24 +550,24 @@ export function LocationMapModal({
       scrollwheel: true,
     });
 
+    // Cleanup brush polyline first
+    tempPolylineRef.current?.setMap(null);
+    tempPolylineRef.current = null;
+
     if (points.length >= 3) {
       setPolygonPoints([...points]);
 
-      // Create final editable polygon
+      // Create final CLEAN polygon (no visible nodes - editable: false)
       polygonRef.current = new google.maps.Polygon({
         map: mapInstanceRef.current,
         paths: points,
         fillColor: "#3b82f6",
-        fillOpacity: 0.2,
+        fillOpacity: 0.25,
         strokeColor: "#3b82f6",
-        strokeWeight: 2,
-        editable: true,
-        draggable: true,
+        strokeWeight: 2.5,
+        editable: false,  // NO visible nodes for clean look
+        draggable: false, // Cannot drag for stability
       });
-
-      const path = polygonRef.current.getPath();
-      google.maps.event.addListener(path, "set_at", () => updatePolygonPoints(polygonRef.current!));
-      google.maps.event.addListener(path, "insert_at", () => updatePolygonPoints(polygonRef.current!));
     }
 
     // Cleanup temp drawing
@@ -608,6 +666,8 @@ export function LocationMapModal({
   const cleanupTempDrawing = () => {
     tempPolygonRef.current?.setMap(null);
     tempPolygonRef.current = null;
+    tempPolylineRef.current?.setMap(null);
+    tempPolylineRef.current = null;
     // Classic Marker uses setMap(null) method
     tempMarkersRef.current.forEach(m => m.setMap(null));
     tempMarkersRef.current = [];
