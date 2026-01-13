@@ -22,7 +22,7 @@ interface LocationMapModalProps {
 }
 
 const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw
-const DEFAULT_RADIUS = 3000; // 3km
+const DEFAULT_RADIUS = 300; // 300m - default for local search
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 50000;
 
@@ -127,6 +127,13 @@ export function LocationMapModal({
     map.addListener("click", (e: google.maps.MapMouseEvent) => {
       if (mode === "circle" && e.latLng) {
         setCircleCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      }
+    });
+
+    // Trigger resize after map is ready
+    requestAnimationFrame(() => {
+      if (mapInstanceRef.current && google) {
+        google.maps.event.trigger(mapInstanceRef.current, 'resize');
       }
     });
 
@@ -413,7 +420,7 @@ export function LocationMapModal({
         </div>
 
         {/* Circle Radius Controls */}
-        {mode === "circle" && circleCenter && (
+        {mode === "circle" && (
           <div className="px-4 pb-2 space-y-2">
             <div className="flex items-center gap-4">
               <Label className="text-sm whitespace-nowrap">Promień:</Label>
@@ -437,15 +444,29 @@ export function LocationMapModal({
                 <span className="text-sm text-muted-foreground">m</span>
               </div>
             </div>
-            <Badge variant="secondary" className="gap-1">
-              <Circle className="h-3 w-3" />
-              {formatRadius(radius)}
-            </Badge>
+            {circleCenter && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-secondary/80" 
+                onClick={() => {
+                  const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+                  input?.focus();
+                  input?.select();
+                }}
+                title="Kliknij aby zmienić promień"
+              >
+                <Circle className="h-3 w-3" />
+                {formatRadius(radius)} - kliknij aby zmienić
+              </Badge>
+            )}
+            {!circleCenter && (
+              <p className="text-xs text-muted-foreground">
+                👆 Kliknij na mapie aby wybrać środek okręgu
+              </p>
+            )}
           </div>
         )}
 
         {/* Map */}
-        <div className="flex-1 relative mx-4 mb-4 rounded-lg overflow-hidden border">
+        <div className="flex-1 relative mx-4 mb-4 rounded-lg overflow-hidden border min-h-[420px]">
           {!isLoaded && !error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

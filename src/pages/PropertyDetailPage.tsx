@@ -403,6 +403,11 @@ export default function PropertyDetailPage() {
               longitude={listing.longitude}
               address={`${listing.address || ''} ${listing.district || ''} ${listing.location || ''}`}
             />
+
+            {/* Ad Banner - pod mapą na pełną szerokość */}
+            <div className="mt-4">
+              <AdBannerSlot placement="property_detail_map" />
+            </div>
           </div>
 
           {/* Right Column - Contact & AI Assessment */}
@@ -488,10 +493,6 @@ export default function PropertyDetailPage() {
                 <AIListingAssessment listing={listing} />
               </div>
 
-              {/* Ad Banner - in sidebar */}
-              <div className="mt-6">
-                <AdBannerSlot placement="property_detail_sidebar" />
-              </div>
             </div>
           </div>
         </div>
