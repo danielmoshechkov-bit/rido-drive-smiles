@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -33,7 +33,7 @@ export function LocationMapModal({
   initialArea,
   onConfirm,
 }: LocationMapModalProps) {
-  const { isLoaded, error, google } = useGoogleMaps();
+  const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
@@ -47,6 +47,9 @@ export function LocationMapModal({
   const [radiusInput, setRadiusInput] = useState(DEFAULT_RADIUS.toString());
   const [polygonPoints, setPolygonPoints] = useState<Array<{ lat: number; lng: number }>>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Check if the error is a configuration error
+  const isConfigError = error && (error as any).isConfigError;
 
   // Initialize map
   useEffect(() => {
@@ -310,6 +313,55 @@ export function LocationMapModal({
     return `${r} m`;
   };
 
+  // Render error state
+  const renderErrorState = () => {
+    if (isConfigError) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3 p-4">
+          <AlertCircle className="h-10 w-10 text-amber-500" />
+          <p className="text-lg font-medium text-center">Google Maps nie jest skonfigurowany</p>
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Aby korzystać z mapy, dodaj klucz API w:
+            <br />
+            <strong>Admin → Ustawienia → Integracje lokalizacji</strong>
+          </p>
+        </div>
+      );
+    }
+
+    if (isTimedOut) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3 p-4">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-lg font-medium text-center">Nie udało się wczytać mapy</p>
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Przekroczono czas oczekiwania. Sprawdź połączenie internetowe i spróbuj ponownie.
+          </p>
+          <Button onClick={retryLoad} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Ponów ładowanie
+          </Button>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-3 p-4">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-lg font-medium text-center">Błąd ładowania mapy</p>
+          <p className="text-sm text-muted-foreground text-center max-w-md">{error.message}</p>
+          <Button onClick={retryLoad} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Ponów ładowanie
+          </Button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
@@ -351,7 +403,7 @@ export function LocationMapModal({
                 }
               </p>
               {!isDrawing && (
-                <Button size="sm" variant="outline" onClick={handleStartDrawing}>
+                <Button size="sm" variant="outline" onClick={handleStartDrawing} disabled={!isLoaded}>
                   <Pentagon className="h-4 w-4 mr-2" />
                   Rysuj obszar
                 </Button>
@@ -394,15 +446,13 @@ export function LocationMapModal({
 
         {/* Map */}
         <div className="flex-1 relative mx-4 mb-4 rounded-lg overflow-hidden border">
-          {!isLoaded ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
+          {!isLoaded && !error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-2">
-              <p className="text-destructive font-medium">Błąd ładowania mapy</p>
-              <p className="text-sm text-muted-foreground text-center px-4">{error.message}</p>
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Ładowanie Google Maps...</p>
             </div>
+          ) : error || isTimedOut ? (
+            renderErrorState()
           ) : (
             <div ref={mapRef} className="absolute inset-0" />
           )}
