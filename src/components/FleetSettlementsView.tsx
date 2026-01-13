@@ -751,8 +751,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Calculate additional fees from fleet_settlement_fees
         // Tygodniowe ZAWSZE + miesięczne TYLKO w pierwszym tygodniu miesiąca
+        // PLUS: sprawdzenie valid_from/valid_to dla każdej opłaty
         const additional_fees = fleetFees
           .filter(fee => {
+            // Sprawdź zakres ważności opłaty (valid_from / valid_to)
+            const periodStartDate = periodStart ? new Date(periodStart) : new Date();
+            
+            if ((fee as any).valid_from) {
+              const validFromDate = new Date((fee as any).valid_from);
+              if (validFromDate > periodStartDate) return false;
+            }
+            if ((fee as any).valid_to) {
+              const validToDate = new Date((fee as any).valid_to);
+              if (validToDate < periodStartDate) return false;
+            }
+            
+            // Sprawdź częstotliwość
             if (fee.frequency === 'weekly') return true;
             if (fee.frequency === 'monthly' && isFirstWeek) return true;
             return false;
@@ -1379,7 +1393,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               
               {/* Desktop View - Full table */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto pb-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1397,7 +1411,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
-                      {activeFees.filter(f => f.frequency === 'weekly').map(fee => (
+                      {activeFees.filter(fee => {
+                        // Sprawdź valid_from/valid_to
+                        const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
+                        if ((fee as any).valid_from && new Date((fee as any).valid_from) > weekStart) return false;
+                        if ((fee as any).valid_to && new Date((fee as any).valid_to) < weekStart) return false;
+                        
+                        if (fee.frequency === 'weekly') return true;
+                        if (fee.frequency === 'monthly') {
+                          // Tylko w pierwszym tygodniu miesiąca (poniedziałek między 1-7)
+                          return weekStart.getDate() >= 1 && weekStart.getDate() <= 7;
+                        }
+                        return false;
+                      }).map(fee => (
                         <TableHead key={fee.id} className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">{fee.name}</TableHead>
                       ))}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>
@@ -1514,7 +1540,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         +{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0))}
                       </TableCell>
-                      {activeFees.filter(f => f.frequency === 'weekly').map((fee, idx) => (
+                      {activeFees.filter(fee => {
+                        // Ten sam filtr co w nagłówkach
+                        const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
+                        if ((fee as any).valid_from && new Date((fee as any).valid_from) > weekStart) return false;
+                        if ((fee as any).valid_to && new Date((fee as any).valid_to) < weekStart) return false;
+                        
+                        if (fee.frequency === 'weekly') return true;
+                        if (fee.frequency === 'monthly') {
+                          return weekStart.getDate() >= 1 && weekStart.getDate() <= 7;
+                        }
+                        return false;
+                      }).map((fee, idx) => (
                         <TableCell key={fee.id} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_fees[idx]?.amount || 0), 0))}
                         </TableCell>
