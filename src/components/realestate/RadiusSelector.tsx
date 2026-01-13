@@ -10,7 +10,7 @@ interface RadiusSelectorProps {
   className?: string;
 }
 
-const RADIUS_OPTIONS = [100, 200, 300, 500];
+const RADIUS_OPTIONS = [100, 200, 300, 500, 1000, 2000, 5000];
 
 export function RadiusSelector({ value, onChange, className }: RadiusSelectorProps) {
   const [open, setOpen] = useState(false);
@@ -25,11 +25,20 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
 
   const handleCustomRadiusSubmit = () => {
     const radius = parseInt(customInput);
-    if (radius >= 100 && radius <= 2000) {
+    // Allow any radius from 50m to 50km
+    if (radius >= 50 && radius <= 50000) {
       onChange(radius);
       setShowCustomInput(false);
       setOpen(false);
     }
+  };
+
+  // Format value display - show km for large values
+  const formatRadius = (r: number): string => {
+    if (r >= 1000) {
+      return `${(r / 1000).toFixed(r % 1000 === 0 ? 0 : 1)}km`;
+    }
+    return `${r}m`;
   };
 
   return (
@@ -38,7 +47,7 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
         <button 
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer ${className}`}
         >
-          <span className="text-sm font-medium">{value}m</span>
+          <span className="text-sm font-medium">{formatRadius(value)}</span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </PopoverTrigger>
@@ -54,10 +63,10 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
                 type="number"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="100-2000"
+                placeholder="50-50000"
                 className="h-7 text-sm"
-                min={100}
-                max={2000}
+                min={50}
+                max={50000}
                 autoFocus
               />
               <span className="text-xs text-muted-foreground">m</span>
@@ -84,7 +93,7 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
               className="w-full justify-between h-8"
               onClick={() => handleRadiusSelect(r)}
             >
-              {r}m
+              {formatRadius(r)}
               {value === r && <Check className="h-4 w-4 text-primary" />}
             </Button>
           ))}

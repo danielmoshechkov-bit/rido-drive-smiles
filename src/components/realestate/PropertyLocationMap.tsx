@@ -82,7 +82,7 @@ interface LocationApiData {
 
 type RatingLevel = 'excellent' | 'very_good' | 'good' | 'average' | 'poor';
 
-const RADIUS_OPTIONS = [100, 200, 300, 500];
+const RADIUS_OPTIONS = [100, 200, 300, 500, 1000, 2000, 5000];
 
 // Rating color gradient: green → lime → yellow → orange → amber
 const RATING_COLORS: Record<RatingLevel, string> = {
@@ -461,6 +461,76 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   // Check if the error is a configuration error
   const isConfigError = error && (error as any).isConfigError;
 
+  // Helper component for POI category rows
+  const PoiCategoryRow = ({ 
+    icon, 
+    label, 
+    radius, 
+    onRadiusChange, 
+    loading: isLoading, 
+    data 
+  }: { 
+    icon: React.ReactNode;
+    label: string;
+    radius: number;
+    onRadiusChange: (r: number) => void;
+    loading: boolean;
+    data: PoiCategory | null;
+  }) => {
+    const count = data?.count || 0;
+    const nearest = data?.nearest;
+    
+    // Format distance for display
+    const formatDistance = (meters: number): string => {
+      if (meters >= 1000) {
+        return `${(meters / 1000).toFixed(1)}km`;
+      }
+      return `${meters}m`;
+    };
+    
+    return (
+      <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            {icon}
+          </div>
+          <div>
+            <p className="font-medium">{label}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>W promieniu</span>
+              <RadiusSelector 
+                value={radius} 
+                onChange={onRadiusChange}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : count > 0 ? (
+            // Show count when there are results
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold">{count}</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
+          ) : nearest ? (
+            // Show distance to nearest when count is 0 but nearest exists
+            <div className="flex flex-col items-end">
+              <span className="text-lg font-semibold text-amber-600">0</span>
+              <span className="text-xs text-muted-foreground">
+                Najbliższy: {formatDistance(nearest.distance_m)}
+              </span>
+            </div>
+          ) : (
+            // No results and no nearest
+            <span className="text-xl font-bold text-muted-foreground">0</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Render map content
   const renderMapContent = () => {
     if (!latitude || !longitude) {
@@ -752,203 +822,65 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
           {/* POI Categories - Inside the same Card */}
           <div className="mt-6 pt-4 border-t space-y-3">
-            {/* Grocery */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Sklepy spożywcze</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.grocery} 
-                      onChange={(r) => handleCategoryRadiusChange('grocery', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.grocery ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.grocery?.count || 0}
-                    </span>
-                    {(categoryPoiData.grocery?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+          {/* Grocery */}
+            <PoiCategoryRow
+              icon={<ShoppingBag className="h-5 w-5 text-primary" />}
+              label="Sklepy spożywcze"
+              radius={categoryRadii.grocery}
+              onRadiusChange={(r) => handleCategoryRadiusChange('grocery', r)}
+              loading={categoryLoading.grocery}
+              data={categoryPoiData.grocery}
+            />
 
             {/* Schools */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Szkoły</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.school} 
-                      onChange={(r) => handleCategoryRadiusChange('school', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.school ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.school?.count || 0}
-                    </span>
-                    {(categoryPoiData.school?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <PoiCategoryRow
+              icon={<GraduationCap className="h-5 w-5 text-primary" />}
+              label="Szkoły"
+              radius={categoryRadii.school}
+              onRadiusChange={(r) => handleCategoryRadiusChange('school', r)}
+              loading={categoryLoading.school}
+              data={categoryPoiData.school}
+            />
 
             {/* Pharmacy */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Pill className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Apteki</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.pharmacy} 
-                      onChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.pharmacy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.pharmacy?.count || 0}
-                    </span>
-                    {(categoryPoiData.pharmacy?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <PoiCategoryRow
+              icon={<Pill className="h-5 w-5 text-primary" />}
+              label="Apteki"
+              radius={categoryRadii.pharmacy}
+              onRadiusChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
+              loading={categoryLoading.pharmacy}
+              data={categoryPoiData.pharmacy}
+            />
 
             {/* Restaurants */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Restauracje i kawiarnie</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.restaurant} 
-                      onChange={(r) => handleCategoryRadiusChange('restaurant', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.restaurant ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.restaurant?.count || 0}
-                    </span>
-                    {(categoryPoiData.restaurant?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <PoiCategoryRow
+              icon={<Building2 className="h-5 w-5 text-primary" />}
+              label="Restauracje i kawiarnie"
+              radius={categoryRadii.restaurant}
+              onRadiusChange={(r) => handleCategoryRadiusChange('restaurant', r)}
+              loading={categoryLoading.restaurant}
+              data={categoryPoiData.restaurant}
+            />
 
             {/* Health */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Heart className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Służba zdrowia</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.health} 
-                      onChange={(r) => handleCategoryRadiusChange('health', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.health ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.health?.count || 0}
-                    </span>
-                    {(categoryPoiData.health?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <PoiCategoryRow
+              icon={<Heart className="h-5 w-5 text-primary" />}
+              label="Służba zdrowia"
+              radius={categoryRadii.health}
+              onRadiusChange={(r) => handleCategoryRadiusChange('health', r)}
+              loading={categoryLoading.health}
+              data={categoryPoiData.health}
+            />
 
             {/* Parks */}
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <TreePine className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Parki i zieleń</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>W promieniu</span>
-                    <RadiusSelector 
-                      value={categoryRadii.park} 
-                      onChange={(r) => handleCategoryRadiusChange('park', r)}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {categoryLoading.park ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-xl font-bold">
-                      {categoryPoiData.park?.count || 0}
-                    </span>
-                    {(categoryPoiData.park?.count || 0) > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <PoiCategoryRow
+              icon={<TreePine className="h-5 w-5 text-primary" />}
+              label="Parki i zieleń"
+              radius={categoryRadii.park}
+              onRadiusChange={(r) => handleCategoryRadiusChange('park', r)}
+              loading={categoryLoading.park}
+              data={categoryPoiData.park}
+            />
 
           </div>
         </Card>
