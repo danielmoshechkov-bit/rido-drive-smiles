@@ -16,6 +16,7 @@ import { PropertySpecsTable } from "@/components/realestate/PropertySpecsTable";
 import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap";
 import { AIListingAssessment } from "@/components/realestate/AIListingAssessment";
 import { SimilarListings } from "@/components/realestate/SimilarListings";
+import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
 
 // Import images for mock data
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -485,6 +486,11 @@ export default function PropertyDetailPage() {
               {/* AI Assessment */}
               <div className="mt-6">
                 <AIListingAssessment listing={listing} />
+              </div>
+
+              {/* Ad Banner - in sidebar */}
+              <div className="mt-6">
+                <AdBannerSlot placement="property_detail_sidebar" />
               </div>
             </div>
           </div>

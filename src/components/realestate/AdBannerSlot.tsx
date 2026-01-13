@@ -11,7 +11,7 @@ interface AdCampaign {
 }
 
 interface AdBannerSlotProps {
-  placement: "property_detail_map" | "search_results" | "listing_sidebar";
+  placement: "property_detail_map" | "property_detail_sidebar" | "search_results" | "listing_sidebar";
   className?: string;
 }
 
