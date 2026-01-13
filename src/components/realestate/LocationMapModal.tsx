@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, MousePointer, Pencil
+  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, Paintbrush
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -461,37 +461,78 @@ export function LocationMapModal({
     };
   }, [mode, google, isDrawing, drawingMode]);
 
-  // Helper to add point and update visualization
+  // Helper to add point and update visualization - with draggable markers
   const addPointToDrawing = useCallback((newPoint: { lat: number; lng: number }) => {
     setDrawingPoints(prev => {
       const updated = [...prev, newPoint];
+      const pointIndex = updated.length - 1;
       console.log('[LocationMapModal] Point added:', newPoint, 'Total points:', updated.length);
       
       updateTempPolygon(updated);
       
-      // Add marker for the point (classic Marker - works without mapId)
+      // Add DRAGGABLE marker for the point (with drag support)
       if (mapInstanceRef.current && google) {
         const marker = new google.maps.Marker({
           map: mapInstanceRef.current,
           position: newPoint,
-          title: updated.length === 1 ? "Punkt startowy (kliknij aby zamknąć)" : `Punkt ${updated.length}`,
+          title: updated.length === 1 ? "Punkt startowy (kliknij na pierwszy aby zamknąć)" : `Punkt ${updated.length} - przeciągnij aby przesunąć, PPM aby usunąć`,
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#3b82f6",
+            scale: 10,
+            fillColor: updated.length === 1 ? "#22c55e" : "#3b82f6", // Green for first point
             fillOpacity: 1,
             strokeColor: "#ffffff",
             strokeWeight: 2,
           },
-          clickable: false,
-          optimized: true,
+          draggable: true, // ENABLE DRAG
+          clickable: true,
+          cursor: 'grab',
         });
+        
+        // Drag listener - update point position
+        marker.addListener('dragend', () => {
+          const newPos = marker.getPosition();
+          if (newPos) {
+            setDrawingPoints(currentPoints => {
+              const markerIndex = tempMarkersRef.current.indexOf(marker);
+              if (markerIndex >= 0 && markerIndex < currentPoints.length) {
+                const updatedPoints = [...currentPoints];
+                updatedPoints[markerIndex] = { lat: newPos.lat(), lng: newPos.lng() };
+                updateTempPolygon(updatedPoints);
+                return updatedPoints;
+              }
+              return currentPoints;
+            });
+          }
+        });
+        
+        // Right-click listener - remove point
+        marker.addListener('rightclick', () => {
+          const markerIndex = tempMarkersRef.current.indexOf(marker);
+          if (markerIndex >= 0) {
+            marker.setMap(null);
+            tempMarkersRef.current.splice(markerIndex, 1);
+            setDrawingPoints(currentPoints => {
+              const updatedPoints = currentPoints.filter((_, i) => i !== markerIndex);
+              updateTempPolygon(updatedPoints);
+              return updatedPoints;
+            });
+          }
+        });
+        
+        // Prevent map click when clicking on marker
+        marker.addListener('click', (e: google.maps.MapMouseEvent) => {
+          // Just stop propagation - don't add new point
+          if (e.stop) e.stop();
+        });
+        
         tempMarkersRef.current.push(marker);
-        console.log('[LocationMapModal] Marker created at:', newPoint);
+        console.log('[LocationMapModal] Draggable marker created at:', newPoint);
       }
 
       return updated;
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [google]);
 
   // Helper to update temp polygon visualization
@@ -945,23 +986,40 @@ export function LocationMapModal({
                 {/* Drawing mode indicator and switch to points */}
                 {isDrawing && (
                   <>
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                      {drawingMode === "brush" ? "Rysuj pędzlem" : "Kliknij punkty"}
-                    </span>
-                    {/* Switch to points mode button */}
+                    {/* Brush mode button */}
+                    <Button 
+                      size="sm" 
+                      variant={drawingMode === "brush" ? "secondary" : "ghost"}
+                      onClick={() => {
+                        if (drawingMode !== "brush") {
+                          handleCancelDrawing();
+                          setDrawingMode("brush");
+                          setTimeout(() => handleStartDrawing(), 50);
+                        }
+                      }}
+                      className="h-8 text-xs gap-1"
+                    >
+                      <Paintbrush className="h-3 w-3" />
+                      Rysuj pędzlem
+                    </Button>
+                    
+                    {/* Points mode button */}
                     <Button 
                       size="sm" 
                       variant={drawingMode === "points" ? "secondary" : "ghost"}
                       onClick={() => {
-                        handleCancelDrawing();
-                        setDrawingMode("points");
-                        setTimeout(() => handleStartDrawing(), 50);
+                        if (drawingMode !== "points") {
+                          handleCancelDrawing();
+                          setDrawingMode("points");
+                          setTimeout(() => handleStartDrawing(), 50);
+                        }
                       }}
                       className="h-8 text-xs gap-1"
                     >
-                      <MousePointer className="h-3 w-3" />
-                      Punkty
+                      <MapPin className="h-3 w-3" />
+                      Stawiaj punkty
                     </Button>
+                    
                     {drawingMode === "points" && drawingPoints.length >= 3 && (
                       <Button 
                         size="sm" 
