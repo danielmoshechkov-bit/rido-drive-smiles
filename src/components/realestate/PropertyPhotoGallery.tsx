@@ -81,12 +81,6 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
           </div>
         ))}
 
-        {/* Fill empty slots if less than 4 side photos */}
-        {sidePhotos.length < 4 && Array.from({ length: 4 - sidePhotos.length }).map((_, index) => (
-          <div key={`empty-${index}`} className="bg-muted flex items-center justify-center">
-            <span className="text-muted-foreground text-sm">Brak zdjęcia</span>
-          </div>
-        ))}
       </div>
 
       {/* Mobile Carousel */}

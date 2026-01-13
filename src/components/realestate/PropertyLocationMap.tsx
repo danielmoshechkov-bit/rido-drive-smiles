@@ -10,7 +10,6 @@ import {
   Heart, Building2, Pill, ChevronDown, Check
 } from "lucide-react";
 import { RadiusSelector } from "./RadiusSelector";
-import { AdBannerSlot } from "./AdBannerSlot";
 
 interface PropertyLocationMapProps {
   latitude?: number;
@@ -743,10 +742,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
         </Card>
       </div>
 
-      {/* Ad Banner Slot */}
-      <div className="mt-6">
-        <AdBannerSlot placement="property_detail_map" />
-      </div>
     </div>
   );
 }

@@ -46,6 +46,7 @@ interface PropertyListingCardProps {
   isLoggedIn?: boolean;
   isFavorited?: boolean;
   isSelectedForCompare?: boolean;
+  compact?: boolean;
 }
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
@@ -71,7 +72,8 @@ export function PropertyListingCard({
   onToggleCompare,
   isLoggedIn = false,
   isFavorited = false,
-  isSelectedForCompare = false 
+  isSelectedForCompare = false,
+  compact = false
 }: PropertyListingCardProps) {
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
@@ -101,7 +103,10 @@ export function PropertyListingCard({
       isSelectedForCompare && "ring-2 ring-primary"
     )}>
       {/* Photo Gallery */}
-      <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+      <div className={cn(
+        "relative bg-muted overflow-hidden",
+        compact ? "aspect-[3/2]" : "aspect-[4/3]"
+      )}>
         <img
           src={photos[currentPhoto]}
           alt={listing.title}
@@ -199,28 +204,34 @@ export function PropertyListingCard({
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className={cn("p-4", compact && "p-2")}>
         {/* Title */}
-        <h3 className="font-semibold text-lg mb-2 line-clamp-1">{listing.title}</h3>
+        <h3 className={cn(
+          "font-semibold mb-2 line-clamp-1",
+          compact ? "text-sm" : "text-lg"
+        )}>{listing.title}</h3>
 
         {/* Property Type & Details */}
-        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-1.5">
+        <div className={cn(
+          "flex flex-wrap items-center text-muted-foreground mb-1.5",
+          compact ? "text-xs" : "text-sm"
+        )}>
           {listing.propertyType && (
             <span className="flex items-center gap-1">
-              <Home className="h-3.5 w-3.5" />
+              <Home className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
               {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
             </span>
           )}
           {listing.areaM2 && (
             <>
-              {listing.propertyType && <span className="mx-1.5">•</span>}
+              {listing.propertyType && <span className="mx-1">•</span>}
               <span className="flex items-center gap-1">
-                <Maximize className="h-3.5 w-3.5" />
+                <Maximize className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
                 {listing.areaM2} m²
               </span>
             </>
           )}
-          {listing.rooms && (
+          {listing.rooms && !compact && (
             <>
               <span className="mx-1.5">•</span>
               <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
@@ -228,63 +239,83 @@ export function PropertyListingCard({
           )}
         </div>
 
-        {/* Floor & Year */}
-        <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
-          {listing.floor !== undefined && listing.floorsTotal && (
-            <span className="flex items-center gap-1">
-              <Layers className="h-3.5 w-3.5" />
-              Piętro {listing.floor}/{listing.floorsTotal}
-            </span>
-          )}
-          {listing.buildYear && (
-            <>
-              {listing.floor !== undefined && <span className="mx-1.5">•</span>}
+        {/* Floor & Year - hidden in compact mode */}
+        {!compact && (
+          <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
+            {listing.floor !== undefined && listing.floorsTotal && (
               <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {listing.buildYear}
+                <Layers className="h-3.5 w-3.5" />
+                Piętro {listing.floor}/{listing.floorsTotal}
               </span>
-            </>
-          )}
-          {listing.location && (
-            <>
-              {(listing.floor !== undefined || listing.buildYear) && <span className="mx-1.5">•</span>}
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
-              </span>
-            </>
-          )}
-        </div>
+            )}
+            {listing.buildYear && (
+              <>
+                {listing.floor !== undefined && <span className="mx-1.5">•</span>}
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {listing.buildYear}
+                </span>
+              </>
+            )}
+            {listing.location && (
+              <>
+                {(listing.floor !== undefined || listing.buildYear) && <span className="mx-1.5">•</span>}
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
-        {/* Amenities */}
-        <div className="flex flex-wrap gap-1 mb-3">
-          {listing.hasBalcony && (
-            <Badge variant="secondary" className="text-xs">Balkon</Badge>
-          )}
-          {listing.hasElevator && (
-            <Badge variant="secondary" className="text-xs">Winda</Badge>
-          )}
-          {listing.hasParking && (
-            <Badge variant="secondary" className="text-xs">Parking</Badge>
-          )}
-          {listing.hasGarden && (
-            <Badge variant="secondary" className="text-xs">Ogród</Badge>
-          )}
-          {listing.marketType === 'pierwotny' && (
-            <Badge variant="outline" className="text-xs">Rynek pierwotny</Badge>
-          )}
-        </div>
+        {/* Location in compact mode */}
+        {compact && listing.location && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+            <MapPin className="h-3 w-3" />
+            {listing.location}
+          </div>
+        )}
+
+        {/* Amenities - hidden in compact mode */}
+        {!compact && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {listing.hasBalcony && (
+              <Badge variant="secondary" className="text-xs">Balkon</Badge>
+            )}
+            {listing.hasElevator && (
+              <Badge variant="secondary" className="text-xs">Winda</Badge>
+            )}
+            {listing.hasParking && (
+              <Badge variant="secondary" className="text-xs">Parking</Badge>
+            )}
+            {listing.hasGarden && (
+              <Badge variant="secondary" className="text-xs">Ogród</Badge>
+            )}
+            {listing.marketType === 'pierwotny' && (
+              <Badge variant="outline" className="text-xs">Rynek pierwotny</Badge>
+            )}
+          </div>
+        )}
 
         {/* Price & Action */}
-        <div className="flex items-center justify-between">
+        <div className={cn(
+          "flex items-center justify-between",
+          compact && "flex-col items-start gap-2"
+        )}>
           <div>
-            <span className="text-2xl font-bold text-primary">
+            <span className={cn(
+              "font-bold text-primary",
+              compact ? "text-base" : "text-2xl"
+            )}>
               {listing.price.toLocaleString('pl-PL')} zł
             </span>
-            <span className="text-sm text-muted-foreground ml-1">
-              {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
-            </span>
-            {pricePerM2 && (
+            {!compact && (
+              <span className="text-sm text-muted-foreground ml-1">
+                {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
+              </span>
+            )}
+            {pricePerM2 && !compact && (
               <div className="text-xs text-muted-foreground">
                 {pricePerM2.toLocaleString('pl-PL')} zł/m²
               </div>
@@ -294,74 +325,79 @@ export function PropertyListingCard({
           <Button 
             size="sm"
             onClick={onView}
+            className={cn(compact && "w-full h-7 text-xs")}
           >
-            Szczegóły
+            {compact ? "Zobacz" : "Szczegóły"}
           </Button>
         </div>
 
-        {/* Expandable Contact Section */}
-        <button
-          onClick={async () => {
-            if (!showContact) {
-              // Track contact reveal
-              try {
-                await supabase.functions.invoke("track-listing-interaction", {
-                  body: { listingId: listing.id, interactionType: "contact_reveal" }
-                });
-              } catch (err) {
-                console.error("Failed to track contact reveal:", err);
-              }
-            }
-            setShowContact(!showContact);
-          }}
-          className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
-        >
-          {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
-        </button>
-        
-        {showContact && (
-          <div className="mt-2 space-y-1.5 text-sm">
-            {/* Agency Name */}
-            {listing.agencyName && (
-              <div className="flex items-center gap-2 text-foreground font-medium text-sm">
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-                {listing.agencyName}
-              </div>
-            )}
+        {/* Expandable Contact Section - hidden in compact mode */}
+        {!compact && (
+          <>
+            <button
+              onClick={async () => {
+                if (!showContact) {
+                  // Track contact reveal
+                  try {
+                    await supabase.functions.invoke("track-listing-interaction", {
+                      body: { listingId: listing.id, interactionType: "contact_reveal" }
+                    });
+                  } catch (err) {
+                    console.error("Failed to track contact reveal:", err);
+                  }
+                }
+                setShowContact(!showContact);
+              }}
+              className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+            >
+              {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
+            </button>
             
-            {/* Contact Info */}
-            {listing.contactName && (
-              <div className="flex items-center gap-2 text-xs">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{listing.contactName}</span>
+            {showContact && (
+              <div className="mt-2 space-y-1.5 text-sm">
+                {/* Agency Name */}
+                {listing.agencyName && (
+                  <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                    <Building2 className="h-3.5 w-3.5 text-primary" />
+                    {listing.agencyName}
+                  </div>
+                )}
+                
+                {/* Contact Info */}
+                {listing.contactName && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{listing.contactName}</span>
+                  </div>
+                )}
+                {listing.contactPhone && (
+                  <a 
+                    href={`tel:${listing.contactPhone}`}
+                    className="flex items-center gap-2 text-xs text-primary hover:underline"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>{listing.contactPhone}</span>
+                  </a>
+                )}
+                {listing.contactEmail && (
+                  <a 
+                    href={`mailto:${listing.contactEmail}`}
+                    className="flex items-center gap-2 text-xs text-primary hover:underline"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    <span>{listing.contactEmail}</span>
+                  </a>
+                )}
+                
+                {/* Listing Number - at the very bottom */}
+                {listing.listingNumber && (
+                  <div className="pt-2 mt-1 border-t text-xs text-muted-foreground">
+                    Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+                  </div>
+                )}
               </div>
             )}
-            {listing.contactPhone && (
-              <a 
-                href={`tel:${listing.contactPhone}`}
-                className="flex items-center gap-2 text-xs text-primary hover:underline"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                <span>{listing.contactPhone}</span>
-              </a>
-            )}
-            {listing.contactEmail && (
-              <a 
-                href={`mailto:${listing.contactEmail}`}
-                className="flex items-center gap-2 text-xs text-primary hover:underline"
-              >
-                <Mail className="h-3.5 w-3.5" />
-                <span>{listing.contactEmail}</span>
-              </a>
-            )}
-            
-            {/* Listing Number - at the very bottom */}
-            {listing.listingNumber && (
-              <div className="pt-2 mt-1 border-t text-xs text-muted-foreground">
-                Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
-              </div>
-            )}
-          </div>
+          </>
         )}
       </div>
     </Card>
