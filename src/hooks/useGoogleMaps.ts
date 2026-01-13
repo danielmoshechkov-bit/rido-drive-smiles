@@ -50,7 +50,9 @@ export function useGoogleMaps() {
           }
 
           if (!apiKey) {
-            throw new Error("Google Maps API key not configured. Please add it in the admin panel under Location Integrations.");
+            const error = new Error("GOOGLE_API_KEY_NOT_CONFIGURED");
+            (error as any).isConfigError = true;
+            throw error;
           }
 
           // Set options before loading

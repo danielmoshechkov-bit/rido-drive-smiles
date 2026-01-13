@@ -78,11 +78,14 @@ export function LocationSearchInput({
   placeholder = "Wpisz lokalizację",
   className,
 }: LocationSearchInputProps) {
-  const { isLoaded, google } = useGoogleMaps();
+  const { isLoaded, error: mapsError, google } = useGoogleMaps();
   const [isFocused, setIsFocused] = useState(false);
   const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [recentLocations, setRecentLocations] = useState<LocationSelection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Check if the error is a configuration error
+  const isConfigError = mapsError && (mapsError as any).isConfigError;
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -224,6 +227,26 @@ export function LocationSearchInput({
 
   const showDropdown = isFocused && (recentLocations.length > 0 || predictions.length > 0 || !value);
 
+  // Show config error message
+  if (isConfigError) {
+    return (
+      <div ref={containerRef} className={cn("relative", className)}>
+        <div className="relative flex items-center">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 z-10" />
+          <Input
+            type="text"
+            disabled
+            placeholder="Skonfiguruj Google Maps API w panelu admina"
+            className="pl-9 text-muted-foreground bg-amber-50 border-amber-200"
+          />
+        </div>
+        <p className="text-xs text-amber-600 mt-1">
+          ⚠️ Aby włączyć wyszukiwarkę, dodaj klucz API w: Admin → Ustawienia → Integracje lokalizacji
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       {/* Input with area badge */}
@@ -235,7 +258,8 @@ export function LocationSearchInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
-          placeholder={placeholder}
+          placeholder={!isLoaded ? "Ładowanie Google Maps..." : placeholder}
+          disabled={!isLoaded}
           className={cn(
             "pl-9",
             selectedArea && "pr-28"

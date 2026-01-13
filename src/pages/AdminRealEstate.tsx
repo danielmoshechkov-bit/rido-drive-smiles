@@ -27,9 +27,11 @@ import {
   CreditCard,
   ChevronDown,
   MapPin,
+  Megaphone,
 } from 'lucide-react';
 import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegrationsPanel';
 import { CRMIntegrationsPanel } from '@/components/admin/CRMIntegrationsPanel';
+import { AdCampaignsPanel } from '@/components/admin/AdCampaignsPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -282,6 +284,7 @@ const AdminRealEstate = () => {
     { value: 'agencies', label: 'Agencje', icon: Building2 },
     { value: 'agents', label: 'Agenci', icon: Users },
     { value: 'listings', label: 'Ogłoszenia', icon: FileText },
+    { value: 'ads', label: 'Reklamy', icon: Megaphone },
     { value: 'paid-services', label: 'Płatne usługi', icon: CreditCard },
     { value: 'settings', label: 'Ustawienia', icon: Settings },
   ];
@@ -646,6 +649,11 @@ const AdminRealEstate = () => {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Ads Tab */}
+          <TabsContent value="ads" className="space-y-6">
+            <AdCampaignsPanel />
           </TabsContent>
 
           {/* Paid Services Tab */}
