@@ -15,15 +15,15 @@ const TRANSIT_TYPES = [
   "light_rail_station"
 ];
 
-// POI categories with Google Places types
-const POI_CATEGORIES = {
-  grocery: ["supermarket", "grocery_or_supermarket", "convenience_store"],
+// POI categories for Places API (New) - using includedTypes format
+const POI_CATEGORIES_NEW: Record<string, string[]> = {
+  grocery: ["supermarket", "grocery_store", "convenience_store"],
   school: ["school", "primary_school", "secondary_school"],
-  pharmacy: ["pharmacy", "drugstore"],
-  restaurant: ["restaurant", "cafe", "bakery"],
-  health: ["hospital", "doctor", "dentist"],
-  park: ["park"],
-  gym: ["gym"],
+  pharmacy: ["pharmacy"],
+  restaurant: ["restaurant", "cafe", "bakery", "coffee_shop"],
+  health: ["hospital", "doctor", "dentist", "medical_lab"],
+  park: ["park", "playground"],
+  gym: ["gym", "fitness_center"],
   bank: ["bank", "atm"]
 };
 
@@ -138,7 +138,7 @@ async function getCityCenter(
   return CITY_CENTERS["krakow"];
 }
 
-// Fetch transit stops using Google Places API
+// Fetch transit stops using Google Places API (New)
 async function fetchTransitData(
   latitude: number,
   longitude: number,
@@ -154,35 +154,63 @@ async function fetchTransitData(
   const stops: Array<{ name: string; type: string; distance_m: number; lat: number; lng: number }> = [];
   const foundTypes = new Set<string>();
 
-  // Search for each transit type
-  for (const transitType of TRANSIT_TYPES) {
-    try {
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${transitType}&key=${apiKey}&language=pl`;
-      const response = await fetch(url);
-      const data = await response.json();
+  // Use Places API (New) for transit search
+  const transitTypes = ["transit_station", "bus_station", "train_station", "subway_station"];
+  
+  try {
+    const requestBody = {
+      includedTypes: transitTypes,
+      maxResultCount: 20,
+      locationRestriction: {
+        circle: {
+          center: { latitude, longitude },
+          radius: radius
+        }
+      }
+    };
 
-      if (data.results && data.results.length > 0) {
-        for (const place of data.results) {
-          const distance = calculateDistance(
-            latitude, longitude,
-            place.geometry.location.lat, place.geometry.location.lng
-          );
+    console.log(`[Transit] Fetching with types: ${transitTypes.join(", ")}, radius: ${radius}m`);
+
+    const response = await fetch(
+      "https://places.googleapis.com/v1/places:searchNearby",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "places.displayName,places.location,places.types"
+        },
+        body: JSON.stringify(requestBody)
+      }
+    );
+
+    const data = await response.json();
+    console.log(`[Transit] API response status: ${response.status}, places: ${data.places?.length || 0}`);
+
+    if (data.places && data.places.length > 0) {
+      for (const place of data.places) {
+        const placeLat = place.location?.latitude;
+        const placeLng = place.location?.longitude;
+        
+        if (placeLat && placeLng) {
+          const distance = calculateDistance(latitude, longitude, placeLat, placeLng);
           
           if (distance <= radius) {
+            const placeType = place.types?.[0] || "transit_station";
             stops.push({
-              name: place.name,
-              type: transitType,
+              name: place.displayName?.text || "Unknown",
+              type: placeType,
               distance_m: distance,
-              lat: place.geometry.location.lat,
-              lng: place.geometry.location.lng
+              lat: placeLat,
+              lng: placeLng
             });
-            foundTypes.add(transitType);
+            foundTypes.add(placeType);
           }
         }
       }
-    } catch (error) {
-      console.error(`Error fetching ${transitType}:`, error);
     }
+  } catch (error) {
+    console.error("[Transit] Error fetching transit data:", error);
   }
 
   // Remove duplicates (same name within 50m)
@@ -194,6 +222,8 @@ async function fetchTransitData(
 
   // Sort by distance
   uniqueStops.sort((a, b) => a.distance_m - b.distance_m);
+
+  console.log(`[Transit] Found ${uniqueStops.length} unique stops`);
 
   return {
     nearest_stop: uniqueStops[0] ? {
@@ -212,13 +242,13 @@ async function fetchTransitData(
   };
 }
 
-// Fetch POI data using Google Places API
+// Fetch POI data using Google Places API (New)
 async function fetchPoiData(
   latitude: number,
   longitude: number,
   radius: number,
   apiKey: string,
-  filterCategories?: string[] // Optional: only fetch specific categories
+  filterCategories?: string[]
 ): Promise<{
   radius_m: number;
   categories: Record<string, { 
@@ -228,38 +258,71 @@ async function fetchPoiData(
 }> {
   const categories: Record<string, { count: number; nearest: { name: string; distance_m: number } | null }> = {};
 
-  // If specific categories are requested, filter POI_CATEGORIES
+  // If specific categories are requested, filter
   const categoriesToFetch = filterCategories 
-    ? Object.entries(POI_CATEGORIES).filter(([key]) => filterCategories.includes(key))
-    : Object.entries(POI_CATEGORIES);
+    ? Object.entries(POI_CATEGORIES_NEW).filter(([key]) => filterCategories.includes(key))
+    : Object.entries(POI_CATEGORIES_NEW);
+
+  console.log(`[POI] Fetching ${categoriesToFetch.length} categories for ${latitude}, ${longitude} with radius ${radius}m`);
 
   for (const [categoryKey, types] of categoriesToFetch) {
     const pois: Array<{ name: string; distance_m: number }> = [];
 
-    for (const type of types) {
-      try {
-        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${apiKey}&language=pl`;
-        const response = await fetch(url);
-        const data = await response.json();
+    try {
+      // Use Places API (New) - nearbySearch endpoint
+      const requestBody = {
+        includedTypes: types,
+        maxResultCount: 20,
+        locationRestriction: {
+          circle: {
+            center: { latitude, longitude },
+            radius: radius
+          }
+        }
+      };
 
-        if (data.results && data.results.length > 0) {
-          for (const place of data.results) {
-            const distance = calculateDistance(
-              latitude, longitude,
-              place.geometry.location.lat, place.geometry.location.lng
-            );
+      console.log(`[POI] Category ${categoryKey}: requesting types ${types.join(", ")}`);
 
+      const response = await fetch(
+        "https://places.googleapis.com/v1/places:searchNearby",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "places.displayName,places.location"
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      const data = await response.json();
+      console.log(`[POI] Category ${categoryKey}: API status ${response.status}, places: ${data.places?.length || 0}`);
+
+      if (data.places && data.places.length > 0) {
+        for (const place of data.places) {
+          const placeLat = place.location?.latitude;
+          const placeLng = place.location?.longitude;
+          
+          if (placeLat && placeLng) {
+            const distance = calculateDistance(latitude, longitude, placeLat, placeLng);
+            
             if (distance <= radius) {
               pois.push({
-                name: place.name,
+                name: place.displayName?.text || "Unknown",
                 distance_m: distance
               });
             }
           }
         }
-      } catch (error) {
-        console.error(`Error fetching ${type}:`, error);
       }
+
+      // Check for API errors
+      if (data.error) {
+        console.error(`[POI] Category ${categoryKey} API error:`, data.error);
+      }
+    } catch (error) {
+      console.error(`[POI] Category ${categoryKey} fetch error:`, error);
     }
 
     // Remove duplicates by name
@@ -274,6 +337,8 @@ async function fetchPoiData(
       count: uniquePois.length,
       nearest: uniquePois[0] || null
     };
+
+    console.log(`[POI] Category ${categoryKey}: final count = ${uniquePois.length}`);
   }
 
   return {
