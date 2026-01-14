@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   ArrowLeft, Heart, Share2, Home, MapPin, Calendar, Layers, Maximize, 
   Phone, Mail, User, Building2, Eye, GitCompare, MessageCircle,
-  CheckCircle, AlertTriangle, Sparkles
+  CheckCircle, AlertTriangle, Sparkles, LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PropertyPhotoGallery } from "@/components/realestate/PropertyPhotoGallery";
@@ -17,138 +18,6 @@ import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap
 import { AIListingAssessment } from "@/components/realestate/AIListingAssessment";
 import { SimilarListings } from "@/components/realestate/SimilarListings";
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
-
-// Import images for mock data
-import heroImage from "@/assets/realestate-hero.jpg";
-import tileRealestate from "@/assets/tile-realestate.jpg";
-import tileFleet from "@/assets/tile-fleet.jpg";
-import tileCars from "@/assets/tile-cars.jpg";
-import tileDriver from "@/assets/tile-driver.jpg";
-
-// Mock listings (same as marketplace for now)
-const MOCK_LISTINGS: Record<string, any> = {
-  "1": {
-    id: "1",
-    title: "Przestronne mieszkanie 3-pokojowe, Kazimierz",
-    price: 450000,
-    priceType: "sale",
-    photos: [heroImage, tileRealestate, tileFleet, tileCars, tileDriver],
-    location: "Kraków",
-    district: "Kazimierz",
-    address: "ul. Szeroka 12",
-    buildYear: 2019,
-    areaM2: 65,
-    rooms: 3,
-    floor: 4,
-    floorsTotal: 10,
-    propertyType: "mieszkanie",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-    hasBalcony: true,
-    hasElevator: true,
-    hasParking: true,
-    marketType: "wtorny",
-    agencyName: "Nieruchomości Premium",
-    contactName: "Jan Kowalski",
-    contactPhone: "+48 123 456 789",
-    contactEmail: "jan.kowalski@premium.pl",
-    listingNumber: "33928",
-    description: `Piękne, jasne mieszkanie o powierzchni 65m² zlokalizowane w samym sercu Kazimierza. Mieszkanie składa się z 3 pokoi, kuchni, łazienki oraz przestronnego balkonu z widokiem na dziedziniec.
-
-Budynek z 2019 roku, z windą, monitoringiem i wjazdem do podziemnego garażu. Mieszkanie jest w stanie deweloperskim, gotowe do własnej aranżacji.
-
-W okolicy liczne restauracje, kawiarnie, sklepy oraz doskonała komunikacja miejska. Do Rynku Głównego 10 minut pieszo.`,
-    amenities: ["Balkon", "Winda", "Parking podziemny", "Monitoring", "Piwnica", "Ekspozycja wschód-zachód"],
-    heating: "miejskie",
-    ownershipType: "własność",
-    createdAt: "2026-01-10",
-    updatedAt: "2026-01-11",
-    viewCount: 1234,
-    favoriteCount: 45,
-    compareCount: 12,
-    contactRevealCount: 8,
-    crmSource: "ASARI",
-    latitude: 50.0520,
-    longitude: 19.9470,
-  },
-  "2": {
-    id: "2",
-    title: "Nowoczesne studio w centrum",
-    price: 2800,
-    priceType: "rent_monthly",
-    photos: [heroImage, tileCars, tileDriver],
-    location: "Warszawa",
-    district: "Śródmieście",
-    address: "ul. Marszałkowska 50",
-    buildYear: 2022,
-    areaM2: 35,
-    rooms: 1,
-    floor: 8,
-    floorsTotal: 15,
-    propertyType: "kawalerka",
-    transactionType: "Wynajem",
-    transactionColor: "#3b82f6",
-    hasElevator: true,
-    hasParking: true,
-    marketType: "pierwotny",
-    agencyName: "City Apartments",
-    contactName: "Anna Nowak",
-    contactPhone: "+48 987 654 321",
-    contactEmail: "anna@cityapartments.pl",
-    listingNumber: "78421",
-    description: `Nowoczesne studio w prestiżowym wieżowcu w samym centrum Warszawy. Idealne dla singla lub pary.`,
-    amenities: ["Winda", "Parking", "Portiernia 24h", "Siłownia w budynku"],
-    heating: "miejskie",
-    ownershipType: "wynajem",
-    createdAt: "2026-01-08",
-    updatedAt: "2026-01-10",
-    viewCount: 567,
-    favoriteCount: 23,
-    compareCount: 5,
-    contactRevealCount: 3,
-    latitude: 52.2297,
-    longitude: 21.0122,
-  },
-  "3": {
-    id: "3",
-    title: "Dom jednorodzinny z ogrodem",
-    price: 890000,
-    priceType: "sale",
-    photos: [heroImage, tileFleet, tileRealestate, tileCars],
-    location: "Gdańsk",
-    district: "Osowa",
-    buildYear: 2015,
-    areaM2: 180,
-    rooms: 5,
-    propertyType: "dom",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-    hasGarden: true,
-    hasParking: true,
-    agencyName: "Trójmiasto Nieruchomości",
-    contactName: "Piotr Wiśniewski",
-    description: `Przestronny dom jednorodzinny z ogrodem w spokojnej okolicy.`,
-    latitude: 54.4114,
-    longitude: 18.4579,
-  },
-  "4": {
-    id: "4",
-    title: "Działka budowlana 1200m²",
-    price: 320000,
-    priceType: "sale",
-    photos: [heroImage, tileRealestate, tileDriver],
-    location: "Wrocław",
-    district: "Krzyki",
-    areaM2: 1200,
-    propertyType: "dzialka",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-    agencyName: "Grunty Plus",
-    description: `Działka budowlana o powierzchni 1200m² w rozwijającej się okolicy.`,
-    latitude: 51.0847,
-    longitude: 17.0009,
-  },
-};
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -166,6 +35,56 @@ const PROPERTY_TYPE_LABELS: Record<string, string> = {
   inwestycja: "Inwestycja",
 };
 
+// Map DB listing to display format
+function mapDbToDisplayListing(db: any) {
+  const transTypeMap: Record<string, { label: string; color: string }> = {
+    sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
+    wynajem: { label: "Wynajem", color: "#3b82f6" },
+  };
+  const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
+  
+  return {
+    id: db.id,
+    title: db.title,
+    description: db.description,
+    price: Number(db.price) || 0,
+    priceType: db.price_type || 'sale',
+    photos: db.photos || [],
+    location: db.city || db.location || '',
+    district: db.district,
+    address: db.address,
+    buildYear: db.build_year,
+    areaM2: Number(db.area) || 0,
+    rooms: db.rooms,
+    floor: db.floor,
+    floorsTotal: db.total_floors,
+    propertyType: db.property_type,
+    transactionType: trans.label,
+    transactionColor: trans.color,
+    hasBalcony: db.has_balcony,
+    hasElevator: db.has_elevator,
+    hasParking: db.has_parking,
+    hasGarden: db.has_garden,
+    agencyName: db.real_estate_agents?.company_name,
+    contactName: db.contact_person,
+    contactPhone: db.contact_phone,
+    contactEmail: db.contact_email,
+    listingNumber: db.listing_number,
+    latitude: db.latitude ? Number(db.latitude) : undefined,
+    longitude: db.longitude ? Number(db.longitude) : undefined,
+    viewCount: db.views || 0,
+    favoriteCount: db.favorites_count || 0,
+    compareCount: db.comparison_count || 0,
+    contactRevealCount: db.contact_reveals_count || 0,
+    amenities: [
+      db.has_balcony && "Balkon",
+      db.has_elevator && "Winda",
+      db.has_parking && "Parking",
+      db.has_garden && "Ogród",
+    ].filter(Boolean),
+  };
+}
+
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -174,6 +93,7 @@ export default function PropertyDetailPage() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [showContactPhone, setShowContactPhone] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -181,27 +101,49 @@ export default function PropertyDetailPage() {
       setUser(user);
     };
     checkUser();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     const fetchListing = async () => {
+      if (!id) return;
+      
       setLoading(true);
-      // For now, use mock data
-      if (id && MOCK_LISTINGS[id]) {
-        setListing(MOCK_LISTINGS[id]);
-        // Track view interaction
-        trackInteraction("view");
-      } else {
-        // TODO: Fetch from Supabase
-        console.log("Listing not found:", id);
+      try {
+        const { data, error } = await supabase
+          .from('real_estate_listings')
+          .select(`
+            *,
+            real_estate_agents!agent_id(company_name)
+          `)
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching listing:', error);
+          setListing(null);
+        } else if (data) {
+          setListing(mapDbToDisplayListing(data));
+          // Track view interaction
+          trackInteraction("view");
+        }
+      } catch (err) {
+        console.error('Exception fetching listing:', err);
+        setListing(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     
     fetchListing();
   }, [id]);
 
-  const trackInteraction = async (type: "view" | "favorite" | "compare" | "contact_reveal") => {
+  const trackInteraction = async (type: "view" | "favorite" | "compare" | "contact_reveal" | "contact_reveal_detail_page") => {
     try {
       await supabase.functions.invoke("track-listing-interaction", {
         body: { listingId: id, interactionType: type }
@@ -232,8 +174,13 @@ export default function PropertyDetailPage() {
   };
 
   const handleRevealContact = () => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+    
     if (!showContactPhone) {
-      trackInteraction("contact_reveal");
+      trackInteraction("contact_reveal_detail_page");
     }
     setShowContactPhone(true);
   };
@@ -532,6 +479,41 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       </footer>
+
+      {/* Login Dialog */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="h-5 w-5 text-primary" />
+              Zaloguj się, aby zobaczyć kontakt
+            </DialogTitle>
+            <DialogDescription>
+              Dane kontaktowe są dostępne tylko dla zalogowanych użytkowników. 
+              Pozwala to agencjom śledzić zainteresowanie ofertami.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <Button 
+              onClick={() => {
+                setShowLoginDialog(false);
+                navigate(`/auth?redirect=/nieruchomosci/ogloszenie/${id}`);
+              }}
+              className="w-full"
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              Zaloguj się
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowLoginDialog(false)}
+              className="w-full"
+            >
+              Anuluj
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
