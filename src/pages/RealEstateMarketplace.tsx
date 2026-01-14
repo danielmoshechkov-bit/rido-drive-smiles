@@ -245,13 +245,79 @@ const MOCK_LISTINGS = [
   },
 ];
 
+// Helper to map DB listing to local format
+interface DbListing {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  price_type?: string;
+  photos?: string[];
+  location?: string;
+  city?: string;
+  district?: string;
+  address?: string;
+  area?: number;
+  rooms?: number;
+  floor?: number;
+  total_floors?: number;
+  build_year?: number;
+  property_type?: string;
+  transaction_type?: string;
+  has_balcony?: boolean;
+  has_elevator?: boolean;
+  has_parking?: boolean;
+  has_garden?: boolean;
+  latitude?: number;
+  longitude?: number;
+  contact_person?: string;
+  contact_phone?: string;
+  real_estate_agents?: { company_name?: string } | null;
+}
+
+function mapDbToListing(db: DbListing) {
+  const transTypeMap: Record<string, { label: string; color: string }> = {
+    sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
+    wynajem: { label: "Wynajem", color: "#3b82f6" },
+  };
+  const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
+  
+  return {
+    id: db.id,
+    title: db.title,
+    price: db.price,
+    priceType: db.price_type || 'sale',
+    photos: db.photos || [],
+    location: db.city || db.location || '',
+    district: db.district,
+    buildYear: db.build_year,
+    areaM2: db.area || 0,
+    rooms: db.rooms,
+    floor: db.floor,
+    floorsTotal: db.total_floors,
+    propertyType: db.property_type,
+    transactionType: trans.label,
+    transactionColor: trans.color,
+    hasBalcony: db.has_balcony,
+    hasElevator: db.has_elevator,
+    hasParking: db.has_parking,
+    hasGarden: db.has_garden,
+    agencyName: db.real_estate_agents?.company_name,
+    contactName: db.contact_person,
+    contactPhone: db.contact_phone,
+    lat: db.latitude ? Number(db.latitude) : undefined,
+    lng: db.longitude ? Number(db.longitude) : undefined,
+  };
+}
+
 export default function RealEstateMarketplace() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
   const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(null);
-  const [listings, setListings] = useState(MOCK_LISTINGS);
-  const [loading, setLoading] = useState(false);
+  const [allListings, setAllListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
@@ -259,6 +325,50 @@ export default function RealEstateMarketplace() {
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
+
+  // Fetch listings from database
+  useEffect(() => {
+    const fetchListings = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('real_estate_listings')
+          .select(`
+            id, title, description, price, price_type, photos,
+            location, city, district, address, area, rooms, floor, total_floors, build_year,
+            property_type, transaction_type,
+            has_balcony, has_elevator, has_parking, has_garden,
+            latitude, longitude, contact_person, contact_phone,
+            real_estate_agents!agent_id(company_name)
+          `)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching listings:', error);
+          // Fallback to mock if DB fails
+          setAllListings(MOCK_LISTINGS);
+          setListings(MOCK_LISTINGS);
+        } else if (data && data.length > 0) {
+          const mapped = data.map(d => mapDbToListing(d as unknown as DbListing));
+          setAllListings(mapped);
+          setListings(mapped);
+        } else {
+          // No data in DB, use mock
+          setAllListings(MOCK_LISTINGS);
+          setListings(MOCK_LISTINGS);
+        }
+      } catch (err) {
+        console.error('Exception fetching listings:', err);
+        setAllListings(MOCK_LISTINGS);
+        setListings(MOCK_LISTINGS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, []);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -278,7 +388,7 @@ export default function RealEstateMarketplace() {
     console.log("Searching with filters:", filters);
     setLoading(true);
     
-    let filteredListings = [...MOCK_LISTINGS];
+    let filteredListings = [...allListings];
     
     // Filter by area (circle or polygon) - NEW
     if (filters.area) {
