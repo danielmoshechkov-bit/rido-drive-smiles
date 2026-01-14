@@ -39,6 +39,7 @@ import {
   Upload,
   Loader2,
   BarChart3,
+  Info,
 } from "lucide-react";
 
 interface AdCampaign {
@@ -55,13 +56,35 @@ interface AdCampaign {
 }
 
 const PLACEMENT_OPTIONS = [
-  { value: "property_detail_map", label: "Strona szczegółów - pod mapą" },
-  { value: "search_results", label: "Wyniki wyszukiwania" },
-  { value: "listing_sidebar", label: "Sidebar ogłoszenia" },
+  { 
+    value: "property_detail_map", 
+    label: "Strona szczegółów - pod mapą",
+    size: "Szerokość: 100% (ok. 600px), Wysokość: 120px",
+    recommended: "600 x 120 px (proporcje 5:1)"
+  },
+  { 
+    value: "property_detail_under_map", 
+    label: "Strona szczegółów - pod mapą z POI (pełna wysokość)",
+    size: "Szerokość: 100% mapy, Wysokość: dynamiczna (do końca sekcji POI)",
+    recommended: "600 x 400 px (proporcje 3:2)"
+  },
+  { 
+    value: "search_results", 
+    label: "Wyniki wyszukiwania",
+    size: "Szerokość: 100%, Wysokość: 90px",
+    recommended: "1200 x 90 px (baner poziomy)"
+  },
+  { 
+    value: "listing_sidebar", 
+    label: "Sidebar ogłoszenia",
+    size: "Szerokość: 300px, Wysokość: 600px",
+    recommended: "300 x 600 px (wieża reklamowa)"
+  },
 ];
 
 const PLACEMENT_LABELS: Record<string, string> = {
   property_detail_map: "Pod mapą",
+  property_detail_under_map: "Pod mapą (pełna)",
   search_results: "Wyszukiwarka",
   listing_sidebar: "Sidebar",
 };
@@ -78,6 +101,9 @@ export function AdCampaignsPanel() {
   const [targetUrl, setTargetUrl] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+
+  // Get selected placement info
+  const selectedPlacement = PLACEMENT_OPTIONS.find(p => p.value === placement);
 
   useEffect(() => {
     fetchCampaigns();
@@ -308,6 +334,22 @@ export function AdCampaignsPanel() {
                       ))}
                     </SelectContent>
                   </Select>
+                  
+                  {/* Size info for selected placement */}
+                  {selectedPlacement && (
+                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-700 dark:text-blue-300">Wymagane rozmiary:</p>
+                          <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">{selectedPlacement.size}</p>
+                          <p className="text-blue-500 dark:text-blue-500 text-xs mt-0.5">
+                            <strong>Zalecany rozmiar:</strong> {selectedPlacement.recommended}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -392,6 +434,22 @@ export function AdCampaignsPanel() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Size reference guide */}
+        <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+          <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+            <Info className="h-4 w-4" />
+            Rozmiary grafik dla poszczególnych miejsc
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {PLACEMENT_OPTIONS.map((opt) => (
+              <div key={opt.value} className="text-sm">
+                <p className="font-medium">{opt.label}</p>
+                <p className="text-muted-foreground text-xs">{opt.recommended}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

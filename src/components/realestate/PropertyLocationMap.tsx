@@ -2,14 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { cn } from "@/lib/utils";
 import { 
   MapPin, Wind, Car, Bus, ShoppingBag, GraduationCap, TreePine, AlertCircle, Loader2,
-  Heart, Building2, Pill, ChevronDown, Check, RefreshCw
+  Heart, Building2, Pill, RefreshCw
 } from "lucide-react";
 import { RadiusSelector } from "./RadiusSelector";
 
@@ -17,6 +15,7 @@ interface PropertyLocationMapProps {
   latitude?: number;
   longitude?: number;
   address?: string;
+  listingId?: string;
 }
 
 interface TransitStop {
@@ -82,7 +81,8 @@ interface LocationApiData {
 
 type RatingLevel = 'excellent' | 'very_good' | 'good' | 'average' | 'poor';
 
-const RADIUS_OPTIONS = [100, 200, 300, 500, 1000, 2000, 5000];
+// Simplified radius options: 300m, 500m, 1km, 2km
+const RADIUS_OPTIONS = [300, 500, 1000, 2000];
 
 // Rating color gradient: green → lime → yellow → orange → amber
 const RATING_COLORS: Record<RatingLevel, string> = {
@@ -104,7 +104,7 @@ const RATING_LABELS: Record<RatingLevel, string> = {
 const TRANSIT_TYPE_LABELS: Record<string, string> = {
   transit_station: "Stacja",
   bus_station: "Autobus",
-  bus_stop: "Autobus", // Map bus_stop to same label as bus_station
+  bus_stop: "Autobus",
   train_station: "Pociąg",
   subway_station: "Metro",
   light_rail_station: "Tramwaj"
@@ -135,19 +135,27 @@ const getAirQualityRating = (aqi: number): RatingLevel => {
   return 'poor';
 };
 
-const getPoiRating = (count: number, nearestDistance?: number): RatingLevel => {
-  if (count >= 3 && nearestDistance && nearestDistance < 200) return 'excellent';
-  if (count >= 2 && nearestDistance && nearestDistance < 300) return 'very_good';
-  if (count >= 1 && nearestDistance && nearestDistance < 500) return 'good';
-  if (count >= 1) return 'average';
-  return 'poor';
-};
-
 type PoiCategoryKey = 'grocery' | 'school' | 'pharmacy' | 'restaurant' | 'health' | 'park';
 
-const DEFAULT_CATEGORY_RADIUS = 300;
+// Default radii per category
+const DEFAULT_CATEGORY_RADII: Record<PoiCategoryKey, number> = {
+  grocery: 300,
+  pharmacy: 300,
+  school: 300,
+  restaurant: 300,
+  health: 500,
+  park: 500,
+};
 
-export function PropertyLocationMap({ latitude, longitude, address }: PropertyLocationMapProps) {
+// Local cache for POI data (in-memory)
+const poiCache = new Map<string, { data: PoiCategory; timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCacheKey(lat: number, lng: number, category: string, radius: number): string {
+  return `${lat.toFixed(5)}_${lng.toFixed(5)}_${category}_${radius}`;
+}
+
+export function PropertyLocationMap({ latitude, longitude, address, listingId }: PropertyLocationMapProps) {
   const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -156,23 +164,12 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState(300);
-  const [customRadius, setCustomRadius] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [radiusOpen, setRadiusOpen] = useState(false);
   const [locationData, setLocationData] = useState<LocationApiData | null>(null);
   const [isMock, setIsMock] = useState(true);
   const [showPoiMarkers, setShowPoiMarkers] = useState(false);
   
-  // Independent radius for each POI category
-  const [categoryRadii, setCategoryRadii] = useState<Record<PoiCategoryKey, number>>({
-    grocery: DEFAULT_CATEGORY_RADIUS,
-    school: DEFAULT_CATEGORY_RADIUS,
-    pharmacy: DEFAULT_CATEGORY_RADIUS,
-    restaurant: DEFAULT_CATEGORY_RADIUS,
-    health: DEFAULT_CATEGORY_RADIUS,
-    park: DEFAULT_CATEGORY_RADIUS,
-  });
+  // Independent radius for each POI category - with new defaults
+  const [categoryRadii, setCategoryRadii] = useState<Record<PoiCategoryKey, number>>(DEFAULT_CATEGORY_RADII);
   
   // Separate POI data for each category (fetched with its own radius)
   const [categoryPoiData, setCategoryPoiData] = useState<Record<PoiCategoryKey, PoiCategory | null>>({
@@ -208,7 +205,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     const map = new google.maps.Map(mapContainerRef.current, {
       center: position,
       zoom: 15,
-      // No mapId - use classic markers for stability
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: false,
@@ -218,7 +214,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
     mapInstanceRef.current = map;
 
-    // Add classic marker (no mapId required)
+    // Add classic marker
     const marker = new google.maps.Marker({
       map,
       position,
@@ -230,7 +226,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
     return () => {
       markerRef.current = null;
-      // Clear POI markers on unmount
       poiMarkersRef.current.forEach(m => m.setMap(null));
       poiMarkersRef.current = [];
     };
@@ -241,12 +236,12 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     if (!google) return undefined;
     
     const colors: Record<PoiCategoryKey, string> = {
-      grocery: "#ef4444", // red
-      school: "#3b82f6", // blue
-      pharmacy: "#10b981", // green
-      restaurant: "#f59e0b", // amber
-      health: "#ec4899", // pink
-      park: "#22c55e", // green
+      grocery: "#ef4444",
+      school: "#3b82f6",
+      pharmacy: "#10b981",
+      restaurant: "#f59e0b",
+      health: "#ec4899",
+      park: "#22c55e",
     };
     
     return {
@@ -263,7 +258,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const drawPoiMarkers = () => {
     if (!mapInstanceRef.current || !google || !showPoiMarkers) return;
     
-    // Clear existing POI markers
     poiMarkersRef.current.forEach(m => m.setMap(null));
     poiMarkersRef.current = [];
     
@@ -292,7 +286,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     if (showPoiMarkers && mapLoaded) {
       drawPoiMarkers();
     } else if (!showPoiMarkers) {
-      // Clear markers when toggled off
       poiMarkersRef.current.forEach(m => m.setMap(null));
       poiMarkersRef.current = [];
     }
@@ -328,19 +321,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
       if (data) {
         setLocationData(data);
         setIsMock(data.mock === true);
-        
-        // Initialize category POI data from full fetch
-        if (data.poi?.categories) {
-          console.log('[LocationMap] Setting POI data from full fetch:', data.poi.categories);
-          setCategoryPoiData({
-            grocery: data.poi.categories.grocery || null,
-            school: data.poi.categories.school || null,
-            pharmacy: data.poi.categories.pharmacy || null,
-            restaurant: data.poi.categories.restaurant || null,
-            health: data.poi.categories.health || null,
-            park: data.poi.categories.park || null,
-          });
-        }
       }
     } catch (error) {
       console.error('[LocationMap] Exception:', error);
@@ -349,12 +329,24 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     }
   };
 
-  // Fetch POI data for a single category with specific radius
+  // Fetch POI data for a single category with specific radius - with caching
   const fetchCategoryPoi = async (category: PoiCategoryKey, radius: number) => {
     console.log(`[LocationMap] fetchCategoryPoi called:`, { category, radius, latitude, longitude });
     
     if (!latitude || !longitude) {
       console.warn(`[LocationMap] Missing coordinates for category ${category} fetch`);
+      return;
+    }
+    
+    // Check in-memory cache first
+    const cacheKey = getCacheKey(latitude, longitude, category, radius);
+    const cached = poiCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      console.log(`[LocationMap] Using cached data for ${category} at ${radius}m`);
+      setCategoryPoiData(prev => ({
+        ...prev,
+        [category]: cached.data
+      }));
       return;
     }
     
@@ -381,16 +373,25 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
 
       if (data?.categories?.[category]) {
         console.log(`[LocationMap] Setting ${category} data:`, data.categories[category]);
+        const categoryData = data.categories[category];
+        
+        // Store in cache
+        poiCache.set(cacheKey, { data: categoryData, timestamp: Date.now() });
+        
         setCategoryPoiData(prev => ({
           ...prev,
-          [category]: data.categories[category]
+          [category]: categoryData
         }));
       } else {
         console.warn(`[LocationMap] No data for category ${category} in response`);
-        // Set empty data to show 0
+        const emptyData = { count: 0, nearest: null };
+        
+        // Cache empty results too
+        poiCache.set(cacheKey, { data: emptyData, timestamp: Date.now() });
+        
         setCategoryPoiData(prev => ({
           ...prev,
-          [category]: { count: 0, nearest: null }
+          [category]: emptyData
         }));
       }
     } catch (error) {
@@ -404,14 +405,29 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
   const handleCategoryRadiusChange = (category: PoiCategoryKey, radius: number) => {
     console.log(`[LocationMap] handleCategoryRadiusChange:`, { category, radius });
     setCategoryRadii(prev => ({ ...prev, [category]: radius }));
+    
+    // Check cache before making new request
+    if (latitude && longitude) {
+      const cacheKey = getCacheKey(latitude, longitude, category, radius);
+      const cached = poiCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        console.log(`[LocationMap] Using cached data for ${category} at ${radius}m (from radius change)`);
+        setCategoryPoiData(prev => ({
+          ...prev,
+          [category]: cached.data
+        }));
+        return;
+      }
+    }
+    
     fetchCategoryPoi(category, radius);
   };
 
   // Fetch location data when coordinates are available
   useEffect(() => {
-    console.log('[LocationMap] Main useEffect triggered:', { latitude, longitude, selectedRadius });
+    console.log('[LocationMap] Main useEffect triggered:', { latitude, longitude });
     if (latitude && longitude) {
-      fetchLocationData(selectedRadius);
+      fetchLocationData(300); // Default radius for transit/traffic
     }
   }, [latitude, longitude]);
 
@@ -432,25 +448,7 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
     });
   }, [latitude, longitude]);
 
-  const handleRadiusSelect = (radius: number) => {
-    setSelectedRadius(radius);
-    setRadiusOpen(false);
-    setShowCustomInput(false);
-    fetchLocationData(radius);
-  };
-
-  const handleCustomRadiusSubmit = () => {
-    const radius = parseInt(customRadius);
-    if (radius >= 100 && radius <= 2000) {
-      setSelectedRadius(radius);
-      setShowCustomInput(false);
-      setRadiusOpen(false);
-      fetchLocationData(radius);
-    }
-  };
-
   const transit = locationData?.transit;
-  const poi = locationData?.poi;
   const traffic = locationData?.traffic;
 
   // Calculate ratings
@@ -509,13 +507,11 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : count > 0 ? (
-            // Show count when there are results
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold">{count}</span>
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
             </div>
           ) : nearest ? (
-            // Show distance to nearest when count is 0 but nearest exists
             <div className="flex flex-col items-end">
               <span className="text-lg font-semibold text-amber-600">0</span>
               <span className="text-xs text-muted-foreground">
@@ -523,7 +519,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
               </span>
             </div>
           ) : (
-            // No results and no nearest
             <span className="text-xl font-bold text-muted-foreground">0</span>
           )}
         </div>
@@ -635,74 +630,6 @@ export function PropertyLocationMap({ latitude, longitude, address }: PropertyLo
             <h3 className="font-semibold flex items-center gap-2">
               📊 Wskaźniki lokalizacji
             </h3>
-          </div>
-
-          {/* Radius Selector - Framed clickable button */}
-          <div className="flex items-center justify-center p-3 mb-4 rounded-lg bg-primary/5 border border-primary/20">
-            <MapPin className="h-4 w-4 text-primary mr-2" />
-            <span className="text-sm text-muted-foreground">Sprawdzam w promieniu</span>
-            
-            <Popover open={radiusOpen} onOpenChange={setRadiusOpen}>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 px-3 mx-2 font-medium border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors"
-                >
-                  {selectedRadius}m
-                  <ChevronDown className="ml-1 h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="center">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-                    Wybierz promień wyszukiwania
-                  </p>
-                  {RADIUS_OPTIONS.map(r => (
-                    <Button
-                      key={r}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-between h-9"
-                      onClick={() => handleRadiusSelect(r)}
-                    >
-                      {r}m
-                      {selectedRadius === r && <Check className="h-4 w-4 text-primary" />}
-                    </Button>
-                  ))}
-                  <div className="border-t my-2" />
-                  {showCustomInput ? (
-                    <div className="flex items-center gap-1 px-2">
-                      <Input
-                        type="number"
-                        value={customRadius}
-                        onChange={(e) => setCustomRadius(e.target.value)}
-                        placeholder="100-2000"
-                        className="h-8 text-sm"
-                        min={100}
-                        max={2000}
-                        autoFocus
-                      />
-                      <span className="text-xs text-muted-foreground">m</span>
-                      <Button size="sm" variant="default" className="h-8 px-2" onClick={handleCustomRadiusSubmit}>
-                        OK
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start h-9 text-muted-foreground"
-                      onClick={() => setShowCustomInput(true)}
-                    >
-                      Inny promień...
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <span className="text-sm text-muted-foreground">od lokalizacji</span>
           </div>
 
           {loading ? (

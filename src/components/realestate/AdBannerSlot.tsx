@@ -11,21 +11,39 @@ interface AdCampaign {
 }
 
 interface AdBannerSlotProps {
-  placement: "property_detail_map" | "property_detail_sidebar" | "search_results" | "listing_sidebar";
+  placement: "property_detail_map" | "property_detail_sidebar" | "search_results" | "listing_sidebar" | "property_detail_under_map";
   className?: string;
+  height?: number; // Dynamic height for under_map placement
 }
 
-export function AdBannerSlot({ placement, className = "" }: AdBannerSlotProps) {
+// Recommended sizes for each placement
+const PLACEMENT_SIZES: Record<string, { width: string; height: string; description: string }> = {
+  property_detail_map: { width: "100%", height: "120px", description: "Pod mapą (pełna szerokość)" },
+  property_detail_under_map: { width: "100%", height: "auto", description: "Pod mapą z POI (pełna szerokość, wysokość do końca sekcji POI)" },
+  property_detail_sidebar: { width: "300px", height: "250px", description: "Sidebar szczegółów" },
+  search_results: { width: "100%", height: "90px", description: "Wyniki wyszukiwania (baner)" },
+  listing_sidebar: { width: "300px", height: "600px", description: "Sidebar listy ogłoszeń (wieża)" },
+};
+
+export function AdBannerSlot({ placement, className = "", height }: AdBannerSlotProps) {
   const [ad, setAd] = useState<AdCampaign | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const placementInfo = PLACEMENT_SIZES[placement] || PLACEMENT_SIZES.property_detail_map;
+  const containerHeight = height ? `${height}px` : placementInfo.height;
 
   useEffect(() => {
     const fetchAd = async () => {
       try {
+        // For under_map, also check property_detail_map placement
+        const placements = placement === "property_detail_under_map" 
+          ? ["property_detail_under_map", "property_detail_map"]
+          : [placement];
+
         const { data, error } = await supabase
           .from("ad_campaigns")
           .select("id, title, media_type, media_url, target_url")
-          .eq("placement", placement)
+          .in("placement", placements)
           .eq("is_active", true)
           .limit(1)
           .maybeSingle();
@@ -77,7 +95,10 @@ export function AdBannerSlot({ placement, className = "" }: AdBannerSlotProps) {
 
   if (loading) {
     return (
-      <div className={`bg-muted/30 rounded-xl border border-dashed border-muted-foreground/20 h-[120px] flex items-center justify-center ${className}`}>
+      <div 
+        className={`bg-muted/30 rounded-xl border border-dashed border-muted-foreground/20 flex items-center justify-center ${className}`}
+        style={{ height: containerHeight }}
+      >
         <div className="animate-pulse text-muted-foreground text-sm">Ładowanie...</div>
       </div>
     );
@@ -85,7 +106,10 @@ export function AdBannerSlot({ placement, className = "" }: AdBannerSlotProps) {
 
   if (!ad) {
     return (
-      <div className={`bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-dashed border-muted-foreground/20 h-[120px] flex flex-col items-center justify-center gap-2 ${className}`}>
+      <div 
+        className={`bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-2 ${className}`}
+        style={{ height: containerHeight, minHeight: "80px" }}
+      >
         <div className="flex items-center gap-2 text-muted-foreground/60">
           <ImageIcon className="h-5 w-5" />
           <span className="text-sm font-medium">Miejsce na reklamę</span>
@@ -101,11 +125,12 @@ export function AdBannerSlot({ placement, className = "" }: AdBannerSlotProps) {
     <div 
       className={`relative rounded-xl overflow-hidden border bg-muted/10 cursor-pointer group transition-all hover:shadow-lg ${className}`}
       onClick={handleClick}
+      style={{ height: containerHeight }}
     >
       {ad.media_type === "video" ? (
         <video
           src={ad.media_url}
-          className="w-full h-[120px] object-cover"
+          className="w-full h-full object-cover"
           autoPlay
           muted
           loop
@@ -115,7 +140,7 @@ export function AdBannerSlot({ placement, className = "" }: AdBannerSlotProps) {
         <img
           src={ad.media_url}
           alt={ad.title}
-          className="w-full h-[120px] object-cover"
+          className="w-full h-full object-cover"
         />
       )}
       
