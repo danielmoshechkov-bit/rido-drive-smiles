@@ -44,6 +44,7 @@ export function ResultsMapModal({
   
   const [selectedListing, setSelectedListing] = useState<PropertyListing | null>(null);
   const overlaysRef = useRef<any[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Filter states
   const [cityFilter, setCityFilter] = useState("");
@@ -52,21 +53,43 @@ export function ResultsMapModal({
   const [maxPrice, setMaxPrice] = useState("");
   const [minArea, setMinArea] = useState("");
 
+  // Get user's geolocation when modal opens
+  useEffect(() => {
+    if (open && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.log('[ResultsMapModal] Geolocation error:', error.message);
+        },
+        { timeout: 5000, enableHighAccuracy: false }
+      );
+    }
+  }, [open]);
+
   // Filter listings that have coordinates
   const listingsWithCoords = listings.filter(l => l.lat && l.lng);
   
-  // Apply filters
+  // Apply filters - Fixed transaction type matching
   const filteredListings = listingsWithCoords.filter(listing => {
     // City filter
     if (cityFilter && !listing.location?.toLowerCase().includes(cityFilter.toLowerCase())) {
       return false;
     }
     
-    // Transaction type filter
-    const isSale = listing.transactionType === "Sprzedaż";
-    const isRent = listing.transactionType === "Wynajem" || listing.transactionType === "Wynajem krótkoterminowy";
+    // Transaction type filter - Fixed to match actual values
+    const transType = listing.transactionType?.toLowerCase() || '';
+    const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
+    const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
+    
     if (isSale && !showSale) return false;
     if (isRent && !showRent) return false;
+    // If neither sale nor rent, show it when either checkbox is checked
+    if (!isSale && !isRent && !showSale && !showRent) return false;
     
     // Max price filter
     if (maxPrice && listing.price > parseInt(maxPrice)) return false;
@@ -77,7 +100,6 @@ export function ResultsMapModal({
     return true;
   });
   
-  // Debug: log what we receive
   console.log('[ResultsMapModal] listings:', listings.length, 'with coords:', listingsWithCoords.length, 'filtered:', filteredListings.length);
 
   const formatPrice = (price: number, priceType?: string) => {
@@ -90,27 +112,42 @@ export function ResultsMapModal({
     return price.toString();
   };
 
+  // Create pin marker with SVG
   const createMarkerContent = useCallback((listing: PropertyListing): HTMLDivElement => {
-    const bgColor = listing.transactionType === "Wynajem" || listing.transactionType === "Wynajem krótkoterminowy" ? "#3b82f6" : "#10b981";
+    const transType = listing.transactionType?.toLowerCase() || '';
+    const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
+    const bgColor = isRent ? "#3b82f6" : "#10b981";
+    
     const div = document.createElement("div");
     div.style.cssText = `
-      background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
-      color: white;
-      padding: 6px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      cursor: pointer;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 4px;
-      transform: translateX(-50%);
+      transform: translate(-50%, -100%);
+      cursor: pointer;
     `;
     div.innerHTML = `
-      ${formatPrice(listing.price, listing.priceType)} zł
-      <span style="opacity: 0.8; font-weight: 400;">• ${listing.areaM2}m²</span>
+      <div style="
+        background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: -2px;
+      ">
+        ${formatPrice(listing.price, listing.priceType)} zł
+        <span style="opacity: 0.8; font-weight: 400; font-size: 10px;">• ${listing.areaM2}m²</span>
+      </div>
+      <svg width="20" height="24" viewBox="0 0 20 24" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+        <path d="M10 0C4.5 0 0 4.5 0 10c0 7.5 10 14 10 14s10-6.5 10-14c0-5.5-4.5-10-10-10z" fill="${bgColor}"/>
+        <circle cx="10" cy="10" r="4" fill="white"/>
+      </svg>
     `;
     return div;
   }, []);
@@ -300,19 +337,25 @@ export function ResultsMapModal({
 
       mapCreated = true;
 
-      // Calculate center from listings or default to Poland center
-      let center = { lat: 52.0, lng: 19.0 };
-      if (filteredListings.length > 0) {
+      // Calculate center: prefer user location, then listings, then Poland center
+      let center = { lat: 52.0, lng: 19.0 }; // Default: Poland center
+      let initialZoom = 6;
+      
+      if (userLocation) {
+        center = userLocation;
+        initialZoom = 12;
+      } else if (filteredListings.length > 0) {
         const avgLat = filteredListings.reduce((sum, l) => sum + (l.lat || 0), 0) / filteredListings.length;
         const avgLng = filteredListings.reduce((sum, l) => sum + (l.lng || 0), 0) / filteredListings.length;
         center = { lat: avgLat, lng: avgLng };
+        initialZoom = filteredListings.length === 1 ? 14 : 10;
       }
       
       console.log('[ResultsMapModal] Initializing map with center:', center);
 
       const map = new google.maps.Map(container, {
         center,
-        zoom: filteredListings.length === 1 ? 14 : 6,
+        zoom: initialZoom,
         disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: false,
@@ -335,9 +378,6 @@ export function ResultsMapModal({
         setTimeout(() => {
           if (mapRef.current && google) {
             google.maps.event.trigger(mapRef.current, "resize");
-            if (delay === 100 && filteredListings.length > 0) {
-              mapRef.current.setCenter(center);
-            }
           }
         }, delay);
       });
@@ -351,7 +391,7 @@ export function ResultsMapModal({
       overlaysRef.current = [];
       mapRef.current = null;
     };
-  }, [open, isLoaded, google]);
+  }, [open, isLoaded, google, userLocation]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

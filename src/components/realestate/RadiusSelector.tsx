@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronDown, Check } from "lucide-react";
 
@@ -10,27 +9,15 @@ interface RadiusSelectorProps {
   className?: string;
 }
 
-const RADIUS_OPTIONS = [100, 200, 300, 500, 1000, 2000, 5000];
+// Simplified radius options: 300m, 500m, 1km, 2km
+const RADIUS_OPTIONS = [300, 500, 1000, 2000];
 
 export function RadiusSelector({ value, onChange, className }: RadiusSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [customInput, setCustomInput] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const handleRadiusSelect = (radius: number) => {
     onChange(radius);
     setOpen(false);
-    setShowCustomInput(false);
-  };
-
-  const handleCustomRadiusSubmit = () => {
-    const radius = parseInt(customInput);
-    // Allow any radius from 50m to 50km
-    if (radius >= 50 && radius <= 50000) {
-      onChange(radius);
-      setShowCustomInput(false);
-      setOpen(false);
-    }
   };
 
   // Format value display - show km for large values
@@ -51,40 +38,11 @@ export function RadiusSelector({ value, onChange, className }: RadiusSelectorPro
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="center">
+      <PopoverContent className="w-36 p-2" align="center">
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground px-2 py-1">
             Zmień promień
           </p>
-          {/* Inny promień na górze */}
-          {showCustomInput ? (
-            <div className="flex items-center gap-1 px-1">
-              <Input
-                type="number"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="50-50000"
-                className="h-7 text-sm"
-                min={50}
-                max={50000}
-                autoFocus
-              />
-              <span className="text-xs text-muted-foreground">m</span>
-              <Button size="sm" variant="default" className="h-7 px-2" onClick={handleCustomRadiusSubmit}>
-                OK
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start h-8 text-muted-foreground"
-              onClick={() => setShowCustomInput(true)}
-            >
-              Inny promień...
-            </Button>
-          )}
-          <div className="border-t my-2" />
           {RADIUS_OPTIONS.map(r => (
             <Button
               key={r}
