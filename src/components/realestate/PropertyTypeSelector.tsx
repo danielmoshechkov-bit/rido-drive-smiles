@@ -7,13 +7,14 @@ interface PropertyTypeSelectorProps {
   className?: string;
 }
 
+// Values match database property_type column (singular form)
 const PROPERTY_TYPES = [
-  { value: "mieszkania", label: "Mieszkania", icon: Home },
-  { value: "domy", label: "Domy", icon: Building },
-  { value: "dzialki", label: "Działki", icon: Map },
-  { value: "lokale", label: "Lokale", icon: Building2 },
-  { value: "pokoje", label: "Pokoje", icon: BedDouble },
-  { value: "inwestycje", label: "Inwestycje", icon: Landmark },
+  { value: "mieszkanie", label: "Mieszkania", icon: Home },
+  { value: "dom", label: "Domy", icon: Building },
+  { value: "dzialka", label: "Działki", icon: Map },
+  { value: "lokal", label: "Lokale", icon: Building2 },
+  { value: "pokoj", label: "Pokoje", icon: BedDouble },
+  { value: "kawalerka", label: "Kawalerki", icon: Home },
 ];
 
 export function PropertyTypeSelector({

@@ -370,6 +370,16 @@ export default function RealEstateMarketplace() {
     fetchListings();
   }, []);
 
+  // Auto-filter when property type or transaction type changes
+  useEffect(() => {
+    if (allListings.length === 0) return;
+    
+    handleSearch({
+      propertyType: selectedPropertyType || undefined,
+      transactionType: selectedTransactionType || undefined,
+    });
+  }, [selectedPropertyType, selectedTransactionType, allListings]);
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();

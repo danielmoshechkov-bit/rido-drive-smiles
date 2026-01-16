@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle, Send, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -64,6 +65,12 @@ export function AISettingsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  
+  // AI Test state
+  const [testQuery, setTestQuery] = useState('');
+  const [testResponse, setTestResponse] = useState('');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     loadData();
@@ -205,6 +212,52 @@ export function AISettingsPanel() {
       if (error) throw error;
     } catch (error) {
       console.error('Error updating query cost:', error);
+    }
+  };
+
+  const testAIConnection = async () => {
+    if (!testQuery.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Wpisz zapytanie testowe",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsTesting(true);
+    setTestStatus('idle');
+    setTestResponse('');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-search', {
+        body: { 
+          query: testQuery,
+          type: 'test',
+        },
+      });
+      
+      if (error) throw error;
+      
+      setTestResponse(data?.response || data?.message || JSON.stringify(data, null, 2));
+      setTestStatus('success');
+      
+      toast({
+        title: "Test zakończony",
+        description: "Połączenie z AI działa poprawnie",
+      });
+    } catch (error: any) {
+      console.error('AI test error:', error);
+      setTestResponse(error.message || 'Błąd połączenia z AI');
+      setTestStatus('error');
+      
+      toast({
+        title: "Błąd testu",
+        description: error.message || "Nie udało się połączyć z AI",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -354,6 +407,69 @@ export function AISettingsPanel() {
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Zapisz ustawienia
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* AI Test Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            <CardTitle>Test AI</CardTitle>
+          </div>
+          <CardDescription>
+            Sprawdź czy połączenie z AI działa poprawnie
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Zapytanie testowe</Label>
+            <div className="flex gap-2">
+              <Input
+                value={testQuery}
+                onChange={(e) => setTestQuery(e.target.value)}
+                placeholder="Np. Znajdź mieszkanie 3-pokojowe w Krakowie"
+                onKeyDown={(e) => e.key === 'Enter' && testAIConnection()}
+              />
+              <Button 
+                onClick={testAIConnection} 
+                disabled={isTesting || !settings?.ai_enabled}
+              >
+                {isTesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Test
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+          
+          {testResponse && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>Odpowiedź AI</Label>
+                {testStatus === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                {testStatus === 'error' && <XCircle className="h-4 w-4 text-destructive" />}
+              </div>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                <pre className="text-sm whitespace-pre-wrap font-mono">
+                  {testResponse}
+                </pre>
+              </ScrollArea>
+            </div>
+          )}
+          
+          {!settings?.ai_enabled && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Włącz AI powyżej, aby móc testować połączenie
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
