@@ -33,6 +33,7 @@ import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegratio
 import { CRMIntegrationsPanel } from '@/components/admin/CRMIntegrationsPanel';
 import { AdCampaignsPanel } from '@/components/admin/AdCampaignsPanel';
 import { SMSIntegrationsPanel } from '@/components/admin/SMSIntegrationsPanel';
+import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -70,7 +71,7 @@ const AdminRealEstate = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [settingsSubTab, setSettingsSubTab] = useState('integrations');
+  const [settingsSubTab, setSettingsSubTab] = useState('ai');
   const [userEmail, setUserEmail] = useState('');
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -691,12 +692,15 @@ const AdminRealEstate = () => {
               activeTab={settingsSubTab}
               onTabChange={setSettingsSubTab}
               tabs={[
+                { value: "ai", label: "Integracje AI", visible: true },
                 { value: "integrations", label: "Integracje lokalizacji", visible: true },
                 { value: "crm", label: "Integracje CRM", visible: true },
                 { value: "sms", label: "Integracja SMS", visible: true },
                 { value: "module-settings", label: "Ustawienia modułu", visible: true },
               ]}
             />
+
+            {settingsSubTab === "ai" && <AISettingsPanel />}
 
             {settingsSubTab === "integrations" && <LocationIntegrationsPanel />}
             
