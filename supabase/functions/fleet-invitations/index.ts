@@ -16,7 +16,10 @@ Deno.serve(async (req) => {
     // Get authenticated user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new Error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create client with user's token for auth verification
@@ -24,12 +27,19 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
     
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    // Use getClaims for more reliable token validation
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      throw new Error('Invalid token');
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth error:', claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    const user = { id: claimsData.claims.sub as string };
 
     // Use service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
