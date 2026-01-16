@@ -51,6 +51,31 @@ serve(async (req) => {
 
     console.log(`Tracking interaction: ${interactionType} for listing ${listingId} by user ${userId || ipAddress}`);
 
+    // Fetch agent_id and agency_id from the listing for contact_reveal tracking
+    let agentId: string | null = null;
+    let agencyId: string | null = null;
+    
+    if (interactionType === "contact_reveal") {
+      const { data: listing } = await supabase
+        .from("real_estate_listings")
+        .select("agent_id")
+        .eq("id", listingId)
+        .single();
+      
+      if (listing?.agent_id) {
+        agentId = listing.agent_id;
+        
+        // Get the agency (parent agent) for this agent
+        const { data: agent } = await supabase
+          .from("real_estate_agents")
+          .select("parent_agent_id")
+          .eq("id", listing.agent_id)
+          .single();
+        
+        agencyId = agent?.parent_agent_id || listing.agent_id;
+      }
+    }
+
     // Record the interaction in real_estate_listing_interactions table
     const { error: insertError } = await supabase
       .from("real_estate_listing_interactions")
@@ -60,6 +85,8 @@ serve(async (req) => {
         interaction_type: interactionType,
         ip_address: userId ? null : ipAddress, // Only store IP for anonymous users
         device_info: req.headers.get("user-agent") || null,
+        agent_id: agentId,
+        agency_id: agencyId,
       });
 
     if (insertError) {
