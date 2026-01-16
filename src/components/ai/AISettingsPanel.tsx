@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle, Send, CheckCircle2, XCircle } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle, Send, CheckCircle2, XCircle, Zap, Image, Search, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,6 +24,12 @@ interface AISettings {
   ai_enabled: boolean;
   ai_provider?: string;
   custom_api_key?: string;
+  // New fields for dual AI engines
+  openai_api_key_encrypted?: string;
+  gemini_api_key_encrypted?: string;
+  ai_search_enabled?: boolean;
+  ai_seo_enabled?: boolean;
+  ai_photo_enabled?: boolean;
 }
 
 interface CreditPackage {
@@ -47,11 +55,12 @@ const AI_PROVIDERS = [
 ];
 
 const AI_MODELS = [
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki, zalecany)', provider: 'lovable' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (stabilny)', provider: 'lovable' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (zaawansowany)', provider: 'lovable' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (dobry balans)', provider: 'lovable' },
-  { value: 'openai/gpt-5', label: 'GPT-5 (najlepszy, drogi)', provider: 'lovable' },
+  { value: 'openai/gpt-5.2', label: 'GPT-5.2 (najnowszy, zalecany)', provider: 'lovable' },
+  { value: 'openai/gpt-5', label: 'GPT-5 (stabilny)', provider: 'lovable' },
+  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (szybki)', provider: 'lovable' },
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki)', provider: 'lovable' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'lovable' },
+  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'lovable' },
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' },
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'google' },
@@ -66,11 +75,19 @@ export function AISettingsPanel() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   
-  // AI Test state
+  // API Key inputs (temporary, not persisted directly)
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  
+  // Test states
   const [testQuery, setTestQuery] = useState('');
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  // Gemini test states
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiTestStatus, setGeminiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     loadData();
@@ -87,6 +104,13 @@ export function AISettingsPanel() {
 
       if (settingsRes.data) {
         setSettings(settingsRes.data);
+        // Show masked keys if set
+        if (settingsRes.data.openai_api_key_encrypted) {
+          setOpenaiKey('••••••••••••••••');
+        }
+        if (settingsRes.data.gemini_api_key_encrypted) {
+          setGeminiKey('••••••••••••••••');
+        }
       }
       if (packagesRes.data) {
         setPackages(packagesRes.data);
@@ -111,15 +135,28 @@ export function AISettingsPanel() {
     
     setIsSaving(true);
     try {
+      const updateData: Record<string, unknown> = {
+        ai_model: settings.ai_model,
+        system_prompt: settings.system_prompt,
+        guest_daily_limit: settings.guest_daily_limit,
+        user_monthly_limit: settings.user_monthly_limit,
+        ai_enabled: settings.ai_enabled,
+        ai_search_enabled: settings.ai_search_enabled,
+        ai_seo_enabled: settings.ai_seo_enabled,
+        ai_photo_enabled: settings.ai_photo_enabled,
+      };
+      
+      // Only update keys if they've been changed (not masked)
+      if (openaiKey && !openaiKey.includes('•')) {
+        updateData.openai_api_key_encrypted = openaiKey;
+      }
+      if (geminiKey && !geminiKey.includes('•')) {
+        updateData.gemini_api_key_encrypted = geminiKey;
+      }
+      
       const { error } = await supabase
         .from('ai_settings')
-        .update({
-          ai_model: settings.ai_model,
-          system_prompt: settings.system_prompt,
-          guest_daily_limit: settings.guest_daily_limit,
-          user_monthly_limit: settings.user_monthly_limit,
-          ai_enabled: settings.ai_enabled,
-        })
+        .update(updateData)
         .eq('id', settings.id);
 
       if (error) throw error;
@@ -215,7 +252,7 @@ export function AISettingsPanel() {
     }
   };
 
-  const testAIConnection = async () => {
+  const testOpenAIConnection = async () => {
     if (!testQuery.trim()) {
       toast({
         title: "Błąd",
@@ -230,10 +267,10 @@ export function AISettingsPanel() {
     setTestResponse('');
     
     try {
-      const { data, error } = await supabase.functions.invoke('ai-search', {
+      const { data, error } = await supabase.functions.invoke('ai-service', {
         body: { 
-          query: testQuery,
           type: 'test',
+          payload: { query: testQuery },
         },
       });
       
@@ -243,21 +280,60 @@ export function AISettingsPanel() {
       setTestStatus('success');
       
       toast({
-        title: "Test zakończony",
-        description: "Połączenie z AI działa poprawnie",
+        title: "Test OpenAI zakończony",
+        description: "Połączenie działa poprawnie",
       });
-    } catch (error: any) {
-      console.error('AI test error:', error);
-      setTestResponse(error.message || 'Błąd połączenia z AI');
+    } catch (error: unknown) {
+      console.error('OpenAI test error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Błąd połączenia z AI';
+      setTestResponse(errorMessage);
       setTestStatus('error');
       
       toast({
-        title: "Błąd testu",
-        description: error.message || "Nie udało się połączyć z AI",
+        title: "Błąd testu OpenAI",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const testGeminiConnection = async () => {
+    setIsTestingGemini(true);
+    setGeminiTestStatus('idle');
+    
+    try {
+      // Simple test - try to call the photo edit endpoint with a test image
+      const { data, error } = await supabase.functions.invoke('ai-photo-edit', {
+        body: { 
+          imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400',
+          instruction: 'Opisz to zdjęcie',
+          listingType: 'real_estate',
+          listingId: 'test',
+          photoIndex: 0,
+        },
+      });
+      
+      if (error) throw error;
+      
+      setGeminiTestStatus('success');
+      toast({
+        title: "Test Gemini zakończony",
+        description: "Połączenie z Gemini Image API działa",
+      });
+    } catch (error: unknown) {
+      console.error('Gemini test error:', error);
+      setGeminiTestStatus('error');
+      
+      const errorMessage = error instanceof Error ? error.message : 'Błąd połączenia z Gemini';
+      toast({
+        title: "Błąd testu Gemini",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingGemini(false);
     }
   };
 
@@ -279,16 +355,16 @@ export function AISettingsPanel() {
 
   return (
     <div className="space-y-6 p-4">
-      {/* Main Settings */}
-      <Card>
+      {/* AI Integrations - Main Card */}
+      <Card className="border-primary/20">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              <CardTitle>Ustawienia AI</CardTitle>
+              <Zap className="h-5 w-5 text-primary" />
+              <CardTitle>Integracje AI</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor="ai-enabled" className="text-sm">AI włączone</Label>
+              <Label htmlFor="ai-enabled" className="text-sm">System AI</Label>
               <Switch
                 id="ai-enabled"
                 checked={settings.ai_enabled}
@@ -297,79 +373,158 @@ export function AISettingsPanel() {
             </div>
           </div>
           <CardDescription>
-            Konfiguracja asystenta Rido AI
+            Konfiguracja dwóch silników AI: OpenAI (GPT-5.2) dla wyszukiwarki i SEO, Gemini dla edycji zdjęć
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* AI Provider Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Dostawca AI
-            </Label>
-            <Select
-              value={settings.ai_provider || 'lovable'}
-              onValueChange={(value) => setSettings({ ...settings, ai_provider: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AI_PROVIDERS.map((provider) => (
-                  <SelectItem key={provider.value} value={provider.value}>
-                    {provider.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <CardContent className="space-y-6">
+          {/* Feature Toggles */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+              <div className="flex items-center gap-3">
+                <Search className="h-5 w-5 text-blue-500" />
+                <div>
+                  <Label className="font-medium">AI Search</Label>
+                  <p className="text-xs text-muted-foreground">Inteligentna wyszukiwarka</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.ai_search_enabled !== false}
+                onCheckedChange={(checked) => setSettings({ ...settings, ai_search_enabled: checked })}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-green-500" />
+                <div>
+                  <Label className="font-medium">AI SEO</Label>
+                  <p className="text-xs text-muted-foreground">Automatyczne SEO</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.ai_seo_enabled !== false}
+                onCheckedChange={(checked) => setSettings({ ...settings, ai_seo_enabled: checked })}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+              <div className="flex items-center gap-3">
+                <Image className="h-5 w-5 text-purple-500" />
+                <div>
+                  <Label className="font-medium">AI Photo</Label>
+                  <p className="text-xs text-muted-foreground">Edycja zdjęć</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.ai_photo_enabled !== false}
+                onCheckedChange={(checked) => setSettings({ ...settings, ai_photo_enabled: checked })}
+              />
+            </div>
           </div>
 
-          {/* Custom API Key - only show when not using Lovable */}
-          {settings.ai_provider && settings.ai_provider !== 'lovable' && (
-            <div className="space-y-2">
-              <Label>Klucz API</Label>
-              <Input
-                type="password"
-                value={settings.custom_api_key || ''}
-                onChange={(e) => setSettings({ ...settings, custom_api_key: e.target.value })}
-                placeholder={settings.ai_provider === 'openai' ? 'sk-...' : 'AIza...'}
-              />
-              <Alert variant="default" className="mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Klucz będzie zaszyfrowany i używany tylko po stronie serwera.
-                  Upewnij się, że masz odpowiednie limity ustawione na koncie dostawcy.
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
+          <Separator />
 
+          {/* OpenAI Configuration */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              <h3 className="font-semibold">OpenAI (GPT-5.2)</h3>
+              <Badge variant="secondary">Wyszukiwarka + SEO + Opisy</Badge>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  Klucz API OpenAI (opcjonalny)
+                </Label>
+                <Input
+                  type="password"
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                  placeholder="sk-... (pozostaw puste dla Lovable Gateway)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Jeśli puste, używany jest Lovable AI Gateway (zalecane)
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Model AI</Label>
+                <Select
+                  value={settings.ai_model}
+                  onValueChange={(value) => setSettings({ ...settings, ai_model: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AI_MODELS
+                      .filter(model => model.provider === 'lovable')
+                      .map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Gemini Configuration */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              <h3 className="font-semibold">Gemini (nano banana)</h3>
+              <Badge variant="secondary">Edycja zdjęć</Badge>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  Klucz API Gemini (opcjonalny)
+                </Label>
+                <Input
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="AIza... (pozostaw puste dla Lovable Gateway)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Jeśli puste, używany jest Lovable AI Gateway (zalecane)
+                </p>
+              </div>
+              
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={testGeminiConnection}
+                  disabled={isTestingGemini || !settings.ai_enabled || !settings.ai_photo_enabled}
+                  className="w-full"
+                >
+                  {isTestingGemini ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : geminiTestStatus === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                  ) : geminiTestStatus === 'error' ? (
+                    <XCircle className="h-4 w-4 text-destructive mr-2" />
+                  ) : (
+                    <Image className="h-4 w-4 mr-2" />
+                  )}
+                  Testuj Gemini
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Limits */}
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Model AI</Label>
-              <Select
-                value={settings.ai_model}
-                onValueChange={(value) => setSettings({ ...settings, ai_model: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AI_MODELS
-                    .filter(model => 
-                      (settings.ai_provider || 'lovable') === 'lovable' 
-                        ? model.provider === 'lovable'
-                        : model.provider === settings.ai_provider
-                    )
-                    .map((model) => (
-                      <SelectItem key={model.value} value={model.value}>
-                        {model.label}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2">
               <Label>Limit dzienny dla gości</Label>
               <Input
@@ -398,12 +553,12 @@ export function AISettingsPanel() {
             <Textarea
               value={settings.system_prompt}
               onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
-              rows={6}
+              rows={4}
               className="font-mono text-sm"
             />
           </div>
 
-          <Button onClick={saveSettings} disabled={isSaving}>
+          <Button onClick={saveSettings} disabled={isSaving} className="w-full md:w-auto">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Zapisz ustawienia
           </Button>
@@ -415,10 +570,10 @@ export function AISettingsPanel() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Send className="h-5 w-5" />
-            <CardTitle>Test AI</CardTitle>
+            <CardTitle>Test OpenAI (Wyszukiwarka)</CardTitle>
           </div>
           <CardDescription>
-            Sprawdź czy połączenie z AI działa poprawnie
+            Sprawdź czy połączenie z OpenAI/Lovable Gateway działa poprawnie
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -428,11 +583,11 @@ export function AISettingsPanel() {
               <Input
                 value={testQuery}
                 onChange={(e) => setTestQuery(e.target.value)}
-                placeholder="Np. Znajdź mieszkanie 3-pokojowe w Krakowie"
-                onKeyDown={(e) => e.key === 'Enter' && testAIConnection()}
+                placeholder="Np. Znajdź mieszkanie 3-pokojowe w Krakowie do 500 tys"
+                onKeyDown={(e) => e.key === 'Enter' && testOpenAIConnection()}
               />
               <Button 
-                onClick={testAIConnection} 
+                onClick={testOpenAIConnection} 
                 disabled={isTesting || !settings?.ai_enabled}
               >
                 {isTesting ? (
@@ -454,7 +609,7 @@ export function AISettingsPanel() {
                 {testStatus === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                 {testStatus === 'error' && <XCircle className="h-4 w-4 text-destructive" />}
               </div>
-              <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+              <ScrollArea className="h-[150px] w-full rounded-md border p-4">
                 <pre className="text-sm whitespace-pre-wrap font-mono">
                   {testResponse}
                 </pre>
@@ -572,7 +727,7 @@ export function AISettingsPanel() {
             <CardTitle>Koszty zapytań</CardTitle>
           </div>
           <CardDescription>
-            Ile kredytów kosztuje każdy typ zapytania
+            Ile kredytów kosztuje każdy typ zapytania AI
           </CardDescription>
         </CardHeader>
         <CardContent>

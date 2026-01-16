@@ -105,3 +105,12 @@ verify_jwt = false
 
 [functions.google-location-data]
 verify_jwt = false
+
+[functions.ai-service]
+verify_jwt = false
+
+[functions.ai-seo-generator]
+verify_jwt = false
+
+[functions.ai-photo-edit]
+verify_jwt = false
