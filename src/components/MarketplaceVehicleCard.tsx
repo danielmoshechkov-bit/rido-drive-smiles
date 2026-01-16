@@ -58,9 +58,19 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
 export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: MarketplaceVehicleCardProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   
   const photos = listing.vehicle.photos || [];
   const hasPhotos = photos.length > 0;
+
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => new Set(prev).add(index));
+  };
+
+  const getPhotoSrc = (index: number) => {
+    if (imageErrors.has(index)) return "/placeholder.svg";
+    return photos[index];
+  };
   
   const nextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -97,9 +107,10 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
         {hasPhotos ? (
           <>
             <img
-              src={photos[currentPhotoIndex]}
+              src={getPhotoSrc(currentPhotoIndex)}
               alt={`${listing.vehicle.brand} ${listing.vehicle.model}`}
               className="w-full h-full object-cover"
+              onError={() => handleImageError(currentPhotoIndex)}
             />
             
             {/* Rating Badge - Top Left - default 5.0 for new listings */}

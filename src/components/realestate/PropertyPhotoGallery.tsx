@@ -12,9 +12,19 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
   
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => new Set(prev).add(index));
+  };
+
+  const getPhotoSrc = (index: number) => {
+    if (imageErrors.has(index)) return "/placeholder.svg";
+    return displayPhotos[index];
+  };
+
   // Grid layout: main photo + up to 4 smaller photos
   const mainPhoto = displayPhotos[0];
   const sidePhotos = displayPhotos.slice(1, 5);
@@ -49,9 +59,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
           onClick={() => openLightbox(0)}
         >
           <img
-            src={mainPhoto}
+            src={getPhotoSrc(0)}
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => handleImageError(0)}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
             <Maximize2 className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -66,9 +77,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             onClick={() => openLightbox(index + 1)}
           >
             <img
-              src={photo}
+              src={getPhotoSrc(index + 1)}
               alt={`${title} - zdjęcie ${index + 2}`}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              onError={() => handleImageError(index + 1)}
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
             
@@ -86,9 +98,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
       {/* Mobile Carousel */}
       <div className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden">
         <img
-          src={displayPhotos[currentIndex]}
+          src={getPhotoSrc(currentIndex)}
           alt={`${title} - zdjęcie ${currentIndex + 1}`}
           className="w-full h-full object-cover"
+          onError={() => handleImageError(currentIndex)}
           onClick={() => openLightbox(currentIndex)}
         />
         
@@ -163,9 +176,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
 
             {/* Main Image */}
             <img
-              src={displayPhotos[lightboxIndex]}
+              src={getPhotoSrc(lightboxIndex)}
               alt={`${title} - zdjęcie ${lightboxIndex + 1}`}
               className="max-w-full max-h-full object-contain"
+              onError={() => handleImageError(lightboxIndex)}
             />
 
             {/* Navigation Buttons */}
@@ -198,9 +212,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
                   )}
                 >
                   <img
-                    src={photo}
+                    src={getPhotoSrc(index)}
                     alt={`Miniatura ${index + 1}`}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(index)}
                   />
                 </button>
               ))}

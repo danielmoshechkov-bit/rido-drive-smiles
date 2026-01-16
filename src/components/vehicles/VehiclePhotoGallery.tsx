@@ -12,8 +12,18 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
+
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => new Set(prev).add(index));
+  };
+
+  const getPhotoSrc = (index: number) => {
+    if (imageErrors.has(index)) return "/placeholder.svg";
+    return displayPhotos[index];
+  };
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -68,9 +78,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
           onClick={() => openLightbox(0)}
         >
           <img 
-            src={displayPhotos[0]} 
+            src={getPhotoSrc(0)} 
             alt={title}
             className="w-full h-full object-cover aspect-[4/3] group-hover:brightness-90 transition-all"
+            onError={() => handleImageError(0)}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
         </div>
@@ -83,9 +94,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             onClick={() => openLightbox(idx + 1)}
           >
             <img 
-              src={photo} 
+              src={getPhotoSrc(idx + 1)} 
               alt={`${title} ${idx + 2}`}
               className="w-full h-full object-cover group-hover:brightness-90 transition-all"
+              onError={() => handleImageError(idx + 1)}
             />
             {idx === 3 && displayPhotos.length > 5 && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -112,9 +124,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
           onClick={() => openLightbox(currentIndex)}
         >
           <img 
-            src={displayPhotos[currentIndex]} 
+            src={getPhotoSrc(currentIndex)} 
             alt={title}
             className="w-full h-full object-cover"
+            onError={() => handleImageError(currentIndex)}
           />
         </div>
 
@@ -170,9 +183,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
 
             {/* Main Image */}
             <img 
-              src={displayPhotos[lightboxIndex]} 
+              src={getPhotoSrc(lightboxIndex)} 
               alt={`${title} ${lightboxIndex + 1}`}
               className="max-w-full max-h-full object-contain"
+              onError={() => handleImageError(lightboxIndex)}
             />
 
             {/* Navigation */}
@@ -210,9 +224,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
                   )}
                 >
                   <img 
-                    src={photo} 
+                    src={getPhotoSrc(idx)} 
                     alt={`Miniatura ${idx + 1}`}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(idx)}
                   />
                 </button>
               ))}
