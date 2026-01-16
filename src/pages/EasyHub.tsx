@@ -177,15 +177,57 @@ export default function EasyHub() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Keywords indicating real estate search
+  const REAL_ESTATE_KEYWORDS = [
+    'mieszkanie', 'mieszkania', 'dom', 'domy', 'kawalerka', 'kawalerki',
+    'działka', 'dzialka', 'działki', 'dzialki', 'lokal', 'lokale',
+    'pokój', 'pokoj', 'pokoje', 'biuro', 'biura', 'magazyn', 'magazyny',
+    'piętro', 'pietro', 'piętrze', 'pietrze', 'metraż', 'metraz', 'metrów', 'metrow', 'm2', 'm²',
+    'wynajem mieszkania', 'sprzedaż mieszkania', 'nieruchomość', 'nieruchomosc',
+    'apartament', 'apartamenty', 'penthouse', 'loft', 'studio',
+    'balkon', 'ogród', 'ogrod', 'taras', 'winda', 'garaż', 'garaz', 'parking'
+  ];
+
+  // Keywords indicating vehicle search
+  const VEHICLE_KEYWORDS = [
+    'auto', 'auta', 'samochód', 'samochod', 'samochody', 'pojazd', 'pojazdy',
+    'hybryda', 'hybrydy', 'elektryczny', 'elektryczne', 'lpg', 'diesel', 'benzyna',
+    'toyota', 'honda', 'bmw', 'audi', 'mercedes', 'volkswagen', 'skoda', 'ford',
+    'taxi', 'uber', 'bolt', 'freenow', 'rideshare',
+    'wynajem auta', 'wynajem samochodu', 'leasing', 'flota', 'kierowca'
+  ];
+
+  const detectSearchType = (query: string): 'real_estate' | 'vehicle' | 'unknown' => {
+    const queryLower = query.toLowerCase();
+    
+    const hasRealEstateKeyword = REAL_ESTATE_KEYWORDS.some(kw => queryLower.includes(kw));
+    const hasVehicleKeyword = VEHICLE_KEYWORDS.some(kw => queryLower.includes(kw));
+    
+    if (hasRealEstateKeyword && !hasVehicleKeyword) return 'real_estate';
+    if (hasVehicleKeyword && !hasRealEstateKeyword) return 'vehicle';
+    if (hasRealEstateKeyword && hasVehicleKeyword) {
+      // If both, prioritize based on which has more matches
+      const realEstateMatches = REAL_ESTATE_KEYWORDS.filter(kw => queryLower.includes(kw)).length;
+      const vehicleMatches = VEHICLE_KEYWORDS.filter(kw => queryLower.includes(kw)).length;
+      return realEstateMatches >= vehicleMatches ? 'real_estate' : 'vehicle';
+    }
+    return 'unknown';
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    // TODO: Integrate with AI search
+    
+    const searchType = detectSearchType(searchQuery);
+    
     setTimeout(() => {
       setIsSearching(false);
-      // For now, redirect to marketplace with search
-      navigate(`/gielda?search=${encodeURIComponent(searchQuery)}`);
-    }, 500);
+      if (searchType === 'real_estate') {
+        navigate(`/nieruchomosci?query=${encodeURIComponent(searchQuery)}`);
+      } else {
+        navigate(`/gielda?search=${encodeURIComponent(searchQuery)}`);
+      }
+    }, 300);
   };
 
   const handleTileClick = (tile: MarketplaceTile) => {

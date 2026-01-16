@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChi
 import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
+import { toast } from "sonner";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -313,6 +314,7 @@ function mapDbToListing(db: DbListing) {
 
 export default function RealEstateMarketplace() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
   const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(null);
@@ -323,6 +325,8 @@ export default function RealEstateMarketplace() {
   const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
   const [showResultsMap, setShowResultsMap] = useState(false);
+  const [initialQuery, setInitialQuery] = useState<string>("");
+  const aiSearchTriggered = useRef(false);
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
@@ -394,6 +398,53 @@ export default function RealEstateMarketplace() {
     
     return () => subscription.unsubscribe();
   }, []);
+
+  // Handle URL query parameter for AI search from EasyHub
+  useEffect(() => {
+    const queryFromUrl = searchParams.get('query');
+    if (queryFromUrl && !aiSearchTriggered.current && allListings.length > 0) {
+      aiSearchTriggered.current = true;
+      setInitialQuery(queryFromUrl);
+      
+      // Trigger AI search
+      const triggerAISearch = async () => {
+        setIsSearchingAI(true);
+        setLoading(true);
+        
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          
+          const { data, error } = await supabase.functions.invoke('ai-search', {
+            body: { 
+              query: queryFromUrl,
+              userId: userData.user?.id,
+              searchType: 'real_estate'
+            }
+          });
+
+          if (error) {
+            console.error('AI Search error:', error);
+            toast.error('Błąd wyszukiwania AI. Spróbuj ponownie.');
+            setListings(allListings);
+          } else if (data?.results) {
+            handleAISearchResults(data.results, data.filters, data.explanation);
+          } else {
+            setListings([]);
+            setAiExplanation(data?.explanation || 'Nie znaleziono wyników');
+          }
+        } catch (err) {
+          console.error('AI Search exception:', err);
+          toast.error('Błąd wyszukiwania. Spróbuj ponownie.');
+          setListings(allListings);
+        } finally {
+          setIsSearchingAI(false);
+          setLoading(false);
+        }
+      };
+      
+      triggerAISearch();
+    }
+  }, [searchParams, allListings]);
 
   const handleSearch = (filters: RealEstateFilters) => {
     console.log("Searching with filters:", filters);
