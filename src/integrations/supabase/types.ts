@@ -259,29 +259,41 @@ export type Database = {
       }
       ai_credit_history: {
         Row: {
+          ai_type: string | null
           created_at: string | null
           credits_used: number
           id: string
+          model_used: string | null
           query_summary: string | null
           query_type: string
+          response_time_ms: number | null
+          tokens_used: number | null
           user_id: string | null
           was_free: boolean | null
         }
         Insert: {
+          ai_type?: string | null
           created_at?: string | null
           credits_used: number
           id?: string
+          model_used?: string | null
           query_summary?: string | null
           query_type: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
           user_id?: string | null
           was_free?: boolean | null
         }
         Update: {
+          ai_type?: string | null
           created_at?: string | null
           credits_used?: number
           id?: string
+          model_used?: string | null
           query_summary?: string | null
           query_type?: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
           user_id?: string | null
           was_free?: boolean | null
         }
@@ -380,6 +392,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_photo_edits: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          edited_url: string
+          id: string
+          instruction: string
+          listing_id: string
+          listing_type: string
+          original_url: string
+          photo_index: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          edited_url: string
+          id?: string
+          instruction: string
+          listing_id: string
+          listing_type: string
+          original_url: string
+          photo_index?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          edited_url?: string
+          id?: string
+          instruction?: string
+          listing_id?: string
+          listing_type?: string
+          original_url?: string
+          photo_index?: number
+        }
+        Relationships: []
+      }
       ai_query_costs: {
         Row: {
           cost_credits: number
@@ -408,11 +456,16 @@ export type Database = {
         Row: {
           ai_enabled: boolean | null
           ai_model: string | null
+          ai_photo_enabled: boolean | null
           ai_provider: string | null
+          ai_search_enabled: boolean | null
+          ai_seo_enabled: boolean | null
           created_at: string | null
           custom_api_key_encrypted: string | null
+          gemini_api_key_encrypted: string | null
           guest_daily_limit: number | null
           id: string
+          openai_api_key_encrypted: string | null
           system_prompt: string | null
           updated_at: string | null
           user_monthly_limit: number | null
@@ -420,11 +473,16 @@ export type Database = {
         Insert: {
           ai_enabled?: boolean | null
           ai_model?: string | null
+          ai_photo_enabled?: boolean | null
           ai_provider?: string | null
+          ai_search_enabled?: boolean | null
+          ai_seo_enabled?: boolean | null
           created_at?: string | null
           custom_api_key_encrypted?: string | null
+          gemini_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
+          openai_api_key_encrypted?: string | null
           system_prompt?: string | null
           updated_at?: string | null
           user_monthly_limit?: number | null
@@ -432,11 +490,16 @@ export type Database = {
         Update: {
           ai_enabled?: boolean | null
           ai_model?: string | null
+          ai_photo_enabled?: boolean | null
           ai_provider?: string | null
+          ai_search_enabled?: boolean | null
+          ai_seo_enabled?: boolean | null
           created_at?: string | null
           custom_api_key_encrypted?: string | null
+          gemini_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
+          openai_api_key_encrypted?: string | null
           system_prompt?: string | null
           updated_at?: string | null
           user_monthly_limit?: number | null
@@ -3428,6 +3491,7 @@ export type Database = {
           listing_number: string | null
           location: string
           longitude: number | null
+          photo_alts: string[] | null
           photos: string[] | null
           price: number
           price_per_sqm: number | null
@@ -3436,6 +3500,10 @@ export type Database = {
           property_unique_id: string | null
           rating: number | null
           rooms: number | null
+          seo_description: string | null
+          seo_h1: string | null
+          seo_schema_json: Json | null
+          seo_title: string | null
           status: string | null
           title: string
           total_floors: number | null
@@ -3471,6 +3539,7 @@ export type Database = {
           listing_number?: string | null
           location: string
           longitude?: number | null
+          photo_alts?: string[] | null
           photos?: string[] | null
           price: number
           price_per_sqm?: number | null
@@ -3479,6 +3548,10 @@ export type Database = {
           property_unique_id?: string | null
           rating?: number | null
           rooms?: number | null
+          seo_description?: string | null
+          seo_h1?: string | null
+          seo_schema_json?: Json | null
+          seo_title?: string | null
           status?: string | null
           title: string
           total_floors?: number | null
@@ -3514,6 +3587,7 @@ export type Database = {
           listing_number?: string | null
           location?: string
           longitude?: number | null
+          photo_alts?: string[] | null
           photos?: string[] | null
           price?: number
           price_per_sqm?: number | null
@@ -3522,6 +3596,10 @@ export type Database = {
           property_unique_id?: string | null
           rating?: number | null
           rooms?: number | null
+          seo_description?: string | null
+          seo_h1?: string | null
+          seo_schema_json?: Json | null
+          seo_title?: string | null
           status?: string | null
           title?: string
           total_floors?: number | null
@@ -5344,10 +5422,15 @@ export type Database = {
           longitude: number | null
           model: string | null
           odometer: number | null
+          photo_alts: string[] | null
           photos: string[] | null
           power: number | null
           price: number | null
           price_type: string | null
+          seo_description: string | null
+          seo_h1: string | null
+          seo_schema_json: Json | null
+          seo_title: string | null
           status: string | null
           title: string | null
           transaction_type: string | null
@@ -5385,10 +5468,15 @@ export type Database = {
           longitude?: number | null
           model?: string | null
           odometer?: number | null
+          photo_alts?: string[] | null
           photos?: string[] | null
           power?: number | null
           price?: number | null
           price_type?: string | null
+          seo_description?: string | null
+          seo_h1?: string | null
+          seo_schema_json?: Json | null
+          seo_title?: string | null
           status?: string | null
           title?: string | null
           transaction_type?: string | null
@@ -5426,10 +5514,15 @@ export type Database = {
           longitude?: number | null
           model?: string | null
           odometer?: number | null
+          photo_alts?: string[] | null
           photos?: string[] | null
           power?: number | null
           price?: number | null
           price_type?: string | null
+          seo_description?: string | null
+          seo_h1?: string | null
+          seo_schema_json?: Json | null
+          seo_title?: string | null
           status?: string | null
           title?: string | null
           transaction_type?: string | null
