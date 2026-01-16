@@ -176,50 +176,53 @@ export default function VehicleMarketplace() {
   const handleSearch = (filters: SearchFilters) => {
     let result = [...listings];
 
-    // Multi-brand filter
+    // Multi-brand filter - check both new format and legacy vehicle relation
     if (filters.brands.length > 0) {
-      result = result.filter(l => 
-        filters.brands.some(brand => 
-          l.vehicle.brand.toLowerCase() === brand.toLowerCase()
-        )
-      );
+      result = result.filter(l => {
+        const brand = l.brand || l.vehicle?.brand;
+        return brand && filters.brands.some(b => b.toLowerCase() === brand.toLowerCase());
+      });
     }
 
     if (filters.model) {
-      result = result.filter(l => 
-        l.vehicle.model.toLowerCase() === filters.model.toLowerCase()
-      );
+      result = result.filter(l => {
+        const model = l.model || l.vehicle?.model;
+        return model && model.toLowerCase() === filters.model.toLowerCase();
+      });
     }
 
     if (filters.yearFrom && filters.yearFrom !== "all") {
       const yearFrom = parseInt(filters.yearFrom);
-      result = result.filter(l => 
-        l.vehicle.year && l.vehicle.year >= yearFrom
-      );
+      result = result.filter(l => {
+        const year = l.year || l.vehicle?.year;
+        return year && year >= yearFrom;
+      });
     }
 
     if (filters.yearTo && filters.yearTo !== "all") {
       const yearTo = parseInt(filters.yearTo);
-      result = result.filter(l => 
-        l.vehicle.year && l.vehicle.year <= yearTo
-      );
+      result = result.filter(l => {
+        const year = l.year || l.vehicle?.year;
+        return year && year <= yearTo;
+      });
     }
 
     if (filters.priceMin) {
       const priceMin = parseInt(filters.priceMin);
-      result = result.filter(l => l.weekly_price >= priceMin);
+      result = result.filter(l => (l.price || l.weekly_price) >= priceMin);
     }
 
     if (filters.priceMax) {
       const priceMax = parseInt(filters.priceMax);
-      result = result.filter(l => l.weekly_price <= priceMax);
+      result = result.filter(l => (l.price || l.weekly_price) <= priceMax);
     }
 
     // Multi-fuel type filter
     if (filters.fuelTypes.length > 0) {
-      result = result.filter(l => 
-        l.vehicle.fuel_type && filters.fuelTypes.includes(l.vehicle.fuel_type.toLowerCase())
-      );
+      result = result.filter(l => {
+        const fuelType = l.fuel_type || l.vehicle?.fuel_type;
+        return fuelType && filters.fuelTypes.includes(fuelType.toLowerCase());
+      });
     }
 
     setFilteredListings(result);
@@ -249,53 +252,32 @@ export default function VehicleMarketplace() {
 
   const handleReserve = async (listing: VehicleListing) => {
     if (!user) {
-      toast.error("Zaloguj się jako kierowca aby zarezerwować");
-      navigate("/");
+      toast.error("Zaloguj się aby zarezerwować");
+      navigate("/gielda/logowanie");
       return;
     }
 
-    if (!driverId) {
-      toast.error("Musisz być zarejestrowany jako kierowca");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("vehicle_rentals")
-        .insert({
-          listing_id: listing.id,
-          vehicle_id: listing.vehicle.id,
-          driver_id: driverId,
-          fleet_id: listing.fleet?.id || null,
-          weekly_price: listing.weekly_price,
-          status: "pending"
-        });
-
-      if (error) throw error;
-
-      toast.success("Rezerwacja wysłana! Czekaj na akceptację.");
-    } catch (error: any) {
-      console.error("Error reserving:", error);
-      toast.error(error.message || "Błąd rezerwacji");
-    }
+    // Navigate to detail page with reservation intent
+    navigate(`/gielda/ogloszenie/${listing.id}?action=reserve`);
   };
 
   const handleToggleCompare = (listing: VehicleListing) => {
+    const photos = listing.photos || listing.vehicle?.photos || [];
     const compareItem = {
       id: listing.id,
-      title: `${listing.vehicle.brand} ${listing.vehicle.model}`,
-      price: listing.weekly_price,
-      priceType: "weekly",
-      photos: listing.vehicle.photos || [],
-      transactionType: "Wynajem",
-      transactionColor: "#3b82f6",
-      year: listing.vehicle.year || undefined,
-      fuelType: listing.vehicle.fuel_type || undefined,
-      mileage: listing.vehicle.odometer || undefined,
-      engineCapacity: listing.vehicle.engine_capacity || undefined,
-      power: listing.vehicle.power || undefined,
-      bodyType: listing.vehicle.body_type || undefined,
-      location: listing.cityName || undefined,
+      title: listing.title || `${listing.brand || listing.vehicle?.brand || ''} ${listing.model || listing.vehicle?.model || ''}`,
+      price: listing.price || listing.weekly_price,
+      priceType: listing.price_type || "weekly",
+      photos,
+      transactionType: getTransactionDisplay(listing.transaction_type).label,
+      transactionColor: getTransactionDisplay(listing.transaction_type).color,
+      year: listing.year || listing.vehicle?.year || undefined,
+      fuelType: listing.fuel_type || listing.vehicle?.fuel_type || undefined,
+      mileage: listing.odometer || listing.vehicle?.odometer || undefined,
+      engineCapacity: listing.engine_capacity || listing.vehicle?.engine_capacity || undefined,
+      power: listing.power || listing.vehicle?.power || undefined,
+      bodyType: listing.body_type || listing.vehicle?.body_type || undefined,
+      location: listing.city || listing.cityName || undefined,
       rating: listing.avgRating || undefined,
       contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
       contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
@@ -541,9 +523,10 @@ export default function VehicleMarketplace() {
               <ListingCard
                 key={listing.id}
                 listing={mapToListingCard(listing)}
+                onView={() => navigate(`/gielda/ogloszenie/${listing.id}`)}
                 onReserve={() => handleReserve(listing)}
                 onToggleCompare={() => handleToggleCompare(listing)}
-                isLoggedIn={!!user && !!driverId}
+                isLoggedIn={!!user}
                 isSelectedForCompare={isVehicleSelected(listing.id)}
               />
             ))}
