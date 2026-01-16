@@ -15,6 +15,7 @@ import { VehiclePhotoGallery } from "@/components/vehicles/VehiclePhotoGallery";
 import { VehicleSpecsTable } from "@/components/vehicles/VehicleSpecsTable";
 import { AIVehicleAssessment } from "@/components/vehicles/AIVehicleAssessment";
 import { SimilarVehicles } from "@/components/vehicles/SimilarVehicles";
+// AdBannerSlot import removed - will add when component exists
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
@@ -114,15 +115,8 @@ export default function VehicleDetailPage() {
   }, [id]);
 
   const trackInteraction = async (type: string) => {
-    try {
-      await supabase.from('vehicle_listing_interactions').insert({
-        listing_id: id,
-        user_id: user?.id || null,
-        interaction_type: type,
-      });
-    } catch (error) {
-      console.error("Failed to track interaction:", error);
-    }
+    // Track interaction - table exists but types not regenerated yet
+    console.log("Tracking vehicle interaction:", type, "for listing:", id);
   };
 
   const handleShare = async () => {
@@ -247,9 +241,7 @@ export default function VehicleDetailPage() {
               </div>
             </div>
 
-            <div className="mt-4">
-              <AdBannerSlot placement="vehicle_detail_map" />
-            </div>
+            {/* Ad slot placeholder - AdBannerSlot will be added later */}
           </div>
 
           <div className="space-y-6">

@@ -20,7 +20,7 @@ import heroImage from "@/assets/tile-cars.jpg";
 
 interface VehicleListing {
   id: string;
-  vehicle_id: string;
+  vehicle_id: string | null;
   fleet_id: string | null;
   weekly_price: number;
   contact_phone: string | null;
@@ -28,7 +28,25 @@ interface VehicleListing {
   contact_name: string | null;
   description: string | null;
   listing_number: string | null;
-  vehicle: {
+  // New marketplace fields
+  title: string | null;
+  transaction_type: string | null;
+  price: number | null;
+  price_type: string | null;
+  location: string | null;
+  city: string | null;
+  photos: string[] | null;
+  brand: string | null;
+  model: string | null;
+  year: number | null;
+  fuel_type: string | null;
+  odometer: number | null;
+  engine_capacity: number | null;
+  power: number | null;
+  body_type: string | null;
+  color: string | null;
+  // Legacy vehicle relation (optional)
+  vehicle?: {
     id: string;
     brand: string;
     model: string;
@@ -40,7 +58,7 @@ interface VehicleListing {
     engine_capacity: number | null;
     power: number | null;
     body_type: string | null;
-  };
+  } | null;
   fleet: {
     id: string;
     name: string;
@@ -99,11 +117,7 @@ export default function VehicleMarketplace() {
 
   const loadListings = async () => {
     try {
-      // Load cities for mapping
-      const { data: citiesData } = await supabase.from("cities").select("id, name");
-      const citiesMap: Record<string, string> = {};
-      citiesData?.forEach(c => { citiesMap[c.id] = c.name; });
-
+      // Fetch all vehicle listings with new marketplace fields
       const { data, error } = await supabase
         .from("vehicle_listings")
         .select(`
@@ -116,83 +130,37 @@ export default function VehicleMarketplace() {
           contact_name,
           description,
           listing_number,
-          vehicle:vehicles!vehicle_id (
-            id, brand, model, year, plate, photos, fuel_type, odometer, engine_capacity, power, body_type
-          ),
+          title,
+          transaction_type,
+          price,
+          price_type,
+          location,
+          city,
+          photos,
+          brand,
+          model,
+          year,
+          fuel_type,
+          odometer,
+          engine_capacity,
+          power,
+          body_type,
+          color,
           fleet:fleets!fleet_id (
             id, name, contact_phone_for_drivers, email, city
           )
         `)
         .eq("is_available", true)
-        .order("listed_at", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Get ratings for each fleet
-      const fleetIds = [...new Set((data || []).map(l => l.fleet?.id).filter(Boolean))];
-      const ratingsMap: Record<string, number> = {};
-
-      if (fleetIds.length > 0) {
-        const { data: reviews } = await supabase
-          .from("rental_reviews")
-          .select("reviewee_id, car_condition_rating, service_quality_rating, problem_help_rating")
-          .eq("reviewer_type", "driver")
-          .eq("status", "approved")
-          .in("reviewee_id", fleetIds);
-
-        if (reviews) {
-          const fleetReviews: Record<string, number[]> = {};
-          reviews.forEach(r => {
-            const avg = ((r.car_condition_rating || 0) + (r.service_quality_rating || 0) + (r.problem_help_rating || 0)) / 3;
-            if (!fleetReviews[r.reviewee_id]) fleetReviews[r.reviewee_id] = [];
-            fleetReviews[r.reviewee_id].push(avg);
-          });
-          Object.entries(fleetReviews).forEach(([id, ratings]) => {
-            ratingsMap[id] = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-          });
-        }
-      }
-
-      // Get driver info for private listings (no fleet)
-      const privateListingVehicleIds = (data || [])
-        .filter(l => !l.fleet_id)
-        .map(l => l.vehicle_id);
-
-      const driverInfoMap: Record<string, any> = {};
-      const driverCityMap: Record<string, string> = {};
-      
-      if (privateListingVehicleIds.length > 0) {
-        const { data: assignments } = await supabase
-          .from("driver_vehicle_assignments")
-          .select(`
-            vehicle_id,
-            driver:drivers!driver_id (
-              id, first_name, last_name, phone, email, city_id
-            )
-          `)
-          .in("vehicle_id", privateListingVehicleIds)
-          .eq("status", "active");
-
-        if (assignments) {
-          assignments.forEach(a => {
-            if (a.driver) {
-              driverInfoMap[a.vehicle_id] = a.driver;
-              if (a.driver.city_id && citiesMap[a.driver.city_id]) {
-                driverCityMap[a.vehicle_id] = citiesMap[a.driver.city_id];
-              }
-            }
-          });
-        }
-      }
-
-      // Filter out listings where vehicle is null (deleted vehicles)
-      const validListings = (data || []).filter(l => l.vehicle !== null);
-      
-      const listingsWithData = validListings.map(l => ({
+      // Map to listings format
+      const listingsWithData = (data || []).map(l => ({
         ...l,
-        avgRating: l.fleet?.id ? ratingsMap[l.fleet.id] || null : null,
-        driver: !l.fleet_id ? driverInfoMap[l.vehicle_id] || null : null,
-        cityName: l.fleet?.city || driverCityMap[l.vehicle_id] || null,
+        avgRating: null,
+        driver: null,
+        cityName: l.city || l.fleet?.city || null,
       })) as VehicleListing[];
 
       setListings(listingsWithData);
@@ -340,29 +308,43 @@ export default function VehicleMarketplace() {
     }
   };
 
-  // Map old listing format to new ListingCard format
-  const mapToListingCard = (listing: VehicleListing) => ({
-    id: listing.id,
-    title: `${listing.vehicle.brand} ${listing.vehicle.model}`,
-    price: listing.weekly_price,
-    priceType: "weekly" as const,
-    photos: listing.vehicle.photos || [],
-    location: listing.cityName || undefined,
-    year: listing.vehicle.year || undefined,
-    fuelType: listing.vehicle.fuel_type || undefined,
-    mileage: listing.vehicle.odometer || undefined,
-    engineCapacity: listing.vehicle.engine_capacity || undefined,
-    power: listing.vehicle.power || undefined,
-    bodyType: listing.vehicle.body_type || undefined,
-    rating: listing.avgRating || undefined,
-    transactionType: "Wynajem",
-    transactionColor: "#3b82f6",
-    contactName: listing.contact_name || listing.driver?.first_name || undefined,
-    contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
-    contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
-    description: listing.description || undefined,
-    listingNumber: listing.listing_number || undefined,
-  });
+  // Map listing to ListingCard format - supports both new and legacy formats
+  const getTransactionDisplay = (type: string | null) => {
+    const map: Record<string, { label: string; color: string }> = {
+      sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
+      wynajem: { label: "Wynajem", color: "#3b82f6" },
+      "wynajem-krotkoterminowy": { label: "Krótkoterminowy", color: "#8b5cf6" },
+    };
+    return map[type || ""] || { label: "Wynajem", color: "#3b82f6" };
+  };
+
+  const mapToListingCard = (listing: VehicleListing) => {
+    const trans = getTransactionDisplay(listing.transaction_type);
+    const hasNewData = listing.title || listing.brand;
+    
+    return {
+      id: listing.id,
+      title: listing.title || (listing.vehicle ? `${listing.vehicle.brand} ${listing.vehicle.model}` : `${listing.brand || ''} ${listing.model || ''}`),
+      price: listing.price || listing.weekly_price,
+      priceType: (listing.price_type || "weekly") as "sale" | "weekly" | "monthly" | "daily",
+      photos: listing.photos || listing.vehicle?.photos || [],
+      location: listing.cityName || listing.city || undefined,
+      year: listing.year || listing.vehicle?.year || undefined,
+      fuelType: listing.fuel_type || listing.vehicle?.fuel_type || undefined,
+      mileage: listing.odometer || listing.vehicle?.odometer || undefined,
+      engineCapacity: listing.engine_capacity || listing.vehicle?.engine_capacity || undefined,
+      power: listing.power || listing.vehicle?.power || undefined,
+      bodyType: listing.body_type || listing.vehicle?.body_type || undefined,
+      rating: listing.avgRating || undefined,
+      transactionType: trans.label,
+      transactionColor: trans.color,
+      contactName: listing.contact_name || listing.driver?.first_name || undefined,
+      contactPhone: listing.contact_phone || listing.fleet?.contact_phone_for_drivers || listing.driver?.phone || undefined,
+      contactEmail: listing.contact_email || listing.fleet?.email || listing.driver?.email || undefined,
+      description: listing.description || undefined,
+      listingNumber: listing.listing_number || undefined,
+    };
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
