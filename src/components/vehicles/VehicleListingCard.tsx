@@ -91,10 +91,20 @@ export function VehicleListingCard({
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const photos = listing.photos?.length > 0 
     ? listing.photos 
     : ["/placeholder.svg"];
+
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => new Set(prev).add(index));
+  };
+
+  const getPhotoSrc = (index: number) => {
+    if (imageErrors.has(index)) return "/placeholder.svg";
+    return photos[index];
+  };
 
   const nextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -136,9 +146,10 @@ export function VehicleListingCard({
           compact ? "aspect-[3/2]" : "aspect-[4/3]"
         )}>
           <img
-            src={photos[currentPhoto]}
+            src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => handleImageError(currentPhoto)}
           />
 
           {/* Compare Checkbox */}
