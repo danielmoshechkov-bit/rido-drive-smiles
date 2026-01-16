@@ -79,15 +79,18 @@ export function AISettingsPanel() {
   const [openaiKey, setOpenaiKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   
-  // Test states
+  // Test states - OpenAI
   const [testQuery, setTestQuery] = useState('');
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
-  // Gemini test states
+  // Test states - Gemini Photo
   const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [geminiTestStatus, setGeminiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [geminiTestImageUrl, setGeminiTestImageUrl] = useState('');
+  const [geminiTestPrompt, setGeminiTestPrompt] = useState('Popraw jasność i kontrast tego zdjęcia');
+  const [geminiTestResult, setGeminiTestResult] = useState<{ original: string; edited: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -300,15 +303,24 @@ export function AISettingsPanel() {
   };
 
   const testGeminiConnection = async () => {
+    if (!geminiTestImageUrl.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Podaj URL zdjęcia testowego",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsTestingGemini(true);
     setGeminiTestStatus('idle');
+    setGeminiTestResult(null);
     
     try {
-      // Simple test - try to call the photo edit endpoint with a test image
       const { data, error } = await supabase.functions.invoke('ai-photo-edit', {
         body: { 
-          imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400',
-          instruction: 'Opisz to zdjęcie',
+          imageUrl: geminiTestImageUrl.trim(),
+          instruction: geminiTestPrompt.trim() || 'Popraw jasność i kontrast',
           listingType: 'real_estate',
           listingId: 'test',
           photoIndex: 0,
@@ -317,11 +329,19 @@ export function AISettingsPanel() {
       
       if (error) throw error;
       
-      setGeminiTestStatus('success');
-      toast({
-        title: "Test Gemini zakończony",
-        description: "Połączenie z Gemini Image API działa",
-      });
+      if (data?.editedUrl) {
+        setGeminiTestResult({
+          original: geminiTestImageUrl.trim(),
+          edited: data.editedUrl
+        });
+        setGeminiTestStatus('success');
+        toast({
+          title: "Test Gemini zakończony",
+          description: "Zdjęcie zostało przetworzone przez AI",
+        });
+      } else {
+        throw new Error(data?.error || 'Brak edytowanego zdjęcia w odpowiedzi');
+      }
     } catch (error: unknown) {
       console.error('Gemini test error:', error);
       setGeminiTestStatus('error');
@@ -622,6 +642,102 @@ export function AISettingsPanel() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Włącz AI powyżej, aby móc testować połączenie
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Gemini Photo Test Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Image className="h-5 w-5" />
+            <CardTitle>Test Gemini (Edycja zdjęć)</CardTitle>
+          </div>
+          <CardDescription>
+            Sprawdź czy AI do edycji zdjęć działa poprawnie - wklej URL zdjęcia i wpisz instrukcję
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>URL zdjęcia testowego</Label>
+              <Input
+                value={geminiTestImageUrl}
+                onChange={(e) => setGeminiTestImageUrl(e.target.value)}
+                placeholder="https://images.unsplash.com/photo-..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Wklej link do zdjęcia (np. z Unsplash lub istniejące zdjęcie z ogłoszenia)
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Instrukcja dla AI</Label>
+              <Input
+                value={geminiTestPrompt}
+                onChange={(e) => setGeminiTestPrompt(e.target.value)}
+                placeholder="Np. Popraw jasność, usuń szum..."
+              />
+            </div>
+          </div>
+          
+          <Button 
+            onClick={testGeminiConnection} 
+            disabled={isTestingGemini || !settings?.ai_enabled || !settings?.ai_photo_enabled || !geminiTestImageUrl.trim()}
+            className="w-full md:w-auto"
+          >
+            {isTestingGemini ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Przetwarzam...
+              </>
+            ) : (
+              <>
+                <Image className="h-4 w-4 mr-2" />
+                Testuj edycję zdjęcia
+              </>
+            )}
+          </Button>
+          
+          {geminiTestResult && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>Wynik edycji</Label>
+                {geminiTestStatus === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                {geminiTestStatus === 'error' && <XCircle className="h-4 w-4 text-destructive" />}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground text-center">Oryginał</p>
+                  <div className="aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <img 
+                      src={geminiTestResult.original} 
+                      alt="Original" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground text-center">Po edycji AI</p>
+                  <div className="aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <img 
+                      src={geminiTestResult.edited} 
+                      alt="Edited by AI" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {!settings?.ai_photo_enabled && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Włącz "AI Photo" powyżej, aby móc testować edycję zdjęć
               </AlertDescription>
             </Alert>
           )}
