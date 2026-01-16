@@ -4484,52 +4484,127 @@ export type Database = {
       }
       vehicle_listings: {
         Row: {
+          body_type: string | null
+          brand: string | null
+          city: string | null
+          color: string | null
+          comparison_count: number | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
+          contact_reveals_count: number | null
           created_at: string | null
           created_by: string
+          dealer_id: string | null
           description: string | null
+          description_long: string | null
+          engine_capacity: number | null
+          favorites_count: number | null
           fleet_id: string | null
+          fuel_type: string | null
           id: string
           is_available: boolean | null
+          latitude: number | null
           listed_at: string | null
           listing_number: string | null
+          location: string | null
+          longitude: number | null
+          model: string | null
+          odometer: number | null
+          photos: string[] | null
+          power: number | null
+          price: number | null
+          price_type: string | null
+          status: string | null
+          title: string | null
+          transaction_type: string | null
           updated_at: string | null
-          vehicle_id: string
+          vehicle_id: string | null
+          views: number | null
           weekly_price: number
+          year: number | null
         }
         Insert: {
+          body_type?: string | null
+          brand?: string | null
+          city?: string | null
+          color?: string | null
+          comparison_count?: number | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contact_reveals_count?: number | null
           created_at?: string | null
           created_by: string
+          dealer_id?: string | null
           description?: string | null
+          description_long?: string | null
+          engine_capacity?: number | null
+          favorites_count?: number | null
           fleet_id?: string | null
+          fuel_type?: string | null
           id?: string
           is_available?: boolean | null
+          latitude?: number | null
           listed_at?: string | null
           listing_number?: string | null
+          location?: string | null
+          longitude?: number | null
+          model?: string | null
+          odometer?: number | null
+          photos?: string[] | null
+          power?: number | null
+          price?: number | null
+          price_type?: string | null
+          status?: string | null
+          title?: string | null
+          transaction_type?: string | null
           updated_at?: string | null
-          vehicle_id: string
+          vehicle_id?: string | null
+          views?: number | null
           weekly_price: number
+          year?: number | null
         }
         Update: {
+          body_type?: string | null
+          brand?: string | null
+          city?: string | null
+          color?: string | null
+          comparison_count?: number | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contact_reveals_count?: number | null
           created_at?: string | null
           created_by?: string
+          dealer_id?: string | null
           description?: string | null
+          description_long?: string | null
+          engine_capacity?: number | null
+          favorites_count?: number | null
           fleet_id?: string | null
+          fuel_type?: string | null
           id?: string
           is_available?: boolean | null
+          latitude?: number | null
           listed_at?: string | null
           listing_number?: string | null
+          location?: string | null
+          longitude?: number | null
+          model?: string | null
+          odometer?: number | null
+          photos?: string[] | null
+          power?: number | null
+          price?: number | null
+          price_type?: string | null
+          status?: string | null
+          title?: string | null
+          transaction_type?: string | null
           updated_at?: string | null
-          vehicle_id?: string
+          vehicle_id?: string | null
+          views?: number | null
           weekly_price?: number
+          year?: number | null
         }
         Relationships: [
           {

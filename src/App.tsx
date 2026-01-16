@@ -22,6 +22,7 @@ import SystemAlerts from "./pages/SystemAlerts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 import VehicleMarketplace from "./pages/VehicleMarketplace";
+import VehicleDetailPage from "./pages/VehicleDetailPage";
 import VehicleCompare from "./pages/VehicleCompare";
 import MarketplaceRegister from "./pages/MarketplaceRegister";
 import MarketplaceAuth from "./pages/MarketplaceAuth";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/oferta" element={<OfertaPage />} />
             <Route path="/install" element={<Install />} />
             <Route path="/gielda" element={<VehicleMarketplace />} />
+            <Route path="/gielda/ogloszenie/:id" element={<VehicleDetailPage />} />
             <Route path="/gielda/porownaj" element={<VehicleCompare />} />
             <Route path="/gielda/logowanie" element={<MarketplaceAuth />} />
             <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
