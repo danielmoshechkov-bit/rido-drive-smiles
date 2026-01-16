@@ -2295,6 +2295,36 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_programs: {
+        Row: {
+          config: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          program_type: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          program_type: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          program_type?: string
+        }
+        Relationships: []
+      }
       manual_driver_matches: {
         Row: {
           created_at: string
@@ -3788,6 +3818,675 @@ export type Database = {
         }
         Relationships: []
       }
+      service_booking_status_history: {
+        Row: {
+          booking_id: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          new_status: string
+          notes: string | null
+          old_status: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_status: string
+          notes?: string | null
+          old_status?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_status?: string
+          notes?: string | null
+          old_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_booking_status_history_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_bookings: {
+        Row: {
+          booking_number: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_notes: string | null
+          customer_phone: string
+          customer_user_id: string | null
+          duration_minutes: number
+          employee_id: string | null
+          estimated_price: number | null
+          final_price: number | null
+          id: string
+          loyalty_points_earned: number | null
+          provider_id: string | null
+          provider_notes: string | null
+          resource_id: string | null
+          scheduled_date: string
+          scheduled_time: string
+          service_id: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          booking_number: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_notes?: string | null
+          customer_phone: string
+          customer_user_id?: string | null
+          duration_minutes: number
+          employee_id?: string | null
+          estimated_price?: number | null
+          final_price?: number | null
+          id?: string
+          loyalty_points_earned?: number | null
+          provider_id?: string | null
+          provider_notes?: string | null
+          resource_id?: string | null
+          scheduled_date: string
+          scheduled_time: string
+          service_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          booking_number?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_notes?: string | null
+          customer_phone?: string
+          customer_user_id?: string | null
+          duration_minutes?: number
+          employee_id?: string | null
+          estimated_price?: number | null
+          final_price?: number | null
+          id?: string
+          loyalty_points_earned?: number | null
+          provider_id?: string | null
+          provider_notes?: string | null
+          resource_id?: string | null
+          scheduled_date?: string
+          scheduled_time?: string
+          service_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_bookings_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "service_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_calendar_blocks: {
+        Row: {
+          block_type: string | null
+          created_at: string | null
+          employee_id: string | null
+          end_datetime: string
+          id: string
+          provider_id: string | null
+          reason: string | null
+          resource_id: string | null
+          start_datetime: string
+        }
+        Insert: {
+          block_type?: string | null
+          created_at?: string | null
+          employee_id?: string | null
+          end_datetime: string
+          id?: string
+          provider_id?: string | null
+          reason?: string | null
+          resource_id?: string | null
+          start_datetime: string
+        }
+        Update: {
+          block_type?: string | null
+          created_at?: string | null
+          employee_id?: string | null
+          end_datetime?: string
+          id?: string
+          provider_id?: string | null
+          reason?: string | null
+          resource_id?: string | null
+          start_datetime?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_calendar_blocks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "service_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_calendar_blocks_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_calendar_blocks_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      service_customer_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          note: string
+          provider_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          note: string
+          provider_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          note?: string
+          provider_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_customer_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "service_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_customer_notes_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_customers: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          last_visit_at: string | null
+          loyalty_points: number | null
+          loyalty_visits: number | null
+          name: string
+          notes: string | null
+          phone: string | null
+          provider_id: string | null
+          tags: string[] | null
+          total_spent: number | null
+          total_visits: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_visit_at?: string | null
+          loyalty_points?: number | null
+          loyalty_visits?: number | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          provider_id?: string | null
+          tags?: string[] | null
+          total_spent?: number | null
+          total_visits?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_visit_at?: string | null
+          loyalty_points?: number | null
+          loyalty_visits?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          provider_id?: string | null
+          tags?: string[] | null
+          total_spent?: number | null
+          total_visits?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_customers_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_employees: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          first_name: string
+          id: string
+          is_active: boolean | null
+          last_name: string
+          phone: string | null
+          provider_id: string | null
+          role: string | null
+          specializations: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean | null
+          last_name: string
+          phone?: string | null
+          provider_id?: string | null
+          role?: string | null
+          specializations?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string
+          phone?: string | null
+          provider_id?: string | null
+          role?: string | null
+          specializations?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_employees_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_notifications: {
+        Row: {
+          booking_id: string | null
+          channel: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          message: string
+          notification_type: string
+          recipient_email: string | null
+          recipient_phone: string | null
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          channel: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message: string
+          notification_type: string
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          channel?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message?: string
+          notification_type?: string
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_notifications_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_providers: {
+        Row: {
+          auto_confirm: boolean | null
+          booking_advance_days: number | null
+          cancellation_hours: number | null
+          category_id: string | null
+          company_address: string | null
+          company_city: string | null
+          company_email: string | null
+          company_name: string
+          company_nip: string | null
+          company_phone: string | null
+          company_postal_code: string | null
+          company_regon: string | null
+          company_website: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          latitude: number | null
+          logo_url: string | null
+          longitude: number | null
+          loyalty_config: Json | null
+          loyalty_enabled: boolean | null
+          loyalty_type: string | null
+          owner_email: string | null
+          owner_first_name: string | null
+          owner_last_name: string | null
+          owner_phone: string | null
+          rating_avg: number | null
+          rating_count: number | null
+          status: string | null
+          total_bookings: number | null
+          updated_at: string | null
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          auto_confirm?: boolean | null
+          booking_advance_days?: number | null
+          cancellation_hours?: number | null
+          category_id?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_email?: string | null
+          company_name: string
+          company_nip?: string | null
+          company_phone?: string | null
+          company_postal_code?: string | null
+          company_regon?: string | null
+          company_website?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          latitude?: number | null
+          logo_url?: string | null
+          longitude?: number | null
+          loyalty_config?: Json | null
+          loyalty_enabled?: boolean | null
+          loyalty_type?: string | null
+          owner_email?: string | null
+          owner_first_name?: string | null
+          owner_last_name?: string | null
+          owner_phone?: string | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          status?: string | null
+          total_bookings?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          auto_confirm?: boolean | null
+          booking_advance_days?: number | null
+          cancellation_hours?: number | null
+          category_id?: string | null
+          company_address?: string | null
+          company_city?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_nip?: string | null
+          company_phone?: string | null
+          company_postal_code?: string | null
+          company_regon?: string | null
+          company_website?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          latitude?: number | null
+          logo_url?: string | null
+          longitude?: number | null
+          loyalty_config?: Json | null
+          loyalty_enabled?: boolean | null
+          loyalty_type?: string | null
+          owner_email?: string | null
+          owner_first_name?: string | null
+          owner_last_name?: string | null
+          owner_phone?: string | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          status?: string | null
+          total_bookings?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_providers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_resources: {
+        Row: {
+          capacity: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          provider_id: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          provider_id?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          provider_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_resources_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_reviews: {
+        Row: {
+          booking_id: string | null
+          comment: string | null
+          created_at: string | null
+          customer_user_id: string | null
+          id: string
+          is_visible: boolean | null
+          provider_id: string | null
+          provider_response: string | null
+          provider_response_at: string | null
+          rating: number
+        }
+        Insert: {
+          booking_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          customer_user_id?: string | null
+          id?: string
+          is_visible?: boolean | null
+          provider_id?: string | null
+          provider_response?: string | null
+          provider_response_at?: string | null
+          rating: number
+        }
+        Update: {
+          booking_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          customer_user_id?: string | null
+          id?: string
+          is_visible?: boolean | null
+          provider_id?: string | null
+          provider_response?: string | null
+          provider_response_at?: string | null
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_reviews_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_types: {
         Row: {
           created_at: string | null
@@ -3805,6 +4504,107 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      service_working_hours: {
+        Row: {
+          day_of_week: number
+          employee_id: string | null
+          end_time: string
+          id: string
+          is_working: boolean | null
+          provider_id: string | null
+          start_time: string
+        }
+        Insert: {
+          day_of_week: number
+          employee_id?: string | null
+          end_time: string
+          id?: string
+          is_working?: boolean | null
+          provider_id?: string | null
+          start_time: string
+        }
+        Update: {
+          day_of_week?: number
+          employee_id?: string | null
+          end_time?: string
+          id?: string
+          is_working?: boolean | null
+          provider_id?: string | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_working_hours_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "service_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_working_hours_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          duration_minutes: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number | null
+          price_from: number | null
+          price_type: string | null
+          provider_id: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price?: number | null
+          price_from?: number | null
+          price_type?: string | null
+          provider_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number | null
+          price_from?: number | null
+          price_type?: string | null
+          provider_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settlement_periods: {
         Row: {
@@ -4166,6 +4966,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sms_settings: {
+        Row: {
+          api_key_secret_name: string | null
+          api_url: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          provider: string
+          sender_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider: string
+          sender_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string
+          sender_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       system_alerts: {
         Row: {
