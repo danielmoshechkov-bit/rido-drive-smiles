@@ -232,17 +232,17 @@ export function PropertyListingCard({
           )}
         </div>
 
-        {/* Content - Fixed height sections for consistent card alignment */}
+        {/* Content */}
         <div className={cn("p-4 flex flex-col", compact && "p-2")}>
-          {/* Title - Fixed height */}
+          {/* Title - Allow 2 lines */}
           <h3 className={cn(
-            "font-semibold line-clamp-1 h-7 flex items-center",
-            compact ? "text-sm h-5" : "text-lg"
+            "font-semibold leading-tight",
+            compact ? "text-sm line-clamp-1" : "text-base line-clamp-2 min-h-[2.5rem]"
           )}>{listing.title}</h3>
 
-          {/* Property Type & Details - Fixed height row */}
+          {/* Property Type & Area & Rooms - Single row */}
           <div className={cn(
-            "flex flex-wrap items-center text-muted-foreground h-5 mt-1",
+            "flex flex-wrap items-center gap-x-2 text-muted-foreground mt-2",
             compact ? "text-xs" : "text-sm"
           )}>
             {listing.propertyType && (
@@ -252,25 +252,19 @@ export function PropertyListingCard({
               </span>
             )}
             {listing.areaM2 && (
-              <>
-                {listing.propertyType && <span className="mx-1">•</span>}
-                <span className="flex items-center gap-1">
-                  <Maximize className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-                  {listing.areaM2} m²
-                </span>
-              </>
+              <span className="flex items-center gap-1">
+                <Maximize className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                {listing.areaM2} m²
+              </span>
             )}
-            {listing.rooms && !compact && (
-              <>
-                <span className="mx-1.5">•</span>
-                <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
-              </>
+            {listing.rooms && (
+              <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
             )}
           </div>
 
-          {/* Floor & Year - Fixed height row, hidden in compact mode */}
-          {!compact && (
-            <div className="flex flex-wrap items-center text-sm text-muted-foreground h-5 mt-1">
+          {/* Floor & Year - Separate row */}
+          {!compact && (listing.floor !== undefined || listing.buildYear) && (
+            <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground mt-1">
               {listing.floor !== undefined && listing.floorsTotal && (
                 <span className="flex items-center gap-1">
                   <Layers className="h-3.5 w-3.5" />
@@ -278,51 +272,44 @@ export function PropertyListingCard({
                 </span>
               )}
               {listing.buildYear && (
-                <>
-                  {listing.floor !== undefined && <span className="mx-1.5">•</span>}
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {listing.buildYear}
-                  </span>
-                </>
-              )}
-              {listing.location && (
-                <>
-                  {(listing.floor !== undefined || listing.buildYear) && <span className="mx-1.5">•</span>}
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
-                  </span>
-                </>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {listing.buildYear}
+                </span>
               )}
             </div>
           )}
 
-          {/* Location in compact mode */}
-          {compact && listing.location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground h-4 mt-1">
-              <MapPin className="h-3 w-3" />
-              {listing.location}
+          {/* Location - Separate clear row */}
+          {listing.location && (
+            <div className={cn(
+              "flex items-center gap-1 text-muted-foreground mt-1",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              <MapPin className={cn(compact ? "h-3 w-3 flex-shrink-0" : "h-3.5 w-3.5 flex-shrink-0")} />
+              <span className="truncate">
+                {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+              </span>
             </div>
           )}
 
-          {/* Amenities - Fixed height, hidden in compact mode */}
-          {!compact && (
-            <div className="flex flex-wrap gap-1 h-7 items-center mt-2">
+          {/* Amenities - Wrap naturally, no fixed height */}
+          {!compact && (listing.hasBalcony || listing.hasElevator || listing.hasParking || listing.hasGarden || listing.marketType === 'pierwotny') && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {listing.hasBalcony && (
-                <Badge variant="secondary" className="text-xs">Balkon</Badge>
+                <Badge variant="secondary" className="text-xs px-2 py-0.5">Balkon</Badge>
               )}
               {listing.hasElevator && (
-                <Badge variant="secondary" className="text-xs">Winda</Badge>
+                <Badge variant="secondary" className="text-xs px-2 py-0.5">Winda</Badge>
               )}
               {listing.hasParking && (
-                <Badge variant="secondary" className="text-xs">Parking</Badge>
+                <Badge variant="secondary" className="text-xs px-2 py-0.5">Parking</Badge>
               )}
               {listing.hasGarden && (
-                <Badge variant="secondary" className="text-xs">Ogród</Badge>
+                <Badge variant="secondary" className="text-xs px-2 py-0.5">Ogród</Badge>
               )}
               {listing.marketType === 'pierwotny' && (
-                <Badge variant="outline" className="text-xs">Rynek pierwotny</Badge>
+                <Badge variant="outline" className="text-xs px-2 py-0.5">Rynek pierwotny</Badge>
               )}
             </div>
           )}
