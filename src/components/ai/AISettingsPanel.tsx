@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle, Send, CheckCircle2, XCircle, Zap, Image, Search, FileText } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2, Bot, CreditCard, Settings2, Key, AlertCircle, Send, CheckCircle2, XCircle, Zap, Image, Search, FileText, History, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,27 @@ interface QueryCost {
   description: string | null;
 }
 
+interface AIHistoryEntry {
+  id: string;
+  query_type: string;
+  query_summary: string | null;
+  model_used: string | null;
+  ai_type: string | null;
+  credits_used: number;
+  tokens_used: number | null;
+  response_time_ms: number | null;
+  was_free: boolean | null;
+  created_at: string;
+  user_id: string | null;
+}
+
+interface QueryCostBase {
+  id: string;
+  query_type: string;
+  cost_credits: number;
+  description: string | null;
+}
+
 const AI_PROVIDERS = [
   { value: 'lovable', label: 'Lovable AI Gateway (zalecane)', requiresKey: false },
   { value: 'openai', label: 'OpenAI (własny klucz)', requiresKey: true },
@@ -71,8 +92,10 @@ export function AISettingsPanel() {
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [queryCosts, setQueryCosts] = useState<QueryCost[]>([]);
+  const [aiHistory, setAIHistory] = useState<AIHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const { toast } = useToast();
   
   // API Key inputs (temporary, not persisted directly)
@@ -94,6 +117,7 @@ export function AISettingsPanel() {
 
   useEffect(() => {
     loadData();
+    loadAIHistory();
   }, []);
 
   const loadData = async () => {
@@ -130,6 +154,24 @@ export function AISettingsPanel() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadAIHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('ai_credit_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setAIHistory(data || []);
+    } catch (error) {
+      console.error('Error loading AI history:', error);
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -887,6 +929,107 @@ export function AISettingsPanel() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* AI History - NEW SECTION */}
+      <Card className="border-green-500/30 bg-green-500/5">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="h-5 w-5 text-green-600" />
+              <CardTitle>Historia zapytań AI</CardTitle>
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                {aiHistory.length} wpisów
+              </Badge>
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={loadAIHistory}
+              disabled={isLoadingHistory}
+            >
+              {isLoadingHistory ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span className="ml-2">Odśwież</span>
+            </Button>
+          </div>
+          <CardDescription>
+            Ostatnie zapytania do AI - pokazuje że system działa poprawnie
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : aiHistory.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Brak historii zapytań AI</p>
+              <p className="text-sm">Wykonaj test powyżej lub poczekaj aż użytkownicy zaczną korzystać z AI</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Typ</TableHead>
+                    <TableHead>Zapytanie</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead className="text-right">Czas (ms)</TableHead>
+                    <TableHead className="text-right">Kredyty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aiHistory.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {new Date(entry.created_at).toLocaleString('pl-PL', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            entry.query_type === 'test' ? 'border-purple-500 text-purple-600' :
+                            entry.query_type === 'search' ? 'border-blue-500 text-blue-600' :
+                            entry.query_type === 'seo' ? 'border-green-500 text-green-600' :
+                            entry.query_type === 'photo' ? 'border-orange-500 text-orange-600' :
+                            'border-gray-500 text-gray-600'
+                          }
+                        >
+                          {entry.query_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate text-sm">
+                        {entry.query_summary || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {entry.model_used || 'Lovable Gateway'}
+                      </TableCell>
+                      <TableCell className="text-right text-xs">
+                        {entry.response_time_ms ? `${entry.response_time_ms}ms` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={entry.was_free ? 'secondary' : 'default'}>
+                          {entry.credits_used} {entry.was_free && '(free)'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
