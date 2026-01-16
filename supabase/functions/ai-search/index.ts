@@ -89,6 +89,13 @@ ZASADY:
 3. Jeśli użytkownik nie podał jakiegoś kryterium, NIE dodawaj go do filtrów
 4. Rozpoznawaj polskie nazwy typów nieruchomości: mieszkanie, dom, kawalerka, działka, lokal
 5. Ceny są w PLN (całkowite dla sprzedaży, miesięczne dla wynajmu)
+6. PIĘTRO - interpretuj frazy związane z piętrem:
+   - "wysokie piętro", "wysoko" = floorMin: 5
+   - "bardzo wysokie piętro", "wieżowiec" = floorMin: 10
+   - "niskie piętro", "nisko" = floorMax: 3
+   - "parter" = floorMin: 0, floorMax: 0
+   - "ostatnie piętro", "poddasze" = floorMin: 8
+   - konkretne piętro np. "10 piętro" = floorMin: 10, floorMax: 10
 
 TYPY NIERUCHOMOŚCI: mieszkanie, dom, kawalerka, dzialka, lokal, pokoj, biuro, magazyn
 
@@ -105,6 +112,8 @@ SCHEMAT ODPOWIEDZI (tylko ten JSON, nic więcej):
     "areaMax": 80,
     "roomsMin": 2,
     "roomsMax": 3,
+    "floorMin": 5,
+    "floorMax": 15,
     "hasBalcony": true,
     "hasElevator": true
   },
@@ -121,7 +130,13 @@ Zapytanie: "Dom z ogrodem pod Warszawą"
 Odpowiedź: {"filters":{"propertyType":"dom","city":"Warszawa","hasGarden":true},"explanation":"Szukasz domu z ogrodem w okolicach Warszawy"}
 
 Zapytanie: "Kawalerka wynajem centrum Gdańska do 2000"
-Odpowiedź: {"filters":{"propertyType":"kawalerka","city":"Gdańsk","district":"centrum","priceMax":2000,"transactionType":"rent"},"explanation":"Szukasz kawalerki na wynajem w centrum Gdańska, do 2000 zł/miesiąc"}`;
+Odpowiedź: {"filters":{"propertyType":"kawalerka","city":"Gdańsk","district":"centrum","priceMax":2000,"transactionType":"rent"},"explanation":"Szukasz kawalerki na wynajem w centrum Gdańska, do 2000 zł/miesiąc"}
+
+Zapytanie: "mieszkanie w Krakowie wysokie piętro"
+Odpowiedź: {"filters":{"propertyType":"mieszkanie","city":"Kraków","floorMin":5},"explanation":"Szukasz mieszkania w Krakowie na wysokim piętrze (5+)"}
+
+Zapytanie: "apartament na parterze z ogrodem Warszawa"
+Odpowiedź: {"filters":{"propertyType":"mieszkanie","city":"Warszawa","floorMin":0,"floorMax":0,"hasGarden":true},"explanation":"Szukasz mieszkania na parterze z ogrodem w Warszawie"}`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -318,6 +333,8 @@ serve(async (req) => {
       if (reFilters.areaMax) query = query.lte('area', reFilters.areaMax);
       if (reFilters.roomsMin) query = query.gte('rooms', reFilters.roomsMin);
       if (reFilters.roomsMax) query = query.lte('rooms', reFilters.roomsMax);
+      if (reFilters.floorMin !== undefined) query = query.gte('floor', reFilters.floorMin);
+      if (reFilters.floorMax !== undefined) query = query.lte('floor', reFilters.floorMax);
       if (reFilters.hasBalcony) query = query.eq('has_balcony', true);
       if (reFilters.hasElevator) query = query.eq('has_elevator', true);
       if (reFilters.hasParking) query = query.eq('has_parking', true);
