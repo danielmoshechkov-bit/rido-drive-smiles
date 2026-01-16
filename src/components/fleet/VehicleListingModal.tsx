@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, X, Phone, Mail, Loader2 } from "lucide-react";
+import { Upload, X, Phone, Mail, Loader2, Wand2 } from "lucide-react";
+import { AIPhotoEditor } from "@/components/ai/AIPhotoEditor";
 
 interface VehicleListingModalProps {
   open: boolean;
@@ -31,6 +33,8 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [autoEnhance, setAutoEnhance] = useState(false);
+  const [enhancingPhotos, setEnhancingPhotos] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load current photos, existing listing data, and vehicle rental price when modal opens
@@ -98,7 +102,40 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
       }
 
       if (uploadedUrls.length > 0) {
-        const newPhotos = [...photos, ...uploadedUrls];
+        let finalPhotos = uploadedUrls;
+        
+        // Auto-enhance if enabled
+        if (autoEnhance) {
+          toast.info("Automatyczne poprawianie zdjęć AI...");
+          const enhancedUrls: string[] = [];
+          
+          for (let i = 0; i < uploadedUrls.length; i++) {
+            try {
+              const { data } = await supabase.functions.invoke('ai-photo-edit', {
+                body: {
+                  imageUrl: uploadedUrls[i],
+                  instruction: 'auto-enhance',
+                  listingType: 'vehicle',
+                  listingId: vehicle.id,
+                  photoIndex: photos.length + i,
+                }
+              });
+              
+              if (data?.editedUrl) {
+                enhancedUrls.push(data.editedUrl);
+              } else {
+                enhancedUrls.push(uploadedUrls[i]); // Keep original if enhancement fails
+              }
+            } catch (err) {
+              console.error('Auto-enhance failed for photo:', err);
+              enhancedUrls.push(uploadedUrls[i]); // Keep original on error
+            }
+          }
+          
+          finalPhotos = enhancedUrls;
+        }
+        
+        const newPhotos = [...photos, ...finalPhotos];
         setPhotos(newPhotos);
         
         // Save to vehicles.photos
@@ -106,7 +143,7 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
           .update({ photos: newPhotos })
           .eq('id', vehicle.id);
         
-        toast.success(`Dodano ${uploadedUrls.length} zdjęć`);
+        toast.success(`Dodano ${finalPhotos.length} zdjęć${autoEnhance ? ' (poprawione AI)' : ''}`);
       }
     } catch (error) {
       console.error("Photo upload error:", error);
@@ -126,6 +163,18 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
     await supabase.from('vehicles')
       .update({ photos: newPhotos })
       .eq('id', vehicle.id);
+  };
+
+  const handlePhotoEdited = async (index: number, newUrl: string) => {
+    const newPhotos = [...photos];
+    newPhotos[index] = newUrl;
+    setPhotos(newPhotos);
+    
+    await supabase.from('vehicles')
+      .update({ photos: newPhotos })
+      .eq('id', vehicle.id);
+      
+    toast.success("Zdjęcie zostało poprawione przez AI");
   };
 
   const handleSubmit = async () => {
@@ -274,25 +323,40 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
               className="hidden"
               onChange={(e) => handlePhotoUpload(e.target.files)}
             />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full mt-2"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Wysyłanie...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Dodaj zdjęcia
-                </>
-              )}
-            </Button>
+            
+            <div className="flex items-center gap-4 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Wysyłanie...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Dodaj zdjęcia
+                  </>
+                )}
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="auto-enhance"
+                  checked={autoEnhance}
+                  onCheckedChange={(checked) => setAutoEnhance(checked === true)}
+                />
+                <label htmlFor="auto-enhance" className="text-xs text-muted-foreground cursor-pointer flex items-center gap-1">
+                  <Wand2 className="h-3 w-3" />
+                  Auto-popraw AI
+                </label>
+              </div>
+            </div>
             
             {photos.length > 0 && (
               <div className="mt-3 grid grid-cols-4 gap-2">
@@ -302,13 +366,22 @@ export function VehicleListingModal({ open, onOpenChange, vehicle, fleetId, onSu
                     <span className="absolute top-1 left-1 bg-background/80 text-foreground text-xs px-1.5 py-0.5 rounded font-medium">
                       {index + 1}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePhoto(index)}
-                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <AIPhotoEditor
+                        imageUrl={photo}
+                        listingType="vehicle"
+                        listingId={vehicle.id}
+                        photoIndex={index}
+                        onPhotoEdited={(newUrl) => handlePhotoEdited(index, newUrl)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(index)}
+                        className="bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

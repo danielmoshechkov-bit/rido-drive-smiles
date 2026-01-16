@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
 import { PropertyListingCard } from "@/components/realestate/PropertyListingCard";
 import { RealEstateSearch, RealEstateFilters } from "@/components/realestate/RealEstateSearch";
+import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
 import { CompareBar } from "@/components/marketplace/CompareBar";
@@ -318,8 +319,8 @@ export default function RealEstateMarketplace() {
   const [allListings, setAllListings] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
   const [showResultsMap, setShowResultsMap] = useState(false);
 
@@ -470,13 +471,17 @@ export default function RealEstateMarketplace() {
     setLoading(false);
   };
 
-  const handleAISearch = async () => {
-    if (!aiQuery.trim()) return;
-    setIsSearchingAI(true);
-    // TODO: Integrate with AI search edge function
-    setTimeout(() => {
-      setIsSearchingAI(false);
-    }, 1000);
+  const handleAISearchResults = (results: any[], filters: any, explanation: string) => {
+    console.log("AI Search results:", results.length, "filters:", filters);
+    setAiExplanation(explanation);
+    
+    if (results.length > 0) {
+      // Map DB results to local format
+      const mapped = results.map(mapDbToListing);
+      setListings(mapped);
+    } else {
+      setListings([]);
+    }
   };
 
   const handleToggleCompare = (listing: typeof MOCK_LISTINGS[0]) => {
@@ -594,28 +599,15 @@ export default function RealEstateMarketplace() {
         <div className="relative container mx-auto px-4 py-8 md:py-12">
           {/* AI Search Bar */}
           <div className="max-w-3xl mx-auto mb-6">
-            <div className="relative">
-              <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-              <Input
-                type="text"
-                placeholder="Zapytaj AI: 'Mieszkanie 3-pokojowe w Krakowie do 500 tys.'"
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
-                className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-background/95 backdrop-blur"
-              />
-              <Button
-                onClick={handleAISearch}
-                disabled={isSearchingAI || !aiQuery.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
-              >
-                {isSearchingAI ? "..." : "Szukaj AI"}
-              </Button>
-            </div>
-            <p className="text-center text-xs text-muted-foreground mt-2">
-              Powered by <span className="text-primary font-medium">Rido AI</span> • 
-              Szukaj naturalnym językiem
-            </p>
+            <RealEstateAISearch 
+              onSearchResults={handleAISearchResults}
+              onLoading={setIsSearchingAI}
+            />
+            {aiExplanation && (
+              <p className="text-center text-sm text-primary mt-2 font-medium">
+                🔍 {aiExplanation}
+              </p>
+            )}
           </div>
 
           {/* Title */}

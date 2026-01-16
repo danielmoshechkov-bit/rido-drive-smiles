@@ -54,8 +54,22 @@ serve(async (req) => {
     console.log('[AI Photo] Editing photo with instruction:', instruction);
     console.log('[AI Photo] Image URL:', imageUrl.substring(0, 100) + '...');
 
+    // Check for auto-enhance mode
+    const isAutoEnhance = instruction.toLowerCase() === 'auto-enhance' || 
+                          instruction.toLowerCase() === 'auto' ||
+                          instruction.toLowerCase() === 'automatycznie popraw';
+    
     // Enhance instruction for better results
-    const enhancedInstruction = `Edytuj to zdjęcie nieruchomości/pojazdu według instrukcji: "${instruction}". 
+    const enhancedInstruction = isAutoEnhance
+      ? `Automatycznie popraw to zdjęcie nieruchomości/pojazdu dla ogłoszenia:
+- Zwiększ jasność i kontrast jeśli zdjęcie jest ciemne
+- Popraw nasycenie kolorów (nie przesadzaj)
+- Usuń szum i artefakty
+- Wyprostuj perspektywę jeśli to potrzebne
+- Zachowaj naturalny wygląd
+- Wynik powinien wyglądać profesjonalnie
+Zdjęcie powinno być gotowe do publikacji.`
+      : `Edytuj to zdjęcie nieruchomości/pojazdu według instrukcji: "${instruction}". 
 Zachowaj profesjonalny wygląd odpowiedni dla ogłoszenia. 
 Wynik powinien wyglądać realistycznie i naturalnie.`;
 

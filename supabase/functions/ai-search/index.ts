@@ -10,7 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-interface SearchFilters {
+interface VehicleSearchFilters {
   brands?: string[];
   models?: string[];
   fuelTypes?: string[];
@@ -22,7 +22,28 @@ interface SearchFilters {
   transactionType?: 'rent' | 'buy' | 'all';
 }
 
-const SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania na portalu RIDO.
+interface RealEstateSearchFilters {
+  propertyType?: string;
+  transactionType?: 'sale' | 'rent' | 'short_term';
+  city?: string;
+  district?: string;
+  priceMin?: number;
+  priceMax?: number;
+  areaMin?: number;
+  areaMax?: number;
+  roomsMin?: number;
+  roomsMax?: number;
+  floorMin?: number;
+  floorMax?: number;
+  buildYearMin?: number;
+  buildYearMax?: number;
+  hasBalcony?: boolean;
+  hasElevator?: boolean;
+  hasParking?: boolean;
+  hasGarden?: boolean;
+}
+
+const VEHICLE_SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania na portalu RIDO.
 Twoim JEDYNYM zadaniem jest analizowanie zapytań użytkowników w języku naturalnym i zamienianie ich na filtry JSON.
 
 ZASADY:
@@ -59,13 +80,57 @@ Odpowiedź: {"filters":{"fuelTypes":["hybryda"],"yearFrom":2020,"priceMax":400,"
 Zapytanie: "Toyota albo Honda, Warszawa"
 Odpowiedź: {"filters":{"brands":["Toyota","Honda"],"city":"Warszawa"},"explanation":"Szukasz Toyoty lub Hondy w Warszawie"}`;
 
+const REAL_ESTATE_SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania nieruchomości na portalu RIDO.
+Twoim JEDYNYM zadaniem jest analizowanie zapytań użytkowników w języku naturalnym i zamienianie ich na filtry JSON.
+
+ZASADY:
+1. Odpowiadaj TYLKO w formacie JSON zgodnym ze schematem poniżej
+2. NIE wymyślaj ofert ani danych - zwracasz tylko filtry wyszukiwania
+3. Jeśli użytkownik nie podał jakiegoś kryterium, NIE dodawaj go do filtrów
+4. Rozpoznawaj polskie nazwy typów nieruchomości: mieszkanie, dom, kawalerka, działka, lokal
+5. Ceny są w PLN (całkowite dla sprzedaży, miesięczne dla wynajmu)
+
+TYPY NIERUCHOMOŚCI: mieszkanie, dom, kawalerka, dzialka, lokal, pokoj, biuro, magazyn
+
+SCHEMAT ODPOWIEDZI (tylko ten JSON, nic więcej):
+{
+  "filters": {
+    "propertyType": "mieszkanie",
+    "transactionType": "sale",
+    "city": "Warszawa",
+    "district": "Mokotów",
+    "priceMin": 300000,
+    "priceMax": 500000,
+    "areaMin": 40,
+    "areaMax": 80,
+    "roomsMin": 2,
+    "roomsMax": 3,
+    "hasBalcony": true,
+    "hasElevator": true
+  },
+  "explanation": "Krótkie wyjaśnienie co zrozumiałeś z zapytania"
+}
+
+transactionType może być: "sale" (sprzedaż), "rent" (wynajem długoterminowy), "short_term" (krótkoterminowy)
+
+PRZYKŁADY:
+Zapytanie: "2 pokoje w Krakowie do 500 tysięcy"
+Odpowiedź: {"filters":{"roomsMin":2,"roomsMax":2,"city":"Kraków","priceMax":500000,"transactionType":"sale"},"explanation":"Szukasz mieszkania 2-pokojowego w Krakowie, do 500 000 zł"}
+
+Zapytanie: "Dom z ogrodem pod Warszawą"
+Odpowiedź: {"filters":{"propertyType":"dom","city":"Warszawa","hasGarden":true},"explanation":"Szukasz domu z ogrodem w okolicach Warszawy"}
+
+Zapytanie: "Kawalerka wynajem centrum Gdańska do 2000"
+Odpowiedź: {"filters":{"propertyType":"kawalerka","city":"Gdańsk","district":"centrum","priceMax":2000,"transactionType":"rent"},"explanation":"Szukasz kawalerki na wynajem w centrum Gdańska, do 2000 zł/miesiąc"}`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { query, userId, ipAddress, deviceFingerprint } = await req.json();
+    const { query, userId, ipAddress, deviceFingerprint, searchType = 'vehicle' } = await req.json();
+    const isRealEstate = searchType === 'real_estate';
 
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -150,8 +215,13 @@ serve(async (req) => {
       }
     }
 
+    // Select system prompt based on search type
+    const systemPrompt = isRealEstate 
+      ? REAL_ESTATE_SYSTEM_PROMPT 
+      : (settings?.system_prompt || VEHICLE_SYSTEM_PROMPT);
+
     // Call Lovable AI Gateway
-    console.log('Calling Lovable AI with query:', query);
+    console.log('Calling Lovable AI with query:', query, 'type:', searchType);
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -161,7 +231,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: settings?.ai_model || 'google/gemini-3-flash-preview',
         messages: [
-          { role: 'system', content: settings?.system_prompt || SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
         ],
       }),
@@ -190,7 +260,7 @@ serve(async (req) => {
     console.log('AI Response:', aiContent);
 
     // Parse AI response
-    let parsedFilters: SearchFilters = {};
+    let parsedFilters: VehicleSearchFilters | RealEstateSearchFilters = {};
     let explanation = '';
     
     try {
@@ -210,42 +280,90 @@ serve(async (req) => {
       explanation = 'Nie udało się zinterpretować zapytania. Spróbuj inaczej sformułować.';
     }
 
-    // Execute search in database
-    let searchQuery = supabase
-      .from('marketplace_listings')
-      .select(`
-        id,
-        title,
-        description,
-        price,
-        price_type,
-        photos,
-        location_text,
-        is_featured,
-        created_at,
-        vehicle_id,
-        fleet_id,
-        driver_id,
-        fleets:fleet_id (name, contact_phone_for_drivers),
-        vehicles:vehicle_id (brand, model, year, fuel_type, plate)
-      `)
-      .eq('is_active', true)
-      .is('deleted_at', null);
+    // Execute search in database - different tables for different types
+    let listings: any[] = [];
+    let searchError: any = null;
 
-    // Apply filters from AI
-    if (parsedFilters.city) {
-      searchQuery = searchQuery.ilike('location_text', `%${parsedFilters.city}%`);
+    if (isRealEstate) {
+      // Real estate search
+      const reFilters = parsedFilters as RealEstateSearchFilters;
+      let query = supabase
+        .from('real_estate_listings')
+        .select(`
+          id, title, description, price, price_type, photos,
+          location, city, district, address, area, rooms, floor, total_floors, build_year,
+          property_type, transaction_type,
+          has_balcony, has_elevator, has_parking, has_garden,
+          latitude, longitude, contact_person, contact_phone,
+          real_estate_agents!agent_id(company_name)
+        `)
+        .eq('status', 'active');
+
+      if (reFilters.city) {
+        query = query.or(`city.ilike.%${reFilters.city}%,location.ilike.%${reFilters.city}%`);
+      }
+      if (reFilters.district) {
+        query = query.ilike('district', `%${reFilters.district}%`);
+      }
+      if (reFilters.propertyType) {
+        query = query.eq('property_type', reFilters.propertyType);
+      }
+      if (reFilters.transactionType) {
+        const transMap: Record<string, string> = { sale: 'sprzedaz', rent: 'wynajem', short_term: 'wynajem-krotkoterminowy' };
+        query = query.eq('transaction_type', transMap[reFilters.transactionType] || reFilters.transactionType);
+      }
+      if (reFilters.priceMin) query = query.gte('price', reFilters.priceMin);
+      if (reFilters.priceMax) query = query.lte('price', reFilters.priceMax);
+      if (reFilters.areaMin) query = query.gte('area', reFilters.areaMin);
+      if (reFilters.areaMax) query = query.lte('area', reFilters.areaMax);
+      if (reFilters.roomsMin) query = query.gte('rooms', reFilters.roomsMin);
+      if (reFilters.roomsMax) query = query.lte('rooms', reFilters.roomsMax);
+      if (reFilters.hasBalcony) query = query.eq('has_balcony', true);
+      if (reFilters.hasElevator) query = query.eq('has_elevator', true);
+      if (reFilters.hasParking) query = query.eq('has_parking', true);
+      if (reFilters.hasGarden) query = query.eq('has_garden', true);
+
+      const result = await query.limit(20);
+      listings = result.data || [];
+      searchError = result.error;
+    } else {
+      // Vehicle search (existing logic)
+      const vFilters = parsedFilters as VehicleSearchFilters;
+      let query = supabase
+        .from('marketplace_listings')
+        .select(`
+          id,
+          title,
+          description,
+          price,
+          price_type,
+          photos,
+          location_text,
+          is_featured,
+          created_at,
+          vehicle_id,
+          fleet_id,
+          driver_id,
+          fleets:fleet_id (name, contact_phone_for_drivers),
+          vehicles:vehicle_id (brand, model, year, fuel_type, plate)
+        `)
+        .eq('is_active', true)
+        .is('deleted_at', null);
+
+      if (vFilters.city) {
+        query = query.ilike('location_text', `%${vFilters.city}%`);
+      }
+      if (vFilters.priceMax) {
+        query = query.lte('price', vFilters.priceMax);
+      }
+      if (vFilters.priceMin) {
+        query = query.gte('price', vFilters.priceMin);
+      }
+
+      const result = await query.limit(20);
+      listings = result.data || [];
+      searchError = result.error;
     }
-
-    if (parsedFilters.priceMax) {
-      searchQuery = searchQuery.lte('price', parsedFilters.priceMax);
-    }
-
-    if (parsedFilters.priceMin) {
-      searchQuery = searchQuery.gte('price', parsedFilters.priceMin);
-    }
-
-    const { data: listings, error: searchError } = await searchQuery.limit(20);
 
     if (searchError) {
       console.error('Search error:', searchError);
@@ -255,40 +373,44 @@ serve(async (req) => {
       );
     }
 
-    // Filter results in memory for vehicle-specific filters
+    // Filter results in memory for vehicle-specific filters (only for vehicle search)
     let filteredListings = listings || [];
     
-    if (parsedFilters.brands && parsedFilters.brands.length > 0) {
-      const brandsLower = parsedFilters.brands.map(b => b.toLowerCase());
-      filteredListings = filteredListings.filter(l => 
-        l.vehicles?.brand && brandsLower.includes(l.vehicles.brand.toLowerCase())
-      );
-    }
+    if (!isRealEstate) {
+      const vFilters = parsedFilters as VehicleSearchFilters;
+      
+      if (vFilters.brands && vFilters.brands.length > 0) {
+        const brandsLower = vFilters.brands.map(b => b.toLowerCase());
+        filteredListings = filteredListings.filter(l => 
+          l.vehicles?.brand && brandsLower.includes(l.vehicles.brand.toLowerCase())
+        );
+      }
 
-    if (parsedFilters.models && parsedFilters.models.length > 0) {
-      const modelsLower = parsedFilters.models.map(m => m.toLowerCase());
-      filteredListings = filteredListings.filter(l => 
-        l.vehicles?.model && modelsLower.includes(l.vehicles.model.toLowerCase())
-      );
-    }
+      if (vFilters.models && vFilters.models.length > 0) {
+        const modelsLower = vFilters.models.map(m => m.toLowerCase());
+        filteredListings = filteredListings.filter(l => 
+          l.vehicles?.model && modelsLower.includes(l.vehicles.model.toLowerCase())
+        );
+      }
 
-    if (parsedFilters.fuelTypes && parsedFilters.fuelTypes.length > 0) {
-      const fuelLower = parsedFilters.fuelTypes.map(f => f.toLowerCase());
-      filteredListings = filteredListings.filter(l => 
-        l.vehicles?.fuel_type && fuelLower.some(f => l.vehicles.fuel_type.toLowerCase().includes(f))
-      );
-    }
+      if (vFilters.fuelTypes && vFilters.fuelTypes.length > 0) {
+        const fuelLower = vFilters.fuelTypes.map(f => f.toLowerCase());
+        filteredListings = filteredListings.filter(l => 
+          l.vehicles?.fuel_type && fuelLower.some(f => l.vehicles.fuel_type.toLowerCase().includes(f))
+        );
+      }
 
-    if (parsedFilters.yearFrom) {
-      filteredListings = filteredListings.filter(l => 
-        l.vehicles?.year && l.vehicles.year >= parsedFilters.yearFrom!
-      );
-    }
+      if (vFilters.yearFrom) {
+        filteredListings = filteredListings.filter(l => 
+          l.vehicles?.year && l.vehicles.year >= vFilters.yearFrom!
+        );
+      }
 
-    if (parsedFilters.yearTo) {
-      filteredListings = filteredListings.filter(l => 
-        l.vehicles?.year && l.vehicles.year <= parsedFilters.yearTo!
-      );
+      if (vFilters.yearTo) {
+        filteredListings = filteredListings.filter(l => 
+          l.vehicles?.year && l.vehicles.year <= vFilters.yearTo!
+        );
+      }
     }
 
     // Update usage tracking
