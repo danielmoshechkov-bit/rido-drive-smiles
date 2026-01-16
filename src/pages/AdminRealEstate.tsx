@@ -32,6 +32,7 @@ import {
 import { LocationIntegrationsPanel } from '@/components/admin/LocationIntegrationsPanel';
 import { CRMIntegrationsPanel } from '@/components/admin/CRMIntegrationsPanel';
 import { AdCampaignsPanel } from '@/components/admin/AdCampaignsPanel';
+import { SMSIntegrationsPanel } from '@/components/admin/SMSIntegrationsPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -692,6 +693,7 @@ const AdminRealEstate = () => {
               tabs={[
                 { value: "integrations", label: "Integracje lokalizacji", visible: true },
                 { value: "crm", label: "Integracje CRM", visible: true },
+                { value: "sms", label: "Integracja SMS", visible: true },
                 { value: "module-settings", label: "Ustawienia modułu", visible: true },
               ]}
             />
@@ -699,6 +701,8 @@ const AdminRealEstate = () => {
             {settingsSubTab === "integrations" && <LocationIntegrationsPanel />}
             
             {settingsSubTab === "crm" && <CRMIntegrationsPanel />}
+            
+            {settingsSubTab === "sms" && <SMSIntegrationsPanel />}
             
             {settingsSubTab === "module-settings" && (
               <Card>
