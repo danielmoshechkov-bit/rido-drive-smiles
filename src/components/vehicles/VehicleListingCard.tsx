@@ -231,17 +231,17 @@ export function VehicleListingCard({
           )}
         </div>
 
-        {/* Content */}
-        <div className={cn("p-4", compact && "p-2")}>
-          {/* Title */}
+        {/* Content - Fixed height sections for consistent card alignment */}
+        <div className={cn("p-4 flex flex-col", compact && "p-2")}>
+          {/* Title - Fixed height */}
           <h3 className={cn(
-            "font-semibold mb-2 line-clamp-1",
-            compact ? "text-sm" : "text-lg"
+            "font-semibold line-clamp-1 h-7 flex items-center",
+            compact ? "text-sm h-5" : "text-lg"
           )}>{listing.title}</h3>
 
-          {/* Vehicle Details */}
+          {/* Vehicle Details - Fixed height row */}
           <div className={cn(
-            "flex flex-wrap items-center text-muted-foreground mb-1.5",
+            "flex flex-wrap items-center text-muted-foreground h-5 mt-1",
             compact ? "text-xs" : "text-sm"
           )}>
             {listing.year && (
@@ -267,9 +267,9 @@ export function VehicleListingCard({
             )}
           </div>
 
-          {/* Additional Details - hidden in compact mode */}
+          {/* Additional Details - Fixed height row, hidden in compact mode */}
           {!compact && (
-            <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
+            <div className="flex flex-wrap items-center text-sm text-muted-foreground h-5 mt-1">
               {listing.odometer && (
                 <span className="flex items-center gap-1">
                   <Gauge className="h-3.5 w-3.5" />
@@ -297,20 +297,27 @@ export function VehicleListingCard({
             </div>
           )}
 
-          {/* Location */}
-          {listing.location && (
-            <div className={cn(
-              "flex items-center gap-1 text-muted-foreground mb-3",
-              compact ? "text-xs" : "text-sm"
-            )}>
-              <MapPin className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-              {listing.location}
-            </div>
-          )}
-
-          {/* Price & Action */}
+          {/* Location - Fixed height */}
           <div className={cn(
-            "flex items-center justify-between",
+            "flex items-center gap-1 text-muted-foreground h-5 mt-1",
+            compact ? "text-xs" : "text-sm"
+          )}>
+            {listing.location ? (
+              <>
+                <MapPin className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                {listing.location}
+              </>
+            ) : (
+              <span>&nbsp;</span>
+            )}
+          </div>
+
+          {/* Spacer to push price to bottom */}
+          <div className="flex-grow min-h-2" />
+
+          {/* Price & Action - Always at the bottom */}
+          <div className={cn(
+            "flex items-center justify-between mt-auto pt-2",
             compact && "flex-col items-start gap-2"
           )}>
             <div>

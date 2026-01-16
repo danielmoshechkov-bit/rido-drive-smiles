@@ -232,17 +232,17 @@ export function PropertyListingCard({
           )}
         </div>
 
-        {/* Content */}
-        <div className={cn("p-4", compact && "p-2")}>
-          {/* Title */}
+        {/* Content - Fixed height sections for consistent card alignment */}
+        <div className={cn("p-4 flex flex-col", compact && "p-2")}>
+          {/* Title - Fixed height */}
           <h3 className={cn(
-            "font-semibold mb-2 line-clamp-1",
-            compact ? "text-sm" : "text-lg"
+            "font-semibold line-clamp-1 h-7 flex items-center",
+            compact ? "text-sm h-5" : "text-lg"
           )}>{listing.title}</h3>
 
-          {/* Property Type & Details */}
+          {/* Property Type & Details - Fixed height row */}
           <div className={cn(
-            "flex flex-wrap items-center text-muted-foreground mb-1.5",
+            "flex flex-wrap items-center text-muted-foreground h-5 mt-1",
             compact ? "text-xs" : "text-sm"
           )}>
             {listing.propertyType && (
@@ -268,9 +268,9 @@ export function PropertyListingCard({
             )}
           </div>
 
-          {/* Floor & Year - hidden in compact mode */}
+          {/* Floor & Year - Fixed height row, hidden in compact mode */}
           {!compact && (
-            <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
+            <div className="flex flex-wrap items-center text-sm text-muted-foreground h-5 mt-1">
               {listing.floor !== undefined && listing.floorsTotal && (
                 <span className="flex items-center gap-1">
                   <Layers className="h-3.5 w-3.5" />
@@ -300,15 +300,15 @@ export function PropertyListingCard({
 
           {/* Location in compact mode */}
           {compact && listing.location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground h-4 mt-1">
               <MapPin className="h-3 w-3" />
               {listing.location}
             </div>
           )}
 
-          {/* Amenities - hidden in compact mode */}
+          {/* Amenities - Fixed height, hidden in compact mode */}
           {!compact && (
-            <div className="flex flex-wrap gap-1 mb-3">
+            <div className="flex flex-wrap gap-1 h-7 items-center mt-2">
               {listing.hasBalcony && (
                 <Badge variant="secondary" className="text-xs">Balkon</Badge>
               )}
@@ -327,9 +327,12 @@ export function PropertyListingCard({
             </div>
           )}
 
-          {/* Price & Action */}
+          {/* Spacer to push price to bottom */}
+          <div className="flex-grow min-h-2" />
+
+          {/* Price & Action - Always at the bottom */}
           <div className={cn(
-            "flex items-center justify-between",
+            "flex items-center justify-between mt-auto pt-2",
             compact && "flex-col items-start gap-2"
           )}>
             <div>
