@@ -4494,7 +4494,7 @@ export type Database = {
           contact_phone: string | null
           contact_reveals_count: number | null
           created_at: string | null
-          created_by: string
+          created_by: string | null
           dealer_id: string | null
           description: string | null
           description_long: string | null
@@ -4535,7 +4535,7 @@ export type Database = {
           contact_phone?: string | null
           contact_reveals_count?: number | null
           created_at?: string | null
-          created_by: string
+          created_by?: string | null
           dealer_id?: string | null
           description?: string | null
           description_long?: string | null
@@ -4576,7 +4576,7 @@ export type Database = {
           contact_phone?: string | null
           contact_reveals_count?: number | null
           created_at?: string | null
-          created_by?: string
+          created_by?: string | null
           dealer_id?: string | null
           description?: string | null
           description_long?: string | null
