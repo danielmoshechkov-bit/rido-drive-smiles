@@ -1,5 +1,5 @@
 // GetRido Maps - Fleet Live Map for Admin/Fleet Manager
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Map, { Marker, Popup, NavigationControl, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Car, Truck, RefreshCw, Signal, Clock, Gauge, Target, AlertTriangle, Crosshair } from 'lucide-react';
@@ -27,7 +27,9 @@ const FleetLiveMap = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [showOnlyActive, setShowOnlyActive] = useState(true);
+  const [showOnlyDriving, setShowOnlyDriving] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [hasPermission, setHasPermission] = useState(true);
   const [hasPermission, setHasPermission] = useState(true);
 
   // Load saved view state from localStorage
@@ -109,8 +111,17 @@ const FleetLiveMap = () => {
     });
   };
 
-  // Filter displayed drivers based on showOnlyActive toggle
-  const displayedDrivers = showOnlyActive ? drivers : allDrivers;
+  // Filter displayed drivers based on toggles
+  const displayedDrivers = useMemo(() => {
+    let filtered = showOnlyActive ? drivers : allDrivers;
+    
+    // Filter by driving status (speed >= 8 km/h)
+    if (showOnlyDriving) {
+      filtered = filtered.filter(d => d.speed && d.speed * 3.6 >= 8);
+    }
+    
+    return filtered;
+  }, [showOnlyActive, showOnlyDriving, drivers, allDrivers]);
 
   // Calculate center based on drivers or use saved/default
   const center = savedViewState 
@@ -155,6 +166,15 @@ const FleetLiveMap = () => {
                 onCheckedChange={(checked) => setShowOnlyActive(!!checked)}
               />
               <span>Tylko aktywni (≤30s)</span>
+            </label>
+
+            {/* Driving filter toggle */}
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox 
+                checked={showOnlyDriving}
+                onCheckedChange={(checked) => setShowOnlyDriving(!!checked)}
+              />
+              <span>Tylko jadący (≥8 km/h)</span>
             </label>
             
             {/* Counter badge */}
