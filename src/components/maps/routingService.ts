@@ -66,6 +66,9 @@ const OSRM_API = 'https://router.project-osrm.org';
 // Nominatim (OSM Geocoding)
 const NOMINATIM_API = 'https://nominatim.openstreetmap.org';
 
+// Routing profiles
+export type RoutingProfile = 'driving' | 'walking' | 'cycling';
+
 /**
  * Geocode an address to coordinates using Nominatim
  */
@@ -111,9 +114,10 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
 export async function calculateRoute(
   start: Coordinates,
   end: Coordinates,
-  options?: { alternatives?: boolean; isAlternative?: boolean; includeSteps?: boolean }
+  options?: { alternatives?: boolean; isAlternative?: boolean; includeSteps?: boolean; profile?: RoutingProfile }
 ): Promise<RouteResult | null> {
   try {
+    const profile = options?.profile || 'driving';
     // OSRM expects coordinates in lng,lat format
     const coordinates = `${start.lng},${start.lat};${end.lng},${end.lat}`;
     
@@ -130,7 +134,7 @@ export async function calculateRoute(
     }
 
     const response = await fetch(
-      `${OSRM_API}/route/v1/driving/${coordinates}?${params}`
+      `${OSRM_API}/route/v1/${profile}/${coordinates}?${params}`
     );
 
     if (!response.ok) {
@@ -198,7 +202,8 @@ export async function calculateRoute(
  */
 export async function calculateRoutesWithOptions(
   start: Coordinates,
-  end: Coordinates
+  end: Coordinates,
+  profile: RoutingProfile = 'driving'
 ): Promise<RouteOption[]> {
   try {
     const coordinates = `${start.lng},${start.lat};${end.lng},${end.lat}`;
@@ -211,7 +216,7 @@ export async function calculateRoutesWithOptions(
     });
 
     const response = await fetch(
-      `${OSRM_API}/route/v1/driving/${coordinates}?${params}`
+      `${OSRM_API}/route/v1/${profile}/${coordinates}?${params}`
     );
 
     if (!response.ok) {

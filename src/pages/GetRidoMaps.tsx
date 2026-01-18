@@ -3,9 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Loader2, ShieldX } from 'lucide-react';
+import { ArrowLeft, Loader2, ShieldX, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import MapsLayout from '@/components/maps/MapsLayout';
 
 const GetRidoMaps = () => {
@@ -14,6 +24,8 @@ const GetRidoMaps = () => {
   const { isVisible, loading: visibilityLoading } = useModuleVisibility('maps');
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -65,38 +77,79 @@ const GetRidoMaps = () => {
     );
   }
 
+  const handleBackToPortal = () => {
+    // Check if navigation is active (we'll pass this from MapsLayout in future)
+    // For now, just navigate - the MapsLayout will handle cleanup
+    if (isNavigating) {
+      setShowExitConfirm(true);
+    } else {
+      navigate('/easy');
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    // Navigation will be stopped by MapsLayout unmounting
+    navigate('/easy');
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* Minimal Header */}
-      <header className="border-b bg-card h-12 flex items-center px-4 flex-shrink-0">
+      {/* Minimal Header with Back to Portal */}
+      <header className="border-b bg-card/95 backdrop-blur-md h-12 flex items-center px-3 flex-shrink-0 z-50">
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => navigate(-1)}
+          size="sm"
+          className="gap-1.5 text-sm font-medium hover:bg-primary/10"
+          onClick={handleBackToPortal}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <Home className="h-4 w-4" />
+          <span className="hidden sm:inline">Wróć do portalu</span>
         </Button>
+        
+        <div className="flex-1" />
+        
         <span 
-          className="font-bold ml-2 cursor-pointer"
+          className="font-bold text-sm cursor-pointer"
           onClick={() => navigate('/')}
         >
-          GetRido
+          GetRido <span className="text-primary">Maps</span>
         </span>
+        
+        <div className="flex-1" />
+        
         {role === 'admin' && (
           <Button 
             size="sm" 
             variant="outline" 
-            className="ml-auto h-7 text-xs"
+            className="h-7 text-xs"
             onClick={() => navigate('/admin/mapy')}
           >
-            Panel Admin
+            Admin
           </Button>
         )}
       </header>
       
       {/* Main Maps Layout */}
       <MapsLayout />
+      
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nawigacja aktywna</AlertDialogTitle>
+            <AlertDialogDescription>
+              Nawigacja jest aktywna. Czy na pewno chcesz zakończyć i wrócić do portalu?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit}>
+              Zakończ i wróć
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -10,6 +10,7 @@ import { MapPOIPartnersPanel } from '@/components/admin/MapPOIPartnersPanel';
 import { MapReportsModerationPanel } from '@/components/admin/MapReportsModerationPanel';
 import { MapWalletPanel } from '@/components/admin/MapWalletPanel';
 import { MapStyleEditorPanel } from '@/components/admin/MapStyleEditorPanel';
+import ParkingZonesPanel from '@/components/admin/ParkingZonesPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Map, Loader2 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ const AdminMaps = () => {
     { label: 'Konfiguracja', value: 'config', visible: true },
     { label: 'Nawigacja', value: 'navigation', visible: true },
     { label: 'Widoczność', value: 'visibility', visible: true },
+    { label: 'Parking (SPP)', value: 'parking', visible: true },
     { label: 'Dane / Źródła', value: 'sources', visible: true },
     { label: 'POI Partnerzy', value: 'poi', visible: true },
     { label: 'Moderacja', value: 'moderation', visible: true },
@@ -83,6 +85,7 @@ const AdminMaps = () => {
           {activeSubTab === 'config' && <MapsConfigPanel />}
           {activeSubTab === 'navigation' && <NavigationConfigPanel />}
           {activeSubTab === 'visibility' && <MapsVisibilityPanel />}
+          {activeSubTab === 'parking' && <ParkingZonesPanel />}
           {activeSubTab === 'sources' && <MapDataSourcesPanel />}
           {activeSubTab === 'poi' && <MapPOIPartnersPanel />}
           {activeSubTab === 'moderation' && <MapReportsModerationPanel />}

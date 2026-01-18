@@ -1,4 +1,5 @@
 // GetRido Maps - Mobile Route Form (Premium UX)
+import { useState } from 'react';
 import { Navigation, X, Loader2, Zap, GitBranch, Brain, ChevronRight, Route, AlertTriangle, Locate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { Coordinates } from './routingService';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
 import { RiskAssessment } from './routeRiskService';
+import TripModeSelector, { TripMode } from './TripModeSelector';
 
 interface MobileRouteFormProps {
   routing: RoutingState & {
@@ -45,6 +47,8 @@ const MobileRouteForm = ({
   ridoAiAlternative,
   onUseRidoAiAlternative,
 }: MobileRouteFormProps) => {
+  const [tripMode, setTripMode] = useState<TripMode>('driving');
+  
   const {
     startInput, endInput, route, alternativeRoute, showAlternative, isLoading, error,
     aiAnalysis, isAnalyzing, routeOptions, selectedRouteMode,
@@ -54,6 +58,14 @@ const MobileRouteForm = ({
 
   const handleCalculateRoute = () => {
     if (!isLoading) calculateRoute();
+  };
+
+  const handleTripModeChange = (mode: TripMode) => {
+    setTripMode(mode);
+    // Recalculate route if we have one
+    if (route) {
+      calculateRoute();
+    }
   };
 
   const handleUseMyLocation = () => {
@@ -175,16 +187,29 @@ const MobileRouteForm = ({
 
       {/* Route Info - Premium Cards */}
       {route && (
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t">
-          <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl text-center">
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">Odległość</span>
-            <p className="font-bold text-2xl mt-1">{route.distance.toFixed(1)}</p>
-            <span className="text-sm text-muted-foreground">km</span>
+        <div className="space-y-4 pt-3 border-t">
+          {/* Trip Mode Selector */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tryb podróży</Label>
+            <TripModeSelector 
+              selected={tripMode} 
+              onChange={handleTripModeChange}
+              disabled={isLoading || navigation.isNavigating}
+            />
           </div>
-          <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl text-center">
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">Czas</span>
-            <p className="font-bold text-2xl mt-1">{Math.round(route.duration)}</p>
-            <span className="text-sm text-muted-foreground">min</span>
+          
+          {/* Distance/Duration cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl text-center">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Odległość</span>
+              <p className="font-bold text-2xl mt-1">{route.distance.toFixed(1)}</p>
+              <span className="text-sm text-muted-foreground">km</span>
+            </div>
+            <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl text-center">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Czas</span>
+              <p className="font-bold text-2xl mt-1">{Math.round(route.duration)}</p>
+              <span className="text-sm text-muted-foreground">min</span>
+            </div>
           </div>
         </div>
       )}

@@ -25,6 +25,7 @@ import tileCars from "@/assets/tile-cars.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
+import tileMaps from "@/assets/tile-maps.jpg";
 
 interface MarketplaceTile {
   id: string;
@@ -247,9 +248,9 @@ export default function EasyHub() {
       tiles.push({
         id: 'maps',
         title: 'Mapy',
-        description: 'GetRido Maps',
+        description: 'Nawigacja GetRido Maps',
         icon: Map,
-        image: null,
+        image: tileMaps,
         link: '/mapy',
         available: true
       });
