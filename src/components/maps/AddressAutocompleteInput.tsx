@@ -14,9 +14,6 @@ interface AddressAutocompleteInputProps {
   placeholder: string;
   markerColor: 'green' | 'red';
   disabled?: boolean;
-  // GPS support (only for start field)
-  gpsLocation?: { latitude: number; longitude: number } | null;
-  onUseMyLocation?: () => void;
   // Field type for separate history
   fieldType?: 'start' | 'end';
 }
@@ -28,8 +25,6 @@ export function AddressAutocompleteInput({
   placeholder,
   markerColor,
   disabled = false,
-  gpsLocation,
-  onUseMyLocation,
   fieldType,
 }: AddressAutocompleteInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,21 +111,6 @@ export function AddressAutocompleteInput({
     }
   };
 
-  const handleUseMyLocation = () => {
-    if (onUseMyLocation && gpsLocation) {
-      onUseMyLocation();
-      setShowHistory(false);
-      
-      // Save to start history only
-      addressHistoryService.addStartEntry({
-        displayName: 'Twoja lokalizacja',
-        shortName: 'Twoja lokalizacja',
-        lat: gpsLocation.latitude,
-        lng: gpsLocation.longitude,
-        type: 'my_location',
-      });
-    }
-  };
 
   const handleClearHistory = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -181,24 +161,9 @@ export function AddressAutocompleteInput({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* GPS button for start field */}
-      {markerColor === 'green' && gpsLocation && onUseMyLocation && (
-        <button
-          type="button"
-          onClick={handleUseMyLocation}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-500/10 
-                     text-blue-600 rounded-full border border-blue-500/20 
-                     hover:bg-blue-500/20 transition-colors mb-2"
-        >
-          <Locate className="h-3.5 w-3.5" />
-          Twoja lokalizacja
-        </button>
-      )}
-      
       {/* Marker indicator */}
       <div
         className={`absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full ${markerBgColor} z-10`}
-        style={{ top: markerColor === 'green' && gpsLocation && onUseMyLocation ? 'calc(50% + 14px)' : '50%' }}
       />
 
       {/* Input */}
@@ -215,8 +180,7 @@ export function AddressAutocompleteInput({
 
       {/* Loading indicator */}
       {autocomplete.isLoading && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2"
-             style={{ top: markerColor === 'green' && gpsLocation && onUseMyLocation ? 'calc(50% + 14px)' : '50%' }}>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       )}
