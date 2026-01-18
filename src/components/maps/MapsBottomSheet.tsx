@@ -75,18 +75,13 @@ const MapsBottomSheet = ({
     setIsOpen(false);
   };
 
-  // RidoAI Mascot SVG (compact version for bottom sheet)
-  const RidoMascotCompact = () => (
-    <svg viewBox="0 0 40 40" width={40} height={40} className="flex-shrink-0">
-      <circle cx="20" cy="20" r="18" fill="white" stroke={RIDO_THEME_COLORS.violetPrimary} strokeWidth="2" />
-      <path d="M8 10 L12 17 L9 15 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
-      <path d="M32 10 L28 17 L31 15 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
-      <circle cx="14" cy="18" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
-      <circle cx="26" cy="18" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
-      <circle cx="14" cy="18" r="1.2" fill={RIDO_THEME_COLORS.violetDark} />
-      <circle cx="26" cy="18" r="1.2" fill={RIDO_THEME_COLORS.violetDark} />
-      <path d="M13 26 Q20 32 27 26" stroke={RIDO_THEME_COLORS.goldAccent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    </svg>
+  // RidoAI Mascot - używamy prawdziwego obrazka maskotki GetRido
+  const RidoMascotImage = () => (
+    <img 
+      src="/lovable-uploads/getrido-mascot-email.png" 
+      alt="Rido AI"
+      className="h-10 w-10 flex-shrink-0 object-contain"
+    />
   );
 
   // In landscape mode, show only minimal compact bar
@@ -151,15 +146,15 @@ const MapsBottomSheet = ({
               </div>
             </>
           ) : (
-            /* RidoAI Start Card - Mascot says "Napisz gdzie chcesz jechać" */
+            /* RidoAI Start Card - Mascot says "Napisz AI gdzie chcesz jechać" */
             <div className="flex items-start gap-3 w-full">
               <div className="relative">
-                <RidoMascotCompact />
+                <RidoMascotImage />
                 {/* Subtle gold ring */}
                 <div className="absolute inset-0 rounded-full border-2 border-amber-400/30 animate-pulse" style={{ margin: '-2px' }} />
               </div>
               <div className="flex-1 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20 p-3">
-                <p className="font-semibold text-sm text-foreground">Napisz gdzie chcesz jechać 🚗</p>
+                <p className="font-semibold text-sm text-foreground">Napisz AI gdzie chcesz jechać 🚗</p>
                 <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />
                   Powered by Rido AI
