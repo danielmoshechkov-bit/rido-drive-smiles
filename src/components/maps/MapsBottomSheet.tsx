@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Navigation, Route, Activity, ChevronUp } from 'lucide-react';
+import { Navigation, Route, Activity } from 'lucide-react';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
@@ -11,6 +11,7 @@ import { RiskAssessment } from './routeRiskService';
 import MobileRouteForm from './MobileRouteForm';
 import MobileNavigationTab from './MobileNavigationTab';
 import MobileStatusTab from './MobileStatusTab';
+import { RIDO_THEME_COLORS } from './ridoMapTheme';
 
 interface MapsBottomSheetProps {
   routing: RoutingState & {
@@ -71,16 +72,29 @@ const MapsBottomSheet = ({
     setIsOpen(false);
   };
 
+  // RidoAI Mascot SVG (compact version for bottom sheet)
+  const RidoMascotCompact = () => (
+    <svg viewBox="0 0 40 40" width={40} height={40} className="flex-shrink-0">
+      <circle cx="20" cy="20" r="18" fill="white" stroke={RIDO_THEME_COLORS.violetPrimary} strokeWidth="2" />
+      <path d="M8 10 L12 17 L9 15 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
+      <path d="M32 10 L28 17 L31 15 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
+      <circle cx="14" cy="18" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
+      <circle cx="26" cy="18" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
+      <circle cx="14" cy="18" r="1.2" fill={RIDO_THEME_COLORS.violetDark} />
+      <circle cx="26" cy="18" r="1.2" fill={RIDO_THEME_COLORS.violetDark} />
+      <path d="M13 26 Q20 32 27 26" stroke={RIDO_THEME_COLORS.goldAccent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+
   return (
     <div 
-      className="absolute bottom-0 left-0 right-0 z-40"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-background"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Collapsed handle - RIDO Premium styling */}
       <div 
-        className="bg-card/95 backdrop-blur-md border-t rounded-t-2xl shadow-xl cursor-pointer touch-none rido-bottom-sheet"
+        className="bg-card border-t rounded-t-2xl shadow-xl cursor-pointer touch-none"
         onClick={() => setIsOpen(true)}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-center justify-center py-2.5">
           {/* Gold gradient handle */}
@@ -88,7 +102,7 @@ const MapsBottomSheet = ({
         </div>
         
         {/* Mini preview - Premium styling */}
-        <div className="px-4 pb-4 flex items-center justify-between">
+        <div className="px-4 pb-3 flex items-center justify-between">
           {route ? (
             <>
               <div className="flex items-center gap-3">
@@ -107,13 +121,29 @@ const MapsBottomSheet = ({
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-3 text-muted-foreground w-full">
-              <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center">
-                <ChevronUp className="h-5 w-5" />
+            /* RidoAI Start Card - Mascot says "Napisz gdzie chcesz jechać" */
+            <div className="flex items-start gap-3 w-full">
+              <div className="relative">
+                <RidoMascotCompact />
+                {/* Subtle gold ring */}
+                <div className="absolute inset-0 rounded-full border-2 border-amber-400/30 animate-pulse" style={{ margin: '-2px' }} />
               </div>
-              <span className="text-sm font-medium">Dotknij aby wyszukać trasę</span>
+              <div className="flex-1 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20 p-3">
+                <p className="font-semibold text-sm text-foreground">Napisz gdzie chcesz jechać 🚗</p>
+                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />
+                  Powered by Rido AI
+                </p>
+              </div>
             </div>
           )}
+        </div>
+        
+        {/* Subtle OSM attribution */}
+        <div className="px-4 pb-2">
+          <p className="text-[9px] text-muted-foreground/50 text-center">
+            © OpenStreetMap · OSRM
+          </p>
         </div>
       </div>
       

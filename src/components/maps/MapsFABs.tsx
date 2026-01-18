@@ -1,10 +1,9 @@
 // GetRido Maps - Floating Action Buttons for Mobile (Premium RIDO styling)
-import { Locate, Layers, Truck, Sun, Moon } from 'lucide-react';
+import { Locate, Layers, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
-import { useUserRole } from '@/hooks/useUserRole';
-import { RidoMapTheme, getSavedTheme, saveTheme, getDefaultTheme } from './ridoMapTheme';
+import { RidoMapTheme, saveTheme, getDefaultTheme } from './ridoMapTheme';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MapsFABsProps {
@@ -14,19 +13,12 @@ interface MapsFABsProps {
 }
 
 const MapsFABs = ({ gps, navigation, onThemeChange }: MapsFABsProps) => {
-  const { roles } = useUserRole();
   const [mapTheme, setMapTheme] = useState<RidoMapTheme>(() => getDefaultTheme());
   
   // Sync theme on mount
   useEffect(() => {
     setMapTheme(getDefaultTheme());
   }, []);
-  
-  // Check if user has fleet access (driver, fleet manager, or admin)
-  const hasFleetAccess = roles.includes('admin') || 
-                         roles.includes('fleet_rental') || 
-                         roles.includes('fleet_settlement') ||
-                         roles.includes('driver');
 
   const handleCenterOnMe = () => {
     if (gps.hasConsent && gps.location) {
@@ -91,39 +83,21 @@ const MapsFABs = ({ gps, navigation, onThemeChange }: MapsFABsProps) => {
           </TooltipContent>
         </Tooltip>
         
-        {/* Layers (placeholder for future) */}
+        {/* Layers - now toggles theme (combined functionality) */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              className="rido-fab h-12 w-12 rounded-full flex items-center justify-center opacity-50 cursor-not-allowed"
-              aria-label="Warstwy (wkrótce)"
-              disabled
+              onClick={handleToggleTheme}
+              className="rido-fab h-12 w-12 rounded-full flex items-center justify-center"
+              aria-label="Warstwy mapy"
             >
-              <Layers className="h-5 w-5 text-muted-foreground" />
+              <Layers className="h-5 w-5 text-primary" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            <p>Warstwy (wkrótce)</p>
+            <p>Warstwy ({mapTheme === 'light' ? 'Light' : 'Dark'})</p>
           </TooltipContent>
         </Tooltip>
-        
-        {/* Fleet Live (only if driver/fleet/admin) */}
-        {hasFleetAccess && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="rido-fab h-12 w-12 rounded-full flex items-center justify-center opacity-50 cursor-not-allowed"
-                aria-label="Fleet Live (wkrótce)"
-                disabled
-              >
-                <Truck className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Fleet Live (wkrótce)</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
     </TooltipProvider>
   );

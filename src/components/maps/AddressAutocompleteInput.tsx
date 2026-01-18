@@ -84,11 +84,11 @@ export function AddressAutocompleteInput({
   };
 
   const handleBlur = () => {
-    // Delay to allow click on suggestion/history
+    // Delay only as fallback - main close happens via onMouseDown
     setTimeout(() => {
       autocomplete.closeSuggestions();
       setShowHistory(false);
-    }, 200);
+    }, 150);
   };
 
   const handleHistorySelect = (entry: HistoryEntry) => {
@@ -235,7 +235,10 @@ export function AddressAutocompleteInput({
             <div
               key={`${entry.lat}-${entry.lng}-${idx}`}
               className="p-3 cursor-pointer transition-colors hover:bg-accent/50 border-b border-border/30 last:border-b-0"
-              onClick={() => handleHistorySelect(entry)}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent blur before click
+                handleHistorySelect(entry);
+              }}
             >
               <div className="flex items-center gap-2">
                 {entry.type === 'my_location' ? (
@@ -298,7 +301,10 @@ export function AddressAutocompleteInput({
                     ? 'bg-accent'
                     : 'hover:bg-accent/50'
                 }`}
-                onClick={() => autocomplete.handleSelect(suggestion)}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent blur before selection
+                  autocomplete.handleSelect(suggestion);
+                }}
               >
                 <div className="flex items-start gap-2">
                   <div className="text-muted-foreground mt-0.5">
