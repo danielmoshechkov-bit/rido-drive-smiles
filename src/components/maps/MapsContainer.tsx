@@ -1,18 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Layers, Car, Navigation, Route } from 'lucide-react';
+import { MapPin, Layers, Car, Navigation, Route, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DEFAULT_VIEW_STATE, MAP_STYLE } from './mapStyles';
 import { RoutingState } from './useRouting';
+import { GpsState } from './useUserLocation';
 
 interface MapsContainerProps {
   routing: RoutingState;
+  gps: GpsState;
 }
 
-const MapsContainer = ({ routing }: MapsContainerProps) => {
+const MapsContainer = ({ routing, gps }: MapsContainerProps) => {
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
+  const { location, status, centerRequested, clearCenterRequest, hasConsent } = gps;
 
   const handleMove = useCallback((evt: { viewState: typeof DEFAULT_VIEW_STATE }) => {
     setViewState(evt.viewState);
@@ -65,6 +68,18 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
       });
     }
   }, [route, alternativeRoute, showAlternative]);
+
+  // Center on user when requested
+  useEffect(() => {
+    if (centerRequested && location) {
+      setViewState({
+        longitude: location.longitude,
+        latitude: location.latitude,
+        zoom: 15,
+      });
+      clearCenterRequest();
+    }
+  }, [centerRequested, location, clearCenterRequest]);
 
   // Create GeoJSON for main route line
   const routeGeoJSON = route ? {
@@ -182,6 +197,45 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
               </div>
               <div className="relative">
                 <MapPin className="h-8 w-8 text-red-500 drop-shadow-lg" fill="#ef4444" />
+              </div>
+            </div>
+          </Marker>
+        )}
+
+        {/* User Location Marker */}
+        {hasConsent && location && status !== 'inactive' && (
+          <Marker
+            longitude={location.longitude}
+            latitude={location.latitude}
+            anchor="center"
+          >
+            <div className="relative flex items-center justify-center">
+              {/* Accuracy ring */}
+              <div 
+                className="absolute bg-blue-500/10 rounded-full border border-blue-500/30 animate-pulse"
+                style={{ 
+                  width: Math.min(Math.max(location.accuracy * 0.5, 24), 100), 
+                  height: Math.min(Math.max(location.accuracy * 0.5, 24), 100),
+                }}
+              />
+              
+              {/* User dot with heading indicator */}
+              <div className="relative h-5 w-5 bg-blue-600 rounded-full border-2 border-white shadow-lg z-10 flex items-center justify-center">
+                <User className="h-3 w-3 text-white" />
+                
+                {/* Heading arrow */}
+                {location.heading !== null && (
+                  <div 
+                    className="absolute -top-1 left-1/2 w-0 h-0 
+                               border-l-[4px] border-l-transparent 
+                               border-r-[4px] border-r-transparent 
+                               border-b-[6px] border-b-blue-600"
+                    style={{ 
+                      transform: `translateX(-50%) rotate(${location.heading}deg)`,
+                      transformOrigin: 'bottom center',
+                    }}
+                  />
+                )}
               </div>
             </div>
           </Marker>
