@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { MapsVisibilityPanel } from '@/components/admin/MapsVisibilityPanel';
+import { MapsConfigPanel } from '@/components/admin/MapsConfigPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
-import { Map, Settings, Eye, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Map, Loader2 } from 'lucide-react';
 
 const AdminMaps = () => {
   const navigate = useNavigate();
@@ -68,32 +68,7 @@ const AdminMaps = () => {
         />
 
         <div className="mt-6">
-          {activeSubTab === 'config' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Konfiguracja modułu
-                </CardTitle>
-                <CardDescription>
-                  Ustawienia i konfiguracja modułu GetRido Maps
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Map className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">
-                    Moduł w przygotowaniu
-                  </h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Konfiguracja mapy, warstw danych i integracji API będzie
-                    dostępna w kolejnych etapach rozwoju.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
+          {activeSubTab === 'config' && <MapsConfigPanel />}
           {activeSubTab === 'visibility' && <MapsVisibilityPanel />}
         </div>
       </main>

@@ -1,4 +1,4 @@
-// GetRido Maps - Routing Hook
+// GetRido Maps - Routing Hook with GPS Fallback
 import { useState, useCallback } from 'react';
 import { 
   RouteResult, 
@@ -24,7 +24,13 @@ export interface RoutingState {
   isAnalyzing: boolean;
 }
 
-export function useRouting() {
+// Interface for GPS location fallback
+interface GpsLocation {
+  latitude: number;
+  longitude: number;
+}
+
+export function useRouting(gpsLocation?: GpsLocation | null) {
   const [state, setState] = useState<RoutingState>({
     startInput: '',
     endInput: '',
@@ -71,11 +77,13 @@ export function useRouting() {
     }
   }, []);
 
-  const calculateRouteHandler = useCallback(async () => {
+  const calculateRouteHandler = useCallback(async (gpsLocationOverride?: GpsLocation | null) => {
     const { startInput, endInput } = state;
+    const effectiveGpsLocation = gpsLocationOverride ?? gpsLocation;
 
-    if (!startInput.trim() || !endInput.trim()) {
-      setState(prev => ({ ...prev, error: 'Wprowadź punkt początkowy i końcowy' }));
+    // Validate: endInput is required
+    if (!endInput.trim()) {
+      setState(prev => ({ ...prev, error: 'Wprowadź punkt końcowy' }));
       return;
     }
 
@@ -93,19 +101,40 @@ export function useRouting() {
       // Użyj zapisanych współrzędnych z autocomplete lub rozwiąż adres
       let resolvedStartCoords = state.startCoords;
       let resolvedEndCoords = state.endCoords;
+      let usedGpsFallback = false;
 
-      // Resolve start location jeśli nie mamy współrzędnych
+      // Resolve start location
       if (!resolvedStartCoords) {
-        const startLocation = await resolveLocation(startInput);
-        if (!startLocation) {
+        if (startInput.trim()) {
+          // User typed something - resolve it
+          const startLocation = await resolveLocation(startInput);
+          if (!startLocation) {
+            setState(prev => ({ 
+              ...prev, 
+              isLoading: false, 
+              error: 'Nie znaleziono punktu początkowego' 
+            }));
+            return;
+          }
+          resolvedStartCoords = { lat: startLocation.lat, lng: startLocation.lng };
+        } else if (effectiveGpsLocation) {
+          // No input - use GPS fallback
+          resolvedStartCoords = { 
+            lat: effectiveGpsLocation.latitude, 
+            lng: effectiveGpsLocation.longitude 
+          };
+          usedGpsFallback = true;
+          // Update the input to show we're using GPS
+          setState(prev => ({ ...prev, startInput: 'Twoja lokalizacja' }));
+        } else {
+          // No input and no GPS
           setState(prev => ({ 
             ...prev, 
             isLoading: false, 
-            error: 'Nie znaleziono punktu początkowego' 
+            error: 'Wprowadź punkt początkowy lub włącz GPS' 
           }));
           return;
         }
-        resolvedStartCoords = { lat: startLocation.lat, lng: startLocation.lng };
       }
 
       // Resolve end location jeśli nie mamy współrzędnych
@@ -154,7 +183,7 @@ export function useRouting() {
         error: 'Wystąpił błąd podczas wyznaczania trasy' 
       }));
     }
-  }, [state.startInput, state.endInput, runAiAnalysis]);
+  }, [state.startInput, state.endInput, state.startCoords, state.endCoords, gpsLocation, runAiAnalysis]);
 
   const calculateAlternative = useCallback(async () => {
     const { startCoords, endCoords } = state;
