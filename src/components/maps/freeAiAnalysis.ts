@@ -104,6 +104,18 @@ function calculateRiskScore(
 }
 
 /**
+ * Get friendly user message based on risk level (no technical jargon)
+ */
+export function getFriendlyMessage(riskLevel: 'low' | 'medium' | 'high'): string {
+  const messages = {
+    low: 'Trasa wygląda dobrze. Jedź spokojnie! 🚗',
+    medium: 'Możliwe lekkie utrudnienia na trasie. Zachowaj czujność.',
+    high: 'Wykryto utrudnienia. Rozważ alternatywną trasę.',
+  };
+  return messages[riskLevel];
+}
+
+/**
  * Generate analysis messages based on route and context
  */
 function generateMessages(
@@ -117,42 +129,35 @@ function generateMessages(
   // Peak hours message
   if (timeContext.isPeakHours) {
     if (timeContext.hour >= 7 && timeContext.hour <= 9) {
-      messages.push('GetRido AI przewiduje wzmożony ruch w godzinach porannego szczytu (7-9).');
+      messages.push('Wzmożony ruch poranny (7-9). Możliwe spowolnienia.');
     } else {
-      messages.push('GetRido AI przewiduje wzmożony ruch w godzinach popołudniowego szczytu (16-19).');
+      messages.push('Wzmożony ruch popołudniowy (16-19). Możliwe spowolnienia.');
     }
   }
   
   // Distance-based messages
   if (route.distance > 30) {
-    messages.push('Na podstawie analizy trasy: długa trasa może być podatna na zmienne warunki.');
+    messages.push('Długa trasa – warunki mogą się zmieniać.');
   }
   
-  // Road type messages
+  // Road type messages (simplified)
   if (roadType === 'mixed') {
-    messages.push('Trasa przebiega przez różne typy dróg - możliwe lokalne spowolnienia.');
-  } else if (roadType === 'main') {
-    messages.push('Trasa prowadzi głównie drogami głównymi.');
-  }
-  
-  // Time-specific messages
-  if (timeContext.timeOfDay === 'evening' && !timeContext.isWeekend) {
-    messages.push('W godzinach 16–18 możliwe opóźnienia na trasach wylotowych.');
+    messages.push('Trasa przez różne typy dróg.');
   }
   
   // Weekend message
   if (timeContext.isWeekend) {
-    messages.push('Weekend - GetRido AI przewiduje mniejszy ruch niż w dni robocze.');
+    messages.push('Weekend – mniejszy ruch niż w dni robocze.');
   }
   
   // High risk message
   if (riskScore > 50) {
-    messages.push('Alternatywna trasa może być korzystniejsza w obecnych warunkach.');
+    messages.push('Warto sprawdzić alternatywną trasę.');
   }
   
   // Default message if no specific conditions
   if (messages.length === 0) {
-    messages.push('Na podstawie analizy trasy: warunki przejazdu wydają się optymalne.');
+    messages.push('Warunki przejazdu wyglądają optymalnie.');
   }
   
   return messages;

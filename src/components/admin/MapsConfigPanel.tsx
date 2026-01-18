@@ -10,20 +10,24 @@ import { Settings, Map, Loader2, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STYLE_PRESETS = [
+  // RIDO Premium Styles (first)
+  { 
+    name: 'RIDO Light ✨', 
+    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    description: 'Premium jasny styl GetRido',
+    isRido: true,
+  },
+  { 
+    name: 'RIDO Dark ✨', 
+    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    description: 'Premium ciemny styl GetRido',
+    isRido: true,
+  },
+  // Standard styles
   { 
     name: 'CartoDB Voyager', 
     url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    description: 'Domyślny styl z kolorową mapą'
-  },
-  { 
-    name: 'CartoDB Dark', 
-    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    description: 'Ciemny styl nocny'
-  },
-  { 
-    name: 'CartoDB Light', 
-    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    description: 'Jasny minimalistyczny styl'
+    description: 'Kolorowa mapa z detalami'
   },
   { 
     name: 'Stadia OSM Bright', 

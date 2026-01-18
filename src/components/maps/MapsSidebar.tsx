@@ -1,4 +1,4 @@
-import { Map, Sparkles, AlertTriangle, Loader2, Navigation, X, Route, Brain, ChevronRight, Clock, TrendingUp, Zap, GitBranch } from 'lucide-react';
+import { Map, Sparkles, AlertTriangle, Loader2, Navigation, X, Route, Clock, TrendingUp, Zap, GitBranch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,6 @@ import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { Coordinates } from './routingService';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
-
 interface MapsSidebarProps {
   routing: RoutingState & {
     setStartInput: (value: string) => void;
@@ -146,14 +145,14 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
         </div>
       )}
 
-      {/* Navigate Button - NEW */}
+      {/* Navigate Button - Premium CTA */}
       {canNavigate && (
         <div className="px-4 pb-4">
           <Button 
-            className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+            className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg gap-3"
             onClick={navigation.startNavigation}
           >
-            <Navigation className="h-4 w-4" />
+            <Navigation className="h-6 w-6" />
             Prowadź do celu
           </Button>
         </div>
@@ -174,65 +173,75 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
         </div>
       )}
 
-      {/* Route Info */}
+      {/* Route Info - Premium Large Numbers */}
       <div className="p-4 border-t bg-muted/30">
         <Label className="text-xs text-muted-foreground uppercase tracking-wide">Informacje o trasie</Label>
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <div className="p-3 bg-background rounded-lg border">
-            <span className="text-xs text-muted-foreground">Odległość</span>
-            <p className="font-semibold text-lg">{route ? `${route.distance.toFixed(1)} km` : '— km'}</p>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          <div className="p-3 bg-background rounded-xl border text-center">
+            <p className="text-2xl font-bold text-foreground">{route ? route.distance.toFixed(1) : '—'}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">km</p>
           </div>
-          <div className="p-3 bg-background rounded-lg border">
-            <span className="text-xs text-muted-foreground">Czas</span>
-            <p className="font-semibold text-lg">{route ? `${Math.round(route.duration)} min` : '— min'}</p>
+          <div className="p-3 bg-background rounded-xl border text-center">
+            <p className="text-2xl font-bold text-foreground">{route ? Math.round(route.duration) : '—'}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">min</p>
+          </div>
+          <div className="p-3 bg-primary/10 rounded-xl border border-primary/20 text-center">
+            <p className="text-2xl font-bold text-primary">
+              {route ? (() => {
+                const eta = new Date(Date.now() + route.duration * 60000);
+                return `${eta.getHours().toString().padStart(2, '0')}:${eta.getMinutes().toString().padStart(2, '0')}`;
+              })() : '--:--'}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">przyjazd</p>
           </div>
         </div>
       </div>
 
-      {/* AI FREE Analysis Section */}
+      {/* AI FREE Analysis Section - Simplified Premium */}
       {route && !navigation.isNavigating && (
         <div className="p-4 border-t space-y-3">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">GetRido AI – analiza FREE</Label>
-          </div>
-          
           {isAnalyzing ? (
-            <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 animate-pulse">
+            <div className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20 animate-pulse">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                <span className="text-xs text-primary">Analizuję trasę...</span>
+                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                <span className="text-sm text-primary font-medium">RidoAI analizuje trasę...</span>
               </div>
             </div>
           ) : aiAnalysis ? (
             <div className="space-y-3">
-              <div className="p-3 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                <div className="space-y-2">
-                  {aiAnalysis.messages.map((message, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <ChevronRight className="h-3 w-3 text-primary mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-foreground/80">{message}</p>
-                    </div>
-                  ))}
+              {/* Main AI Card - Friendly Message */}
+              <div className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-sm">RidoAI przeanalizowało trasę</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">FREE</Badge>
                 </div>
+                <p className="text-sm text-foreground/80">
+                  {aiAnalysis.riskLevel === 'low' ? 'Trasa wygląda dobrze. Jedź spokojnie! 🚗' : 
+                   aiAnalysis.riskLevel === 'medium' ? 'Możliwe lekkie utrudnienia. Zachowaj czujność.' : 
+                   'Wykryto utrudnienia. Rozważ alternatywną trasę.'}
+                </p>
+                
                 {aiAnalysis.estimatedDelay && aiAnalysis.estimatedDelay > 0 && (
                   <div className="mt-3 pt-2 border-t border-primary/10 flex items-center gap-2">
                     <Clock className="h-3 w-3 text-amber-500" />
-                    <span className="text-xs text-amber-600">Szacowane opóźnienie: +{aiAnalysis.estimatedDelay} min</span>
+                    <span className="text-xs text-amber-600">Możliwe opóźnienie: +{aiAnalysis.estimatedDelay} min</span>
                   </div>
                 )}
               </div>
               
-              <div className="flex items-center justify-between p-2 bg-background rounded-lg border">
+              {/* Risk Level */}
+              <div className="flex items-center justify-between p-3 bg-background rounded-xl border">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Poziom ryzyka:</span>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Poziom ryzyka</span>
                 </div>
                 <Badge variant="outline" className={`text-xs ${aiAnalysis.riskLevel === 'low' ? 'bg-green-500/10 text-green-600 border-green-500/30' : aiAnalysis.riskLevel === 'medium' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
                   {aiAnalysis.riskLevel === 'low' ? 'Niski' : aiAnalysis.riskLevel === 'medium' ? 'Średni' : 'Wysoki'}
                 </Badge>
               </div>
               
+              {/* Alternative Route Button */}
               {aiAnalysis.suggestAlternative && !alternativeRoute && (
                 <Button variant="outline" className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/5" onClick={calculateAlternative} disabled={isLoading}>
                   <Route className="h-4 w-4" />
@@ -240,8 +249,9 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
                 </Button>
               )}
               
+              {/* Alternative Route Info */}
               {alternativeRoute && (
-                <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Route className="h-4 w-4 text-amber-600" />
@@ -256,7 +266,7 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
                     <div><span className="text-muted-foreground">Czas:</span><span className="ml-1 font-medium">{Math.round(alternativeRoute.duration)} min</span></div>
                   </div>
                   {timeDifference !== 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">Różnica: {timeDifference > 0 ? '+' : ''}{timeDifference} min względem trasy głównej</p>
+                    <p className="text-xs text-muted-foreground mt-2">Różnica: {timeDifference > 0 ? '+' : ''}{timeDifference} min</p>
                   )}
                 </div>
               )}

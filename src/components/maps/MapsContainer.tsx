@@ -123,11 +123,21 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
           </Source>
         )}
         
+        {/* RIDO Premium Markers */}
         {startCoords && (
           <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <div className="bg-green-500 text-white px-2 py-1 rounded-lg text-xs font-medium shadow-lg mb-1">START</div>
-              <MapPin className="h-8 w-8 text-green-500 drop-shadow-lg" fill="#22c55e" />
+              <div className="relative">
+                <div className="h-10 w-10 rounded-full bg-green-500 border-[3px] border-white shadow-lg flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-white" />
+                </div>
+                <img 
+                  src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
+                  alt="RIDO" 
+                  className="absolute -top-1 -right-1 h-5 w-5"
+                />
+              </div>
+              <div className="bg-green-500 text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg mt-1">START</div>
             </div>
           </Marker>
         )}
@@ -135,8 +145,10 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
         {endCoords && (
           <Marker longitude={endCoords.lng} latitude={endCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <div className="bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-medium shadow-lg mb-1">CEL</div>
-              <MapPin className="h-8 w-8 text-red-500 drop-shadow-lg" fill="#ef4444" />
+              <div className="h-10 w-10 rounded-full bg-primary border-[3px] border-white shadow-lg flex items-center justify-center">
+                <Navigation className="h-5 w-5 text-white" />
+              </div>
+              <div className="bg-primary text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg mt-1">CEL</div>
             </div>
           </Marker>
         )}
