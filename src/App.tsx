@@ -10,6 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminRealEstate from "./pages/AdminRealEstate";
 import AdminMarketplace from "./pages/AdminMarketplace";
+import AdminMaps from "./pages/AdminMaps";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import RegisterSuccess from "./pages/RegisterSuccess";
@@ -37,6 +38,7 @@ import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import FleetLanding from "./pages/FleetLanding";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
+import GetRidoMaps from "./pages/GetRidoMaps";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -70,6 +72,8 @@ const App = () => (
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/marketplace" element={<AdminMarketplace />} />
             <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
+            <Route path="/admin/mapy" element={<AdminMaps />} />
+            <Route path="/mapy" element={<GetRidoMaps />} />
             <Route path="/fleet/dashboard" element={<FleetDashboard />} />
             <Route path="/admin/system-alerts" element={<SystemAlerts />} />
             <Route path="/admin/fleet/:id" element={<FleetVehicleDetails />} />

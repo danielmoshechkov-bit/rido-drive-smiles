@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +39,13 @@ const portals: Portal[] = [
     path: '/admin/marketplace',
     description: 'Zarządzanie giełdą pojazdów',
   },
+  {
+    id: 'maps',
+    name: 'Mapy',
+    icon: Map,
+    path: '/admin/mapy',
+    description: 'Zarządzanie modułem map',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -51,6 +58,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/admin/marketplace')) {
       return portals.find((p) => p.id === 'marketplace');
+    }
+    if (location.pathname.includes('/admin/mapy')) {
+      return portals.find((p) => p.id === 'maps');
     }
     return portals.find((p) => p.id === 'fleet');
   };
