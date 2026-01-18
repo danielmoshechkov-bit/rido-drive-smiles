@@ -1,4 +1,5 @@
 // GetRido Maps - Mobile Navigation Bar (Yandex-style bottom stats bar)
+import { useState, useEffect, useRef } from 'react';
 import { X, Locate, AlertTriangle, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -43,9 +44,25 @@ const MobileNavigationBar = ({
     toggleFollowMode 
   } = navigation;
 
-  const speedKmh = gps.location?.speed 
-    ? Math.round(gps.location.speed * 3.6) 
-    : null;
+  // Auto-collapse after 5 seconds of inactivity
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const lastInteractionRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastInteractionRef.current;
+      if (elapsed > 5000 && !isCollapsed) {
+        setIsCollapsed(true);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isCollapsed]);
+
+  const handleTouch = () => {
+    lastInteractionRef.current = Date.now();
+    setIsCollapsed(false);
+  };
 
   const accuracyM = gps.location?.accuracy 
     ? Math.round(gps.location.accuracy) 
@@ -82,10 +99,48 @@ const MobileNavigationBar = ({
   // Calculate progress (0-100)
   const progress = Math.max(0, Math.min(100, (1 - remainingDistance / (remainingDistance + 1)) * 100));
 
+  // Collapsed minimal view
+  if (isCollapsed) {
+    return (
+      <div 
+        className="absolute bottom-0 left-0 right-0 z-40"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={handleTouch}
+      >
+        <div className="bg-card/98 backdrop-blur-xl border-t shadow-lg">
+          <div className="h-11 flex items-center justify-around px-4">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm">{remainingDistance.toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground">km</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm text-primary">
+                {eta ? format(eta, 'HH:mm') : '—'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm">{Math.round(remainingDuration)}</span>
+              <span className="text-xs text-muted-foreground">min</span>
+            </div>
+            <Button 
+              size="sm" 
+              variant="destructive" 
+              onClick={(e) => { e.stopPropagation(); stopNavigation(); }}
+              className="h-7 w-7 p-0 rounded-lg"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="absolute bottom-0 left-0 right-0 z-40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      onClick={handleTouch}
     >
       {/* Lane Guidance Bar (above main bar) */}
       {showLaneGuidance && lanes && lanes.length > 0 && (
@@ -130,15 +185,32 @@ const MobileNavigationBar = ({
             <p className="text-xs text-muted-foreground">czas</p>
           </div>
 
-          {/* Close button */}
-          <Button 
-            size="sm" 
-            variant="destructive" 
-            onClick={stopNavigation}
-            className="h-10 w-10 p-0 rounded-xl shadow-lg"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          {/* GPS + Close buttons */}
+          <div className="flex items-center gap-2">
+            {isWeakSignal && (
+              <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+              </div>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFollowMode(); }}
+              className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all ${
+                followMode 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              <Locate className="h-4 w-4" />
+            </button>
+            <Button 
+              size="sm" 
+              variant="destructive" 
+              onClick={(e) => { e.stopPropagation(); stopNavigation(); }}
+              className="h-10 w-10 p-0 rounded-xl shadow-lg"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -147,37 +219,6 @@ const MobileNavigationBar = ({
             className="h-full bg-primary transition-all duration-500"
             style={{ width: `${Math.min(progress * 10, 100)}%` }}
           />
-        </div>
-
-        {/* Speed + Follow Mode row */}
-        <div className="px-4 py-2 flex items-center justify-between border-t">
-          {/* Speed */}
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-lg">{speedKmh ?? '—'}</span>
-            <span className="text-sm text-muted-foreground">km/h</span>
-            
-          {/* Speed limit removed - now in SpeedLimitOverlay */}
-          </div>
-
-          {/* Weak GPS warning (only when weak) */}
-          {isWeakSignal && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs bg-amber-500/20 text-amber-600">
-              <AlertTriangle className="h-3 w-3" />
-              <span className="font-medium">Słaby GPS</span>
-            </div>
-          )}
-
-          {/* Follow mode */}
-          <button
-            onClick={toggleFollowMode}
-            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all ${
-              followMode 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            <Locate className="h-4 w-4" />
-          </button>
         </div>
 
         {/* Bottom tab bar */}
