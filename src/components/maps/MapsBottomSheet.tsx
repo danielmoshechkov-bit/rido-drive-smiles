@@ -2,9 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Navigation, Route, Activity, Search, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Navigation, Route, Activity } from 'lucide-react';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
@@ -13,7 +11,8 @@ import { RiskAssessment } from './routeRiskService';
 import MobileRouteForm from './MobileRouteForm';
 import MobileNavigationTab from './MobileNavigationTab';
 import MobileStatusTab from './MobileStatusTab';
-import { fetchAddressSuggestions } from './autocompleteService';
+import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { AddressSuggestion } from './autocompleteService';
 
 interface MapsBottomSheetProps {
   routing: RoutingState & {
@@ -59,7 +58,6 @@ const MapsBottomSheet = ({
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('route');
   const [searchInput, setSearchInput] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
 
   const { route, endInput, isLoading } = routing;
 
@@ -79,38 +77,20 @@ const MapsBottomSheet = ({
     setIsOpen(false);
   };
 
-  // Wyszukiwanie trasy z głównego inputa
-  const handleSearch = async () => {
-    if (!searchInput.trim() || isSearching) return;
+  // Handle location selection from autocomplete
+  const handleLocationSelect = (location: AddressSuggestion) => {
+    // Set destination
+    routing.setEndInput(location.shortName);
+    routing.setEndCoords({ lat: location.lat, lng: location.lng });
     
-    setIsSearching(true);
-    try {
-      // Geocode the destination
-      const suggestions = await fetchAddressSuggestions(searchInput.trim());
-      if (suggestions.length > 0) {
-        const dest = suggestions[0];
-        routing.setEndInput(dest.shortName);
-        routing.setEndCoords({ lat: dest.lat, lng: dest.lng });
-        
-        // Use GPS as start
-        routing.setStartInput('');
-        routing.setStartCoords(null);
-        
-        // Calculate route
-        routing.calculateRoute();
-        setIsOpen(true);
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
+    // Use GPS as start (null = current location)
+    routing.setStartInput('');
+    routing.setStartCoords(null);
+    
+    // Calculate route and open sheet
+    routing.calculateRoute();
+    setSearchInput(location.shortName);
+    setIsOpen(true);
   };
 
   // In landscape mode, show only minimal compact bar
@@ -175,33 +155,19 @@ const MapsBottomSheet = ({
               </div>
             </div>
           ) : (
-            /* Clean search input - Google Maps style */
-            <div className="relative">
-              <Input
+            /* Autocomplete search input - Google Maps style with live suggestions */
+            <div onClick={(e) => e.stopPropagation()}>
+              <AddressAutocompleteInput
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
+                onChange={setSearchInput}
+                onLocationSelect={handleLocationSelect}
                 placeholder="Gdzie chcesz jechać?"
-                className="pr-24 h-14 text-base rounded-2xl border-muted-foreground/20 
+                markerColor="red"
+                fieldType="end"
+                className="h-14 text-base rounded-2xl border-muted-foreground/20 
                            bg-background shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20
                            placeholder:text-muted-foreground/60"
-                onClick={(e) => e.stopPropagation()}
               />
-              <Button 
-                size="sm"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl h-10 px-5 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSearch();
-                }}
-                disabled={!searchInput.trim() || isSearching || isLoading}
-              >
-                {isSearching || isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Szukaj'
-                )}
-              </Button>
             </div>
           )}
         </div>
