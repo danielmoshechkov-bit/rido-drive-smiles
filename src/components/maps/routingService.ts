@@ -13,6 +13,8 @@ export interface RouteResult {
   duration: number; // in minutes
   startPoint: Coordinates;
   endPoint: Coordinates;
+  isAlternative?: boolean;
+  routeType?: 'standard' | 'alternative';
 }
 
 export interface GeocodingResult {
@@ -71,7 +73,8 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
  */
 export async function calculateRoute(
   start: Coordinates,
-  end: Coordinates
+  end: Coordinates,
+  options?: { alternatives?: boolean; isAlternative?: boolean }
 ): Promise<RouteResult | null> {
   try {
     // OSRM expects coordinates in lng,lat format
@@ -82,6 +85,11 @@ export async function calculateRoute(
       geometries: 'geojson',
       steps: 'false',
     });
+    
+    // Request alternatives if specified
+    if (options?.alternatives) {
+      params.set('alternatives', 'true');
+    }
 
     const response = await fetch(
       `${OSRM_API}/route/v1/driving/${coordinates}?${params}`
@@ -106,9 +114,63 @@ export async function calculateRoute(
       duration: route.duration / 60, // Convert seconds to minutes
       startPoint: start,
       endPoint: end,
+      isAlternative: options?.isAlternative || false,
+      routeType: options?.isAlternative ? 'alternative' : 'standard',
     };
   } catch (error) {
     console.error('[Routing] Route calculation error:', error);
+    return null;
+  }
+}
+
+/**
+ * Calculate alternative route using OSRM alternatives
+ */
+export async function calculateAlternativeRoute(
+  start: Coordinates,
+  end: Coordinates
+): Promise<RouteResult | null> {
+  try {
+    const coordinates = `${start.lng},${start.lat};${end.lng},${end.lat}`;
+    
+    const params = new URLSearchParams({
+      overview: 'full',
+      geometries: 'geojson',
+      steps: 'false',
+      alternatives: 'true',
+    });
+
+    const response = await fetch(
+      `${OSRM_API}/route/v1/driving/${coordinates}?${params}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Alternative routing failed');
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes || data.routes.length < 2) {
+      // If no alternative available, try with continue_straight=false
+      // to force a different route
+      console.log('[Routing] No alternative found, trying different approach');
+      return null;
+    }
+
+    // Return the second route as alternative
+    const route = data.routes[1];
+    
+    return {
+      coordinates: route.geometry.coordinates,
+      distance: route.distance / 1000,
+      duration: route.duration / 60,
+      startPoint: start,
+      endPoint: end,
+      isAlternative: true,
+      routeType: 'alternative',
+    };
+  } catch (error) {
+    console.error('[Routing] Alternative route calculation error:', error);
     return null;
   }
 }

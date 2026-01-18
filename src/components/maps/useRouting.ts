@@ -4,8 +4,10 @@ import {
   RouteResult, 
   resolveLocation, 
   calculateRoute,
+  calculateAlternativeRoute,
   Coordinates 
 } from './routingService';
+import { analyzeRouteFree, AiAnalysisResult } from './freeAiAnalysis';
 
 export interface RoutingState {
   startInput: string;
@@ -13,8 +15,13 @@ export interface RoutingState {
   startCoords: Coordinates | null;
   endCoords: Coordinates | null;
   route: RouteResult | null;
+  alternativeRoute: RouteResult | null;
+  showAlternative: boolean;
   isLoading: boolean;
   error: string | null;
+  // AI FREE state
+  aiAnalysis: AiAnalysisResult | null;
+  isAnalyzing: boolean;
 }
 
 export function useRouting() {
@@ -24,8 +31,12 @@ export function useRouting() {
     startCoords: null,
     endCoords: null,
     route: null,
+    alternativeRoute: null,
+    showAlternative: false,
     isLoading: false,
     error: null,
+    aiAnalysis: null,
+    isAnalyzing: false,
   });
 
   const setStartInput = useCallback((value: string) => {
@@ -36,6 +47,22 @@ export function useRouting() {
     setState(prev => ({ ...prev, endInput: value, error: null }));
   }, []);
 
+  const runAiAnalysis = useCallback(async (route: RouteResult) => {
+    setState(prev => ({ ...prev, isAnalyzing: true }));
+    
+    try {
+      const analysis = await analyzeRouteFree(route);
+      setState(prev => ({ 
+        ...prev, 
+        aiAnalysis: analysis, 
+        isAnalyzing: false 
+      }));
+    } catch (error) {
+      console.error('[useRouting] AI analysis error:', error);
+      setState(prev => ({ ...prev, isAnalyzing: false }));
+    }
+  }, []);
+
   const calculateRouteHandler = useCallback(async () => {
     const { startInput, endInput } = state;
 
@@ -44,7 +71,15 @@ export function useRouting() {
       return;
     }
 
-    setState(prev => ({ ...prev, isLoading: true, error: null, route: null }));
+    setState(prev => ({ 
+      ...prev, 
+      isLoading: true, 
+      error: null, 
+      route: null,
+      alternativeRoute: null,
+      showAlternative: false,
+      aiAnalysis: null,
+    }));
 
     try {
       // Resolve start location
@@ -93,6 +128,9 @@ export function useRouting() {
         error: null,
       }));
 
+      // Run AI analysis asynchronously (non-blocking)
+      runAiAnalysis(route);
+
     } catch (error) {
       console.error('[useRouting] Error:', error);
       setState(prev => ({ 
@@ -101,7 +139,46 @@ export function useRouting() {
         error: 'Wystąpił błąd podczas wyznaczania trasy' 
       }));
     }
-  }, [state.startInput, state.endInput]);
+  }, [state.startInput, state.endInput, runAiAnalysis]);
+
+  const calculateAlternative = useCallback(async () => {
+    const { startCoords, endCoords } = state;
+    
+    if (!startCoords || !endCoords) return;
+
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const altRoute = await calculateAlternativeRoute(startCoords, endCoords);
+      
+      if (altRoute) {
+        setState(prev => ({
+          ...prev,
+          alternativeRoute: altRoute,
+          showAlternative: true,
+          isLoading: false,
+        }));
+      } else {
+        // If no alternative found, show a message
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: 'Brak dostępnej alternatywnej trasy dla tej lokalizacji',
+        }));
+      }
+    } catch (error) {
+      console.error('[useRouting] Alternative route error:', error);
+      setState(prev => ({ 
+        ...prev, 
+        isLoading: false,
+        error: 'Nie można wyznaczyć alternatywnej trasy',
+      }));
+    }
+  }, [state.startCoords, state.endCoords]);
+
+  const toggleAlternative = useCallback(() => {
+    setState(prev => ({ ...prev, showAlternative: !prev.showAlternative }));
+  }, []);
 
   const clearRoute = useCallback(() => {
     setState({
@@ -110,8 +187,12 @@ export function useRouting() {
       startCoords: null,
       endCoords: null,
       route: null,
+      alternativeRoute: null,
+      showAlternative: false,
       isLoading: false,
       error: null,
+      aiAnalysis: null,
+      isAnalyzing: false,
     });
   }, []);
 
@@ -120,6 +201,8 @@ export function useRouting() {
     setStartInput,
     setEndInput,
     calculateRoute: calculateRouteHandler,
+    calculateAlternative,
+    toggleAlternative,
     clearRoute,
   };
 }

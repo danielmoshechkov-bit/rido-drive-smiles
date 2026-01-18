@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Layers, Car, Navigation } from 'lucide-react';
+import { MapPin, Layers, Car, Navigation, Route } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DEFAULT_VIEW_STATE, MAP_STYLE } from './mapStyles';
 import { RoutingState } from './useRouting';
@@ -12,7 +12,7 @@ interface MapsContainerProps {
 
 const MapsContainer = ({ routing }: MapsContainerProps) => {
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
-  const { route, startCoords, endCoords } = routing;
+  const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
 
   const handleMove = useCallback((evt: { viewState: typeof DEFAULT_VIEW_STATE }) => {
     setViewState(evt.viewState);
@@ -31,6 +31,16 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
         minLat = Math.min(minLat, lat);
         maxLat = Math.max(maxLat, lat);
       });
+      
+      // Include alternative route in bounds if shown
+      if (showAlternative && alternativeRoute) {
+        alternativeRoute.coordinates.forEach(([lng, lat]) => {
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+        });
+      }
       
       // Center on route with appropriate zoom
       const centerLng = (minLng + maxLng) / 2;
@@ -54,15 +64,25 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
         zoom,
       });
     }
-  }, [route]);
+  }, [route, alternativeRoute, showAlternative]);
 
-  // Create GeoJSON for route line
+  // Create GeoJSON for main route line
   const routeGeoJSON = route ? {
     type: 'Feature' as const,
     properties: {},
     geometry: {
       type: 'LineString' as const,
       coordinates: route.coordinates,
+    },
+  } : null;
+
+  // Create GeoJSON for alternative route line
+  const alternativeGeoJSON = showAlternative && alternativeRoute ? {
+    type: 'Feature' as const,
+    properties: {},
+    geometry: {
+      type: 'LineString' as const,
+      coordinates: alternativeRoute.coordinates,
     },
   } : null;
 
@@ -78,7 +98,34 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
         <NavigationControl position="top-right" showCompass={false} />
         <ScaleControl position="bottom-right" />
         
-        {/* Route Line */}
+        {/* Alternative Route Line (render first so main route is on top) */}
+        {alternativeGeoJSON && (
+          <Source id="alternative-route" type="geojson" data={alternativeGeoJSON}>
+            {/* Alternative route shadow/outline */}
+            <Layer
+              id="alternative-route-outline"
+              type="line"
+              paint={{
+                'line-color': '#92400e',
+                'line-width': 8,
+                'line-opacity': 0.2,
+              }}
+            />
+            {/* Alternative route line - dashed amber */}
+            <Layer
+              id="alternative-route-line"
+              type="line"
+              paint={{
+                'line-color': '#f59e0b',
+                'line-width': 4,
+                'line-opacity': 0.8,
+                'line-dasharray': [2, 2],
+              }}
+            />
+          </Source>
+        )}
+        
+        {/* Main Route Line */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
             {/* Route shadow/outline */}
@@ -154,12 +201,20 @@ const MapsContainer = ({ routing }: MapsContainerProps) => {
       </div>
       
       {/* Mode badge */}
-      <div className="absolute top-4 left-4">
+      <div className="absolute top-4 left-4 flex flex-col gap-2">
         {route ? (
-          <Badge className="bg-blue-500/90 backdrop-blur-sm shadow-sm gap-1.5">
-            <Navigation className="h-3 w-3" />
-            Trasa STANDARD
-          </Badge>
+          <>
+            <Badge className="bg-blue-500/90 backdrop-blur-sm shadow-sm gap-1.5">
+              <Navigation className="h-3 w-3" />
+              Trasa STANDARD
+            </Badge>
+            {showAlternative && alternativeRoute && (
+              <Badge className="bg-amber-500/90 backdrop-blur-sm shadow-sm gap-1.5">
+                <Route className="h-3 w-3" />
+                Alternatywa FREE
+              </Badge>
+            )}
+          </>
         ) : (
           <Badge variant="outline" className="bg-background/90 backdrop-blur-sm shadow-sm border-amber-500/50 text-amber-600">
             Tryb testowy
