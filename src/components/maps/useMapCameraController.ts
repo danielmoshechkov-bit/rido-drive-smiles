@@ -174,7 +174,7 @@ export function useMapCameraController(
     setIsMapRotated(false);
   }, [mapRef, followMode, setFollowMode]);
 
-  // Google-like animation when starting navigation
+  // Google-like animation when starting navigation (3D perspective)
   const animateToNavigation = useCallback(() => {
     const map = mapRef.current?.getMap();
     const location = gps.location;
@@ -191,16 +191,17 @@ export function useMapCameraController(
       initialBearing = calculatedBearing;
     }
 
-    // Smooth fly animation (Google-like)
+    // Premium fly animation - Google Maps 3D style
+    // Zoom closer (18) and tilt more (60°) for immersive navigation
     map.flyTo({
       center: [location.longitude, location.latitude],
-      zoom: config.followModeZoom,
+      zoom: 18, // Very close zoom for navigation
       bearing: initialBearing,
-      pitch: config.navigationPitch,
-      duration: 1000,
+      pitch: 60, // Strong 3D tilt like Google Maps
+      duration: 1500, // Slower, smoother animation
       easing: (t) => {
-        // Ease-in-out cubic
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        // Ease-out quart for premium feel
+        return 1 - Math.pow(1 - t, 4);
       },
     });
 
@@ -214,8 +215,8 @@ export function useMapCameraController(
       } else {
         setFollowMode('center');
       }
-    }, 1050);
-  }, [mapRef, gps.location, calculatedBearing, config.followModeZoom, config.navigationPitch, setFollowMode]);
+    }, 1600);
+  }, [mapRef, gps.location, calculatedBearing, setFollowMode]);
 
   // Calculate bearing from position buffer
   useEffect(() => {

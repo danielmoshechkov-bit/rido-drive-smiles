@@ -21,6 +21,8 @@ import MapsBottomSheet from './MapsBottomSheet';
 import MapsFABs from './MapsFABs';
 import MobileNavigationBar from './MobileNavigationBar';
 import TurnByTurnBanner from './TurnByTurnBanner';
+import RoutePreviewBar from './RoutePreviewBar';
+import RouteInputPanel from './RouteInputPanel';
 import NavigationBottomBar from './NavigationBottomBar';
 import LiveSearchOverlay from './LiveSearchOverlay';
 import LocationDetailCard from './LocationDetailCard';
@@ -76,6 +78,7 @@ const MapsLayout = () => {
   // === CURRENT STEP STATE (for turn-by-turn) ===
   const [distanceToCurrentStep, setDistanceToCurrentStep] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [showRouteInputPanel, setShowRouteInputPanel] = useState(false);
 
   // Calculate bbox from route coordinates + buffer
   const getRouteBbox = useCallback((coords: [number, number][], buffer = 0.02): BoundingBox => {
@@ -295,16 +298,26 @@ const MapsLayout = () => {
   }, [selectedLocation, routing]);
   
   const handleStartNavigation = useCallback(async () => {
+    // 1. Trigger fly animation for 3D navigation view
+    cameraController?.animateToNavigation();
+    
+    // 2. Wait for animation before starting navigation
+    await new Promise(resolve => setTimeout(resolve, 500));
     await navigation.startNavigation();
     setSelectedLocation(null);
-  }, [navigation]);
+    setShowRouteInputPanel(false);
+  }, [navigation, cameraController]);
   
   const handleCloseLocationCard = useCallback(() => {
     setSelectedLocation(null);
   }, []);
   
-  const handleToggleMute = useCallback(() => {
-    setIsMuted(prev => !prev);
+  const handleExpandRoute = useCallback(() => {
+    setShowRouteInputPanel(true);
+  }, []);
+  
+  const handleCloseRouteInputPanel = useCallback(() => {
+    setShowRouteInputPanel(false);
   }, []);
 
   // Show fullscreen consent gate if needed
@@ -335,7 +348,27 @@ const MapsLayout = () => {
             onCameraControllerReady={handleCameraControllerReady}
           />
           
-          {/* Mobile Navigation Bar (top, during navigation) */}
+          {/* Route Input Panel (Google Maps style - top) */}
+          {showRouteInputPanel && !navigation.isNavigating && (
+            <RouteInputPanel
+              routing={routing}
+              gps={gps}
+              onClose={handleCloseRouteInputPanel}
+            />
+          )}
+          
+          {/* Turn-by-Turn Banner (during navigation - Google green style) */}
+          {navigation.isNavigating && currentStep && (
+            <TurnByTurnBanner
+              currentStep={currentStep}
+              nextStep={nextStep}
+              distanceToStep={distanceToCurrentStep}
+              onRecenter={cameraController?.resetBearing}
+              isMapRotated={cameraController?.isMapRotated}
+            />
+          )}
+          
+          {/* Mobile Navigation Bar (bottom stats during navigation) */}
           {navigation.isNavigating && (
             <MobileNavigationBar 
               navigation={navigation} 
@@ -351,26 +384,41 @@ const MapsLayout = () => {
           )}
           
           {/* FAB buttons with theme toggle and follow mode */}
-          <MapsFABs 
-            gps={gps} 
-            navigation={navigation} 
-            onThemeChange={handleThemeChange}
-            followMode={cameraController?.followMode}
-            onCycleFollowMode={cameraController?.cycleFollowMode}
-          />
+          {!navigation.isNavigating && (
+            <MapsFABs 
+              gps={gps} 
+              navigation={navigation} 
+              onThemeChange={handleThemeChange}
+              followMode={cameraController?.followMode}
+              onCycleFollowMode={cameraController?.cycleFollowMode}
+            />
+          )}
           
-          {/* Bottom Sheet with real incidents & risk (minimized in landscape) */}
-          <MapsBottomSheet 
-            routing={routing} 
-            gps={gps} 
-            navigation={navigation}
-            cameraController={cameraController ?? undefined}
-            incidents={incidents}
-            incidentsLoading={incidentsLoading}
-            riskAssessment={riskAssessment}
-            onRefreshIncidents={handleRefreshIncidents}
-            isLandscape={isLandscape}
-          />
+          {/* Route Preview Bar (shows after route calculated, before navigation) */}
+          {routing.route && !navigation.isNavigating && !showRouteInputPanel && (
+            <RoutePreviewBar
+              route={routing.route}
+              destination={routing.endInput}
+              onStartNavigation={handleStartNavigation}
+              onExpand={handleExpandRoute}
+              isLoading={routing.isLoading}
+            />
+          )}
+          
+          {/* Bottom Sheet with search (only when no route) */}
+          {!routing.route && !showRouteInputPanel && (
+            <MapsBottomSheet 
+              routing={routing} 
+              gps={gps} 
+              navigation={navigation}
+              cameraController={cameraController ?? undefined}
+              incidents={incidents}
+              incidentsLoading={incidentsLoading}
+              riskAssessment={riskAssessment}
+              onRefreshIncidents={handleRefreshIncidents}
+              isLandscape={isLandscape}
+            />
+          )}
         </div>
       </>
     );

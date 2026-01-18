@@ -170,26 +170,31 @@ const TurnByTurnBanner = ({
   if (!currentStep) return null;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-30 safe-area-top">
-      {/* Main banner */}
+    <div 
+      className="absolute top-0 left-0 right-0 z-50"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      {/* Main banner - Google Maps Green style */}
       <div 
-        className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl"
+        className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl animate-slide-down"
         style={{
-          background: 'linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 48%))',
-          boxShadow: '0 8px 32px -8px hsl(259 65% 58% / 0.5)',
+          background: 'linear-gradient(135deg, #0f9d58, #0d8043)',
+          boxShadow: '0 8px 32px -8px rgba(15, 157, 88, 0.6)',
         }}
       >
         <div className="p-4 text-white">
           <div className="flex items-center gap-4">
-            {/* Direction icon */}
-            <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              {icon}
+            {/* Direction icon - larger for visibility */}
+            <div className="h-16 w-16 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <div className="scale-125">
+                {icon}
+              </div>
             </div>
             
             {/* Instruction */}
             <div className="flex-1 min-w-0">
-              <p className="text-3xl font-bold">{distance}</p>
-              <p className="text-sm opacity-90 truncate">{instruction}</p>
+              <p className="text-4xl font-bold tracking-tight">{distance}</p>
+              <p className="text-base opacity-95 truncate mt-0.5">{instruction}</p>
             </div>
             
             {/* Recenter button */}
@@ -197,23 +202,23 @@ const TurnByTurnBanner = ({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="shrink-0 text-white hover:bg-white/20"
+                className="shrink-0 text-white hover:bg-white/20 h-12 w-12"
                 onClick={onRecenter}
               >
-                <Compass className="h-5 w-5" />
+                <Compass className="h-6 w-6" />
               </Button>
             )}
           </div>
         </div>
         
-        {/* Next maneuver preview */}
-        {nextInstruction && distanceToStep < 500 && (
-          <div className="px-4 py-2 bg-black/20 flex items-center gap-2 text-white/90 text-sm">
-            <span className="opacity-70">Potem</span>
-            <div className="h-5 w-5 opacity-80">
+        {/* Next maneuver preview - always show when available */}
+        {nextInstruction && (
+          <div className="px-4 py-3 bg-black/15 flex items-center gap-3 text-white/95 border-t border-white/10">
+            <span className="text-sm opacity-80">Potem</span>
+            <div className="h-6 w-6 opacity-90">
               {nextIcon}
             </div>
-            <span className="font-medium">{nextInstruction}</span>
+            <span className="font-semibold">{nextInstruction}</span>
           </div>
         )}
       </div>

@@ -89,6 +89,7 @@ const MapsBottomSheet = ({
   };
 
   // Handle location selection from autocomplete
+  // Now shows route on map instead of opening full sheet
   const handleLocationSelect = (location: AddressSuggestion) => {
     // Set destination
     routing.setEndInput(location.shortName);
@@ -98,10 +99,11 @@ const MapsBottomSheet = ({
     routing.setStartInput('');
     routing.setStartCoords(null);
     
-    // Calculate route and open sheet
+    // Calculate route - map stays visible, route preview bar shows
     routing.calculateRoute();
     setSearchInput(location.shortName);
-    setIsOpen(true);
+    // Don't open sheet - let RoutePreviewBar show instead
+    // setIsOpen(true);
   };
 
   // In landscape mode, show only minimal compact bar
