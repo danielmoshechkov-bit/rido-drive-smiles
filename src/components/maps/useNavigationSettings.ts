@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { VoiceLanguage } from './voicePhrases';
 
 export type NavigationStyle = 'banner' | 'bubble';
+export type VoiceMode = 'off' | 'alerts' | 'all';
+export type CursorStyle = 'arrow' | 'car';
+export type ThemePreference = 'light' | 'dark' | 'auto';
 
 export interface NavigationSettings {
   voice_enabled: boolean;
@@ -12,12 +15,17 @@ export interface NavigationSettings {
   voice_style: string;
   voice_volume: number;
   voice_rate: number;
+  voice_mode: VoiceMode;
   speed_warning_yellow_over: number;
   speed_warning_red_over: number;
   show_speed_limit: boolean;
   show_lane_guidance: boolean;
   show_roundabout_exit: boolean;
   navigation_style: NavigationStyle;
+  avoid_tolls: boolean;
+  avoid_unpaved: boolean;
+  cursor_style: CursorStyle;
+  theme_preference: ThemePreference;
 }
 
 const DEFAULT_SETTINGS: NavigationSettings = {
@@ -26,12 +34,17 @@ const DEFAULT_SETTINGS: NavigationSettings = {
   voice_style: 'system',
   voice_volume: 80,
   voice_rate: 1.0,
+  voice_mode: 'all',
   speed_warning_yellow_over: 9,
   speed_warning_red_over: 15,
   show_speed_limit: true,
   show_lane_guidance: true,
   show_roundabout_exit: true,
-  navigation_style: 'banner', // 'banner' = Yandex style top, 'bubble' = Google style on-map
+  navigation_style: 'banner',
+  avoid_tolls: false,
+  avoid_unpaved: false,
+  cursor_style: 'arrow',
+  theme_preference: 'auto',
 };
 
 // Local storage key for offline fallback
