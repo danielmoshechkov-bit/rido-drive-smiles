@@ -6,7 +6,27 @@ export const DEFAULT_VIEW_STATE = {
   zoom: 11.5,
 };
 
-export const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+// Map style presets (CartoDB-based for OpenStreetMap)
+export const MAP_STYLES = {
+  ridoLight: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',   // Jasny, spokojny
+  ridoDark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // Ciemny, elegancki
+  voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',      // Domyślny kolorowy
+};
+
+// Auto-detect preferred map style based on theme setting or system preference
+export const getPreferredMapStyle = (): string => {
+  const stored = getMapTheme();
+  if (stored === 'dark') return MAP_STYLES.ridoDark;
+  if (stored === 'light') return MAP_STYLES.ridoLight;
+  // Auto-detect from system
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return MAP_STYLES.ridoDark;
+  }
+  return MAP_STYLES.ridoLight;
+};
+
+// Legacy export for backward compatibility
+export const MAP_STYLE = MAP_STYLES.voyager;
 
 export const TEST_MARKER = {
   longitude: 21.0122,

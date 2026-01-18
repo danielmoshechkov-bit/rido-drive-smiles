@@ -171,24 +171,32 @@ const MapsInfoPanel = ({ gps, routing, riskAssessment }: MapsInfoPanelProps) => 
             )}
           </div>
           
-          {incidents.length > 0 ? (
+        {incidents.length > 0 ? (
             <div className="space-y-2">
               {incidents.slice(0, 5).map((incident, idx) => (
-                <div key={incident.id || idx} className="p-3 rounded-lg border bg-background">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Badge 
-                      variant={incident.type === 'closure' ? 'destructive' : 'secondary'} 
-                      className="text-xs px-1.5 py-0"
-                    >
-                      {incident.type === 'closure' ? 'Zamknięte' : 
-                       incident.type === 'roadwork' || incident.type === 'construction' ? 'Roboty' : 
-                       'Zdarzenie'}
-                    </Badge>
+                <div key={incident.id || idx} className="rido-incident-card p-3 rounded-xl border bg-muted/30">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      incident.type === 'closure' ? 'bg-red-500/15' : 'bg-amber-500/15'
+                    }`}>
+                      {incident.type === 'closure' ? (
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Badge 
+                        variant={incident.type === 'closure' ? 'destructive' : 'secondary'} 
+                        className="text-[10px] px-1.5 py-0 mb-1"
+                      >
+                        {incident.type === 'closure' ? 'Zamknięte' : 
+                         incident.type === 'roadwork' || incident.type === 'construction' ? 'Roboty' : 
+                         'Zdarzenie'}
+                      </Badge>
+                      <p className="text-sm truncate">{incident.title || 'Zdarzenie na trasie'}</p>
+                    </div>
                   </div>
-                  <p className="text-sm flex items-start gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    {incident.title || 'Zdarzenie na trasie'}
-                  </p>
                 </div>
               ))}
               {incidents.length > 5 && (
