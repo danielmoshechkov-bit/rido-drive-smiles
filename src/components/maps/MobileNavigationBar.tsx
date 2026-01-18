@@ -102,7 +102,7 @@ const MobileNavigationBar = ({
       )}
 
       {/* Main navigation bar */}
-      <div className="mx-3 mb-3 rounded-2xl bg-card/98 backdrop-blur-xl border shadow-2xl overflow-hidden">
+      <div className="rounded-t-2xl bg-card/98 backdrop-blur-xl border-t border-x shadow-2xl overflow-hidden">
         {/* Stats row - Yandex style */}
         <div className="px-4 py-3 flex items-center justify-between">
           {/* Maneuver icon + Distance */}

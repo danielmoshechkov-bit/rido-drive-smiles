@@ -131,7 +131,7 @@ const MapsBottomSheet = ({
         className="fixed bottom-0 left-0 right-0 z-40"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="mx-3 mb-3 rounded-3xl bg-card/98 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20 overflow-hidden">
+        <div className="rounded-t-3xl bg-card/98 backdrop-blur-xl border-t border-x border-white/10 shadow-2xl shadow-black/20 overflow-hidden">
           {/* Handle */}
           <div className="flex items-center justify-center pt-3 pb-2">
             <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
