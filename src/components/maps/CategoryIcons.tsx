@@ -8,358 +8,147 @@ import React from 'react';
 // ═══════════════════════════════════════════════════════════════
 
 export const FoodIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="food3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FF8A50"/>
-        <stop offset="50%" stopColor="#FF6B35"/>
-        <stop offset="100%" stopColor="#E54B1F"/>
-      </linearGradient>
-      <linearGradient id="foodHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5"/>
-        <stop offset="30%" stopColor="#ffffff" stopOpacity="0"/>
-      </linearGradient>
-    </defs>
-    {/* Fork & knife */}
-    <path d="M12 4v8c0 1.5-1 2.5-2.5 2.5v12h-3v-12C5 14.5 4 13.5 4 12V4h2v7h2V4h2v7h2V4h2z" fill="url(#food3d)"/>
-    <path d="M22 4c0 0-4 3-4 8v3h4v11h4V4h-4z" fill="url(#food3d)"/>
-    {/* Highlight overlay */}
-    <rect x="4" y="4" width="22" height="10" fill="url(#foodHighlight)" rx="2"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Fork & knife - white on transparent */}
+    <path d="M12 4v8c0 1.5-1 2.5-2.5 2.5v12h-3v-12C5 14.5 4 13.5 4 12V4h2v7h2V4h2v7h2V4h2z" fill="white"/>
+    <path d="M22 4c0 0-4 3-4 8v3h4v11h4V4h-4z" fill="white"/>
   </svg>
 );
 
 export const ShopIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="shop3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#64D2FF"/>
-        <stop offset="50%" stopColor="#4FC3F7"/>
-        <stop offset="100%" stopColor="#2196F3"/>
-      </linearGradient>
-    </defs>
-    {/* Shopping cart */}
-    <path d="M10 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM24 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="url(#shop3d)"/>
-    <path d="M4 4h4l4.5 12h11l3.5-8H10" fill="none" stroke="url(#shop3d)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8.5 16h13c1 0 2-.6 2.3-1.5L28 6H8" fill="url(#shop3d)" opacity="0.3"/>
-    {/* Cart body filled */}
-    <path d="M7 6l2 10h14l3-8H8" fill="url(#shop3d)"/>
-    {/* Highlight */}
-    <path d="M9 7l1 6h10" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Shopping cart - white on transparent */}
+    <path d="M10 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM24 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="white"/>
+    <path d="M7 6l2 10h14l3-8H8" fill="white"/>
   </svg>
 );
 
 export const PharmacyIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="pharmacy3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#81E06D"/>
-        <stop offset="50%" stopColor="#66BB6A"/>
-        <stop offset="100%" stopColor="#43A047"/>
-      </linearGradient>
-    </defs>
-    {/* Rounded square with cross */}
-    <rect x="4" y="4" width="24" height="24" rx="6" fill="url(#pharmacy3d)"/>
-    {/* White cross */}
-    <path d="M14 10h4v4h4v4h-4v4h-4v-4h-4v-4h4v-4z" fill="white"/>
-    {/* 3D highlight */}
-    <path d="M6 6h20c1 0 2 1 2 2v8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Rounded square with cross - white on transparent */}
+    <rect x="4" y="4" width="24" height="24" rx="6" fill="white"/>
+    <path d="M14 10h4v4h4v4h-4v4h-4v-4h-4v-4h4v-4z" fill="rgba(0,0,0,0.3)"/>
   </svg>
 );
 
 export const BeautyIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="beauty3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FF8ED4"/>
-        <stop offset="50%" stopColor="#F06292"/>
-        <stop offset="100%" stopColor="#D81B60"/>
-      </linearGradient>
-    </defs>
-    {/* Sparkle/star beauty icon */}
-    <path d="M16 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="url(#beauty3d)"/>
-    <circle cx="16" cy="22" r="6" fill="url(#beauty3d)"/>
-    <circle cx="16" cy="22" r="3" fill="white" opacity="0.5"/>
-    {/* Highlight */}
-    <path d="M14 4l1 4" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Sparkle/star beauty icon - white on transparent */}
+    <path d="M16 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="white"/>
+    <circle cx="16" cy="22" r="6" fill="white"/>
   </svg>
 );
 
 export const AtmIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="atm3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#A5E072"/>
-        <stop offset="50%" stopColor="#81C784"/>
-        <stop offset="100%" stopColor="#4CAF50"/>
-      </linearGradient>
-    </defs>
-    {/* Card shape */}
-    <rect x="3" y="8" width="26" height="16" rx="3" fill="url(#atm3d)"/>
-    {/* Magnetic strip */}
-    <rect x="3" y="12" width="26" height="4" fill="rgba(0,0,0,0.2)"/>
-    {/* Chip */}
-    <rect x="6" y="18" width="6" height="4" rx="1" fill="#FFD700"/>
-    {/* Dollar sign */}
-    <text x="22" y="21" fill="white" fontSize="8" fontWeight="bold" fontFamily="system-ui">$</text>
-    {/* Highlight */}
-    <path d="M5 10h22" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Card shape - white on transparent */}
+    <rect x="3" y="8" width="26" height="16" rx="3" fill="white"/>
+    <rect x="6" y="18" width="6" height="4" rx="1" fill="rgba(0,0,0,0.3)"/>
+    <text x="22" y="21" fill="rgba(0,0,0,0.4)" fontSize="8" fontWeight="bold" fontFamily="system-ui">$</text>
   </svg>
 );
 
 export const FuelIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="fuel3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFE082"/>
-        <stop offset="50%" stopColor="#FFD54F"/>
-        <stop offset="100%" stopColor="#FF9800"/>
-      </linearGradient>
-      <linearGradient id="fuelNozzle" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#78909C"/>
-        <stop offset="100%" stopColor="#455A64"/>
-      </linearGradient>
-    </defs>
-    {/* Pump body */}
-    <rect x="6" y="6" width="14" height="22" rx="2" fill="url(#fuel3d)"/>
-    {/* Display screen */}
-    <rect x="8" y="8" width="10" height="6" rx="1" fill="white" opacity="0.9"/>
-    {/* Numbers on screen */}
-    <text x="13" y="13" textAnchor="middle" fill="#333" fontSize="5" fontWeight="bold" fontFamily="monospace">7.89</text>
-    {/* Nozzle */}
-    <path d="M20 10h4c2 0 3 1 3 3v8c0 1-.5 2-1.5 2s-1.5-1-1.5-2v-6h-1v10" fill="none" stroke="url(#fuelNozzle)" strokeWidth="2.5" strokeLinecap="round"/>
-    {/* Hose */}
-    <path d="M24 17c0 3-1 4-4 4" fill="none" stroke="url(#fuelNozzle)" strokeWidth="2" strokeLinecap="round"/>
-    {/* Highlight */}
-    <path d="M8 8v4" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Pump body - white on transparent */}
+    <rect x="6" y="6" width="14" height="22" rx="2" fill="white"/>
+    <path d="M20 10h4c2 0 3 1 3 3v8c0 1-.5 2-1.5 2s-1.5-1-1.5-2v-6h-1v10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const HospitalIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="hospital3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FF7070"/>
-        <stop offset="50%" stopColor="#EF5350"/>
-        <stop offset="100%" stopColor="#D32F2F"/>
-      </linearGradient>
-    </defs>
-    {/* Building */}
-    <rect x="4" y="4" width="24" height="24" rx="4" fill="url(#hospital3d)"/>
-    {/* White H */}
-    <path d="M11 9v14M21 9v14M11 16h10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-    {/* 3D highlight */}
-    <path d="M6 6c0-1 1-2 2-2h16c1 0 2 1 2 2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Building with H - white on transparent */}
+    <rect x="4" y="4" width="24" height="24" rx="4" fill="white"/>
+    <path d="M11 9v14M21 9v14M11 16h10" stroke="rgba(0,0,0,0.3)" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 export const HotelIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="hotel3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#9FA8DA"/>
-        <stop offset="50%" stopColor="#7986CB"/>
-        <stop offset="100%" stopColor="#5C6BC0"/>
-      </linearGradient>
-    </defs>
-    {/* Bed frame */}
-    <rect x="4" y="14" width="24" height="10" rx="2" fill="url(#hotel3d)"/>
-    {/* Pillow */}
-    <ellipse cx="10" cy="14" rx="4" ry="3" fill="white" opacity="0.9"/>
-    {/* Person sleeping */}
-    <circle cx="10" cy="11" r="4" fill="url(#hotel3d)"/>
-    {/* Blanket highlight */}
-    <path d="M6 16h20" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
-    {/* Legs */}
-    <rect x="4" y="24" width="3" height="4" rx="1" fill="url(#hotel3d)"/>
-    <rect x="25" y="24" width="3" height="4" rx="1" fill="url(#hotel3d)"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Bed - white on transparent */}
+    <rect x="4" y="14" width="24" height="10" rx="2" fill="white"/>
+    <ellipse cx="10" cy="14" rx="4" ry="3" fill="white"/>
+    <circle cx="10" cy="11" r="4" fill="white"/>
+    <rect x="4" y="24" width="3" height="4" rx="1" fill="white"/>
+    <rect x="25" y="24" width="3" height="4" rx="1" fill="white"/>
   </svg>
 );
 
 export const WifiIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="wifi3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#80DEEA"/>
-        <stop offset="50%" stopColor="#4DD0E1"/>
-        <stop offset="100%" stopColor="#00ACC1"/>
-      </linearGradient>
-    </defs>
-    {/* WiFi arcs */}
-    <path d="M16 26a2 2 0 100-4 2 2 0 000 4z" fill="url(#wifi3d)"/>
-    <path d="M8 18c4.4-4.4 11.6-4.4 16 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M4 14c6.6-6.6 17.4-6.6 24 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M0 10c8.8-8.8 23.2-8.8 32 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
-    {/* Highlight on center dot */}
-    <circle cx="15" cy="23" r="1" fill="white" opacity="0.6"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* WiFi arcs - white on transparent */}
+    <path d="M16 26a2 2 0 100-4 2 2 0 000 4z" fill="white"/>
+    <path d="M8 18c4.4-4.4 11.6-4.4 16 0" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M4 14c6.6-6.6 17.4-6.6 24 0" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 export const BarIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="bar3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFEE58"/>
-        <stop offset="50%" stopColor="#FFCA28"/>
-        <stop offset="100%" stopColor="#FFA000"/>
-      </linearGradient>
-      <linearGradient id="beer3d" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#FFFDE7"/>
-        <stop offset="100%" stopColor="#FFECB3"/>
-      </linearGradient>
-    </defs>
-    {/* Beer mug */}
-    <rect x="6" y="8" width="16" height="20" rx="3" fill="url(#bar3d)"/>
-    {/* Beer inside */}
-    <rect x="8" y="12" width="12" height="14" rx="2" fill="url(#beer3d)"/>
-    {/* Foam */}
-    <ellipse cx="14" cy="12" rx="6" ry="2" fill="white"/>
-    <ellipse cx="11" cy="10" rx="2" ry="1.5" fill="white"/>
-    <ellipse cx="17" cy="10" rx="2" ry="1.5" fill="white"/>
-    {/* Handle */}
-    <path d="M22 12h3c2 0 3 2 3 4v4c0 2-1 4-3 4h-3" fill="none" stroke="url(#bar3d)" strokeWidth="3" strokeLinecap="round"/>
-    {/* Bubbles */}
-    <circle cx="11" cy="18" r="1" fill="white" opacity="0.6"/>
-    <circle cx="15" cy="22" r="1" fill="white" opacity="0.6"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Beer mug - white on transparent */}
+    <rect x="6" y="8" width="16" height="20" rx="3" fill="white"/>
+    <path d="M22 12h3c2 0 3 2 3 4v4c0 2-1 4-3 4h-3" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 export const MallIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="mall3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#CE93D8"/>
-        <stop offset="50%" stopColor="#AB47BC"/>
-        <stop offset="100%" stopColor="#8E24AA"/>
-      </linearGradient>
-    </defs>
-    {/* Shopping bag */}
-    <path d="M8 10h16c1 0 2 1 2 2v14c0 1-1 2-2 2H8c-1 0-2-1-2-2V12c0-1 1-2 2-2z" fill="url(#mall3d)"/>
-    {/* Handles */}
-    <path d="M12 10V8c0-2 2-4 4-4s4 2 4 4v2" fill="none" stroke="url(#mall3d)" strokeWidth="2.5" strokeLinecap="round"/>
-    {/* Sparkle/star on bag */}
-    <path d="M16 16l1 2 2 0.5-1.5 1.5 0.5 2-2-1-2 1 0.5-2-1.5-1.5 2-0.5z" fill="white" opacity="0.8"/>
-    {/* 3D highlight */}
-    <path d="M8 12h16" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Shopping bag - white on transparent */}
+    <path d="M8 10h16c1 0 2 1 2 2v14c0 1-1 2-2 2H8c-1 0-2-1-2-2V12c0-1 1-2 2-2z" fill="white"/>
+    <path d="M12 10V8c0-2 2-4 4-4s4 2 4 4v2" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const CinemaIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="cinema3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#F48FB1"/>
-        <stop offset="50%" stopColor="#EC407A"/>
-        <stop offset="100%" stopColor="#C2185B"/>
-      </linearGradient>
-    </defs>
-    {/* Film reel / clapperboard */}
-    <rect x="4" y="4" width="24" height="24" rx="3" fill="url(#cinema3d)"/>
-    {/* Stripes on clapperboard */}
-    <path d="M4 8l24 0M8 4l-4 4M14 4l-4 4M20 4l-4 4M26 4l-4 4" stroke="white" strokeWidth="2"/>
-    {/* Screen area */}
-    <rect x="6" y="12" width="20" height="14" rx="2" fill="white" opacity="0.9"/>
-    {/* Play button */}
-    <path d="M14 16l6 3-6 3z" fill="url(#cinema3d)"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Film reel / clapperboard - white on transparent */}
+    <rect x="4" y="4" width="24" height="24" rx="3" fill="white"/>
+    <path d="M4 8l24 0M8 4l-4 4M14 4l-4 4M20 4l-4 4M26 4l-4 4" stroke="rgba(0,0,0,0.3)" strokeWidth="2"/>
+    <path d="M14 16l6 3-6 3z" fill="rgba(0,0,0,0.3)"/>
   </svg>
 );
 
 export const ParkingIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="parking3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#64B5F6"/>
-        <stop offset="50%" stopColor="#42A5F5"/>
-        <stop offset="100%" stopColor="#1E88E5"/>
-      </linearGradient>
-    </defs>
-    {/* Blue circle background */}
-    <circle cx="16" cy="16" r="14" fill="url(#parking3d)"/>
-    {/* White P */}
-    <text x="16" y="22" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold" fontFamily="system-ui">P</text>
-    {/* 3D arc highlight */}
-    <path d="M6 10c2-4 6-6 10-6s8 2 10 6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Blue circle background - white on transparent */}
+    <circle cx="16" cy="16" r="14" fill="white"/>
+    <text x="16" y="22" textAnchor="middle" fill="rgba(0,0,0,0.4)" fontSize="18" fontWeight="bold" fontFamily="system-ui">P</text>
   </svg>
 );
 
 export const CarWashIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="carwash3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#81D4FA"/>
-        <stop offset="50%" stopColor="#29B6F6"/>
-        <stop offset="100%" stopColor="#0288D1"/>
-      </linearGradient>
-    </defs>
-    {/* Water droplets */}
-    <path d="M8 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
-    <path d="M18 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
-    <path d="M28 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
-    {/* Car body */}
-    <path d="M6 18l2-4h16l2 4v6c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2h-12c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2v-6z" fill="url(#carwash3d)"/>
-    {/* Windows */}
-    <path d="M8 14l1.5-3h13l1.5 3" fill="none" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-    {/* Wheels */}
-    <circle cx="10" cy="22" r="2" fill="#333"/>
-    <circle cx="22" cy="22" r="2" fill="#333"/>
-    {/* Highlight */}
-    <path d="M8 16h16" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Water droplets + Car - white on transparent */}
+    <path d="M8 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
+    <path d="M18 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
+    <path d="M28 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
+    <path d="M6 18l2-4h16l2 4v6c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2h-12c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2v-6z" fill="white"/>
   </svg>
 );
 
 export const ServiceIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="service3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#A0ADB8"/>
-        <stop offset="50%" stopColor="#78909C"/>
-        <stop offset="100%" stopColor="#546E7A"/>
-      </linearGradient>
-    </defs>
-    {/* Wrench */}
-    <path d="M6 26l8-8c-1-3 0-6 3-8 2-2 5-2 7-1l-4 4 1 3 3 1 4-4c1 2 1 5-1 7-2 3-5 4-8 3l-8 8c-1 1-2 1-3 0l-2-2c-1-1-1-2 0-3z" fill="url(#service3d)"/>
-    {/* Highlight */}
-    <path d="M8 24l6-6" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
-    {/* Gear teeth indication */}
-    <circle cx="19" cy="13" r="2" fill="white" opacity="0.5"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Wrench - white on transparent */}
+    <path d="M6 26l8-8c-1-3 0-6 3-8 2-2 5-2 7-1l-4 4 1 3 3 1 4-4c1 2 1 5-1 7-2 3-5 4-8 3l-8 8c-1 1-2 1-3 0l-2-2c-1-1-1-2 0-3z" fill="white"/>
   </svg>
 );
 
 export const FitnessIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="fitness3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#B39DDB"/>
-        <stop offset="50%" stopColor="#9575CD"/>
-        <stop offset="100%" stopColor="#7E57C2"/>
-      </linearGradient>
-    </defs>
-    {/* Dumbbell */}
-    <rect x="4" y="12" width="6" height="8" rx="1" fill="url(#fitness3d)"/>
-    <rect x="22" y="12" width="6" height="8" rx="1" fill="url(#fitness3d)"/>
-    <rect x="10" y="14" width="12" height="4" fill="url(#fitness3d)"/>
-    {/* Weight plates */}
-    <rect x="2" y="10" width="3" height="12" rx="1" fill="url(#fitness3d)"/>
-    <rect x="27" y="10" width="3" height="12" rx="1" fill="url(#fitness3d)"/>
-    {/* Highlight */}
-    <path d="M4 13h4M24 13h4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Dumbbell - white on transparent */}
+    <rect x="4" y="12" width="6" height="8" rx="1" fill="white"/>
+    <rect x="22" y="12" width="6" height="8" rx="1" fill="white"/>
+    <rect x="10" y="14" width="12" height="4" fill="white"/>
+    <rect x="2" y="10" width="3" height="12" rx="1" fill="white"/>
+    <rect x="27" y="10" width="3" height="12" rx="1" fill="white"/>
   </svg>
 );
 
 export const SightIcon = () => (
-  <svg viewBox="0 0 32 32" width={22} height={22}>
-    <defs>
-      <linearGradient id="sight3d" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFE57F"/>
-        <stop offset="50%" stopColor="#FFC107"/>
-        <stop offset="100%" stopColor="#FF9800"/>
-      </linearGradient>
-    </defs>
-    {/* Star */}
-    <path d="M16 2l4 9h9l-7 6 3 10-9-6-9 6 3-10-7-6h9z" fill="url(#sight3d)"/>
-    {/* 3D highlight */}
-    <path d="M16 4l2 5" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
-    {/* Inner star glow */}
-    <path d="M16 8l2 4h4l-3 3 1 5-4-3-4 3 1-5-3-3h4z" fill="white" opacity="0.3"/>
+  <svg viewBox="0 0 32 32" width={28} height={28}>
+    {/* Star - white on transparent */}
+    <path d="M16 2l4 9h9l-7 6 3 10-9-6-9 6 3-10-7-6h9z" fill="white"/>
   </svg>
 );
 

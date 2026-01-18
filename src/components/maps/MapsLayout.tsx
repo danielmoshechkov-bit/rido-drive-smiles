@@ -361,8 +361,8 @@ const MapsLayout = () => {
             />
           )}
           
-          {/* Speed + Limit Overlay (Yandex style - top right during navigation) */}
-          {navigation.isNavigating && navSettings.show_speed_limit && (
+          {/* Speed + Limit Overlay (Yandex style - top right when GPS active) */}
+          {gps.location && navSettings.show_speed_limit && (
             <SpeedLimitOverlay
               currentSpeed={gps.location?.speed ? Math.round(gps.location.speed * 3.6) : null}
               speedLimit={speedLimitData.limit}

@@ -72,18 +72,17 @@ const CategoryGrid = ({ onCategorySelect, compact = false }: CategoryGridProps) 
           onClick={() => onCategorySelect(category)}
           className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-accent/50 active:scale-95 transition-all duration-200 group"
         >
-          {/* Premium icon container with gradient background */}
+          {/* Premium icon container with gradient background - larger */}
           <div className={`
-            h-14 w-14 rounded-2xl 
+            h-16 w-16 rounded-2xl 
             ${category.bgClass}
             flex items-center justify-center 
             shadow-lg shadow-black/10
             group-hover:shadow-xl group-hover:scale-105
             transition-all duration-200
           `}>
-            <div className="text-white drop-shadow-sm">
-              {category.icon}
-            </div>
+            {/* Icon is white, no wrapper needed */}
+            {category.icon}
           </div>
           
           {/* Label */}
