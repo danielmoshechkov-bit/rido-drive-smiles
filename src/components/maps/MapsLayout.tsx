@@ -1,5 +1,5 @@
 // GetRido Maps - Layout Component
-// Build timestamp: 2026-01-18T12:00:00Z
+// Build timestamp: 2026-01-18T14:00:00Z
 import { useState, useEffect, useCallback } from 'react';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
@@ -7,6 +7,7 @@ import { useNavigation } from './useNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { incidentsService, Incident, BoundingBox } from './incidentsService';
 import { assessRouteRisk, RiskAssessment } from './routeRiskService';
+import { RidoMapTheme, getDefaultTheme, getMascotMessage } from './ridoMapTheme';
 import MapsSidebar from './MapsSidebar';
 import MapsContainer from './MapsContainer';
 import MapsInfoPanel from './MapsInfoPanel';
@@ -27,6 +28,12 @@ const MapsLayout = () => {
   const [consentDismissed, setConsentDismissed] = useState(() => 
     localStorage.getItem(CONSENT_DISMISSED_KEY) === 'true'
   );
+
+  // === MAP THEME STATE ===
+  const [mapTheme, setMapTheme] = useState<RidoMapTheme>(() => getDefaultTheme());
+  
+  // === MASCOT MESSAGE STATE ===
+  const [mascotMessage, setMascotMessage] = useState<string>('');
 
   // === INCIDENTS STATE ===
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -84,6 +91,23 @@ const MapsLayout = () => {
     }
   }, [routeId]);
 
+  // Update mascot message based on current state
+  useEffect(() => {
+    const message = getMascotMessage({
+      hasRoute: !!routing.route,
+      isNavigating: navigation.isNavigating,
+      incidentsCount: incidents.length,
+      hasGps: gps.hasConsent && !!gps.location,
+      gpsAccuracy: gps.location?.accuracy,
+    });
+    setMascotMessage(message);
+  }, [routing.route, navigation.isNavigating, incidents.length, gps.hasConsent, gps.location]);
+
+  // Handle theme change from FABs
+  const handleThemeChange = useCallback((theme: RidoMapTheme) => {
+    setMapTheme(theme);
+  }, []);
+
   // Handle manual refresh with cooldown check
   const handleRefreshIncidents = useCallback(() => {
     if (incidentsService.canRefresh()) {
@@ -126,13 +150,15 @@ const MapsLayout = () => {
           />
         )}
 
-        <div className="relative h-full w-full overflow-hidden maps-fullscreen">
+        <div className={`relative h-full w-full overflow-hidden maps-fullscreen ${mapTheme === 'dark' ? 'rido-map-vignette-dark' : ''}`}>
           {/* Fullscreen Map */}
           <MapsContainer 
             routing={routing} 
             gps={gps} 
             navigation={navigation}
             incidents={incidents}
+            mapTheme={mapTheme}
+            mascotMessage={mascotMessage}
           />
           
           {/* Mobile Navigation Bar (top, during navigation) */}
@@ -140,8 +166,8 @@ const MapsLayout = () => {
             <MobileNavigationBar navigation={navigation} gps={gps} />
           )}
           
-          {/* FAB buttons */}
-          <MapsFABs gps={gps} navigation={navigation} />
+          {/* FAB buttons with theme toggle */}
+          <MapsFABs gps={gps} navigation={navigation} onThemeChange={handleThemeChange} />
           
           {/* Bottom Sheet with real incidents & risk */}
           <MapsBottomSheet 
@@ -169,7 +195,7 @@ const MapsLayout = () => {
         />
       )}
 
-      <div className="flex flex-1 h-full overflow-hidden">
+      <div className={`flex flex-1 h-full overflow-hidden ${mapTheme === 'dark' ? 'rido-map-vignette-dark' : ''}`}>
         <MapsSidebar 
           routing={routing} 
           gps={gps} 
@@ -182,6 +208,8 @@ const MapsLayout = () => {
           gps={gps} 
           navigation={navigation}
           incidents={incidents}
+          mapTheme={mapTheme}
+          mascotMessage={mascotMessage}
         />
         <MapsInfoPanel 
           gps={gps} 

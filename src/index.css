@@ -464,6 +464,16 @@ a.button,
   overflow: hidden;
 }
 
+/* Dark mode vignette - reduces eye strain during long drives */
+.rido-map-vignette-dark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.08) 100%);
+  z-index: 1;
+}
+
 /* Bottom sheet smooth animation */
 .bottom-sheet-content {
   -webkit-overflow-scrolling: touch;
