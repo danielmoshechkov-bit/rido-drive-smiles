@@ -11,14 +11,14 @@ const MIN_SPEED_FOR_HEADING = 2; // km/h - below this, don't rotate map
 const BEARING_BUFFER_SIZE = 3; // Number of positions to calculate bearing from
 
 // ═══════════════════════════════════════════════════════════════
-// PREMIUM SMOOTHNESS CONSTANTS - Google/Waze quality
+// PREMIUM SMOOTHNESS CONSTANTS - Google/Yandex quality (FAST & FLUID)
 // ═══════════════════════════════════════════════════════════════
-const CAMERA_UPDATE_INTERVAL = 900; // ms - throttle camera updates
-const GPS_SMOOTH_FACTOR = 0.25; // 25% new, 75% old position
-const BEARING_SMOOTH_FACTOR = 0.15; // Slow bearing changes for stability
-const BEARING_CHANGE_THRESHOLD = 8; // degrees - ignore smaller changes
-const GPS_ACCURACY_THRESHOLD = 40; // meters - ignore weak GPS
-const CAMERA_EASE_DURATION = 900; // ms - animation duration
+const CAMERA_UPDATE_INTERVAL = 250; // ms - 4 FPS smooth camera updates
+const GPS_SMOOTH_FACTOR = 0.4; // 40% new, 60% old position - faster response
+const BEARING_SMOOTH_FACTOR = 0.2; // Faster bearing changes for responsiveness
+const BEARING_CHANGE_THRESHOLD = 5; // degrees - more responsive rotation
+const GPS_ACCURACY_THRESHOLD = 50; // meters - slightly more tolerant
+const CAMERA_EASE_DURATION = 280; // ms - quick but smooth animation
 
 export type FollowMode = 'off' | 'center' | 'heading';
 
@@ -334,12 +334,15 @@ export function useMapCameraController(
     
     const speed = speedKmh(location);
 
+    // Ease-out quad easing function for natural deceleration
+    const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
+    
     if (followMode === 'center') {
       // Center on user, north-up - use easeTo for smoothness
       map.easeTo({
         center: [smooth.lng, smooth.lat],
         duration: CAMERA_EASE_DURATION,
-        easing: (t) => t, // Linear for smooth continuous motion
+        easing: easeOutQuad,
       });
     } else if (followMode === 'heading') {
       // If too slow, don't rotate (keeps stable on stationary)
@@ -347,7 +350,7 @@ export function useMapCameraController(
         map.easeTo({
           center: [smooth.lng, smooth.lat],
           duration: CAMERA_EASE_DURATION,
-          easing: (t) => t,
+          easing: easeOutQuad,
         });
       } else {
         // Use GPS heading if available, otherwise calculated bearing
@@ -359,7 +362,7 @@ export function useMapCameraController(
           bearing: bearing,
           pitch: config.navigationPitch,
           duration: CAMERA_EASE_DURATION,
-          easing: (t) => t, // Linear for continuous motion
+          easing: easeOutQuad,
         });
         
         setIsMapRotated(bearing !== 0);
