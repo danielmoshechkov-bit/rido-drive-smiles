@@ -156,12 +156,7 @@ const MobileNavigationBar = ({
             <span className="font-bold text-lg">{speedKmh ?? '—'}</span>
             <span className="text-sm text-muted-foreground">km/h</span>
             
-            {/* Speed limit badge */}
-            {showSpeedLimit && speedLimit && (
-              <div className="ml-2 h-7 w-7 rounded-full border-2 border-red-500 flex items-center justify-center">
-                <span className="text-xs font-bold">{speedLimit}</span>
-              </div>
-            )}
+          {/* Speed limit removed - now in SpeedLimitOverlay */}
           </div>
 
           {/* Weak GPS warning (only when weak) */}

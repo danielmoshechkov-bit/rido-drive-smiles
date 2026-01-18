@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceLanguage } from './voicePhrases';
 
+export type NavigationStyle = 'banner' | 'bubble';
+
 export interface NavigationSettings {
   voice_enabled: boolean;
   voice_language: VoiceLanguage;
@@ -15,6 +17,7 @@ export interface NavigationSettings {
   show_speed_limit: boolean;
   show_lane_guidance: boolean;
   show_roundabout_exit: boolean;
+  navigation_style: NavigationStyle;
 }
 
 const DEFAULT_SETTINGS: NavigationSettings = {
@@ -28,6 +31,7 @@ const DEFAULT_SETTINGS: NavigationSettings = {
   show_speed_limit: true,
   show_lane_guidance: true,
   show_roundabout_exit: true,
+  navigation_style: 'banner', // 'banner' = Yandex style top, 'bubble' = Google style on-map
 };
 
 // Local storage key for offline fallback
