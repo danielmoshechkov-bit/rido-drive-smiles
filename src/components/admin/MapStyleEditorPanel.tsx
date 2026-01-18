@@ -117,7 +117,7 @@ export function MapStyleEditorPanel() {
       } else {
         const { error } = await supabase
           .from('maps_config')
-          .insert(payload);
+          .insert([{ config_key: 'global', config_value: 'default', ...payload }]);
         if (error) throw error;
       }
     },

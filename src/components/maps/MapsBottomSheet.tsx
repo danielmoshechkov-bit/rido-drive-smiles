@@ -38,6 +38,8 @@ interface MapsBottomSheetProps {
   ridoAiAlternative?: any;
   onRefreshIncidents?: () => void;
   onUseRidoAiAlternative?: () => void;
+  // Landscape mode (minimized UI)
+  isLandscape?: boolean;
 }
 
 const MapsBottomSheet = ({ 
@@ -50,6 +52,7 @@ const MapsBottomSheet = ({
   ridoAiAlternative,
   onRefreshIncidents,
   onUseRidoAiAlternative,
+  isLandscape = false,
 }: MapsBottomSheetProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('route');
@@ -85,6 +88,33 @@ const MapsBottomSheet = ({
       <path d="M13 26 Q20 32 27 26" stroke={RIDO_THEME_COLORS.goldAccent} strokeWidth="2.5" fill="none" strokeLinecap="round" />
     </svg>
   );
+
+  // In landscape mode, show only minimal compact bar
+  if (isLandscape) {
+    return (
+      <div 
+        className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur border-t"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex items-center justify-between px-4 py-2 h-12">
+          {route ? (
+            <>
+              <div className="flex items-center gap-3">
+                <Navigation className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm truncate max-w-32">{endInput || 'Cel'}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="font-bold">{Math.round(route.duration)} min</span>
+                <span className="text-muted-foreground text-sm">{route.distance.toFixed(1)} km</span>
+              </div>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">Dotknij aby wyszukać trasę</span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -207,11 +237,12 @@ const MapsBottomSheet = ({
               value="status" 
               className="flex-1 overflow-y-auto overscroll-contain mt-0 p-4"
             >
-              <MobileStatusTab 
+            <MobileStatusTab 
                 gps={gps} 
                 incidents={incidents}
                 incidentsLoading={incidentsLoading}
                 onRefreshIncidents={onRefreshIncidents}
+                routeCoordinates={routing.route?.coordinates}
               />
             </TabsContent>
           </Tabs>
