@@ -3664,6 +3664,101 @@ export type Database = {
         }
         Relationships: []
       }
+      parking_sessions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          end_at: string
+          id: string
+          payment_status: string | null
+          provider: string | null
+          provider_ref: string | null
+          start_at: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          vehicle_plate: string
+          zone_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_at: string
+          id?: string
+          payment_status?: string | null
+          provider?: string | null
+          provider_ref?: string | null
+          start_at?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          vehicle_plate: string
+          zone_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_at?: string
+          id?: string
+          payment_status?: string | null
+          provider?: string | null
+          provider_ref?: string | null
+          start_at?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          vehicle_plate?: string
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parking_sessions_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "parking_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parking_zones: {
+        Row: {
+          city: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          polygon: Json
+          rules: Json | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          polygon: Json
+          rules?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          polygon?: Json
+          rules?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       platform_import_config: {
         Row: {
           columns: Json
@@ -5591,6 +5686,89 @@ export type Database = {
         }
         Relationships: []
       }
+      toll_purchases: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          end_at: string | null
+          id: string
+          provider: string | null
+          segment_id: string | null
+          start_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_at?: string | null
+          id?: string
+          provider?: string | null
+          segment_id?: string | null
+          start_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          end_at?: string | null
+          id?: string
+          provider?: string | null
+          segment_id?: string | null
+          start_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toll_purchases_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "toll_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      toll_segments: {
+        Row: {
+          country: string | null
+          created_at: string | null
+          geometry: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          price_rules: Json | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string | null
+          geometry: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_rules?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string | null
+          geometry?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_rules?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       transit_location_data: {
         Row: {
           ai_summary: string | null
@@ -5717,6 +5895,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_vehicles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          nickname: string | null
+          plate: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          nickname?: string | null
+          plate: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          nickname?: string | null
+          plate?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_wallets: {
         Row: {
