@@ -40,7 +40,7 @@ export function NavigationSettingsSheet({ open, onClose }: NavigationSettingsShe
     updateSettings({ voice_volume: volumeMap[level] });
   };
 
-  const handleNavigationStyleChange = (style: 'banner' | 'bubble') => {
+  const handleNavigationStyleChange = (style: 'banner' | 'bubble' | 'premium3d') => {
     updateSettings({ navigation_style: style });
   };
 
@@ -237,18 +237,24 @@ export function NavigationSettingsSheet({ open, onClose }: NavigationSettingsShe
             <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Styl nawigacji
             </Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <StyleButton
                 active={settings.navigation_style === 'banner'}
                 onClick={() => handleNavigationStyleChange('banner')}
                 label="Klasyczny"
-                description="Pasek na górze ekranu"
+                description="Standardowy widok"
               />
               <StyleButton
                 active={settings.navigation_style === 'bubble'}
                 onClick={() => handleNavigationStyleChange('bubble')}
-                label="Zalecany"
-                description="Dymek na mapie (Yandex)"
+                label="Bubble"
+                description="Dymek (Yandex)"
+              />
+              <StyleButton
+                active={settings.navigation_style === 'premium3d'}
+                onClick={() => handleNavigationStyleChange('premium3d')}
+                label="Premium 3D"
+                description="Cyberpunk night"
               />
             </div>
           </div>

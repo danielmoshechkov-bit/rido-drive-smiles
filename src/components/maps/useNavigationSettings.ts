@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceLanguage } from './voicePhrases';
 
-export type NavigationStyle = 'banner' | 'bubble';
+export type NavigationStyle = 'banner' | 'bubble' | 'premium3d';
 export type VoiceMode = 'off' | 'alerts' | 'all';
 export type CursorStyle = 'arrow' | 'car';
 export type ThemePreference = 'light' | 'dark' | 'auto';
