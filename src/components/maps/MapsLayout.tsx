@@ -1,5 +1,5 @@
-// GetRido Maps - Layout Component
-// Build timestamp: 2026-01-18T15:00:00Z
+// GetRido Maps - Layout Component (Google Maps Premium UX)
+// Build timestamp: 2026-01-18T16:00:00Z
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
@@ -19,6 +19,12 @@ import GpsConsentGate from './GpsConsentGate';
 import MapsBottomSheet from './MapsBottomSheet';
 import MapsFABs from './MapsFABs';
 import MobileNavigationBar from './MobileNavigationBar';
+import TurnByTurnBanner from './TurnByTurnBanner';
+import NavigationBottomBar from './NavigationBottomBar';
+import LiveSearchOverlay from './LiveSearchOverlay';
+import LocationDetailCard from './LocationDetailCard';
+import { AddressSuggestion } from './autocompleteService';
+import { addressHistoryService } from './addressHistoryService';
 
 // Speed limit fallback by road class (when OSRM doesn't provide maxspeed)
 const SPEED_LIMIT_FALLBACK: Record<string, number> = {
@@ -56,6 +62,16 @@ const MapsLayout = () => {
   // === INCIDENTS STATE ===
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
+  const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
+  
+  // === LIVE SEARCH STATE ===
+  const [showLiveSearch, setShowLiveSearch] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<AddressSuggestion | null>(null);
+  const [previewMarkers, setPreviewMarkers] = useState<AddressSuggestion[]>([]);
+  
+  // === CURRENT STEP STATE (for turn-by-turn) ===
+  const [distanceToCurrentStep, setDistanceToCurrentStep] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
   // Calculate bbox from route coordinates + buffer
@@ -131,14 +147,36 @@ const MapsLayout = () => {
   });
   
   // === CURRENT STEP & SPEED LIMIT ===
-  // Find current step based on user position (simplified - use first upcoming step)
-  const currentStep = useMemo((): RouteStep | null => {
+  // Find current step and next step based on user position
+  const { currentStep, nextStep } = useMemo((): { currentStep: RouteStep | null; nextStep: RouteStep | null } => {
     if (!navigation.isNavigating || !routeSteps.length || !gps.location) {
-      return null;
+      return { currentStep: null, nextStep: null };
     }
-    // For MVP: return first step that's not 'depart'
-    return routeSteps.find(s => s.maneuver?.type !== 'depart') || null;
+    
+    // Find upcoming steps (skip 'depart' type)
+    const upcomingSteps = routeSteps.filter(s => s.maneuver?.type !== 'depart');
+    
+    return { 
+      currentStep: upcomingSteps[0] || null,
+      nextStep: upcomingSteps[1] || null,
+    };
   }, [navigation.isNavigating, routeSteps, gps.location]);
+  
+  // Update distance to current step
+  useEffect(() => {
+    if (currentStep && gps.location) {
+      // Calculate distance to maneuver point
+      const [lng, lat] = currentStep.maneuver.location;
+      const R = 6371000; // Earth radius in meters
+      const dLat = (lat - gps.location.latitude) * Math.PI / 180;
+      const dLng = (lng - gps.location.longitude) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(gps.location.latitude * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      setDistanceToCurrentStep(R * c);
+    }
+  }, [currentStep, gps.location]);
   
   // Get speed limit from current step or fallback
   const speedLimitData = useMemo(() => {
@@ -206,6 +244,60 @@ const MapsLayout = () => {
     setConsentDismissed(true);
     localStorage.setItem(CONSENT_DISMISSED_KEY, 'true');
   };
+  
+  // === LIVE SEARCH HANDLERS ===
+  const handleOpenSearch = useCallback(() => {
+    setShowLiveSearch(true);
+  }, []);
+  
+  const handleCloseSearch = useCallback(() => {
+    setShowLiveSearch(false);
+    setPreviewMarkers([]);
+  }, []);
+  
+  const handleSelectLocation = useCallback((location: AddressSuggestion) => {
+    setSelectedLocation(location);
+    setShowLiveSearch(false);
+    setPreviewMarkers([]);
+    
+    // Save to history
+    addressHistoryService.addEndEntry({
+      displayName: location.displayName,
+      shortName: location.shortName,
+      lat: location.lat,
+      lng: location.lng,
+      type: 'address',
+    });
+    
+    // Set as destination and calculate route
+    routing.setEndInput(location.shortName);
+    routing.setEndCoords({ lat: location.lat, lng: location.lng });
+    routing.calculateRoute();
+  }, [routing]);
+  
+  const handlePreviewLocations = useCallback((locations: AddressSuggestion[]) => {
+    setPreviewMarkers(locations);
+  }, []);
+  
+  const handleNavigateToLocation = useCallback(() => {
+    if (!selectedLocation) return;
+    routing.setEndInput(selectedLocation.shortName);
+    routing.setEndCoords({ lat: selectedLocation.lat, lng: selectedLocation.lng });
+    routing.calculateRoute();
+  }, [selectedLocation, routing]);
+  
+  const handleStartNavigation = useCallback(async () => {
+    await navigation.startNavigation();
+    setSelectedLocation(null);
+  }, [navigation]);
+  
+  const handleCloseLocationCard = useCallback(() => {
+    setSelectedLocation(null);
+  }, []);
+  
+  const handleToggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
 
   // Show fullscreen consent gate if needed
   const shouldShowConsentGate = showConsentGate && !gps.hasConsent && !consentDismissed;
