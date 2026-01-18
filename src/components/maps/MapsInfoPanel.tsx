@@ -1,11 +1,20 @@
 import { Activity, AlertTriangle, Shield, Clock, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import GpsStatusPanel from './GpsStatusPanel';
+import { GpsState } from './useUserLocation';
 
-const MapsInfoPanel = () => {
+interface MapsInfoPanelProps {
+  gps: GpsState;
+}
+
+const MapsInfoPanel = ({ gps }: MapsInfoPanelProps) => {
   return (
     <div className="w-72 flex-shrink-0 bg-card border-l flex flex-col h-full">
       <ScrollArea className="flex-1">
+        {/* GPS Status - at top */}
+        <GpsStatusPanel gps={gps} />
+
         {/* Traffic Status */}
         <div className="p-4 border-b">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
