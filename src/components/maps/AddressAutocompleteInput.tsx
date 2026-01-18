@@ -184,7 +184,7 @@ export function AddressAutocompleteInput({
 
       {/* History dropdown (shown when input is empty and focused) */}
       {showHistory && !autocomplete.isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-80 overflow-y-auto">
+        <div className="absolute z-[60] w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-80 overflow-y-auto">
           <div className="p-2.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
             <span className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
@@ -248,7 +248,7 @@ export function AddressAutocompleteInput({
 
       {/* Dropdown z sugestiami autocomplete */}
       {autocomplete.isOpen && !showHistory && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto">
+        <div className="absolute z-[60] w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto">
           {autocomplete.suggestions.length === 0 ? (
             <div className="p-3 text-center text-sm text-muted-foreground">
               Nie znaleziono dokładnego adresu

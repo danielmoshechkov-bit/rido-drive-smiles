@@ -105,18 +105,19 @@ const RouteInputPanel = ({ routing, gps, onClose }: RouteInputPanelProps) => {
             <div className="h-3 w-3 rounded-full bg-primary" />
           </div>
 
-          {/* Inputs */}
           <div className="flex-1 flex flex-col gap-2">
             {/* Start input */}
             <div className="relative">
               {useCurrentLocation ? (
-                <div 
-                  className="h-12 px-4 rounded-xl bg-muted/50 flex items-center gap-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                <button 
+                  type="button"
+                  className="w-full h-12 px-4 rounded-xl bg-muted/50 flex items-center gap-2 cursor-pointer hover:bg-blue-500/5 hover:border-blue-500/30 border border-transparent transition-colors text-left group"
                   onClick={() => setUseCurrentLocation(false)}
                 >
-                  <Navigation className="h-4 w-4 text-primary" />
-                  <span className="text-sm">Twoja lokalizacja</span>
-                </div>
+                  {/* Blue pulsing GPS point */}
+                  <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 animate-pulse" />
+                  <span className="text-sm text-blue-600 font-medium group-hover:underline">Twoja lokalizacja</span>
+                </button>
               ) : (
                 <AddressAutocompleteInput
                   value={startInputValue}
