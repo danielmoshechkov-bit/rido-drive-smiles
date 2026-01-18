@@ -1,6 +1,6 @@
 // GetRido Maps - Mobile Bottom Sheet (Yandex-style redesign)
 import { useState, useEffect } from 'react';
-import { Search, Sparkles, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
@@ -12,6 +12,7 @@ import { CameraController } from './useMapCameraController';
 import CategoryGrid, { POICategory, POI_CATEGORIES } from './CategoryGrid';
 import SearchSheet from './SearchSheet';
 import MapAISheet from './MapAISheet';
+import { AISparkleIcon } from './CategoryIcons';
 
 interface MapsBottomSheetProps {
   routing: RoutingState & {
@@ -128,56 +129,60 @@ const MapsBottomSheet = ({
         className="fixed bottom-0 left-0 right-0 z-40"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="mx-3 mb-3 rounded-2xl bg-card/98 backdrop-blur-xl border shadow-2xl overflow-hidden">
+        <div className="mx-3 mb-3 rounded-3xl bg-card/98 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20 overflow-hidden">
           {/* Handle */}
-          <div className="flex items-center justify-center pt-2 pb-1">
-            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+          <div className="flex items-center justify-center pt-3 pb-2">
+            <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
           </div>
 
           {/* Search bar row */}
           <div className="px-4 pb-3">
-            <div className="flex items-center gap-2">
-              {/* Main search button */}
+            <div className="flex items-center gap-3">
+              {/* Main search button - premium style */}
               <button
                 onClick={() => setShowSearchSheet(true)}
-                className="flex-1 h-12 px-4 rounded-xl bg-muted/60 hover:bg-muted transition-colors flex items-center gap-3 text-left"
+                className="flex-1 h-14 px-5 rounded-2xl bg-muted/40 hover:bg-muted/60 border-2 border-transparent hover:border-primary/20 transition-all duration-200 flex items-center gap-4 text-left shadow-lg shadow-black/5"
               >
-                <Search className="h-5 w-5 text-muted-foreground" />
-                <span className="text-muted-foreground">Gdzie chcesz jechać?</span>
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Search className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-muted-foreground font-medium">Gdzie chcesz jechać? 🚗</span>
               </button>
 
-              {/* AI Button */}
+              {/* Premium AI Button with gradient and animation */}
               <button
                 onClick={() => setShowAISheet(true)}
-                className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shrink-0 hover:bg-primary/90 active:scale-95 transition-all"
+                className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-xl shadow-violet-500/30 shrink-0 hover:shadow-2xl hover:shadow-violet-500/40 hover:scale-105 active:scale-95 transition-all duration-200 relative overflow-hidden group"
               >
-                <Sparkles className="h-5 w-5" />
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <AISparkleIcon />
               </button>
             </div>
           </div>
 
-          {/* Category chips - horizontal scroll */}
-          <div className="px-4 pb-4 overflow-x-auto no-scrollbar">
-            <div className="flex gap-2">
-              {POI_CATEGORIES.slice(0, 6).map((category) => (
+          {/* Category chips - horizontal scroll with premium styling */}
+          <div className="px-4 pb-5 overflow-x-auto no-scrollbar">
+            <div className="flex gap-2.5">
+              {POI_CATEGORIES.slice(0, 5).map((category) => (
                 <button
                   key={category.id}
                   onClick={() => handleCategorySelect(category)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 hover:bg-muted active:scale-95 transition-all shrink-0"
+                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-transparent hover:border-primary/10 active:scale-95 transition-all duration-200 shrink-0 shadow-sm hover:shadow-md"
                 >
-                  <div className={`h-6 w-6 rounded-full ${category.color} text-white flex items-center justify-center text-xs`}>
+                  <div className={`h-8 w-8 rounded-xl ${category.bgClass} text-white flex items-center justify-center shadow-md`}>
                     {category.icon}
                   </div>
                   <span className="text-sm font-medium whitespace-nowrap">{category.label}</span>
                 </button>
               ))}
               
-              {/* More categories button */}
+              {/* More categories button - premium style */}
               <button
                 onClick={() => setShowSearchSheet(true)}
-                className="flex items-center gap-1 px-4 py-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all shrink-0"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 text-primary hover:from-primary/20 hover:to-primary/10 border border-primary/20 active:scale-95 transition-all duration-200 shrink-0"
               >
-                <span className="text-sm font-medium">Więcej</span>
+                <span className="text-sm font-semibold">Więcej</span>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>

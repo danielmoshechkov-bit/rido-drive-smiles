@@ -56,43 +56,90 @@ const GoogleDestPin = ({ size = 40 }: { size?: number }) => (
   </svg>
 );
 
-// Clean USER location marker - Blue arrow/circle
-const GoogleUserMarker = ({ heading, accuracy }: { heading: number | null; accuracy: number }) => (
+// Premium 3D USER location marker - RIDO Gold Arrow
+const RidoUserMarker3D = ({ heading, accuracy, isMoving }: { heading: number | null; accuracy: number; isMoving?: boolean }) => (
   <div className="relative flex items-center justify-center">
-    {/* Accuracy circle - very subtle */}
+    {/* Accuracy circle - violet glow */}
     <div 
-      className="absolute rounded-full"
+      className={`absolute rounded-full ${isMoving ? 'animate-pulse' : ''}`}
       style={{ 
-        width: Math.min(Math.max(accuracy * 0.5, 40), 100), 
-        height: Math.min(Math.max(accuracy * 0.5, 40), 100),
-        background: 'radial-gradient(circle, rgba(66, 133, 244, 0.15), transparent 70%)',
+        width: Math.min(Math.max(accuracy * 0.7, 50), 120), 
+        height: Math.min(Math.max(accuracy * 0.7, 50), 120),
+        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%)',
       }} 
     />
-    {/* Main user dot with heading arrow */}
+    {/* Main 3D arrow */}
     <div 
-      className="relative z-10 transition-transform duration-200"
+      className="relative z-10 transition-transform duration-300 ease-out"
       style={{ transform: heading !== null ? `rotate(${heading}deg)` : undefined }}
     >
-      <svg viewBox="0 0 48 48" width={48} height={48} className="drop-shadow-lg">
+      <svg viewBox="0 0 60 80" width={50} height={66} className="drop-shadow-2xl">
         <defs>
-          <filter id="userShadow">
-            <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.25"/>
+          {/* Premium gold gradient */}
+          <linearGradient id="ridoGold3D" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFD700" />
+            <stop offset="25%" stopColor="#FFC107" />
+            <stop offset="50%" stopColor="#FFB300" />
+            <stop offset="75%" stopColor="#FF9800" />
+            <stop offset="100%" stopColor="#F57C00" />
+          </linearGradient>
+          
+          {/* Violet accent gradient */}
+          <linearGradient id="ridoVioletStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#A78BFA" />
+            <stop offset="100%" stopColor="#7C3AED" />
+          </linearGradient>
+          
+          {/* 3D shadow */}
+          <filter id="rido3DShadow" x="-50%" y="-30%" width="200%" height="200%">
+            <feDropShadow dx="2" dy="5" stdDeviation="5" floodColor="#000" floodOpacity="0.4"/>
+          </filter>
+          
+          {/* Glow effect */}
+          <filter id="ridoGlow">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
           </filter>
         </defs>
-        {/* Direction cone/arrow (only shows when moving) */}
-        {heading !== null && (
-          <path 
-            d="M24 2 L32 24 L24 20 L16 24 Z" 
-            fill="#4285F4"
-            opacity="0.7"
-          />
-        )}
-        {/* Outer ring */}
-        <circle cx="24" cy="24" r="10" fill="#4285F4" filter="url(#userShadow)" />
-        {/* White ring */}
-        <circle cx="24" cy="24" r="7" fill="white" />
-        {/* Blue center */}
-        <circle cx="24" cy="24" r="5" fill="#4285F4" />
+        
+        {/* Outer glow ellipse */}
+        <ellipse cx="30" cy="58" rx="16" ry="7" fill="rgba(139, 92, 246, 0.25)" filter="url(#ridoGlow)"/>
+        
+        {/* Arrow body - 3D gold with violet stroke */}
+        <path 
+          d="M30 5 L50 58 L30 46 L10 58 Z"
+          fill="url(#ridoGold3D)"
+          stroke="url(#ridoVioletStroke)"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          filter="url(#rido3DShadow)"
+        />
+        
+        {/* Left highlight - 3D effect */}
+        <path 
+          d="M30 10 L25 38 L16 52"
+          fill="none"
+          stroke="rgba(255,255,255,0.75)"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* Right shadow - 3D depth */}
+        <path 
+          d="M30 10 L35 38 L44 52"
+          fill="none"
+          stroke="rgba(0,0,0,0.2)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        
+        {/* Center jewel highlight */}
+        <ellipse cx="30" cy="32" rx="4" ry="3" fill="rgba(255,255,255,0.9)"/>
+        <ellipse cx="29" cy="31" rx="2" ry="1.5" fill="white"/>
       </svg>
     </div>
   </div>
