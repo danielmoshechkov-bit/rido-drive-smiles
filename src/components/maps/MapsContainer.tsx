@@ -450,40 +450,58 @@ const MapsContainer = ({
           </Source>
         )}
         
-        {/* Main Route - Google-style BLUE (lepiej widoczna niż violet) */}
+        {/* Main Route - Premium Yandex-style with shadows and gradient */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            {/* Outer glow - subtle blue */}
+            {/* Layer 1: Outer shadow/glow for 3D depth */}
+            <Layer 
+              id="route-shadow" 
+              type="line" 
+              paint={{ 
+                'line-color': 'rgba(0, 0, 0, 0.15)', 
+                'line-width': 24, 
+                'line-blur': 8,
+              }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
+            />
+            {/* Layer 2: Blue glow aura */}
             <Layer 
               id="route-glow" 
               type="line" 
               paint={{ 
-                'line-color': 'rgba(66, 133, 244, 0.25)', 
+                'line-color': 'rgba(66, 133, 244, 0.35)', 
                 'line-width': 18, 
-                'line-opacity': 1,
-                'line-blur': 3 
+                'line-blur': 4,
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
-            {/* Dark outline for depth */}
+            {/* Layer 3: Dark blue outline */}
             <Layer 
               id="route-outline" 
               type="line" 
               paint={{ 
-                'line-color': '#1a73e8', 
-                'line-width': 10, 
-                'line-opacity': 1 
+                'line-color': '#1565C0', 
+                'line-width': 12, 
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
-            {/* Main route - bright Google blue */}
+            {/* Layer 4: Main bright blue */}
             <Layer 
               id="route-line" 
               type="line" 
               paint={{ 
-                'line-color': '#4285F4', 
-                'line-width': 7, 
-                'line-opacity': 1 
+                'line-color': '#42A5F5', 
+                'line-width': 8, 
+              }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
+            />
+            {/* Layer 5: Central highlight for 3D effect */}
+            <Layer 
+              id="route-highlight" 
+              type="line" 
+              paint={{ 
+                'line-color': 'rgba(255, 255, 255, 0.4)', 
+                'line-width': 3, 
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />

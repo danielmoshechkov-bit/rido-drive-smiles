@@ -21,6 +21,8 @@ import MapsBottomSheet from './MapsBottomSheet';
 import MapsFABs from './MapsFABs';
 import MobileNavigationBar from './MobileNavigationBar';
 import TurnByTurnBanner from './TurnByTurnBanner';
+import TurnBubbleOnMap from './TurnBubbleOnMap';
+import SpeedLimitOverlay from './SpeedLimitOverlay';
 import RoutePreviewBar from './RoutePreviewBar';
 import RouteInputPanel from './RouteInputPanel';
 import NavigationBottomBar from './NavigationBottomBar';
@@ -359,15 +361,33 @@ const MapsLayout = () => {
             />
           )}
           
-          {/* Turn-by-Turn Banner (during navigation - Google green style) */}
-          {navigation.isNavigating && currentStep && (
-            <TurnByTurnBanner
-              currentStep={currentStep}
-              nextStep={nextStep}
-              distanceToStep={distanceToCurrentStep}
-              onRecenter={cameraController?.resetBearing}
-              isMapRotated={cameraController?.isMapRotated}
+          {/* Speed + Limit Overlay (Yandex style - top right during navigation) */}
+          {navigation.isNavigating && navSettings.show_speed_limit && (
+            <SpeedLimitOverlay
+              currentSpeed={gps.location?.speed ? Math.round(gps.location.speed * 3.6) : null}
+              speedLimit={speedLimitData.limit}
+              isEstimatedLimit={speedLimitData.isEstimated}
+              yellowThreshold={navSettings.speed_warning_yellow_over}
+              redThreshold={navSettings.speed_warning_red_over}
             />
+          )}
+          
+          {/* Turn-by-Turn Navigation - Two styles */}
+          {navigation.isNavigating && currentStep && (
+            navSettings.navigation_style === 'bubble' ? (
+              <TurnBubbleOnMap
+                currentStep={currentStep}
+                distanceToStep={distanceToCurrentStep}
+              />
+            ) : (
+              <TurnByTurnBanner
+                currentStep={currentStep}
+                nextStep={nextStep}
+                distanceToStep={distanceToCurrentStep}
+                onRecenter={cameraController?.resetBearing}
+                isMapRotated={cameraController?.isMapRotated}
+              />
+            )
           )}
           
           {/* Mobile Navigation Bar (bottom stats during navigation) */}
@@ -380,7 +400,7 @@ const MapsLayout = () => {
               isEstimatedLimit={speedLimitData.isEstimated}
               yellowThreshold={navSettings.speed_warning_yellow_over}
               redThreshold={navSettings.speed_warning_red_over}
-              showSpeedLimit={navSettings.show_speed_limit}
+              showSpeedLimit={false}
               showLaneGuidance={navSettings.show_lane_guidance}
             />
           )}

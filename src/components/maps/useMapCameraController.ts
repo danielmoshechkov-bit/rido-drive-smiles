@@ -1,5 +1,5 @@
-// GetRido Maps - Camera Controller Hook (Google-like animations)
-// Manages follow mode, camera animations, bearing calculation
+// GetRido Maps - Camera Controller Hook (Premium Google-like animations)
+// Manages follow mode, camera animations, bearing calculation with SMOOTH motion
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MapRef } from 'react-map-gl/maplibre';
@@ -9,6 +9,16 @@ import { NavigationState } from './useNavigation';
 const FOLLOW_MODE_STORAGE_KEY = 'getrido_follow_mode';
 const MIN_SPEED_FOR_HEADING = 2; // km/h - below this, don't rotate map
 const BEARING_BUFFER_SIZE = 3; // Number of positions to calculate bearing from
+
+// ═══════════════════════════════════════════════════════════════
+// PREMIUM SMOOTHNESS CONSTANTS - Google/Waze quality
+// ═══════════════════════════════════════════════════════════════
+const CAMERA_UPDATE_INTERVAL = 900; // ms - throttle camera updates
+const GPS_SMOOTH_FACTOR = 0.25; // 25% new, 75% old position
+const BEARING_SMOOTH_FACTOR = 0.15; // Slow bearing changes for stability
+const BEARING_CHANGE_THRESHOLD = 8; // degrees - ignore smaller changes
+const GPS_ACCURACY_THRESHOLD = 40; // meters - ignore weak GPS
+const CAMERA_EASE_DURATION = 900; // ms - animation duration
 
 export type FollowMode = 'off' | 'center' | 'heading';
 
@@ -54,6 +64,12 @@ function speedKmh(location: UserLocation | null): number {
   return location.speed * 3.6; // m/s to km/h
 }
 
+// Normalize angle difference to [-180, 180]
+function angleDiff(a: number, b: number): number {
+  let diff = ((b - a + 180) % 360) - 180;
+  return diff < -180 ? diff + 360 : diff;
+}
+
 export function useMapCameraController(
   mapRef: React.RefObject<MapRef>,
   gps: GpsState,
@@ -75,6 +91,13 @@ export function useMapCameraController(
   const previousFollowModeRef = useRef<FollowMode>(followMode);
   const pillTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isAnimatingRef = useRef(false);
+  
+  // ═══════════════════════════════════════════════════════════════
+  // SMOOTHING REFS - For premium camera motion
+  // ═══════════════════════════════════════════════════════════════
+  const lastCameraUpdateRef = useRef<number>(0);
+  const smoothedPositionRef = useRef<{ lat: number; lng: number } | null>(null);
+  const smoothedBearingRef = useRef<number>(0);
 
   // Save follow mode to localStorage
   const setFollowMode = useCallback((mode: FollowMode) => {
@@ -167,12 +190,49 @@ export function useMapCameraController(
     // Animate to north-up
     map.easeTo({
       bearing: 0,
-      duration: 300,
+      duration: 400,
       easing: (t) => t * (2 - t), // easeOut
     });
     
+    smoothedBearingRef.current = 0;
     setIsMapRotated(false);
   }, [mapRef, followMode, setFollowMode]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SMOOTHING FUNCTIONS - Premium quality
+  // ═══════════════════════════════════════════════════════════════
+  
+  // Smooth GPS position using moving average
+  const smoothPosition = useCallback((newLat: number, newLng: number) => {
+    if (!smoothedPositionRef.current) {
+      smoothedPositionRef.current = { lat: newLat, lng: newLng };
+      return smoothedPositionRef.current;
+    }
+    
+    // Interpolate: 25% new position, 75% old position
+    smoothedPositionRef.current = {
+      lat: smoothedPositionRef.current.lat * (1 - GPS_SMOOTH_FACTOR) + newLat * GPS_SMOOTH_FACTOR,
+      lng: smoothedPositionRef.current.lng * (1 - GPS_SMOOTH_FACTOR) + newLng * GPS_SMOOTH_FACTOR,
+    };
+    
+    return smoothedPositionRef.current;
+  }, []);
+  
+  // Smooth bearing changes - prevent jerky rotation
+  const smoothBearingValue = useCallback((newBearing: number): number => {
+    const diff = Math.abs(angleDiff(smoothedBearingRef.current, newBearing));
+    
+    // Ignore small changes (< threshold)
+    if (diff < BEARING_CHANGE_THRESHOLD) {
+      return smoothedBearingRef.current;
+    }
+    
+    // Interpolate large changes slowly (15% toward new bearing)
+    const delta = angleDiff(smoothedBearingRef.current, newBearing);
+    smoothedBearingRef.current = (smoothedBearingRef.current + delta * BEARING_SMOOTH_FACTOR + 360) % 360;
+    
+    return smoothedBearingRef.current;
+  }, []);
 
   // Google-like animation when starting navigation (3D perspective)
   const animateToNavigation = useCallback(() => {
@@ -190,26 +250,25 @@ export function useMapCameraController(
     } else if (calculatedBearing !== null) {
       initialBearing = calculatedBearing;
     }
+    
+    // Initialize smoothing refs
+    smoothedPositionRef.current = { lat: location.latitude, lng: location.longitude };
+    smoothedBearingRef.current = initialBearing;
 
     // Premium fly animation - Google Maps 3D style
-    // Zoom closer (18) and tilt more (60°) for immersive navigation
     map.flyTo({
       center: [location.longitude, location.latitude],
-      zoom: 18, // Very close zoom for navigation
+      zoom: 18,
       bearing: initialBearing,
-      pitch: 60, // Strong 3D tilt like Google Maps
-      duration: 1500, // Slower, smoother animation
-      easing: (t) => {
-        // Ease-out quart for premium feel
-        return 1 - Math.pow(1 - t, 4);
-      },
+      pitch: 60,
+      duration: 1500,
+      easing: (t) => 1 - Math.pow(1 - t, 4), // Ease-out quart
     });
 
     // After animation, enable heading follow mode
     setTimeout(() => {
       isAnimatingRef.current = false;
       
-      // Only enable heading mode if moving fast enough
       if (speedKmh(gps.location) >= MIN_SPEED_FOR_HEADING) {
         setFollowMode('heading');
       } else {
@@ -244,52 +303,69 @@ export function useMapCameraController(
       );
       
       // Only update if significantly different (avoid jitter)
-      if (calculatedBearing === null || Math.abs(bearing - calculatedBearing) > 5) {
+      if (calculatedBearing === null || Math.abs(angleDiff(bearing, calculatedBearing)) > 5) {
         setCalculatedBearing(bearing);
       }
     }
   }, [gps.location, calculatedBearing]);
 
-  // Update camera based on follow mode
+  // ═══════════════════════════════════════════════════════════════
+  // PREMIUM CAMERA UPDATE - Smooth, throttled, professional
+  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     const map = mapRef.current?.getMap();
     const location = gps.location;
     
     if (!map || !location || followMode === 'off' || isAnimatingRef.current) return;
-
+    
+    // THROTTLE: Max update every 900ms
+    const now = Date.now();
+    if (now - lastCameraUpdateRef.current < CAMERA_UPDATE_INTERVAL) return;
+    lastCameraUpdateRef.current = now;
+    
+    // IGNORE weak GPS (accuracy > 40m)
+    if (location.accuracy && location.accuracy > GPS_ACCURACY_THRESHOLD) {
+      console.log('[Camera] Ignoring weak GPS:', location.accuracy);
+      return;
+    }
+    
+    // SMOOTH position
+    const smooth = smoothPosition(location.latitude, location.longitude);
+    
     const speed = speedKmh(location);
 
     if (followMode === 'center') {
-      // Center on user, north-up
+      // Center on user, north-up - use easeTo for smoothness
       map.easeTo({
-        center: [location.longitude, location.latitude],
-        duration: 300,
-        easing: (t) => t * (2 - t),
+        center: [smooth.lng, smooth.lat],
+        duration: CAMERA_EASE_DURATION,
+        easing: (t) => t, // Linear for smooth continuous motion
       });
     } else if (followMode === 'heading') {
       // If too slow, don't rotate (keeps stable on stationary)
       if (speed < MIN_SPEED_FOR_HEADING) {
         map.easeTo({
-          center: [location.longitude, location.latitude],
-          duration: 300,
-          easing: (t) => t * (2 - t),
+          center: [smooth.lng, smooth.lat],
+          duration: CAMERA_EASE_DURATION,
+          easing: (t) => t,
         });
       } else {
         // Use GPS heading if available, otherwise calculated bearing
-        const bearing = location.heading ?? calculatedBearing ?? 0;
+        const rawBearing = location.heading ?? calculatedBearing ?? 0;
+        const bearing = smoothBearingValue(rawBearing);
         
         map.easeTo({
-          center: [location.longitude, location.latitude],
+          center: [smooth.lng, smooth.lat],
           bearing: bearing,
           pitch: config.navigationPitch,
-          duration: 200,
-          easing: (t) => t * (2 - t),
+          duration: CAMERA_EASE_DURATION,
+          easing: (t) => t, // Linear for continuous motion
         });
         
         setIsMapRotated(bearing !== 0);
       }
     }
-  }, [gps.location, followMode, calculatedBearing, config.navigationPitch, mapRef]);
+  }, [gps.location, followMode, calculatedBearing, config.navigationPitch, mapRef, smoothPosition, smoothBearingValue]);
 
   // Track if map is rotated (for compass button visibility)
   useEffect(() => {

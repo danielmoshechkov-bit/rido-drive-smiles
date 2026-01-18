@@ -161,8 +161,10 @@ const TurnByTurnBanner = ({
 
   return (
     <div 
-      className="absolute top-0 left-0 right-0 z-50"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      className="absolute left-0 right-0 z-50"
+      style={{ 
+        top: 'calc(48px + env(safe-area-inset-top))', // Under 48px header
+      }}
     >
       {/* Main banner - Yandex-style blue/RIDO violet */}
       <div 
