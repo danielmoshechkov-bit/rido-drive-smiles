@@ -16,6 +16,8 @@ interface AddressAutocompleteInputProps {
   disabled?: boolean;
   // Field type for separate history
   fieldType?: 'start' | 'end';
+  // Additional className for input
+  className?: string;
 }
 
 export function AddressAutocompleteInput({
@@ -26,6 +28,7 @@ export function AddressAutocompleteInput({
   markerColor,
   disabled = false,
   fieldType,
+  className,
 }: AddressAutocompleteInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -156,16 +159,10 @@ export function AddressAutocompleteInput({
     }
   };
 
-  const markerBgColor = markerColor === 'green' ? 'bg-green-500' : 'bg-red-500';
   const displayedHistory = historyExpanded ? history.slice(0, 15) : history.slice(0, 5);
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Marker indicator */}
-      <div
-        className={`absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full ${markerBgColor} z-10`}
-      />
-
       {/* Input */}
       <Input
         value={value}
@@ -175,7 +172,7 @@ export function AddressAutocompleteInput({
         onBlur={handleBlur}
         placeholder={placeholder}
         disabled={disabled}
-        className="pl-9 h-12 text-base bg-background/50 border-border/50 focus:border-primary"
+        className={`h-12 text-base bg-background border-muted-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/20 ${className || ''}`}
       />
 
       {/* Loading indicator */}

@@ -13,7 +13,6 @@ import { RiskAssessment } from './routeRiskService';
 import MobileRouteForm from './MobileRouteForm';
 import MobileNavigationTab from './MobileNavigationTab';
 import MobileStatusTab from './MobileStatusTab';
-import TripModeSelector, { TripMode } from './TripModeSelector';
 import { fetchAddressSuggestions } from './autocompleteService';
 
 interface MapsBottomSheetProps {
@@ -59,7 +58,6 @@ const MapsBottomSheet = ({
 }: MapsBottomSheetProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('route');
-  const [tripMode, setTripMode] = useState<TripMode>('driving');
   const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
@@ -114,15 +112,6 @@ const MapsBottomSheet = ({
       handleSearch();
     }
   };
-
-  // RidoAI Mascot
-  const RidoMascotImage = () => (
-    <img 
-      src="/lovable-uploads/getrido-mascot-email.png" 
-      alt="Rido AI"
-      className="h-10 w-10 flex-shrink-0 object-contain"
-    />
-  );
 
   // In landscape mode, show only minimal compact bar
   if (isLandscape) {
@@ -186,50 +175,33 @@ const MapsBottomSheet = ({
               </div>
             </div>
           ) : (
-            /* RidoAI Search Card - Main search input */
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <RidoMascotImage />
-                <div className="flex-1 relative">
-                  <Input
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder="Napisz AI gdzie chcesz jechać 🚗"
-                    className="pr-20 h-12 text-base rounded-full border-primary/30 
-                               placeholder:text-primary/60 focus:border-primary
-                               bg-gradient-to-r from-primary/5 to-primary/10"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <Button 
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-10 px-4"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSearch();
-                    }}
-                    disabled={!searchInput.trim() || isSearching || isLoading}
-                  >
-                    {isSearching || isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Szukaj'
-                    )}
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Powered by Rido AI */}
-              <p className="text-center text-xs text-muted-foreground">
-                Powered by <span className="text-primary font-semibold">Rido AI</span>
-              </p>
-              
-              {/* Trip mode selector */}
-              <TripModeSelector 
-                selected={tripMode} 
-                onChange={setTripMode}
-                compact
+            /* Clean search input - Google Maps style */
+            <div className="relative">
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Gdzie chcesz jechać?"
+                className="pr-24 h-14 text-base rounded-2xl border-muted-foreground/20 
+                           bg-background shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20
+                           placeholder:text-muted-foreground/60"
+                onClick={(e) => e.stopPropagation()}
               />
+              <Button 
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl h-10 px-5 font-medium"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSearch();
+                }}
+                disabled={!searchInput.trim() || isSearching || isLoading}
+              >
+                {isSearching || isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Szukaj'
+                )}
+              </Button>
             </div>
           )}
         </div>
