@@ -1,6 +1,7 @@
-// GetRido Maps - Route Risk Assessment Service (FREE)
-// Heurystyczna ocena ryzyka trasy bez live traffic
-
+/**
+ * GetRido Maps - Route Risk Assessment Service (FREE)
+ * Heurystyczna ocena ryzyka trasy bez live traffic
+ */
 import { RouteResult, RouteOption } from './routingService';
 import { Incident } from './incidentsService';
 
