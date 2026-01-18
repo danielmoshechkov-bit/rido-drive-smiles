@@ -12,6 +12,21 @@ interface MobileStatusTabProps {
   incidents?: Incident[];
   incidentsLoading?: boolean;
   onRefreshIncidents?: () => void;
+  routeCoordinates?: [number, number][];
+}
+
+// Helper: check if incident is near the route polyline
+function isNearRoute(incident: Incident, routeCoords: [number, number][], thresholdKm: number = 0.3): boolean {
+  if (!routeCoords || routeCoords.length === 0) return false;
+  
+  for (const [lng, lat] of routeCoords) {
+    const dLat = Math.abs(incident.lat - lat);
+    const dLng = Math.abs(incident.lng - lng);
+    // Rough approximation: 0.01 degree ~ 1.11 km
+    const distKm = Math.sqrt(dLat * dLat + dLng * dLng) * 111;
+    if (distKm <= thresholdKm) return true;
+  }
+  return false;
 }
 
 const MobileStatusTab = ({ 
@@ -19,9 +34,14 @@ const MobileStatusTab = ({
   incidents = [],
   incidentsLoading = false,
   onRefreshIncidents,
+  routeCoordinates = [],
 }: MobileStatusTabProps) => {
   const { location, status, error, hasConsent, mode, isUnstable } = gps;
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  
+  // Categorize incidents: ON ROUTE vs NEARBY
+  const onRouteIncidents = incidents.filter(i => isNearRoute(i, routeCoordinates));
+  const nearbyIncidents = incidents.filter(i => !isNearRoute(i, routeCoordinates));
 
   // Update cooldown timer
   useEffect(() => {
@@ -200,13 +220,13 @@ const MobileStatusTab = ({
         </Badge>
       </div>
 
-      {/* Incidents Section */}
+      {/* Incidents Section - Categorized: ON ROUTE first, then NEARBY */}
       {(incidents.length > 0 || onRefreshIncidents) && (
         <div className="space-y-3 pt-4 border-t">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Construction className="h-5 w-5 text-amber-500" />
-              <span className="font-bold text-sm">Zdarzenia na trasie</span>
+              <span className="font-bold text-sm">Zdarzenia drogowe</span>
               {incidents.length > 0 && (
                 <Badge variant="secondary" className="text-xs">{incidents.length}</Badge>
               )}
@@ -227,10 +247,15 @@ const MobileStatusTab = ({
             )}
           </div>
           
-          {incidents.length > 0 ? (
+          {/* ON ROUTE - Priority section */}
+          {onRouteIncidents.length > 0 && (
             <div className="space-y-2">
-              {incidents.slice(0, 5).map(incident => (
-                <div key={incident.id} className="rido-incident-card p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-semibold uppercase text-red-600">Na trasie</span>
+              </div>
+              {onRouteIncidents.slice(0, 5).map(incident => (
+                <div key={incident.id} className="rido-incident-card p-3 bg-red-500/10 rounded-xl border border-red-500/30 flex items-center gap-3">
                   <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${
                     incident.type === 'closure' ? 'bg-red-500/20' : 'bg-amber-500/20'
                   }`}>
@@ -248,13 +273,44 @@ const MobileStatusTab = ({
                   </div>
                 </div>
               ))}
-              {incidents.length > 5 && (
+            </div>
+          )}
+          
+          {/* NEARBY - Informational section */}
+          {nearbyIncidents.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="text-xs font-medium uppercase text-muted-foreground">W okolicy (informacyjnie)</span>
+              </div>
+              {nearbyIncidents.slice(0, 3).map(incident => (
+                <div key={incident.id} className="rido-incident-card p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center gap-3 opacity-80">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    incident.type === 'closure' ? 'bg-red-500/20' : 'bg-amber-500/20'
+                  }`}>
+                    {incident.type === 'closure' ? (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Construction className="h-4 w-4 text-amber-600" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{incident.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Źródło: OSM • {format(incident.fetchedAt, 'HH:mm')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {nearbyIncidents.length > 3 && (
                 <p className="text-xs text-muted-foreground text-center">
-                  + {incidents.length - 5} więcej zdarzeń
+                  + {nearbyIncidents.length - 3} więcej w okolicy
                 </p>
               )}
             </div>
-          ) : (
+          )}
+          
+          {incidents.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-3">
               Brak wykrytych zdarzeń drogowych
             </p>

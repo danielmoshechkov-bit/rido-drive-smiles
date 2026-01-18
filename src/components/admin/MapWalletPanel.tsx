@@ -88,23 +88,23 @@ export function MapWalletPanel() {
   // Fetch transactions for selected user
   const { data: transactions, isLoading: txLoading } = useQuery({
     queryKey: ['wallet-transactions', selectedUser?.user_id],
-    queryFn: async () => {
+    queryFn: async (): Promise<Transaction[]> => {
       if (!selectedUser?.user_id) return [];
       const { data, error } = await supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('user_id', selectedUser.user_id)
+        .eq('wallet_id', selectedUser.user_id)
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) return [];
-      return (data || []).map((t: any) => ({
+      return (data || []).map((t) => ({
         id: t.id,
-        user_id: t.user_id || t.wallet_id,
-        type: t.type,
-        reason: t.reason || t.reference_type || 'other',
-        amount_points: t.amount_points || t.amount || 0,
+        user_id: t.wallet_id,
+        type: t.type as 'topup' | 'charge' | 'refund',
+        reason: t.reference_type || 'other',
+        amount_points: t.amount || 0,
         created_at: t.created_at,
-      })) as Transaction[];
+      }));
     },
     enabled: !!selectedUser?.user_id,
   });

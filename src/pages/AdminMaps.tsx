@@ -5,6 +5,11 @@ import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { MapsVisibilityPanel } from '@/components/admin/MapsVisibilityPanel';
 import { MapsConfigPanel } from '@/components/admin/MapsConfigPanel';
 import { NavigationConfigPanel } from '@/components/admin/NavigationConfigPanel';
+import { MapDataSourcesPanel } from '@/components/admin/MapDataSourcesPanel';
+import { MapPOIPartnersPanel } from '@/components/admin/MapPOIPartnersPanel';
+import { MapReportsModerationPanel } from '@/components/admin/MapReportsModerationPanel';
+import { MapWalletPanel } from '@/components/admin/MapWalletPanel';
+import { MapStyleEditorPanel } from '@/components/admin/MapStyleEditorPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Map, Loader2 } from 'lucide-react';
 
@@ -15,8 +20,13 @@ const AdminMaps = () => {
 
   const subTabs = [
     { label: 'Konfiguracja', value: 'config', visible: true },
-    { label: 'Nawigacja (Głos i Limity)', value: 'navigation', visible: true },
+    { label: 'Nawigacja', value: 'navigation', visible: true },
     { label: 'Widoczność', value: 'visibility', visible: true },
+    { label: 'Dane / Źródła', value: 'sources', visible: true },
+    { label: 'POI Partnerzy', value: 'poi', visible: true },
+    { label: 'Moderacja', value: 'moderation', visible: true },
+    { label: 'Wallet', value: 'wallet', visible: true },
+    { label: 'Styl mapy', value: 'style', visible: true },
   ];
 
   if (loading) {
@@ -73,6 +83,11 @@ const AdminMaps = () => {
           {activeSubTab === 'config' && <MapsConfigPanel />}
           {activeSubTab === 'navigation' && <NavigationConfigPanel />}
           {activeSubTab === 'visibility' && <MapsVisibilityPanel />}
+          {activeSubTab === 'sources' && <MapDataSourcesPanel />}
+          {activeSubTab === 'poi' && <MapPOIPartnersPanel />}
+          {activeSubTab === 'moderation' && <MapReportsModerationPanel />}
+          {activeSubTab === 'wallet' && <MapWalletPanel />}
+          {activeSubTab === 'style' && <MapStyleEditorPanel />}
         </div>
       </main>
     </div>

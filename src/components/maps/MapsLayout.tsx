@@ -7,6 +7,7 @@ import { useNavigation } from './useNavigation';
 import { useNavigationSettings } from './useNavigationSettings';
 import { useVoiceNavigation } from './useVoiceNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useOrientation } from '@/hooks/useOrientation';
 import { incidentsService, Incident, BoundingBox, filterIncidentsNearRoute } from './incidentsService';
 import { assessRouteRisk, RiskAssessment } from './routeRiskService';
 import { RidoMapTheme, getDefaultTheme, getMascotMessage } from './ridoMapTheme';
@@ -38,6 +39,8 @@ const MapsLayout = () => {
   const navigation = useNavigation(routing.route, gps);
   const { settings: navSettings } = useNavigationSettings();
   const isMobile = useIsMobile();
+  const orientation = useOrientation();
+  const isLandscape = isMobile && orientation === 'landscape';
   
   const [showConsentGate, setShowConsentGate] = useState(!gps.hasConsent);
   const [consentDismissed, setConsentDismissed] = useState(() => 
@@ -249,7 +252,7 @@ const MapsLayout = () => {
           {/* FAB buttons with theme toggle */}
           <MapsFABs gps={gps} navigation={navigation} onThemeChange={handleThemeChange} />
           
-          {/* Bottom Sheet with real incidents & risk */}
+          {/* Bottom Sheet with real incidents & risk (minimized in landscape) */}
           <MapsBottomSheet 
             routing={routing} 
             gps={gps} 
@@ -258,6 +261,7 @@ const MapsLayout = () => {
             incidentsLoading={incidentsLoading}
             riskAssessment={riskAssessment}
             onRefreshIncidents={handleRefreshIncidents}
+            isLandscape={isLandscape}
           />
         </div>
       </>

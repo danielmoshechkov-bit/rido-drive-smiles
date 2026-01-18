@@ -251,7 +251,8 @@ const MapsContainer = ({
         attributionControl={false}
         pitch={navigation.isNavigating && navigation.followMode ? config.navigationPitch : 0}
       >
-        <NavigationControl position="top-right" showCompass={navigation.isNavigating} />
+        {/* Hide zoom controls on mobile - use gestures instead */}
+        {!isMobile && <NavigationControl position="top-right" showCompass={navigation.isNavigating} />}
         <ScaleControl position="bottom-right" />
         
         {/* Alternative Route - Lighter violet, dashed */}
