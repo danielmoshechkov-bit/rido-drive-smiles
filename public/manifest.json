@@ -2,11 +2,11 @@
   "name": "get RIDO Driver Portal",
   "short_name": "get RIDO",
   "description": "Portal kierowcy RIDO - zarządzanie rozliczeniami i dokumentami",
-  "start_url": "/",
+  "start_url": "/mapy",
   "display": "standalone",
   "background_color": "#6C4AE2",
   "theme_color": "#6C4AE2",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
     {
@@ -23,6 +23,13 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "GetRido Maps",
+      "short_name": "Mapy",
+      "description": "Nawigacja i mapy",
+      "url": "/mapy",
+      "icons": [{ "src": "/pwa-icon-black.png", "sizes": "96x96" }]
+    },
     {
       "name": "Portal Kierowcy",
       "short_name": "Kierowca",
