@@ -26,6 +26,7 @@ import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
+import tileServices from "@/assets/tile-services.jpg";
 
 interface MarketplaceTile {
   id: string;
@@ -57,6 +58,15 @@ const marketplaceTiles: MarketplaceTile[] = [
     available: true
   },
   {
+    id: 'services',
+    title: 'Usługi',
+    description: 'Fotograf, mechanik, ubezpieczenia...',
+    icon: Sparkles,
+    image: tileServices,
+    link: null,
+    available: false
+  },
+  {
     id: 'fleet',
     title: 'Zarządzanie Flotą',
     description: 'Panel dla właścicieli flot',
@@ -73,15 +83,6 @@ const marketplaceTiles: MarketplaceTile[] = [
     image: tileDriver,
     link: '/driver',
     available: true
-  },
-  {
-    id: 'services',
-    title: 'Usługi',
-    description: 'Fotograf, mechanik, ubezpieczenia...',
-    icon: Sparkles,
-    image: null,
-    link: null,
-    available: false
   }
 ];
 
@@ -245,7 +246,8 @@ export default function EasyHub() {
     const tiles = [...marketplaceTiles];
     
     if (mapsVisible && user) {
-      tiles.push({
+      // Insert Maps at position 2 (after Nieruchomości, before Usługi)
+      tiles.splice(2, 0, {
         id: 'maps',
         title: 'Mapy',
         description: 'Nawigacja GetRido Maps',
