@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Navigation, Route, Activity } from 'lucide-react';
+import { Navigation, Route, Activity, Search, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
@@ -13,6 +14,7 @@ import MobileNavigationTab from './MobileNavigationTab';
 import MobileStatusTab from './MobileStatusTab';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { AddressSuggestion } from './autocompleteService';
+import { CameraController } from './useMapCameraController';
 
 interface MapsBottomSheetProps {
   routing: RoutingState & {
@@ -32,6 +34,8 @@ interface MapsBottomSheetProps {
     stopNavigation: () => void;
     toggleFollowMode: () => void;
   };
+  // Camera controller for animations
+  cameraController?: CameraController;
   // Incidents & Risk (optional)
   incidents?: Incident[];
   incidentsLoading?: boolean;
@@ -47,6 +51,7 @@ const MapsBottomSheet = ({
   routing, 
   gps, 
   navigation,
+  cameraController,
   incidents = [],
   incidentsLoading = false,
   riskAssessment,
@@ -70,9 +75,15 @@ const MapsBottomSheet = ({
     }
   }, [navigation.isNavigating, route]);
 
-  // Po kliknięciu "Prowadź do celu" - przełącz na nawigację
+  // Po kliknięciu "Prowadź do celu" - przełącz na nawigację z animacją
   const handleStartNavigation = async () => {
+    // 1. Trigger fly animation first
+    cameraController?.animateToNavigation();
+    
+    // 2. Start navigation after short delay for animation
+    await new Promise(resolve => setTimeout(resolve, 500));
     await navigation.startNavigation();
+    
     setActiveTab('nav');
     setIsOpen(false);
   };
@@ -135,8 +146,8 @@ const MapsBottomSheet = ({
           <div className="w-12 h-1.5 rounded-full bg-gradient-to-r from-primary/40 via-amber-400/60 to-primary/40" />
         </div>
         
-        {/* Mini preview */}
-        <div className="px-4 pb-3">
+        {/* Mini preview or Search with Ludek */}
+        <div className="px-4 pb-4">
           {route ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -155,19 +166,52 @@ const MapsBottomSheet = ({
               </div>
             </div>
           ) : (
-            /* Autocomplete search input - Google Maps style with live suggestions */
-            <div onClick={(e) => e.stopPropagation()}>
-              <AddressAutocompleteInput
-                value={searchInput}
-                onChange={setSearchInput}
-                onLocationSelect={handleLocationSelect}
-                placeholder="Gdzie chcesz jechać?"
-                markerColor="red"
-                fieldType="end"
-                className="h-14 text-base rounded-2xl border-muted-foreground/20 
-                           bg-background shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20
-                           placeholder:text-muted-foreground/60"
-              />
+            /* Premium search card with Ludek mascot */
+            <div 
+              className="rido-search-card rounded-2xl p-4 animate-slide-up-fade"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Mascot + Input row */}
+              <div className="flex items-center gap-3">
+                {/* Ludek mascot */}
+                <div className="relative flex-shrink-0">
+                  <img 
+                    src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png"
+                    alt="Rido AI"
+                    className="h-14 w-14 drop-shadow-md animate-bounce-gentle"
+                  />
+                  {/* Sparkle indicator */}
+                  <div className="absolute -top-1 -right-1 h-5 w-5 bg-primary rounded-full flex items-center justify-center animate-pulse">
+                    <Sparkles className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                </div>
+                
+                {/* Input with button */}
+                <div className="flex-1 flex items-center bg-background rounded-full border-2 border-primary/20 overflow-hidden shadow-sm hover:border-primary/40 transition-colors">
+                  <AddressAutocompleteInput
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    onLocationSelect={handleLocationSelect}
+                    placeholder="Gdzie chcesz jechać?"
+                    markerColor="red"
+                    fieldType="end"
+                    className="flex-1 h-12 border-0 bg-transparent text-base px-4 focus:ring-0 focus:outline-none placeholder:text-muted-foreground/60"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="h-10 px-5 rounded-full mr-1 bg-primary hover:bg-primary/90 shadow-md"
+                    onClick={() => setIsOpen(true)}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Powered by Rido AI */}
+              <p className="text-center text-sm text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                Powered by <span className="text-primary font-semibold">Rido AI</span>
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+              </p>
             </div>
           )}
         </div>

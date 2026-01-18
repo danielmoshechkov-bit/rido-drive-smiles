@@ -115,7 +115,8 @@ interface MapsContainerProps {
   speedLimit?: number | null;
   isEstimatedLimit?: boolean;
   showSpeedLimit?: boolean;
-  // Camera controller (optional - for external control)
+  // Camera controller callback (for external access)
+  onCameraControllerReady?: (controller: ReturnType<typeof useMapCameraController>) => void;
   onMapInteraction?: () => void;
 }
 
@@ -131,6 +132,7 @@ const MapsContainer = ({
   speedLimit,
   isEstimatedLimit = false,
   showSpeedLimit = true,
+  onCameraControllerReady,
   onMapInteraction,
 }: MapsContainerProps) => {
   const mapRef = useRef<MapRef>(null);
@@ -148,6 +150,11 @@ const MapsContainer = ({
     navigation,
     { followModeZoom: config.followModeZoom, navigationPitch: config.navigationPitch }
   );
+
+  // Expose camera controller to parent
+  useEffect(() => {
+    onCameraControllerReady?.(cameraController);
+  }, [cameraController, onCameraControllerReady]);
 
   // Apply clean driving style - hide pedestrian paths, clean colors
   const applyCleanDrivingStyle = useCallback(() => {
@@ -449,11 +456,11 @@ const MapsContainer = ({
           </Marker>
         )}
         
-        {/* DESTINATION Marker - Red pin like Google */}
+        {/* DESTINATION Marker - Red pin like Google with drop animation */}
         {endCoords && (
           <Marker longitude={endCoords.lng} latitude={endCoords.lat} anchor="bottom">
-            <div className="animate-in fade-in zoom-in duration-300">
-              <GoogleDestPin size={40} />
+            <div className="animate-marker-drop">
+              <GoogleDestPin size={44} />
             </div>
           </Marker>
         )}
@@ -490,8 +497,8 @@ const MapsContainer = ({
         )}
       </Map>
       
-      {/* Follow Mode FAB - positioned right side, BELOW theme/layers FABs */}
-      {hasConsent && location && (
+      {/* Follow Mode FAB - DESKTOP ONLY (mobile uses MapsFABs integrated button) */}
+      {!isMobile && hasConsent && location && (
         <div 
           className="absolute right-4 z-30"
           style={{ 

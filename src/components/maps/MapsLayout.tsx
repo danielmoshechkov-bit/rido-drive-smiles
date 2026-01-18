@@ -12,6 +12,7 @@ import { incidentsService, Incident, BoundingBox, filterIncidentsNearRoute } fro
 import { assessRouteRisk, RiskAssessment } from './routeRiskService';
 import { RidoMapTheme, getDefaultTheme, getMascotMessage } from './ridoMapTheme';
 import type { RouteStep } from './routingService';
+import { CameraController } from './useMapCameraController';
 import MapsSidebar from './MapsSidebar';
 import MapsContainer from './MapsContainer';
 import MapsInfoPanel from './MapsInfoPanel';
@@ -68,6 +69,9 @@ const MapsLayout = () => {
   const [showLiveSearch, setShowLiveSearch] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<AddressSuggestion | null>(null);
   const [previewMarkers, setPreviewMarkers] = useState<AddressSuggestion[]>([]);
+  
+  // === CAMERA CONTROLLER REF (from MapsContainer) ===
+  const [cameraController, setCameraController] = useState<CameraController | null>(null);
   
   // === CURRENT STEP STATE (for turn-by-turn) ===
   const [distanceToCurrentStep, setDistanceToCurrentStep] = useState(0);
@@ -216,6 +220,11 @@ const MapsLayout = () => {
   const handleThemeChange = useCallback((theme: RidoMapTheme) => {
     setMapTheme(theme);
   }, []);
+  
+  // Handle camera controller ready from MapsContainer
+  const handleCameraControllerReady = useCallback((controller: CameraController) => {
+    setCameraController(controller);
+  }, []);
 
   // Handle manual refresh with cooldown check
   const handleRefreshIncidents = useCallback(() => {
@@ -323,6 +332,7 @@ const MapsLayout = () => {
             mapTheme={mapTheme}
             mascotMessage={mascotMessage}
             isMobile={true}
+            onCameraControllerReady={handleCameraControllerReady}
           />
           
           {/* Mobile Navigation Bar (top, during navigation) */}
@@ -340,14 +350,21 @@ const MapsLayout = () => {
             />
           )}
           
-          {/* FAB buttons with theme toggle */}
-          <MapsFABs gps={gps} navigation={navigation} onThemeChange={handleThemeChange} />
+          {/* FAB buttons with theme toggle and follow mode */}
+          <MapsFABs 
+            gps={gps} 
+            navigation={navigation} 
+            onThemeChange={handleThemeChange}
+            followMode={cameraController?.followMode}
+            onCycleFollowMode={cameraController?.cycleFollowMode}
+          />
           
           {/* Bottom Sheet with real incidents & risk (minimized in landscape) */}
           <MapsBottomSheet 
             routing={routing} 
             gps={gps} 
             navigation={navigation}
+            cameraController={cameraController ?? undefined}
             incidents={incidents}
             incidentsLoading={incidentsLoading}
             riskAssessment={riskAssessment}
