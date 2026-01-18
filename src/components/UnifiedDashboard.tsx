@@ -30,7 +30,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart, Repeat, User, Truck, Plus, ChevronDown } from "lucide-react";
+import { Loader2, FileText, Users, DollarSign, Car, BarChart, Settings, BarChart3, Info, Menu, Download, ShoppingCart, Repeat, User, Truck, Plus, ChevronDown, MapPin } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate } from 'react-router-dom';
 import LanguageSelector from "@/components/LanguageSelector";
@@ -38,6 +38,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
+import FleetLiveMap from "@/components/maps/FleetLiveMap";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -413,6 +414,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   {t('admin.dataImport')}
                 </TabsTrigger>
               )}
+              {canViewTab('fleet-live') && (
+                <TabsTrigger value="fleet-live">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Fleet Live
+                </TabsTrigger>
+              )}
               {canViewTab('settings') && (
                 <TabsTrigger value="settings">
                   <Settings className="h-4 w-4 mr-2" />
@@ -527,6 +534,18 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                         </Button>
                       </SheetTrigger>
                     )}
+                    {canViewTab('fleet-live') && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'fleet-live' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('fleet-live')}
+                        >
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Fleet Live
+                        </Button>
+                      </SheetTrigger>
+                    )}
                     {canViewTab('settings') && (
                       <SheetTrigger asChild>
                         <Button 
@@ -599,6 +618,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                       {activeTab === 'visibility' && 'Widoczność'}
                       {activeTab === 'tab-visibility' && 'Widoczność zakładek'}
                       {activeTab === 'data-import' && t('admin.dataImport')}
+                      {activeTab === 'fleet-live' && 'Fleet Live'}
                     </span>
                     <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
                   </div>
@@ -838,6 +858,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               ) : (
                 <CSVUpload cityId={selectedCity.id} onUploadComplete={refetchDrivers} />
               )}
+            </TabsContent>
+          )}
+
+          {canViewTab('fleet-live') && (
+            <TabsContent value="fleet-live" className="space-y-6">
+              <FleetLiveMap />
             </TabsContent>
           )}
 
