@@ -2462,6 +2462,218 @@ export type Database = {
           },
         ]
       }
+      map_poi_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          lat: number
+          lng: number
+          name: string
+          poi_id: string
+          poi_type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lat: number
+          lng: number
+          name: string
+          poi_id: string
+          poi_type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+          poi_id?: string
+          poi_type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      map_poi_partners: {
+        Row: {
+          address: string | null
+          category: string
+          city: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_partner: boolean | null
+          lat: number
+          lng: number
+          logo_url: string | null
+          name: string
+          opening_hours: string | null
+          payment_supported: boolean | null
+          phone: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          category: string
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_partner?: boolean | null
+          lat: number
+          lng: number
+          logo_url?: string | null
+          name: string
+          opening_hours?: string | null
+          payment_supported?: boolean | null
+          phone?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_partner?: boolean | null
+          lat?: number
+          lng?: number
+          logo_url?: string | null
+          name?: string
+          opening_hours?: string | null
+          payment_supported?: boolean | null
+          phone?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      map_report_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          report_id: string | null
+          user_id: string | null
+          vote: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          report_id?: string | null
+          user_id?: string | null
+          vote: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          report_id?: string | null
+          user_id?: string | null
+          vote?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "map_report_votes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "map_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      map_reports: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          direction_deg: number | null
+          expires_at: string
+          id: string
+          lat: number
+          lng: number
+          status: string | null
+          type: string
+          user_id: string | null
+          votes_down: number | null
+          votes_up: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          direction_deg?: number | null
+          expires_at: string
+          id?: string
+          lat: number
+          lng: number
+          status?: string | null
+          type: string
+          user_id?: string | null
+          votes_down?: number | null
+          votes_up?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          direction_deg?: number | null
+          expires_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          status?: string | null
+          type?: string
+          user_id?: string | null
+          votes_down?: number | null
+          votes_up?: number | null
+        }
+        Relationships: []
+      }
+      map_static_hazards: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          direction_deg: number | null
+          id: string
+          is_active: boolean | null
+          is_verified: boolean | null
+          lat: number
+          lng: number
+          speed_limit: number | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          direction_deg?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          lat: number
+          lng: number
+          speed_limit?: number | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          direction_deg?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          lat?: number
+          lng?: number
+          speed_limit?: number | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       maps_config: {
         Row: {
           config_key: string
@@ -5392,6 +5604,30 @@ export type Database = {
           },
         ]
       }
+      user_wallets: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       vehicle_damages: {
         Row: {
           cost: number | null
@@ -5893,6 +6129,47 @@ export type Database = {
             columns: ["fleet_id"]
             isOneToOne: false
             referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          type: string
+          wallet_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          type: string
+          wallet_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          type?: string
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "user_wallets"
             referencedColumns: ["id"]
           },
         ]
