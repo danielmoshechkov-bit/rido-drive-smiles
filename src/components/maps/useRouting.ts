@@ -40,11 +40,19 @@ export function useRouting() {
   });
 
   const setStartInput = useCallback((value: string) => {
-    setState(prev => ({ ...prev, startInput: value, error: null }));
+    setState(prev => ({ ...prev, startInput: value, startCoords: null, error: null }));
   }, []);
 
   const setEndInput = useCallback((value: string) => {
-    setState(prev => ({ ...prev, endInput: value, error: null }));
+    setState(prev => ({ ...prev, endInput: value, endCoords: null, error: null }));
+  }, []);
+
+  const setStartCoords = useCallback((coords: Coordinates | null) => {
+    setState(prev => ({ ...prev, startCoords: coords }));
+  }, []);
+
+  const setEndCoords = useCallback((coords: Coordinates | null) => {
+    setState(prev => ({ ...prev, endCoords: coords }));
   }, []);
 
   const runAiAnalysis = useCallback(async (route: RouteResult) => {
@@ -82,33 +90,40 @@ export function useRouting() {
     }));
 
     try {
-      // Resolve start location
-      const startLocation = await resolveLocation(startInput);
-      if (!startLocation) {
-        setState(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: 'Nie znaleziono punktu początkowego' 
-        }));
-        return;
+      // Użyj zapisanych współrzędnych z autocomplete lub rozwiąż adres
+      let resolvedStartCoords = state.startCoords;
+      let resolvedEndCoords = state.endCoords;
+
+      // Resolve start location jeśli nie mamy współrzędnych
+      if (!resolvedStartCoords) {
+        const startLocation = await resolveLocation(startInput);
+        if (!startLocation) {
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false, 
+            error: 'Nie znaleziono punktu początkowego' 
+          }));
+          return;
+        }
+        resolvedStartCoords = { lat: startLocation.lat, lng: startLocation.lng };
       }
 
-      // Resolve end location
-      const endLocation = await resolveLocation(endInput);
-      if (!endLocation) {
-        setState(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: 'Nie znaleziono punktu końcowego' 
-        }));
-        return;
+      // Resolve end location jeśli nie mamy współrzędnych
+      if (!resolvedEndCoords) {
+        const endLocation = await resolveLocation(endInput);
+        if (!endLocation) {
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false, 
+            error: 'Nie znaleziono punktu końcowego' 
+          }));
+          return;
+        }
+        resolvedEndCoords = { lat: endLocation.lat, lng: endLocation.lng };
       }
-
-      const startCoords = { lat: startLocation.lat, lng: startLocation.lng };
-      const endCoords = { lat: endLocation.lat, lng: endLocation.lng };
 
       // Calculate route
-      const route = await calculateRoute(startCoords, endCoords);
+      const route = await calculateRoute(resolvedStartCoords, resolvedEndCoords);
       
       if (!route) {
         setState(prev => ({ 
@@ -121,8 +136,8 @@ export function useRouting() {
 
       setState(prev => ({
         ...prev,
-        startCoords,
-        endCoords,
+        startCoords: resolvedStartCoords,
+        endCoords: resolvedEndCoords,
         route,
         isLoading: false,
         error: null,
@@ -200,6 +215,8 @@ export function useRouting() {
     ...state,
     setStartInput,
     setEndInput,
+    setStartCoords,
+    setEndCoords,
     calculateRoute: calculateRouteHandler,
     calculateAlternative,
     toggleAlternative,
