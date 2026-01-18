@@ -2719,6 +2719,33 @@ export type Database = {
         }
         Relationships: []
       }
+      map_user_reputation: {
+        Row: {
+          reports_approved: number
+          reports_rejected: number
+          score: number
+          updated_at: string
+          user_id: string
+          votes_received: number
+        }
+        Insert: {
+          reports_approved?: number
+          reports_rejected?: number
+          score?: number
+          updated_at?: string
+          user_id: string
+          votes_received?: number
+        }
+        Update: {
+          reports_approved?: number
+          reports_rejected?: number
+          score?: number
+          updated_at?: string
+          user_id?: string
+          votes_received?: number
+        }
+        Relationships: []
+      }
       map_voice_catalog: {
         Row: {
           code: string
@@ -2756,19 +2783,28 @@ export type Database = {
         Row: {
           config_key: string
           config_value: string
+          data_sources: Json | null
           id: string
+          style_overrides_dark: Json | null
+          style_overrides_light: Json | null
           updated_at: string | null
         }
         Insert: {
           config_key: string
           config_value: string
+          data_sources?: Json | null
           id?: string
+          style_overrides_dark?: Json | null
+          style_overrides_light?: Json | null
           updated_at?: string | null
         }
         Update: {
           config_key?: string
           config_value?: string
+          data_sources?: Json | null
           id?: string
+          style_overrides_dark?: Json | null
+          style_overrides_light?: Json | null
           updated_at?: string | null
         }
         Relationships: []
