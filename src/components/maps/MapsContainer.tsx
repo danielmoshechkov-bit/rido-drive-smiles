@@ -13,132 +13,91 @@ import NavigationPanel from './NavigationPanel';
 import SpeedHUD from './SpeedHUD';
 import FollowModeFAB from './FollowModeFAB';
 import { useMapCameraController, FollowMode } from './useMapCameraController';
-import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT, getSavedTheme } from './ridoMapTheme';
+import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, getSavedTheme } from './ridoMapTheme';
+import { DRIVING_MODE_HIDDEN_LAYERS, RIDO_ROUTE_STYLE, MAP_ANIMATION } from './ridoCleanMapStyle';
 
 // ═══════════════════════════════════════════════════════════════
-// RIDO Premium Markers - Minimalist, Geometric, Brand-Aligned
+// Google-Style Clean Markers - Simple, Readable, Professional
 // ═══════════════════════════════════════════════════════════════
 
-// Premium START Pin - Elegant geometric violet diamond with gold accent
-const RidoStartPin = ({ size = 48 }: { size?: number }) => (
-  <svg viewBox="0 0 48 58" width={size} height={size * 1.2} className="drop-shadow-xl">
+// Clean START marker - Blue dot like Google
+const GoogleStartPin = ({ size = 28 }: { size?: number }) => (
+  <svg viewBox="0 0 28 28" width={size} height={size} className="drop-shadow-lg">
     <defs>
-      <linearGradient id="startPinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor={RIDO_THEME_COLORS.violetSoft} />
-        <stop offset="100%" stopColor={RIDO_THEME_COLORS.violetPrimary} />
-      </linearGradient>
-      <filter id="startGlow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="2" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
+      <filter id="startShadow" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.3"/>
       </filter>
     </defs>
-    {/* Pin body */}
-    <path 
-      d="M24 4 C12 4 4 14 4 24 C4 36 24 54 24 54 C24 54 44 36 44 24 C44 14 36 4 24 4 Z"
-      fill="url(#startPinGrad)"
-      stroke={RIDO_THEME_COLORS.goldAccent}
-      strokeWidth="3"
-      filter="url(#startGlow)"
-    />
-    {/* Inner circle */}
-    <circle cx="24" cy="22" r="12" fill="white" opacity="0.95" />
-    {/* Navigation arrow inside */}
-    <path 
-      d="M24 14 L30 26 L24 23 L18 26 Z"
-      fill={RIDO_THEME_COLORS.violetPrimary}
-    />
-    {/* Central dot */}
-    <circle cx="24" cy="22" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
+    {/* Outer blue ring */}
+    <circle cx="14" cy="14" r="12" fill="#4285F4" filter="url(#startShadow)" />
+    {/* White inner ring */}
+    <circle cx="14" cy="14" r="8" fill="white" />
+    {/* Blue center dot */}
+    <circle cx="14" cy="14" r="5" fill="#4285F4" />
   </svg>
 );
 
-// Premium CEL Pin - Gold gradient with navigation icon
-const RidoCelPin = ({ size = 44 }: { size?: number }) => (
-  <svg viewBox="0 0 44 54" width={size} height={size * 1.23} className="drop-shadow-xl">
+// Clean DESTINATION marker - Red pin like Google
+const GoogleDestPin = ({ size = 40 }: { size?: number }) => (
+  <svg viewBox="0 0 24 34" width={size * 0.7} height={size} className="drop-shadow-xl">
     <defs>
-      <linearGradient id="celPinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor={RIDO_THEME_COLORS.goldSoft} />
-        <stop offset="100%" stopColor={RIDO_THEME_COLORS.goldDark} />
-      </linearGradient>
-      <filter id="celGlow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="2" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
+      <filter id="destShadow" x="-50%" y="-30%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="3" stdDeviation="2" floodOpacity="0.35"/>
       </filter>
     </defs>
-    {/* Pin body */}
+    {/* Pin body - classic drop shape */}
     <path 
-      d="M22 4 C11 4 4 13 4 22 C4 33 22 50 22 50 C22 50 40 33 40 22 C40 13 33 4 22 4 Z"
-      fill="url(#celPinGrad)"
-      stroke="white"
-      strokeWidth="2.5"
-      filter="url(#celGlow)"
+      d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 22 12 22s12-14.8 12-22C24 5.4 18.6 0 12 0z"
+      fill="#ea4335"
+      filter="url(#destShadow)"
     />
-    {/* Target icon inside */}
-    <circle cx="22" cy="20" r="9" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
-    <circle cx="22" cy="20" r="4" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
-    <circle cx="22" cy="20" r="1.5" fill="white" />
+    {/* Inner white circle */}
+    <circle cx="12" cy="11" r="5" fill="white" />
   </svg>
 );
 
-// ═══════════════════════════════════════════════════════════════
-// RIDO Premium User Arrow - Minimalist Navigation Style
-// ═══════════════════════════════════════════════════════════════
-const RidoUserArrow = ({ heading, accuracy }: { heading: number | null; accuracy: number }) => (
+// Clean USER location marker - Blue arrow/circle
+const GoogleUserMarker = ({ heading, accuracy }: { heading: number | null; accuracy: number }) => (
   <div className="relative flex items-center justify-center">
-    {/* Accuracy ring - subtle gold tint */}
+    {/* Accuracy circle - very subtle */}
     <div 
       className="absolute rounded-full"
       style={{ 
-        width: Math.min(Math.max(accuracy * 0.4, 32), 80), 
-        height: Math.min(Math.max(accuracy * 0.4, 32), 80),
-        background: `radial-gradient(circle, ${RIDO_THEME_COLORS.violetSoft}12, transparent 70%)`,
-        border: `1px solid ${RIDO_THEME_COLORS.violetPrimary}15`,
+        width: Math.min(Math.max(accuracy * 0.5, 40), 100), 
+        height: Math.min(Math.max(accuracy * 0.5, 40), 100),
+        background: 'radial-gradient(circle, rgba(66, 133, 244, 0.15), transparent 70%)',
       }} 
     />
-    {/* Outer pulse ring */}
-    <div 
-      className="absolute h-12 w-12 rounded-full border-2 animate-pulse"
-      style={{ borderColor: `${RIDO_THEME_COLORS.goldAccent}35` }}
-    />
-    {/* Main arrow */}
+    {/* Main user dot with heading arrow */}
     <div 
       className="relative z-10 transition-transform duration-200"
       style={{ transform: heading !== null ? `rotate(${heading}deg)` : undefined }}
     >
-      <svg viewBox="0 0 40 40" width={40} height={40} className="drop-shadow-lg">
+      <svg viewBox="0 0 48 48" width={48} height={48} className="drop-shadow-lg">
         <defs>
-          <linearGradient id="userArrowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={RIDO_THEME_COLORS.violetSoft} />
-            <stop offset="100%" stopColor={RIDO_THEME_COLORS.violetPrimary} />
-          </linearGradient>
+          <filter id="userShadow">
+            <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.25"/>
+          </filter>
         </defs>
-        {/* Arrow shape - premium gradient */}
-        <path 
-          d="M20 6 L32 34 L20 27 L8 34 Z" 
-          fill="url(#userArrowGrad)"
-          stroke={RIDO_THEME_COLORS.goldAccent}
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        {/* Inner highlight */}
-        <path 
-          d="M20 12 L26 28 L20 24 L14 28 Z" 
-          fill="white"
-          opacity="0.25"
-        />
-        {/* Center dot */}
-        <circle cx="20" cy="22" r="3.5" fill={RIDO_THEME_COLORS.goldAccent} />
-        <circle cx="20" cy="22" r="1.5" fill="white" />
+        {/* Direction cone/arrow (only shows when moving) */}
+        {heading !== null && (
+          <path 
+            d="M24 2 L32 24 L24 20 L16 24 Z" 
+            fill="#4285F4"
+            opacity="0.7"
+          />
+        )}
+        {/* Outer ring */}
+        <circle cx="24" cy="24" r="10" fill="#4285F4" filter="url(#userShadow)" />
+        {/* White ring */}
+        <circle cx="24" cy="24" r="7" fill="white" />
+        {/* Blue center */}
+        <circle cx="24" cy="24" r="5" fill="#4285F4" />
       </svg>
     </div>
   </div>
 );
+
 
 interface MapsContainerProps {
   routing: RoutingState;
@@ -190,53 +149,129 @@ const MapsContainer = ({
     { followModeZoom: config.followModeZoom, navigationPitch: config.navigationPitch }
   );
 
-  // Apply GetRido style overrides after map loads
-  const applyRidoStyleOverrides = useCallback(() => {
+  // Apply clean driving style - hide pedestrian paths, clean colors
+  const applyCleanDrivingStyle = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
     
     try {
       const isDark = currentTheme === 'dark';
+      const style = map.getStyle();
+      if (!style?.layers) return;
       
-      // Background - subtle violet tint
+      // === HIDE PEDESTRIAN LAYERS (chodniki, ścieżki) ===
+      style.layers.forEach(layer => {
+        const layerId = layer.id.toLowerCase();
+        
+        // Hide footways, paths, pedestrian areas
+        if (DRIVING_MODE_HIDDEN_LAYERS.some(hidden => layerId.includes(hidden))) {
+          if (map.getLayer(layer.id)) {
+            try {
+              map.setLayoutProperty(layer.id, 'visibility', 'none');
+            } catch {}
+          }
+        }
+      });
+      
+      // === CLEAN BACKGROUND ===
       if (map.getLayer('background')) {
         map.setPaintProperty('background', 'background-color', 
-          isDark ? '#0f0a1a' : '#F9F7FF');
+          isDark ? '#1a1a2e' : '#f8f9fa');
       }
       
-      // Water layers - calm blue
+      // === WATER - calm blue ===
       ['water', 'waterway', 'water-outline'].forEach(layerId => {
         if (map.getLayer(layerId)) {
           try {
-            map.setPaintProperty(layerId, 'fill-color', 
-              isDark ? '#0A1525' : '#C5D8F0');
+            map.setPaintProperty(layerId, 'fill-color', isDark ? '#193c4a' : '#aad3df');
           } catch {}
         }
       });
       
-      // Building layers - gray with violet tint
+      // === BUILDINGS - subtle, not distracting ===
       ['building', 'building-top', 'building-outline'].forEach(layerId => {
         if (map.getLayer(layerId)) {
           try {
-            map.setPaintProperty(layerId, 'fill-color', 
-              isDark ? '#1F1A30' : '#E8E4F0');
+            map.setPaintProperty(layerId, 'fill-color', isDark ? '#252535' : '#e8e4e0');
+            map.setPaintProperty(layerId, 'fill-opacity', 0.6);
           } catch {}
         }
       });
       
-      // Park/green areas
-      ['landuse_park', 'park', 'landuse-park', 'landcover_grass', 'landcover-grass'].forEach(layerId => {
+      // === PARKS - subtle green ===
+      ['landuse_park', 'park', 'landuse-park', 'landcover_grass', 'landcover-grass', 'landuse_grass'].forEach(layerId => {
         if (map.getLayer(layerId)) {
           try {
-            map.setPaintProperty(layerId, 'fill-color', 
-              isDark ? '#1A2E1A' : '#D4E8D4');
+            map.setPaintProperty(layerId, 'fill-color', isDark ? '#1e3d26' : '#c8e6c9');
+            map.setPaintProperty(layerId, 'fill-opacity', 0.5);
           } catch {}
         }
       });
       
-      console.log('[Maps] Applied GetRido style overrides');
+      // === ROADS - clean hierarchy ===
+      // Motorways/highways - yellow like Google
+      ['highway', 'motorway', 'motorway-casing', 'highway-casing'].forEach(layerId => {
+        style.layers.filter(l => l.id.toLowerCase().includes(layerId) && l.type === 'line').forEach(layer => {
+          if (map.getLayer(layer.id)) {
+            try {
+              const isCasing = layer.id.toLowerCase().includes('casing');
+              map.setPaintProperty(layer.id, 'line-color', 
+                isCasing 
+                  ? (isDark ? '#8a6a3a' : '#dda547')
+                  : (isDark ? '#b5884c' : '#fee090')
+              );
+            } catch {}
+          }
+        });
+      });
+      
+      // Primary roads - cream/beige
+      ['primary', 'trunk'].forEach(roadType => {
+        style.layers.filter(l => l.id.toLowerCase().includes(roadType) && l.type === 'line').forEach(layer => {
+          if (map.getLayer(layer.id)) {
+            try {
+              const isCasing = layer.id.toLowerCase().includes('casing');
+              map.setPaintProperty(layer.id, 'line-color', 
+                isCasing 
+                  ? (isDark ? '#5a4d30' : '#e0c97a')
+                  : (isDark ? '#7d6b42' : '#fef3cd')
+              );
+            } catch {}
+          }
+        });
+      });
+      
+      // Secondary/tertiary - white/gray
+      ['secondary', 'tertiary', 'residential', 'street', 'minor'].forEach(roadType => {
+        style.layers.filter(l => l.id.toLowerCase().includes(roadType) && l.type === 'line').forEach(layer => {
+          if (map.getLayer(layer.id)) {
+            try {
+              const isCasing = layer.id.toLowerCase().includes('casing');
+              map.setPaintProperty(layer.id, 'line-color', 
+                isCasing 
+                  ? (isDark ? '#2d2d3d' : '#e0e0e0')
+                  : (isDark ? '#404052' : '#ffffff')
+              );
+            } catch {}
+          }
+        });
+      });
+      
+      // === REDUCE POI NOISE ===
+      ['poi-label', 'place-other', 'landuse-label'].forEach(layerId => {
+        style.layers.filter(l => l.id.toLowerCase().includes(layerId) && l.type === 'symbol').forEach(layer => {
+          if (map.getLayer(layer.id)) {
+            try {
+              map.setPaintProperty(layer.id, 'text-opacity', 0.4);
+              map.setPaintProperty(layer.id, 'icon-opacity', 0.4);
+            } catch {}
+          }
+        });
+      });
+      
+      console.log('[Maps] Applied clean driving style');
     } catch (e) {
-      console.warn('[Maps] Cannot apply style overrides:', e);
+      console.warn('[Maps] Cannot apply driving style:', e);
     }
   }, [currentTheme]);
 
@@ -332,7 +367,7 @@ const MapsContainer = ({
         onMoveEnd={handleMoveEnd}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onLoad={applyRidoStyleOverrides}
+        onLoad={applyCleanDrivingStyle}
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         attributionControl={false}
@@ -344,67 +379,87 @@ const MapsContainer = ({
         {!isMobile && <NavigationControl position="top-right" showCompass={navigation.isNavigating} />}
         <ScaleControl position="bottom-right" />
         
-        {/* Alternative Route - Lighter violet, dashed */}
+        {/* Alternative Route - Gray, dashed */}
         {alternativeGeoJSON && (
           <Source id="alternative-route" type="geojson" data={alternativeGeoJSON}>
-            <Layer id="alternative-route-outline" type="line" paint={{ 'line-color': RIDO_THEME_COLORS.violetDark, 'line-width': 7, 'line-opacity': 0.15 }} />
-            <Layer id="alternative-route-line" type="line" paint={{ 'line-color': RIDO_THEME_COLORS.violetMuted, 'line-width': 4, 'line-opacity': 0.85, 'line-dasharray': [3, 2] }} />
+            <Layer 
+              id="alternative-route-outline" 
+              type="line" 
+              paint={{ 'line-color': '#5f6368', 'line-width': 7, 'line-opacity': 0.2 }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+            <Layer 
+              id="alternative-route-line" 
+              type="line" 
+              paint={{ 'line-color': '#9aa0a6', 'line-width': 5, 'line-opacity': 0.7, 'line-dasharray': [2, 1] }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
           </Source>
         )}
         
-        {/* Main Route - RIDO Premium Violet with glow */}
+        {/* Main Route - Google-style BLUE (lepiej widoczna niż violet) */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            {/* Outer glow - subtle */}
-            <Layer id="route-glow" type="line" paint={{ 'line-color': RIDO_THEME_COLORS.violetSoft, 'line-width': 12, 'line-opacity': 0.08, 'line-blur': 2 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
-            {/* Outline */}
-            <Layer id="route-outline" type="line" paint={{ 'line-color': RIDO_THEME_COLORS.violetDark, 'line-width': 8, 'line-opacity': 0.3 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
-            {/* Main line */}
-            <Layer id="route-line" type="line" paint={{ 'line-color': RIDO_THEME_COLORS.violetPrimary, 'line-width': 5, 'line-opacity': 1 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+            {/* Outer glow - subtle blue */}
+            <Layer 
+              id="route-glow" 
+              type="line" 
+              paint={{ 
+                'line-color': 'rgba(66, 133, 244, 0.25)', 
+                'line-width': 18, 
+                'line-opacity': 1,
+                'line-blur': 3 
+              }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
+            />
+            {/* Dark outline for depth */}
+            <Layer 
+              id="route-outline" 
+              type="line" 
+              paint={{ 
+                'line-color': '#1a73e8', 
+                'line-width': 10, 
+                'line-opacity': 1 
+              }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
+            />
+            {/* Main route - bright Google blue */}
+            <Layer 
+              id="route-line" 
+              type="line" 
+              paint={{ 
+                'line-color': '#4285F4', 
+                'line-width': 7, 
+                'line-opacity': 1 
+              }} 
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
+            />
           </Source>
         )}
         
         {/* ═══════════════════════════════════════════════════════════════
-            RIDO Premium Markers - Violet + Gold Brand Identity
+            Google-Style Clean Markers
             ═══════════════════════════════════════════════════════════════ */}
         
-        {/* START Marker - Premium geometric pin */}
+        {/* START Marker - Clean blue dot */}
         {startCoords && (
-          <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="bottom">
-            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <RidoStartPin size={44} />
-              <div 
-                className="text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg -mt-1"
-                style={{ 
-                  background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.violetSoft}, ${RIDO_THEME_COLORS.violetPrimary})`,
-                  boxShadow: `0 2px 8px -2px ${RIDO_THEME_COLORS.violetPrimary}50`
-                }}
-              >
-                START
-              </div>
+          <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="center">
+            <div className="animate-in fade-in zoom-in duration-300">
+              <GoogleStartPin size={28} />
             </div>
           </Marker>
         )}
         
-        {/* CEL (Destination) Marker - Premium gold pin */}
+        {/* DESTINATION Marker - Red pin like Google */}
         {endCoords && (
           <Marker longitude={endCoords.lng} latitude={endCoords.lat} anchor="bottom">
-            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <RidoCelPin size={40} />
-              <div 
-                className="text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg -mt-1"
-                style={{ 
-                  background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.goldAccent}, ${RIDO_THEME_COLORS.goldDark})`,
-                  boxShadow: `0 2px 8px -2px ${RIDO_THEME_COLORS.goldAccent}50`
-                }}
-              >
-                CEL
-              </div>
+            <div className="animate-in fade-in zoom-in duration-300">
+              <GoogleDestPin size={40} />
             </div>
           </Marker>
         )}
 
-        {/* Incidents Markers - Gold/Amber gradient */}
+        {/* Incidents Markers - Yellow warning */}
         {showIncidentsLayer && incidents.map(incident => (
           <Marker 
             key={incident.id} 
@@ -413,25 +468,25 @@ const MapsContainer = ({
             anchor="center"
           >
             <div 
-              className="h-8 w-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-in fade-in zoom-in"
+              className="h-7 w-7 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-in fade-in zoom-in"
               style={{ 
-                background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.goldAccent}, ${RIDO_THEME_COLORS.goldMuted})`,
-                boxShadow: `0 3px 10px -2px ${RIDO_THEME_COLORS.goldMuted}40`
+                background: '#fbbc04',
+                boxShadow: '0 2px 6px rgba(251,188,4,0.4)'
               }}
             >
               {incident.type === 'roadwork' || incident.type === 'construction' ? (
-                <Construction className="h-4 w-4 text-white drop-shadow-sm" />
+                <Construction className="h-3.5 w-3.5 text-white drop-shadow-sm" />
               ) : (
-                <AlertTriangle className="h-4 w-4 text-white drop-shadow-sm" />
+                <AlertTriangle className="h-3.5 w-3.5 text-white drop-shadow-sm" />
               )}
             </div>
           </Marker>
         ))}
 
-        {/* User Location - Custom RIDO Arrow */}
+        {/* User Location - Clean blue dot with direction */}
         {hasConsent && location && status !== 'inactive' && (
           <Marker longitude={location.longitude} latitude={location.latitude} anchor="center">
-            <RidoUserArrow heading={location.heading} accuracy={location.accuracy} />
+            <GoogleUserMarker heading={location.heading} accuracy={location.accuracy} />
           </Marker>
         )}
       </Map>

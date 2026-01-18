@@ -72,7 +72,6 @@ const MapsLayout = () => {
   // === CURRENT STEP STATE (for turn-by-turn) ===
   const [distanceToCurrentStep, setDistanceToCurrentStep] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
   // Calculate bbox from route coordinates + buffer
   const getRouteBbox = useCallback((coords: [number, number][], buffer = 0.02): BoundingBox => {
