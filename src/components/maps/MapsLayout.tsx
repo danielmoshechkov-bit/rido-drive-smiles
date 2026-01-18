@@ -280,10 +280,11 @@ const MapsLayout = () => {
       type: 'address',
     });
     
-    // Set as destination and calculate route
+    // Set as destination and calculate route - pass coords directly
+    const coords = { lat: location.lat, lng: location.lng };
     routing.setEndInput(location.shortName);
-    routing.setEndCoords({ lat: location.lat, lng: location.lng });
-    routing.calculateRoute();
+    routing.setEndCoords(coords);
+    routing.calculateRoute(null, coords, location.shortName);
   }, [routing]);
   
   const handlePreviewLocations = useCallback((locations: AddressSuggestion[]) => {
@@ -292,9 +293,10 @@ const MapsLayout = () => {
   
   const handleNavigateToLocation = useCallback(() => {
     if (!selectedLocation) return;
+    const coords = { lat: selectedLocation.lat, lng: selectedLocation.lng };
     routing.setEndInput(selectedLocation.shortName);
-    routing.setEndCoords({ lat: selectedLocation.lat, lng: selectedLocation.lng });
-    routing.calculateRoute();
+    routing.setEndCoords(coords);
+    routing.calculateRoute(null, coords, selectedLocation.shortName);
   }, [selectedLocation, routing]);
   
   const handleStartNavigation = useCallback(async () => {

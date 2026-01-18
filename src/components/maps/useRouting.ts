@@ -117,12 +117,19 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
     }
   }, []);
 
-  const calculateRouteHandler = useCallback(async (gpsLocationOverride?: GpsLocation | null) => {
-    const { startInput, endInput, selectedRouteMode } = state;
+  const calculateRouteHandler = useCallback(async (
+    gpsLocationOverride?: GpsLocation | null,
+    endCoordsOverride?: Coordinates | null,
+    endInputOverride?: string
+  ) => {
+    // Allow passing coords directly to avoid React state timing issues
+    const effectiveEndCoords = endCoordsOverride ?? state.endCoords;
+    const effectiveEndInput = endInputOverride ?? state.endInput;
+    const { startInput, selectedRouteMode } = state;
     const effectiveGpsLocation = gpsLocationOverride ?? gpsLocation;
 
-    // Validate: endInput is required
-    if (!endInput.trim()) {
+    // Validate: need end coords or end input
+    if (!effectiveEndCoords && !effectiveEndInput.trim()) {
       setState(prev => ({ ...prev, error: 'Wprowadź punkt końcowy' }));
       return;
     }
@@ -142,7 +149,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
     try {
       // Użyj zapisanych współrzędnych z autocomplete lub rozwiąż adres
       let resolvedStartCoords = state.startCoords;
-      let resolvedEndCoords = state.endCoords;
+      let resolvedEndCoords = effectiveEndCoords;
 
       // Resolve start location
       if (!resolvedStartCoords) {
@@ -179,7 +186,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
 
       // Resolve end location jeśli nie mamy współrzędnych
       if (!resolvedEndCoords) {
-        const endLocation = await resolveLocation(endInput);
+        const endLocation = await resolveLocation(effectiveEndInput);
         if (!endLocation) {
           setState(prev => ({ 
             ...prev, 
@@ -190,6 +197,8 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
         }
         resolvedEndCoords = { lat: endLocation.lat, lng: endLocation.lng };
       }
+
+      console.log('[useRouting] Calculating route:', { from: resolvedStartCoords, to: resolvedEndCoords });
 
       // Calculate routes with options (for fastest/simplest selection)
       const routeOptions = await calculateRoutesWithOptions(resolvedStartCoords, resolvedEndCoords);
@@ -228,10 +237,13 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
         return;
       }
 
+      console.log('[useRouting] Route calculated:', { distance: selectedRoute.distance, duration: selectedRoute.duration });
+
       setState(prev => ({
         ...prev,
         startCoords: resolvedStartCoords,
         endCoords: resolvedEndCoords,
+        endInput: effectiveEndInput || prev.endInput,
         route: selectedRoute,
         routeOptions,
         activeRouteId,
