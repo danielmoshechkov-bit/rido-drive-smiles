@@ -255,12 +255,16 @@ export function useMapCameraController(
     smoothedPositionRef.current = { lat: location.latitude, lng: location.longitude };
     smoothedBearingRef.current = initialBearing;
 
+    // Use config pitch or default to 75° for premium 3D experience
+    const navPitch = config.navigationPitch >= 70 ? config.navigationPitch : 75;
+    const navZoom = 19; // Closer zoom for "behind car" view
+    
     // Premium fly animation - Google Maps 3D style
     map.flyTo({
       center: [location.longitude, location.latitude],
-      zoom: 18,
+      zoom: navZoom,
       bearing: initialBearing,
-      pitch: 60,
+      pitch: navPitch,
       duration: 1500,
       easing: (t) => 1 - Math.pow(1 - t, 4), // Ease-out quart
     });
@@ -275,7 +279,7 @@ export function useMapCameraController(
         setFollowMode('center');
       }
     }, 1600);
-  }, [mapRef, gps.location, calculatedBearing, setFollowMode]);
+  }, [mapRef, gps.location, calculatedBearing, setFollowMode, config.navigationPitch]);
 
   // Calculate bearing from position buffer
   useEffect(() => {

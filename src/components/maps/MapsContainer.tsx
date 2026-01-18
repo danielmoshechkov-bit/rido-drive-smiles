@@ -9,12 +9,15 @@ import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
 import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
+import { useNavigationSettings } from './useNavigationSettings';
 import NavigationPanel from './NavigationPanel';
 import SpeedHUD from './SpeedHUD';
 import FollowModeFAB from './FollowModeFAB';
+import Car3DMarker from './Car3DMarker';
 import { useMapCameraController, FollowMode } from './useMapCameraController';
 import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, getSavedTheme } from './ridoMapTheme';
 import { DRIVING_MODE_HIDDEN_LAYERS, RIDO_ROUTE_STYLE, MAP_ANIMATION } from './ridoCleanMapStyle';
+import { NEON_ROUTE_STYLE, applyCyberpunkTheme, create3DBuildingsLayer } from './ridoCyberpunkStyle';
 import { useSmoothPosition } from './useSmoothPosition';
 // ═══════════════════════════════════════════════════════════════
 // Google-Style Clean Markers - Simple, Readable, Professional
@@ -147,21 +150,47 @@ const RidoUserMarker3D = ({ heading, accuracy, isMoving }: { heading: number | n
 
 // ═══════════════════════════════════════════════════════════════
 // SMOOTH USER MARKER - Uses 60 FPS interpolation for fluid movement
+// Supports both arrow and 3D car marker styles
 // ═══════════════════════════════════════════════════════════════
-const SmoothUserMarker = ({ gpsLocation, hasConsent, status }: { gpsLocation: any; hasConsent: boolean; status: string }) => {
+const SmoothUserMarker = ({ 
+  gpsLocation, 
+  hasConsent, 
+  status,
+  cursorStyle = 'arrow',
+  navStyle = 'banner'
+}: { 
+  gpsLocation: any; 
+  hasConsent: boolean; 
+  status: string;
+  cursorStyle?: 'arrow' | 'car';
+  navStyle?: 'banner' | 'bubble' | 'premium3d';
+}) => {
   const smoothPos = useSmoothPosition(gpsLocation);
   
   if (!hasConsent || !gpsLocation || status === 'inactive' || smoothPos.lat === 0) {
     return null;
   }
+
+  const isMoving = (gpsLocation?.speed || 0) > 2;
+  const isPremium3D = navStyle === 'premium3d';
+  const showCar = cursorStyle === 'car' || isPremium3D;
   
   return (
     <Marker longitude={smoothPos.lng} latitude={smoothPos.lat} anchor="center">
-      <RidoUserMarker3D 
-        heading={smoothPos.heading} 
-        accuracy={gpsLocation?.accuracy || 10}
-        isMoving={(gpsLocation?.speed || 0) > 2}
-      />
+      {showCar ? (
+        <Car3DMarker 
+          heading={smoothPos.heading} 
+          isMoving={isMoving}
+          accuracy={gpsLocation?.accuracy || 10}
+          theme={isPremium3D ? 'cyberpunk' : 'dark'}
+        />
+      ) : (
+        <RidoUserMarker3D 
+          heading={smoothPos.heading} 
+          accuracy={gpsLocation?.accuracy || 10}
+          isMoving={isMoving}
+        />
+      )}
     </Marker>
   );
 };
@@ -204,18 +233,25 @@ const MapsContainer = ({
 }: MapsContainerProps) => {
   const mapRef = useRef<MapRef>(null);
   const { config, isLoading: configLoading } = useMapsConfig();
+  const { settings: navSettings } = useNavigationSettings();
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
   const { location, status, centerRequested, clearCenterRequest, hasConsent } = gps;
   const [currentTheme] = useState<RidoMapTheme>(() => getSavedTheme());
   const isUserInteractingRef = useRef(false);
   
+  // Premium 3D mode check
+  const isPremium3D = navSettings.navigation_style === 'premium3d';
+  
+  // Calculate effective navigation pitch (higher for premium 3D)
+  const effectiveNavPitch = isPremium3D ? 75 : config.navigationPitch;
+  
   // Camera controller for follow mode and animations
   const cameraController = useMapCameraController(
     mapRef,
     gps,
     navigation,
-    { followModeZoom: config.followModeZoom, navigationPitch: config.navigationPitch }
+    { followModeZoom: config.followModeZoom, navigationPitch: effectiveNavPitch }
   );
 
   // Expose camera controller to parent
@@ -423,9 +459,9 @@ const MapsContainer = ({
   const alternativeGeoJSON = showAlternative && alternativeRoute ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: alternativeRoute.coordinates } } : null;
   const mapStyle = config.styleUrl || getActiveStyleUrl(mapTheme);
   
-  // Calculate pitch based on follow mode
+  // Calculate pitch based on follow mode (higher for Premium 3D)
   const mapPitch = cameraController.followMode === 'heading' && navigation.isNavigating 
-    ? config.navigationPitch 
+    ? effectiveNavPitch 
     : 0;
 
   return (
@@ -470,48 +506,49 @@ const MapsContainer = ({
           </Source>
         )}
         
-        {/* Main Route - Premium Yandex-style with shadows and gradient */}
+        {/* Main Route - Premium styling (Neon for 3D, Blue for standard) */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            {/* Layer 1: Outer shadow/glow for 3D depth */}
+            {/* Layer 1: Outer shadow/glow */}
             <Layer 
               id="route-shadow" 
               type="line" 
               paint={{ 
-                'line-color': 'rgba(0, 0, 0, 0.15)', 
-                'line-width': 24, 
-                'line-blur': 8,
+                'line-color': isPremium3D ? NEON_ROUTE_STYLE.outerGlow.color : 'rgba(0, 0, 0, 0.15)', 
+                'line-width': isPremium3D ? NEON_ROUTE_STYLE.outerGlow.width : 24, 
+                'line-blur': isPremium3D ? NEON_ROUTE_STYLE.outerGlow.blur : 8,
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
-            {/* Layer 2: Blue glow aura */}
+            {/* Layer 2: Middle glow */}
             <Layer 
               id="route-glow" 
               type="line" 
               paint={{ 
-                'line-color': 'rgba(66, 133, 244, 0.35)', 
-                'line-width': 18, 
-                'line-blur': 4,
+                'line-color': isPremium3D ? NEON_ROUTE_STYLE.middleGlow.color : 'rgba(66, 133, 244, 0.35)', 
+                'line-width': isPremium3D ? NEON_ROUTE_STYLE.middleGlow.width : 18, 
+                'line-blur': isPremium3D ? NEON_ROUTE_STYLE.middleGlow.blur : 4,
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
-            {/* Layer 3: Dark blue outline */}
+            {/* Layer 3: Inner glow */}
             <Layer 
               id="route-outline" 
               type="line" 
               paint={{ 
-                'line-color': '#1565C0', 
-                'line-width': 12, 
+                'line-color': isPremium3D ? NEON_ROUTE_STYLE.innerGlow.color : '#1565C0', 
+                'line-width': isPremium3D ? NEON_ROUTE_STYLE.innerGlow.width : 12, 
+                'line-blur': isPremium3D ? NEON_ROUTE_STYLE.innerGlow.blur : 0,
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
-            {/* Layer 4: Main bright blue */}
+            {/* Layer 4: Core line */}
             <Layer 
               id="route-line" 
               type="line" 
               paint={{ 
-                'line-color': '#42A5F5', 
-                'line-width': 8, 
+                'line-color': isPremium3D ? NEON_ROUTE_STYLE.core.color : '#42A5F5', 
+                'line-width': isPremium3D ? NEON_ROUTE_STYLE.core.width : 8, 
               }} 
               layout={{ 'line-cap': 'round', 'line-join': 'round' }} 
             />
@@ -579,6 +616,8 @@ const MapsContainer = ({
           gpsLocation={location}
           hasConsent={hasConsent}
           status={status}
+          cursorStyle={navSettings.cursor_style}
+          navStyle={navSettings.navigation_style}
         />
       </Map>
       
