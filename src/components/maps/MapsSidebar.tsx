@@ -1,4 +1,4 @@
-import { Map, Sparkles, AlertTriangle, Loader2, Navigation, X, Route, Clock, TrendingUp, Zap, GitBranch } from 'lucide-react';
+import { Map, Sparkles, AlertTriangle, Loader2, Navigation, X, Route, Clock, TrendingUp, Zap, GitBranch, Construction } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,8 @@ import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { Coordinates } from './routingService';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
+import { RiskAssessment } from './routeRiskService';
+
 interface MapsSidebarProps {
   routing: RoutingState & {
     setStartInput: (value: string) => void;
@@ -24,9 +26,11 @@ interface MapsSidebarProps {
     startNavigation: () => Promise<void>;
     stopNavigation: () => void;
   };
+  riskAssessment?: RiskAssessment | null;
+  incidentsCount?: number;
 }
 
-const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
+const MapsSidebar = ({ routing, gps, navigation, riskAssessment, incidentsCount = 0 }: MapsSidebarProps) => {
   const {
     startInput, endInput, route, alternativeRoute, showAlternative, isLoading, error,
     aiAnalysis, isAnalyzing, routeOptions, selectedRouteMode,
@@ -54,6 +58,9 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
     ? routeOptions.reduce((a, b) => a.turnsCount < b.turnsCount ? a : b)
     : null;
 
+  // Use riskAssessment if provided, fallback to aiAnalysis
+  const displayRiskLevel = riskAssessment?.riskLevel || aiAnalysis?.riskLevel || null;
+
   return (
     <div className="w-80 flex-shrink-0 bg-card border-r flex flex-col h-full overflow-y-auto">
       {/* Header */}
@@ -62,9 +69,17 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
           <Map className="h-6 w-6 text-primary" />
           <span className="font-bold text-lg">GetRido Maps</span>
         </div>
-        <Badge variant="secondary" className="mt-2">
-          {navigation.isNavigating ? 'NAWIGACJA' : 'Tryb STANDARD'}
-        </Badge>
+        <div className="flex items-center gap-2 mt-2">
+          <Badge variant="secondary">
+            {navigation.isNavigating ? 'NAWIGACJA' : 'Tryb STANDARD'}
+          </Badge>
+          {incidentsCount > 0 && (
+            <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30">
+              <Construction className="h-3 w-3" />
+              {incidentsCount}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Route Search */}
@@ -110,7 +125,7 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
         )}
       </div>
 
-      {/* Route Mode Selection - NEW */}
+      {/* Route Mode Selection */}
       {routeOptions.length > 1 && !navigation.isNavigating && (
         <div className="p-4 border-t space-y-3">
           <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tryb trasy</Label>
@@ -195,6 +210,35 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
             <p className="text-[10px] text-muted-foreground mt-0.5">przyjazd</p>
           </div>
         </div>
+        
+        {/* Risk Summary - compact */}
+        {displayRiskLevel && (
+          <div className={`mt-3 p-2 rounded-lg border flex items-center justify-between ${
+            displayRiskLevel === 'low' ? 'bg-green-500/5 border-green-500/20' :
+            displayRiskLevel === 'medium' ? 'bg-amber-500/5 border-amber-500/20' :
+            'bg-red-500/5 border-red-500/20'
+          }`}>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Ryzyko:</span>
+            </div>
+            <Badge variant="outline" className={`text-xs ${
+              displayRiskLevel === 'low' ? 'bg-green-500/10 text-green-600 border-green-500/30' :
+              displayRiskLevel === 'medium' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' :
+              'bg-red-500/10 text-red-600 border-red-500/30'
+            }`}>
+              {displayRiskLevel === 'low' ? 'Niskie' : displayRiskLevel === 'medium' ? 'Średnie' : 'Wysokie'}
+            </Badge>
+          </div>
+        )}
+        
+        {/* First risk message */}
+        {riskAssessment && riskAssessment.messages.length > 0 && riskAssessment.messages[0] !== 'Brak wykrytych utrudnień na trasie' && (
+          <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5">
+            <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0 text-amber-500" />
+            {riskAssessment.messages[0]}
+          </p>
+        )}
       </div>
 
       {/* AI FREE Analysis Section - Simplified Premium */}
@@ -217,8 +261,8 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">FREE</Badge>
                 </div>
                 <p className="text-sm text-foreground/80">
-                  {aiAnalysis.riskLevel === 'low' ? 'Trasa wygląda dobrze. Jedź spokojnie! 🚗' : 
-                   aiAnalysis.riskLevel === 'medium' ? 'Możliwe lekkie utrudnienia. Zachowaj czujność.' : 
+                  {displayRiskLevel === 'low' ? 'Trasa wygląda dobrze. Jedź spokojnie! 🚗' : 
+                   displayRiskLevel === 'medium' ? 'Możliwe lekkie utrudnienia. Zachowaj czujność.' : 
                    'Wykryto utrudnienia. Rozważ alternatywną trasę.'}
                 </p>
                 
@@ -230,19 +274,8 @@ const MapsSidebar = ({ routing, gps, navigation }: MapsSidebarProps) => {
                 )}
               </div>
               
-              {/* Risk Level */}
-              <div className="flex items-center justify-between p-3 bg-background rounded-xl border">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Poziom ryzyka</span>
-                </div>
-                <Badge variant="outline" className={`text-xs ${aiAnalysis.riskLevel === 'low' ? 'bg-green-500/10 text-green-600 border-green-500/30' : aiAnalysis.riskLevel === 'medium' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
-                  {aiAnalysis.riskLevel === 'low' ? 'Niski' : aiAnalysis.riskLevel === 'medium' ? 'Średni' : 'Wysoki'}
-                </Badge>
-              </div>
-              
               {/* Alternative Route Button */}
-              {aiAnalysis.suggestAlternative && !alternativeRoute && (
+              {(aiAnalysis.suggestAlternative || (riskAssessment && riskAssessment.suggestAlternative)) && !alternativeRoute && (
                 <Button variant="outline" className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/5" onClick={calculateAlternative} disabled={isLoading}>
                   <Route className="h-4 w-4" />
                   <span>Sprawdź alternatywę (FREE)</span>

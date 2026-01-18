@@ -1,9 +1,11 @@
 // GetRido Maps - Layout Component
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
 import { useNavigation } from './useNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { incidentsService, Incident, BoundingBox } from './incidentsService';
+import { assessRouteRisk, RiskAssessment } from './routeRiskService';
 import MapsSidebar from './MapsSidebar';
 import MapsContainer from './MapsContainer';
 import MapsInfoPanel from './MapsInfoPanel';
@@ -24,6 +26,67 @@ const MapsLayout = () => {
   const [consentDismissed, setConsentDismissed] = useState(() => 
     localStorage.getItem(CONSENT_DISMISSED_KEY) === 'true'
   );
+
+  // === INCIDENTS STATE ===
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+  const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
+
+  // Calculate bbox from route coordinates + buffer
+  const getRouteBbox = useCallback((coords: [number, number][], buffer = 0.02): BoundingBox => {
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    coords.forEach(([lng, lat]) => {
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+    });
+    return {
+      minLat: minLat - buffer,
+      maxLat: maxLat + buffer,
+      minLng: minLng - buffer,
+      maxLng: maxLng + buffer,
+    };
+  }, []);
+
+  // Fetch incidents for current route
+  const fetchIncidents = useCallback(async () => {
+    if (!routing.route) return;
+    
+    setIncidentsLoading(true);
+    try {
+      const bbox = getRouteBbox(routing.route.coordinates);
+      const fetchedIncidents = await incidentsService.fetchIncidents(bbox);
+      setIncidents(fetchedIncidents);
+      
+      // Calculate risk assessment with fetched incidents
+      const routeOption = routing.routeOptions?.find(r => r.id === routing.activeRouteId) || null;
+      const risk = assessRouteRisk(routing.route, routeOption, fetchedIncidents);
+      setRiskAssessment(risk);
+    } catch (error) {
+      console.error('[MapsLayout] Failed to fetch incidents:', error);
+    } finally {
+      setIncidentsLoading(false);
+    }
+  }, [routing.route, routing.routeOptions, routing.activeRouteId, getRouteBbox]);
+
+  // Auto-fetch incidents when route changes
+  useEffect(() => {
+    if (routing.route && routing.route.coordinates.length > 0) {
+      incidentsService.clearCache(); // Clear cache for new route
+      fetchIncidents();
+    } else {
+      setIncidents([]);
+      setRiskAssessment(null);
+    }
+  }, [routing.route?.coordinates.length, fetchIncidents]);
+
+  // Handle manual refresh with cooldown check
+  const handleRefreshIncidents = useCallback(() => {
+    if (incidentsService.canRefresh()) {
+      fetchIncidents();
+    }
+  }, [fetchIncidents]);
 
   // Update consent gate visibility when hasConsent changes
   useEffect(() => {
@@ -62,7 +125,12 @@ const MapsLayout = () => {
 
         <div className="relative h-full w-full overflow-hidden maps-fullscreen">
           {/* Fullscreen Map */}
-          <MapsContainer routing={routing} gps={gps} navigation={navigation} />
+          <MapsContainer 
+            routing={routing} 
+            gps={gps} 
+            navigation={navigation}
+            incidents={incidents}
+          />
           
           {/* Mobile Navigation Bar (top, during navigation) */}
           {navigation.isNavigating && (
@@ -72,8 +140,16 @@ const MapsLayout = () => {
           {/* FAB buttons */}
           <MapsFABs gps={gps} navigation={navigation} />
           
-          {/* Bottom Sheet */}
-          <MapsBottomSheet routing={routing} gps={gps} navigation={navigation} />
+          {/* Bottom Sheet with real incidents & risk */}
+          <MapsBottomSheet 
+            routing={routing} 
+            gps={gps} 
+            navigation={navigation}
+            incidents={incidents}
+            incidentsLoading={incidentsLoading}
+            riskAssessment={riskAssessment}
+            onRefreshIncidents={handleRefreshIncidents}
+          />
         </div>
       </>
     );
@@ -91,17 +167,29 @@ const MapsLayout = () => {
       )}
 
       <div className="flex flex-1 h-full overflow-hidden">
-        <MapsSidebar routing={routing} gps={gps} navigation={navigation} />
-        <MapsContainer routing={routing} gps={gps} navigation={navigation} />
+        <MapsSidebar 
+          routing={routing} 
+          gps={gps} 
+          navigation={navigation}
+          riskAssessment={riskAssessment}
+          incidentsCount={incidents.length}
+        />
+        <MapsContainer 
+          routing={routing} 
+          gps={gps} 
+          navigation={navigation}
+          incidents={incidents}
+        />
         <MapsInfoPanel 
           gps={gps} 
           routing={{
             route: routing.route,
             aiAnalysis: routing.aiAnalysis,
-            incidents: [],
-            incidentsLoading: false,
-            onRefreshIncidents: () => {},
+            incidents,
+            incidentsLoading,
+            onRefreshIncidents: handleRefreshIncidents,
           }}
+          riskAssessment={riskAssessment}
         />
       </div>
     </>
