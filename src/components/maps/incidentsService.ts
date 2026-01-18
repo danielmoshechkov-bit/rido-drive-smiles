@@ -1,15 +1,19 @@
 /**
- * GetRido Maps - Incidents Service (Overpass API / OSM)
- * Pobiera zdarzenia drogowe z publicznych źródeł
+ * GetRido Maps - Incidents Service (Overpass API / OSM + Community)
+ * Pobiera zdarzenia drogowe z publicznych źródeł i zgłoszeń społeczności
  */
+import { supabase } from '@/integrations/supabase/client';
+
 export interface Incident {
   id: string;
-  type: 'roadwork' | 'closure' | 'construction' | 'event';
+  type: 'roadwork' | 'closure' | 'construction' | 'event' | 'police' | 'accident' | 'traffic' | 'hazard' | 'speed_cam' | 'red_light_cam';
   title: string;
   lat: number;
   lng: number;
-  source: 'osm';
+  source: 'osm' | 'community' | 'static';
   fetchedAt: Date;
+  expiresAt?: Date;
+  isOnRoute?: boolean; // Flag to indicate if incident is on current route
 }
 
 export interface BoundingBox {
@@ -109,6 +113,7 @@ function getMinDistanceToRoute(
 
 /**
  * Filter incidents to only those within maxDistanceMeters of the route
+ * Marks incidents as "on route" for UI differentiation
  */
 export function filterIncidentsNearRoute(
   incidents: Incident[],
@@ -117,17 +122,178 @@ export function filterIncidentsNearRoute(
 ): Incident[] {
   if (!routeCoords || routeCoords.length < 2) return incidents;
   
+  return incidents
+    .map(incident => {
+      const distance = getMinDistanceToRoute(
+        { lat: incident.lat, lng: incident.lng },
+        routeCoords
+      );
+      return {
+        ...incident,
+        isOnRoute: distance <= maxDistanceMeters,
+      };
+    })
+    .filter(incident => incident.isOnRoute);
+}
+
+/**
+ * Filter incidents in driving direction (for when no route is active)
+ * Shows only incidents ahead of user within angle and distance limits
+ */
+export function filterIncidentsInDrivingDirection(
+  incidents: Incident[],
+  userLocation: { lat: number; lng: number },
+  heading: number, // 0-360 degrees
+  maxDistanceKm: number = 1.5,
+  maxAngleDeg: number = 60
+): Incident[] {
   return incidents.filter(incident => {
-    const distance = getMinDistanceToRoute(
-      { lat: incident.lat, lng: incident.lng },
-      routeCoords
+    // Calculate distance
+    const distance = calculateDistanceKm(
+      userLocation.lat, userLocation.lng,
+      incident.lat, incident.lng
     );
-    return distance <= maxDistanceMeters;
+    
+    if (distance > maxDistanceKm) return false;
+    
+    // Calculate bearing to incident
+    const bearing = calculateBearing(
+      userLocation.lat, userLocation.lng,
+      incident.lat, incident.lng
+    );
+    
+    // Calculate angle difference
+    let angleDiff = Math.abs(bearing - heading);
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+    
+    return angleDiff <= maxAngleDeg;
   });
 }
 
 /**
- * Serwis do pobierania zdarzeń drogowych z Overpass API (OSM)
+ * Calculate distance between two points in km (Haversine)
+ */
+function calculateDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Calculate bearing from point 1 to point 2 (in degrees 0-360)
+ */
+function calculateBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const lat1Rad = lat1 * Math.PI / 180;
+  const lat2Rad = lat2 * Math.PI / 180;
+  
+  const y = Math.sin(dLng) * Math.cos(lat2Rad);
+  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - 
+            Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+  
+  let bearing = Math.atan2(y, x) * 180 / Math.PI;
+  return (bearing + 360) % 360;
+}
+
+/**
+ * Get incident type label in Polish
+ */
+export function getIncidentTypeLabel(type: Incident['type']): string {
+  switch (type) {
+    case 'police': return 'Policja';
+    case 'accident': return 'Wypadek';
+    case 'traffic': return 'Korek';
+    case 'roadwork': return 'Roboty drogowe';
+    case 'hazard': return 'Zagrożenie';
+    case 'closure': return 'Droga zamknięta';
+    case 'speed_cam': return 'Fotoradar';
+    case 'red_light_cam': return 'Kamera na światłach';
+    case 'construction': return 'Prace budowlane';
+    case 'event': return 'Wydarzenie';
+    default: return 'Zdarzenie';
+  }
+}
+
+/**
+ * Fetch community reports from Supabase
+ */
+async function fetchCommunityReports(bbox: BoundingBox): Promise<Incident[]> {
+  try {
+    const { data, error } = await supabase
+      .from('map_reports')
+      .select('*')
+      .eq('status', 'approved')
+      .gte('expires_at', new Date().toISOString())
+      .gte('lat', bbox.minLat)
+      .lte('lat', bbox.maxLat)
+      .gte('lng', bbox.minLng)
+      .lte('lng', bbox.maxLng)
+      .limit(50);
+
+    if (error) {
+      console.error('[incidentsService] Community reports error:', error);
+      return [];
+    }
+
+    return (data || []).map((r: any): Incident => ({
+      id: `community-${r.id}`,
+      type: r.type as Incident['type'],
+      title: getIncidentTypeLabel(r.type),
+      lat: r.lat,
+      lng: r.lng,
+      source: 'community',
+      fetchedAt: new Date(),
+      expiresAt: new Date(r.expires_at),
+    }));
+  } catch (error) {
+    console.error('[incidentsService] Community fetch error:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch static hazards (radars, cameras) from Supabase
+ */
+async function fetchStaticHazards(bbox: BoundingBox): Promise<Incident[]> {
+  try {
+    const { data, error } = await supabase
+      .from('map_static_hazards')
+      .select('*')
+      .eq('is_active', true)
+      .gte('lat', bbox.minLat)
+      .lte('lat', bbox.maxLat)
+      .gte('lng', bbox.minLng)
+      .lte('lng', bbox.maxLng)
+      .limit(100);
+
+    if (error) {
+      console.error('[incidentsService] Static hazards error:', error);
+      return [];
+    }
+
+    return (data || []).map((h: any): Incident => ({
+      id: `static-${h.id}`,
+      type: h.type as Incident['type'],
+      title: getIncidentTypeLabel(h.type) + (h.speed_limit ? ` (${h.speed_limit} km/h)` : ''),
+      lat: h.lat,
+      lng: h.lng,
+      source: 'static',
+      fetchedAt: new Date(),
+    }));
+  } catch (error) {
+    console.error('[incidentsService] Static hazards fetch error:', error);
+    return [];
+  }
+}
+
+/**
+ * Serwis do pobierania zdarzeń drogowych z Overpass API (OSM) + Community + Static
  */
 export const incidentsService = {
   /**
