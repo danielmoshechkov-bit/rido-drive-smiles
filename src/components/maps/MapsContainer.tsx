@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Layers, Car, Navigation, Route, User } from 'lucide-react';
+import { MapPin, Layers, Car, Navigation, Route, User, Construction, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DEFAULT_VIEW_STATE, MAP_STYLE } from './mapStyles';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
+import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
 import NavigationPanel from './NavigationPanel';
 
@@ -17,9 +18,11 @@ interface MapsContainerProps {
     stopNavigation: () => void;
     toggleFollowMode: () => void;
   };
+  incidents?: Incident[];
+  showIncidentsLayer?: boolean;
 }
 
-const MapsContainer = ({ routing, gps, navigation }: MapsContainerProps) => {
+const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidentsLayer = true }: MapsContainerProps) => {
   const { config, isLoading: configLoading } = useMapsConfig();
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
@@ -138,6 +141,24 @@ const MapsContainer = ({ routing, gps, navigation }: MapsContainerProps) => {
           </Marker>
         )}
 
+        {/* Incidents markers */}
+        {showIncidentsLayer && incidents.map(incident => (
+          <Marker 
+            key={incident.id} 
+            longitude={incident.lng} 
+            latitude={incident.lat} 
+            anchor="center"
+          >
+            <div className="h-7 w-7 bg-amber-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-in fade-in zoom-in">
+              {incident.type === 'roadwork' || incident.type === 'construction' ? (
+                <Construction className="h-4 w-4 text-white" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-white" />
+              )}
+            </div>
+          </Marker>
+        ))}
+
         {hasConsent && location && status !== 'inactive' && (
           <Marker longitude={location.longitude} latitude={location.latitude} anchor="center">
             <div className="relative flex items-center justify-center">
@@ -156,6 +177,12 @@ const MapsContainer = ({ routing, gps, navigation }: MapsContainerProps) => {
       <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
         <Badge variant="secondary" className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"><Layers className="h-3 w-3" />Warstwy</Badge>
         <Badge variant="secondary" className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"><Car className="h-3 w-3" />Ruch</Badge>
+        {incidents.length > 0 && (
+          <Badge variant="secondary" className="gap-1.5 bg-amber-500/20 text-amber-700 backdrop-blur-sm shadow-sm border border-amber-500/30">
+            <Construction className="h-3 w-3" />
+            {incidents.length} zdarzeń
+          </Badge>
+        )}
       </div>
       
       <div className="absolute top-4 left-4 flex flex-col gap-2">

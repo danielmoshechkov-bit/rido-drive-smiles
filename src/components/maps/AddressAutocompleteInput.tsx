@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Building2, Navigation, Loader2, Home, Clock, Locate, ChevronDown } from 'lucide-react';
+import { MapPin, Building2, Navigation, Loader2, Home, Clock, Locate, ChevronDown, Trash2 } from 'lucide-react';
 import { useAddressAutocomplete } from './useAddressAutocomplete';
 import { AddressSuggestion } from './autocompleteService';
 import { addressHistoryService, HistoryEntry } from './addressHistoryService';
@@ -17,6 +17,8 @@ interface AddressAutocompleteInputProps {
   // GPS support (only for start field)
   gpsLocation?: { latitude: number; longitude: number } | null;
   onUseMyLocation?: () => void;
+  // Field type for separate history
+  fieldType?: 'start' | 'end';
 }
 
 export function AddressAutocompleteInput({
@@ -28,8 +30,12 @@ export function AddressAutocompleteInput({
   disabled = false,
   gpsLocation,
   onUseMyLocation,
+  fieldType,
 }: AddressAutocompleteInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Determine field type from markerColor if not provided
+  const effectiveFieldType = fieldType || (markerColor === 'green' ? 'start' : 'end');
   
   // History state
   const [showHistory, setShowHistory] = useState(false);
@@ -44,14 +50,20 @@ export function AddressAutocompleteInput({
       displayName: suggestion.displayName,
     });
     
-    // Save to history
-    addressHistoryService.addEntry({
+    // Save to appropriate history
+    const entry = {
       displayName: suggestion.displayName,
       shortName: suggestion.shortName,
       lat: suggestion.lat,
       lng: suggestion.lng,
-      type: 'address',
-    });
+      type: 'address' as const,
+    };
+    
+    if (effectiveFieldType === 'start') {
+      addressHistoryService.addStartEntry(entry);
+    } else {
+      addressHistoryService.addEndEntry(entry);
+    }
     
     setShowHistory(false);
   });
@@ -59,13 +71,11 @@ export function AddressAutocompleteInput({
   // Load history on focus when input is empty
   const handleFocus = () => {
     if (!value.trim()) {
-      const hist = addressHistoryService.getHistory();
-      // Filter "my_location" for destination field (markerColor === 'red')
-      const filtered = markerColor === 'red' 
-        ? hist.filter(h => h.type !== 'my_location')
-        : hist;
-      setHistory(filtered);
-      setShowHistory(filtered.length > 0);
+      const hist = effectiveFieldType === 'start' 
+        ? addressHistoryService.getStartHistory()
+        : addressHistoryService.getEndHistory();
+      setHistory(hist);
+      setShowHistory(hist.length > 0);
       setHistoryExpanded(false);
     } else {
       autocomplete.openIfHasSuggestions();
@@ -91,13 +101,19 @@ export function AddressAutocompleteInput({
     setShowHistory(false);
     
     // Move to top of history
-    addressHistoryService.addEntry({
+    const historyEntry = {
       displayName: entry.displayName,
       shortName: entry.shortName,
       lat: entry.lat,
       lng: entry.lng,
       type: entry.type,
-    });
+    };
+    
+    if (effectiveFieldType === 'start') {
+      addressHistoryService.addStartEntry(historyEntry);
+    } else {
+      addressHistoryService.addEndEntry(historyEntry);
+    }
   };
 
   const handleUseMyLocation = () => {
@@ -105,8 +121,8 @@ export function AddressAutocompleteInput({
       onUseMyLocation();
       setShowHistory(false);
       
-      // Save to history
-      addressHistoryService.addEntry({
+      // Save to start history only
+      addressHistoryService.addStartEntry({
         displayName: 'Twoja lokalizacja',
         shortName: 'Twoja lokalizacja',
         lat: gpsLocation.latitude,
@@ -114,6 +130,17 @@ export function AddressAutocompleteInput({
         type: 'my_location',
       });
     }
+  };
+
+  const handleClearHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (effectiveFieldType === 'start') {
+      addressHistoryService.clearStartHistory();
+    } else {
+      addressHistoryService.clearEndHistory();
+    }
+    setHistory([]);
+    setShowHistory(false);
   };
 
   // Close history when user starts typing
@@ -159,11 +186,11 @@ export function AddressAutocompleteInput({
         <button
           type="button"
           onClick={handleUseMyLocation}
-          className="flex items-center gap-1.5 px-2 py-1 text-xs bg-blue-500/10 
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-500/10 
                      text-blue-600 rounded-full border border-blue-500/20 
                      hover:bg-blue-500/20 transition-colors mb-2"
         >
-          <Locate className="h-3 w-3" />
+          <Locate className="h-3.5 w-3.5" />
           Twoja lokalizacja
         </button>
       )}
@@ -183,7 +210,7 @@ export function AddressAutocompleteInput({
         onBlur={handleBlur}
         placeholder={placeholder}
         disabled={disabled}
-        className="pl-9 bg-background/50 border-border/50 focus:border-primary"
+        className="pl-9 h-12 text-base bg-background/50 border-border/50 focus:border-primary"
       />
 
       {/* Loading indicator */}
@@ -196,8 +223,8 @@ export function AddressAutocompleteInput({
 
       {/* History dropdown (shown when input is empty and focused) */}
       {showHistory && !autocomplete.isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-72 overflow-y-auto">
-          <div className="p-2 border-b border-border/50 bg-muted/30">
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-80 overflow-y-auto">
+          <div className="p-2.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
             <span className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
               Ostatnie miejsca
@@ -212,14 +239,14 @@ export function AddressAutocompleteInput({
             >
               <div className="flex items-center gap-2">
                 {entry.type === 'my_location' ? (
-                  <Locate className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                  <Locate className="h-4 w-4 text-blue-500 flex-shrink-0" />
                 ) : (
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 )}
-                <span className="text-sm truncate">{entry.shortName || entry.displayName}</span>
+                <span className="text-sm font-medium truncate">{entry.shortName || entry.displayName}</span>
               </div>
               {entry.displayName !== entry.shortName && entry.type !== 'my_location' && (
-                <p className="text-xs text-muted-foreground truncate mt-0.5 ml-5">
+                <p className="text-xs text-muted-foreground truncate mt-0.5 ml-6">
                   {entry.displayName}
                 </p>
               )}
@@ -230,7 +257,7 @@ export function AddressAutocompleteInput({
           {history.length > 5 && !historyExpanded && (
             <button
               type="button"
-              className="w-full p-2 text-xs text-primary hover:bg-accent/50 border-t border-border/50 flex items-center justify-center gap-1"
+              className="w-full p-2.5 text-xs text-primary hover:bg-accent/50 border-t border-border/50 flex items-center justify-center gap-1"
               onClick={(e) => {
                 e.stopPropagation();
                 setHistoryExpanded(true);
@@ -240,12 +267,24 @@ export function AddressAutocompleteInput({
               Pokaż więcej ({history.length - 5})
             </button>
           )}
+          
+          {/* Clear history button */}
+          {history.length > 0 && (
+            <button
+              type="button"
+              className="w-full p-2.5 text-xs text-destructive hover:bg-destructive/10 border-t border-border/50 flex items-center justify-center gap-1.5"
+              onClick={handleClearHistory}
+            >
+              <Trash2 className="h-3 w-3" />
+              Wyczyść historię
+            </button>
+          )}
         </div>
       )}
 
       {/* Dropdown z sugestiami autocomplete */}
       {autocomplete.isOpen && !showHistory && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto">
           {autocomplete.suggestions.length === 0 ? (
             <div className="p-3 text-center text-sm text-muted-foreground">
               Nie znaleziono dokładnego adresu
