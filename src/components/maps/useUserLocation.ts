@@ -70,6 +70,32 @@ export function useUserLocation(): GpsState {
   const fallbackIntervalRef = useRef<number | null>(null);
   const prevLocationRef = useRef<UserLocation | null>(null);
   const lastUpdateRef = useRef<number>(0);
+  // Moving average buffer for position smoothing
+  const positionBufferRef = useRef<UserLocation[]>([]);
+  const MAX_BUFFER_SIZE = 3;
+
+  // Smooth position using moving average when accuracy is poor
+  const smoothPosition = useCallback((newLocation: UserLocation): UserLocation => {
+    positionBufferRef.current.push(newLocation);
+    if (positionBufferRef.current.length > MAX_BUFFER_SIZE) {
+      positionBufferRef.current.shift();
+    }
+    
+    // If accuracy > 30m, use moving average for smoother movement
+    if (newLocation.accuracy > 30 && positionBufferRef.current.length >= 2) {
+      const buffer = positionBufferRef.current;
+      const avgLat = buffer.reduce((s, p) => s + p.latitude, 0) / buffer.length;
+      const avgLng = buffer.reduce((s, p) => s + p.longitude, 0) / buffer.length;
+      
+      return {
+        ...newLocation,
+        latitude: avgLat,
+        longitude: avgLng,
+      };
+    }
+    
+    return newLocation;
+  }, []);
 
   const stopWatching = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -84,6 +110,7 @@ export function useUserLocation(): GpsState {
     setLocation(null);
     setIsUnstable(false);
     prevLocationRef.current = null;
+    positionBufferRef.current = [];
   }, []);
 
   const startWatching = useCallback(() => {
@@ -96,12 +123,12 @@ export function useUserLocation(): GpsState {
     setStatus('active');
     setError(null);
 
-    // GPS options based on mode
+    // GPS options based on mode - more aggressive for navigation
     const options: PositionOptions = mode === 'navigation' 
       ? {
           enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 500, // Aggressive for navigation
+          timeout: 6000,
+          maximumAge: 0, // Always fresh position for navigation
         }
       : {
           enableHighAccuracy: true,
@@ -110,7 +137,7 @@ export function useUserLocation(): GpsState {
         };
 
     const handlePosition = (position: GeolocationPosition) => {
-      const newLocation: UserLocation = {
+      let newLocation: UserLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
@@ -119,11 +146,15 @@ export function useUserLocation(): GpsState {
         timestamp: position.timestamp,
       };
 
+      // Apply smoothing in navigation mode for low accuracy readings
+      if (mode === 'navigation') {
+        newLocation = smoothPosition(newLocation);
+      }
+
       // Check for GPS jump in navigation mode
       if (mode === 'navigation' && isJump(prevLocationRef.current, newLocation)) {
         console.warn('[GPS] Detected suspicious jump, marking as unstable');
         setIsUnstable(true);
-        // Still update location but mark as unstable
       } else {
         setIsUnstable(false);
       }
@@ -132,7 +163,7 @@ export function useUserLocation(): GpsState {
       lastUpdateRef.current = Date.now();
       setLocation(newLocation);
       
-      // Weak signal if accuracy > 100 meters
+      // Weak signal if accuracy > 100 meters, or > 50m is considered poor
       setStatus(position.coords.accuracy > 100 ? 'weak' : 'active');
       setError(null);
 
@@ -172,15 +203,15 @@ export function useUserLocation(): GpsState {
       options
     );
 
-    // Fallback interval for navigation mode - if watchPosition doesn't update for 4 seconds
+    // Fallback interval for navigation mode - more aggressive polling (1.5s)
     if (mode === 'navigation') {
       fallbackIntervalRef.current = window.setInterval(() => {
         const timeSinceUpdate = Date.now() - lastUpdateRef.current;
-        if (timeSinceUpdate > 4000) {
+        if (timeSinceUpdate > 1500) {
           console.log('[GPS] Fallback: requesting current position');
           navigator.geolocation.getCurrentPosition(handlePosition, handleError, options);
         }
-      }, 4000);
+      }, 1500);
     }
   }, [mode]);
 
