@@ -14,6 +14,7 @@ export interface UserLocation {
 
 export type GpsStatus = 'inactive' | 'active' | 'weak' | 'error';
 export type GpsMode = 'normal' | 'navigation';
+export type PermissionStateType = 'granted' | 'prompt' | 'denied' | 'unknown';
 
 export interface GpsState {
   location: UserLocation | null;
@@ -22,6 +23,8 @@ export interface GpsState {
   hasConsent: boolean;
   mode: GpsMode;
   isUnstable: boolean;
+  permissionState: PermissionStateType;
+  isGpsBlocked: boolean; // true jeśli denied lub brak hasConsent
   requestConsent: () => Promise<void>;
   revokeConsent: () => void;
   centerOnUser: () => void;
@@ -65,6 +68,30 @@ export function useUserLocation(): GpsState {
   const [centerRequested, setCenterRequested] = useState(false);
   const [mode, setMode] = useState<GpsMode>('normal');
   const [isUnstable, setIsUnstable] = useState(false);
+  const [permissionState, setPermissionState] = useState<PermissionStateType>('unknown');
+
+  // Check browser permission state
+  useEffect(() => {
+    const checkPermission = async () => {
+      if ('permissions' in navigator) {
+        try {
+          const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          setPermissionState(result.state as PermissionStateType);
+          
+          result.onchange = () => {
+            setPermissionState(result.state as PermissionStateType);
+          };
+        } catch {
+          setPermissionState('unknown');
+        }
+      }
+    };
+    
+    checkPermission();
+  }, []);
+
+  // Computed: is GPS blocked?
+  const isGpsBlocked = !hasConsent || permissionState === 'denied';
   
   const watchIdRef = useRef<number | null>(null);
   const fallbackIntervalRef = useRef<number | null>(null);
@@ -294,6 +321,8 @@ export function useUserLocation(): GpsState {
     hasConsent,
     mode,
     isUnstable,
+    permissionState,
+    isGpsBlocked,
     requestConsent,
     revokeConsent,
     centerOnUser,
