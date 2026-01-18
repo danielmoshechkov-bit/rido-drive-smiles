@@ -63,18 +63,20 @@ const MapsSidebar = ({ routing, gps, navigation, riskAssessment, incidentsCount 
 
   return (
     <div className="w-80 flex-shrink-0 bg-card border-r flex flex-col h-full overflow-y-auto">
-      {/* Header */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-2">
-          <Map className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg">GetRido Maps</span>
+      {/* Header - RIDO Premium Violet Gradient */}
+      <div className="p-4 border-b bg-gradient-to-r from-primary/5 via-primary/3 to-transparent">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg" style={{ boxShadow: '0 4px 12px -2px hsl(259 65% 58% / 0.3)' }}>
+            <Map className="h-5 w-5 text-white" />
+          </div>
+          <span className="font-bold text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">GetRido Maps</span>
         </div>
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant="secondary">
-            {navigation.isNavigating ? 'NAWIGACJA' : 'Tryb STANDARD'}
+        <div className="flex items-center gap-2 mt-3">
+          <Badge className={navigation.isNavigating ? 'rido-badge-nav' : 'rido-badge-violet'}>
+            {navigation.isNavigating ? 'NAWIGACJA' : 'Tryb RIDO'}
           </Badge>
           {incidentsCount > 0 && (
-            <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30">
+            <Badge className="rido-badge-gold gap-1">
               <Construction className="h-3 w-3" />
               {incidentsCount}
             </Badge>

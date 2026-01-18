@@ -76,14 +76,15 @@ const MapsBottomSheet = ({
       className="absolute bottom-0 left-0 right-0 z-40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Collapsed handle - always visible */}
+      {/* Collapsed handle - RIDO Premium styling */}
       <div 
-        className="bg-card/95 backdrop-blur-md border-t rounded-t-2xl shadow-xl cursor-pointer touch-none"
+        className="bg-card/95 backdrop-blur-md border-t rounded-t-2xl shadow-xl cursor-pointer touch-none rido-bottom-sheet"
         onClick={() => setIsOpen(true)}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex items-center justify-center py-2">
-          <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
+        <div className="flex items-center justify-center py-2.5">
+          {/* Gold gradient handle */}
+          <div className="w-12 h-1.5 rounded-full bg-gradient-to-r from-primary/40 via-amber-400/60 to-primary/40" />
         </div>
         
         {/* Mini preview - Premium styling */}

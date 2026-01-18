@@ -252,6 +252,55 @@ a.button,
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   RIDO Maps Premium Styles (violet + gold)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Premium glassmorphism panel */
+.rido-panel-right {
+  background: hsl(var(--background) / 0.92);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* Bottom sheet premium styling */
+.rido-bottom-sheet {
+  background: hsl(var(--background) / 0.95);
+  backdrop-filter: blur(16px) saturate(180%);
+  border-top: 1px solid hsl(259 65% 58% / 0.1);
+  box-shadow: 
+    0 -4px 20px -5px hsl(259 65% 58% / 0.12),
+    0 0 0 1px hsl(var(--border) / 0.5);
+}
+
+/* RIDO Badge Variants */
+.rido-badge-violet {
+  background: linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 48%)) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 2px 8px -2px hsl(259 65% 58% / 0.4);
+}
+
+.rido-badge-gold {
+  background: linear-gradient(135deg, hsl(51 100% 50%), hsl(45 100% 45%)) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 2px 8px -2px hsl(45 100% 45% / 0.4);
+}
+
+.rido-badge-nav {
+  background: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 76% 36%)) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 2px 8px -2px hsl(142 71% 45% / 0.4);
+}
+
+.rido-badge-glass {
+  background: hsl(var(--background) / 0.9) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.08);
+}
+
 /* ============================================
    MapLibre GL - GetRido Custom Styles
    ============================================ */

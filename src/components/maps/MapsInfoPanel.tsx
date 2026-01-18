@@ -54,7 +54,7 @@ const MapsInfoPanel = ({ gps, routing, riskAssessment }: MapsInfoPanelProps) => 
   const displayRiskLevel = riskAssessment?.riskLevel || aiAnalysis?.riskLevel || null;
 
   return (
-    <div className="w-72 flex-shrink-0 bg-card border-l flex flex-col h-full">
+    <div className="w-72 flex-shrink-0 bg-card border-l flex flex-col h-full rido-panel-right">
       <ScrollArea className="flex-1">
         {/* GPS Status */}
         <GpsStatusPanel gps={gps} />

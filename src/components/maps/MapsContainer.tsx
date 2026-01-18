@@ -1,15 +1,36 @@
 import { useState, useCallback, useEffect } from 'react';
 import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MapPin, Layers, Car, Navigation, Route, User, Construction, AlertTriangle } from 'lucide-react';
+import { Layers, Car, Navigation, Route, Construction, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { DEFAULT_VIEW_STATE, MAP_STYLE } from './mapStyles';
+import { DEFAULT_VIEW_STATE, MAP_STYLE, RIDO_COLORS } from './mapStyles';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
 import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
 import NavigationPanel from './NavigationPanel';
+
+// ═══════════════════════════════════════════════════════════════
+// RIDO Mascot - Inline SVG Component (violet + gold)
+// ═══════════════════════════════════════════════════════════════
+const RidoMascotSVG = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="none">
+    {/* Main head - white fill */}
+    <circle cx="12" cy="12" r="9" fill="white" />
+    {/* Eyes - gold */}
+    <circle cx="8.5" cy="10" r="1.8" fill={RIDO_COLORS.markerGold} />
+    <circle cx="15.5" cy="10" r="1.8" fill={RIDO_COLORS.markerGold} />
+    {/* Pupils */}
+    <circle cx="8.5" cy="10" r="0.6" fill={RIDO_COLORS.routeOutline} />
+    <circle cx="15.5" cy="10" r="0.6" fill={RIDO_COLORS.routeOutline} />
+    {/* Smile - gold */}
+    <path d="M7 14 Q12 18 17 14" stroke={RIDO_COLORS.markerGold} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    {/* Horns/ears - violet */}
+    <path d="M4 4 L7.5 9.5 L5 8 Z" fill={RIDO_COLORS.routePrimary} />
+    <path d="M20 4 L16.5 9.5 L19 8 Z" fill={RIDO_COLORS.routePrimary} />
+  </svg>
+);
 
 interface MapsContainerProps {
   routing: RoutingState;
@@ -109,51 +130,89 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
         <NavigationControl position="top-right" showCompass={navigation.isNavigating} />
         <ScaleControl position="bottom-right" />
         
+        {/* Alternative Route - Lighter violet, dashed */}
         {alternativeGeoJSON && (
           <Source id="alternative-route" type="geojson" data={alternativeGeoJSON}>
-            <Layer id="alternative-route-outline" type="line" paint={{ 'line-color': '#92400e', 'line-width': 8, 'line-opacity': 0.2 }} />
-            <Layer id="alternative-route-line" type="line" paint={{ 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.8, 'line-dasharray': [2, 2] }} />
+            <Layer id="alternative-route-outline" type="line" paint={{ 'line-color': RIDO_COLORS.routeOutline, 'line-width': 7, 'line-opacity': 0.15 }} />
+            <Layer id="alternative-route-line" type="line" paint={{ 'line-color': RIDO_COLORS.routeAlternative, 'line-width': 4, 'line-opacity': 0.85, 'line-dasharray': [3, 2] }} />
           </Source>
         )}
         
+        {/* Main Route - RIDO Premium Violet with glow */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            <Layer id="route-outline" type="line" paint={{ 'line-color': '#1e40af', 'line-width': 8, 'line-opacity': 0.3 }} />
-            <Layer id="route-line" type="line" paint={{ 'line-color': '#3b82f6', 'line-width': 5, 'line-opacity': 1 }} />
+            {/* Outer glow */}
+            <Layer id="route-glow" type="line" paint={{ 'line-color': RIDO_COLORS.routeGlow, 'line-width': 14, 'line-opacity': 0.12, 'line-blur': 3 }} />
+            {/* Outline */}
+            <Layer id="route-outline" type="line" paint={{ 'line-color': RIDO_COLORS.routeOutline, 'line-width': 8, 'line-opacity': 0.35 }} />
+            {/* Main line */}
+            <Layer id="route-line" type="line" paint={{ 'line-color': RIDO_COLORS.routePrimary, 'line-width': 5, 'line-opacity': 1 }} />
           </Source>
         )}
         
-        {/* RIDO Premium Markers */}
+        {/* ═══════════════════════════════════════════════════════════════
+            RIDO Premium Markers - Violet + Gold Brand Identity
+            ═══════════════════════════════════════════════════════════════ */}
+        
+        {/* START Marker - Violet with Mascot + Gold accent */}
         {startCoords && (
           <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
               <div className="relative">
-                <div className="h-10 w-10 rounded-full bg-green-500 border-[3px] border-white shadow-lg flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
+                {/* Gold pulse ring */}
+                <div className="absolute -inset-1.5 rounded-full border-2 border-amber-400/40 animate-ping" />
+                {/* Main marker - violet gradient + gold border */}
+                <div 
+                  className="h-11 w-11 rounded-full border-[3px] shadow-lg flex items-center justify-center"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${RIDO_COLORS.routeGlow}, ${RIDO_COLORS.routePrimary})`,
+                    borderColor: RIDO_COLORS.markerGold,
+                    boxShadow: `0 4px 12px -2px ${RIDO_COLORS.routePrimary}40`
+                  }}
+                >
+                  <RidoMascotSVG size={26} />
                 </div>
-                <img 
-                  src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
-                  alt="RIDO" 
-                  className="absolute -top-1 -right-1 h-5 w-5"
-                />
               </div>
-              <div className="bg-green-500 text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg mt-1">START</div>
+              <div 
+                className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-lg mt-1.5"
+                style={{ 
+                  background: `linear-gradient(135deg, ${RIDO_COLORS.routeGlow}, ${RIDO_COLORS.routePrimary})`,
+                  boxShadow: `0 2px 8px -2px ${RIDO_COLORS.routePrimary}50`
+                }}
+              >
+                START
+              </div>
             </div>
           </Marker>
         )}
         
+        {/* CEL (Destination) Marker - Gold gradient */}
         {endCoords && (
           <Marker longitude={endCoords.lng} latitude={endCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <div className="h-10 w-10 rounded-full bg-primary border-[3px] border-white shadow-lg flex items-center justify-center">
-                <Navigation className="h-5 w-5 text-white" />
+              <div 
+                className="h-11 w-11 rounded-full border-[3px] border-white shadow-lg flex items-center justify-center"
+                style={{ 
+                  background: `linear-gradient(135deg, ${RIDO_COLORS.markerGoldLight}, ${RIDO_COLORS.markerGoldDark})`,
+                  boxShadow: `0 4px 12px -2px ${RIDO_COLORS.markerGold}50`
+                }}
+              >
+                <Navigation className="h-5 w-5 text-white drop-shadow-sm" />
               </div>
-              <div className="bg-primary text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg mt-1">CEL</div>
+              <div 
+                className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-lg mt-1.5"
+                style={{ 
+                  background: `linear-gradient(135deg, ${RIDO_COLORS.markerGold}, ${RIDO_COLORS.markerGoldDark})`,
+                  boxShadow: `0 2px 8px -2px ${RIDO_COLORS.markerGold}50`
+                }}
+              >
+                CEL
+              </div>
             </div>
           </Marker>
         )}
 
-        {/* Incidents markers */}
+        {/* Incidents Markers - Gold/Amber gradient */}
         {showIncidentsLayer && incidents.map(incident => (
           <Marker 
             key={incident.id} 
@@ -161,52 +220,98 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
             latitude={incident.lat} 
             anchor="center"
           >
-            <div className="h-7 w-7 bg-amber-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-in fade-in zoom-in">
+            <div 
+              className="h-8 w-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-in fade-in zoom-in"
+              style={{ 
+                background: `linear-gradient(135deg, ${RIDO_COLORS.markerGold}, ${RIDO_COLORS.incidentAmber})`,
+                boxShadow: `0 3px 10px -2px ${RIDO_COLORS.incidentAmber}40`
+              }}
+            >
               {incident.type === 'roadwork' || incident.type === 'construction' ? (
-                <Construction className="h-4 w-4 text-white" />
+                <Construction className="h-4 w-4 text-white drop-shadow-sm" />
               ) : (
-                <AlertTriangle className="h-4 w-4 text-white" />
+                <AlertTriangle className="h-4 w-4 text-white drop-shadow-sm" />
               )}
             </div>
           </Marker>
         ))}
 
+        {/* User Location Marker - Violet with Gold pulse + Mascot eyes */}
         {hasConsent && location && status !== 'inactive' && (
           <Marker longitude={location.longitude} latitude={location.latitude} anchor="center">
             <div className="relative flex items-center justify-center">
-              <div className="absolute bg-blue-500/10 rounded-full border border-blue-500/30 animate-pulse" style={{ width: Math.min(Math.max(location.accuracy * 0.5, 24), 100), height: Math.min(Math.max(location.accuracy * 0.5, 24), 100) }} />
-              <div className="relative h-5 w-5 bg-blue-600 rounded-full border-2 border-white shadow-lg z-10 flex items-center justify-center">
-                <User className="h-3 w-3 text-white" />
-                {location.heading !== null && (
-                  <div className="absolute -top-1 left-1/2 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-blue-600" style={{ transform: `translateX(-50%) rotate(${location.heading}deg)`, transformOrigin: 'bottom center' }} />
-                )}
+              {/* Accuracy circle - gold tint */}
+              <div 
+                className="absolute rounded-full border animate-pulse"
+                style={{ 
+                  width: Math.min(Math.max(location.accuracy * 0.5, 24), 100), 
+                  height: Math.min(Math.max(location.accuracy * 0.5, 24), 100),
+                  background: `${RIDO_COLORS.markerGold}10`,
+                  borderColor: `${RIDO_COLORS.markerGold}30`
+                }} 
+              />
+              {/* Gold pulse ring */}
+              <div 
+                className="absolute h-9 w-9 rounded-full border-2 animate-ping"
+                style={{ borderColor: `${RIDO_COLORS.markerGold}40` }}
+              />
+              {/* Main dot - violet with mascot face */}
+              <div 
+                className="relative h-7 w-7 rounded-full border-2 shadow-lg z-10 flex items-center justify-center"
+                style={{ 
+                  background: `linear-gradient(135deg, ${RIDO_COLORS.routeGlow}, ${RIDO_COLORS.routePrimary})`,
+                  borderColor: RIDO_COLORS.markerGold,
+                  boxShadow: `0 2px 8px -2px ${RIDO_COLORS.routePrimary}50`
+                }}
+              >
+                {/* Mini mascot eyes inside */}
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                  <circle cx="7" cy="11" r="2" fill={RIDO_COLORS.markerGold} />
+                  <circle cx="17" cy="11" r="2" fill={RIDO_COLORS.markerGold} />
+                  <path d="M7 15 Q12 18 17 15" stroke={RIDO_COLORS.markerGold} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                </svg>
               </div>
+              {/* Heading indicator - violet */}
+              {location.heading !== null && (
+                <div 
+                  className="absolute -top-1.5 left-1/2 w-0 h-0"
+                  style={{ 
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent', 
+                    borderBottom: `9px solid ${RIDO_COLORS.routePrimary}`,
+                    transform: `translateX(-50%) rotate(${location.heading}deg)`, 
+                    transformOrigin: 'bottom center' 
+                  }} 
+                />
+              )}
             </div>
           </Marker>
         )}
       </Map>
       
+      {/* Bottom badges - RIDO Premium styling */}
       <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
-        <Badge variant="secondary" className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"><Layers className="h-3 w-3" />Warstwy</Badge>
-        <Badge variant="secondary" className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"><Car className="h-3 w-3" />Ruch</Badge>
+        <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Layers className="h-3 w-3" />Warstwy</Badge>
+        <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Car className="h-3 w-3" />Ruch</Badge>
         {incidents.length > 0 && (
-          <Badge variant="secondary" className="gap-1.5 bg-amber-500/20 text-amber-700 backdrop-blur-sm shadow-sm border border-amber-500/30">
+          <Badge className="gap-1.5 rido-badge-gold">
             <Construction className="h-3 w-3" />
             {incidents.length} zdarzeń
           </Badge>
         )}
       </div>
       
+      {/* Top badges - RIDO violet branding */}
       <div className="absolute top-4 left-4 flex flex-col gap-2">
         {navigation.isNavigating ? (
-          <Badge className="bg-green-500/90 backdrop-blur-sm shadow-sm gap-1.5"><Navigation className="h-3 w-3 animate-pulse" />Nawigacja</Badge>
+          <Badge className="rido-badge-nav gap-1.5"><Navigation className="h-3 w-3 animate-pulse" />Nawigacja</Badge>
         ) : route ? (
           <>
-            <Badge className="bg-blue-500/90 backdrop-blur-sm shadow-sm gap-1.5"><Navigation className="h-3 w-3" />Trasa STANDARD</Badge>
-            {showAlternative && alternativeRoute && <Badge className="bg-amber-500/90 backdrop-blur-sm shadow-sm gap-1.5"><Route className="h-3 w-3" />Alternatywa FREE</Badge>}
+            <Badge className="rido-badge-violet gap-1.5"><Navigation className="h-3 w-3" />Trasa RIDO</Badge>
+            {showAlternative && alternativeRoute && <Badge className="rido-badge-gold gap-1.5"><Route className="h-3 w-3" />Alternatywa</Badge>}
           </>
         ) : (
-          <Badge variant="outline" className="bg-background/90 backdrop-blur-sm shadow-sm border-amber-500/50 text-amber-600">Tryb testowy</Badge>
+          <Badge variant="outline" className="rido-badge-glass border-amber-500/50 text-amber-600">Tryb testowy</Badge>
         )}
       </div>
       
