@@ -1,6 +1,5 @@
 // GetRido Maps - Mobile Route Form (Premium UX - Simplified)
-import { useState } from 'react';
-import { Navigation, X, Loader2, Zap, GitBranch, Brain, ChevronRight, Route, AlertTriangle, Locate } from 'lucide-react';
+import { Navigation, X, Loader2, Zap, GitBranch, Brain, ChevronRight, Route, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -10,7 +9,7 @@ import { Coordinates } from './routingService';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
 import { RiskAssessment } from './routeRiskService';
-import TripModeSelector, { TripMode } from './TripModeSelector';
+
 
 interface MobileRouteFormProps {
   routing: RoutingState & {
@@ -47,9 +46,6 @@ const MobileRouteForm = ({
   ridoAiAlternative,
   onUseRidoAiAlternative,
 }: MobileRouteFormProps) => {
-  const [tripMode, setTripMode] = useState<TripMode>('driving');
-  const [showStartInput, setShowStartInput] = useState(false);
-  
   const {
     startInput, endInput, route, alternativeRoute, showAlternative, isLoading, error,
     aiAnalysis, isAnalyzing, routeOptions, selectedRouteMode,
@@ -61,14 +57,6 @@ const MobileRouteForm = ({
     if (!isLoading) calculateRoute();
   };
 
-  const handleTripModeChange = (mode: TripMode) => {
-    setTripMode(mode);
-    // Recalculate route if we have one
-    if (route) {
-      calculateRoute();
-    }
-  };
-
   const handleStartNavigation = async () => {
     if (onStartNavigation) {
       await onStartNavigation();
@@ -78,73 +66,48 @@ const MobileRouteForm = ({
     }
   };
 
-  const handleClearStartInput = () => {
-    setShowStartInput(false);
-    setStartInput('');
-    setStartCoords(null);
-  };
-
   const gpsAvailable = gps.hasConsent && gps.location && gps.status !== 'inactive';
   const canNavigate = route && gps.hasConsent && gps.location && !navigation.isNavigating;
 
   return (
     <div className="space-y-5">
-      {/* Trip Mode Selector - always visible at top */}
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tryb podróży</Label>
-        <TripModeSelector 
-          selected={tripMode} 
-          onChange={handleTripModeChange}
-          disabled={isLoading || navigation.isNavigating}
-        />
-      </div>
-
-      {/* Route Search - Simplified */}
+      {/* Route Search - Clean Google Maps style */}
       <div className="space-y-3">
-        {/* Start field - Default GPS, expandable to custom */}
-        {showStartInput ? (
-          <div className="relative">
-            <AddressAutocompleteInput
-              value={startInput}
-              onChange={setStartInput}
-              onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
-              placeholder="Skąd? (adres lub współrzędne)"
-              markerColor="green"
-              disabled={isLoading || navigation.isNavigating}
-              fieldType="start"
-            />
+        {/* Start field - Always editable, defaults to GPS if empty */}
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" />
+          <AddressAutocompleteInput
+            value={startInput}
+            onChange={setStartInput}
+            onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
+            placeholder="Skąd? (domyślnie Twoja lokalizacja)"
+            markerColor="green"
+            disabled={isLoading || navigation.isNavigating}
+            fieldType="start"
+            className="pl-9"
+          />
+          {startInput && (
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
-              onClick={handleClearStartInput}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setStartInput('');
+                setStartCoords(null);
+              }}
             >
               <X className="h-4 w-4" />
             </Button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30 rounded-lg border border-transparent">
-            <div className="flex items-center gap-2">
-              <Locate className="h-4 w-4 text-green-600" />
-              <span className="text-sm">Z Twojej lokalizacji (GPS)</span>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-7 text-xs text-primary"
-              onClick={() => setShowStartInput(true)}
-              disabled={navigation.isNavigating}
-            >
-              Zmień
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Connector line */}
-        <div className="ml-[18px] h-4 border-l-2 border-dashed border-muted-foreground/30" />
+        <div className="ml-[18px] h-6 border-l-2 border-dashed border-muted-foreground/20" />
         
         {/* Destination field */}
-        <AddressAutocompleteInput
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-500/30" />
+          <AddressAutocompleteInput
           value={endInput}
           onChange={setEndInput}
           onLocationSelect={(loc) => {
@@ -152,11 +115,13 @@ const MobileRouteForm = ({
             // Auto-calculate route after selecting destination
             setTimeout(() => calculateRoute(), 100);
           }}
-          placeholder="Dokąd? (adres lub współrzędne)"
-          markerColor="red"
-          disabled={isLoading || navigation.isNavigating}
-          fieldType="end"
-        />
+            placeholder="Dokąd?"
+            markerColor="red"
+            disabled={isLoading || navigation.isNavigating}
+            fieldType="end"
+            className="pl-9"
+          />
+        </div>
 
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center gap-2">
