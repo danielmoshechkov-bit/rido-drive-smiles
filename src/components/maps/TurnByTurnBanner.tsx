@@ -163,12 +163,12 @@ const TurnByTurnBanner = ({
     <div 
       className="absolute left-0 right-0 z-50"
       style={{ 
-        top: 'calc(48px + env(safe-area-inset-top))', // Under 48px header
+        top: 'env(safe-area-inset-top)',
       }}
     >
       {/* Main banner - Yandex-style blue/RIDO violet */}
       <div 
-        className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl"
+        className="rounded-b-2xl overflow-hidden shadow-2xl"
         style={{
           background: 'linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 42%))',
           boxShadow: '0 8px 40px -8px hsl(259 65% 58% / 0.6)',
