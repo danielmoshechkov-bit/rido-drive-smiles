@@ -2,6 +2,7 @@
 import { Search, Fuel, Bookmark, Settings } from 'lucide-react';
 import { useState } from 'react';
 import FuelStationsSheet from './FuelStationsSheet';
+import { NavigationSettingsSheet } from './NavigationSettingsSheet';
 
 interface NavigationTabBarProps {
   activeTab?: string;
@@ -10,6 +11,7 @@ interface NavigationTabBarProps {
 
 const NavigationTabBar = ({ activeTab = 'nav', onTabChange }: NavigationTabBarProps) => {
   const [showFuelSheet, setShowFuelSheet] = useState(false);
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   
   const tabs = [
     { id: 'search', icon: <Search className="h-4 w-4" />, label: 'Szukaj' },
@@ -21,6 +23,8 @@ const NavigationTabBar = ({ activeTab = 'nav', onTabChange }: NavigationTabBarPr
   const handleTabClick = (tabId: string) => {
     if (tabId === 'fuel') {
       setShowFuelSheet(true);
+    } else if (tabId === 'settings') {
+      setShowSettingsSheet(true);
     } else {
       onTabChange?.(tabId);
     }
@@ -30,7 +34,9 @@ const NavigationTabBar = ({ activeTab = 'nav', onTabChange }: NavigationTabBarPr
     <>
       <div className="flex items-center justify-around py-1 border-t bg-card/95 backdrop-blur-sm">
         {tabs.map((tab) => {
-          const isActive = tab.id === activeTab || (tab.id === 'fuel' && showFuelSheet);
+          const isActive = tab.id === activeTab || 
+                          (tab.id === 'fuel' && showFuelSheet) ||
+                          (tab.id === 'settings' && showSettingsSheet);
           
           return (
             <button
@@ -53,6 +59,12 @@ const NavigationTabBar = ({ activeTab = 'nav', onTabChange }: NavigationTabBarPr
       <FuelStationsSheet 
         open={showFuelSheet} 
         onOpenChange={setShowFuelSheet} 
+      />
+      
+      {/* Navigation Settings Sheet */}
+      <NavigationSettingsSheet 
+        open={showSettingsSheet} 
+        onClose={() => setShowSettingsSheet(false)} 
       />
     </>
   );

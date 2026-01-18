@@ -9,6 +9,8 @@ import LaneGuidanceBar, { RoundaboutExitBadge } from './LaneGuidanceBar';
 import NavigationTabBar from './NavigationTabBar';
 import type { RouteStep, LaneInfo } from './routingService';
 
+import { cn } from '@/lib/utils';
+
 interface MobileNavigationBarProps {
   navigation: NavigationState & {
     stopNavigation: () => void;
@@ -16,24 +18,28 @@ interface MobileNavigationBarProps {
   };
   gps: GpsState;
   currentStep?: RouteStep | null;
+  currentSpeed?: number | null;
   speedLimit?: number | null;
   isEstimatedLimit?: boolean;
   yellowThreshold?: number;
   redThreshold?: number;
   showSpeedLimit?: boolean;
   showLaneGuidance?: boolean;
+  onStopNavigation?: () => void;
 }
 
 const MobileNavigationBar = ({ 
   navigation, 
   gps,
   currentStep,
+  currentSpeed,
   speedLimit,
   isEstimatedLimit = false,
   yellowThreshold = 9,
   redThreshold = 15,
   showSpeedLimit = true,
   showLaneGuidance = true,
+  onStopNavigation,
 }: MobileNavigationBarProps) => {
   const { 
     remainingDistance, 
@@ -96,10 +102,10 @@ const MobileNavigationBar = ({
     }
   };
 
-  // Calculate progress (0-100)
-  const progress = Math.max(0, Math.min(100, (1 - remainingDistance / (remainingDistance + 1)) * 100));
+  // Calculate if over speed
+  const isOverSpeed = speedLimit && (currentSpeed ?? 0) > speedLimit;
 
-  // Collapsed minimal view
+  // Collapsed minimal view with speed
   if (isCollapsed) {
     return (
       <div 
@@ -108,25 +114,38 @@ const MobileNavigationBar = ({
         onClick={handleTouch}
       >
         <div className="bg-card/98 backdrop-blur-xl border-t shadow-lg">
-          <div className="h-11 flex items-center justify-around px-4">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm">{remainingDistance.toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">km</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-primary">
-                {eta ? format(eta, 'HH:mm') : '—'}
+          <div className="h-14 flex items-center justify-between px-3">
+            {/* Speed + Limit */}
+            <div className="flex items-center gap-1.5 min-w-[80px]">
+              <span className={cn(
+                "text-lg font-bold tabular-nums",
+                isOverSpeed ? "text-destructive" : "text-foreground"
+              )}>
+                {currentSpeed ?? 0}
               </span>
+              {speedLimit && showSpeedLimit && (
+                <div className={cn(
+                  "flex items-center justify-center w-7 h-7 rounded-full border-2 text-xs font-bold",
+                  isOverSpeed ? "border-destructive text-destructive bg-destructive/10" : "border-red-500 text-red-600"
+                )}>
+                  {speedLimit}
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm">{Math.round(remainingDuration)}</span>
-              <span className="text-xs text-muted-foreground">min</span>
+            
+            {/* Stats */}
+            <div className="flex items-center gap-3 text-sm">
+              <span className="font-semibold">{remainingDistance.toFixed(1)} km</span>
+              <span className="text-primary font-bold">{eta ? format(eta, 'HH:mm') : '—'}</span>
+              <span className="font-medium text-muted-foreground">{Math.round(remainingDuration)} min</span>
             </div>
+            
+            {/* Stop button */}
             <Button 
               size="sm" 
               variant="destructive" 
-              onClick={(e) => { e.stopPropagation(); stopNavigation(); }}
-              className="h-7 w-7 p-0 rounded-lg"
+              onClick={(e) => { e.stopPropagation(); stopNavigation(); onStopNavigation?.(); }}
+              className="h-8 w-8 p-0 rounded-lg"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -217,7 +236,7 @@ const MobileNavigationBar = ({
         <div className="h-1 bg-muted">
           <div 
             className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${Math.min(progress * 10, 100)}%` }}
+            style={{ width: `${Math.min((1 - remainingDistance / (remainingDistance + 1)) * 1000, 100)}%` }}
           />
         </div>
 
