@@ -187,7 +187,7 @@ export async function getActiveSession(userId: string): Promise<ParkingSession |
     zone: data.zone ? {
       ...data.zone,
       type: data.zone.type as 'spp' | 'private',
-      polygon: data.zone.polygon as GeoJSON.Polygon,
+      polygon: data.zone.polygon as unknown as GeoJSON.Polygon,
       rules: (data.zone.rules || {}) as ParkingRules,
     } : undefined,
   };
@@ -345,14 +345,14 @@ export async function getActiveParkingSessions(): Promise<ParkingSession[]> {
 export async function createParkingZone(zone: Omit<ParkingZone, 'id'>): Promise<ParkingZone | null> {
   const { data, error } = await supabase
     .from('parking_zones')
-    .insert({
+    .insert([{
       city: zone.city,
       name: zone.name,
       type: zone.type,
-      polygon: zone.polygon as unknown as Record<string, unknown>,
-      rules: zone.rules as unknown as Record<string, unknown>,
+      polygon: JSON.parse(JSON.stringify(zone.polygon)),
+      rules: JSON.parse(JSON.stringify(zone.rules)),
       is_active: zone.is_active,
-    })
+    }])
     .select()
     .single();
   
@@ -376,8 +376,8 @@ export async function updateParkingZone(id: string, updates: Partial<ParkingZone
       city: updates.city,
       name: updates.name,
       type: updates.type,
-      polygon: updates.polygon as unknown as Record<string, unknown>,
-      rules: updates.rules as unknown as Record<string, unknown>,
+      polygon: updates.polygon ? JSON.parse(JSON.stringify(updates.polygon)) : undefined,
+      rules: updates.rules ? JSON.parse(JSON.stringify(updates.rules)) : undefined,
       is_active: updates.is_active,
     })
     .eq('id', id);

@@ -237,14 +237,14 @@ export async function getAllTollSegments(): Promise<TollSegment[]> {
 export async function createTollSegment(segment: Omit<TollSegment, 'id'>): Promise<TollSegment | null> {
   const { data, error } = await supabase
     .from('toll_segments')
-    .insert({
+    .insert([{
       country: segment.country,
       name: segment.name,
       type: segment.type,
-      geometry: segment.geometry as unknown as Record<string, unknown>,
-      price_rules: segment.price_rules as unknown as Record<string, unknown>,
+      geometry: JSON.parse(JSON.stringify(segment.geometry)),
+      price_rules: JSON.parse(JSON.stringify(segment.price_rules)),
       is_active: segment.is_active,
-    })
+    }])
     .select()
     .single();
   
@@ -267,8 +267,8 @@ export async function updateTollSegment(id: string, updates: Partial<TollSegment
       country: updates.country,
       name: updates.name,
       type: updates.type,
-      geometry: updates.geometry as unknown as Record<string, unknown>,
-      price_rules: updates.price_rules as unknown as Record<string, unknown>,
+      geometry: updates.geometry ? JSON.parse(JSON.stringify(updates.geometry)) : undefined,
+      price_rules: updates.price_rules ? JSON.parse(JSON.stringify(updates.price_rules)) : undefined,
       is_active: updates.is_active,
     })
     .eq('id', id);
