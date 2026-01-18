@@ -31,8 +31,8 @@ const MapsLayout = () => {
       />
 
       <div className="flex flex-1 h-full overflow-hidden">
-        {/* Left Sidebar */}
-        <MapsSidebar routing={routing} />
+        {/* Left Sidebar - now receives gps prop */}
+        <MapsSidebar routing={routing} gps={gps} />
         
         {/* Center Map Area */}
         <MapsContainer routing={routing} gps={gps} />

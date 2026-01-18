@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { RoutingState } from './useRouting';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
 import { Coordinates } from './routingService';
+import { GpsState } from './useUserLocation';
 
 interface MapsSidebarProps {
   routing: RoutingState & {
@@ -18,9 +19,10 @@ interface MapsSidebarProps {
     toggleAlternative: () => void;
     clearRoute: () => void;
   };
+  gps: GpsState;
 }
 
-const MapsSidebar = ({ routing }: MapsSidebarProps) => {
+const MapsSidebar = ({ routing, gps }: MapsSidebarProps) => {
   const {
     startInput,
     endInput,
@@ -46,6 +48,20 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
       calculateRoute();
     }
   };
+
+  // Handle "Use my location" button click
+  const handleUseMyLocation = () => {
+    if (gps.hasConsent && gps.location) {
+      setStartInput('Twoja lokalizacja');
+      setStartCoords({
+        lat: gps.location.latitude,
+        lng: gps.location.longitude,
+      });
+    }
+  };
+
+  // Check if GPS is available for "my location" feature
+  const gpsAvailable = gps.hasConsent && gps.location && gps.status !== 'inactive';
 
   // Calculate time difference for alternative route
   const timeDifference = alternativeRoute && route 
@@ -76,6 +92,8 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
           placeholder="Skąd? (adres lub współrzędne)"
           markerColor="green"
           disabled={isLoading}
+          gpsLocation={gpsAvailable ? gps.location : null}
+          onUseMyLocation={gpsAvailable ? handleUseMyLocation : undefined}
         />
         
         {/* Connecting line */}
@@ -97,8 +115,8 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
         <div className="flex gap-2">
           <Button 
             className="flex-1 gap-2" 
-            onClick={calculateRoute}
-            disabled={isLoading || !startInput.trim() || !endInput.trim()}
+            onClick={handleCalculateRoute}
+            disabled={isLoading || !endInput.trim()}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -114,6 +132,13 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
             </Button>
           )}
         </div>
+        
+        {/* GPS fallback hint */}
+        {gpsAvailable && !startInput.trim() && (
+          <p className="text-xs text-muted-foreground">
+            💡 Jeśli nie wpiszesz punktu startowego, użyję Twojej lokalizacji GPS
+          </p>
+        )}
       </div>
 
       {/* Route Mode */}

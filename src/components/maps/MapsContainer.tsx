@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { DEFAULT_VIEW_STATE, MAP_STYLE } from './mapStyles';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
+import { useMapsConfig } from '@/hooks/useMapsConfig';
 
 interface MapsContainerProps {
   routing: RoutingState;
@@ -13,6 +14,8 @@ interface MapsContainerProps {
 }
 
 const MapsContainer = ({ routing, gps }: MapsContainerProps) => {
+  const { config, isLoading: configLoading } = useMapsConfig();
+  
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
   const { location, status, centerRequested, clearCenterRequest, hasConsent } = gps;
@@ -20,6 +23,17 @@ const MapsContainer = ({ routing, gps }: MapsContainerProps) => {
   const handleMove = useCallback((evt: { viewState: typeof DEFAULT_VIEW_STATE }) => {
     setViewState(evt.viewState);
   }, []);
+
+  // Apply config center/zoom when loaded (only if no route is shown)
+  useEffect(() => {
+    if (!configLoading && !route) {
+      setViewState({
+        longitude: config.defaultCenterLng,
+        latitude: config.defaultCenterLat,
+        zoom: config.defaultZoom,
+      });
+    }
+  }, [config.defaultCenterLat, config.defaultCenterLng, config.defaultZoom, configLoading, route]);
 
   // Fit map to route bounds when route changes
   useEffect(() => {
@@ -101,13 +115,16 @@ const MapsContainer = ({ routing, gps }: MapsContainerProps) => {
     },
   } : null;
 
+  // Use dynamic style from config, with fallback
+  const mapStyle = config.styleUrl || MAP_STYLE;
+
   return (
     <div className="relative flex-1 h-full overflow-hidden">
       <Map
         {...viewState}
         onMove={handleMove}
         style={{ width: '100%', height: '100%' }}
-        mapStyle={MAP_STYLE}
+        mapStyle={mapStyle}
         attributionControl={false}
       >
         <NavigationControl position="top-right" showCompass={false} />

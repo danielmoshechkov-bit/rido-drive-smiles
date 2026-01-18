@@ -2426,6 +2426,27 @@ export type Database = {
           },
         ]
       }
+      maps_config: {
+        Row: {
+          config_key: string
+          config_value: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config_key: string
+          config_value: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       marketplace_ad_slots: {
         Row: {
           created_at: string | null
