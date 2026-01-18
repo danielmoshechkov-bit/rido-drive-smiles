@@ -7,6 +7,32 @@ export interface Coordinates {
   lng: number;
 }
 
+export interface RouteManeuver {
+  type: string;
+  modifier?: string;
+  location: [number, number]; // [lng, lat]
+  bearing_before?: number;
+  bearing_after?: number;
+  exit?: number; // For roundabouts
+}
+
+export interface LaneInfo {
+  indications: string[];
+  valid: boolean;
+}
+
+export interface RouteStep {
+  distance: number; // meters
+  duration: number; // seconds
+  name: string;
+  maneuver: RouteManeuver;
+  intersections?: {
+    lanes?: LaneInfo[];
+    location: [number, number];
+  }[];
+  maxspeed?: number; // km/h if available
+}
+
 export interface RouteResult {
   coordinates: [number, number][]; // [lng, lat] pairs for GeoJSON
   distance: number; // in kilometers
@@ -15,6 +41,7 @@ export interface RouteResult {
   endPoint: Coordinates;
   isAlternative?: boolean;
   routeType?: 'standard' | 'alternative';
+  steps?: RouteStep[]; // Turn-by-turn instructions
 }
 
 export interface RouteOption {
@@ -24,6 +51,7 @@ export interface RouteOption {
   duration: number;  // min
   stepsCount: number;
   turnsCount: number;  // left/right/uturn
+  steps?: RouteStep[];
 }
 
 export interface GeocodingResult {

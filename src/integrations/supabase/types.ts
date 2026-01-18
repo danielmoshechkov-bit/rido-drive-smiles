@@ -2462,6 +2462,51 @@ export type Database = {
           },
         ]
       }
+      map_navigation_settings: {
+        Row: {
+          show_lane_guidance: boolean | null
+          show_roundabout_exit: boolean | null
+          show_speed_limit: boolean | null
+          speed_warning_red_over: number | null
+          speed_warning_yellow_over: number | null
+          updated_at: string | null
+          user_id: string
+          voice_enabled: boolean | null
+          voice_language: string | null
+          voice_rate: number | null
+          voice_style: string | null
+          voice_volume: number | null
+        }
+        Insert: {
+          show_lane_guidance?: boolean | null
+          show_roundabout_exit?: boolean | null
+          show_speed_limit?: boolean | null
+          speed_warning_red_over?: number | null
+          speed_warning_yellow_over?: number | null
+          updated_at?: string | null
+          user_id: string
+          voice_enabled?: boolean | null
+          voice_language?: string | null
+          voice_rate?: number | null
+          voice_style?: string | null
+          voice_volume?: number | null
+        }
+        Update: {
+          show_lane_guidance?: boolean | null
+          show_roundabout_exit?: boolean | null
+          show_speed_limit?: boolean | null
+          speed_warning_red_over?: number | null
+          speed_warning_yellow_over?: number | null
+          updated_at?: string | null
+          user_id?: string
+          voice_enabled?: boolean | null
+          voice_language?: string | null
+          voice_rate?: number | null
+          voice_style?: string | null
+          voice_volume?: number | null
+        }
+        Relationships: []
+      }
       map_poi_favorites: {
         Row: {
           created_at: string | null
@@ -2671,6 +2716,39 @@ export type Database = {
           speed_limit?: number | null
           type?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      map_voice_catalog: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_premium: boolean | null
+          language: string
+          name: string
+          provider: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          language: string
+          name: string
+          provider?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          language?: string
+          name?: string
+          provider?: string | null
         }
         Relationships: []
       }
