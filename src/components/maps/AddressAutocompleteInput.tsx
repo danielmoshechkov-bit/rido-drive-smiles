@@ -1,5 +1,6 @@
 // GetRido Maps - Address Autocomplete Input Component with History
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Building2, Navigation, Loader2, Home, Clock, Locate, ChevronDown, Trash2 } from 'lucide-react';
@@ -31,6 +32,7 @@ export function AddressAutocompleteInput({
   className,
 }: AddressAutocompleteInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // Determine field type from markerColor if not provided
   const effectiveFieldType = fieldType || (markerColor === 'green' ? 'start' : 'end');
@@ -39,6 +41,21 @@ export function AddressAutocompleteInput({
   const [showHistory, setShowHistory] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  
+  // Portal position state
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  
+  // Calculate dropdown position when it opens
+  const updateDropdownPosition = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
 
   const autocomplete = useAddressAutocomplete(value, (suggestion: AddressSuggestion) => {
     onChange(suggestion.shortName);
@@ -68,6 +85,7 @@ export function AddressAutocompleteInput({
 
   // Load history on focus when input is empty
   const handleFocus = () => {
+    updateDropdownPosition();
     if (!value.trim()) {
       const hist = effectiveFieldType === 'start' 
         ? addressHistoryService.getStartHistory()
@@ -88,6 +106,19 @@ export function AddressAutocompleteInput({
       setShowHistory(false);
     }, 150);
   };
+  
+  // Update position on scroll/resize
+  useEffect(() => {
+    if (showHistory || autocomplete.isOpen) {
+      updateDropdownPosition();
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      window.addEventListener('resize', updateDropdownPosition);
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+        window.removeEventListener('resize', updateDropdownPosition);
+      };
+    }
+  }, [showHistory, autocomplete.isOpen, updateDropdownPosition]);
 
   const handleHistorySelect = (entry: HistoryEntry) => {
     onChange(entry.shortName || entry.displayName);
@@ -161,10 +192,138 @@ export function AddressAutocompleteInput({
 
   const displayedHistory = historyExpanded ? history.slice(0, 15) : history.slice(0, 5);
 
+  // Render dropdown content (used in portal)
+  const renderHistoryDropdown = () => (
+    <div 
+      className="fixed bg-card border border-border rounded-lg shadow-2xl max-h-80 overflow-y-auto"
+      style={{
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        width: dropdownPosition.width,
+        zIndex: 9999,
+      }}
+    >
+      <div className="p-2.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          <Clock className="h-3 w-3" />
+          Ostatnie miejsca
+        </span>
+      </div>
+      
+      {displayedHistory.map((entry, idx) => (
+        <div
+          key={`${entry.lat}-${entry.lng}-${idx}`}
+          className="p-3 cursor-pointer transition-colors hover:bg-accent/50 border-b border-border/30 last:border-b-0"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            handleHistorySelect(entry);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            {entry.type === 'my_location' ? (
+              <Locate className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            ) : (
+              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            )}
+            <span className="text-sm font-medium truncate">{entry.shortName || entry.displayName}</span>
+          </div>
+          {entry.displayName !== entry.shortName && entry.type !== 'my_location' && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5 ml-6">
+              {entry.displayName}
+            </p>
+          )}
+        </div>
+      ))}
+      
+      {history.length > 5 && !historyExpanded && (
+        <button
+          type="button"
+          className="w-full p-2.5 text-xs text-primary hover:bg-accent/50 border-t border-border/50 flex items-center justify-center gap-1"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setHistoryExpanded(true);
+          }}
+        >
+          <ChevronDown className="h-3 w-3" />
+          Pokaż więcej ({history.length - 5})
+        </button>
+      )}
+      
+      {history.length > 0 && (
+        <button
+          type="button"
+          className="w-full p-2.5 text-xs text-destructive hover:bg-destructive/10 border-t border-border/50 flex items-center justify-center gap-1.5"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            handleClearHistory(e);
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+          Wyczyść historię
+        </button>
+      )}
+    </div>
+  );
+
+  const renderAutocompleteDropdown = () => (
+    <div 
+      className="fixed bg-card border border-border rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+      style={{
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        width: dropdownPosition.width,
+        zIndex: 9999,
+      }}
+    >
+      {autocomplete.suggestions.length === 0 ? (
+        <div className="p-3 text-center text-sm text-muted-foreground">
+          Nie znaleziono dokładnego adresu
+        </div>
+      ) : (
+        autocomplete.suggestions.map((suggestion, idx) => (
+          <div
+            key={suggestion.placeId}
+            className={`p-3 cursor-pointer transition-colors border-b border-border/50 last:border-b-0 ${
+              idx === autocomplete.highlightedIndex
+                ? 'bg-accent'
+                : 'hover:bg-accent/50'
+            }`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              autocomplete.handleSelect(suggestion);
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="text-muted-foreground mt-0.5">
+                {getTypeIcon(suggestion.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {suggestion.shortName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {suggestion.displayName}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 h-5 shrink-0"
+              >
+                {getTypeLabel(suggestion.type)}
+              </Badge>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div ref={containerRef} className="relative">
       {/* Input */}
       <Input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={autocomplete.handleKeyDown}
@@ -182,115 +341,11 @@ export function AddressAutocompleteInput({
         </div>
       )}
 
-      {/* History dropdown (shown when input is empty and focused) */}
-      {showHistory && !autocomplete.isOpen && (
-        <div className="absolute z-[60] w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-80 overflow-y-auto">
-          <div className="p-2.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Clock className="h-3 w-3" />
-              Ostatnie miejsca
-            </span>
-          </div>
-          
-          {displayedHistory.map((entry, idx) => (
-            <div
-              key={`${entry.lat}-${entry.lng}-${idx}`}
-              className="p-3 cursor-pointer transition-colors hover:bg-accent/50 border-b border-border/30 last:border-b-0"
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent blur before click
-                handleHistorySelect(entry);
-              }}
-            >
-              <div className="flex items-center gap-2">
-                {entry.type === 'my_location' ? (
-                  <Locate className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                ) : (
-                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                )}
-                <span className="text-sm font-medium truncate">{entry.shortName || entry.displayName}</span>
-              </div>
-              {entry.displayName !== entry.shortName && entry.type !== 'my_location' && (
-                <p className="text-xs text-muted-foreground truncate mt-0.5 ml-6">
-                  {entry.displayName}
-                </p>
-              )}
-            </div>
-          ))}
-          
-          {/* Show more button */}
-          {history.length > 5 && !historyExpanded && (
-            <button
-              type="button"
-              className="w-full p-2.5 text-xs text-primary hover:bg-accent/50 border-t border-border/50 flex items-center justify-center gap-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                setHistoryExpanded(true);
-              }}
-            >
-              <ChevronDown className="h-3 w-3" />
-              Pokaż więcej ({history.length - 5})
-            </button>
-          )}
-          
-          {/* Clear history button */}
-          {history.length > 0 && (
-            <button
-              type="button"
-              className="w-full p-2.5 text-xs text-destructive hover:bg-destructive/10 border-t border-border/50 flex items-center justify-center gap-1.5"
-              onClick={handleClearHistory}
-            >
-              <Trash2 className="h-3 w-3" />
-              Wyczyść historię
-            </button>
-          )}
-        </div>
-      )}
+      {/* History dropdown via Portal */}
+      {showHistory && !autocomplete.isOpen && createPortal(renderHistoryDropdown(), document.body)}
 
-      {/* Dropdown z sugestiami autocomplete */}
-      {autocomplete.isOpen && !showHistory && (
-        <div className="absolute z-[60] w-full mt-1 bg-card border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto">
-          {autocomplete.suggestions.length === 0 ? (
-            <div className="p-3 text-center text-sm text-muted-foreground">
-              Nie znaleziono dokładnego adresu
-            </div>
-          ) : (
-            autocomplete.suggestions.map((suggestion, idx) => (
-              <div
-                key={suggestion.placeId}
-                className={`p-3 cursor-pointer transition-colors border-b border-border/50 last:border-b-0 ${
-                  idx === autocomplete.highlightedIndex
-                    ? 'bg-accent'
-                    : 'hover:bg-accent/50'
-                }`}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent blur before selection
-                  autocomplete.handleSelect(suggestion);
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <div className="text-muted-foreground mt-0.5">
-                    {getTypeIcon(suggestion.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {suggestion.shortName}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {suggestion.displayName}
-                    </p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] px-1.5 py-0 h-5 shrink-0"
-                  >
-                    {getTypeLabel(suggestion.type)}
-                  </Badge>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {/* Autocomplete dropdown via Portal */}
+      {autocomplete.isOpen && !showHistory && createPortal(renderAutocompleteDropdown(), document.body)}
     </div>
   );
 }

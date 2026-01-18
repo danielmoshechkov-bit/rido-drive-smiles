@@ -174,12 +174,12 @@ const TurnByTurnBanner = ({
       className="absolute top-0 left-0 right-0 z-50"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Main banner - Google Maps Green style */}
+      {/* Main banner - RIDO Premium violet style */}
       <div 
         className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl animate-slide-down"
         style={{
-          background: 'linear-gradient(135deg, #0f9d58, #0d8043)',
-          boxShadow: '0 8px 32px -8px rgba(15, 157, 88, 0.6)',
+          background: 'linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 45%))',
+          boxShadow: '0 8px 32px -8px hsl(259 65% 58% / 0.5)',
         }}
       >
         <div className="p-4 text-white">

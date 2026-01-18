@@ -171,7 +171,7 @@ const MapsBottomSheet = ({
             /* Premium search card with Ludek mascot */
             <div 
               className="rido-search-card rounded-2xl p-4 animate-slide-up-fade"
-              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               {/* Mascot + Input row */}
               <div className="flex items-center gap-3">
