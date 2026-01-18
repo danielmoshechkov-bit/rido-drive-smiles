@@ -1258,6 +1258,42 @@ export type Database = {
           },
         ]
       }
+      driver_locations: {
+        Row: {
+          accuracy: number | null
+          heading: number | null
+          id: string
+          is_active: boolean | null
+          lat: number
+          lng: number
+          speed: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          heading?: number | null
+          id?: string
+          is_active?: boolean | null
+          lat: number
+          lng: number
+          speed?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          heading?: number | null
+          id?: string
+          is_active?: boolean | null
+          lat?: number
+          lng?: number
+          speed?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       driver_platform_ids: {
         Row: {
           created_at: string

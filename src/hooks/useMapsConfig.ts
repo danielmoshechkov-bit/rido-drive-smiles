@@ -7,6 +7,8 @@ export interface MapsConfig {
   defaultCenterLat: number;
   defaultCenterLng: number;
   defaultZoom: number;
+  followModeZoom: number;
+  navigationPitch: number;
 }
 
 const DEFAULT_CONFIG: MapsConfig = {
@@ -14,6 +16,8 @@ const DEFAULT_CONFIG: MapsConfig = {
   defaultCenterLat: 52.2297,
   defaultCenterLng: 21.0122,
   defaultZoom: 11.5,
+  followModeZoom: 16,
+  navigationPitch: 45,
 };
 
 export function useMapsConfig() {
@@ -44,9 +48,11 @@ export function useMapsConfig() {
         defaultCenterLat: parseFloat(configMap.default_center_lat) || DEFAULT_CONFIG.defaultCenterLat,
         defaultCenterLng: parseFloat(configMap.default_center_lng) || DEFAULT_CONFIG.defaultCenterLng,
         defaultZoom: parseFloat(configMap.default_zoom) || DEFAULT_CONFIG.defaultZoom,
+        followModeZoom: parseFloat(configMap.follow_mode_zoom) || DEFAULT_CONFIG.followModeZoom,
+        navigationPitch: parseFloat(configMap.navigation_pitch) || DEFAULT_CONFIG.navigationPitch,
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 5 * 60 * 1000,
   });
 
   const updateConfig = useMutation({
@@ -64,6 +70,12 @@ export function useMapsConfig() {
       }
       if (updates.defaultZoom !== undefined) {
         entries.push({ config_key: 'default_zoom', config_value: String(updates.defaultZoom) });
+      }
+      if (updates.followModeZoom !== undefined) {
+        entries.push({ config_key: 'follow_mode_zoom', config_value: String(updates.followModeZoom) });
+      }
+      if (updates.navigationPitch !== undefined) {
+        entries.push({ config_key: 'navigation_pitch', config_value: String(updates.navigationPitch) });
       }
 
       for (const entry of entries) {
