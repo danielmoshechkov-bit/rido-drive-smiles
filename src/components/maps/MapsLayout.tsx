@@ -5,7 +5,7 @@ import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
 import { useNavigation } from './useNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { incidentsService, Incident, BoundingBox } from './incidentsService';
+import { incidentsService, Incident, BoundingBox, filterIncidentsNearRoute } from './incidentsService';
 import { assessRouteRisk, RiskAssessment } from './routeRiskService';
 import { RidoMapTheme, getDefaultTheme, getMascotMessage } from './ridoMapTheme';
 import MapsSidebar from './MapsSidebar';
@@ -57,7 +57,7 @@ const MapsLayout = () => {
     };
   }, []);
 
-  // Fetch incidents for current route
+  // Fetch incidents for current route and filter to only those near route
   const fetchIncidents = useCallback(async () => {
     if (!routing.route) return;
     
@@ -65,11 +65,20 @@ const MapsLayout = () => {
     try {
       const bbox = getRouteBbox(routing.route.coordinates);
       const fetchedIncidents = await incidentsService.fetchIncidents(bbox);
-      setIncidents(fetchedIncidents);
       
-      // Calculate risk assessment with fetched incidents
+      // Filter to only incidents within 200m of the route
+      const nearRouteIncidents = filterIncidentsNearRoute(
+        fetchedIncidents, 
+        routing.route.coordinates, 
+        200 // 200 meters from route
+      );
+      
+      console.log(`[MapsLayout] Filtered ${fetchedIncidents.length} incidents to ${nearRouteIncidents.length} on route`);
+      setIncidents(nearRouteIncidents);
+      
+      // Calculate risk assessment with filtered incidents
       const routeOption = routing.routeOptions?.find(r => r.id === routing.activeRouteId) || null;
-      const risk = assessRouteRisk(routing.route, routeOption, fetchedIncidents);
+      const risk = assessRouteRisk(routing.route, routeOption, nearRouteIncidents);
       setRiskAssessment(risk);
     } catch (error) {
       console.error('[MapsLayout] Failed to fetch incidents:', error);
@@ -159,6 +168,7 @@ const MapsLayout = () => {
             incidents={incidents}
             mapTheme={mapTheme}
             mascotMessage={mascotMessage}
+            isMobile={true}
           />
           
           {/* Mobile Navigation Bar (top, during navigation) */}

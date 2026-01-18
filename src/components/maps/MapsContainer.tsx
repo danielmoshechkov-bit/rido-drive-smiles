@@ -125,6 +125,7 @@ interface MapsContainerProps {
   showIncidentsLayer?: boolean;
   mapTheme?: RidoMapTheme;
   mascotMessage?: string;
+  isMobile?: boolean;
 }
 
 const MapsContainer = ({ 
@@ -135,6 +136,7 @@ const MapsContainer = ({
   showIncidentsLayer = true,
   mapTheme = 'light',
   mascotMessage = '',
+  isMobile = false,
 }: MapsContainerProps) => {
   const { config, isLoading: configLoading } = useMapsConfig();
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
@@ -336,33 +338,35 @@ const MapsContainer = ({
         )}
       </Map>
       
-      {/* Bottom badges - RIDO Premium styling */}
-      <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
-        <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Layers className="h-3 w-3" />Warstwy</Badge>
-        <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Car className="h-3 w-3" />Ruch</Badge>
-        {incidents.length > 0 && (
-          <Badge className="gap-1.5 rido-badge-gold">
-            <Construction className="h-3 w-3" />
-            {incidents.length} zdarzeń
-          </Badge>
-        )}
-      </div>
+      {/* Bottom badges - RIDO Premium styling (hidden on mobile - shown in bottom sheet) */}
+      {!isMobile && (
+        <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
+          <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Layers className="h-3 w-3" />Warstwy</Badge>
+          <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Car className="h-3 w-3" />Ruch</Badge>
+          {incidents.length > 0 && (
+            <Badge className="gap-1.5 rido-badge-gold">
+              <Construction className="h-3 w-3" />
+              {incidents.length} na trasie
+            </Badge>
+          )}
+        </div>
+      )}
       
-      {/* Top badges - RIDO violet branding */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2">
-        {navigation.isNavigating ? (
-          <Badge className="rido-badge-nav gap-1.5"><Navigation className="h-3 w-3 animate-pulse" />Nawigacja</Badge>
-        ) : route ? (
-          <>
-            <Badge className="rido-badge-violet gap-1.5"><Navigation className="h-3 w-3" />Trasa RIDO</Badge>
-            {showAlternative && alternativeRoute && <Badge className="rido-badge-gold gap-1.5"><Route className="h-3 w-3" />Alternatywa</Badge>}
-          </>
-        ) : (
-          <Badge variant="outline" className="rido-badge-glass border-amber-500/50 text-amber-600">Tryb testowy</Badge>
-        )}
-      </div>
-      
-      <div className="absolute bottom-4 right-24 text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded">© OpenStreetMap · OSRM</div>
+      {/* Top badges - RIDO violet branding (hidden on mobile during navigation) */}
+      {!isMobile && (
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
+          {navigation.isNavigating ? (
+            <Badge className="rido-badge-nav gap-1.5"><Navigation className="h-3 w-3 animate-pulse" />Nawigacja</Badge>
+          ) : route ? (
+            <>
+              <Badge className="rido-badge-violet gap-1.5"><Navigation className="h-3 w-3" />Trasa RIDO</Badge>
+              {showAlternative && alternativeRoute && <Badge className="rido-badge-gold gap-1.5"><Route className="h-3 w-3" />Alternatywa</Badge>}
+            </>
+          ) : (
+            <Badge variant="outline" className="rido-badge-glass border-amber-500/50 text-amber-600">Tryb testowy</Badge>
+          )}
+        </div>
+      )}
     </div>
   );
 };
