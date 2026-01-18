@@ -708,3 +708,109 @@ a.button,
 .rido-quick-actions button:active {
   transform: scale(0.9);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Premium Search Card with Ludek (Rido AI branding)
+   ═══════════════════════════════════════════════════════════════ */
+
+.rido-search-card {
+  background: linear-gradient(
+    135deg, 
+    hsl(var(--background) / 0.95),
+    hsl(259 65% 98% / 0.9)
+  );
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 2px solid hsl(259 65% 58% / 0.2);
+  box-shadow: 
+    0 8px 32px -8px hsl(259 65% 58% / 0.15),
+    0 4px 16px -4px rgb(0 0 0 / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.6);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rido-search-card:hover {
+  border-color: hsl(259 65% 58% / 0.35);
+  box-shadow: 
+    0 12px 40px -8px hsl(259 65% 58% / 0.2),
+    0 6px 20px -4px rgb(0 0 0 / 0.1),
+    inset 0 1px 0 hsl(0 0% 100% / 0.6);
+}
+
+/* FAB Group - horizontal compact */
+.rido-fab-group {
+  background: hsl(var(--background) / 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.12);
+}
+
+/* Marker drop animation - Google Maps style */
+@keyframes marker-drop {
+  0% {
+    transform: translateY(-80px) scale(1.2);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(8px) scale(0.95);
+  }
+  85% {
+    transform: translateY(-4px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-marker-drop {
+  animation: marker-drop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Bounce gentle for mascot */
+@keyframes bounce-gentle-slow {
+  0%, 100% { 
+    transform: translateY(0) rotate(-2deg); 
+  }
+  50% { 
+    transform: translateY(-8px) rotate(2deg); 
+  }
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle-slow 3s ease-in-out infinite;
+}
+
+/* Route draw animation */
+@keyframes route-draw-line {
+  from {
+    stroke-dasharray: 0, 10000;
+    opacity: 0.5;
+  }
+  to {
+    stroke-dasharray: 10000, 0;
+    opacity: 1;
+  }
+}
+
+.animate-route-draw {
+  animation: route-draw-line 1.5s ease-out forwards;
+}
+
+/* Map zoom in animation for containers */
+@keyframes map-zoom-enter {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-map-zoom-enter {
+  animation: map-zoom-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
