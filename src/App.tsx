@@ -42,7 +42,10 @@ import GetRidoMaps from "./pages/GetRidoMaps";
 
 const queryClient = new QueryClient();
 
-/** Main App component with routes */
+/** 
+ * Main App component with routes
+ * @version 2.0.0
+ */
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

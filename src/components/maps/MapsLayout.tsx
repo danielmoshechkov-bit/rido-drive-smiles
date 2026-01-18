@@ -1,5 +1,6 @@
 // GetRido Maps - Layout Component
-import { useState, useEffect, useCallback, useMemo } from 'react';
+// Build timestamp: 2026-01-18T12:00:00Z
+import { useState, useEffect, useCallback } from 'react';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
 import { useNavigation } from './useNavigation';
@@ -70,16 +71,18 @@ const MapsLayout = () => {
     }
   }, [routing.route, routing.routeOptions, routing.activeRouteId, getRouteBbox]);
 
-  // Auto-fetch incidents when route changes
+  // Auto-fetch incidents when route changes (stable ref via route id)
+  const routeId = routing.route ? `${routing.route.coordinates.length}-${routing.route.distance}` : null;
+  
   useEffect(() => {
-    if (routing.route && routing.route.coordinates.length > 0) {
-      incidentsService.clearCache(); // Clear cache for new route
+    if (routeId && routing.route) {
+      incidentsService.clearCache();
       fetchIncidents();
     } else {
       setIncidents([]);
       setRiskAssessment(null);
     }
-  }, [routing.route?.coordinates.length, fetchIncidents]);
+  }, [routeId]);
 
   // Handle manual refresh with cooldown check
   const handleRefreshIncidents = useCallback(() => {

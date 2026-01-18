@@ -1,6 +1,7 @@
-// GetRido Maps - Incidents Service (Overpass API / OSM)
-// Pobiera zdarzenia drogowe z publicznych źródeł
-
+/**
+ * GetRido Maps - Incidents Service (Overpass API / OSM)
+ * Pobiera zdarzenia drogowe z publicznych źródeł
+ */
 export interface Incident {
   id: string;
   type: 'roadwork' | 'closure' | 'construction' | 'event';
