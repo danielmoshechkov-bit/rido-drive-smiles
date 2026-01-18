@@ -1,5 +1,5 @@
 // GetRido Maps - Mobile Navigation Bar (Yandex-style bottom stats bar)
-import { X, Locate, AlertTriangle, Clock, Signal, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
+import { X, Locate, AlertTriangle, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NavigationState } from './useNavigation';
@@ -149,7 +149,7 @@ const MobileNavigationBar = ({
           />
         </div>
 
-        {/* Speed + GPS info row */}
+        {/* Speed + Follow Mode row */}
         <div className="px-4 py-2 flex items-center justify-between border-t">
           {/* Speed */}
           <div className="flex items-center gap-2">
@@ -164,14 +164,13 @@ const MobileNavigationBar = ({
             )}
           </div>
 
-          {/* GPS accuracy */}
-          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${
-            isWeakSignal ? 'bg-amber-500/20 text-amber-600' : 'bg-muted text-muted-foreground'
-          }`}>
-            {isWeakSignal && <AlertTriangle className="h-3 w-3" />}
-            <Signal className="h-3 w-3" />
-            <span className="font-medium">±{accuracyM ?? '—'}m</span>
-          </div>
+          {/* Weak GPS warning (only when weak) */}
+          {isWeakSignal && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs bg-amber-500/20 text-amber-600">
+              <AlertTriangle className="h-3 w-3" />
+              <span className="font-medium">Słaby GPS</span>
+            </div>
+          )}
 
           {/* Follow mode */}
           <button

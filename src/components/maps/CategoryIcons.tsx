@@ -1,226 +1,378 @@
-// GetRido Maps - Premium Category Icons (modern filled SVG icons with gradients)
+// GetRido Maps - Premium 3D Category Icons (iOS/Yandex style)
+// Modern filled SVG icons with 3D gradients, highlights, and shadows
 
 import React from 'react';
 
 // ═══════════════════════════════════════════════════════════════
-// Premium SVG Icons - Modern, Filled, with Gradients
+// Premium 3D Icons - Yandex/iOS Style with depth and highlights
 // ═══════════════════════════════════════════════════════════════
 
 export const FoodIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="foodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FF6B35" />
-        <stop offset="100%" stopColor="#F7931E" />
+      <linearGradient id="food3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FF8A50"/>
+        <stop offset="50%" stopColor="#FF6B35"/>
+        <stop offset="100%" stopColor="#E54B1F"/>
+      </linearGradient>
+      <linearGradient id="foodHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5"/>
+        <stop offset="30%" stopColor="#ffffff" stopOpacity="0"/>
       </linearGradient>
     </defs>
-    <path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z" fill="url(#foodGrad)"/>
+    {/* Fork & knife */}
+    <path d="M12 4v8c0 1.5-1 2.5-2.5 2.5v12h-3v-12C5 14.5 4 13.5 4 12V4h2v7h2V4h2v7h2V4h2z" fill="url(#food3d)"/>
+    <path d="M22 4c0 0-4 3-4 8v3h4v11h4V4h-4z" fill="url(#food3d)"/>
+    {/* Highlight overlay */}
+    <rect x="4" y="4" width="22" height="10" fill="url(#foodHighlight)" rx="2"/>
   </svg>
 );
 
 export const ShopIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="shopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#4FC3F7" />
-        <stop offset="100%" stopColor="#2196F3" />
+      <linearGradient id="shop3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#64D2FF"/>
+        <stop offset="50%" stopColor="#4FC3F7"/>
+        <stop offset="100%" stopColor="#2196F3"/>
       </linearGradient>
     </defs>
-    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" fill="url(#shopGrad)"/>
+    {/* Shopping cart */}
+    <path d="M10 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM24 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="url(#shop3d)"/>
+    <path d="M4 4h4l4.5 12h11l3.5-8H10" fill="none" stroke="url(#shop3d)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8.5 16h13c1 0 2-.6 2.3-1.5L28 6H8" fill="url(#shop3d)" opacity="0.3"/>
+    {/* Cart body filled */}
+    <path d="M7 6l2 10h14l3-8H8" fill="url(#shop3d)"/>
+    {/* Highlight */}
+    <path d="M9 7l1 6h10" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const PharmacyIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="pharmacyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#66BB6A" />
-        <stop offset="100%" stopColor="#43A047" />
+      <linearGradient id="pharmacy3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#81E06D"/>
+        <stop offset="50%" stopColor="#66BB6A"/>
+        <stop offset="100%" stopColor="#43A047"/>
       </linearGradient>
     </defs>
-    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="url(#pharmacyGrad)"/>
+    {/* Rounded square with cross */}
+    <rect x="4" y="4" width="24" height="24" rx="6" fill="url(#pharmacy3d)"/>
+    {/* White cross */}
+    <path d="M14 10h4v4h4v4h-4v4h-4v-4h-4v-4h4v-4z" fill="white"/>
+    {/* 3D highlight */}
+    <path d="M6 6h20c1 0 2 1 2 2v8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const BeautyIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="beautyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#F06292" />
-        <stop offset="100%" stopColor="#E91E63" />
+      <linearGradient id="beauty3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FF8ED4"/>
+        <stop offset="50%" stopColor="#F06292"/>
+        <stop offset="100%" stopColor="#D81B60"/>
       </linearGradient>
     </defs>
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="url(#beautyGrad)"/>
-    <circle cx="12" cy="8" r="3" fill="url(#beautyGrad)"/>
+    {/* Sparkle/star beauty icon */}
+    <path d="M16 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="url(#beauty3d)"/>
+    <circle cx="16" cy="22" r="6" fill="url(#beauty3d)"/>
+    <circle cx="16" cy="22" r="3" fill="white" opacity="0.5"/>
+    {/* Highlight */}
+    <path d="M14 4l1 4" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const AtmIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="atmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#81C784" />
-        <stop offset="100%" stopColor="#4CAF50" />
+      <linearGradient id="atm3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#A5E072"/>
+        <stop offset="50%" stopColor="#81C784"/>
+        <stop offset="100%" stopColor="#4CAF50"/>
       </linearGradient>
     </defs>
-    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" fill="url(#atmGrad)"/>
-    <circle cx="8" cy="15" r="1.5" fill="url(#atmGrad)"/>
-    <circle cx="12" cy="15" r="1.5" fill="url(#atmGrad)"/>
-    <circle cx="16" cy="15" r="1.5" fill="url(#atmGrad)"/>
+    {/* Card shape */}
+    <rect x="3" y="8" width="26" height="16" rx="3" fill="url(#atm3d)"/>
+    {/* Magnetic strip */}
+    <rect x="3" y="12" width="26" height="4" fill="rgba(0,0,0,0.2)"/>
+    {/* Chip */}
+    <rect x="6" y="18" width="6" height="4" rx="1" fill="#FFD700"/>
+    {/* Dollar sign */}
+    <text x="22" y="21" fill="white" fontSize="8" fontWeight="bold" fontFamily="system-ui">$</text>
+    {/* Highlight */}
+    <path d="M5 10h22" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const FuelIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="fuelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFD54F" />
-        <stop offset="100%" stopColor="#FF9800" />
+      <linearGradient id="fuel3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FFE082"/>
+        <stop offset="50%" stopColor="#FFD54F"/>
+        <stop offset="100%" stopColor="#FF9800"/>
+      </linearGradient>
+      <linearGradient id="fuelNozzle" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#78909C"/>
+        <stop offset="100%" stopColor="#455A64"/>
       </linearGradient>
     </defs>
-    <path d="M19.77 7.23l.01-.01-3.72-3.72L15 4.56l2.11 2.11c-.94.36-1.61 1.26-1.61 2.33 0 1.38 1.12 2.5 2.5 2.5.36 0 .69-.08 1-.21v7.21c0 .55-.45 1-1 1s-1-.45-1-1V14c0-1.1-.9-2-2-2h-1V5c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v16h10v-7.5h1.5v5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V9c0-.69-.28-1.32-.73-1.77zM12 10H6V5h6v5z" fill="url(#fuelGrad)"/>
+    {/* Pump body */}
+    <rect x="6" y="6" width="14" height="22" rx="2" fill="url(#fuel3d)"/>
+    {/* Display screen */}
+    <rect x="8" y="8" width="10" height="6" rx="1" fill="white" opacity="0.9"/>
+    {/* Numbers on screen */}
+    <text x="13" y="13" textAnchor="middle" fill="#333" fontSize="5" fontWeight="bold" fontFamily="monospace">7.89</text>
+    {/* Nozzle */}
+    <path d="M20 10h4c2 0 3 1 3 3v8c0 1-.5 2-1.5 2s-1.5-1-1.5-2v-6h-1v10" fill="none" stroke="url(#fuelNozzle)" strokeWidth="2.5" strokeLinecap="round"/>
+    {/* Hose */}
+    <path d="M24 17c0 3-1 4-4 4" fill="none" stroke="url(#fuelNozzle)" strokeWidth="2" strokeLinecap="round"/>
+    {/* Highlight */}
+    <path d="M8 8v4" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const HospitalIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="hospitalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#EF5350" />
-        <stop offset="100%" stopColor="#E53935" />
+      <linearGradient id="hospital3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FF7070"/>
+        <stop offset="50%" stopColor="#EF5350"/>
+        <stop offset="100%" stopColor="#D32F2F"/>
       </linearGradient>
     </defs>
-    <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z" fill="url(#hospitalGrad)"/>
+    {/* Building */}
+    <rect x="4" y="4" width="24" height="24" rx="4" fill="url(#hospital3d)"/>
+    {/* White H */}
+    <path d="M11 9v14M21 9v14M11 16h10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+    {/* 3D highlight */}
+    <path d="M6 6c0-1 1-2 2-2h16c1 0 2 1 2 2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"/>
   </svg>
 );
 
 export const HotelIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="hotelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#7986CB" />
-        <stop offset="100%" stopColor="#5C6BC0" />
+      <linearGradient id="hotel3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#9FA8DA"/>
+        <stop offset="50%" stopColor="#7986CB"/>
+        <stop offset="100%" stopColor="#5C6BC0"/>
       </linearGradient>
     </defs>
-    <path d="M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z" fill="url(#hotelGrad)"/>
+    {/* Bed frame */}
+    <rect x="4" y="14" width="24" height="10" rx="2" fill="url(#hotel3d)"/>
+    {/* Pillow */}
+    <ellipse cx="10" cy="14" rx="4" ry="3" fill="white" opacity="0.9"/>
+    {/* Person sleeping */}
+    <circle cx="10" cy="11" r="4" fill="url(#hotel3d)"/>
+    {/* Blanket highlight */}
+    <path d="M6 16h20" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+    {/* Legs */}
+    <rect x="4" y="24" width="3" height="4" rx="1" fill="url(#hotel3d)"/>
+    <rect x="25" y="24" width="3" height="4" rx="1" fill="url(#hotel3d)"/>
   </svg>
 );
 
 export const WifiIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="wifiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#4DD0E1" />
-        <stop offset="100%" stopColor="#00ACC1" />
+      <linearGradient id="wifi3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#80DEEA"/>
+        <stop offset="50%" stopColor="#4DD0E1"/>
+        <stop offset="100%" stopColor="#00ACC1"/>
       </linearGradient>
     </defs>
-    <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" fill="url(#wifiGrad)"/>
+    {/* WiFi arcs */}
+    <path d="M16 26a2 2 0 100-4 2 2 0 000 4z" fill="url(#wifi3d)"/>
+    <path d="M8 18c4.4-4.4 11.6-4.4 16 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M4 14c6.6-6.6 17.4-6.6 24 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M0 10c8.8-8.8 23.2-8.8 32 0" fill="none" stroke="url(#wifi3d)" strokeWidth="3" strokeLinecap="round"/>
+    {/* Highlight on center dot */}
+    <circle cx="15" cy="23" r="1" fill="white" opacity="0.6"/>
   </svg>
 );
 
 export const BarIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="barGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFCA28" />
-        <stop offset="100%" stopColor="#FFA000" />
+      <linearGradient id="bar3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FFEE58"/>
+        <stop offset="50%" stopColor="#FFCA28"/>
+        <stop offset="100%" stopColor="#FFA000"/>
+      </linearGradient>
+      <linearGradient id="beer3d" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#FFFDE7"/>
+        <stop offset="100%" stopColor="#FFECB3"/>
       </linearGradient>
     </defs>
-    <path d="M3 14c0 1.3.84 2.4 2 2.82V20H3v2h6v-2H7v-3.18C8.16 16.4 9 15.3 9 14V6H3v8zm2-6h2v3H5V8zm14.64-4.46l-.96.32c-.41-.13-.87-.15-1.35-.03l-.96-.32C15.56 3.18 14.76 3 14 3H7v2h7c.38 0 .77.08 1.14.24l.46.16.46-.16c.37-.16.76-.24 1.14-.24 1.71 0 3.13 1.23 3.42 2.84.19 1.08-.06 2.22-.74 3.16H18v8h-5v2h7v-2h-1v-7.5c.88-.93 1.42-2.2 1.42-3.5 0-2.16-1.27-4.02-3.1-4.87l.32-.96.32.96z" fill="url(#barGrad)"/>
+    {/* Beer mug */}
+    <rect x="6" y="8" width="16" height="20" rx="3" fill="url(#bar3d)"/>
+    {/* Beer inside */}
+    <rect x="8" y="12" width="12" height="14" rx="2" fill="url(#beer3d)"/>
+    {/* Foam */}
+    <ellipse cx="14" cy="12" rx="6" ry="2" fill="white"/>
+    <ellipse cx="11" cy="10" rx="2" ry="1.5" fill="white"/>
+    <ellipse cx="17" cy="10" rx="2" ry="1.5" fill="white"/>
+    {/* Handle */}
+    <path d="M22 12h3c2 0 3 2 3 4v4c0 2-1 4-3 4h-3" fill="none" stroke="url(#bar3d)" strokeWidth="3" strokeLinecap="round"/>
+    {/* Bubbles */}
+    <circle cx="11" cy="18" r="1" fill="white" opacity="0.6"/>
+    <circle cx="15" cy="22" r="1" fill="white" opacity="0.6"/>
   </svg>
 );
 
 export const MallIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="mallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#AB47BC" />
-        <stop offset="100%" stopColor="#8E24AA" />
+      <linearGradient id="mall3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#CE93D8"/>
+        <stop offset="50%" stopColor="#AB47BC"/>
+        <stop offset="100%" stopColor="#8E24AA"/>
       </linearGradient>
     </defs>
-    <path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm6 16H6V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h4v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z" fill="url(#mallGrad)"/>
+    {/* Shopping bag */}
+    <path d="M8 10h16c1 0 2 1 2 2v14c0 1-1 2-2 2H8c-1 0-2-1-2-2V12c0-1 1-2 2-2z" fill="url(#mall3d)"/>
+    {/* Handles */}
+    <path d="M12 10V8c0-2 2-4 4-4s4 2 4 4v2" fill="none" stroke="url(#mall3d)" strokeWidth="2.5" strokeLinecap="round"/>
+    {/* Sparkle/star on bag */}
+    <path d="M16 16l1 2 2 0.5-1.5 1.5 0.5 2-2-1-2 1 0.5-2-1.5-1.5 2-0.5z" fill="white" opacity="0.8"/>
+    {/* 3D highlight */}
+    <path d="M8 12h16" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const CinemaIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="cinemaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#EC407A" />
-        <stop offset="100%" stopColor="#D81B60" />
+      <linearGradient id="cinema3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#F48FB1"/>
+        <stop offset="50%" stopColor="#EC407A"/>
+        <stop offset="100%" stopColor="#C2185B"/>
       </linearGradient>
     </defs>
-    <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" fill="url(#cinemaGrad)"/>
+    {/* Film reel / clapperboard */}
+    <rect x="4" y="4" width="24" height="24" rx="3" fill="url(#cinema3d)"/>
+    {/* Stripes on clapperboard */}
+    <path d="M4 8l24 0M8 4l-4 4M14 4l-4 4M20 4l-4 4M26 4l-4 4" stroke="white" strokeWidth="2"/>
+    {/* Screen area */}
+    <rect x="6" y="12" width="20" height="14" rx="2" fill="white" opacity="0.9"/>
+    {/* Play button */}
+    <path d="M14 16l6 3-6 3z" fill="url(#cinema3d)"/>
   </svg>
 );
 
 export const ParkingIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="parkingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#42A5F5" />
-        <stop offset="100%" stopColor="#1E88E5" />
+      <linearGradient id="parking3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#64B5F6"/>
+        <stop offset="50%" stopColor="#42A5F5"/>
+        <stop offset="100%" stopColor="#1E88E5"/>
       </linearGradient>
     </defs>
-    <path d="M13 3H6v18h4v-6h3c3.31 0 6-2.69 6-6s-2.69-6-6-6zm.2 8H10V7h3.2c1.1 0 2 .9 2 2s-.9 2-2 2z" fill="url(#parkingGrad)"/>
+    {/* Blue circle background */}
+    <circle cx="16" cy="16" r="14" fill="url(#parking3d)"/>
+    {/* White P */}
+    <text x="16" y="22" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold" fontFamily="system-ui">P</text>
+    {/* 3D arc highlight */}
+    <path d="M6 10c2-4 6-6 10-6s8 2 10 6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const CarWashIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="carWashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#29B6F6" />
-        <stop offset="100%" stopColor="#0288D1" />
+      <linearGradient id="carwash3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#81D4FA"/>
+        <stop offset="50%" stopColor="#29B6F6"/>
+        <stop offset="100%" stopColor="#0288D1"/>
       </linearGradient>
     </defs>
-    <path d="M17 5c.83 0 1.5-.67 1.5-1.5 0-1-1.5-2.7-1.5-2.7s-1.5 1.7-1.5 2.7c0 .83.67 1.5 1.5 1.5zm-5 0c.83 0 1.5-.67 1.5-1.5 0-1-1.5-2.7-1.5-2.7s-1.5 1.7-1.5 2.7c0 .83.67 1.5 1.5 1.5zM7 5c.83 0 1.5-.67 1.5-1.5C8.5 2.5 7 .8 7 .8S5.5 2.5 5.5 3.5C5.5 4.33 6.17 5 7 5zm11.92 3.01C18.72 7.42 18.16 7 17.5 7h-11c-.66 0-1.21.42-1.42 1.01L3 14v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 18c-.83 0-1.5-.67-1.5-1.5S5.67 15 6.5 15s1.5.67 1.5 1.5S7.33 18 6.5 18zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 13l1.5-4.5h11L19 13H5z" fill="url(#carWashGrad)"/>
+    {/* Water droplets */}
+    <path d="M8 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
+    <path d="M18 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
+    <path d="M28 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="url(#carwash3d)"/>
+    {/* Car body */}
+    <path d="M6 18l2-4h16l2 4v6c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2h-12c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2v-6z" fill="url(#carwash3d)"/>
+    {/* Windows */}
+    <path d="M8 14l1.5-3h13l1.5 3" fill="none" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+    {/* Wheels */}
+    <circle cx="10" cy="22" r="2" fill="#333"/>
+    <circle cx="22" cy="22" r="2" fill="#333"/>
+    {/* Highlight */}
+    <path d="M8 16h16" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const ServiceIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="serviceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#78909C" />
-        <stop offset="100%" stopColor="#546E7A" />
+      <linearGradient id="service3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#A0ADB8"/>
+        <stop offset="50%" stopColor="#78909C"/>
+        <stop offset="100%" stopColor="#546E7A"/>
       </linearGradient>
     </defs>
-    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" fill="url(#serviceGrad)"/>
+    {/* Wrench */}
+    <path d="M6 26l8-8c-1-3 0-6 3-8 2-2 5-2 7-1l-4 4 1 3 3 1 4-4c1 2 1 5-1 7-2 3-5 4-8 3l-8 8c-1 1-2 1-3 0l-2-2c-1-1-1-2 0-3z" fill="url(#service3d)"/>
+    {/* Highlight */}
+    <path d="M8 24l6-6" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+    {/* Gear teeth indication */}
+    <circle cx="19" cy="13" r="2" fill="white" opacity="0.5"/>
   </svg>
 );
 
 export const FitnessIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="fitnessGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#9575CD" />
-        <stop offset="100%" stopColor="#7E57C2" />
+      <linearGradient id="fitness3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#B39DDB"/>
+        <stop offset="50%" stopColor="#9575CD"/>
+        <stop offset="100%" stopColor="#7E57C2"/>
       </linearGradient>
     </defs>
-    <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z" fill="url(#fitnessGrad)"/>
+    {/* Dumbbell */}
+    <rect x="4" y="12" width="6" height="8" rx="1" fill="url(#fitness3d)"/>
+    <rect x="22" y="12" width="6" height="8" rx="1" fill="url(#fitness3d)"/>
+    <rect x="10" y="14" width="12" height="4" fill="url(#fitness3d)"/>
+    {/* Weight plates */}
+    <rect x="2" y="10" width="3" height="12" rx="1" fill="url(#fitness3d)"/>
+    <rect x="27" y="10" width="3" height="12" rx="1" fill="url(#fitness3d)"/>
+    {/* Highlight */}
+    <path d="M4 13h4M24 13h4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
 export const SightIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
+  <svg viewBox="0 0 32 32" width={22} height={22}>
     <defs>
-      <linearGradient id="sightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFC107" />
-        <stop offset="100%" stopColor="#FF9800" />
+      <linearGradient id="sight3d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FFE57F"/>
+        <stop offset="50%" stopColor="#FFC107"/>
+        <stop offset="100%" stopColor="#FF9800"/>
       </linearGradient>
     </defs>
-    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="url(#sightGrad)"/>
+    {/* Star */}
+    <path d="M16 2l4 9h9l-7 6 3 10-9-6-9 6 3-10-7-6h9z" fill="url(#sight3d)"/>
+    {/* 3D highlight */}
+    <path d="M16 4l2 5" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
+    {/* Inner star glow */}
+    <path d="M16 8l2 4h4l-3 3 1 5-4-3-4 3 1-5-3-3h4z" fill="white" opacity="0.3"/>
   </svg>
 );
 
-// AI Icon for button
+// ═══════════════════════════════════════════════════════════════
+// AI & Map Control Icons
+// ═══════════════════════════════════════════════════════════════
+
 export const AISparkleIcon = () => (
   <svg viewBox="0 0 24 24" width={22} height={22} className="drop-shadow-sm">
     <defs>
       <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#e0e0ff" />
+        <stop offset="0%" stopColor="#ffffff"/>
+        <stop offset="100%" stopColor="#e0e0ff"/>
       </linearGradient>
     </defs>
     <path d="M12 3L14.5 8.5L20 9L16 13.5L17.5 19L12 16L6.5 19L8 13.5L4 9L9.5 8.5L12 3Z" fill="url(#aiGrad)" stroke="white" strokeWidth="0.5"/>
@@ -230,15 +382,8 @@ export const AISparkleIcon = () => (
   </svg>
 );
 
-// Map icons for FABS
 export const LayersFilledIcon = () => (
   <svg viewBox="0 0 24 24" width={20} height={20}>
-    <defs>
-      <linearGradient id="layersGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="currentColor" />
-        <stop offset="100%" stopColor="currentColor" />
-      </linearGradient>
-    </defs>
     <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z" fill="currentColor"/>
   </svg>
 );
@@ -294,7 +439,10 @@ export const MoonIcon = () => (
   </svg>
 );
 
-// Premium 3D User Arrow for navigation
+// ═══════════════════════════════════════════════════════════════
+// Premium 3D User Arrow for Navigation
+// ═══════════════════════════════════════════════════════════════
+
 export const RidoUserArrow3D = ({ heading, size = 48 }: { heading: number | null; size?: number }) => (
   <div 
     className="relative transition-transform duration-200"
@@ -308,16 +456,16 @@ export const RidoUserArrow3D = ({ heading, size = 48 }: { heading: number | null
       <defs>
         {/* Gold gradient for arrow body */}
         <linearGradient id="arrowGold3D" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FFD700" />
-          <stop offset="30%" stopColor="#FFC107" />
-          <stop offset="70%" stopColor="#FF9800" />
-          <stop offset="100%" stopColor="#F57C00" />
+          <stop offset="0%" stopColor="#FFD700"/>
+          <stop offset="30%" stopColor="#FFC107"/>
+          <stop offset="70%" stopColor="#FF9800"/>
+          <stop offset="100%" stopColor="#F57C00"/>
         </linearGradient>
         
         {/* Violet stroke gradient */}
         <linearGradient id="arrowViolet" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#8B5CF6" />
-          <stop offset="100%" stopColor="#6D28D9" />
+          <stop offset="0%" stopColor="#8B5CF6"/>
+          <stop offset="100%" stopColor="#6D28D9"/>
         </linearGradient>
         
         {/* 3D shadow filter */}
