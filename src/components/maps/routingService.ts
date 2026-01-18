@@ -17,6 +17,15 @@ export interface RouteResult {
   routeType?: 'standard' | 'alternative';
 }
 
+export interface RouteOption {
+  id: string;
+  coordinates: [number, number][];
+  distance: number;  // km
+  duration: number;  // min
+  stepsCount: number;
+  turnsCount: number;  // left/right/uturn
+}
+
 export interface GeocodingResult {
   lat: number;
   lng: number;
@@ -124,6 +133,96 @@ export async function calculateRoute(
 }
 
 /**
+ * Calculate routes with step analysis for "Fastest" vs "Simplest" selection
+ */
+export async function calculateRoutesWithOptions(
+  start: Coordinates,
+  end: Coordinates
+): Promise<RouteOption[]> {
+  try {
+    const coordinates = `${start.lng},${start.lat};${end.lng},${end.lat}`;
+    
+    const params = new URLSearchParams({
+      overview: 'full',
+      geometries: 'geojson',
+      steps: 'true',        // CRITICAL: get step-by-step instructions
+      alternatives: 'true',  // Get alternative routes
+    });
+
+    const response = await fetch(
+      `${OSRM_API}/route/v1/driving/${coordinates}?${params}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Routing failed');
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes) {
+      console.error('[Routing] No routes found:', data);
+      return [];
+    }
+
+    return data.routes.map((route: any, idx: number) => {
+      // Count steps and turns
+      let stepsCount = 0;
+      let turnsCount = 0;
+
+      for (const leg of route.legs || []) {
+        for (const step of leg.steps || []) {
+          stepsCount++;
+          const maneuver = step.maneuver;
+          if (maneuver) {
+            // Count turns (left, right, sharp turns, u-turns)
+            const turnTypes = ['turn', 'end of road', 'fork', 'new name'];
+            const turnModifiers = ['left', 'right', 'sharp left', 'sharp right', 'uturn', 'slight left', 'slight right'];
+            
+            if (turnTypes.includes(maneuver.type) && turnModifiers.includes(maneuver.modifier)) {
+              turnsCount++;
+            }
+          }
+        }
+      }
+
+      return {
+        id: `route-${idx}`,
+        coordinates: route.geometry.coordinates,
+        distance: route.distance / 1000,
+        duration: route.duration / 60,
+        stepsCount,
+        turnsCount,
+      };
+    });
+  } catch (error) {
+    console.error('[Routing] Routes calculation error:', error);
+    return [];
+  }
+}
+
+/**
+ * Select best route based on mode
+ */
+export function selectBestRoute(
+  routes: RouteOption[],
+  mode: 'fastest' | 'simplest'
+): RouteOption | null {
+  if (!routes.length) return null;
+
+  if (mode === 'fastest') {
+    return routes.reduce((a, b) => a.duration < b.duration ? a : b);
+  }
+
+  // Simplest: fewest turns, then shortest duration as tiebreaker
+  return routes.reduce((a, b) => {
+    if (a.turnsCount !== b.turnsCount) {
+      return a.turnsCount < b.turnsCount ? a : b;
+    }
+    return a.duration < b.duration ? a : b;
+  });
+}
+
+/**
  * Calculate alternative route using OSRM alternatives
  */
 export async function calculateAlternativeRoute(
@@ -151,8 +250,6 @@ export async function calculateAlternativeRoute(
     const data = await response.json();
 
     if (data.code !== 'Ok' || !data.routes || data.routes.length < 2) {
-      // If no alternative available, try with continue_straight=false
-      // to force a different route
       console.log('[Routing] No alternative found, trying different approach');
       return null;
     }

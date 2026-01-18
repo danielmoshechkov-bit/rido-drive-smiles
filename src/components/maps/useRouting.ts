@@ -1,13 +1,18 @@
-// GetRido Maps - Routing Hook with GPS Fallback
+// GetRido Maps - Routing Hook with GPS Fallback and Route Options
 import { useState, useCallback } from 'react';
 import { 
   RouteResult, 
+  RouteOption,
   resolveLocation, 
   calculateRoute,
   calculateAlternativeRoute,
+  calculateRoutesWithOptions,
+  selectBestRoute,
   Coordinates 
 } from './routingService';
 import { analyzeRouteFree, AiAnalysisResult } from './freeAiAnalysis';
+
+export type RouteMode = 'fastest' | 'simplest';
 
 export interface RoutingState {
   startInput: string;
@@ -22,6 +27,10 @@ export interface RoutingState {
   // AI FREE state
   aiAnalysis: AiAnalysisResult | null;
   isAnalyzing: boolean;
+  // Route options state
+  routeOptions: RouteOption[];
+  selectedRouteMode: RouteMode;
+  activeRouteId: string | null;
 }
 
 // Interface for GPS location fallback
@@ -43,6 +52,9 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
     error: null,
     aiAnalysis: null,
     isAnalyzing: false,
+    routeOptions: [],
+    selectedRouteMode: 'fastest',
+    activeRouteId: null,
   });
 
   const setStartInput = useCallback((value: string) => {
@@ -59,6 +71,34 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
 
   const setEndCoords = useCallback((coords: Coordinates | null) => {
     setState(prev => ({ ...prev, endCoords: coords }));
+  }, []);
+
+  const setRouteMode = useCallback((mode: RouteMode) => {
+    setState(prev => {
+      if (prev.routeOptions.length === 0) {
+        return { ...prev, selectedRouteMode: mode };
+      }
+      
+      const bestRoute = selectBestRoute(prev.routeOptions, mode);
+      if (!bestRoute) {
+        return { ...prev, selectedRouteMode: mode };
+      }
+
+      return {
+        ...prev,
+        selectedRouteMode: mode,
+        activeRouteId: bestRoute.id,
+        route: {
+          coordinates: bestRoute.coordinates,
+          distance: bestRoute.distance,
+          duration: bestRoute.duration,
+          startPoint: prev.startCoords!,
+          endPoint: prev.endCoords!,
+          isAlternative: false,
+          routeType: 'standard',
+        },
+      };
+    });
   }, []);
 
   const runAiAnalysis = useCallback(async (route: RouteResult) => {
@@ -78,7 +118,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
   }, []);
 
   const calculateRouteHandler = useCallback(async (gpsLocationOverride?: GpsLocation | null) => {
-    const { startInput, endInput } = state;
+    const { startInput, endInput, selectedRouteMode } = state;
     const effectiveGpsLocation = gpsLocationOverride ?? gpsLocation;
 
     // Validate: endInput is required
@@ -95,13 +135,14 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
       alternativeRoute: null,
       showAlternative: false,
       aiAnalysis: null,
+      routeOptions: [],
+      activeRouteId: null,
     }));
 
     try {
       // Użyj zapisanych współrzędnych z autocomplete lub rozwiąż adres
       let resolvedStartCoords = state.startCoords;
       let resolvedEndCoords = state.endCoords;
-      let usedGpsFallback = false;
 
       // Resolve start location
       if (!resolvedStartCoords) {
@@ -123,7 +164,6 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
             lat: effectiveGpsLocation.latitude, 
             lng: effectiveGpsLocation.longitude 
           };
-          usedGpsFallback = true;
           // Update the input to show we're using GPS
           setState(prev => ({ ...prev, startInput: 'Twoja lokalizacja' }));
         } else {
@@ -151,10 +191,34 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
         resolvedEndCoords = { lat: endLocation.lat, lng: endLocation.lng };
       }
 
-      // Calculate route
-      const route = await calculateRoute(resolvedStartCoords, resolvedEndCoords);
+      // Calculate routes with options (for fastest/simplest selection)
+      const routeOptions = await calculateRoutesWithOptions(resolvedStartCoords, resolvedEndCoords);
       
-      if (!route) {
+      let selectedRoute: RouteResult | null = null;
+      let activeRouteId: string | null = null;
+
+      if (routeOptions.length > 0) {
+        const bestOption = selectBestRoute(routeOptions, selectedRouteMode);
+        if (bestOption) {
+          activeRouteId = bestOption.id;
+          selectedRoute = {
+            coordinates: bestOption.coordinates,
+            distance: bestOption.distance,
+            duration: bestOption.duration,
+            startPoint: resolvedStartCoords,
+            endPoint: resolvedEndCoords,
+            isAlternative: false,
+            routeType: 'standard',
+          };
+        }
+      }
+
+      // Fallback to simple route calculation if options failed
+      if (!selectedRoute) {
+        selectedRoute = await calculateRoute(resolvedStartCoords, resolvedEndCoords);
+      }
+      
+      if (!selectedRoute) {
         setState(prev => ({ 
           ...prev, 
           isLoading: false, 
@@ -167,13 +231,15 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
         ...prev,
         startCoords: resolvedStartCoords,
         endCoords: resolvedEndCoords,
-        route,
+        route: selectedRoute,
+        routeOptions,
+        activeRouteId,
         isLoading: false,
         error: null,
       }));
 
       // Run AI analysis asynchronously (non-blocking)
-      runAiAnalysis(route);
+      runAiAnalysis(selectedRoute);
 
     } catch (error) {
       console.error('[useRouting] Error:', error);
@@ -183,7 +249,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
         error: 'Wystąpił błąd podczas wyznaczania trasy' 
       }));
     }
-  }, [state.startInput, state.endInput, state.startCoords, state.endCoords, gpsLocation, runAiAnalysis]);
+  }, [state.startInput, state.endInput, state.startCoords, state.endCoords, state.selectedRouteMode, gpsLocation, runAiAnalysis]);
 
   const calculateAlternative = useCallback(async () => {
     const { startCoords, endCoords } = state;
@@ -237,6 +303,9 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
       error: null,
       aiAnalysis: null,
       isAnalyzing: false,
+      routeOptions: [],
+      selectedRouteMode: 'fastest',
+      activeRouteId: null,
     });
   }, []);
 
@@ -246,6 +315,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
     setEndInput,
     setStartCoords,
     setEndCoords,
+    setRouteMode,
     calculateRoute: calculateRouteHandler,
     calculateAlternative,
     toggleAlternative,
