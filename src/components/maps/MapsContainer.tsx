@@ -11,6 +11,8 @@ import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
 import NavigationPanel from './NavigationPanel';
 import SpeedHUD from './SpeedHUD';
+import FollowModeFAB from './FollowModeFAB';
+import { useMapCameraController, FollowMode } from './useMapCameraController';
 import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT, getSavedTheme } from './ridoMapTheme';
 
 // ═══════════════════════════════════════════════════════════════
@@ -154,6 +156,8 @@ interface MapsContainerProps {
   speedLimit?: number | null;
   isEstimatedLimit?: boolean;
   showSpeedLimit?: boolean;
+  // Camera controller (optional - for external control)
+  onMapInteraction?: () => void;
 }
 
 const MapsContainer = ({ 
@@ -168,6 +172,7 @@ const MapsContainer = ({
   speedLimit,
   isEstimatedLimit = false,
   showSpeedLimit = true,
+  onMapInteraction,
 }: MapsContainerProps) => {
   const mapRef = useRef<MapRef>(null);
   const { config, isLoading: configLoading } = useMapsConfig();
@@ -175,6 +180,15 @@ const MapsContainer = ({
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
   const { location, status, centerRequested, clearCenterRequest, hasConsent } = gps;
   const [currentTheme] = useState<RidoMapTheme>(() => getSavedTheme());
+  const isUserInteractingRef = useRef(false);
+  
+  // Camera controller for follow mode and animations
+  const cameraController = useMapCameraController(
+    mapRef,
+    gps,
+    navigation,
+    { followModeZoom: config.followModeZoom, navigationPitch: config.navigationPitch }
+  );
 
   // Apply GetRido style overrides after map loads
   const applyRidoStyleOverrides = useCallback(() => {
@@ -227,11 +241,34 @@ const MapsContainer = ({
   }, [currentTheme]);
 
   const handleMove = useCallback((evt: { viewState: typeof DEFAULT_VIEW_STATE }) => {
-    // Don't update viewState during follow mode
-    if (!navigation.isNavigating || !navigation.followMode) {
-      setViewState(evt.viewState);
+    setViewState(evt.viewState);
+  }, []);
+
+  // Handle user interaction (drag/zoom) - disable follow mode
+  const handleMoveStart = useCallback(() => {
+    isUserInteractingRef.current = true;
+  }, []);
+
+  const handleMoveEnd = useCallback(() => {
+    // Only trigger if user was actively interacting (not from animation)
+    if (isUserInteractingRef.current && cameraController.followMode !== 'off') {
+      cameraController.handleUserInteraction();
+      onMapInteraction?.();
     }
-  }, [navigation.isNavigating, navigation.followMode]);
+    isUserInteractingRef.current = false;
+  }, [cameraController, onMapInteraction]);
+
+  const handleDragStart = useCallback(() => {
+    isUserInteractingRef.current = true;
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (cameraController.followMode !== 'off') {
+      cameraController.handleUserInteraction();
+      onMapInteraction?.();
+    }
+    isUserInteractingRef.current = false;
+  }, [cameraController, onMapInteraction]);
 
   // Apply config center/zoom when loaded
   useEffect(() => {
@@ -274,22 +311,14 @@ const MapsContainer = ({
     }
   }, [centerRequested, location, clearCenterRequest]);
 
-  // Follow mode during navigation
-  useEffect(() => {
-    if (navigation.isNavigating && navigation.followMode && location) {
-      setViewState({
-        longitude: location.longitude,
-        latitude: location.latitude,
-        zoom: config.followModeZoom,
-        pitch: config.navigationPitch,
-        bearing: location.heading || 0,
-      } as any);
-    }
-  }, [navigation.isNavigating, navigation.followMode, location, config.followModeZoom, config.navigationPitch]);
-
   const routeGeoJSON = route ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: route.coordinates } } : null;
   const alternativeGeoJSON = showAlternative && alternativeRoute ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: alternativeRoute.coordinates } } : null;
   const mapStyle = config.styleUrl || getActiveStyleUrl(mapTheme);
+  
+  // Calculate pitch based on follow mode
+  const mapPitch = cameraController.followMode === 'heading' && navigation.isNavigating 
+    ? config.navigationPitch 
+    : 0;
 
   return (
     <div className="relative flex-1 h-full overflow-hidden">
@@ -299,11 +328,17 @@ const MapsContainer = ({
         ref={mapRef}
         {...viewState}
         onMove={handleMove}
+        onMoveStart={handleMoveStart}
+        onMoveEnd={handleMoveEnd}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onLoad={applyRidoStyleOverrides}
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         attributionControl={false}
-        pitch={navigation.isNavigating && navigation.followMode ? config.navigationPitch : 0}
+        pitch={mapPitch}
+        touchZoomRotate={true}
+        dragRotate={true}
       >
         {/* Hide zoom controls on mobile - use gestures instead */}
         {!isMobile && <NavigationControl position="top-right" showCompass={navigation.isNavigating} />}
@@ -401,7 +436,28 @@ const MapsContainer = ({
         )}
       </Map>
       
-      {/* Bottom badges - RIDO Premium styling (hidden on mobile - shown in bottom sheet) */}
+      {/* Follow Mode FAB - positioned right side, above other FABs */}
+      {hasConsent && location && (
+        <div 
+          className="absolute right-4 z-30"
+          style={{ 
+            bottom: navigation.isNavigating 
+              ? 'calc(2rem + env(safe-area-inset-bottom))' 
+              : 'calc(10rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <FollowModeFAB
+            followMode={cameraController.followMode}
+            isMapRotated={cameraController.isMapRotated}
+            showPill={cameraController.showFollowDisabledPill}
+            onCycleFollowMode={cameraController.cycleFollowMode}
+            onResetBearing={cameraController.resetBearing}
+            onRestoreFollowMode={cameraController.restoreFollowMode}
+            onDismissPill={cameraController.dismissPill}
+            isNavigating={navigation.isNavigating}
+          />
+        </div>
+      )}
       {!isMobile && (
         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
           <Badge variant="secondary" className="gap-1.5 rido-badge-glass"><Layers className="h-3 w-3" />Warstwy</Badge>
