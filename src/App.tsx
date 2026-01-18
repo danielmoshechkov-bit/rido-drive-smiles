@@ -39,8 +39,10 @@ import FleetLanding from "./pages/FleetLanding";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
+
 const queryClient = new QueryClient();
 
+/** Main App component with routes */
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
