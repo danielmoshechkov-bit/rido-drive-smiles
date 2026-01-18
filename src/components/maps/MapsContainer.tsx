@@ -10,6 +10,7 @@ import { NavigationState } from './useNavigation';
 import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
 import NavigationPanel from './NavigationPanel';
+import SpeedHUD from './SpeedHUD';
 import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT } from './ridoMapTheme';
 
 // ═══════════════════════════════════════════════════════════════
@@ -149,6 +150,10 @@ interface MapsContainerProps {
   mapTheme?: RidoMapTheme;
   mascotMessage?: string;
   isMobile?: boolean;
+  // Speed HUD props (desktop only)
+  speedLimit?: number | null;
+  isEstimatedLimit?: boolean;
+  showSpeedLimit?: boolean;
 }
 
 const MapsContainer = ({ 
@@ -160,6 +165,9 @@ const MapsContainer = ({
   mapTheme = 'light',
   mascotMessage = '',
   isMobile = false,
+  speedLimit,
+  isEstimatedLimit = false,
+  showSpeedLimit = true,
 }: MapsContainerProps) => {
   const { config, isLoading: configLoading } = useMapsConfig();
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
@@ -349,6 +357,17 @@ const MapsContainer = ({
               {incidents.length} na trasie
             </Badge>
           )}
+        </div>
+      )}
+      
+      {/* Speed HUD - Desktop, bottom right (only during navigation) */}
+      {!isMobile && navigation.isNavigating && showSpeedLimit && (
+        <div className="absolute bottom-4 right-4">
+          <SpeedHUD
+            currentSpeed={gps.location?.speed ? Math.round(gps.location.speed * 3.6) : null}
+            speedLimit={speedLimit ?? null}
+            isEstimatedLimit={isEstimatedLimit}
+          />
         </div>
       )}
       

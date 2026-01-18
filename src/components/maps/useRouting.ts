@@ -209,6 +209,7 @@ export function useRouting(gpsLocation?: GpsLocation | null) {
             endPoint: resolvedEndCoords,
             isAlternative: false,
             routeType: 'standard',
+            steps: bestOption.steps, // Include steps for voice navigation
           };
         }
       }

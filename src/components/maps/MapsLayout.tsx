@@ -1,13 +1,16 @@
 // GetRido Maps - Layout Component
-// Build timestamp: 2026-01-18T14:00:00Z
-import { useState, useEffect, useCallback } from 'react';
+// Build timestamp: 2026-01-18T15:00:00Z
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
 import { useNavigation } from './useNavigation';
+import { useNavigationSettings } from './useNavigationSettings';
+import { useVoiceNavigation } from './useVoiceNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { incidentsService, Incident, BoundingBox, filterIncidentsNearRoute } from './incidentsService';
 import { assessRouteRisk, RiskAssessment } from './routeRiskService';
 import { RidoMapTheme, getDefaultTheme, getMascotMessage } from './ridoMapTheme';
+import type { RouteStep } from './routingService';
 import MapsSidebar from './MapsSidebar';
 import MapsContainer from './MapsContainer';
 import MapsInfoPanel from './MapsInfoPanel';
@@ -16,12 +19,24 @@ import MapsBottomSheet from './MapsBottomSheet';
 import MapsFABs from './MapsFABs';
 import MobileNavigationBar from './MobileNavigationBar';
 
+// Speed limit fallback by road class (when OSRM doesn't provide maxspeed)
+const SPEED_LIMIT_FALLBACK: Record<string, number> = {
+  motorway: 140,
+  trunk: 100,
+  primary: 90,
+  secondary: 70,
+  tertiary: 50,
+  residential: 50,
+  service: 30,
+};
+
 const CONSENT_DISMISSED_KEY = 'getrido_consent_dismissed';
 
 const MapsLayout = () => {
   const gps = useUserLocation();
   const routing = useRouting(gps.location ? { latitude: gps.location.latitude, longitude: gps.location.longitude } : null);
   const navigation = useNavigation(routing.route, gps);
+  const { settings: navSettings } = useNavigationSettings();
   const isMobile = useIsMobile();
   
   const [showConsentGate, setShowConsentGate] = useState(!gps.hasConsent);
@@ -100,6 +115,51 @@ const MapsLayout = () => {
     }
   }, [routeId]);
 
+  // === VOICE NAVIGATION ===
+  // Get route steps for voice guidance
+  const routeSteps = routing.route?.steps || [];
+  
+  // Initialize voice navigation
+  useVoiceNavigation({
+    steps: routeSteps,
+    currentLocation: gps.location,
+    navigation,
+    settings: navSettings,
+  });
+  
+  // === CURRENT STEP & SPEED LIMIT ===
+  // Find current step based on user position (simplified - use first upcoming step)
+  const currentStep = useMemo((): RouteStep | null => {
+    if (!navigation.isNavigating || !routeSteps.length || !gps.location) {
+      return null;
+    }
+    // For MVP: return first step that's not 'depart'
+    return routeSteps.find(s => s.maneuver?.type !== 'depart') || null;
+  }, [navigation.isNavigating, routeSteps, gps.location]);
+  
+  // Get speed limit from current step or fallback
+  const speedLimitData = useMemo(() => {
+    if (!currentStep) {
+      return { limit: null, isEstimated: false };
+    }
+    
+    if (currentStep.maxspeed) {
+      return { limit: currentStep.maxspeed, isEstimated: false };
+    }
+    
+    // Fallback based on road name (simplified heuristic)
+    const name = currentStep.name?.toLowerCase() || '';
+    if (name.includes('autostrada') || name.includes('a1') || name.includes('a2') || name.includes('a4')) {
+      return { limit: SPEED_LIMIT_FALLBACK.motorway, isEstimated: true };
+    }
+    if (name.includes('ekspresowa') || name.includes('s')) {
+      return { limit: SPEED_LIMIT_FALLBACK.trunk, isEstimated: true };
+    }
+    
+    // Default residential
+    return { limit: SPEED_LIMIT_FALLBACK.residential, isEstimated: true };
+  }, [currentStep]);
+
   // Update mascot message based on current state
   useEffect(() => {
     const message = getMascotMessage({
@@ -173,7 +233,17 @@ const MapsLayout = () => {
           
           {/* Mobile Navigation Bar (top, during navigation) */}
           {navigation.isNavigating && (
-            <MobileNavigationBar navigation={navigation} gps={gps} />
+            <MobileNavigationBar 
+              navigation={navigation} 
+              gps={gps}
+              currentStep={currentStep}
+              speedLimit={speedLimitData.limit}
+              isEstimatedLimit={speedLimitData.isEstimated}
+              yellowThreshold={navSettings.speed_warning_yellow_over}
+              redThreshold={navSettings.speed_warning_red_over}
+              showSpeedLimit={navSettings.show_speed_limit}
+              showLaneGuidance={navSettings.show_lane_guidance}
+            />
           )}
           
           {/* FAB buttons with theme toggle */}
@@ -220,6 +290,9 @@ const MapsLayout = () => {
           incidents={incidents}
           mapTheme={mapTheme}
           mascotMessage={mascotMessage}
+          speedLimit={speedLimitData.limit}
+          isEstimatedLimit={speedLimitData.isEstimated}
+          showSpeedLimit={navSettings.show_speed_limit}
         />
         <MapsInfoPanel 
           gps={gps} 
