@@ -32,6 +32,7 @@ export const useTabPermissions = () => {
           'data-import': true,
           'settings': true,
           'reports': true,
+          'fleet-live': true,
         });
         setLoading(false);
         return;
