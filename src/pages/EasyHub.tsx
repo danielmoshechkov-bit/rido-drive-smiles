@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,12 @@ import {
   Search,
   ArrowRight,
   MessageCircle,
-  Building
+  Building,
+  Map
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
+import { useModuleVisibility } from "@/hooks/useModuleVisibility";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -162,6 +164,7 @@ export default function EasyHub() {
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   useEffect(() => {
     const checkUser = async () => {
@@ -235,6 +238,25 @@ export default function EasyHub() {
       navigate(tile.link);
     }
   };
+
+  // Build dynamic tiles list with conditionally visible Maps tile
+  const dynamicTiles = useMemo(() => {
+    const tiles = [...marketplaceTiles];
+    
+    if (mapsVisible && user) {
+      tiles.push({
+        id: 'maps',
+        title: 'Mapy',
+        description: 'GetRido Maps',
+        icon: Map,
+        image: null,
+        link: '/mapy',
+        available: true
+      });
+    }
+    
+    return tiles;
+  }, [mapsVisible, user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
@@ -322,7 +344,7 @@ export default function EasyHub() {
       {/* Marketplace Tiles */}
       <section className="container mx-auto px-4 py-6 md:py-8">
         <div className="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 lg:gap-6 max-w-4xl mx-auto">
-          {marketplaceTiles.map((tile) => (
+          {dynamicTiles.map((tile) => (
             <MarketplaceTileCard 
               key={tile.id} 
               tile={tile} 
