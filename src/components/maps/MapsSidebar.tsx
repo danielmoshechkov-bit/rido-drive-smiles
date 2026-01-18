@@ -95,8 +95,7 @@ const MapsSidebar = ({ routing, gps, navigation, riskAssessment, incidentsCount 
           placeholder="Skąd? (adres lub współrzędne)"
           markerColor="green"
           disabled={isLoading || navigation.isNavigating}
-          gpsLocation={gpsAvailable ? gps.location : null}
-          onUseMyLocation={gpsAvailable ? handleUseMyLocation : undefined}
+          fieldType="start"
         />
         
         <div className="ml-[18px] h-3 border-l-2 border-dashed border-muted-foreground/30" />

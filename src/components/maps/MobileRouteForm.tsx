@@ -1,4 +1,4 @@
-// GetRido Maps - Mobile Route Form (Premium UX)
+// GetRido Maps - Mobile Route Form (Premium UX - Simplified)
 import { useState } from 'react';
 import { Navigation, X, Loader2, Zap, GitBranch, Brain, ChevronRight, Route, AlertTriangle, Locate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ const MobileRouteForm = ({
   onUseRidoAiAlternative,
 }: MobileRouteFormProps) => {
   const [tripMode, setTripMode] = useState<TripMode>('driving');
+  const [showStartInput, setShowStartInput] = useState(false);
   
   const {
     startInput, endInput, route, alternativeRoute, showAlternative, isLoading, error,
@@ -68,13 +69,6 @@ const MobileRouteForm = ({
     }
   };
 
-  const handleUseMyLocation = () => {
-    if (gps.hasConsent && gps.location) {
-      setStartInput('Twoja lokalizacja');
-      setStartCoords({ lat: gps.location.latitude, lng: gps.location.longitude });
-    }
-  };
-
   const handleStartNavigation = async () => {
     if (onStartNavigation) {
       await onStartNavigation();
@@ -84,9 +78,14 @@ const MobileRouteForm = ({
     }
   };
 
+  const handleClearStartInput = () => {
+    setShowStartInput(false);
+    setStartInput('');
+    setStartCoords(null);
+  };
+
   const gpsAvailable = gps.hasConsent && gps.location && gps.status !== 'inactive';
   const canNavigate = route && gps.hasConsent && gps.location && !navigation.isNavigating;
-  const startIsGps = !startInput.trim() && gpsAvailable;
 
   return (
     <div className="space-y-5">
@@ -100,30 +99,51 @@ const MobileRouteForm = ({
         />
       </div>
 
-      {/* Route Search */}
+      {/* Route Search - Simplified */}
       <div className="space-y-3">
-        {/* GPS indicator when start is empty */}
-        {startIsGps && !navigation.isNavigating && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-            <Locate className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-600">Start: Twoja lokalizacja (GPS)</span>
+        {/* Start field - Default GPS, expandable to custom */}
+        {showStartInput ? (
+          <div className="relative">
+            <AddressAutocompleteInput
+              value={startInput}
+              onChange={setStartInput}
+              onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
+              placeholder="Skąd? (adres lub współrzędne)"
+              markerColor="green"
+              disabled={isLoading || navigation.isNavigating}
+              fieldType="start"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+              onClick={handleClearStartInput}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30 rounded-lg border border-transparent">
+            <div className="flex items-center gap-2">
+              <Locate className="h-4 w-4 text-green-600" />
+              <span className="text-sm">Z Twojej lokalizacji (GPS)</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-xs text-primary"
+              onClick={() => setShowStartInput(true)}
+              disabled={navigation.isNavigating}
+            >
+              Zmień
+            </Button>
           </div>
         )}
         
-        <AddressAutocompleteInput
-          value={startInput}
-          onChange={setStartInput}
-          onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
-          placeholder="Skąd? (adres lub współrzędne)"
-          markerColor="green"
-          disabled={isLoading || navigation.isNavigating}
-          gpsLocation={gpsAvailable ? gps.location : null}
-          onUseMyLocation={gpsAvailable ? handleUseMyLocation : undefined}
-          fieldType="start"
-        />
-        
+        {/* Connector line */}
         <div className="ml-[18px] h-4 border-l-2 border-dashed border-muted-foreground/30" />
         
+        {/* Destination field */}
         <AddressAutocompleteInput
           value={endInput}
           onChange={setEndInput}
@@ -160,10 +180,6 @@ const MobileRouteForm = ({
             </Button>
           )}
         </div>
-        
-        {gpsAvailable && !startInput.trim() && !navigation.isNavigating && (
-          <p className="text-xs text-muted-foreground text-center">💡 Bez punktu startowego użyję Twojej lokalizacji GPS</p>
-        )}
       </div>
 
       {/* Route Mode Selection */}

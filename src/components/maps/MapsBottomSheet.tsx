@@ -1,8 +1,10 @@
-// GetRido Maps - Mobile Bottom Sheet with 3 tabs (Premium UX)
+// GetRido Maps - Mobile Bottom Sheet with Search (Premium UX)
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Navigation, Route, Activity } from 'lucide-react';
+import { Navigation, Route, Activity, Search, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
@@ -11,7 +13,8 @@ import { RiskAssessment } from './routeRiskService';
 import MobileRouteForm from './MobileRouteForm';
 import MobileNavigationTab from './MobileNavigationTab';
 import MobileStatusTab from './MobileStatusTab';
-import { RIDO_THEME_COLORS } from './ridoMapTheme';
+import TripModeSelector, { TripMode } from './TripModeSelector';
+import { fetchAddressSuggestions } from './autocompleteService';
 
 interface MapsBottomSheetProps {
   routing: RoutingState & {
@@ -56,8 +59,11 @@ const MapsBottomSheet = ({
 }: MapsBottomSheetProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('route');
+  const [tripMode, setTripMode] = useState<TripMode>('driving');
+  const [searchInput, setSearchInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  const { route, endInput } = routing;
+  const { route, endInput, isLoading } = routing;
 
   // Automatyczne przełączanie tabów
   useEffect(() => {
@@ -75,7 +81,41 @@ const MapsBottomSheet = ({
     setIsOpen(false);
   };
 
-  // RidoAI Mascot - używamy prawdziwego obrazka maskotki GetRido
+  // Wyszukiwanie trasy z głównego inputa
+  const handleSearch = async () => {
+    if (!searchInput.trim() || isSearching) return;
+    
+    setIsSearching(true);
+    try {
+      // Geocode the destination
+      const suggestions = await fetchAddressSuggestions(searchInput.trim());
+      if (suggestions.length > 0) {
+        const dest = suggestions[0];
+        routing.setEndInput(dest.shortName);
+        routing.setEndCoords({ lat: dest.lat, lng: dest.lng });
+        
+        // Use GPS as start
+        routing.setStartInput('');
+        routing.setStartCoords(null);
+        
+        // Calculate route
+        routing.calculateRoute();
+        setIsOpen(true);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // RidoAI Mascot
   const RidoMascotImage = () => (
     <img 
       src="/lovable-uploads/getrido-mascot-email.png" 
@@ -126,10 +166,10 @@ const MapsBottomSheet = ({
           <div className="w-12 h-1.5 rounded-full bg-gradient-to-r from-primary/40 via-amber-400/60 to-primary/40" />
         </div>
         
-        {/* Mini preview - Premium styling */}
-        <div className="px-4 pb-3 flex items-center justify-between">
+        {/* Mini preview */}
+        <div className="px-4 pb-3">
           {route ? (
-            <>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Navigation className="h-5 w-5 text-primary" />
@@ -144,22 +184,52 @@ const MapsBottomSheet = ({
                 <span className="text-sm text-muted-foreground ml-1">min</span>
                 <p className="text-xs text-muted-foreground">{route.distance.toFixed(1)} km</p>
               </div>
-            </>
+            </div>
           ) : (
-            /* RidoAI Start Card - Mascot says "Napisz AI gdzie chcesz jechać" */
-            <div className="flex items-start gap-3 w-full">
-              <div className="relative">
+            /* RidoAI Search Card - Main search input */
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
                 <RidoMascotImage />
-                {/* Subtle gold ring */}
-                <div className="absolute inset-0 rounded-full border-2 border-amber-400/30 animate-pulse" style={{ margin: '-2px' }} />
+                <div className="flex-1 relative">
+                  <Input
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Napisz AI gdzie chcesz jechać 🚗"
+                    className="pr-20 h-12 text-base rounded-full border-primary/30 
+                               placeholder:text-primary/60 focus:border-primary
+                               bg-gradient-to-r from-primary/5 to-primary/10"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <Button 
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-10 px-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSearch();
+                    }}
+                    disabled={!searchInput.trim() || isSearching || isLoading}
+                  >
+                    {isSearching || isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      'Szukaj'
+                    )}
+                  </Button>
+                </div>
               </div>
-              <div className="flex-1 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20 p-3">
-                <p className="font-semibold text-sm text-foreground">Napisz AI gdzie chcesz jechać 🚗</p>
-                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />
-                  Powered by Rido AI
-                </p>
-              </div>
+              
+              {/* Powered by Rido AI */}
+              <p className="text-center text-xs text-muted-foreground">
+                Powered by <span className="text-primary font-semibold">Rido AI</span>
+              </p>
+              
+              {/* Trip mode selector */}
+              <TripModeSelector 
+                selected={tripMode} 
+                onChange={setTripMode}
+                compact
+              />
             </div>
           )}
         </div>
