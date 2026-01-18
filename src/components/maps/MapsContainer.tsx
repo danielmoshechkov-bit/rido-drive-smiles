@@ -15,7 +15,7 @@ import FollowModeFAB from './FollowModeFAB';
 import { useMapCameraController, FollowMode } from './useMapCameraController';
 import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, getSavedTheme } from './ridoMapTheme';
 import { DRIVING_MODE_HIDDEN_LAYERS, RIDO_ROUTE_STYLE, MAP_ANIMATION } from './ridoCleanMapStyle';
-
+import { useSmoothPosition } from './useSmoothPosition';
 // ═══════════════════════════════════════════════════════════════
 // Google-Style Clean Markers - Simple, Readable, Professional
 // ═══════════════════════════════════════════════════════════════
@@ -145,6 +145,26 @@ const RidoUserMarker3D = ({ heading, accuracy, isMoving }: { heading: number | n
   </div>
 );
 
+// ═══════════════════════════════════════════════════════════════
+// SMOOTH USER MARKER - Uses 60 FPS interpolation for fluid movement
+// ═══════════════════════════════════════════════════════════════
+const SmoothUserMarker = ({ gpsLocation, hasConsent, status }: { gpsLocation: any; hasConsent: boolean; status: string }) => {
+  const smoothPos = useSmoothPosition(gpsLocation);
+  
+  if (!hasConsent || !gpsLocation || status === 'inactive' || smoothPos.lat === 0) {
+    return null;
+  }
+  
+  return (
+    <Marker longitude={smoothPos.lng} latitude={smoothPos.lat} anchor="center">
+      <RidoUserMarker3D 
+        heading={smoothPos.heading} 
+        accuracy={gpsLocation?.accuracy || 10}
+        isMoving={(gpsLocation?.speed || 0) > 2}
+      />
+    </Marker>
+  );
+};
 
 interface MapsContainerProps {
   routing: RoutingState;
@@ -554,16 +574,12 @@ const MapsContainer = ({
           </Marker>
         ))}
 
-        {/* User Location - Premium 3D RIDO Arrow */}
-        {hasConsent && location && status !== 'inactive' && (
-          <Marker longitude={location.longitude} latitude={location.latitude} anchor="center">
-            <RidoUserMarker3D 
-              heading={location.heading} 
-              accuracy={location.accuracy || 10}
-              isMoving={(location.speed || 0) > 2}
-            />
-          </Marker>
-        )}
+        {/* User Location - Premium 3D RIDO Arrow with SMOOTH INTERPOLATION */}
+        <SmoothUserMarker 
+          gpsLocation={location}
+          hasConsent={hasConsent}
+          status={status}
+        />
       </Map>
       
       {/* Follow Mode FAB - DESKTOP ONLY (mobile uses MapsFABs integrated button) */}

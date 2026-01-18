@@ -1,7 +1,13 @@
-// GetRido Maps - Navigation Hook (Turn-by-Turn)
+// GetRido Maps - Navigation Hook (Turn-by-Turn with Auto-Rerouting)
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RouteResult } from './routingService';
 import { GpsState, UserLocation } from './useUserLocation';
+
+// ═══════════════════════════════════════════════════════════════
+// OFF-ROUTE DETECTION CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const OFF_ROUTE_THRESHOLD = 50; // meters - distance from route to trigger reroute
+const REROUTE_COOLDOWN = 5000; // ms - minimum time between reroutes
 
 export interface NavigationState {
   isNavigating: boolean;
@@ -10,6 +16,13 @@ export interface NavigationState {
   eta: Date | null;
   followMode: boolean;
   wakeLockActive: boolean;
+  isOffRoute: boolean;  // NEW: indicates user left the route
+}
+
+interface RemainingDistanceResult {
+  remaining: number;       // km - remaining distance along route
+  closestDistance: number; // meters - distance from user to closest point on route
+  closestIdx: number;      // index of closest point
 }
 
 // Calculate distance between two points in km (Haversine formula)
@@ -29,12 +42,13 @@ function haversineDistance(
 }
 
 // Find remaining distance along route from current position
+// Returns both remaining distance AND distance to route (for off-route detection)
 function calculateRemainingDistance(
   location: UserLocation,
   route: RouteResult
-): number {
+): RemainingDistanceResult {
   if (!route.coordinates || route.coordinates.length < 2) {
-    return route.distance;
+    return { remaining: route.distance, closestDistance: 0, closestIdx: 0 };
   }
 
   // Find the closest point on the route
@@ -58,10 +72,18 @@ function calculateRemainingDistance(
     remaining += haversineDistance(lat1, lng1, lat2, lng2);
   }
 
-  return remaining;
+  return {
+    remaining,
+    closestDistance: minDist * 1000, // Convert km to meters
+    closestIdx,
+  };
 }
 
-export function useNavigation(route: RouteResult | null, gps: GpsState) {
+export function useNavigation(
+  route: RouteResult | null, 
+  gps: GpsState,
+  onReroute?: () => void  // Callback when user goes off-route
+) {
   const [state, setState] = useState<NavigationState>({
     isNavigating: false,
     remainingDistance: 0,
@@ -69,9 +91,11 @@ export function useNavigation(route: RouteResult | null, gps: GpsState) {
     eta: null,
     followMode: false,
     wakeLockActive: false,
+    isOffRoute: false,
   });
 
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const lastRerouteRef = useRef<number>(0);
 
   // Start navigation
   const startNavigation = useCallback(async () => {
@@ -100,7 +124,11 @@ export function useNavigation(route: RouteResult | null, gps: GpsState) {
       remainingDuration: route.duration,
       eta: new Date(Date.now() + route.duration * 60000),
       wakeLockActive: !!wakeLockRef.current,
+      isOffRoute: false,
     });
+    
+    // Reset reroute timer
+    lastRerouteRef.current = 0;
   }, [route, gps]);
 
   // Stop navigation
@@ -124,6 +152,7 @@ export function useNavigation(route: RouteResult | null, gps: GpsState) {
       eta: null,
       followMode: false,
       wakeLockActive: false,
+      isOffRoute: false,
     });
   }, [gps]);
 
@@ -132,23 +161,39 @@ export function useNavigation(route: RouteResult | null, gps: GpsState) {
     setState(prev => ({ ...prev, followMode: !prev.followMode }));
   }, []);
 
-  // Update remaining distance/time based on GPS position
+  // Update remaining distance/time based on GPS position + OFF-ROUTE DETECTION
   useEffect(() => {
     if (state.isNavigating && gps.location && route) {
-      const remaining = calculateRemainingDistance(gps.location, route);
+      const result = calculateRemainingDistance(gps.location, route);
       
       // Estimate remaining time based on original route ratio
-      const progress = remaining / route.distance;
+      const progress = result.remaining / route.distance;
       const remainingTime = route.duration * progress;
+      
+      // ═══════════════════════════════════════════════════════════════
+      // OFF-ROUTE DETECTION & AUTO-REROUTING
+      // ═══════════════════════════════════════════════════════════════
+      const isCurrentlyOffRoute = result.closestDistance > OFF_ROUTE_THRESHOLD;
+      const now = Date.now();
+      
+      if (isCurrentlyOffRoute && onReroute) {
+        // Check cooldown to prevent spam rerouting
+        if (now - lastRerouteRef.current > REROUTE_COOLDOWN) {
+          console.log(`[Navigation] OFF-ROUTE detected: ${result.closestDistance.toFixed(0)}m from route. Rerouting...`);
+          lastRerouteRef.current = now;
+          onReroute();
+        }
+      }
 
       setState(prev => ({
         ...prev,
-        remainingDistance: remaining,
+        remainingDistance: result.remaining,
         remainingDuration: remainingTime,
         eta: new Date(Date.now() + remainingTime * 60000),
+        isOffRoute: isCurrentlyOffRoute,
       }));
     }
-  }, [gps.location, state.isNavigating, route]);
+  }, [gps.location, state.isNavigating, route, onReroute]);
 
   // Cleanup on unmount
   useEffect(() => {

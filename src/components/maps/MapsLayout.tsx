@@ -47,7 +47,20 @@ const CONSENT_DISMISSED_KEY = 'getrido_consent_dismissed';
 const MapsLayout = () => {
   const gps = useUserLocation();
   const routing = useRouting(gps.location ? { latitude: gps.location.latitude, longitude: gps.location.longitude } : null);
-  const navigation = useNavigation(routing.route, gps);
+  
+  // Reroute callback for when user goes off-route
+  const handleReroute = useCallback(() => {
+    if (gps.location && routing.endCoords) {
+      console.log('[MapsLayout] Rerouting from current GPS position...');
+      routing.calculateRoute(
+        { latitude: gps.location.latitude, longitude: gps.location.longitude },
+        routing.endCoords,
+        routing.endInput
+      );
+    }
+  }, [gps.location, routing]);
+  
+  const navigation = useNavigation(routing.route, gps, handleReroute);
   const { settings: navSettings } = useNavigationSettings();
   const isMobile = useIsMobile();
   const orientation = useOrientation();
