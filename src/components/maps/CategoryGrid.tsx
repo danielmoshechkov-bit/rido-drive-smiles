@@ -1,56 +1,60 @@
-// GetRido Maps - Category Grid Component (Yandex-style POI categories)
-import { 
-  UtensilsCrossed, 
-  ShoppingCart, 
-  Pill, 
-  Sparkles as Beauty,
-  Banknote,
-  Fuel,
-  Hospital,
-  Hotel,
-  Wifi,
-  Beer,
-  ShoppingBag,
-  Film,
-  Truck,
-  Car,
-  Wrench,
-  Dumbbell,
-  Landmark,
-  Coffee,
-  ParkingCircle,
-  Zap
-} from 'lucide-react';
+// GetRido Maps - Premium Category Grid with modern filled icons
+import React from 'react';
+import {
+  FoodIcon,
+  ShopIcon,
+  PharmacyIcon,
+  BeautyIcon,
+  AtmIcon,
+  FuelIcon,
+  HospitalIcon,
+  HotelIcon,
+  WifiIcon,
+  BarIcon,
+  MallIcon,
+  CinemaIcon,
+  ParkingIcon,
+  CarWashIcon,
+  ServiceIcon,
+  FitnessIcon,
+  SightIcon,
+} from './CategoryIcons';
+
+// ═══════════════════════════════════════════════════════════════
+// POI Category Definitions with Premium Icons
+// ═══════════════════════════════════════════════════════════════
 
 export interface POICategory {
   id: string;
   label: string;
   icon: React.ReactNode;
-  color: string;
+  bgClass: string;
   query: string;
 }
 
 export const POI_CATEGORIES: POICategory[] = [
-  { id: 'food', label: 'Gdzie jeść', icon: <UtensilsCrossed className="h-5 w-5" />, color: 'bg-orange-500', query: 'restaurant' },
-  { id: 'shop', label: 'Sklepy', icon: <ShoppingCart className="h-5 w-5" />, color: 'bg-blue-500', query: 'supermarket' },
-  { id: 'pharmacy', label: 'Apteki', icon: <Pill className="h-5 w-5" />, color: 'bg-green-500', query: 'pharmacy' },
-  { id: 'beauty', label: 'Uroda', icon: <Beauty className="h-5 w-5" />, color: 'bg-pink-500', query: 'beauty salon' },
-  { id: 'atm', label: 'Bankomaty', icon: <Banknote className="h-5 w-5" />, color: 'bg-emerald-600', query: 'atm' },
-  { id: 'fuel', label: 'Stacje', icon: <Fuel className="h-5 w-5" />, color: 'bg-amber-600', query: 'gas station' },
-  { id: 'hospital', label: 'Szpitale', icon: <Hospital className="h-5 w-5" />, color: 'bg-red-500', query: 'hospital' },
-  { id: 'hotel', label: 'Hotele', icon: <Hotel className="h-5 w-5" />, color: 'bg-indigo-500', query: 'hotel' },
-  { id: 'wifi', label: 'Wi-Fi', icon: <Wifi className="h-5 w-5" />, color: 'bg-cyan-500', query: 'cafe wifi' },
-  { id: 'bar', label: 'Bary', icon: <Beer className="h-5 w-5" />, color: 'bg-amber-500', query: 'bar' },
-  { id: 'mall', label: 'Galerie', icon: <ShoppingBag className="h-5 w-5" />, color: 'bg-purple-500', query: 'shopping mall' },
-  { id: 'cinema', label: 'Kina', icon: <Film className="h-5 w-5" />, color: 'bg-rose-500', query: 'cinema' },
-  { id: 'parking', label: 'Parkingi', icon: <ParkingCircle className="h-5 w-5" />, color: 'bg-blue-600', query: 'parking' },
-  { id: 'carwash', label: 'Myjnie', icon: <Car className="h-5 w-5" />, color: 'bg-sky-500', query: 'car wash' },
-  { id: 'service', label: 'Serwisy', icon: <Wrench className="h-5 w-5" />, color: 'bg-slate-600', query: 'car service' },
-  { id: 'gym', label: 'Fitness', icon: <Dumbbell className="h-5 w-5" />, color: 'bg-violet-500', query: 'gym' },
-  { id: 'ev', label: 'Ładowarki EV', icon: <Zap className="h-5 w-5" />, color: 'bg-green-600', query: 'ev charging' },
-  { id: 'cafe', label: 'Kawiarnie', icon: <Coffee className="h-5 w-5" />, color: 'bg-amber-700', query: 'cafe' },
-  { id: 'attraction', label: 'Zwiedzaj', icon: <Landmark className="h-5 w-5" />, color: 'bg-teal-500', query: 'tourist attraction' },
+  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-gradient-to-br from-orange-400 to-orange-600', query: 'restaurant' },
+  { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: 'bg-gradient-to-br from-blue-400 to-blue-600', query: 'supermarket grocery' },
+  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-gradient-to-br from-green-400 to-green-600', query: 'pharmacy' },
+  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-gradient-to-br from-pink-400 to-pink-600', query: 'beauty salon spa' },
+  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-gradient-to-br from-emerald-400 to-emerald-600', query: 'atm bank' },
+  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-gradient-to-br from-amber-400 to-amber-600', query: 'gas station fuel' },
+  { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: 'bg-gradient-to-br from-red-400 to-red-600', query: 'hospital clinic' },
+  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-gradient-to-br from-indigo-400 to-indigo-600', query: 'hotel hostel' },
+  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-gradient-to-br from-cyan-400 to-cyan-600', query: 'wifi cafe' },
+  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-gradient-to-br from-yellow-500 to-orange-500', query: 'bar pub' },
+  { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: 'bg-gradient-to-br from-purple-400 to-purple-600', query: 'shopping mall' },
+  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-gradient-to-br from-rose-400 to-rose-600', query: 'cinema movie theater' },
+  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-gradient-to-br from-sky-400 to-sky-600', query: 'parking' },
+  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-gradient-to-br from-blue-300 to-blue-500', query: 'car wash' },
+  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-gradient-to-br from-slate-400 to-slate-600', query: 'car service mechanic' },
+  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-gradient-to-br from-violet-400 to-violet-600', query: 'gym fitness' },
+  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-gradient-to-br from-amber-400 to-yellow-500', query: 'tourist attraction' },
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// Category Grid Component - Premium Design
+// ═══════════════════════════════════════════════════════════════
 
 interface CategoryGridProps {
   onCategorySelect: (category: POICategory) => void;
@@ -58,20 +62,32 @@ interface CategoryGridProps {
 }
 
 const CategoryGrid = ({ onCategorySelect, compact = false }: CategoryGridProps) => {
-  const displayedCategories = compact ? POI_CATEGORIES.slice(0, 8) : POI_CATEGORIES;
-  
+  const displayCategories = compact ? POI_CATEGORIES.slice(0, 8) : POI_CATEGORIES;
+
   return (
-    <div className={`grid ${compact ? 'grid-cols-4 gap-2' : 'grid-cols-4 gap-3'}`}>
-      {displayedCategories.map((category) => (
+    <div className={`grid ${compact ? 'grid-cols-4' : 'grid-cols-4'} gap-3`}>
+      {displayCategories.map((category) => (
         <button
           key={category.id}
           onClick={() => onCategorySelect(category)}
-          className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-accent/50 active:scale-95 transition-all"
+          className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-accent/50 active:scale-95 transition-all duration-200 group"
         >
-          <div className={`h-11 w-11 rounded-xl ${category.color} text-white flex items-center justify-center shadow-md`}>
-            {category.icon}
+          {/* Premium icon container with gradient background */}
+          <div className={`
+            h-14 w-14 rounded-2xl 
+            ${category.bgClass}
+            flex items-center justify-center 
+            shadow-lg shadow-black/10
+            group-hover:shadow-xl group-hover:scale-105
+            transition-all duration-200
+          `}>
+            <div className="text-white drop-shadow-sm">
+              {category.icon}
+            </div>
           </div>
-          <span className="text-xs text-center font-medium text-muted-foreground leading-tight line-clamp-2">
+          
+          {/* Label */}
+          <span className="text-xs font-medium text-center leading-tight text-foreground/80 group-hover:text-foreground transition-colors">
             {category.label}
           </span>
         </button>

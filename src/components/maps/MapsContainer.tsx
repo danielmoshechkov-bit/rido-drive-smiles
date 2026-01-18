@@ -536,10 +536,14 @@ const MapsContainer = ({
           </Marker>
         ))}
 
-        {/* User Location - Clean blue dot with direction */}
+        {/* User Location - Premium 3D RIDO Arrow */}
         {hasConsent && location && status !== 'inactive' && (
           <Marker longitude={location.longitude} latitude={location.latitude} anchor="center">
-            <GoogleUserMarker heading={location.heading} accuracy={location.accuracy} />
+            <RidoUserMarker3D 
+              heading={location.heading} 
+              accuracy={location.accuracy || 10}
+              isMoving={(location.speed || 0) > 2}
+            />
           </Marker>
         )}
       </Map>

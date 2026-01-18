@@ -21,7 +21,7 @@ interface MapsBottomSheetProps {
     setStartCoords: (coords: { lat: number; lng: number } | null) => void;
     setEndCoords: (coords: { lat: number; lng: number } | null) => void;
     setRouteMode: (mode: 'fastest' | 'simplest') => void;
-    calculateRoute: () => void;
+    calculateRoute: (gpsOverride?: any, endCoordsOverride?: { lat: number; lng: number } | null, endInputOverride?: string) => void;
     calculateAlternative: () => void;
     toggleAlternative: () => void;
     clearRoute: () => void;
@@ -60,13 +60,15 @@ const MapsBottomSheet = ({
 
   const { route, endInput } = routing;
 
-  // Handle location selection
+  // Handle location selection - pass coords directly to avoid state timing issues
   const handleLocationSelect = (location: AddressSuggestion) => {
+    const coords = { lat: location.lat, lng: location.lng };
     routing.setEndInput(location.shortName);
-    routing.setEndCoords({ lat: location.lat, lng: location.lng });
+    routing.setEndCoords(coords);
     routing.setStartInput('');
     routing.setStartCoords(null);
-    routing.calculateRoute();
+    // Pass coords directly to calculateRoute to avoid React state batching delay
+    routing.calculateRoute(null, coords, location.shortName);
   };
 
   // Handle category selection
