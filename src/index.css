@@ -822,12 +822,37 @@ a.button,
     inset 0 1px 0 hsl(0 0% 100% / 0.6);
 }
 
-/* FAB Group - horizontal compact */
+/* FAB Group - vertical Yandex style */
 .rido-fab-group {
   background: hsl(var(--background) / 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.12);
+}
+
+/* Slide up animation for sheets */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Category chip hover */
+.category-chip {
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.category-chip:active {
+  transform: scale(0.95);
 }
 
 /* Marker drop animation - Google Maps style */

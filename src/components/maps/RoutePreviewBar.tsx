@@ -1,7 +1,5 @@
-// GetRido Maps - Route Preview Bar (Google Maps style bottom bar)
-// Shows route summary with Start button while map stays visible
-
-import { Navigation, Clock, MapPin, ChevronUp } from 'lucide-react';
+// GetRido Maps - Route Preview Bar (Yandex-style with alternatives info)
+import { Navigation, Clock, MapPin, ChevronUp, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RouteResult } from './routingService';
 
@@ -11,6 +9,8 @@ interface RoutePreviewBarProps {
   onStartNavigation: () => void;
   onExpand: () => void;
   isLoading?: boolean;
+  alternativesCount?: number;
+  hasWarnings?: boolean;
 }
 
 const RoutePreviewBar = ({ 
@@ -19,8 +19,17 @@ const RoutePreviewBar = ({
   onStartNavigation, 
   onExpand,
   isLoading = false,
+  alternativesCount = 0,
+  hasWarnings = false,
 }: RoutePreviewBarProps) => {
   if (!route && !isLoading) return null;
+
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 60) return `${Math.round(minutes)}`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}`;
+  };
 
   return (
     <div 
@@ -35,52 +44,61 @@ const RoutePreviewBar = ({
           </div>
         ) : route ? (
           <>
-            {/* Main route info */}
-            <div 
-              className="p-4 flex items-center gap-4 cursor-pointer active:bg-muted/50 transition-colors"
+            {/* Main route info - clickable to expand */}
+            <button 
+              className="w-full p-4 flex items-center gap-4 active:bg-muted/50 transition-colors text-left"
               onClick={onExpand}
             >
-              {/* Route stats */}
-              <div className="flex items-center gap-4 flex-1">
-                {/* Duration */}
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-2xl font-bold">{Math.round(route.duration)}</span>
+              {/* Duration - BIG */}
+              <div className="text-center min-w-[80px]">
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-3xl font-bold">{formatDuration(route.duration)}</span>
                   <span className="text-sm text-muted-foreground">min</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{route.distance.toFixed(1)} km</p>
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-12 bg-border" />
+
+              {/* Destination + warnings */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary shrink-0" />
+                  <span className="font-medium truncate">{destination || 'Cel'}</span>
+                </div>
                 
-                {/* Separator */}
-                <div className="w-px h-8 bg-border" />
-                
-                {/* Distance */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-lg font-semibold">{route.distance.toFixed(1)}</span>
-                  <span className="text-sm text-muted-foreground">km</span>
+                {/* Meta info */}
+                <div className="flex items-center gap-2 mt-1">
+                  {hasWarnings && (
+                    <div className="flex items-center gap-1 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span className="text-xs">Utrudnienia</span>
+                    </div>
+                  )}
+                  {alternativesCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      +{alternativesCount} tras
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Expand indicator */}
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            </div>
+              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+            </button>
 
-            {/* Destination & Start button */}
-            <div className="px-4 pb-4 flex items-center gap-3">
-              {/* Destination chip */}
-              <div className="flex-1 flex items-center gap-2 bg-muted/50 rounded-full px-3 py-2 min-w-0">
-                <MapPin className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm truncate">{destination || 'Cel'}</span>
-              </div>
-
-              {/* Start button - Google Maps style */}
+            {/* Start button */}
+            <div className="px-4 pb-4">
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartNavigation();
                 }}
-                className="h-12 px-6 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold shadow-lg gap-2"
+                className="w-full h-14 gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-lg"
               >
-                <Navigation className="h-5 w-5" />
-                Start
+                <Navigation className="h-6 w-6" />
+                Jedźmy!
               </Button>
             </div>
           </>

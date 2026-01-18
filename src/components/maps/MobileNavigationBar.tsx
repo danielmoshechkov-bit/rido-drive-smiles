@@ -1,10 +1,11 @@
-// GetRido Maps - Mobile Navigation Bar (Premium, top during navigation)
-import { X, Locate, AlertTriangle, Clock, Signal } from 'lucide-react';
+// GetRido Maps - Mobile Navigation Bar (Yandex-style bottom stats bar)
+import { X, Locate, AlertTriangle, Clock, Signal, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NavigationState } from './useNavigation';
 import { GpsState } from './useUserLocation';
 import LaneGuidanceBar, { RoundaboutExitBadge } from './LaneGuidanceBar';
+import NavigationTabBar from './NavigationTabBar';
 import type { RouteStep, LaneInfo } from './routingService';
 
 interface MobileNavigationBarProps {
@@ -54,112 +55,140 @@ const MobileNavigationBar = ({
 
   // Extract lane info from current step
   const lanes: LaneInfo[] | undefined = currentStep?.intersections?.[0]?.lanes;
-  const distanceToManeuver = currentStep?.distance;
   
   // Check for roundabout
   const isRoundabout = currentStep?.maneuver?.type === 'roundabout' || 
                        currentStep?.maneuver?.type === 'rotary';
   const roundaboutExit = currentStep?.maneuver?.exit;
 
+  // Get maneuver icon
+  const getManeuverIcon = () => {
+    if (!currentStep) return <ArrowUp className="h-5 w-5" />;
+    
+    switch (currentStep.maneuver?.modifier) {
+      case 'left':
+      case 'slight left':
+      case 'sharp left':
+        return <ArrowLeft className="h-5 w-5" />;
+      case 'right':
+      case 'slight right':
+      case 'sharp right':
+        return <ArrowRight className="h-5 w-5" />;
+      default:
+        return <ArrowUp className="h-5 w-5" />;
+    }
+  };
+
+  // Calculate progress (0-100)
+  const progress = Math.max(0, Math.min(100, (1 - remainingDistance / (remainingDistance + 1)) * 100));
+
   return (
     <div 
       className="absolute bottom-0 left-0 right-0 z-40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Main navigation bar - now at bottom */}
-      <div className="bg-card/98 backdrop-blur-md border-t shadow-lg rounded-t-2xl">
-        {/* Main stats row - Premium sizing */}
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-5">
-            {/* Distance */}
-            <div className="text-center">
-              <p className="font-bold text-2xl leading-tight">{remainingDistance.toFixed(1)}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">km</p>
-            </div>
-            
-            {/* Separator */}
-            <div className="w-px h-10 bg-border/50" />
-            
-            {/* Duration */}
-            <div className="text-center">
-              <p className="font-bold text-2xl leading-tight">{Math.round(remainingDuration)}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">min</p>
-            </div>
-            
-            {/* Separator */}
-            <div className="w-px h-10 bg-border/50" />
-            
-            {/* Speed - now using SpeedHUD inline */}
-            <div className="text-center">
-              <p className="font-bold text-2xl leading-tight">{speedKmh ?? '—'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">km/h</p>
-            </div>
-          </div>
-          
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* GPS warning */}
-            {(gps.isUnstable || isWeakSignal) && (
-              <div className="p-2 rounded-full bg-amber-500/20 animate-pulse">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-              </div>
-            )}
-            
-            {/* Follow mode toggle */}
-            <button
-              onClick={toggleFollowMode}
-              className={`h-11 w-11 rounded-full flex items-center justify-center transition-all shadow-sm
-                         ${followMode 
-                           ? 'bg-primary text-primary-foreground shadow-primary/30' 
-                           : 'bg-muted hover:bg-muted/80'}`}
-              aria-label={followMode ? 'Wyłącz śledzenie' : 'Włącz śledzenie'}
-            >
-              <Locate className="h-5 w-5" />
-            </button>
-            
-            {/* Stop navigation */}
-            <Button 
-              size="sm" 
-              variant="destructive" 
-              onClick={stopNavigation}
-              className="h-11 w-11 p-0 rounded-full shadow-lg"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* ETA row - Premium styling */}
-        <div className="px-4 pb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Przyjazd ok. <span className="font-bold text-foreground text-base">{eta ? format(eta, 'HH:mm') : '—'}</span>
-            </span>
-          </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${
-            isWeakSignal ? 'bg-amber-500/20 text-amber-600' : 'bg-muted/50 text-muted-foreground'
-          }`}>
-            <Signal className="h-4 w-4" />
-            <span className="font-medium">±{accuracyM ?? '—'}m</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Lane Guidance Bar (above stats bar) */}
+      {/* Lane Guidance Bar (above main bar) */}
       {showLaneGuidance && lanes && lanes.length > 0 && (
-        <LaneGuidanceBar 
-          lanes={lanes} 
-          distanceToManeuver={distanceToManeuver}
-        />
+        <div className="mx-3 mb-2">
+          <LaneGuidanceBar lanes={lanes} />
+        </div>
       )}
       
       {/* Roundabout Exit Badge */}
       {isRoundabout && roundaboutExit && (
-        <div className="px-4 py-2 bg-card/95 backdrop-blur-md">
+        <div className="mx-3 mb-2">
           <RoundaboutExitBadge exitNumber={roundaboutExit} />
         </div>
       )}
+
+      {/* Main navigation bar */}
+      <div className="mx-3 mb-3 rounded-2xl bg-card/98 backdrop-blur-xl border shadow-2xl overflow-hidden">
+        {/* Stats row - Yandex style */}
+        <div className="px-4 py-3 flex items-center justify-between">
+          {/* Maneuver icon + Distance */}
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              {getManeuverIcon()}
+            </div>
+            <div>
+              <p className="font-bold text-xl leading-tight">{remainingDistance.toFixed(1)} km</p>
+              <p className="text-xs text-muted-foreground">pozostało</p>
+            </div>
+          </div>
+
+          {/* ETA */}
+          <div className="text-center px-3">
+            <p className="font-bold text-xl leading-tight text-primary">
+              {eta ? format(eta, 'HH:mm') : '—'}
+            </p>
+            <p className="text-xs text-muted-foreground">przyjazd</p>
+          </div>
+
+          {/* Duration */}
+          <div className="text-center">
+            <p className="font-bold text-xl leading-tight">{Math.round(remainingDuration)} min</p>
+            <p className="text-xs text-muted-foreground">czas</p>
+          </div>
+
+          {/* Close button */}
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            onClick={stopNavigation}
+            className="h-10 w-10 p-0 rounded-xl shadow-lg"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1 bg-muted">
+          <div 
+            className="h-full bg-primary transition-all duration-500"
+            style={{ width: `${Math.min(progress * 10, 100)}%` }}
+          />
+        </div>
+
+        {/* Speed + GPS info row */}
+        <div className="px-4 py-2 flex items-center justify-between border-t">
+          {/* Speed */}
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-lg">{speedKmh ?? '—'}</span>
+            <span className="text-sm text-muted-foreground">km/h</span>
+            
+            {/* Speed limit badge */}
+            {showSpeedLimit && speedLimit && (
+              <div className="ml-2 h-7 w-7 rounded-full border-2 border-red-500 flex items-center justify-center">
+                <span className="text-xs font-bold">{speedLimit}</span>
+              </div>
+            )}
+          </div>
+
+          {/* GPS accuracy */}
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${
+            isWeakSignal ? 'bg-amber-500/20 text-amber-600' : 'bg-muted text-muted-foreground'
+          }`}>
+            {isWeakSignal && <AlertTriangle className="h-3 w-3" />}
+            <Signal className="h-3 w-3" />
+            <span className="font-medium">±{accuracyM ?? '—'}m</span>
+          </div>
+
+          {/* Follow mode */}
+          <button
+            onClick={toggleFollowMode}
+            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all ${
+              followMode 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            <Locate className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Bottom tab bar */}
+        <NavigationTabBar />
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-// GetRido Maps - Turn-by-Turn Navigation Banner (Google Maps Style)
+// GetRido Maps - Turn-by-Turn Navigation Banner (Premium Yandex-style)
 import { useMemo } from 'react';
 import { 
   ArrowUp, 
@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   ArrowUpLeft,
   RotateCw,
-  CircleDot,
   Flag,
   Navigation,
   Compass
@@ -21,14 +20,13 @@ import { Button } from '@/components/ui/button';
 interface TurnByTurnBannerProps {
   currentStep: RouteStep | null;
   nextStep?: RouteStep | null;
-  distanceToStep: number; // meters
+  distanceToStep: number;
   onRecenter?: () => void;
   isMapRotated?: boolean;
 }
 
-// Get icon for maneuver type
 const getManeuverIcon = (type: string, modifier?: string) => {
-  const iconClass = "h-8 w-8";
+  const iconClass = "h-9 w-9";
   
   switch (type) {
     case 'depart':
@@ -70,55 +68,49 @@ const getManeuverIcon = (type: string, modifier?: string) => {
   }
 };
 
-// Get instruction text
 const getInstructionText = (step: RouteStep): string => {
   const { maneuver, name } = step;
   const streetName = name || 'drogę';
   
   switch (maneuver.type) {
     case 'depart':
-      return `Jedź na ${streetName}`;
+      return streetName;
     case 'straight':
     case 'continue':
-      return `Jedź prosto na ${streetName}`;
+      return streetName;
     case 'turn':
       switch (maneuver.modifier) {
         case 'left':
-          return `Skręć w lewo w ${streetName}`;
+          return streetName;
         case 'right':
-          return `Skręć w prawo w ${streetName}`;
+          return streetName;
         case 'slight left':
-          return `Trzymaj się lewej na ${streetName}`;
         case 'slight right':
-          return `Trzymaj się prawej na ${streetName}`;
+          return streetName;
         case 'sharp left':
-          return `Skręć ostro w lewo`;
         case 'sharp right':
-          return `Skręć ostro w prawo`;
+          return streetName;
         case 'uturn':
-          return `Zawróć`;
+          return 'Zawróć';
         default:
-          return `Skręć na ${streetName}`;
+          return streetName;
       }
     case 'merge':
-      return `Włącz się na ${streetName}`;
     case 'on ramp':
-      return `Wjedź na ${streetName}`;
     case 'off ramp':
-      return `Zjedź na ${streetName}`;
+      return streetName;
     case 'roundabout':
     case 'rotary':
-      return maneuver.exit ? `${maneuver.exit}. zjazd z ronda` : `Jedź przez rondo`;
+      return maneuver.exit ? `${maneuver.exit}. zjazd z ronda` : 'Rondo';
     case 'arrive':
-      return `Dojeżdżasz do celu`;
+      return 'Cel podróży';
     case 'fork':
-      return maneuver.modifier?.includes('left') ? `Trzymaj się lewej` : `Trzymaj się prawej`;
+      return streetName;
     default:
-      return `Kontynuuj na ${streetName}`;
+      return streetName;
   }
 };
 
-// Format distance
 const formatDistance = (meters: number): string => {
   if (meters < 100) {
     return `${Math.round(meters / 10) * 10} m`;
@@ -129,7 +121,6 @@ const formatDistance = (meters: number): string => {
   }
 };
 
-// Get short instruction for "then" preview
 const getShortInstruction = (step: RouteStep): string => {
   const { maneuver } = step;
   
@@ -160,7 +151,6 @@ const TurnByTurnBanner = ({
   onRecenter,
   isMapRotated = false,
 }: TurnByTurnBannerProps) => {
-  // All hooks must be called before conditional returns
   const instruction = useMemo(() => currentStep ? getInstructionText(currentStep) : '', [currentStep]);
   const icon = useMemo(() => currentStep ? getManeuverIcon(currentStep.maneuver.type, currentStep.maneuver.modifier) : null, [currentStep]);
   const distance = useMemo(() => formatDistance(distanceToStep), [distanceToStep]);
@@ -174,27 +164,27 @@ const TurnByTurnBanner = ({
       className="absolute top-0 left-0 right-0 z-50"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Main banner - RIDO Premium violet style */}
+      {/* Main banner - Yandex-style blue/RIDO violet */}
       <div 
-        className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl animate-slide-down"
+        className="mx-3 mt-3 rounded-2xl overflow-hidden shadow-2xl"
         style={{
-          background: 'linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 45%))',
-          boxShadow: '0 8px 32px -8px hsl(259 65% 58% / 0.5)',
+          background: 'linear-gradient(135deg, hsl(259 65% 58%), hsl(259 65% 42%))',
+          boxShadow: '0 8px 40px -8px hsl(259 65% 58% / 0.6)',
         }}
       >
         <div className="p-4 text-white">
           <div className="flex items-center gap-4">
-            {/* Direction icon - larger for visibility */}
-            <div className="h-16 w-16 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <div className="scale-125">
-                {icon}
-              </div>
+            {/* Direction icon - large prominent */}
+            <div className="h-16 w-16 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
+              {icon}
             </div>
             
-            {/* Instruction */}
+            {/* Distance + Street */}
             <div className="flex-1 min-w-0">
-              <p className="text-4xl font-bold tracking-tight">{distance}</p>
-              <p className="text-base opacity-95 truncate mt-0.5">{instruction}</p>
+              {/* Distance - HUGE */}
+              <p className="text-4xl font-bold tracking-tight leading-none">{distance}</p>
+              {/* Street name */}
+              <p className="text-base opacity-90 truncate mt-1 font-medium">{instruction}</p>
             </div>
             
             {/* Recenter button */}
@@ -202,7 +192,7 @@ const TurnByTurnBanner = ({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="shrink-0 text-white hover:bg-white/20 h-12 w-12"
+                className="shrink-0 text-white hover:bg-white/20 h-12 w-12 rounded-xl"
                 onClick={onRecenter}
               >
                 <Compass className="h-6 w-6" />
@@ -211,14 +201,14 @@ const TurnByTurnBanner = ({
           </div>
         </div>
         
-        {/* Next maneuver preview - always show when available */}
+        {/* Next maneuver preview */}
         {nextInstruction && (
-          <div className="px-4 py-3 bg-black/15 flex items-center gap-3 text-white/95 border-t border-white/10">
-            <span className="text-sm opacity-80">Potem</span>
-            <div className="h-6 w-6 opacity-90">
+          <div className="px-4 py-2.5 bg-black/20 flex items-center gap-3 text-white/90 border-t border-white/10">
+            <span className="text-sm opacity-70">Potem</span>
+            <div className="h-5 w-5 opacity-80">
               {nextIcon}
             </div>
-            <span className="font-semibold">{nextInstruction}</span>
+            <span className="font-semibold text-sm">{nextInstruction}</span>
           </div>
         )}
       </div>
