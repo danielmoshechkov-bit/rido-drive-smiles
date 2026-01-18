@@ -1,9 +1,11 @@
 // GetRido Maps - Mobile Route Form (Premium UX - Simplified)
+import { useState } from 'react';
 import { Navigation, X, Loader2, Zap, GitBranch, Brain, ChevronRight, Route, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { LocationPickerModal } from './LocationPickerModal';
 import { RoutingState, RouteMode } from './useRouting';
 import { Coordinates } from './routingService';
 import { GpsState } from './useUserLocation';
@@ -69,37 +71,77 @@ const MobileRouteForm = ({
   const gpsAvailable = gps.hasConsent && gps.location && gps.status !== 'inactive';
   const canNavigate = route && gps.hasConsent && gps.location && !navigation.isNavigating;
 
+  // Location picker modal state
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
   return (
     <div className="space-y-5">
       {/* Route Search - Clean Google Maps style */}
       <div className="space-y-3">
-        {/* Start field - Always editable, defaults to GPS if empty */}
+        {/* Start field - Blue GPS point when empty, editable input when filled */}
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" />
-          <AddressAutocompleteInput
-            value={startInput}
-            onChange={setStartInput}
-            onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
-            placeholder="Skąd? (domyślnie Twoja lokalizacja)"
-            markerColor="green"
-            disabled={isLoading || navigation.isNavigating}
-            fieldType="start"
-            className="pl-9"
-          />
-          {startInput && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                setStartInput('');
-                setStartCoords(null);
-              }}
+          {!startInput ? (
+            // Empty state - show blue GPS indicator like Google Maps
+            <button
+              type="button"
+              className="w-full h-12 px-4 pl-10 rounded-xl bg-muted/50 border border-transparent hover:border-blue-500/30 hover:bg-blue-500/5 flex items-center text-left transition-colors group"
+              onClick={() => setShowLocationPicker(true)}
+              disabled={isLoading || navigation.isNavigating}
             >
-              <X className="h-4 w-4" />
-            </Button>
+              {/* Blue pulsing GPS point */}
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 animate-pulse" />
+              </div>
+              <span className="text-blue-600 font-medium group-hover:underline">Twoja lokalizacja</span>
+            </button>
+          ) : (
+            // Filled state - show editable input
+            <>
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" />
+              <AddressAutocompleteInput
+                value={startInput}
+                onChange={setStartInput}
+                onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
+                placeholder="Skąd?"
+                markerColor="green"
+                disabled={isLoading || navigation.isNavigating}
+                fieldType="start"
+                className="pl-9"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground z-10"
+                onClick={() => {
+                  setStartInput('');
+                  setStartCoords(null);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </>
           )}
         </div>
+
+        {/* Location Picker Modal */}
+        <LocationPickerModal
+          open={showLocationPicker}
+          onClose={() => setShowLocationPicker(false)}
+          fieldType="start"
+          title="Wybierz punkt startowy"
+          onSelectCurrentLocation={() => {
+            setStartInput('');
+            setStartCoords(null); // null = use GPS
+          }}
+          onSelectFromHistory={(entry) => {
+            setStartInput(entry.shortName || entry.displayName);
+            setStartCoords({ lat: entry.lat, lng: entry.lng });
+          }}
+          onSelectFromSearch={(location) => {
+            setStartInput(location.displayName);
+            setStartCoords({ lat: location.lat, lng: location.lng });
+          }}
+        />
         
         {/* Connector line */}
         <div className="ml-[18px] h-6 border-l-2 border-dashed border-muted-foreground/20" />
