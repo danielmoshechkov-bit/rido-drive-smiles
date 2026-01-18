@@ -111,7 +111,7 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
 export async function calculateRoute(
   start: Coordinates,
   end: Coordinates,
-  options?: { alternatives?: boolean; isAlternative?: boolean }
+  options?: { alternatives?: boolean; isAlternative?: boolean; includeSteps?: boolean }
 ): Promise<RouteResult | null> {
   try {
     // OSRM expects coordinates in lng,lat format
@@ -120,7 +120,8 @@ export async function calculateRoute(
     const params = new URLSearchParams({
       overview: 'full',
       geometries: 'geojson',
-      steps: 'false',
+      steps: options?.includeSteps ? 'true' : 'false',
+      annotations: 'maxspeed,speed',
     });
     
     // Request alternatives if specified
@@ -145,6 +146,37 @@ export async function calculateRoute(
 
     const route = data.routes[0];
     
+    // Parse steps if available
+    let steps: RouteStep[] | undefined;
+    if (options?.includeSteps && route.legs) {
+      steps = [];
+      for (const leg of route.legs) {
+        for (const step of leg.steps || []) {
+          steps.push({
+            distance: step.distance,
+            duration: step.duration,
+            name: step.name || '',
+            maneuver: {
+              type: step.maneuver?.type || 'turn',
+              modifier: step.maneuver?.modifier,
+              location: step.maneuver?.location || [0, 0],
+              bearing_before: step.maneuver?.bearing_before,
+              bearing_after: step.maneuver?.bearing_after,
+              exit: step.maneuver?.exit,
+            },
+            intersections: step.intersections?.map((int: any) => ({
+              lanes: int.lanes?.map((lane: any) => ({
+                indications: lane.indications || [],
+                valid: lane.valid || false,
+              })),
+              location: int.location,
+            })),
+            maxspeed: step.maxspeed?.speed,
+          });
+        }
+      }
+    }
+    
     return {
       coordinates: route.geometry.coordinates, // Already in [lng, lat] format
       distance: route.distance / 1000, // Convert meters to km
@@ -153,6 +185,7 @@ export async function calculateRoute(
       endPoint: end,
       isAlternative: options?.isAlternative || false,
       routeType: options?.isAlternative ? 'alternative' : 'standard',
+      steps,
     };
   } catch (error) {
     console.error('[Routing] Route calculation error:', error);
@@ -193,9 +226,10 @@ export async function calculateRoutesWithOptions(
     }
 
     return data.routes.map((route: any, idx: number) => {
-      // Count steps and turns
+      // Count steps and turns + parse step data
       let stepsCount = 0;
       let turnsCount = 0;
+      const parsedSteps: RouteStep[] = [];
 
       for (const leg of route.legs || []) {
         for (const step of leg.steps || []) {
@@ -210,6 +244,29 @@ export async function calculateRoutesWithOptions(
               turnsCount++;
             }
           }
+          
+          // Parse step for voice navigation
+          parsedSteps.push({
+            distance: step.distance,
+            duration: step.duration,
+            name: step.name || '',
+            maneuver: {
+              type: maneuver?.type || 'turn',
+              modifier: maneuver?.modifier,
+              location: maneuver?.location || [0, 0],
+              bearing_before: maneuver?.bearing_before,
+              bearing_after: maneuver?.bearing_after,
+              exit: maneuver?.exit,
+            },
+            intersections: step.intersections?.map((int: any) => ({
+              lanes: int.lanes?.map((lane: any) => ({
+                indications: lane.indications || [],
+                valid: lane.valid || false,
+              })),
+              location: int.location,
+            })),
+            maxspeed: step.maxspeed?.speed,
+          });
         }
       }
 
@@ -220,6 +277,7 @@ export async function calculateRoutesWithOptions(
         duration: route.duration / 60,
         stepsCount,
         turnsCount,
+        steps: parsedSteps,
       };
     });
   } catch (error) {

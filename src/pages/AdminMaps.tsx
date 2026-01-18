@@ -4,6 +4,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { MapsVisibilityPanel } from '@/components/admin/MapsVisibilityPanel';
 import { MapsConfigPanel } from '@/components/admin/MapsConfigPanel';
+import { NavigationConfigPanel } from '@/components/admin/NavigationConfigPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Map, Loader2 } from 'lucide-react';
 
@@ -14,6 +15,7 @@ const AdminMaps = () => {
 
   const subTabs = [
     { label: 'Konfiguracja', value: 'config', visible: true },
+    { label: 'Nawigacja (Głos i Limity)', value: 'navigation', visible: true },
     { label: 'Widoczność', value: 'visibility', visible: true },
   ];
 
@@ -69,6 +71,7 @@ const AdminMaps = () => {
 
         <div className="mt-6">
           {activeSubTab === 'config' && <MapsConfigPanel />}
+          {activeSubTab === 'navigation' && <NavigationConfigPanel />}
           {activeSubTab === 'visibility' && <MapsVisibilityPanel />}
         </div>
       </main>
