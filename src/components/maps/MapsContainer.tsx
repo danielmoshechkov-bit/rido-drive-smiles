@@ -1,114 +1,91 @@
-import { Map, Plus, Minus, Navigation, Layers, Car } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState, useCallback } from 'react';
+import Map, { Marker, NavigationControl, ScaleControl, ViewStateChangeEvent } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { MapPin, Layers, Car } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { DEFAULT_VIEW_STATE, MAP_STYLE, TEST_MARKER } from './mapStyles';
+
+interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+}
 
 const MapsContainer = () => {
-  return (
-    <div className="relative flex-1 h-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 overflow-hidden">
-      {/* Grid pattern simulating map */}
-      <div 
-        className="absolute inset-0 opacity-30 dark:opacity-20"
-        style={{
-          backgroundImage: `
-            linear-gradient(hsl(var(--primary) / 0.15) 1px, transparent 1px),
-            linear-gradient(90deg, hsl(var(--primary) / 0.15) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px'
-        }}
-      />
-      
-      {/* Decorative roads */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div 
-          className="absolute top-1/4 left-0 right-0 h-3 bg-slate-300/50 dark:bg-slate-600/30"
-          style={{ transform: 'rotate(-5deg) translateY(-50%)' }}
-        />
-        <div 
-          className="absolute top-0 bottom-0 left-1/3 w-3 bg-slate-300/50 dark:bg-slate-600/30"
-          style={{ transform: 'rotate(3deg)' }}
-        />
-        <div 
-          className="absolute top-2/3 left-0 right-0 h-2 bg-slate-300/40 dark:bg-slate-600/25"
-          style={{ transform: 'rotate(2deg)' }}
-        />
-        <div 
-          className="absolute top-0 bottom-0 right-1/4 w-2 bg-slate-300/40 dark:bg-slate-600/25"
-          style={{ transform: 'rotate(-2deg)' }}
-        />
-      </div>
+  const [viewState, setViewState] = useState<ViewState>(DEFAULT_VIEW_STATE);
 
-      {/* Central info overlay */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="text-center p-8 bg-background/90 backdrop-blur-sm rounded-2xl shadow-lg max-w-md border">
-          <div className="relative inline-block mb-4">
-            <Map className="h-16 w-16 text-primary/40" />
-            <div className="absolute -bottom-1 -right-1 h-6 w-6 bg-amber-500 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-white">?</span>
+  const handleMove = useCallback((evt: ViewStateChangeEvent) => {
+    setViewState(evt.viewState);
+  }, []);
+
+  return (
+    <div className="relative flex-1 h-full overflow-hidden">
+      {/* Prawdziwa mapa MapLibre z OpenStreetMap */}
+      <Map
+        {...viewState}
+        onMove={handleMove}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle={MAP_STYLE}
+        attributionControl={false}
+      >
+        {/* Kontrolki nawigacji (zoom +/-) */}
+        <NavigationControl position="top-right" showCompass={false} />
+        
+        {/* Skala */}
+        <ScaleControl position="bottom-right" />
+        
+        {/* Testowy marker - Centrum Warszawy */}
+        <Marker
+          longitude={TEST_MARKER.longitude}
+          latitude={TEST_MARKER.latitude}
+          anchor="bottom"
+        >
+          <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+            {/* Etykieta markera */}
+            <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg mb-1 whitespace-nowrap">
+              {TEST_MARKER.title}
+            </div>
+            {/* Ikona pinezki */}
+            <div className="relative">
+              <MapPin className="h-10 w-10 text-primary drop-shadow-lg" fill="hsl(var(--primary))" />
+              {/* Efekt pulsowania */}
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-primary/30 rounded-full blur-sm" />
             </div>
           </div>
-          <h2 className="text-xl font-bold text-foreground">Mapa – tryb testowy</h2>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Google Maps API zostanie podpięte w kolejnym etapie
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Badge variant="outline">Nawigacja</Badge>
-            <Badge variant="outline">Ruch drogowy</Badge>
-            <Badge variant="outline">Zdarzenia</Badge>
-          </div>
-        </div>
-      </div>
+        </Marker>
+      </Map>
       
-      {/* Map controls (fake) */}
-      <div className="absolute top-4 right-4 flex flex-col gap-1">
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          disabled 
-          className="h-9 w-9 bg-background/90 backdrop-blur-sm shadow-md"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          disabled 
-          className="h-9 w-9 bg-background/90 backdrop-blur-sm shadow-md"
-        >
-          <Minus className="h-4 w-4" />
-        </Button>
-        <div className="h-2" />
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          disabled 
-          className="h-9 w-9 bg-background/90 backdrop-blur-sm shadow-md"
-        >
-          <Navigation className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      {/* Layer indicators (fake) */}
-      <div className="absolute bottom-4 left-4 flex gap-2">
+      {/* Overlay - wskaźniki warstw (mock, przygotowane pod przyszłe funkcje) */}
+      <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
         <Badge 
           variant="secondary" 
-          className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm"
+          className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"
         >
           <Layers className="h-3 w-3" />
           Warstwy
         </Badge>
         <Badge 
           variant="secondary" 
-          className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm"
+          className="gap-1.5 bg-background/90 backdrop-blur-sm shadow-sm border"
         >
           <Car className="h-3 w-3" />
           Ruch
         </Badge>
       </div>
-
-      {/* Scale indicator (fake) */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-background/90 backdrop-blur-sm rounded px-2 py-1 shadow-sm">
-        <div className="w-16 h-1 bg-foreground/60 rounded" />
-        <span className="text-xs text-muted-foreground">1 km</span>
+      
+      {/* Badge "Tryb testowy" */}
+      <div className="absolute top-4 left-4">
+        <Badge 
+          variant="outline" 
+          className="bg-background/90 backdrop-blur-sm shadow-sm border-amber-500/50 text-amber-600"
+        >
+          Tryb testowy
+        </Badge>
+      </div>
+      
+      {/* Atrybucja OSM (wymagana prawnie) */}
+      <div className="absolute bottom-4 right-24 text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded">
+        © OpenStreetMap contributors
       </div>
     </div>
   );

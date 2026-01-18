@@ -251,3 +251,74 @@ a.button,
     border-radius: 12px !important;
   }
 }
+
+/* ============================================
+   MapLibre GL - GetRido Custom Styles
+   ============================================ */
+
+/* Navigation controls (zoom +/-) */
+.maplibregl-ctrl-group {
+  background: hsl(var(--background) / 0.95) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.1) !important;
+  overflow: hidden;
+}
+
+.maplibregl-ctrl-group button {
+  width: 36px !important;
+  height: 36px !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.maplibregl-ctrl-group button:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid hsl(var(--border)) !important;
+}
+
+/* Scale control */
+.maplibregl-ctrl-scale {
+  background: hsl(var(--background) / 0.9) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 4px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-family: inherit !important;
+}
+
+/* Attribution control hide (we add custom) */
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
+/* Popup styles (for future use) */
+.maplibregl-popup-content {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15) !important;
+  padding: 12px !important;
+}
+
+.maplibregl-popup-close-button {
+  font-size: 18px !important;
+  color: hsl(var(--muted-foreground)) !important;
+  right: 8px !important;
+  top: 8px !important;
+}
+
+.maplibregl-popup-close-button:hover {
+  color: hsl(var(--foreground)) !important;
+  background: transparent !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: hsl(var(--background)) !important;
+}
