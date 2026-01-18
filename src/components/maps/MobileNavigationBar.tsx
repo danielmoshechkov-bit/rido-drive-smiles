@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NavigationState } from './useNavigation';
 import { GpsState } from './useUserLocation';
-import SpeedHUD from './SpeedHUD';
 import LaneGuidanceBar, { RoundaboutExitBadge } from './LaneGuidanceBar';
 import type { RouteStep, LaneInfo } from './routingService';
 
@@ -64,11 +63,11 @@ const MobileNavigationBar = ({
 
   return (
     <div 
-      className="absolute top-0 left-0 right-0 z-50"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      className="absolute bottom-0 left-0 right-0 z-40"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Main navigation bar */}
-      <div className="bg-card/98 backdrop-blur-md border-b shadow-lg">
+      {/* Main navigation bar - now at bottom */}
+      <div className="bg-card/98 backdrop-blur-md border-t shadow-lg rounded-t-2xl">
         {/* Main stats row - Premium sizing */}
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-5">
@@ -147,7 +146,7 @@ const MobileNavigationBar = ({
         </div>
       </div>
 
-      {/* Lane Guidance Bar (below nav bar, only when needed) */}
+      {/* Lane Guidance Bar (above stats bar) */}
       {showLaneGuidance && lanes && lanes.length > 0 && (
         <LaneGuidanceBar 
           lanes={lanes} 
@@ -157,21 +156,8 @@ const MobileNavigationBar = ({
       
       {/* Roundabout Exit Badge */}
       {isRoundabout && roundaboutExit && (
-        <div className="px-4 py-2 bg-card/95 backdrop-blur-md border-b">
+        <div className="px-4 py-2 bg-card/95 backdrop-blur-md">
           <RoundaboutExitBadge exitNumber={roundaboutExit} />
-        </div>
-      )}
-
-      {/* Speed HUD - Fixed position in corner */}
-      {showSpeedLimit && (
-        <div className="absolute top-20 right-4 z-10">
-          <SpeedHUD
-            currentSpeed={speedKmh}
-            speedLimit={speedLimit ?? null}
-            isEstimatedLimit={isEstimatedLimit}
-            yellowThreshold={yellowThreshold}
-            redThreshold={redThreshold}
-          />
         </div>
       )}
     </div>
