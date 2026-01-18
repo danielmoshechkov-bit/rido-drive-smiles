@@ -32,25 +32,25 @@ export interface POICategory {
   query: string;
 }
 
-// Apple Maps style - flat solid colors with rounded corners
+// Rido Style - inspired by Apple Maps with unique Rido palette
 export const POI_CATEGORIES: POICategory[] = [
-  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-orange-500', query: 'restaurant' },
+  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-orange-400', query: 'restaurant' },
+  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-sky-500', query: 'gas station fuel' },
+  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-red-400', query: 'pharmacy' },
   { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: 'bg-blue-500', query: 'supermarket grocery' },
-  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-green-500', query: 'pharmacy' },
-  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-pink-500', query: 'beauty salon spa' },
-  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-emerald-500', query: 'atm bank' },
-  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-amber-500', query: 'gas station fuel' },
+  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-blue-600', query: 'parking' },
+  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-teal-500', query: 'atm bank' },
+  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-indigo-400', query: 'hotel hostel' },
   { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: 'bg-red-500', query: 'hospital clinic' },
-  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-indigo-500', query: 'hotel hostel' },
-  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-cyan-500', query: 'wifi cafe' },
-  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-yellow-500', query: 'bar pub' },
+  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-fuchsia-400', query: 'beauty salon spa' },
+  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-amber-400', query: 'bar pub' },
   { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: 'bg-purple-500', query: 'shopping mall' },
-  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-rose-500', query: 'cinema movie theater' },
-  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-sky-500', query: 'parking' },
-  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-blue-400', query: 'car wash' },
-  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-slate-500', query: 'car service mechanic' },
-  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-violet-500', query: 'gym fitness' },
-  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-amber-400', query: 'tourist attraction' },
+  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-rose-400', query: 'cinema movie theater' },
+  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-violet-400', query: 'wifi cafe' },
+  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-cyan-400', query: 'car wash' },
+  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-slate-400', query: 'car service mechanic' },
+  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-green-500', query: 'gym fitness' },
+  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-yellow-400', query: 'tourist attraction' },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,16 +73,15 @@ const CategoryGrid = ({ onCategorySelect, compact = false }: CategoryGridProps) 
           onClick={() => onCategorySelect(category)}
           className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-accent/50 active:scale-95 transition-all duration-200 group"
         >
-          {/* Premium icon container with gradient background - larger */}
+          {/* Rido style icon container - Apple Maps inspired */}
           <div className={`
-            h-16 w-16 rounded-2xl 
+            h-14 w-14 rounded-xl 
             ${category.bgClass}
             flex items-center justify-center 
-            shadow-lg shadow-black/10
-            group-hover:shadow-xl group-hover:scale-105
+            shadow-md ring-1 ring-white/10
+            group-hover:shadow-lg group-hover:scale-105
             transition-all duration-200
           `}>
-            {/* Icon is white, no wrapper needed */}
             {category.icon}
           </div>
           

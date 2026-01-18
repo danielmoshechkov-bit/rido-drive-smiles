@@ -1,179 +1,232 @@
-// GetRido Maps - Premium 3D Category Icons (iOS/Yandex style)
-// Modern filled SVG icons with 3D gradients, highlights, and shadows
+// GetRido Maps - Rido Style Category Icons (Apple Maps inspired, but unique)
+// Simple stroke-based icons with clean lines
 
 import React from 'react';
 
 // ═══════════════════════════════════════════════════════════════
-// Premium 3D Icons - Yandex/iOS Style with depth and highlights
+// CATEGORY ICONS - Rido Style (stroke-based, minimalist)
 // ═══════════════════════════════════════════════════════════════
 
 export const FoodIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Fork & knife - white on transparent */}
-    <path d="M12 4v8c0 1.5-1 2.5-2.5 2.5v12h-3v-12C5 14.5 4 13.5 4 12V4h2v7h2V4h2v7h2V4h2z" fill="white"/>
-    <path d="M22 4c0 0-4 3-4 8v3h4v11h4V4h-4z" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Fork */}
+    <path d="M7 3v4c0 1.5-1 2.5-1 2.5V21" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M5 3v4" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M9 3v4" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M5 7h4" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    {/* Spoon */}
+    <path d="M17 3c-2 0-3 1.5-3 3.5s1 3.5 3 3.5 3-1.5 3-3.5S19 3 17 3z" stroke="white" strokeWidth="2"/>
+    <path d="M17 10v11" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const ShopIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Shopping cart - white on transparent */}
-    <path d="M10 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM24 28c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="white"/>
-    <path d="M7 6l2 10h14l3-8H8" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Shopping bag */}
+    <path d="M6 8h12l1 13H5L6 8z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M9 8V6a3 3 0 016 0v2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const PharmacyIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Rounded square with cross - white on transparent */}
-    <rect x="4" y="4" width="24" height="24" rx="6" fill="white"/>
-    <path d="M14 10h4v4h4v4h-4v4h-4v-4h-4v-4h4v-4z" fill="rgba(0,0,0,0.3)"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Simple cross */}
+    <path d="M12 5v14" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M5 12h14" stroke="white" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 export const BeautyIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Sparkle/star beauty icon - white on transparent */}
-    <path d="M16 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="white"/>
-    <circle cx="16" cy="22" r="6" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Mirror / Beauty */}
+    <circle cx="12" cy="9" r="5" stroke="white" strokeWidth="2"/>
+    <path d="M12 14v7" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M9 21h6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const AtmIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Card shape - white on transparent */}
-    <rect x="3" y="8" width="26" height="16" rx="3" fill="white"/>
-    <rect x="6" y="18" width="6" height="4" rx="1" fill="rgba(0,0,0,0.3)"/>
-    <text x="22" y="21" fill="rgba(0,0,0,0.4)" fontSize="8" fontWeight="bold" fontFamily="system-ui">$</text>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Banknote */}
+    <rect x="2" y="6" width="20" height="12" rx="2" stroke="white" strokeWidth="2"/>
+    <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/>
+    <path d="M6 12h.01M18 12h.01" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const FuelIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Pump body - white on transparent */}
-    <rect x="6" y="6" width="14" height="22" rx="2" fill="white"/>
-    <path d="M20 10h4c2 0 3 1 3 3v8c0 1-.5 2-1.5 2s-1.5-1-1.5-2v-6h-1v10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Fuel pump */}
+    <rect x="3" y="4" width="12" height="17" rx="2" stroke="white" strokeWidth="2"/>
+    <rect x="5" y="7" width="8" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
+    <path d="M15 9h2a2 2 0 012 2v6a1 1 0 01-1 1v0a1 1 0 01-1-1v-4" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M20 7l-2 2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const HospitalIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Building with H - white on transparent */}
-    <rect x="4" y="4" width="24" height="24" rx="4" fill="white"/>
-    <path d="M11 9v14M21 9v14M11 16h10" stroke="rgba(0,0,0,0.3)" strokeWidth="3" strokeLinecap="round"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Hospital building with cross */}
+    <rect x="4" y="4" width="16" height="17" rx="2" stroke="white" strokeWidth="2"/>
+    <path d="M12 8v6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M9 11h6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M9 21v-4h6v4" stroke="white" strokeWidth="2"/>
   </svg>
 );
 
 export const HotelIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Bed - white on transparent */}
-    <rect x="4" y="14" width="24" height="10" rx="2" fill="white"/>
-    <ellipse cx="10" cy="14" rx="4" ry="3" fill="white"/>
-    <circle cx="10" cy="11" r="4" fill="white"/>
-    <rect x="4" y="24" width="3" height="4" rx="1" fill="white"/>
-    <rect x="25" y="24" width="3" height="4" rx="1" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Bed */}
+    <path d="M3 18v-5a2 2 0 012-2h14a2 2 0 012 2v5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M3 18h18" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M5 11V8a2 2 0 012-2h2a2 2 0 012 2v3" stroke="white" strokeWidth="2"/>
+    <circle cx="7" cy="9" r="1.5" fill="white"/>
   </svg>
 );
 
 export const WifiIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* WiFi arcs - white on transparent */}
-    <path d="M16 26a2 2 0 100-4 2 2 0 000 4z" fill="white"/>
-    <path d="M8 18c4.4-4.4 11.6-4.4 16 0" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M4 14c6.6-6.6 17.4-6.6 24 0" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* WiFi signal */}
+    <path d="M12 18h.01" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M8.5 14.5a5 5 0 017 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M5 11a9 9 0 0114 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M2 8a13 13 0 0120 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const BarIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Beer mug - white on transparent */}
-    <rect x="6" y="8" width="16" height="20" rx="3" fill="white"/>
-    <path d="M22 12h3c2 0 3 2 3 4v4c0 2-1 4-3 4h-3" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Cocktail glass */}
+    <path d="M8 3h8l-4 9v6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M6 21h12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M12 18v-6" stroke="white" strokeWidth="2"/>
+    <path d="M7 6h10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const MallIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Shopping bag - white on transparent */}
-    <path d="M8 10h16c1 0 2 1 2 2v14c0 1-1 2-2 2H8c-1 0-2-1-2-2V12c0-1 1-2 2-2z" fill="white"/>
-    <path d="M12 10V8c0-2 2-4 4-4s4 2 4 4v2" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Shopping mall / Store */}
+    <path d="M3 9l9-5 9 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 9v11h16V9" stroke="white" strokeWidth="2"/>
+    <rect x="9" y="13" width="6" height="7" stroke="white" strokeWidth="2"/>
   </svg>
 );
 
 export const CinemaIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Film reel / clapperboard - white on transparent */}
-    <rect x="4" y="4" width="24" height="24" rx="3" fill="white"/>
-    <path d="M4 8l24 0M8 4l-4 4M14 4l-4 4M20 4l-4 4M26 4l-4 4" stroke="rgba(0,0,0,0.3)" strokeWidth="2"/>
-    <path d="M14 16l6 3-6 3z" fill="rgba(0,0,0,0.3)"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Movie clapperboard */}
+    <path d="M4 6h16v14H4z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M4 10h16" stroke="white" strokeWidth="2"/>
+    <path d="M7 6l2-3h2l-2 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M13 6l2-3h2l-2 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 export const ParkingIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Blue circle background - white on transparent */}
-    <circle cx="16" cy="16" r="14" fill="white"/>
-    <text x="16" y="22" textAnchor="middle" fill="rgba(0,0,0,0.4)" fontSize="18" fontWeight="bold" fontFamily="system-ui">P</text>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* P in circle */}
+    <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2"/>
+    <path d="M9 16V8h4a3 3 0 110 6H9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 export const CarWashIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Water droplets + Car - white on transparent */}
-    <path d="M8 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
-    <path d="M18 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
-    <path d="M28 6c0 2-2 4-2 4s-2-2-2-4a2 2 0 114 0z" fill="white"/>
-    <path d="M6 18l2-4h16l2 4v6c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2h-12c0 1-.5 2-1.5 2h-1c-1 0-1.5-1-1.5-2v-6z" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Car with water drops */}
+    <path d="M5 15h14l1 4H4l1-4z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M7 15l1-4h8l1 4" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+    <circle cx="7" cy="18" r="1" fill="white"/>
+    <circle cx="17" cy="18" r="1" fill="white"/>
+    <path d="M8 5v2M12 4v3M16 5v2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const ServiceIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Wrench - white on transparent */}
-    <path d="M6 26l8-8c-1-3 0-6 3-8 2-2 5-2 7-1l-4 4 1 3 3 1 4-4c1 2 1 5-1 7-2 3-5 4-8 3l-8 8c-1 1-2 1-3 0l-2-2c-1-1-1-2 0-3z" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Wrench */}
+    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" 
+          stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 export const FitnessIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Dumbbell - white on transparent */}
-    <rect x="4" y="12" width="6" height="8" rx="1" fill="white"/>
-    <rect x="22" y="12" width="6" height="8" rx="1" fill="white"/>
-    <rect x="10" y="14" width="12" height="4" fill="white"/>
-    <rect x="2" y="10" width="3" height="12" rx="1" fill="white"/>
-    <rect x="27" y="10" width="3" height="12" rx="1" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Dumbbell */}
+    <path d="M6 12h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+    <rect x="2" y="9" width="4" height="6" rx="1" stroke="white" strokeWidth="2"/>
+    <rect x="18" y="9" width="4" height="6" rx="1" stroke="white" strokeWidth="2"/>
+    <rect x="4" y="7" width="2" height="10" rx="0.5" stroke="white" strokeWidth="1.5"/>
+    <rect x="18" y="7" width="2" height="10" rx="0.5" stroke="white" strokeWidth="1.5"/>
   </svg>
 );
 
 export const SightIcon = () => (
-  <svg viewBox="0 0 32 32" width={28} height={28}>
-    {/* Star - white on transparent */}
-    <path d="M16 2l4 9h9l-7 6 3 10-9-6-9 6 3-10-7-6h9z" fill="white"/>
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none">
+    {/* Camera / Tourism */}
+    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" 
+          stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+    <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="2"/>
   </svg>
 );
 
 // ═══════════════════════════════════════════════════════════════
-// AI & Map Control Icons
+// UI CONTROL ICONS - Keep existing style but ensure consistency
 // ═══════════════════════════════════════════════════════════════
 
 export const AISparkleIcon = () => (
-  <svg viewBox="0 0 24 24" width={22} height={22} className="drop-shadow-sm">
-    <defs>
-      <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ffffff"/>
-        <stop offset="100%" stopColor="#e0e0ff"/>
-      </linearGradient>
-    </defs>
-    <path d="M12 3L14.5 8.5L20 9L16 13.5L17.5 19L12 16L6.5 19L8 13.5L4 9L9.5 8.5L12 3Z" fill="url(#aiGrad)" stroke="white" strokeWidth="0.5"/>
-    <circle cx="12" cy="11" r="2" fill="url(#aiGrad)"/>
-    <path d="M7 2L8 4L10 5L8 6L7 8L6 6L4 5L6 4L7 2Z" fill="url(#aiGrad)" opacity="0.8"/>
-    <path d="M19 14L20 16L22 17L20 18L19 20L18 18L16 17L18 16L19 14Z" fill="url(#aiGrad)" opacity="0.8"/>
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z" 
+          stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+  </svg>
+);
+
+export const ZoomInIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+    <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+export const ZoomOutIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+    <path d="M21 21l-4.35-4.35M8 11h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+export const LayersIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <path d="M12 2l10 6-10 6L2 8l10-6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 12l10 6 10-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M2 17l10 6 10-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 export const LayersFilledIcon = () => (
   <svg viewBox="0 0 24 24" width={20} height={20}>
     <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z" fill="currentColor"/>
+  </svg>
+);
+
+export const CompassIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88" 
+             stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+  </svg>
+);
+
+export const LocateIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+    <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+export const LocationIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20}>
+    <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" fill="currentColor"/>
   </svg>
 );
 
@@ -190,81 +243,51 @@ export const ParkingFilledIcon = () => (
   </svg>
 );
 
-export const ZoomInIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor"/>
-  </svg>
-);
-
-export const ZoomOutIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M19 13H5v-2h14v2z" fill="currentColor"/>
-  </svg>
-);
-
-export const LocationIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" fill="currentColor"/>
-  </svg>
-);
-
-export const CompassIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
-    <path d="M6.5 17.5l5.5-2.5 2.5-5.5-5.5 2.5z" fill="#EF5350"/>
-    <path d="M14.5 6.5l-2.5 5.5 5.5-2.5z" fill="currentColor" opacity="0.5"/>
-  </svg>
-);
-
 export const SunIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z" fill="currentColor"/>
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" 
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 export const MoonIcon = () => (
-  <svg viewBox="0 0 24 24" width={20} height={20}>
-    <path d="M9 2c-1.05 0-2.05.16-3 .46 4.06 1.27 7 5.06 7 9.54 0 4.48-2.94 8.27-7 9.54.95.3 1.95.46 3 .46 5.52 0 10-4.48 10-10S14.52 2 9 2z" fill="currentColor"/>
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none">
+    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" 
+          stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
   </svg>
 );
 
 // ═══════════════════════════════════════════════════════════════
-// Premium 3D User Arrow for Navigation
+// 3D USER MARKER - Premium gold & violet style
 // ═══════════════════════════════════════════════════════════════
 
-export const RidoUserArrow3D = ({ heading, size = 48 }: { heading: number | null; size?: number }) => (
-  <div 
-    className="relative transition-transform duration-200"
-    style={{ 
-      transform: heading !== null ? `rotate(${heading}deg)` : undefined,
-      width: size,
-      height: size,
-    }}
-  >
-    <svg viewBox="0 0 60 80" width={size} height={size * 1.33} className="drop-shadow-xl">
+export const RidoUserArrow3D = ({ heading, size = 48 }: { heading: number | null; size?: number }) => {
+  const rotation = heading !== null ? heading : 0;
+  
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 48 48"
+      style={{ 
+        transform: `rotate(${rotation}deg)`,
+        transition: 'transform 0.3s ease-out',
+        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
+      }}
+    >
       <defs>
-        {/* Gold gradient for arrow body */}
-        <linearGradient id="arrowGold3D" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="arrowGold" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#FFD700"/>
-          <stop offset="30%" stopColor="#FFC107"/>
-          <stop offset="70%" stopColor="#FF9800"/>
-          <stop offset="100%" stopColor="#F57C00"/>
+          <stop offset="50%" stopColor="#FFA500"/>
+          <stop offset="100%" stopColor="#FF8C00"/>
         </linearGradient>
-        
-        {/* Violet stroke gradient */}
-        <linearGradient id="arrowViolet" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="arrowViolet" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#8B5CF6"/>
           <stop offset="100%" stopColor="#6D28D9"/>
         </linearGradient>
-        
-        {/* 3D shadow filter */}
-        <filter id="arrow3DShadow" x="-50%" y="-30%" width="200%" height="200%">
-          <feDropShadow dx="2" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.35"/>
-        </filter>
-        
-        {/* Inner glow */}
         <filter id="arrowGlow">
-          <feGaussianBlur stdDeviation="1" result="blur"/>
+          <feGaussianBlur stdDeviation="2" result="blur"/>
           <feMerge>
             <feMergeNode in="blur"/>
             <feMergeNode in="SourceGraphic"/>
@@ -273,56 +296,44 @@ export const RidoUserArrow3D = ({ heading, size = 48 }: { heading: number | null
       </defs>
       
       {/* Outer glow ring */}
-      <ellipse cx="30" cy="55" rx="18" ry="8" fill="rgba(139, 92, 246, 0.2)" filter="url(#arrowGlow)"/>
+      <circle cx="24" cy="24" r="20" fill="none" stroke="url(#arrowViolet)" strokeWidth="2" opacity="0.5"/>
       
-      {/* Main arrow body - 3D effect */}
+      {/* Main arrow body */}
       <path 
-        d="M30 5 L48 55 L30 45 L12 55 Z"
-        fill="url(#arrowGold3D)"
-        stroke="url(#arrowViolet)"
-        strokeWidth="2.5"
-        filter="url(#arrow3DShadow)"
+        d="M24 6 L34 34 L24 28 L14 34 Z" 
+        fill="url(#arrowGold)"
+        filter="url(#arrowGlow)"
       />
       
-      {/* Left highlight for 3D effect */}
+      {/* Inner highlight */}
       <path 
-        d="M30 8 L26 40 L18 50"
-        fill="none"
-        stroke="rgba(255,255,255,0.7)"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M24 10 L30 30 L24 26 L18 30 Z" 
+        fill="white" 
+        opacity="0.3"
       />
       
-      {/* Right shadow for 3D depth */}
-      <path 
-        d="M30 8 L34 40 L42 50"
-        fill="none"
-        stroke="rgba(0,0,0,0.15)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      
-      {/* Center highlight dot */}
-      <circle cx="30" cy="30" r="4" fill="rgba(255,255,255,0.8)"/>
+      {/* Center dot */}
+      <circle cx="24" cy="22" r="3" fill="white" opacity="0.8"/>
     </svg>
-  </div>
-);
+  );
+};
 
-// Accuracy ring for user location
+// ═══════════════════════════════════════════════════════════════
+// ACCURACY RING - Location precision indicator
+// ═══════════════════════════════════════════════════════════════
+
 export const AccuracyRing = ({ accuracy, isMoving }: { accuracy: number; isMoving: boolean }) => {
-  const size = Math.min(Math.max(accuracy * 0.8, 50), 150);
+  const size = Math.min(Math.max(accuracy * 2, 40), 200);
+  
   return (
-    <div 
-      className={`absolute rounded-full ${isMoving ? 'animate-pulse' : ''}`}
-      style={{ 
-        width: size, 
+    <div
+      className={`absolute rounded-full border-2 border-violet-400/30 bg-violet-400/10 ${isMoving ? 'animate-pulse' : ''}`}
+      style={{
+        width: size,
         height: size,
-        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%)',
         transform: 'translate(-50%, -50%)',
-        left: '50%',
-        top: '50%',
-      }} 
+        pointerEvents: 'none'
+      }}
     />
   );
 };
