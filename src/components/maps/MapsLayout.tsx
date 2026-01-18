@@ -1,3 +1,4 @@
+// GetRido Maps - Layout Component
 import { useRouting } from './useRouting';
 import MapsSidebar from './MapsSidebar';
 import MapsContainer from './MapsContainer';
