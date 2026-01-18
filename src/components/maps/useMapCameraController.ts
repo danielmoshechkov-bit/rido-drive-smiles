@@ -23,6 +23,7 @@ export interface CameraControllerActions {
   cycleFollowMode: () => void;
   setFollowMode: (mode: FollowMode) => void;
   handleUserInteraction: () => void;
+  setIsDragging: (dragging: boolean) => void;
   restoreFollowMode: () => void;
   dismissPill: () => void;
   resetBearing: () => void;
@@ -109,9 +110,18 @@ export function useMapCameraController(
     }
   }, []);
 
-  // Called when user manually interacts with map (drag/zoom)
+  // Track if user is actively dragging (not programmatic moves)
+  const isDraggingRef = useRef(false);
+
+  // Set dragging state - called from MapsContainer
+  const setIsDragging = useCallback((dragging: boolean) => {
+    isDraggingRef.current = dragging;
+  }, []);
+
+  // Called when user manually drags the map (NOT on any move)
   const handleUserInteraction = useCallback(() => {
-    if (followMode !== 'off' && !isAnimatingRef.current) {
+    // Only show pill if user is actively dragging AND follow mode is on
+    if (followMode !== 'off' && !isAnimatingRef.current && isDraggingRef.current) {
       setFollowMode('off');
       setShowFollowDisabledPill(true);
       
@@ -324,6 +334,7 @@ export function useMapCameraController(
     cycleFollowMode,
     setFollowMode,
     handleUserInteraction,
+    setIsDragging,
     restoreFollowMode,
     dismissPill,
     resetBearing,

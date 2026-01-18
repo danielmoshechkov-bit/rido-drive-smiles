@@ -60,6 +60,64 @@ export function normalizeForComparison(str: string): string {
   return normalizePolish(str.toLowerCase().trim());
 }
 
+/**
+ * Fuzzy match for typos - checks if input is "close enough" to target
+ * Handles missing letters, swapped letters, common Polish typos
+ */
+export function fuzzyMatch(input: string, target: string): boolean {
+  const normInput = normalizeForComparison(input);
+  const normTarget = normalizeForComparison(target);
+  
+  // Exact or substring match
+  if (normTarget.includes(normInput) || normInput.includes(normTarget)) {
+    return true;
+  }
+  
+  // Length difference check - allow up to 2 chars difference
+  const lenDiff = Math.abs(normInput.length - normTarget.length);
+  if (lenDiff > 2) return false;
+  
+  // Character overlap check (handles missing/extra letters)
+  // "borsuca" vs "borsucza" - missing 'z'
+  let matchCount = 0;
+  const targetChars = normTarget.split('');
+  const inputChars = normInput.split('');
+  
+  for (const char of inputChars) {
+    const idx = targetChars.indexOf(char);
+    if (idx !== -1) {
+      matchCount++;
+      targetChars.splice(idx, 1); // Remove matched char
+    }
+  }
+  
+  // If 80%+ of input chars match target, consider it a match
+  const matchRatio = matchCount / normInput.length;
+  if (matchRatio >= 0.8) return true;
+  
+  // Levenshtein-lite: simple edit distance for short strings
+  if (normInput.length <= 10 && normTarget.length <= 10) {
+    let edits = 0;
+    const longer = normInput.length > normTarget.length ? normInput : normTarget;
+    const shorter = normInput.length > normTarget.length ? normTarget : normInput;
+    
+    let j = 0;
+    for (let i = 0; i < longer.length && j < shorter.length; i++) {
+      if (longer[i] === shorter[j]) {
+        j++;
+      } else {
+        edits++;
+      }
+    }
+    edits += (longer.length - j); // Remaining unmatched
+    
+    // Allow up to 2 edits for short strings
+    if (edits <= 2) return true;
+  }
+  
+  return false;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Category search mappings
 // ═══════════════════════════════════════════════════════════════
@@ -144,6 +202,25 @@ export async function fetchAddressSuggestions(
       const normalizedQuery = normalizePolish(trimmedQuery);
       console.log('[autocompleteService] Retrying with normalized query:', normalizedQuery);
       results = await performNominatimSearch(normalizedQuery, signal);
+    }
+    
+    // If still no results, try fuzzy matching - common typos
+    if (results.length === 0) {
+      // Try adding common Polish endings that might be missing
+      const fuzzyVariants = [
+        trimmedQuery + 'a',   // borsucz -> borsucza
+        trimmedQuery + 'za',  // borsu -> borsucza  
+        trimmedQuery.slice(0, -1) + 'cza', // borsuca -> borsucza
+        trimmedQuery.replace(/c([aeiou])/g, 'cz$1'), // ca -> cza
+      ];
+      
+      for (const variant of fuzzyVariants) {
+        if (variant !== trimmedQuery && variant.length >= 3) {
+          console.log('[autocompleteService] Trying fuzzy variant:', variant);
+          results = await performNominatimSearch(variant, signal);
+          if (results.length > 0) break;
+        }
+      }
     }
     
     // If still no results, try removing house number

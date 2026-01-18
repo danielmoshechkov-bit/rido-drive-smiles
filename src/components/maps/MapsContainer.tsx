@@ -279,30 +279,29 @@ const MapsContainer = ({
     setViewState(evt.viewState);
   }, []);
 
-  // Handle user interaction (drag/zoom) - disable follow mode
+  // Handle user interaction - DON'T trigger on moveStart/End (causes false positives)
   const handleMoveStart = useCallback(() => {
-    isUserInteractingRef.current = true;
+    // Don't set interacting here - only on actual drag
   }, []);
 
   const handleMoveEnd = useCallback(() => {
-    // Only trigger if user was actively interacting (not from animation)
-    if (isUserInteractingRef.current && cameraController.followMode !== 'off') {
-      cameraController.handleUserInteraction();
-      onMapInteraction?.();
-    }
-    isUserInteractingRef.current = false;
-  }, [cameraController, onMapInteraction]);
-
-  const handleDragStart = useCallback(() => {
-    isUserInteractingRef.current = true;
+    // Don't trigger pill here - only on drag
   }, []);
 
+  // ONLY drag events should trigger follow mode disable
+  const handleDragStart = useCallback(() => {
+    isUserInteractingRef.current = true;
+    cameraController.setIsDragging(true);
+  }, [cameraController]);
+
   const handleDragEnd = useCallback(() => {
+    // User finished dragging - now trigger the interaction
     if (cameraController.followMode !== 'off') {
       cameraController.handleUserInteraction();
       onMapInteraction?.();
     }
     isUserInteractingRef.current = false;
+    cameraController.setIsDragging(false);
   }, [cameraController, onMapInteraction]);
 
   // Apply config center/zoom when loaded
@@ -491,14 +490,14 @@ const MapsContainer = ({
         )}
       </Map>
       
-      {/* Follow Mode FAB - positioned right side, above other FABs */}
+      {/* Follow Mode FAB - positioned right side, BELOW theme/layers FABs */}
       {hasConsent && location && (
         <div 
           className="absolute right-4 z-30"
           style={{ 
             bottom: navigation.isNavigating 
               ? 'calc(2rem + env(safe-area-inset-bottom))' 
-              : 'calc(10rem + env(safe-area-inset-bottom))',
+              : 'calc(12rem + env(safe-area-inset-bottom))',
           }}
         >
           <FollowModeFAB
