@@ -1,15 +1,18 @@
 import { Map, Sparkles, AlertTriangle, Loader2, Navigation, X, Route, Brain, ChevronRight, Clock, TrendingUp } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { RoutingState } from './useRouting';
+import { AddressAutocompleteInput } from './AddressAutocompleteInput';
+import { Coordinates } from './routingService';
 
 interface MapsSidebarProps {
   routing: RoutingState & {
     setStartInput: (value: string) => void;
     setEndInput: (value: string) => void;
+    setStartCoords: (coords: Coordinates | null) => void;
+    setEndCoords: (coords: Coordinates | null) => void;
     calculateRoute: () => void;
     calculateAlternative: () => void;
     toggleAlternative: () => void;
@@ -30,14 +33,16 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
     isAnalyzing,
     setStartInput,
     setEndInput,
+    setStartCoords,
+    setEndCoords,
     calculateRoute,
     calculateAlternative,
     toggleAlternative,
     clearRoute,
   } = routing;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isLoading) {
+  const handleCalculateRoute = () => {
+    if (!isLoading) {
       calculateRoute();
     }
   };
@@ -64,32 +69,26 @@ const MapsSidebar = ({ routing }: MapsSidebarProps) => {
           Planowanie trasy
         </Label>
         
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-green-500/20" />
-          <Input 
-            placeholder="Skąd? (adres lub współrzędne)" 
-            className="pl-9 bg-background" 
-            value={startInput}
-            onChange={(e) => setStartInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-          />
-        </div>
+        <AddressAutocompleteInput
+          value={startInput}
+          onChange={setStartInput}
+          onLocationSelect={(loc) => setStartCoords({ lat: loc.lat, lng: loc.lng })}
+          placeholder="Skąd? (adres lub współrzędne)"
+          markerColor="green"
+          disabled={isLoading}
+        />
         
         {/* Connecting line */}
         <div className="ml-[18px] h-3 border-l-2 border-dashed border-muted-foreground/30" />
         
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-red-500/20" />
-          <Input 
-            placeholder="Dokąd? (adres lub współrzędne)" 
-            className="pl-9 bg-background" 
-            value={endInput}
-            onChange={(e) => setEndInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-          />
-        </div>
+        <AddressAutocompleteInput
+          value={endInput}
+          onChange={setEndInput}
+          onLocationSelect={(loc) => setEndCoords({ lat: loc.lat, lng: loc.lng })}
+          placeholder="Dokąd? (adres lub współrzędne)"
+          markerColor="red"
+          disabled={isLoading}
+        />
 
         {error && (
           <p className="text-xs text-destructive">{error}</p>
