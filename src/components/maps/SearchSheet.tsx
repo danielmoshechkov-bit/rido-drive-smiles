@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, X, Sparkles, Clock, Trash2 } from 'lucide-react';
+import { Search, X, Clock, Trash2 } from 'lucide-react';
 import CategoryGrid, { POICategory } from './CategoryGrid';
 import { AddressSuggestion } from './autocompleteService';
 import { addressHistoryService, HistoryEntry } from './addressHistoryService';
@@ -115,9 +115,14 @@ const SearchSheet = ({
               )}
             </div>
 
-            {/* AI Button */}
-            <button className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shrink-0">
-              <Sparkles className="h-5 w-5" />
+            {/* Premium AI Button */}
+            <button className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-xl shadow-violet-500/25 shrink-0 hover:scale-105 active:scale-95 transition-all duration-200 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <svg viewBox="0 0 24 24" width={20} height={20} className="drop-shadow-sm relative z-10">
+                <path d="M12 3L14.5 8.5L20 9L16 13.5L17.5 19L12 16L6.5 19L8 13.5L4 9L9.5 8.5L12 3Z" fill="white"/>
+                <path d="M7 2L8 4L10 5L8 6L7 8L6 6L4 5L6 4L7 2Z" fill="white" opacity="0.8"/>
+                <path d="M19 14L20 16L22 17L20 18L19 20L18 18L16 17L18 16L19 14Z" fill="white" opacity="0.8"/>
+              </svg>
             </button>
 
             {/* Close */}
