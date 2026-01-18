@@ -93,7 +93,16 @@ const MapsLayout = () => {
       <div className="flex flex-1 h-full overflow-hidden">
         <MapsSidebar routing={routing} gps={gps} navigation={navigation} />
         <MapsContainer routing={routing} gps={gps} navigation={navigation} />
-        <MapsInfoPanel gps={gps} />
+        <MapsInfoPanel 
+          gps={gps} 
+          routing={{
+            route: routing.route,
+            aiAnalysis: routing.aiAnalysis,
+            incidents: [],
+            incidentsLoading: false,
+            onRefreshIncidents: () => {},
+          }}
+        />
       </div>
     </>
   );
