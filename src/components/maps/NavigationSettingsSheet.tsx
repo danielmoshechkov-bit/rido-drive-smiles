@@ -1,10 +1,10 @@
-// GetRido Maps - Navigation Settings Sheet (Yandex-style)
+// GetRido Maps - Navigation Settings Sheet (Yandex/Google/Apple style)
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { useNavigationSettings, NavigationSettings } from './useNavigationSettings';
-import { Volume2, VolumeX, Bell, Car, Navigation2, Sun, Moon, Monitor } from 'lucide-react';
+import { useNavigationSettings, NavigationSettings, EtaDisplayMode, GpsUpdateMode } from './useNavigationSettings';
+import { Volume2, VolumeX, Bell, Car, Navigation2, Sun, Moon, Monitor, Compass, ZoomIn, Clock, Camera, Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavigationSettingsSheetProps {
@@ -137,7 +137,7 @@ export function NavigationSettingsSheet({ open, onClose }: NavigationSettingsShe
             />
             <ToggleRow
               label="Pokaż limit prędkości"
-              description="Wyświetlaj dozwolonę prędkość na drodze"
+              description="Wyświetlaj dozwoloną prędkość na drodze"
               checked={settings.show_speed_limit}
               onCheckedChange={(checked) => updateSettings({ show_speed_limit: checked })}
             />
@@ -147,6 +147,87 @@ export function NavigationSettingsSheet({ open, onClose }: NavigationSettingsShe
               checked={settings.show_lane_guidance}
               onCheckedChange={(checked) => updateSettings({ show_lane_guidance: checked })}
             />
+          </div>
+
+          <Separator />
+
+          {/* NEW GPS OPTIONS - like Yandex/Google/Apple */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Opcje GPS
+            </Label>
+            <div className="space-y-4">
+              <ToggleRow
+                label="Auto-zoom podczas jazdy"
+                description="Zoom dopasowany do prędkości"
+                checked={settings.auto_zoom ?? true}
+                onCheckedChange={(checked) => updateSettings({ auto_zoom: checked })}
+              />
+              <ToggleRow
+                label="Północ zawsze na górze"
+                description="Wyłącza obrót mapy (jak kompas)"
+                checked={settings.north_up ?? false}
+                onCheckedChange={(checked) => updateSettings({ north_up: checked })}
+              />
+              <ToggleRow
+                label="Ostrzeżenia o fotoradarach"
+                description="Alertuje o kamerach na trasie"
+                checked={settings.speed_camera_alerts ?? true}
+                onCheckedChange={(checked) => updateSettings({ speed_camera_alerts: checked })}
+              />
+            </div>
+          </div>
+
+          {/* ETA DISPLAY MODE */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Wyświetlanie czasu
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <OptionButton
+                active={(settings.eta_display ?? 'remaining') === 'remaining'}
+                onClick={() => updateSettings({ eta_display: 'remaining' })}
+                icon={<Clock className="w-5 h-5" />}
+                label="Pozostały"
+              />
+              <OptionButton
+                active={settings.eta_display === 'arrival'}
+                onClick={() => updateSettings({ eta_display: 'arrival' })}
+                icon={<Clock className="w-5 h-5" />}
+                label="Przyjazd"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {(settings.eta_display ?? 'remaining') === 'remaining' 
+                ? 'Pokazuje ile czasu zostało do celu'
+                : 'Pokazuje godzinę przyjazdu'}
+            </p>
+          </div>
+
+          {/* GPS UPDATE FREQUENCY */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Częstotliwość GPS
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <OptionButton
+                active={(settings.gps_mode ?? 'aggressive') === 'normal'}
+                onClick={() => updateSettings({ gps_mode: 'normal' })}
+                icon={<Gauge className="w-5 h-5" />}
+                label="Standardowa"
+              />
+              <OptionButton
+                active={(settings.gps_mode ?? 'aggressive') === 'aggressive'}
+                onClick={() => updateSettings({ gps_mode: 'aggressive' })}
+                icon={<Gauge className="w-5 h-5" />}
+                label="Agresywna"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {(settings.gps_mode ?? 'aggressive') === 'normal'
+                ? 'Oszczędza baterię (odświeżanie co 2-3s)'
+                : 'Najlepsza dokładność (odświeżanie co 0.5-1s)'}
+            </p>
           </div>
 
           <Separator />
