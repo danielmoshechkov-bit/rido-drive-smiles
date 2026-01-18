@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import Map, { Marker, NavigationControl, ScaleControl, Source, Layer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Car, Navigation, Route, Construction, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { Incident } from './incidentsService';
 import { useMapsConfig } from '@/hooks/useMapsConfig';
 import NavigationPanel from './NavigationPanel';
 import SpeedHUD from './SpeedHUD';
-import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT } from './ridoMapTheme';
+import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT, getSavedTheme } from './ridoMapTheme';
 
 // ═══════════════════════════════════════════════════════════════
 // RIDO Premium Markers - Minimalist, Geometric, Brand-Aligned
@@ -169,10 +169,62 @@ const MapsContainer = ({
   isEstimatedLimit = false,
   showSpeedLimit = true,
 }: MapsContainerProps) => {
+  const mapRef = useRef<MapRef>(null);
   const { config, isLoading: configLoading } = useMapsConfig();
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE);
   const { route, alternativeRoute, showAlternative, startCoords, endCoords } = routing;
   const { location, status, centerRequested, clearCenterRequest, hasConsent } = gps;
+  const [currentTheme] = useState<RidoMapTheme>(() => getSavedTheme());
+
+  // Apply GetRido style overrides after map loads
+  const applyRidoStyleOverrides = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    
+    try {
+      const isDark = currentTheme === 'dark';
+      
+      // Background - subtle violet tint
+      if (map.getLayer('background')) {
+        map.setPaintProperty('background', 'background-color', 
+          isDark ? '#0f0a1a' : '#F9F7FF');
+      }
+      
+      // Water layers - calm blue
+      ['water', 'waterway', 'water-outline'].forEach(layerId => {
+        if (map.getLayer(layerId)) {
+          try {
+            map.setPaintProperty(layerId, 'fill-color', 
+              isDark ? '#0A1525' : '#C5D8F0');
+          } catch {}
+        }
+      });
+      
+      // Building layers - gray with violet tint
+      ['building', 'building-top', 'building-outline'].forEach(layerId => {
+        if (map.getLayer(layerId)) {
+          try {
+            map.setPaintProperty(layerId, 'fill-color', 
+              isDark ? '#1F1A30' : '#E8E4F0');
+          } catch {}
+        }
+      });
+      
+      // Park/green areas
+      ['landuse_park', 'park', 'landuse-park', 'landcover_grass', 'landcover-grass'].forEach(layerId => {
+        if (map.getLayer(layerId)) {
+          try {
+            map.setPaintProperty(layerId, 'fill-color', 
+              isDark ? '#1A2E1A' : '#D4E8D4');
+          } catch {}
+        }
+      });
+      
+      console.log('[Maps] Applied GetRido style overrides');
+    } catch (e) {
+      console.warn('[Maps] Cannot apply style overrides:', e);
+    }
+  }, [currentTheme]);
 
   const handleMove = useCallback((evt: { viewState: typeof DEFAULT_VIEW_STATE }) => {
     // Don't update viewState during follow mode
@@ -244,8 +296,10 @@ const MapsContainer = ({
       {/* Navigation Panel - ONLY on desktop (mobile uses MobileNavigationBar) */}
       {navigation.isNavigating && !isMobile && <NavigationPanel navigation={navigation} gps={gps} />}
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={handleMove}
+        onLoad={applyRidoStyleOverrides}
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         attributionControl={false}

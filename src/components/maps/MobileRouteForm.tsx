@@ -90,6 +90,16 @@ const MobileRouteForm = ({
 
   return (
     <div className="space-y-5">
+      {/* Trip Mode Selector - always visible at top */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tryb podróży</Label>
+        <TripModeSelector 
+          selected={tripMode} 
+          onChange={handleTripModeChange}
+          disabled={isLoading || navigation.isNavigating}
+        />
+      </div>
+
       {/* Route Search */}
       <div className="space-y-3">
         {/* GPS indicator when start is empty */}
@@ -117,7 +127,11 @@ const MobileRouteForm = ({
         <AddressAutocompleteInput
           value={endInput}
           onChange={setEndInput}
-          onLocationSelect={(loc) => setEndCoords({ lat: loc.lat, lng: loc.lng })}
+          onLocationSelect={(loc) => {
+            setEndCoords({ lat: loc.lat, lng: loc.lng });
+            // Auto-calculate route after selecting destination
+            setTimeout(() => calculateRoute(), 100);
+          }}
           placeholder="Dokąd? (adres lub współrzędne)"
           markerColor="red"
           disabled={isLoading || navigation.isNavigating}
@@ -187,17 +201,7 @@ const MobileRouteForm = ({
 
       {/* Route Info - Premium Cards */}
       {route && (
-        <div className="space-y-4 pt-3 border-t">
-          {/* Trip Mode Selector */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tryb podróży</Label>
-            <TripModeSelector 
-              selected={tripMode} 
-              onChange={handleTripModeChange}
-              disabled={isLoading || navigation.isNavigating}
-            />
-          </div>
-          
+        <div className="space-y-4 pt-3 border-t">          
           {/* Distance/Duration cards */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl text-center">
