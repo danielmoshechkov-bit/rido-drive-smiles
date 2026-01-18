@@ -230,9 +230,15 @@ const MobileStatusTab = ({
           {incidents.length > 0 ? (
             <div className="space-y-2">
               {incidents.slice(0, 5).map(incident => (
-                <div key={incident.id} className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <Construction className="h-4 w-4 text-amber-600" />
+                <div key={incident.id} className="rido-incident-card p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center gap-3">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    incident.type === 'closure' ? 'bg-red-500/20' : 'bg-amber-500/20'
+                  }`}>
+                    {incident.type === 'closure' ? (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Construction className="h-4 w-4 text-amber-600" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{incident.title}</p>

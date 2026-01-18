@@ -301,6 +301,64 @@ a.button,
   box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.08);
 }
 
+/* Navigation Panel - Premium glassmorphism */
+.rido-nav-panel {
+  background: hsl(var(--background) / 0.92);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid hsl(var(--border) / 0.6);
+  box-shadow: 
+    0 8px 32px -8px rgb(0 0 0 / 0.15),
+    0 0 0 1px hsl(259 65% 58% / 0.08);
+  border-radius: 16px;
+}
+
+/* FAB buttons - premium floating */
+.rido-fab {
+  background: hsl(var(--background) / 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rido-fab:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.rido-fab:hover:not(:disabled) {
+  box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.18);
+}
+
+/* Incidents card hover effect */
+.rido-incident-card {
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.rido-incident-card:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Route stat cards - premium gradient */
+.rido-stat-card {
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.5), hsl(var(--muted) / 0.3));
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 12px;
+}
+
+/* Risk level indicators - subtle animation */
+@keyframes rido-risk-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.rido-risk-indicator {
+  animation: rido-risk-pulse 2s ease-in-out infinite;
+}
+
+.rido-risk-indicator-high {
+  animation: rido-risk-pulse 1.2s ease-in-out infinite;
+}
+
 /* ============================================
    MapLibre GL - GetRido Custom Styles
    ============================================ */

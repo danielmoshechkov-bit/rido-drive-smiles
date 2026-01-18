@@ -34,12 +34,12 @@ const NavigationPanel = ({ navigation, gps }: NavigationPanelProps) => {
     : null;
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-card/95 backdrop-blur-md border rounded-2xl shadow-xl p-4 min-w-80 max-w-md">
+    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rido-nav-panel p-4 min-w-80 max-w-md">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-green-500/20 rounded-lg">
-            <Navigation className="h-5 w-5 text-green-600 animate-pulse" />
+          <div className="p-1.5 bg-green-500/15 rounded-xl">
+            <Navigation className="h-5 w-5 text-green-600" />
           </div>
           <div>
             <span className="font-bold text-lg">Nawigacja</span>
@@ -56,31 +56,31 @@ const NavigationPanel = ({ navigation, gps }: NavigationPanelProps) => {
         </Button>
       </div>
 
-      {/* Main stats */}
+      {/* Main stats - Premium cards */}
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <div className="text-center p-3 bg-muted/50 rounded-xl">
+        <div className="text-center p-3 rido-stat-card">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <Target className="h-3 w-3 text-muted-foreground" />
+            <Target className="h-3 w-3 text-primary/60" />
           </div>
           <p className="text-xs text-muted-foreground">Dystans</p>
-          <p className="font-bold text-xl">{remainingDistance.toFixed(1)}</p>
-          <p className="text-xs text-muted-foreground">km</p>
+          <p className="font-bold text-2xl text-foreground">{remainingDistance.toFixed(1)}</p>
+          <p className="text-[10px] text-muted-foreground">km</p>
         </div>
-        <div className="text-center p-3 bg-muted/50 rounded-xl">
+        <div className="text-center p-3 rido-stat-card">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <Clock className="h-3 w-3 text-muted-foreground" />
+            <Clock className="h-3 w-3 text-primary/60" />
           </div>
           <p className="text-xs text-muted-foreground">Czas</p>
-          <p className="font-bold text-xl">{Math.round(remainingDuration)}</p>
-          <p className="text-xs text-muted-foreground">min</p>
+          <p className="font-bold text-2xl text-foreground">{Math.round(remainingDuration)}</p>
+          <p className="text-[10px] text-muted-foreground">min</p>
         </div>
-        <div className="text-center p-3 bg-muted/50 rounded-xl">
+        <div className="text-center p-3 rido-stat-card bg-primary/5 border-primary/20">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <Gauge className="h-3 w-3 text-muted-foreground" />
+            <Gauge className="h-3 w-3 text-primary" />
           </div>
           <p className="text-xs text-muted-foreground">Prędkość</p>
-          <p className="font-bold text-xl">{speedKmh ?? '—'}</p>
-          <p className="text-xs text-muted-foreground">km/h</p>
+          <p className="font-bold text-2xl text-primary">{speedKmh ?? '—'}</p>
+          <p className="text-[10px] text-muted-foreground">km/h</p>
         </div>
       </div>
 

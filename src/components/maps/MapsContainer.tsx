@@ -3,7 +3,7 @@ import Map, { Marker, NavigationControl, ScaleControl, Source, Layer } from 'rea
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Car, Navigation, Route, Construction, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { DEFAULT_VIEW_STATE, MAP_STYLE, RIDO_COLORS } from './mapStyles';
+import { DEFAULT_VIEW_STATE, getPreferredMapStyle, RIDO_COLORS } from './mapStyles';
 import { RoutingState } from './useRouting';
 import { GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
@@ -112,7 +112,7 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
 
   const routeGeoJSON = route ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: route.coordinates } } : null;
   const alternativeGeoJSON = showAlternative && alternativeRoute ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: alternativeRoute.coordinates } } : null;
-  const mapStyle = config.styleUrl || MAP_STYLE;
+  const mapStyle = config.styleUrl || getPreferredMapStyle();
 
   return (
     <div className="relative flex-1 h-full overflow-hidden">
@@ -141,12 +141,12 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
         {/* Main Route - RIDO Premium Violet with glow */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            {/* Outer glow */}
-            <Layer id="route-glow" type="line" paint={{ 'line-color': RIDO_COLORS.routeGlow, 'line-width': 14, 'line-opacity': 0.12, 'line-blur': 3 }} />
+            {/* Outer glow - subtle */}
+            <Layer id="route-glow" type="line" paint={{ 'line-color': RIDO_COLORS.routeGlow, 'line-width': 12, 'line-opacity': 0.08, 'line-blur': 2 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
             {/* Outline */}
-            <Layer id="route-outline" type="line" paint={{ 'line-color': RIDO_COLORS.routeOutline, 'line-width': 8, 'line-opacity': 0.35 }} />
+            <Layer id="route-outline" type="line" paint={{ 'line-color': RIDO_COLORS.routeOutline, 'line-width': 8, 'line-opacity': 0.3 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
             {/* Main line */}
-            <Layer id="route-line" type="line" paint={{ 'line-color': RIDO_COLORS.routePrimary, 'line-width': 5, 'line-opacity': 1 }} />
+            <Layer id="route-line" type="line" paint={{ 'line-color': RIDO_COLORS.routePrimary, 'line-width': 5, 'line-opacity': 1 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
           </Source>
         )}
         
@@ -159,8 +159,8 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
           <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
               <div className="relative">
-                {/* Gold pulse ring */}
-                <div className="absolute -inset-1.5 rounded-full border-2 border-amber-400/40 animate-ping" />
+                {/* Gold accent ring - subtle pulse, not ping */}
+                <div className="absolute -inset-1.5 rounded-full border-2 border-amber-400/30 animate-pulse" />
                 {/* Main marker - violet gradient + gold border */}
                 <div 
                   className="h-11 w-11 rounded-full border-[3px] shadow-lg flex items-center justify-center"
@@ -250,10 +250,10 @@ const MapsContainer = ({ routing, gps, navigation, incidents = [], showIncidents
                   borderColor: `${RIDO_COLORS.markerGold}30`
                 }} 
               />
-              {/* Gold pulse ring */}
+              {/* Gold pulse ring - subtle, not ping */}
               <div 
-                className="absolute h-9 w-9 rounded-full border-2 animate-ping"
-                style={{ borderColor: `${RIDO_COLORS.markerGold}40` }}
+                className="absolute h-9 w-9 rounded-full border-2 animate-pulse"
+                style={{ borderColor: `${RIDO_COLORS.markerGold}50` }}
               />
               {/* Main dot - violet with mascot face */}
               <div 

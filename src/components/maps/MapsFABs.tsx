@@ -40,9 +40,8 @@ const MapsFABs = ({ gps, navigation }: MapsFABsProps) => {
       <button
         onClick={handleCenterOnMe}
         disabled={!gps.hasConsent || !gps.location}
-        className="h-12 w-12 rounded-full bg-card shadow-lg border 
-                   flex items-center justify-center
-                   disabled:opacity-50 active:scale-95 transition-transform"
+        className="rido-fab h-12 w-12 rounded-full flex items-center justify-center
+                   disabled:opacity-50"
         aria-label="Centruj na mnie"
       >
         <Locate className="h-5 w-5 text-primary" />
@@ -50,25 +49,25 @@ const MapsFABs = ({ gps, navigation }: MapsFABsProps) => {
       
       {/* Layers (placeholder for future) */}
       <button
-        className="h-12 w-12 rounded-full bg-card shadow-lg border 
-                   flex items-center justify-center
-                   active:scale-95 transition-transform opacity-50"
-        aria-label="Warstwy"
+        className="rido-fab h-12 w-12 rounded-full flex items-center justify-center
+                   opacity-50 cursor-not-allowed"
+        aria-label="Warstwy (wkrótce)"
         disabled
+        title="Wkrótce"
       >
-        <Layers className="h-5 w-5" />
+        <Layers className="h-5 w-5 text-muted-foreground" />
       </button>
       
       {/* Fleet Live (only if driver/fleet/admin) */}
       {hasFleetAccess && (
         <button
-          className="h-12 w-12 rounded-full bg-card shadow-lg border 
-                     flex items-center justify-center
-                     active:scale-95 transition-transform opacity-50"
-          aria-label="Fleet Live"
+          className="rido-fab h-12 w-12 rounded-full flex items-center justify-center
+                     opacity-50 cursor-not-allowed"
+          aria-label="Fleet Live (wkrótce)"
           disabled
+          title="Wkrótce"
         >
-          <Truck className="h-5 w-5" />
+          <Truck className="h-5 w-5 text-muted-foreground" />
         </button>
       )}
     </div>
