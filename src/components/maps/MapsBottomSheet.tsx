@@ -138,13 +138,6 @@ const MapsBottomSheet = ({
             </div>
           )}
         </div>
-        
-        {/* Subtle OSM attribution */}
-        <div className="px-4 pb-2">
-          <p className="text-[9px] text-muted-foreground/50 text-center">
-            © OpenStreetMap · OSRM
-          </p>
-        </div>
       </div>
       
       {/* Expanded sheet */}

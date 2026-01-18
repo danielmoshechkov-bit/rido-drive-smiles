@@ -13,102 +13,125 @@ import NavigationPanel from './NavigationPanel';
 import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, RIDO_MAP_PAINT } from './ridoMapTheme';
 
 // ═══════════════════════════════════════════════════════════════
-// RIDO Mascot - Enhanced Inline SVG with Speech Bubble
+// RIDO Premium Markers - Minimalist, Geometric, Brand-Aligned
 // ═══════════════════════════════════════════════════════════════
-interface RidoMascotProps {
-  size?: number;
-  className?: string;
-  showSpeech?: boolean;
-  speechText?: string;
-}
 
-const RidoMascotMarker = ({ size = 32, className = "", showSpeech = false, speechText = '' }: RidoMascotProps) => (
-  <div className="relative flex flex-col items-center">
-    {/* Speech bubble - ludek mówi */}
-    {showSpeech && speechText && (
-      <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl shadow-lg text-[11px] whitespace-nowrap border border-primary/20 z-20 animate-in fade-in slide-in-from-bottom-2">
-        <span>{speechText}</span>
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2.5 h-2.5 bg-white dark:bg-gray-800 border-b border-r border-primary/20 rotate-45" />
-      </div>
-    )}
-    {/* Mascot SVG - rozbudowany RIDO brand */}
-    <svg viewBox="0 0 32 32" width={size} height={size} className={`drop-shadow-lg ${className}`}>
-      {/* Glow ring */}
-      <circle cx="16" cy="16" r="15" fill="url(#mascotGlow)" />
-      {/* Main head - white fill with brand border */}
-      <circle cx="16" cy="16" r="12" fill="white" stroke={RIDO_THEME_COLORS.violetPrimary} strokeWidth="2" />
-      {/* Ears/horns - violet brand */}
-      <path d="M4 5 L8 12 L5 10 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
-      <path d="M28 5 L24 12 L27 10 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
-      {/* Eyes - gold accent */}
-      <circle cx="11" cy="14" r="2.5" fill={RIDO_THEME_COLORS.goldAccent} />
-      <circle cx="21" cy="14" r="2.5" fill={RIDO_THEME_COLORS.goldAccent} />
-      {/* Pupils */}
-      <circle cx="11" cy="14" r="1" fill={RIDO_THEME_COLORS.violetDark} />
-      <circle cx="21" cy="14" r="1" fill={RIDO_THEME_COLORS.violetDark} />
-      {/* Smile - gold */}
-      <path d="M10 20 Q16 25 22 20" stroke={RIDO_THEME_COLORS.goldAccent} strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* Gradient defs */}
-      <defs>
-        <radialGradient id="mascotGlow">
-          <stop offset="50%" stopColor="transparent" />
-          <stop offset="100%" stopColor={RIDO_THEME_COLORS.violetSoft} stopOpacity="0.2" />
-        </radialGradient>
-      </defs>
-    </svg>
-  </div>
+// Premium START Pin - Elegant geometric violet diamond with gold accent
+const RidoStartPin = ({ size = 48 }: { size?: number }) => (
+  <svg viewBox="0 0 48 58" width={size} height={size * 1.2} className="drop-shadow-xl">
+    <defs>
+      <linearGradient id="startPinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor={RIDO_THEME_COLORS.violetSoft} />
+        <stop offset="100%" stopColor={RIDO_THEME_COLORS.violetPrimary} />
+      </linearGradient>
+      <filter id="startGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+    {/* Pin body */}
+    <path 
+      d="M24 4 C12 4 4 14 4 24 C4 36 24 54 24 54 C24 54 44 36 44 24 C44 14 36 4 24 4 Z"
+      fill="url(#startPinGrad)"
+      stroke={RIDO_THEME_COLORS.goldAccent}
+      strokeWidth="3"
+      filter="url(#startGlow)"
+    />
+    {/* Inner circle */}
+    <circle cx="24" cy="22" r="12" fill="white" opacity="0.95" />
+    {/* Navigation arrow inside */}
+    <path 
+      d="M24 14 L30 26 L24 23 L18 26 Z"
+      fill={RIDO_THEME_COLORS.violetPrimary}
+    />
+    {/* Central dot */}
+    <circle cx="24" cy="22" r="3" fill={RIDO_THEME_COLORS.goldAccent} />
+  </svg>
 );
 
-// Compact mascot for small markers
-const RidoMascotSVG = ({ size = 24 }: { size?: number }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none">
-    <circle cx="12" cy="12" r="9" fill="white" />
-    <circle cx="8.5" cy="10" r="1.8" fill={RIDO_THEME_COLORS.goldAccent} />
-    <circle cx="15.5" cy="10" r="1.8" fill={RIDO_THEME_COLORS.goldAccent} />
-    <circle cx="8.5" cy="10" r="0.6" fill={RIDO_THEME_COLORS.violetDark} />
-    <circle cx="15.5" cy="10" r="0.6" fill={RIDO_THEME_COLORS.violetDark} />
-    <path d="M7 14 Q12 18 17 14" stroke={RIDO_THEME_COLORS.goldAccent} strokeWidth="1.5" fill="none" strokeLinecap="round" />
-    <path d="M4 4 L7.5 9.5 L5 8 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
-    <path d="M20 4 L16.5 9.5 L19 8 Z" fill={RIDO_THEME_COLORS.violetPrimary} />
+// Premium CEL Pin - Gold gradient with navigation icon
+const RidoCelPin = ({ size = 44 }: { size?: number }) => (
+  <svg viewBox="0 0 44 54" width={size} height={size * 1.23} className="drop-shadow-xl">
+    <defs>
+      <linearGradient id="celPinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor={RIDO_THEME_COLORS.goldSoft} />
+        <stop offset="100%" stopColor={RIDO_THEME_COLORS.goldDark} />
+      </linearGradient>
+      <filter id="celGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+    {/* Pin body */}
+    <path 
+      d="M22 4 C11 4 4 13 4 22 C4 33 22 50 22 50 C22 50 40 33 40 22 C40 13 33 4 22 4 Z"
+      fill="url(#celPinGrad)"
+      stroke="white"
+      strokeWidth="2.5"
+      filter="url(#celGlow)"
+    />
+    {/* Target icon inside */}
+    <circle cx="22" cy="20" r="9" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
+    <circle cx="22" cy="20" r="4" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
+    <circle cx="22" cy="20" r="1.5" fill="white" />
   </svg>
 );
 
 // ═══════════════════════════════════════════════════════════════
-// Custom RIDO User Arrow (replaces default)
+// RIDO Premium User Arrow - Minimalist Navigation Style
 // ═══════════════════════════════════════════════════════════════
 const RidoUserArrow = ({ heading, accuracy }: { heading: number | null; accuracy: number }) => (
   <div className="relative flex items-center justify-center">
-    {/* Accuracy ring - gold tinted */}
+    {/* Accuracy ring - subtle gold tint */}
     <div 
-      className="absolute rounded-full animate-pulse"
+      className="absolute rounded-full"
       style={{ 
-        width: Math.min(Math.max(accuracy * 0.5, 28), 100), 
-        height: Math.min(Math.max(accuracy * 0.5, 28), 100),
-        background: `radial-gradient(circle, ${RIDO_THEME_COLORS.goldSoft}15, transparent 70%)`,
-        border: `1px solid ${RIDO_THEME_COLORS.goldAccent}20`,
+        width: Math.min(Math.max(accuracy * 0.4, 32), 80), 
+        height: Math.min(Math.max(accuracy * 0.4, 32), 80),
+        background: `radial-gradient(circle, ${RIDO_THEME_COLORS.violetSoft}12, transparent 70%)`,
+        border: `1px solid ${RIDO_THEME_COLORS.violetPrimary}15`,
       }} 
     />
     {/* Outer pulse ring */}
     <div 
-      className="absolute h-10 w-10 rounded-full border-2 animate-pulse"
-      style={{ borderColor: `${RIDO_THEME_COLORS.goldAccent}40` }}
+      className="absolute h-12 w-12 rounded-full border-2 animate-pulse"
+      style={{ borderColor: `${RIDO_THEME_COLORS.goldAccent}35` }}
     />
-    {/* Main arrow body */}
+    {/* Main arrow */}
     <div 
-      className="relative z-10"
+      className="relative z-10 transition-transform duration-200"
       style={{ transform: heading !== null ? `rotate(${heading}deg)` : undefined }}
     >
-      <svg viewBox="0 0 40 40" width="36" height="36" className="drop-shadow-lg">
-        {/* Arrow shape - violet with gold stroke */}
+      <svg viewBox="0 0 40 40" width={40} height={40} className="drop-shadow-lg">
+        <defs>
+          <linearGradient id="userArrowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={RIDO_THEME_COLORS.violetSoft} />
+            <stop offset="100%" stopColor={RIDO_THEME_COLORS.violetPrimary} />
+          </linearGradient>
+        </defs>
+        {/* Arrow shape - premium gradient */}
         <path 
-          d="M20 4 L30 32 L20 26 L10 32 Z" 
-          fill={RIDO_THEME_COLORS.violetPrimary}
+          d="M20 6 L32 34 L20 27 L8 34 Z" 
+          fill="url(#userArrowGrad)"
           stroke={RIDO_THEME_COLORS.goldAccent}
           strokeWidth="2"
           strokeLinejoin="round"
         />
-        {/* Center dot - gold accent */}
-        <circle cx="20" cy="20" r="4" fill={RIDO_THEME_COLORS.goldAccent} />
+        {/* Inner highlight */}
+        <path 
+          d="M20 12 L26 28 L20 24 L14 28 Z" 
+          fill="white"
+          opacity="0.25"
+        />
+        {/* Center dot */}
+        <circle cx="20" cy="22" r="3.5" fill={RIDO_THEME_COLORS.goldAccent} />
+        <circle cx="20" cy="22" r="1.5" fill="white" />
       </svg>
     </div>
   </div>
@@ -210,9 +233,8 @@ const MapsContainer = ({
 
   return (
     <div className="relative flex-1 h-full overflow-hidden">
-      {/* Navigation Panel */}
-      {navigation.isNavigating && <NavigationPanel navigation={navigation} gps={gps} />}
-
+      {/* Navigation Panel - ONLY on desktop (mobile uses MobileNavigationBar) */}
+      {navigation.isNavigating && !isMobile && <NavigationPanel navigation={navigation} gps={gps} />}
       <Map
         {...viewState}
         onMove={handleMove}
@@ -248,27 +270,13 @@ const MapsContainer = ({
             RIDO Premium Markers - Violet + Gold Brand Identity
             ═══════════════════════════════════════════════════════════════ */}
         
-        {/* START Marker - Mascot with speech bubble */}
+        {/* START Marker - Premium geometric pin */}
         {startCoords && (
           <Marker longitude={startCoords.lng} latitude={startCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-              <div className="relative">
-                {/* Gold accent ring - subtle pulse */}
-                <div className="absolute -inset-2 rounded-full border-2 animate-pulse" style={{ borderColor: `${RIDO_THEME_COLORS.goldAccent}30` }} />
-                {/* Main marker - violet gradient + gold border */}
-                <div 
-                  className="h-12 w-12 rounded-full border-[3px] shadow-lg flex items-center justify-center"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.violetSoft}, ${RIDO_THEME_COLORS.violetPrimary})`,
-                    borderColor: RIDO_THEME_COLORS.goldAccent,
-                    boxShadow: `0 4px 12px -2px ${RIDO_THEME_COLORS.violetPrimary}40`
-                  }}
-                >
-                  <RidoMascotMarker size={38} showSpeech={!!mascotMessage && !navigation.isNavigating} speechText={mascotMessage} />
-                </div>
-              </div>
+              <RidoStartPin size={44} />
               <div 
-                className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-lg mt-1.5"
+                className="text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg -mt-1"
                 style={{ 
                   background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.violetSoft}, ${RIDO_THEME_COLORS.violetPrimary})`,
                   boxShadow: `0 2px 8px -2px ${RIDO_THEME_COLORS.violetPrimary}50`
@@ -280,21 +288,13 @@ const MapsContainer = ({
           </Marker>
         )}
         
-        {/* CEL (Destination) Marker - Gold gradient */}
+        {/* CEL (Destination) Marker - Premium gold pin */}
         {endCoords && (
           <Marker longitude={endCoords.lng} latitude={endCoords.lat} anchor="bottom">
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+              <RidoCelPin size={40} />
               <div 
-                className="h-11 w-11 rounded-full border-[3px] border-white shadow-lg flex items-center justify-center"
-                style={{ 
-                  background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.goldSoft}, ${RIDO_THEME_COLORS.goldDark})`,
-                  boxShadow: `0 4px 12px -2px ${RIDO_THEME_COLORS.goldAccent}50`
-                }}
-              >
-                <Navigation className="h-5 w-5 text-white drop-shadow-sm" />
-              </div>
-              <div 
-                className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-lg mt-1.5"
+                className="text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg -mt-1"
                 style={{ 
                   background: `linear-gradient(135deg, ${RIDO_THEME_COLORS.goldAccent}, ${RIDO_THEME_COLORS.goldDark})`,
                   boxShadow: `0 2px 8px -2px ${RIDO_THEME_COLORS.goldAccent}50`
