@@ -30,7 +30,6 @@ const FleetLiveMap = () => {
   const [showOnlyDriving, setShowOnlyDriving] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [hasPermission, setHasPermission] = useState(true);
-  const [hasPermission, setHasPermission] = useState(true);
 
   // Load saved view state from localStorage
   const [savedViewState] = useState<SavedViewState | null>(() => {
