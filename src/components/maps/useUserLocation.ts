@@ -151,17 +151,21 @@ export function useUserLocation(): GpsState {
     setError(null);
 
     // GPS options based on mode - more aggressive for navigation
+    // 'aggressive' = ~500ms updates, 'normal' = ~2-3s updates
     const options: PositionOptions = mode === 'navigation' 
       ? {
           enableHighAccuracy: true,
-          timeout: 6000,
+          timeout: 4000,
           maximumAge: 0, // Always fresh position for navigation
         }
       : {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 3000, // Normal mode
+          maximumAge: 3000, // Normal mode - saves battery
         };
+
+    // Fallback interval based on mode
+    const FALLBACK_INTERVAL = mode === 'navigation' ? 1000 : 2500;
 
     const handlePosition = (position: GeolocationPosition) => {
       let newLocation: UserLocation = {
@@ -230,15 +234,15 @@ export function useUserLocation(): GpsState {
       options
     );
 
-    // Fallback interval for navigation mode - more aggressive polling (1.5s)
+    // Fallback interval for navigation mode - uses FALLBACK_INTERVAL constant
     if (mode === 'navigation') {
       fallbackIntervalRef.current = window.setInterval(() => {
         const timeSinceUpdate = Date.now() - lastUpdateRef.current;
-        if (timeSinceUpdate > 1500) {
+        if (timeSinceUpdate > FALLBACK_INTERVAL) {
           console.log('[GPS] Fallback: requesting current position');
           navigator.geolocation.getCurrentPosition(handlePosition, handleError, options);
         }
-      }, 1500);
+      }, FALLBACK_INTERVAL);
     }
   }, [mode]);
 

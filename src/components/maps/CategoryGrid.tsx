@@ -32,24 +32,25 @@ export interface POICategory {
   query: string;
 }
 
+// Apple Maps style - flat solid colors with rounded corners
 export const POI_CATEGORIES: POICategory[] = [
-  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-gradient-to-br from-orange-400 to-orange-600', query: 'restaurant' },
-  { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: 'bg-gradient-to-br from-blue-400 to-blue-600', query: 'supermarket grocery' },
-  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-gradient-to-br from-green-400 to-green-600', query: 'pharmacy' },
-  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-gradient-to-br from-pink-400 to-pink-600', query: 'beauty salon spa' },
-  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-gradient-to-br from-emerald-400 to-emerald-600', query: 'atm bank' },
-  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-gradient-to-br from-amber-400 to-amber-600', query: 'gas station fuel' },
-  { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: 'bg-gradient-to-br from-red-400 to-red-600', query: 'hospital clinic' },
-  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-gradient-to-br from-indigo-400 to-indigo-600', query: 'hotel hostel' },
-  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-gradient-to-br from-cyan-400 to-cyan-600', query: 'wifi cafe' },
-  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-gradient-to-br from-yellow-500 to-orange-500', query: 'bar pub' },
-  { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: 'bg-gradient-to-br from-purple-400 to-purple-600', query: 'shopping mall' },
-  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-gradient-to-br from-rose-400 to-rose-600', query: 'cinema movie theater' },
-  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-gradient-to-br from-sky-400 to-sky-600', query: 'parking' },
-  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-gradient-to-br from-blue-300 to-blue-500', query: 'car wash' },
-  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-gradient-to-br from-slate-400 to-slate-600', query: 'car service mechanic' },
-  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-gradient-to-br from-violet-400 to-violet-600', query: 'gym fitness' },
-  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-gradient-to-br from-amber-400 to-yellow-500', query: 'tourist attraction' },
+  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-orange-500', query: 'restaurant' },
+  { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: 'bg-blue-500', query: 'supermarket grocery' },
+  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-green-500', query: 'pharmacy' },
+  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-pink-500', query: 'beauty salon spa' },
+  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-emerald-500', query: 'atm bank' },
+  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-amber-500', query: 'gas station fuel' },
+  { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: 'bg-red-500', query: 'hospital clinic' },
+  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-indigo-500', query: 'hotel hostel' },
+  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-cyan-500', query: 'wifi cafe' },
+  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-yellow-500', query: 'bar pub' },
+  { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: 'bg-purple-500', query: 'shopping mall' },
+  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-rose-500', query: 'cinema movie theater' },
+  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-sky-500', query: 'parking' },
+  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-blue-400', query: 'car wash' },
+  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-slate-500', query: 'car service mechanic' },
+  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-violet-500', query: 'gym fitness' },
+  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-amber-400', query: 'tourist attraction' },
 ];
 
 // ═══════════════════════════════════════════════════════════════

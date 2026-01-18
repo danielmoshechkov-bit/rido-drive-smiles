@@ -9,6 +9,9 @@ export type VoiceMode = 'off' | 'alerts' | 'all';
 export type CursorStyle = 'arrow' | 'car';
 export type ThemePreference = 'light' | 'dark' | 'auto';
 
+export type EtaDisplayMode = 'remaining' | 'arrival';
+export type GpsUpdateMode = 'normal' | 'aggressive';
+
 export interface NavigationSettings {
   voice_enabled: boolean;
   voice_language: VoiceLanguage;
@@ -26,6 +29,12 @@ export interface NavigationSettings {
   avoid_unpaved: boolean;
   cursor_style: CursorStyle;
   theme_preference: ThemePreference;
+  // NEW GPS settings (like Yandex/Google/Apple)
+  auto_zoom: boolean;
+  north_up: boolean;
+  eta_display: EtaDisplayMode;
+  speed_camera_alerts: boolean;
+  gps_mode: GpsUpdateMode;
 }
 
 const DEFAULT_SETTINGS: NavigationSettings = {
@@ -45,6 +54,12 @@ const DEFAULT_SETTINGS: NavigationSettings = {
   avoid_unpaved: false,
   cursor_style: 'arrow',
   theme_preference: 'auto',
+  // NEW GPS settings defaults
+  auto_zoom: true,
+  north_up: false,
+  eta_display: 'remaining',
+  speed_camera_alerts: true,
+  gps_mode: 'aggressive',
 };
 
 // Local storage key for offline fallback
