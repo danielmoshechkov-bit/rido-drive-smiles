@@ -8,9 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Upload, X, Sparkles, Loader2, Image as ImageIcon, 
-  ArrowLeft, ArrowRight, Check, AlertCircle, Wand2
+  ArrowLeft, ArrowRight, Check, AlertCircle, Wand2, Star, GripVertical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addWatermark } from "@/lib/watermark";
@@ -96,6 +98,8 @@ export function VehiclePhotoUpload({
   const [previewPairs, setPreviewPairs] = useState<{ original: string; ai: string }[]>([]);
   const [selectedForAi, setSelectedForAi] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   
   const { credits, deductCredits, loading: creditsLoading } = useUserCredits(userId);
 
@@ -168,7 +172,7 @@ export function VehiclePhotoUpload({
     }
   }, [photos, maxPhotos, userId, onPhotosChange]);
 
-  // Drag & drop handlers
+  // Drag & drop handlers for upload zone
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -183,7 +187,6 @@ export function VehiclePhotoUpload({
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set to false if leaving the drop zone (not entering a child)
     if (e.currentTarget === e.target) {
       setIsDragging(false);
     }
@@ -222,11 +225,63 @@ export function VehiclePhotoUpload({
   };
 
   const movePhoto = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= photos.length) return;
     const newPhotos = [...photos];
     const [movedPhoto] = newPhotos.splice(fromIndex, 1);
     newPhotos.splice(toIndex, 0, movedPhoto);
     onPhotosChange(newPhotos);
+    
+    // Also move AI photos if they exist
+    if (aiPhotos.length > 0) {
+      const newAiPhotos = [...aiPhotos];
+      const [movedAiPhoto] = newAiPhotos.splice(fromIndex, 1);
+      newAiPhotos.splice(toIndex, 0, movedAiPhoto);
+      onAiPhotosChange(newAiPhotos);
+    }
   };
+
+  // Photo reordering via drag
+  const handlePhotoDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedPhotoIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handlePhotoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handlePhotoDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedPhotoIndex !== null && draggedPhotoIndex !== targetIndex) {
+      movePhoto(draggedPhotoIndex, targetIndex);
+    }
+    setDraggedPhotoIndex(null);
+  };
+
+  const handlePhotoDragEnd = () => {
+    setDraggedPhotoIndex(null);
+  };
+
+  // AI selection helpers
+  const togglePhotoForAi = (index: number) => {
+    setSelectedForAi(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  };
+
+  const selectAllForAi = () => {
+    setSelectedForAi(photos.map((_, i) => i));
+  };
+
+  const deselectAllForAi = () => {
+    setSelectedForAi([]);
+  };
+
+  const aiCost = (selectedForAi.length > 0 ? selectedForAi.length : photos.length) * 10;
 
   const handleAiEnhance = async () => {
     if (photos.length === 0) {
@@ -234,10 +289,8 @@ export function VehiclePhotoUpload({
       return;
     }
     
-    // Calculate cost
     const selectedCount = selectedForAi.length > 0 ? selectedForAi.length : photos.length;
-    const costPerPhoto = 10; // From ai_pricing
-    const totalCost = selectedCount * costPerPhoto;
+    const totalCost = selectedCount * 10;
     
     if (credits < totalCost) {
       toast.error(`Brak kredytów. Potrzebujesz ${totalCost} kredytów.`);
@@ -291,12 +344,10 @@ export function VehiclePhotoUpload({
         setAiProgress(Math.round(((i + 1) / photosToProcess.length) * 100));
       }
 
-      // Deduct credits
       await deductCredits(totalCost, "vehicle_photo_enhance");
 
       setPreviewPairs(results);
       
-      // Update AI photos
       const newAiPhotos = [...photos];
       results.forEach((result, idx) => {
         const originalIndex = selectedForAi.length > 0 
@@ -333,7 +384,7 @@ export function VehiclePhotoUpload({
       {/* Upload zone with drag & drop */}
       <div
         className={cn(
-          "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
+          "border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer",
           "hover:border-primary/50 hover:bg-muted/50",
           isDragging && "border-primary bg-primary/10 scale-[1.02]",
           photos.length >= maxPhotos && "opacity-50 cursor-not-allowed"
@@ -376,75 +427,144 @@ export function VehiclePhotoUpload({
         )}
       </div>
 
-      {/* Photos grid */}
+      {/* Photos grid with numbering, drag reorder, and delete on hover */}
       {photos.length > 0 && (
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-          {photos.map((photo, index) => (
-            <div
-              key={index}
-              className={cn(
-                "relative aspect-[4/3] rounded-lg overflow-hidden group",
-                "border-2",
-                hasAiPhotos && aiPhotos[index] ? "border-primary" : "border-transparent"
-              )}
-            >
-              <img
-                src={hasAiPhotos && aiPhotos[index] ? aiPhotos[index] : photo}
-                alt={`Zdjęcie ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Badge for main photo */}
-              {index === 0 && (
-                <div className="absolute top-1 left-1 bg-primary text-white text-xs px-2 py-0.5 rounded">
-                  Główne
-                </div>
-              )}
-              
-              {/* AI badge */}
-              {hasAiPhotos && aiPhotos[index] && (
-                <div className="absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  AI
-                </div>
-              )}
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Kolejność wyświetlania na portalu • Przeciągnij aby zmienić
+            </p>
+          </div>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+            <TooltipProvider>
+              {photos.map((photo, index) => (
+                <Tooltip key={index}>
+                  <TooltipTrigger asChild>
+                    <div
+                      draggable
+                      onDragStart={(e) => handlePhotoDragStart(e, index)}
+                      onDragOver={handlePhotoDragOver}
+                      onDrop={(e) => handlePhotoDrop(e, index)}
+                      onDragEnd={handlePhotoDragEnd}
+                      className={cn(
+                        "relative aspect-[4/3] rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing",
+                        "border-2 transition-all",
+                        index === 0 ? "border-primary ring-2 ring-primary/30" : "border-transparent",
+                        hasAiPhotos && aiPhotos[index] && "border-purple-500",
+                        draggedPhotoIndex === index && "opacity-50 scale-95"
+                      )}
+                    >
+                      <img
+                        src={hasAiPhotos && aiPhotos[index] ? aiPhotos[index] : photo}
+                        alt={`Zdjęcie ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewPhoto(hasAiPhotos && aiPhotos[index] ? aiPhotos[index] : photo);
+                        }}
+                      />
+                      
+                      {/* Main photo badge with star */}
+                      {index === 0 && (
+                        <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded flex items-center gap-1 shadow">
+                          <Star className="h-3 w-3" />
+                          Główne
+                        </div>
+                      )}
+                      
+                      {/* AI badge */}
+                      {hasAiPhotos && aiPhotos[index] && (
+                        <div className="absolute top-1 right-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          AI
+                        </div>
+                      )}
 
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                {index > 0 && (
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-8 w-8"
-                    onClick={(e) => { e.stopPropagation(); movePhoto(index, index - 1); }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  className="h-8 w-8"
-                  onClick={(e) => { e.stopPropagation(); removePhoto(index); }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                
-                {index < photos.length - 1 && (
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-8 w-8"
-                    onClick={(e) => { e.stopPropagation(); movePhoto(index, index + 1); }}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+                      {/* Delete button - always visible in corner on hover */}
+                      <button
+                        className="absolute top-1 right-1 h-6 w-6 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg z-10"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          removePhoto(index); 
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+
+                      {/* Photo number - bottom left */}
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded font-medium">
+                        {index + 1}
+                      </div>
+
+                      {/* Drag indicator on hover */}
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <GripVertical className="h-6 w-6 text-white" />
+                      </div>
+
+                      {/* Move buttons */}
+                      <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {index > 0 && (
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-6 w-6"
+                            onClick={(e) => { e.stopPropagation(); movePhoto(index, index - 1); }}
+                          >
+                            <ArrowLeft className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {index < photos.length - 1 && (
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-6 w-6"
+                            onClick={(e) => { e.stopPropagation(); movePhoto(index, index + 1); }}
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {index === 0 ? "Zdjęcie główne - wyświetlane jako pierwsze" : `Zdjęcie ${index + 1}`}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
+          </div>
+        </>
+      )}
+
+      {/* Before/After AI Example - shown when photos are added */}
+      {photos.length > 0 && (
+        <Card className="p-4 bg-gradient-to-r from-purple-500/5 to-pink-500/5 border-purple-500/20">
+          <p className="text-sm font-medium mb-3 text-center flex items-center justify-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Zobacz różnicę z AI
+          </p>
+          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wide">Przed</div>
+              <img 
+                src="/example-before.jpg" 
+                className="aspect-[4/3] object-cover rounded-lg border shadow-sm" 
+                alt="Przykład przed"
+              />
             </div>
-          ))}
-        </div>
+            <div className="space-y-1">
+              <div className="text-xs text-primary text-center font-medium uppercase tracking-wide">Po (AI)</div>
+              <img 
+                src="/example-after.jpg" 
+                className="aspect-[4/3] object-cover rounded-lg border-2 border-primary shadow-lg" 
+                alt="Przykład po"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Profesjonalne tło studyjne, idealne oświetlenie • <strong className="text-primary">10 kredytów/zdjęcie</strong>
+          </p>
+        </Card>
       )}
 
       {/* AI Enhancement button */}
@@ -472,7 +592,10 @@ export function VehiclePhotoUpload({
             </div>
             
             <Button
-              onClick={() => setShowAiModal(true)}
+              onClick={() => {
+                setSelectedForAi([]);
+                setShowAiModal(true);
+              }}
               className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
               disabled={creditsLoading}
             >
@@ -483,7 +606,7 @@ export function VehiclePhotoUpload({
         </Card>
       )}
 
-      {/* AI Modal */}
+      {/* AI Modal with photo selection */}
       <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -492,47 +615,96 @@ export function VehiclePhotoUpload({
               Popraw zdjęcia z Rido AI
             </DialogTitle>
             <DialogDescription>
-              AI przekształci Twoje zdjęcia w profesjonalne sesje studyjne
+              Wybierz które zdjęcia chcesz przekształcić w profesjonalne sesje studyjne
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Before/After example */}
+            {/* Photo selection grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Wybierz zdjęcia do poprawy:</span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={selectAllForAi}
+                    disabled={selectedForAi.length === photos.length}
+                  >
+                    Zaznacz wszystkie
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={deselectAllForAi}
+                    disabled={selectedForAi.length === 0}
+                  >
+                    Odznacz
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {photos.map((photo, i) => (
+                  <div 
+                    key={i}
+                    className={cn(
+                      "relative aspect-[4/3] rounded-lg cursor-pointer border-2 transition-all overflow-hidden",
+                      selectedForAi.includes(i) ? "border-primary ring-2 ring-primary/30" : "border-muted hover:border-muted-foreground/50"
+                    )}
+                    onClick={() => togglePhotoForAi(i)}
+                  >
+                    <img src={photo} className="w-full h-full object-cover" alt={`Zdjęcie ${i + 1}`} />
+                    {selectedForAi.includes(i) && (
+                      <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center">
+                        <Check className="h-3 w-3" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                      {i + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cost summary */}
+            <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-primary" />
+                <span className="text-sm">
+                  Wybrano: <strong>{selectedForAi.length > 0 ? selectedForAi.length : photos.length}</strong> zdjęć × 10 = <strong className="text-primary">{aiCost} kredytów</strong>
+                </span>
+              </div>
+              <span className="text-sm">
+                Twoje: <strong className={cn(credits >= aiCost ? "text-green-600" : "text-destructive")}>{credits}</strong>
+              </span>
+            </div>
+
+            {/* Before/After example in modal */}
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm font-medium mb-3">Przykład transformacji:</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground text-center">Przed</p>
-                  <div className="aspect-[4/3] bg-muted rounded-lg flex items-center justify-center">
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                  </div>
+                  <p className="text-xs text-muted-foreground text-center uppercase tracking-wide">Przed</p>
+                  <img 
+                    src="/example-before.jpg" 
+                    className="aspect-[4/3] object-cover rounded-lg border" 
+                    alt="Przed"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground text-center">Po (AI)</p>
-                  <div className="aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <Sparkles className="h-6 w-6 mx-auto mb-1 text-primary" />
-                      <p className="text-xs text-white/70">Studio look</p>
-                    </div>
-                  </div>
+                  <p className="text-xs text-primary text-center uppercase tracking-wide">Po (AI)</p>
+                  <img 
+                    src="/example-after.jpg" 
+                    className="aspect-[4/3] object-cover rounded-lg border-2 border-primary" 
+                    alt="Po"
+                  />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-3 text-center">
                 Tło zostanie zamienione na profesjonalne studyjne. Wszystkie szczegóły pojazdu (w tym uszkodzenia) pozostaną bez zmian.
               </p>
-            </div>
-
-            {/* Cost info */}
-            <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-primary" />
-                <span className="text-sm">
-                  Koszt: <strong>{photos.length * 10} kredytów</strong> ({photos.length} zdjęć × 10)
-                </span>
-              </div>
-              <span className="text-sm">
-                Twoje kredyty: <strong className="text-primary">{credits}</strong>
-              </span>
             </div>
 
             {/* Custom prompt option */}
@@ -601,14 +773,14 @@ export function VehiclePhotoUpload({
                   <Button 
                     className="flex-1 gap-2"
                     onClick={handleAiEnhance}
-                    disabled={aiProcessing || credits < photos.length * 10}
+                    disabled={aiProcessing || credits < aiCost}
                   >
                     {aiProcessing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="h-4 w-4" />
                     )}
-                    Generuj ({photos.length * 10} kredytów)
+                    Generuj ({aiCost} kredytów)
                   </Button>
                 </>
               )}
@@ -617,13 +789,24 @@ export function VehiclePhotoUpload({
         </DialogContent>
       </Dialog>
 
+      {/* Lightbox preview */}
+      <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
+        <DialogContent className="max-w-4xl p-2">
+          <img 
+            src={previewPhoto || ""} 
+            className="w-full h-auto rounded-lg" 
+            alt="Podgląd zdjęcia"
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Tips */}
       <div className="text-xs text-muted-foreground space-y-1">
         <p>💡 <strong>Wskazówki:</strong></p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
-          <li>Zdjęcia powinny być w formacie 4:3</li>
+          <li>Pierwsze zdjęcie będzie wyświetlane jako główne na liście</li>
+          <li>Przeciągnij zdjęcia aby zmienić ich kolejność</li>
           <li>Pokaż szczegółowo wszelkie istniejące uszkodzenia</li>
-          <li>Unikaj zdjęć niewyraźnych, prześwietlonych lub zbyt ciemnych</li>
           <li>Zalecamy zamieszczenie co najmniej 8-10 zdjęć</li>
         </ul>
       </div>
