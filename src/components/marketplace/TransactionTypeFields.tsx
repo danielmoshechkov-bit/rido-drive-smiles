@@ -34,6 +34,24 @@ export interface ExchangeData {
   extraPayment: string;
 }
 
+// Short-term rental data
+export interface ShortTermRentalData {
+  minDays: string;
+  pricePerDay: string;
+}
+
+// Long-term rental data
+export interface LongTermRentalData {
+  minMonths: string;
+  pricePerMonth: string;
+}
+
+// Fleet package data
+export interface FleetPackageData {
+  numberOfCars: string;
+  packagePrice: string;
+}
+
 interface TransactionTypeFieldsProps {
   transactionType: string;
   rentToOwn: RentToOwnData;
@@ -42,6 +60,12 @@ interface TransactionTypeFieldsProps {
   onRentToOwnChange: (data: RentToOwnData) => void;
   onLeasingTransferChange: (data: LeasingTransferData) => void;
   onExchangeChange: (data: ExchangeData) => void;
+  shortTermRental?: ShortTermRentalData;
+  onShortTermRentalChange?: (data: ShortTermRentalData) => void;
+  longTermRental?: LongTermRentalData;
+  onLongTermRentalChange?: (data: LongTermRentalData) => void;
+  fleetPackage?: FleetPackageData;
+  onFleetPackageChange?: (data: FleetPackageData) => void;
 }
 
 export const initialRentToOwn: RentToOwnData = {
@@ -70,6 +94,21 @@ export const initialExchange: ExchangeData = {
   extraPayment: "",
 };
 
+export const initialShortTermRental: ShortTermRentalData = {
+  minDays: "1",
+  pricePerDay: "",
+};
+
+export const initialLongTermRental: LongTermRentalData = {
+  minMonths: "1",
+  pricePerMonth: "",
+};
+
+export const initialFleetPackage: FleetPackageData = {
+  numberOfCars: "",
+  packagePrice: "",
+};
+
 export function TransactionTypeFields({
   transactionType,
   rentToOwn,
@@ -78,7 +117,112 @@ export function TransactionTypeFields({
   onRentToOwnChange,
   onLeasingTransferChange,
   onExchangeChange,
+  shortTermRental,
+  onShortTermRentalChange,
+  longTermRental,
+  onLongTermRentalChange,
+  fleetPackage,
+  onFleetPackageChange,
 }: TransactionTypeFieldsProps) {
+  // Wynajem krótkoterminowy
+  if (transactionType === "wynajem-krotkoterminowy" && shortTermRental && onShortTermRentalChange) {
+    return (
+      <Card className="mt-4 border-primary/20 bg-primary/5">
+        <CardContent className="pt-4 space-y-4">
+          <h4 className="font-medium text-sm">Szczegóły wynajmu krótkoterminowego</h4>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Minimalny okres wynajmu (dni)</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="np. 1"
+                value={shortTermRental.minDays}
+                onChange={(e) => onShortTermRentalChange({ ...shortTermRental, minDays: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Cena za dzień (PLN)</Label>
+              <Input
+                type="number"
+                placeholder="np. 150"
+                value={shortTermRental.pricePerDay}
+                onChange={(e) => onShortTermRentalChange({ ...shortTermRental, pricePerDay: e.target.value })}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Wynajem długoterminowy
+  if (transactionType === "wynajem" && longTermRental && onLongTermRentalChange) {
+    return (
+      <Card className="mt-4 border-primary/20 bg-primary/5">
+        <CardContent className="pt-4 space-y-4">
+          <h4 className="font-medium text-sm">Szczegóły wynajmu długoterminowego</h4>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Minimalny okres wynajmu (miesiące)</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="np. 1"
+                value={longTermRental.minMonths}
+                onChange={(e) => onLongTermRentalChange({ ...longTermRental, minMonths: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Cena za miesiąc (PLN)</Label>
+              <Input
+                type="number"
+                placeholder="np. 2500"
+                value={longTermRental.pricePerMonth}
+                onChange={(e) => onLongTermRentalChange({ ...longTermRental, pricePerMonth: e.target.value })}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Pakiet flotowy
+  if (transactionType === "pakiety-flotowe" && fleetPackage && onFleetPackageChange) {
+    return (
+      <Card className="mt-4 border-primary/20 bg-primary/5">
+        <CardContent className="pt-4 space-y-4">
+          <h4 className="font-medium text-sm">Szczegóły pakietu flotowego</h4>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Liczba sztuk aut w pakiecie</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="np. 10"
+                value={fleetPackage.numberOfCars}
+                onChange={(e) => onFleetPackageChange({ ...fleetPackage, numberOfCars: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Cena za pakiet (PLN)</Label>
+              <Input
+                type="number"
+                placeholder="np. 500000"
+                value={fleetPackage.packagePrice}
+                onChange={(e) => onFleetPackageChange({ ...fleetPackage, packagePrice: e.target.value })}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Wynajem z wykupem
   if (transactionType === "wynajem-z-wykupem") {
     return (

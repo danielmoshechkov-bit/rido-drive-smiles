@@ -27,18 +27,17 @@ interface VehiclePhotoUploadProps {
   maxPhotos?: number;
 }
 
-// Always compress images for optimal storage
+// Always compress images for optimal storage - accepts all formats
 async function compressImage(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
     img.onload = () => {
       let { width, height } = img;
-      const maxDimension = 2000; // Max dimension for quality
+      const maxDimension = 2000;
 
-      // Always resize if larger than max dimension
       if (width > maxDimension || height > maxDimension) {
         if (width > height) {
           height = (height / width) * maxDimension;
@@ -58,15 +57,20 @@ async function compressImage(file: File): Promise<Blob> {
           if (blob) {
             resolve(blob);
           } else {
-            reject(new Error("Failed to compress image"));
+            // Fallback - return original file
+            resolve(file);
           }
         },
         "image/jpeg",
-        0.85 // Quality 85% for optimal size/quality balance
+        0.85
       );
     };
 
-    img.onerror = () => reject(new Error("Failed to load image"));
+    img.onerror = () => {
+      // Fallback on error - return original file
+      resolve(file);
+    };
+
     img.src = URL.createObjectURL(file);
   });
 }
@@ -290,7 +294,7 @@ export function VehiclePhotoUpload({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,image/bmp,image/tiff,image/*"
           multiple
           onChange={handleFileSelect}
           className="hidden"
@@ -308,7 +312,7 @@ export function VehiclePhotoUpload({
             <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
             <p className="font-medium">Przeciągnij zdjęcia lub kliknij, aby wybrać</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Dodano {photos.length} z {maxPhotos} zdjęć (system automatycznie optymalizuje rozmiar)
+              Dodano {photos.length} z {maxPhotos} zdjęć
             </p>
           </>
         )}

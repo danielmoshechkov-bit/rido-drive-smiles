@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Image, Save, Settings, List, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Image, Save, Settings, List, Trash2, Search, Grid } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdSlot {
@@ -34,10 +34,19 @@ interface VehicleListing {
   } | null;
 }
 
+interface TransactionType {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+}
+
 export default function AdminMarketplace() {
   const navigate = useNavigate();
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [listings, setListings] = useState<VehicleListing[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -89,6 +98,17 @@ export default function AdminMarketplace() {
       setListings(listingsData as VehicleListing[]);
     }
 
+    // Load transaction types for categories management
+    const { data: typesData } = await supabase
+      .from("marketplace_transaction_types")
+      .select("id, slug, name, description, is_active")
+      .not("slug", "in", "(wynajem-nieruchomosci,sprzedaz-nieruchomosci)")
+      .order("sort_order");
+
+    if (typesData) {
+      setTransactionTypes(typesData);
+    }
+
     setLoading(false);
   };
 
@@ -121,6 +141,23 @@ export default function AdminMarketplace() {
 
     toast.success("Ustawienia reklam zapisane");
     setSaving(false);
+  };
+
+  const toggleTransactionType = async (typeId: string, isActive: boolean) => {
+    const { error } = await supabase
+      .from("marketplace_transaction_types")
+      .update({ is_active: isActive })
+      .eq("id", typeId);
+
+    if (error) {
+      toast.error("Błąd zmiany statusu kategorii");
+      return;
+    }
+
+    setTransactionTypes(prev => 
+      prev.map(t => t.id === typeId ? { ...t, is_active: isActive } : t)
+    );
+    toast.success(isActive ? "Kategoria aktywowana" : "Kategoria dezaktywowana");
   };
 
   const toggleListingStatus = async (listing: VehicleListing) => {
@@ -207,6 +244,10 @@ export default function AdminMarketplace() {
             <TabsTrigger value="ads" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
               Reklamy
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center gap-2">
+              <Grid className="h-4 w-4" />
+              Kategorie
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -354,6 +395,33 @@ export default function AdminMarketplace() {
                   <Save className="h-4 w-4 mr-2" />
                   {saving ? "Zapisywanie..." : "Zapisz ustawienia reklam"}
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Categories Tab */}
+          <TabsContent value="categories">
+            <Card>
+              <CardHeader>
+                <CardTitle>Kategorie transakcji</CardTitle>
+                <CardDescription>Włącz lub wyłącz kategorie dostępne w formularzu dodawania ogłoszenia</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {transactionTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{type.name}</p>
+                      <p className="text-sm text-muted-foreground">{type.description || type.slug}</p>
+                    </div>
+                    <Switch
+                      checked={type.is_active}
+                      onCheckedChange={(checked) => toggleTransactionType(type.id, checked)}
+                    />
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </TabsContent>

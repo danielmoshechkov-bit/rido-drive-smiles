@@ -6125,6 +6125,7 @@ export type Database = {
           favorites_count: number | null
           first_registration_date: string | null
           fleet_id: string | null
+          fleet_package_data: Json | null
           fuel_type: string | null
           has_ai_photos: boolean | null
           id: string
@@ -6141,6 +6142,7 @@ export type Database = {
           listed_at: string | null
           listing_number: string | null
           location: string | null
+          long_term_rental_data: Json | null
           longitude: number | null
           model: string | null
           odometer: number | null
@@ -6156,6 +6158,7 @@ export type Database = {
           seo_h1: string | null
           seo_schema_json: Json | null
           seo_title: string | null
+          short_term_rental_data: Json | null
           status: string | null
           title: string | null
           transaction_type: string | null
@@ -6194,6 +6197,7 @@ export type Database = {
           favorites_count?: number | null
           first_registration_date?: string | null
           fleet_id?: string | null
+          fleet_package_data?: Json | null
           fuel_type?: string | null
           has_ai_photos?: boolean | null
           id?: string
@@ -6210,6 +6214,7 @@ export type Database = {
           listed_at?: string | null
           listing_number?: string | null
           location?: string | null
+          long_term_rental_data?: Json | null
           longitude?: number | null
           model?: string | null
           odometer?: number | null
@@ -6225,6 +6230,7 @@ export type Database = {
           seo_h1?: string | null
           seo_schema_json?: Json | null
           seo_title?: string | null
+          short_term_rental_data?: Json | null
           status?: string | null
           title?: string | null
           transaction_type?: string | null
@@ -6263,6 +6269,7 @@ export type Database = {
           favorites_count?: number | null
           first_registration_date?: string | null
           fleet_id?: string | null
+          fleet_package_data?: Json | null
           fuel_type?: string | null
           has_ai_photos?: boolean | null
           id?: string
@@ -6279,6 +6286,7 @@ export type Database = {
           listed_at?: string | null
           listing_number?: string | null
           location?: string | null
+          long_term_rental_data?: Json | null
           longitude?: number | null
           model?: string | null
           odometer?: number | null
@@ -6294,6 +6302,7 @@ export type Database = {
           seo_h1?: string | null
           seo_schema_json?: Json | null
           seo_title?: string | null
+          short_term_rental_data?: Json | null
           status?: string | null
           title?: string | null
           transaction_type?: string | null
