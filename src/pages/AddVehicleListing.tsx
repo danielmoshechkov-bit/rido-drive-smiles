@@ -14,9 +14,18 @@ import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 import { VehiclePhotoUpload } from "@/components/marketplace/VehiclePhotoUpload";
 import { EquipmentAccordion } from "@/components/marketplace/EquipmentAccordion";
 import { 
+  TransactionTypeFields, 
+  RentToOwnData, 
+  LeasingTransferData, 
+  ExchangeData,
+  initialRentToOwn,
+  initialLeasingTransfer,
+  initialExchange
+} from "@/components/marketplace/TransactionTypeFields";
+import { 
   ArrowLeft, Car, Fuel, Gauge, Calendar, Settings2, 
   Palette, MapPin, Phone, Mail, User, FileText, 
-  Loader2, Sparkles, Shield, CheckCircle2
+  Loader2, Sparkles, Shield, CheckCircle2, Search
 } from "lucide-react";
 
 const BODY_TYPES = [
@@ -84,10 +93,17 @@ const COUNTRIES = [
   { value: "inne", label: "Inne" },
 ];
 
+// All transaction types from marketplace
 const TRANSACTION_TYPES = [
   { value: "sprzedaz", label: "Sprzedaż" },
   { value: "wynajem", label: "Wynajem długoterminowy" },
   { value: "wynajem-krotkoterminowy", label: "Wynajem krótkoterminowy" },
+  { value: "wynajem-z-wykupem", label: "Wynajem z wykupem" },
+  { value: "cesja-leasingu", label: "Cesja leasingu" },
+  { value: "zamiana", label: "Zamiana" },
+  { value: "po-flocie", label: "Po flocie / taxi" },
+  { value: "pakiety-flotowe", label: "Pakiety flotowe" },
+  { value: "inwestycyjne", label: "Inwestycyjne" },
 ];
 
 interface FormData {
@@ -123,10 +139,13 @@ interface FormData {
   // Equipment
   equipment: Record<string, boolean>;
   
-  // Price
+  // Price & Transaction
   price: string;
   transactionType: string;
   negotiable: boolean;
+  rentToOwn: RentToOwnData;
+  leasingTransfer: LeasingTransferData;
+  exchange: ExchangeData;
   
   // Contact
   city: string;
@@ -170,6 +189,9 @@ const initialFormData: FormData = {
   price: "",
   transactionType: "sprzedaz",
   negotiable: false,
+  rentToOwn: initialRentToOwn,
+  leasingTransfer: initialLeasingTransfer,
+  exchange: initialExchange,
   city: "",
   contactName: "",
   contactPhone: "",
@@ -188,7 +210,7 @@ export default function AddVehicleListing() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
-
+  const [vinLoading, setVinLoading] = useState(false);
   useEffect(() => {
     const loadUser = async () => {
       setLoading(true);
@@ -233,6 +255,105 @@ export default function AddVehicleListing() {
     }
   };
 
+  // VIN Decoder using NHTSA API (free)
+  const decodeVin = async () => {
+    if (formData.vin.length !== 17) {
+      toast.error("VIN musi mieć 17 znaków");
+      return;
+    }
+
+    setVinLoading(true);
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${formData.vin}?format=json`
+      );
+      const data = await response.json();
+      const result = data.Results[0];
+
+      if (result.ErrorCode !== "0") {
+        toast.error("Nie udało się zdekodować VIN");
+        return;
+      }
+
+      // Map NHTSA data to form fields
+      const updates: Partial<FormData> = {};
+
+      if (result.Make) updates.brand = result.Make;
+      if (result.Model) updates.model = result.Model;
+      if (result.ModelYear) updates.year = result.ModelYear;
+      
+      // Body type mapping
+      const bodyTypeMap: Record<string, string> = {
+        "SEDAN": "sedan",
+        "WAGON": "kombi",
+        "SUV": "suv",
+        "HATCHBACK": "hatchback",
+        "COUPE": "coupe",
+        "CONVERTIBLE": "cabrio",
+        "VAN": "van",
+        "PICKUP": "pickup",
+        "MINIVAN": "minivan",
+      };
+      if (result.BodyClass) {
+        const mappedBody = Object.entries(bodyTypeMap).find(([key]) => 
+          result.BodyClass.toUpperCase().includes(key)
+        );
+        if (mappedBody) updates.bodyType = mappedBody[1];
+      }
+
+      // Fuel type mapping
+      const fuelTypeMap: Record<string, string> = {
+        "GASOLINE": "benzyna",
+        "DIESEL": "diesel",
+        "ELECTRIC": "elektryczny",
+        "HYBRID": "hybryda",
+        "PLUG-IN HYBRID": "hybryda-plugin",
+      };
+      if (result.FuelTypePrimary) {
+        const mappedFuel = Object.entries(fuelTypeMap).find(([key]) => 
+          result.FuelTypePrimary.toUpperCase().includes(key)
+        );
+        if (mappedFuel) updates.fuelType = mappedFuel[1];
+      }
+
+      // Transmission
+      if (result.TransmissionStyle) {
+        updates.transmission = result.TransmissionStyle.toLowerCase().includes("manual") 
+          ? "manual" 
+          : "automatic";
+      }
+
+      // Drive type
+      if (result.DriveType) {
+        if (result.DriveType.includes("4WD") || result.DriveType.includes("AWD")) {
+          updates.driveType = "awd";
+        } else if (result.DriveType.includes("RWD")) {
+          updates.driveType = "rwd";
+        } else {
+          updates.driveType = "fwd";
+        }
+      }
+
+      // Engine
+      if (result.DisplacementCC) updates.engineCapacity = result.DisplacementCC;
+      if (result.EngineHP) updates.power = result.EngineHP;
+      if (result.Doors) updates.doorsCount = result.Doors;
+
+      setFormData(prev => ({ ...prev, ...updates }));
+      toast.success("Dane pobrane z VIN!");
+      setTimeout(generateTitle, 100);
+    } catch (err) {
+      console.error("VIN decode error:", err);
+      toast.error("Błąd podczas pobierania danych z VIN");
+    } finally {
+      setVinLoading(false);
+    }
+  };
+
+  const handleGenerateAiDescription = () => {
+    toast.info("Ta funkcja będzie wkrótce dostępna. Koszt: 5 kredytów AI.");
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!formData.brand || !formData.model) {
@@ -262,6 +383,17 @@ export default function AddVehicleListing() {
 
     setSubmitting(true);
     try {
+      // Prepare transaction-specific data
+      const rentToOwnData = formData.transactionType === "wynajem-z-wykupem" 
+        ? formData.rentToOwn 
+        : null;
+      const leasingTransferData = formData.transactionType === "cesja-leasingu" 
+        ? formData.leasingTransfer 
+        : null;
+      const exchangeData = formData.transactionType === "zamiana" 
+        ? formData.exchange 
+        : null;
+
       const { data, error } = await supabase
         .from("vehicle_listings")
         .insert({
@@ -287,8 +419,12 @@ export default function AddVehicleListing() {
           color_type: formData.colorType || null,
           equipment: formData.equipment,
           price: parseFloat(formData.price),
-          weekly_price: formData.transactionType === 'wynajem' ? parseFloat(formData.price) : 0,
+          weekly_price: formData.transactionType.includes('wynajem') ? parseFloat(formData.price) : 0,
           transaction_type: formData.transactionType,
+          // New JSONB fields - cast needed until types regenerate
+          rent_to_own_data: rentToOwnData as any,
+          leasing_transfer_data: leasingTransferData as any,
+          exchange_data: exchangeData as any,
           city: formData.city,
           location: formData.city,
           contact_name: formData.contactName || null,
@@ -299,7 +435,7 @@ export default function AddVehicleListing() {
           ai_enhanced_photos: formData.hasAiPhotos ? formData.aiPhotos : null,
           has_ai_photos: formData.hasAiPhotos,
           status: "aktywne",
-        })
+        } as any)
         .select()
         .single();
 
@@ -569,14 +705,35 @@ export default function AddVehicleListing() {
               <Separator />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-2">
                   <Label>VIN (opcjonalnie)</Label>
-                  <Input
-                    placeholder="np. WBA12345678901234"
-                    value={formData.vin}
-                    onChange={(e) => updateField("vin", e.target.value.toUpperCase())}
-                    maxLength={17}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="np. WBA12345678901234"
+                      value={formData.vin}
+                      onChange={(e) => updateField("vin", e.target.value.toUpperCase())}
+                      maxLength={17}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={decodeVin}
+                      disabled={formData.vin.length !== 17 || vinLoading}
+                      className="gap-1"
+                    >
+                      {vinLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      Pobierz dane
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Wpisz VIN i kliknij "Pobierz dane" aby automatycznie uzupełnić dane pojazdu
+                  </p>
                   <div className="flex items-center gap-2 mt-2">
                     <Switch
                       checked={formData.hideVin}
@@ -698,6 +855,17 @@ export default function AddVehicleListing() {
                 />
                 <Label>Cena do negocjacji</Label>
               </div>
+
+              {/* Dynamic transaction type fields */}
+              <TransactionTypeFields
+                transactionType={formData.transactionType}
+                rentToOwn={formData.rentToOwn}
+                leasingTransfer={formData.leasingTransfer}
+                exchange={formData.exchange}
+                onRentToOwnChange={(data) => updateField("rentToOwn", data)}
+                onLeasingTransferChange={(data) => updateField("leasingTransfer", data)}
+                onExchangeChange={(data) => updateField("exchange", data)}
+              />
             </CardContent>
           </Card>
 
@@ -799,10 +967,14 @@ export default function AddVehicleListing() {
                 />
               </div>
 
-              <Button variant="outline" className="gap-2" disabled>
+              <Button 
+                variant="outline" 
+                className="gap-2" 
+                onClick={handleGenerateAiDescription}
+              >
                 <Sparkles className="h-4 w-4" />
                 Wygeneruj opis z AI
-                <span className="text-xs text-muted-foreground">(Wkrótce)</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded">Wkrótce</span>
               </Button>
             </CardContent>
           </Card>
