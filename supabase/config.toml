@@ -117,3 +117,6 @@ verify_jwt = false
 
 [functions.register-fleet]
 verify_jwt = false
+
+[functions.referral-validator]
+verify_jwt = false

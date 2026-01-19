@@ -380,8 +380,58 @@ export default function AddVehicleListing() {
     }
   };
 
-  const handleGenerateAiDescription = () => {
-    toast.info("Ta funkcja będzie wkrótce dostępna. Koszt: 5 kredytów AI.");
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+
+  const handleGenerateAiDescription = async () => {
+    if (!formData.brand || !formData.model) {
+      toast.error("Najpierw wybierz markę i model pojazdu");
+      return;
+    }
+
+    setGeneratingDescription(true);
+    try {
+      const vehicleInfo = {
+        brand: formData.brand,
+        model: formData.model,
+        year: formData.year,
+        mileage: formData.odometer,
+        fuel: formData.fuelType,
+        transmission: formData.transmission,
+        power: formData.power,
+        engine: formData.engineCapacity,
+        bodyType: formData.bodyType,
+        color: formData.color,
+        equipment: Object.keys(formData.equipment).filter(k => formData.equipment[k]),
+        isDamaged: formData.isDamaged,
+        transactionType: formData.transactionType,
+      };
+
+      const { data, error } = await supabase.functions.invoke("ai-service", {
+        body: {
+          type: "vehicle-description",
+          payload: { vehicleData: vehicleInfo },
+          userId: user?.id
+        },
+      });
+
+      if (error) {
+        console.error("AI description error:", error);
+        toast.error("Błąd generowania opisu");
+        return;
+      }
+
+      if (data?.description) {
+        updateField("description", data.description);
+        toast.success("Opis wygenerowany! Koszt: 10 kredytów");
+      } else {
+        toast.error("Nie udało się wygenerować opisu");
+      }
+    } catch (err) {
+      console.error("AI description error:", err);
+      toast.error("Błąd podczas generowania opisu");
+    } finally {
+      setGeneratingDescription(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -1019,10 +1069,15 @@ export default function AddVehicleListing() {
                 variant="outline" 
                 className="gap-2" 
                 onClick={handleGenerateAiDescription}
+                disabled={generatingDescription || !formData.brand || !formData.model}
               >
-                <Sparkles className="h-4 w-4" />
-                Wygeneruj opis z AI
-                <span className="text-xs bg-muted px-2 py-0.5 rounded">Wkrótce</span>
+                {generatingDescription ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {generatingDescription ? "Generowanie..." : "Wygeneruj opis z AI"}
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">10 kredytów</span>
               </Button>
             </CardContent>
           </Card>
