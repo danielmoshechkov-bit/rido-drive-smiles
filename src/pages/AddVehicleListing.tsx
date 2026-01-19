@@ -18,9 +18,15 @@ import {
   RentToOwnData, 
   LeasingTransferData, 
   ExchangeData,
+  ShortTermRentalData,
+  LongTermRentalData,
+  FleetPackageData,
   initialRentToOwn,
   initialLeasingTransfer,
-  initialExchange
+  initialExchange,
+  initialShortTermRental,
+  initialLongTermRental,
+  initialFleetPackage
 } from "@/components/marketplace/TransactionTypeFields";
 import { 
   ArrowLeft, Car, Fuel, Gauge, Calendar, Settings2, 
@@ -93,8 +99,8 @@ const COUNTRIES = [
   { value: "inne", label: "Inne" },
 ];
 
-// All transaction types from marketplace
-const TRANSACTION_TYPES = [
+// Transaction types - fallback if DB fails
+const FALLBACK_TRANSACTION_TYPES = [
   { value: "sprzedaz", label: "Sprzedaż" },
   { value: "wynajem", label: "Wynajem długoterminowy" },
   { value: "wynajem-krotkoterminowy", label: "Wynajem krótkoterminowy" },
@@ -103,7 +109,6 @@ const TRANSACTION_TYPES = [
   { value: "zamiana", label: "Zamiana" },
   { value: "po-flocie", label: "Po flocie / taxi" },
   { value: "pakiety-flotowe", label: "Pakiety flotowe" },
-  { value: "inwestycyjne", label: "Inwestycyjne" },
 ];
 
 interface FormData {
@@ -146,6 +151,9 @@ interface FormData {
   rentToOwn: RentToOwnData;
   leasingTransfer: LeasingTransferData;
   exchange: ExchangeData;
+  shortTermRental: ShortTermRentalData;
+  longTermRental: LongTermRentalData;
+  fleetPackage: FleetPackageData;
   
   // Contact
   city: string;
@@ -192,6 +200,9 @@ const initialFormData: FormData = {
   rentToOwn: initialRentToOwn,
   leasingTransfer: initialLeasingTransfer,
   exchange: initialExchange,
+  shortTermRental: initialShortTermRental,
+  longTermRental: initialLongTermRental,
+  fleetPackage: initialFleetPackage,
   city: "",
   contactName: "",
   contactPhone: "",
@@ -211,6 +222,25 @@ export default function AddVehicleListing() {
   const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [vinLoading, setVinLoading] = useState(false);
+  const [transactionTypes, setTransactionTypes] = useState(FALLBACK_TRANSACTION_TYPES);
+
+  useEffect(() => {
+    // Load transaction types from DB
+    const loadTransactionTypes = async () => {
+      const { data } = await supabase
+        .from("marketplace_transaction_types")
+        .select("slug, name")
+        .eq("is_active", true)
+        .not("slug", "in", "(wynajem-nieruchomosci,sprzedaz-nieruchomosci)")
+        .order("sort_order");
+      
+      if (data && data.length > 0) {
+        setTransactionTypes(data.map(t => ({ value: t.slug, label: t.name })));
+      }
+    };
+    loadTransactionTypes();
+  }, []);
+
   useEffect(() => {
     const loadUser = async () => {
       setLoading(true);
@@ -393,6 +423,15 @@ export default function AddVehicleListing() {
       const exchangeData = formData.transactionType === "zamiana" 
         ? formData.exchange 
         : null;
+      const shortTermRentalData = formData.transactionType === "wynajem-krotkoterminowy"
+        ? formData.shortTermRental
+        : null;
+      const longTermRentalData = formData.transactionType === "wynajem"
+        ? formData.longTermRental
+        : null;
+      const fleetPackageData = formData.transactionType === "pakiety-flotowe"
+        ? formData.fleetPackage
+        : null;
 
       const { data, error } = await supabase
         .from("vehicle_listings")
@@ -425,6 +464,9 @@ export default function AddVehicleListing() {
           rent_to_own_data: rentToOwnData as any,
           leasing_transfer_data: leasingTransferData as any,
           exchange_data: exchangeData as any,
+          short_term_rental_data: shortTermRentalData as any,
+          long_term_rental_data: longTermRentalData as any,
+          fleet_package_data: fleetPackageData as any,
           city: formData.city,
           location: formData.city,
           contact_name: formData.contactName || null,
@@ -840,7 +882,7 @@ export default function AddVehicleListing() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {TRANSACTION_TYPES.map(t => (
+                      {transactionTypes.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -865,6 +907,12 @@ export default function AddVehicleListing() {
                 onRentToOwnChange={(data) => updateField("rentToOwn", data)}
                 onLeasingTransferChange={(data) => updateField("leasingTransfer", data)}
                 onExchangeChange={(data) => updateField("exchange", data)}
+                shortTermRental={formData.shortTermRental}
+                onShortTermRentalChange={(data) => updateField("shortTermRental", data)}
+                longTermRental={formData.longTermRental}
+                onLongTermRentalChange={(data) => updateField("longTermRental", data)}
+                fleetPackage={formData.fleetPackage}
+                onFleetPackageChange={(data) => updateField("fleetPackage", data)}
               />
             </CardContent>
           </Card>
