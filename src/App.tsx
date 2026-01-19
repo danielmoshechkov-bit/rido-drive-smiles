@@ -67,6 +67,7 @@ const App = () => (
             <Route path="/gielda/logowanie" element={<MarketplaceAuth />} />
             <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
             <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
+            <Route path="/gielda/dodaj-pojazd" element={<AddVehicleListing />} />
             <Route path="/easy" element={<EasyHub />} />
             <Route path="/easy/login" element={<EasyAuth mode="login" />} />
             <Route path="/easy/register" element={<EasyAuth mode="register" />} />
