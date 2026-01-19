@@ -1,5 +1,6 @@
 // GetRido Maps - Camera Controller Hook (Premium Google-like animations)
 // Manages follow mode, camera animations, bearing calculation with SMOOTH motion
+// v2: Added padding offset (marker at bottom), dynamic zoom, improved heading
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MapRef } from 'react-map-gl/maplibre';
@@ -7,18 +8,40 @@ import { UserLocation, GpsState } from './useUserLocation';
 import { NavigationState } from './useNavigation';
 
 const FOLLOW_MODE_STORAGE_KEY = 'getrido_follow_mode';
-const MIN_SPEED_FOR_HEADING = 2; // km/h - below this, don't rotate map
-const BEARING_BUFFER_SIZE = 3; // Number of positions to calculate bearing from
+const MIN_SPEED_FOR_HEADING = 6; // km/h - increased for stability
+const BEARING_BUFFER_SIZE = 4; // Number of positions to calculate bearing from
 
 // ═══════════════════════════════════════════════════════════════
-// PREMIUM SMOOTHNESS CONSTANTS - Google/Yandex quality (FAST & FLUID)
+// PREMIUM SMOOTHNESS CONSTANTS - Google/Yandex quality
 // ═══════════════════════════════════════════════════════════════
-const CAMERA_UPDATE_INTERVAL = 250; // ms - 4 FPS smooth camera updates
-const GPS_SMOOTH_FACTOR = 0.4; // 40% new, 60% old position - faster response
-const BEARING_SMOOTH_FACTOR = 0.2; // Faster bearing changes for responsiveness
-const BEARING_CHANGE_THRESHOLD = 5; // degrees - more responsive rotation
-const GPS_ACCURACY_THRESHOLD = 50; // meters - slightly more tolerant
-const CAMERA_EASE_DURATION = 280; // ms - quick but smooth animation
+const CAMERA_UPDATE_INTERVAL = 200; // ms - 5 FPS camera updates
+const GPS_SMOOTH_FACTOR = 0.35; // 35% new, 65% old position
+const BEARING_SMOOTH_FACTOR = 0.12; // Slower bearing for stability
+const BEARING_CHANGE_THRESHOLD = 8; // degrees - ignore small changes
+const GPS_ACCURACY_THRESHOLD = 60; // meters - tolerate moderate accuracy
+const CAMERA_EASE_DURATION = 250; // ms - quick smooth animation
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION PADDING - Marker at bottom of screen (like Google)
+// ═══════════════════════════════════════════════════════════════
+const getNavigationPadding = () => ({
+  top: Math.floor(window.innerHeight * 0.55),  // Push center point down 55%
+  bottom: 0,
+  left: 0,
+  right: 0,
+});
+
+// ═══════════════════════════════════════════════════════════════
+// DYNAMIC ZOOM - Speed-dependent zoom levels
+// ═══════════════════════════════════════════════════════════════
+function getSpeedBasedZoom(speedKmh: number): number {
+  if (speedKmh < 15) return 18.5;      // Walking/parking: very close
+  if (speedKmh < 35) return 18;        // City slow: close
+  if (speedKmh < 60) return 17;        // City normal: standard
+  if (speedKmh < 90) return 16;        // Suburban: medium
+  if (speedKmh < 120) return 15;       // Highway: far
+  return 14.5;                         // Autobahn: very far
+}
 
 export type FollowMode = 'off' | 'center' | 'heading';
 
@@ -98,6 +121,7 @@ export function useMapCameraController(
   const lastCameraUpdateRef = useRef<number>(0);
   const smoothedPositionRef = useRef<{ lat: number; lng: number } | null>(null);
   const smoothedBearingRef = useRef<number>(0);
+  const smoothedZoomRef = useRef<number>(17);
 
   // Save follow mode to localStorage
   const setFollowMode = useCallback((mode: FollowMode) => {
@@ -234,7 +258,7 @@ export function useMapCameraController(
     return smoothedBearingRef.current;
   }, []);
 
-  // Google-like animation when starting navigation (3D perspective)
+  // Google-like animation when starting navigation (3D perspective with PADDING)
   const animateToNavigation = useCallback(() => {
     const map = mapRef.current?.getMap();
     const location = gps.location;
@@ -254,17 +278,21 @@ export function useMapCameraController(
     // Initialize smoothing refs
     smoothedPositionRef.current = { lat: location.latitude, lng: location.longitude };
     smoothedBearingRef.current = initialBearing;
+    smoothedZoomRef.current = getSpeedBasedZoom(speedKmh(location));
 
     // Use config pitch or default to 75° for premium 3D experience
     const navPitch = config.navigationPitch >= 70 ? config.navigationPitch : 75;
-    const navZoom = 19; // Closer zoom for "behind car" view
+    const navZoom = 18.5; // Close zoom for navigation start
     
-    // Premium fly animation - Google Maps 3D style
+    // ═══════════════════════════════════════════════════════════════
+    // PREMIUM FLY ANIMATION - With padding to put marker at bottom
+    // ═══════════════════════════════════════════════════════════════
     map.flyTo({
       center: [location.longitude, location.latitude],
       zoom: navZoom,
       bearing: initialBearing,
       pitch: navPitch,
+      padding: getNavigationPadding(),  // KEY: Offset marker to bottom
       duration: 1500,
       easing: (t) => 1 - Math.pow(1 - t, 4), // Ease-out quart
     });
@@ -314,7 +342,7 @@ export function useMapCameraController(
   }, [gps.location, calculatedBearing]);
 
   // ═══════════════════════════════════════════════════════════════
-  // PREMIUM CAMERA UPDATE - Smooth, throttled, professional
+  // PREMIUM CAMERA UPDATE - Smooth, throttled, with padding & dynamic zoom
   // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     const map = mapRef.current?.getMap();
@@ -322,12 +350,12 @@ export function useMapCameraController(
     
     if (!map || !location || followMode === 'off' || isAnimatingRef.current) return;
     
-    // THROTTLE: Max update every 900ms
+    // THROTTLE: Max update every 200ms
     const now = Date.now();
     if (now - lastCameraUpdateRef.current < CAMERA_UPDATE_INTERVAL) return;
     lastCameraUpdateRef.current = now;
     
-    // IGNORE weak GPS (accuracy > 40m)
+    // IGNORE weak GPS (accuracy > threshold)
     if (location.accuracy && location.accuracy > GPS_ACCURACY_THRESHOLD) {
       console.log('[Camera] Ignoring weak GPS:', location.accuracy);
       return;
@@ -341,18 +369,36 @@ export function useMapCameraController(
     // Ease-out quad easing function for natural deceleration
     const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
     
+    // ═══════════════════════════════════════════════════════════════
+    // DYNAMIC ZOOM - Smooth transition based on speed
+    // ═══════════════════════════════════════════════════════════════
+    const targetZoom = navigation.isNavigating 
+      ? getSpeedBasedZoom(speed)
+      : config.followModeZoom;
+    
+    // Smooth zoom changes (10% per update)
+    smoothedZoomRef.current = smoothedZoomRef.current + (targetZoom - smoothedZoomRef.current) * 0.1;
+    
+    // Use padding during navigation for marker-at-bottom effect
+    const padding = navigation.isNavigating ? getNavigationPadding() : undefined;
+    
     if (followMode === 'center') {
-      // Center on user, north-up - use easeTo for smoothness
+      // Center on user, north-up
       map.easeTo({
         center: [smooth.lng, smooth.lat],
+        zoom: smoothedZoomRef.current,
+        padding,
         duration: CAMERA_EASE_DURATION,
         easing: easeOutQuad,
       });
     } else if (followMode === 'heading') {
-      // If too slow, don't rotate (keeps stable on stationary)
+      // If too slow, don't rotate (keeps stable when stationary)
       if (speed < MIN_SPEED_FOR_HEADING) {
         map.easeTo({
           center: [smooth.lng, smooth.lat],
+          zoom: smoothedZoomRef.current,
+          pitch: navigation.isNavigating ? config.navigationPitch : 0,
+          padding,
           duration: CAMERA_EASE_DURATION,
           easing: easeOutQuad,
         });
@@ -365,6 +411,8 @@ export function useMapCameraController(
           center: [smooth.lng, smooth.lat],
           bearing: bearing,
           pitch: config.navigationPitch,
+          zoom: smoothedZoomRef.current,
+          padding,
           duration: CAMERA_EASE_DURATION,
           easing: easeOutQuad,
         });
@@ -372,7 +420,7 @@ export function useMapCameraController(
         setIsMapRotated(bearing !== 0);
       }
     }
-  }, [gps.location, followMode, calculatedBearing, config.navigationPitch, mapRef, smoothPosition, smoothBearingValue]);
+  }, [gps.location, followMode, calculatedBearing, config.navigationPitch, config.followModeZoom, mapRef, smoothPosition, smoothBearingValue, navigation.isNavigating]);
 
   // Track if map is rotated (for compass button visibility)
   useEffect(() => {

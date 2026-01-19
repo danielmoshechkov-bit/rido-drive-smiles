@@ -6,8 +6,9 @@ import { GpsState, UserLocation } from './useUserLocation';
 // ═══════════════════════════════════════════════════════════════
 // OFF-ROUTE DETECTION CONSTANTS
 // ═══════════════════════════════════════════════════════════════
-const OFF_ROUTE_THRESHOLD = 50; // meters - distance from route to trigger reroute
-const REROUTE_COOLDOWN = 5000; // ms - minimum time between reroutes
+const OFF_ROUTE_THRESHOLD = 60; // meters - distance from route to trigger reroute
+const REROUTE_COOLDOWN = 8000; // ms - minimum time between reroutes
+const OFF_ROUTE_CONFIRM_TIME = 2500; // ms - must be off-route for this long before rerouting
 
 export interface NavigationState {
   isNavigating: boolean;
@@ -16,7 +17,8 @@ export interface NavigationState {
   eta: Date | null;
   followMode: boolean;
   wakeLockActive: boolean;
-  isOffRoute: boolean;  // NEW: indicates user left the route
+  isOffRoute: boolean;
+  isRerouting: boolean;  // NEW: shows toast during reroute
 }
 
 interface RemainingDistanceResult {
@@ -92,10 +94,12 @@ export function useNavigation(
     followMode: false,
     wakeLockActive: false,
     isOffRoute: false,
+    isRerouting: false,
   });
 
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const lastRerouteRef = useRef<number>(0);
+  const offRouteStartRef = useRef<number | null>(null); // Track when user went off-route
 
   // Start navigation
   const startNavigation = useCallback(async () => {
@@ -125,10 +129,12 @@ export function useNavigation(
       eta: new Date(Date.now() + route.duration * 60000),
       wakeLockActive: !!wakeLockRef.current,
       isOffRoute: false,
+      isRerouting: false,
     });
     
-    // Reset reroute timer
+    // Reset reroute tracking
     lastRerouteRef.current = 0;
+    offRouteStartRef.current = null;
   }, [route, gps]);
 
   // Stop navigation
@@ -153,6 +159,7 @@ export function useNavigation(
       followMode: false,
       wakeLockActive: false,
       isOffRoute: false,
+      isRerouting: false,
     });
   }, [gps]);
 
@@ -171,18 +178,30 @@ export function useNavigation(
       const remainingTime = route.duration * progress;
       
       // ═══════════════════════════════════════════════════════════════
-      // OFF-ROUTE DETECTION & AUTO-REROUTING
+      // OFF-ROUTE DETECTION with confirmation timer
       // ═══════════════════════════════════════════════════════════════
       const isCurrentlyOffRoute = result.closestDistance > OFF_ROUTE_THRESHOLD;
       const now = Date.now();
       
-      if (isCurrentlyOffRoute && onReroute) {
-        // Check cooldown to prevent spam rerouting
-        if (now - lastRerouteRef.current > REROUTE_COOLDOWN) {
-          console.log(`[Navigation] OFF-ROUTE detected: ${result.closestDistance.toFixed(0)}m from route. Rerouting...`);
-          lastRerouteRef.current = now;
-          onReroute();
+      if (isCurrentlyOffRoute) {
+        // Start or continue off-route timer
+        if (!offRouteStartRef.current) {
+          offRouteStartRef.current = now;
+          console.log(`[Navigation] OFF-ROUTE: ${result.closestDistance.toFixed(0)}m from route. Waiting ${OFF_ROUTE_CONFIRM_TIME}ms to confirm...`);
+        } else if (now - offRouteStartRef.current > OFF_ROUTE_CONFIRM_TIME) {
+          // Confirmed off-route - check cooldown and reroute
+          if (now - lastRerouteRef.current > REROUTE_COOLDOWN && onReroute) {
+            console.log(`[Navigation] OFF-ROUTE CONFIRMED. Rerouting...`);
+            lastRerouteRef.current = now;
+            setState(prev => ({ ...prev, isRerouting: true }));
+            onReroute();
+            // Reset after reroute callback
+            setTimeout(() => setState(prev => ({ ...prev, isRerouting: false })), 3000);
+          }
         }
+      } else {
+        // Back on route - reset timer
+        offRouteStartRef.current = null;
       }
 
       setState(prev => ({
