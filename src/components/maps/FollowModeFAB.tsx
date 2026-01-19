@@ -1,5 +1,6 @@
 // GetRido Maps - Follow Mode FAB with Compass (Premium RIDO styling)
-import { Navigation2, Compass, X, LocateFixed } from 'lucide-react';
+// v2: Added persistent Resume button during navigation when follow is off
+import { Navigation2, Compass, X, LocateFixed, MapPin } from 'lucide-react';
 import { FollowMode } from './useMapCameraController';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -63,6 +64,20 @@ const FollowModeFAB = ({
   return (
     <TooltipProvider>
       <div className="flex flex-col items-end gap-2">
+        {/* ═══════════════════════════════════════════════════════════════
+            PERSISTENT RESUME BUTTON - Always visible when follow=off during navigation
+            ═══════════════════════════════════════════════════════════════ */}
+        {isNavigating && followMode === 'off' && (
+          <Button
+            onClick={onRestoreFollowMode}
+            className="gap-2 bg-primary shadow-lg hover:bg-primary/90 animate-fade-in"
+            size="sm"
+          >
+            <MapPin className="h-4 w-4" />
+            Wznów śledzenie
+          </Button>
+        )}
+        
         {/* Compass button - only show when map is rotated */}
         {isMapRotated && (
           <Tooltip>
@@ -97,8 +112,8 @@ const FollowModeFAB = ({
           </TooltipContent>
         </Tooltip>
 
-        {/* "Follow disabled" pill - shows when user manually moved map */}
-        {showPill && (
+        {/* "Follow disabled" pill - shows when user manually moved map (NOT during navigation - use Resume button instead) */}
+        {showPill && !isNavigating && (
           <div 
             className="animate-fade-in flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border"
             style={{
