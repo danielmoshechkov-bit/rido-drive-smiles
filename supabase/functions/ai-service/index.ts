@@ -11,7 +11,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 interface AIServiceRequest {
-  type: 'search' | 'seo' | 'photo_edit' | 'chat' | 'test';
+  type: 'search' | 'seo' | 'photo_edit' | 'chat' | 'test' | 'vehicle-description';
   payload: Record<string, unknown>;
   userId?: string;
 }
@@ -287,6 +287,55 @@ serve(async (req) => {
           content: chatResult.content,
           usage: chatResult.usage,
         };
+        break;
+      }
+      
+      case 'vehicle-description': {
+        const vehicleData = payload.vehicleData as Record<string, unknown>;
+        if (!vehicleData) {
+          return new Response(
+            JSON.stringify({ error: 'Missing vehicleData' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const prompt = `Napisz profesjonalny, atrakcyjny opis ogłoszenia sprzedaży pojazdu w języku polskim. 
+Dane pojazdu:
+- Marka: ${vehicleData.brand || 'nieznana'}
+- Model: ${vehicleData.model || 'nieznany'}
+- Rok: ${vehicleData.year || 'nieznany'}
+- Przebieg: ${vehicleData.mileage || 'nieznany'} km
+- Paliwo: ${vehicleData.fuel || 'nieznane'}
+- Skrzynia: ${vehicleData.transmission || 'nieznana'}
+- Moc: ${vehicleData.power || 'nieznana'} KM
+- Pojemność: ${vehicleData.engine || 'nieznana'} cm³
+- Nadwozie: ${vehicleData.bodyType || 'nieznane'}
+- Kolor: ${vehicleData.color || 'nieznany'}
+- Wyposażenie: ${Array.isArray(vehicleData.equipment) ? vehicleData.equipment.join(', ') : 'standardowe'}
+- Uszkodzony: ${vehicleData.isDamaged ? 'tak' : 'nie'}
+- Typ transakcji: ${vehicleData.transactionType || 'sprzedaż'}
+
+Opis powinien być:
+- Długość: 150-300 słów
+- Profesjonalny ale przyjazny ton
+- Podkreślający zalety pojazdu
+- Bez powtarzania suchych danych technicznych
+- Zachęcający do kontaktu`;
+
+        const descResult = await callOpenAI(
+          [
+            { role: 'system', content: 'Jesteś ekspertem od sprzedaży samochodów. Piszesz atrakcyjne opisy ogłoszeń.' },
+            { role: 'user', content: prompt }
+          ],
+          settings
+        );
+        
+        result = {
+          success: true,
+          description: descResult.content,
+        };
+        break;
+      }
         break;
       }
       

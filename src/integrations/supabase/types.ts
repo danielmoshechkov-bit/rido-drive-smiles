@@ -640,6 +640,39 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          reference_id: string | null
+          source: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          source: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          source?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       crm_import_logs: {
         Row: {
           created_at: string | null
@@ -4171,6 +4204,157 @@ export type Database = {
           },
         ]
       }
+      referral_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          description: string | null
+          details: Json | null
+          id: string
+          is_reviewed: boolean | null
+          referral_code_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          description?: string | null
+          details?: Json | null
+          id?: string
+          is_reviewed?: boolean | null
+          referral_code_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          description?: string | null
+          details?: Json | null
+          id?: string
+          is_reviewed?: boolean | null
+          referral_code_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_alerts_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          total_earnings: number | null
+          user_id: string
+          uses_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          total_earnings?: number | null
+          user_id: string
+          uses_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          total_earnings?: number | null
+          user_id?: string
+          uses_count?: number | null
+        }
+        Relationships: []
+      }
+      referral_settings: {
+        Row: {
+          coins_per_referral: number | null
+          id: string
+          is_enabled: boolean | null
+          max_referrals_per_day: number | null
+          min_days_before_payout: number | null
+          suspicious_same_ip_threshold: number | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          coins_per_referral?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_referrals_per_day?: number | null
+          min_days_before_payout?: number | null
+          suspicious_same_ip_threshold?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          coins_per_referral?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_referrals_per_day?: number | null
+          min_days_before_payout?: number | null
+          suspicious_same_ip_threshold?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      referral_uses: {
+        Row: {
+          coins_awarded: number | null
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          referral_code_id: string
+          referred_user_id: string | null
+          referrer_user_id: string
+          status: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          coins_awarded?: number | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          referral_code_id: string
+          referred_user_id?: string | null
+          referrer_user_id: string
+          status?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          coins_awarded?: number | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          referral_code_id?: string
+          referred_user_id?: string | null
+          referrer_user_id?: string
+          status?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_uses_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_reviews: {
         Row: {
           approved_at: string | null
@@ -5989,22 +6173,31 @@ export type Database = {
       user_wallets: {
         Row: {
           balance: number | null
+          coins_balance: number | null
           created_at: string | null
           id: string
+          total_earned: number | null
+          total_spent: number | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           balance?: number | null
+          coins_balance?: number | null
           created_at?: string | null
           id?: string
+          total_earned?: number | null
+          total_spent?: number | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           balance?: number | null
+          coins_balance?: number | null
           created_at?: string | null
           id?: string
+          total_earned?: number | null
+          total_spent?: number | null
           updated_at?: string | null
           user_id?: string
         }

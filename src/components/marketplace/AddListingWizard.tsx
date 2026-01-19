@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { 
   Car, Building2, Wrench, ArrowRight, ArrowLeft, X,
-  CheckCircle2, AlertCircle
+  AlertCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -57,8 +57,6 @@ export function AddListingWizard({
     company_contact_phone: profile?.company_contact_phone || "",
   });
 
-  const [listingType, setListingType] = useState<'sales' | 'services' | null>(null);
-
   const needsCompanyData = accountMode === 'business' && !profile?.company_nip;
   const startStep = needsCompanyData ? 1 : 2;
 
@@ -94,8 +92,8 @@ export function AddListingWizard({
     }
   };
 
-  const handleSelectListingType = (type: 'sales' | 'services') => {
-    if (type === 'services') {
+  const handleSelectCategory = (category: string) => {
+    if (category === 'services') {
       const servicesEnabled = features.vehicle_marketplace_services_enabled;
       if (!servicesEnabled) {
         toast.info("Przepraszamy, usługi są w budowie. Wkrótce dostępne!", {
@@ -104,13 +102,11 @@ export function AddListingWizard({
         });
         return;
       }
+      // TODO: Navigate to services page when ready
+      toast.info("Usługi będą dostępne wkrótce");
+      return;
     }
     
-    setListingType(type);
-    setStep(3);
-  };
-
-  const handleSelectCategory = (category: string) => {
     onClose();
     
     if (category === 'vehicles') {
@@ -122,35 +118,38 @@ export function AddListingWizard({
 
   const resetAndClose = () => {
     setStep(startStep);
-    setListingType(null);
     onClose();
   };
 
+  const getTotalSteps = () => needsCompanyData ? 2 : 1;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && resetAndClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step === 1 && "Dane firmy"}
-            {step === 2 && "Typ ogłoszenia"}
-            {step === 3 && "Wybierz kategorię"}
+            {step === 1 && needsCompanyData && "Dane firmy"}
+            {(step === 2 || !needsCompanyData) && "Wybierz kategorię"}
           </DialogTitle>
           <DialogDescription>
-            {step === 1 && "Uzupełnij dane firmy, aby móc wystawiać ogłoszenia"}
-            {step === 2 && "Co chcesz ogłosić?"}
-            {step === 3 && "Wybierz kategorię dla swojego ogłoszenia"}
+            {step === 1 && needsCompanyData && "Uzupełnij dane firmy, aby móc wystawiać ogłoszenia"}
+            {(step === 2 || !needsCompanyData) && "Co chcesz ogłosić?"}
           </DialogDescription>
         </DialogHeader>
 
         {/* Progress indicator */}
-        <div className="flex gap-2 mb-4">
-          {[needsCompanyData ? 1 : null, 2, 3].filter(Boolean).map((s, i) => (
-            <div 
-              key={i} 
-              className={`h-1.5 flex-1 rounded-full transition-colors ${(s as number) <= step ? 'bg-primary' : 'bg-muted'}`}
-            />
-          ))}
-        </div>
+        {getTotalSteps() > 1 && (
+          <div className="flex gap-2 mb-4">
+            {Array.from({ length: getTotalSteps() }).map((_, i) => (
+              <div 
+                key={i} 
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  i + 1 <= (needsCompanyData ? step : 1) ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Step 1: Company Data (only for business without data) */}
         {step === 1 && needsCompanyData && (
@@ -224,94 +223,72 @@ export function AddListingWizard({
           </div>
         )}
 
-        {/* Step 2: Listing Type */}
-        {step === 2 && (
-          <div className="grid grid-cols-2 gap-4">
-            <Card 
-              className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
-              onClick={() => handleSelectListingType('sales')}
-            >
-              <CardContent className="p-6 text-center">
-                <div className="h-16 w-16 mx-auto mb-4 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Car className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg">Sprzedaż</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Pojazdy, nieruchomości i inne
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card 
-              className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group relative"
-              onClick={() => handleSelectListingType('services')}
-            >
-              <CardContent className="p-6 text-center">
-                <div className="h-16 w-16 mx-auto mb-4 bg-orange-500/10 rounded-2xl flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-                  <Wrench className="h-8 w-8 text-orange-500" />
-                </div>
-                <h3 className="font-semibold text-lg">Usługi</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Warsztaty, myjnie, serwis
-                </p>
-                {!features.vehicle_marketplace_services_enabled && (
-                  <span className="absolute top-2 right-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
-                    Wkrótce
-                  </span>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="col-span-2 flex justify-start pt-2">
-              <Button variant="ghost" onClick={resetAndClose}>
-                <X className="h-4 w-4 mr-2" />
-                Anuluj
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Category Selection */}
-        {step === 3 && listingType === 'sales' && (
+        {/* Step 2 (or Step 1 if no company data needed): Category Selection as Tiles */}
+        {(step === 2 || !needsCompanyData) && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              {/* Vehicles Tile */}
               <Card 
                 className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
                 onClick={() => handleSelectCategory('vehicles')}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="h-16 w-16 mx-auto mb-4 bg-blue-500/10 rounded-2xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                    <Car className="h-8 w-8 text-blue-500" />
+                  <div className="h-20 w-20 mx-auto mb-4 bg-blue-500/10 rounded-2xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                    <Car className="h-10 w-10 text-blue-500" />
                   </div>
-                  <h3 className="font-semibold">Giełda Aut</h3>
+                  <h3 className="font-semibold text-lg">Giełda Aut</h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     Samochody osobowe i dostawcze
                   </p>
                 </CardContent>
               </Card>
 
+              {/* Real Estate Tile */}
               <Card 
                 className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
                 onClick={() => handleSelectCategory('realestate')}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="h-16 w-16 mx-auto mb-4 bg-green-500/10 rounded-2xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                    <Building2 className="h-8 w-8 text-green-500" />
+                  <div className="h-20 w-20 mx-auto mb-4 bg-green-500/10 rounded-2xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                    <Building2 className="h-10 w-10 text-green-500" />
                   </div>
-                  <h3 className="font-semibold">Nieruchomości</h3>
+                  <h3 className="font-semibold text-lg">Nieruchomości</h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     Mieszkania, domy, działki
                   </p>
                 </CardContent>
               </Card>
+
+              {/* Services Tile */}
+              <Card 
+                className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group relative"
+                onClick={() => handleSelectCategory('services')}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="h-20 w-20 mx-auto mb-4 bg-orange-500/10 rounded-2xl flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
+                    <Wrench className="h-10 w-10 text-orange-500" />
+                  </div>
+                  <h3 className="font-semibold text-lg">Usługi</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Warsztaty, myjnie, serwis
+                  </p>
+                  {!features.vehicle_marketplace_services_enabled && (
+                    <span className="absolute top-2 right-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                      Wkrótce
+                    </span>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             <div className="flex justify-between pt-2">
-              <Button variant="ghost" onClick={() => setStep(2)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Wstecz
-              </Button>
-              <Button variant="ghost" onClick={resetAndClose}>
+              {needsCompanyData && step === 2 && (
+                <Button variant="ghost" onClick={() => setStep(1)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Wstecz
+                </Button>
+              )}
+              <Button variant="ghost" onClick={resetAndClose} className={needsCompanyData && step === 2 ? "" : "ml-auto"}>
                 <X className="h-4 w-4 mr-2" />
                 Anuluj
               </Button>
