@@ -6120,6 +6120,8 @@ export type Database = {
           doors_count: number | null
           engine_capacity: number | null
           equipment: Json | null
+          exchange_data: Json | null
+          expires_at: string | null
           favorites_count: number | null
           first_registration_date: string | null
           fleet_id: string | null
@@ -6135,6 +6137,7 @@ export type Database = {
           is_imported: boolean | null
           is_verified: boolean | null
           latitude: number | null
+          leasing_transfer_data: Json | null
           listed_at: string | null
           listing_number: string | null
           location: string | null
@@ -6147,6 +6150,7 @@ export type Database = {
           price: number | null
           price_type: string | null
           registration_number: string | null
+          rent_to_own_data: Json | null
           seats_count: number | null
           seo_description: string | null
           seo_h1: string | null
@@ -6185,6 +6189,8 @@ export type Database = {
           doors_count?: number | null
           engine_capacity?: number | null
           equipment?: Json | null
+          exchange_data?: Json | null
+          expires_at?: string | null
           favorites_count?: number | null
           first_registration_date?: string | null
           fleet_id?: string | null
@@ -6200,6 +6206,7 @@ export type Database = {
           is_imported?: boolean | null
           is_verified?: boolean | null
           latitude?: number | null
+          leasing_transfer_data?: Json | null
           listed_at?: string | null
           listing_number?: string | null
           location?: string | null
@@ -6212,6 +6219,7 @@ export type Database = {
           price?: number | null
           price_type?: string | null
           registration_number?: string | null
+          rent_to_own_data?: Json | null
           seats_count?: number | null
           seo_description?: string | null
           seo_h1?: string | null
@@ -6250,6 +6258,8 @@ export type Database = {
           doors_count?: number | null
           engine_capacity?: number | null
           equipment?: Json | null
+          exchange_data?: Json | null
+          expires_at?: string | null
           favorites_count?: number | null
           first_registration_date?: string | null
           fleet_id?: string | null
@@ -6265,6 +6275,7 @@ export type Database = {
           is_imported?: boolean | null
           is_verified?: boolean | null
           latitude?: number | null
+          leasing_transfer_data?: Json | null
           listed_at?: string | null
           listing_number?: string | null
           location?: string | null
@@ -6277,6 +6288,7 @@ export type Database = {
           price?: number | null
           price_type?: string | null
           registration_number?: string | null
+          rent_to_own_data?: Json | null
           seats_count?: number | null
           seo_description?: string | null
           seo_h1?: string | null

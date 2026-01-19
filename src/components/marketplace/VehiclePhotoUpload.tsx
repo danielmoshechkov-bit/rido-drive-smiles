@@ -27,8 +27,7 @@ interface VehiclePhotoUploadProps {
   maxPhotos?: number;
 }
 
-const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
-
+// Always compress images for optimal storage
 async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -37,8 +36,9 @@ async function compressImage(file: File): Promise<Blob> {
 
     img.onload = () => {
       let { width, height } = img;
-      const maxDimension = 2000;
+      const maxDimension = 2000; // Max dimension for quality
 
+      // Always resize if larger than max dimension
       if (width > maxDimension || height > maxDimension) {
         if (width > height) {
           height = (height / width) * maxDimension;
@@ -62,7 +62,7 @@ async function compressImage(file: File): Promise<Blob> {
           }
         },
         "image/jpeg",
-        0.85
+        0.85 // Quality 85% for optimal size/quality balance
       );
     };
 
@@ -114,11 +114,8 @@ export function VehiclePhotoUpload({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Compress if needed
-        let blob: Blob = file;
-        if (file.size > MAX_FILE_SIZE) {
-          blob = await compressImage(file);
-        }
+        // Always compress for optimal storage
+        const blob = await compressImage(file);
 
         // Add watermark
         const watermarkedBlob = await addWatermark(blob);
@@ -311,7 +308,7 @@ export function VehiclePhotoUpload({
             <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
             <p className="font-medium">Przeciągnij zdjęcia lub kliknij, aby wybrać</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Dodano {photos.length} z {maxPhotos} zdjęć (max 6MB każde)
+              Dodano {photos.length} z {maxPhotos} zdjęć (system automatycznie optymalizuje rozmiar)
             </p>
           </>
         )}
