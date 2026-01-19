@@ -9,8 +9,6 @@ interface RegisterMarketplaceUserRequest {
   first_name: string;
   last_name?: string;
   email: string;
-  phone: string;
-  city_id?: string;
   password: string;
 }
 
@@ -28,7 +26,7 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterMarketplaceUserRequest = await req.json();
-    const { first_name, last_name, email, phone, city_id, password } = body;
+    const { first_name, last_name, email, password } = body;
 
     console.log("📝 Starting marketplace user registration for:", email);
 
@@ -55,7 +53,30 @@ Deno.serve(async (req) => {
       
       if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
         return new Response(
-          JSON.stringify({ error: "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło." }),
+          JSON.stringify({ 
+            error: "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło.",
+            field: "email"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (authError.message.includes("password")) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Hasło nie spełnia wymagań bezpieczeństwa",
+            field: "password"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (authError.message.includes("email")) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Niepoprawny format adresu email",
+            field: "email"
+          }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -77,8 +98,8 @@ Deno.serve(async (req) => {
         first_name,
         last_name: last_name || null,
         email,
-        phone,
-        city_id: city_id || null,
+        phone: null,
+        city_id: null,
         account_mode: 'buyer' // Start as buyer, can upgrade later
       });
 

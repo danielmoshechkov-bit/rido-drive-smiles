@@ -36,6 +36,7 @@ import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import FleetLanding from "./pages/FleetLanding";
+import FleetRegister from "./pages/FleetRegister";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
             <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
             <Route path="/fleet" element={<FleetLanding />} />
+            <Route path="/fleet/rejestracja" element={<FleetRegister />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/marketplace" element={<AdminMarketplace />} />
             <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />

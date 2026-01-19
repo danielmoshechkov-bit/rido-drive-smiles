@@ -534,7 +534,7 @@ export default function MarketplaceDashboard() {
                 </div>
                 <Card>
                   <CardContent className="p-8 text-center text-muted-foreground">
-                    <Car className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Nie masz jeszcze żadnych ogłoszeń</p>
                     <Button variant="link" className="mt-2">
                       Dodaj pierwsze ogłoszenie

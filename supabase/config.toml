@@ -114,3 +114,6 @@ verify_jwt = false
 
 [functions.ai-photo-edit]
 verify_jwt = false
+
+[functions.register-fleet]
+verify_jwt = false

@@ -428,6 +428,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_pricing: {
+        Row: {
+          created_at: string | null
+          credits_per_use: number | null
+          description: string | null
+          description_en: string | null
+          feature_key: string
+          id: string
+          is_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_per_use?: number | null
+          description?: string | null
+          description_en?: string | null
+          feature_key: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_per_use?: number | null
+          description?: string | null
+          description_en?: string | null
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_query_costs: {
         Row: {
           cost_credits: number
@@ -3391,6 +3424,8 @@ export type Database = {
           city_id: string | null
           company_address: string | null
           company_city: string | null
+          company_contact_person: string | null
+          company_contact_phone: string | null
           company_name: string | null
           company_nip: string | null
           company_postal_code: string | null
@@ -3419,6 +3454,8 @@ export type Database = {
           city_id?: string | null
           company_address?: string | null
           company_city?: string | null
+          company_contact_person?: string | null
+          company_contact_phone?: string | null
           company_name?: string | null
           company_nip?: string | null
           company_postal_code?: string | null
@@ -3447,6 +3484,8 @@ export type Database = {
           city_id?: string | null
           company_address?: string | null
           company_city?: string | null
+          company_contact_person?: string | null
+          company_contact_phone?: string | null
           company_name?: string | null
           company_nip?: string | null
           company_postal_code?: string | null
@@ -5861,6 +5900,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_credits: {
+        Row: {
+          created_at: string | null
+          credits_balance: number | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_balance?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_balance?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -6037,26 +6100,40 @@ export type Database = {
       }
       vehicle_listings: {
         Row: {
+          ai_enhanced_photos: string[] | null
           body_type: string | null
           brand: string | null
           city: string | null
           color: string | null
+          color_type: string | null
           comparison_count: number | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
           contact_reveals_count: number | null
+          country_origin: string | null
           created_at: string | null
           created_by: string | null
           dealer_id: string | null
           description: string | null
           description_long: string | null
+          doors_count: number | null
           engine_capacity: number | null
+          equipment: Json | null
           favorites_count: number | null
+          first_registration_date: string | null
           fleet_id: string | null
           fuel_type: string | null
+          has_ai_photos: boolean | null
           id: string
+          inspection_expiry: string | null
+          inspection_valid: boolean | null
+          insurance_expiry: string | null
+          insurance_valid: boolean | null
           is_available: boolean | null
+          is_damaged: boolean | null
+          is_imported: boolean | null
+          is_verified: boolean | null
           latitude: number | null
           listed_at: string | null
           listing_number: string | null
@@ -6069,6 +6146,8 @@ export type Database = {
           power: number | null
           price: number | null
           price_type: string | null
+          registration_number: string | null
+          seats_count: number | null
           seo_description: string | null
           seo_h1: string | null
           seo_schema_json: Json | null
@@ -6076,33 +6155,50 @@ export type Database = {
           status: string | null
           title: string | null
           transaction_type: string | null
+          transmission: string | null
           updated_at: string | null
           vehicle_id: string | null
           views: number | null
+          vin: string | null
+          vin_reveals_count: number | null
           weekly_price: number
           year: number | null
         }
         Insert: {
+          ai_enhanced_photos?: string[] | null
           body_type?: string | null
           brand?: string | null
           city?: string | null
           color?: string | null
+          color_type?: string | null
           comparison_count?: number | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           contact_reveals_count?: number | null
+          country_origin?: string | null
           created_at?: string | null
           created_by?: string | null
           dealer_id?: string | null
           description?: string | null
           description_long?: string | null
+          doors_count?: number | null
           engine_capacity?: number | null
+          equipment?: Json | null
           favorites_count?: number | null
+          first_registration_date?: string | null
           fleet_id?: string | null
           fuel_type?: string | null
+          has_ai_photos?: boolean | null
           id?: string
+          inspection_expiry?: string | null
+          inspection_valid?: boolean | null
+          insurance_expiry?: string | null
+          insurance_valid?: boolean | null
           is_available?: boolean | null
+          is_damaged?: boolean | null
+          is_imported?: boolean | null
+          is_verified?: boolean | null
           latitude?: number | null
           listed_at?: string | null
           listing_number?: string | null
@@ -6115,6 +6211,8 @@ export type Database = {
           power?: number | null
           price?: number | null
           price_type?: string | null
+          registration_number?: string | null
+          seats_count?: number | null
           seo_description?: string | null
           seo_h1?: string | null
           seo_schema_json?: Json | null
@@ -6122,33 +6220,50 @@ export type Database = {
           status?: string | null
           title?: string | null
           transaction_type?: string | null
+          transmission?: string | null
           updated_at?: string | null
           vehicle_id?: string | null
           views?: number | null
+          vin?: string | null
+          vin_reveals_count?: number | null
           weekly_price: number
           year?: number | null
         }
         Update: {
+          ai_enhanced_photos?: string[] | null
           body_type?: string | null
           brand?: string | null
           city?: string | null
           color?: string | null
+          color_type?: string | null
           comparison_count?: number | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           contact_reveals_count?: number | null
+          country_origin?: string | null
           created_at?: string | null
           created_by?: string | null
           dealer_id?: string | null
           description?: string | null
           description_long?: string | null
+          doors_count?: number | null
           engine_capacity?: number | null
+          equipment?: Json | null
           favorites_count?: number | null
+          first_registration_date?: string | null
           fleet_id?: string | null
           fuel_type?: string | null
+          has_ai_photos?: boolean | null
           id?: string
+          inspection_expiry?: string | null
+          inspection_valid?: boolean | null
+          insurance_expiry?: string | null
+          insurance_valid?: boolean | null
           is_available?: boolean | null
+          is_damaged?: boolean | null
+          is_imported?: boolean | null
+          is_verified?: boolean | null
           latitude?: number | null
           listed_at?: string | null
           listing_number?: string | null
@@ -6161,6 +6276,8 @@ export type Database = {
           power?: number | null
           price?: number | null
           price_type?: string | null
+          registration_number?: string | null
+          seats_count?: number | null
           seo_description?: string | null
           seo_h1?: string | null
           seo_schema_json?: Json | null
@@ -6168,9 +6285,12 @@ export type Database = {
           status?: string | null
           title?: string | null
           transaction_type?: string | null
+          transmission?: string | null
           updated_at?: string | null
           vehicle_id?: string | null
           views?: number | null
+          vin?: string | null
+          vin_reveals_count?: number | null
           weekly_price?: number
           year?: number | null
         }
