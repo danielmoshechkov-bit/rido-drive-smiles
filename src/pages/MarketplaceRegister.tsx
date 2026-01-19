@@ -5,27 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, User, Mail, Phone, Lock, MapPin } from "lucide-react";
+import { Loader2, ArrowLeft, User, Mail, Lock, ShieldCheck } from "lucide-react";
 
-interface City {
-  id: string;
-  name: string;
+interface FieldErrors {
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  first_name?: string;
+  general?: string;
 }
 
 export default function MarketplaceRegister() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [cities, setCities] = useState<City[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [isHuman, setIsHuman] = useState(false);
+  const [honeypot, setHoneypot] = useState(""); // Anti-bot honeypot
   
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     email: "",
-    phone: "",
-    city_id: "",
     password: "",
     confirmPassword: "",
     acceptTerms: false,
@@ -33,12 +35,6 @@ export default function MarketplaceRegister() {
   });
 
   useEffect(() => {
-    const loadCities = async () => {
-      const { data } = await supabase.from("cities").select("id, name").order("name");
-      if (data) setCities(data);
-    };
-    loadCities();
-
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -47,16 +43,47 @@ export default function MarketplaceRegister() {
     });
   }, [navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = (): boolean => {
+    const errors: FieldErrors = {};
+    
+    if (!formData.first_name.trim()) {
+      errors.first_name = "Imię jest wymagane";
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = "Email jest wymagany";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Niepoprawny format email";
+    }
+    
+    if (formData.password.length < 6) {
+      errors.password = "Hasło musi mieć minimum 6 znaków";
+    }
     
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Hasła nie są takie same");
+      errors.confirmPassword = "Hasła nie są takie same";
+    }
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFieldErrors({});
+    
+    // Anti-bot check
+    if (honeypot) {
+      console.log("Bot detected");
       return;
     }
-
-    if (formData.password.length < 6) {
-      toast.error("Hasło musi mieć minimum 6 znaków");
+    
+    if (!isHuman) {
+      toast.error("Potwierdź, że nie jesteś robotem");
+      return;
+    }
+    
+    if (!validateForm()) {
       return;
     }
 
@@ -73,31 +100,34 @@ export default function MarketplaceRegister() {
           first_name: formData.first_name,
           last_name: formData.last_name,
           email: formData.email,
-          phone: formData.phone,
-          city_id: formData.city_id || null,
           password: formData.password,
         },
       });
 
-      // Najpierw sprawdź błąd w danych - zawiera właściwy komunikat z Edge Function
+      // Check for field-specific errors
       if (response.data?.error) {
-        toast.error(response.data.error);
+        if (response.data.field) {
+          setFieldErrors({ [response.data.field]: response.data.error });
+        } else if (response.data.error.includes("email") || response.data.error.includes("zarejestrowany")) {
+          setFieldErrors({ email: response.data.error });
+        } else {
+          setFieldErrors({ general: response.data.error });
+        }
         return;
       }
 
-      // Dopiero potem sprawdź błąd transportu
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      toast.success("Sprawdź swoją skrzynkę email i kliknij link aktywacyjny!", {
+      toast.success("Rejestracja zakończona!", {
         duration: 8000,
-        description: "Email z linkiem aktywacyjnym został wysłany na adres " + formData.email
+        description: response.data?.message || "Możesz się teraz zalogować"
       });
       navigate("/gielda/logowanie");
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");
+      setFieldErrors({ general: error.message || "Błąd rejestracji. Spróbuj ponownie." });
     } finally {
       setLoading(false);
     }
@@ -131,7 +161,24 @@ export default function MarketplaceRegister() {
           </CardHeader>
           
           <CardContent>
+            {fieldErrors.general && (
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+                <p className="text-sm text-destructive">{fieldErrors.general}</p>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Honeypot - hidden from users, bots fill it */}
+              <input
+                type="text"
+                name="website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="first_name">Imię *</Label>
@@ -142,10 +189,13 @@ export default function MarketplaceRegister() {
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                       placeholder="Jan"
-                      className="pl-10"
+                      className={`pl-10 ${fieldErrors.first_name ? 'border-destructive ring-1 ring-destructive' : ''}`}
                       required
                     />
                   </div>
+                  {fieldErrors.first_name && (
+                    <p className="text-sm text-destructive">{fieldErrors.first_name}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name">Nazwisko</Label>
@@ -166,50 +216,18 @@ export default function MarketplaceRegister() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value });
+                      if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined });
+                    }}
                     placeholder="jan@example.com"
-                    className="pl-10"
+                    className={`pl-10 ${fieldErrors.email ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefon *</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+48 123 456 789"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city">Miasto</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select 
-                    value={formData.city_id} 
-                    onValueChange={(value) => setFormData({ ...formData, city_id: value })}
-                  >
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Wybierz miasto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city.id} value={city.id}>
-                          {city.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {fieldErrors.email && (
+                  <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -220,13 +238,19 @@ export default function MarketplaceRegister() {
                     id="password"
                     type="password"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
+                    }}
                     placeholder="Minimum 6 znaków"
-                    className="pl-10"
+                    className={`pl-10 ${fieldErrors.password ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                     minLength={6}
                   />
                 </div>
+                {fieldErrors.password && (
+                  <p className="text-sm text-destructive">{fieldErrors.password}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -237,15 +261,36 @@ export default function MarketplaceRegister() {
                     id="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, confirmPassword: e.target.value });
+                      if (fieldErrors.confirmPassword) setFieldErrors({ ...fieldErrors, confirmPassword: undefined });
+                    }}
                     placeholder="Powtórz hasło"
-                    className="pl-10"
+                    className={`pl-10 ${fieldErrors.confirmPassword ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                   />
                 </div>
+                {fieldErrors.confirmPassword && (
+                  <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
+                )}
               </div>
 
               <div className="space-y-3 pt-2">
+                {/* Human verification checkbox */}
+                <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg border">
+                  <Checkbox
+                    id="human"
+                    checked={isHuman}
+                    onCheckedChange={(checked) => setIsHuman(checked === true)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <label htmlFor="human" className="text-sm font-medium leading-tight">
+                      Nie jestem robotem
+                    </label>
+                  </div>
+                </div>
+                
                 <div className="flex items-start space-x-2">
                   <Checkbox
                     id="terms"
@@ -255,7 +300,7 @@ export default function MarketplaceRegister() {
                     }
                   />
                   <label htmlFor="terms" className="text-sm text-muted-foreground leading-tight">
-                    Akceptuję <a href="#" className="text-primary hover:underline">regulamin</a> serwisu *
+                    Akceptuję <a href="/prawne?tab=regulamin" className="text-primary hover:underline">regulamin</a> serwisu *
                   </label>
                 </div>
 
@@ -268,7 +313,7 @@ export default function MarketplaceRegister() {
                     }
                   />
                   <label htmlFor="rodo" className="text-sm text-muted-foreground leading-tight">
-                    Akceptuję <a href="#" className="text-primary hover:underline">politykę prywatności</a> (RODO) *
+                    Akceptuję <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">politykę prywatności</a> (RODO) *
                   </label>
                 </div>
               </div>

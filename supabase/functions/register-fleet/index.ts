@@ -1,0 +1,185 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface RegisterFleetRequest {
+  company_name: string;
+  company_short_name: string;
+  nip: string;
+  address: string;
+  city: string;
+  postal_code: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  driver_contact_name?: string;
+  driver_contact_phone?: string;
+  email: string;
+  password: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const body: RegisterFleetRequest = await req.json();
+    const { 
+      company_name, company_short_name, nip, address, city, postal_code,
+      contact_name, contact_email, contact_phone,
+      driver_contact_name, driver_contact_phone,
+      email, password 
+    } = body;
+
+    console.log("📝 Starting fleet registration for:", company_name);
+
+    // Check if feature toggle is enabled
+    const { data: toggleData } = await supabaseAdmin
+      .from('feature_toggles')
+      .select('is_enabled')
+      .eq('feature_key', 'fleet_registration_enabled')
+      .single();
+
+    if (toggleData && !toggleData.is_enabled) {
+      return new Response(
+        JSON.stringify({ error: "Rejestracja floty jest tymczasowo wyłączona. Skontaktuj się z administratorem." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if NIP already exists
+    const { data: existingFleet } = await supabaseAdmin
+      .from("fleets")
+      .select("id")
+      .eq("nip", nip)
+      .maybeSingle();
+
+    if (existingFleet) {
+      return new Response(
+        JSON.stringify({ error: "Flota z tym NIP-em już istnieje w systemie.", field: "nip" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 1. Create auth user
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm for fleet accounts
+      user_metadata: { 
+        company_name, 
+        contact_name,
+        account_type: 'fleet' 
+      }
+    });
+
+    if (authError) {
+      console.error("❌ Auth error:", authError.message);
+      
+      if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+        return new Response(
+          JSON.stringify({ error: "Ten email jest już zarejestrowany.", field: "email" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = authData.user!.id;
+    console.log("✅ Auth user created:", userId);
+
+    // 2. Create fleet record
+    const { data: fleetData, error: fleetError } = await supabaseAdmin
+      .from("fleets")
+      .insert({
+        name: company_name,
+        short_name: company_short_name,
+        nip,
+        address,
+        city,
+        postal_code,
+        contact_name,
+        contact_email,
+        contact_phone,
+        contact_phone_for_drivers: driver_contact_phone || null,
+        owner_id: userId,
+        status: 'new', // Mark as new for admin review
+        is_verified: false
+      })
+      .select()
+      .single();
+
+    if (fleetError) {
+      console.error("❌ Fleet insert error:", fleetError.message);
+      // Rollback auth user
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return new Response(
+        JSON.stringify({ error: "Błąd tworzenia floty: " + fleetError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("✅ Fleet created:", fleetData.id);
+
+    // 3. Assign fleet_settlement role with fleet_id
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .insert({
+        user_id: userId,
+        role: "fleet_settlement",
+        fleet_id: fleetData.id
+      });
+
+    if (roleError) {
+      console.error("❌ Role assignment error:", roleError.message);
+    } else {
+      console.log("✅ Fleet role assigned");
+    }
+
+    // 4. Also create marketplace profile for the fleet owner
+    await supabaseAdmin
+      .from("marketplace_user_profiles")
+      .insert({
+        user_id: userId,
+        first_name: contact_name.split(" ")[0] || contact_name,
+        last_name: contact_name.split(" ").slice(1).join(" ") || null,
+        email: contact_email,
+        phone: contact_phone,
+        account_mode: 'business',
+        company_name
+      });
+
+    console.log("🎉 Fleet registration completed for:", company_name);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: "Flota została zarejestrowana! Możesz się teraz zalogować.",
+        fleet_id: fleetData.id
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("❌ Unexpected error:", error);
+    return new Response(
+      JSON.stringify({ error: "Wystąpił nieoczekiwany błąd. Spróbuj ponownie." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
