@@ -32,25 +32,27 @@ export interface POICategory {
   query: string;
 }
 
-// Rido Style - inspired by Apple Maps with unique Rido palette
+// Rido Style - uniform dark slate background for clean, professional look
+const ICON_BG = 'bg-slate-700';
+
 export const POI_CATEGORIES: POICategory[] = [
-  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: 'bg-orange-400', query: 'restaurant' },
-  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: 'bg-sky-500', query: 'gas station fuel' },
-  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: 'bg-red-400', query: 'pharmacy' },
-  { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: 'bg-blue-500', query: 'supermarket grocery' },
-  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: 'bg-blue-600', query: 'parking' },
-  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: 'bg-teal-500', query: 'atm bank' },
-  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: 'bg-indigo-400', query: 'hotel hostel' },
-  { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: 'bg-red-500', query: 'hospital clinic' },
-  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: 'bg-fuchsia-400', query: 'beauty salon spa' },
-  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: 'bg-amber-400', query: 'bar pub' },
-  { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: 'bg-purple-500', query: 'shopping mall' },
-  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: 'bg-rose-400', query: 'cinema movie theater' },
-  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: 'bg-violet-400', query: 'wifi cafe' },
-  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: 'bg-cyan-400', query: 'car wash' },
-  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: 'bg-slate-400', query: 'car service mechanic' },
-  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: 'bg-green-500', query: 'gym fitness' },
-  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: 'bg-yellow-400', query: 'tourist attraction' },
+  { id: 'food', label: 'Gdzie jeść', icon: <FoodIcon />, bgClass: ICON_BG, query: 'restaurant' },
+  { id: 'fuel', label: 'Stacje', icon: <FuelIcon />, bgClass: ICON_BG, query: 'gas station fuel' },
+  { id: 'pharmacy', label: 'Apteki', icon: <PharmacyIcon />, bgClass: ICON_BG, query: 'pharmacy' },
+  { id: 'shop', label: 'Sklepy', icon: <ShopIcon />, bgClass: ICON_BG, query: 'supermarket grocery' },
+  { id: 'parking', label: 'Parkingi', icon: <ParkingIcon />, bgClass: ICON_BG, query: 'parking' },
+  { id: 'atm', label: 'Bankomaty', icon: <AtmIcon />, bgClass: ICON_BG, query: 'atm bank' },
+  { id: 'hotel', label: 'Hotele', icon: <HotelIcon />, bgClass: ICON_BG, query: 'hotel hostel' },
+  { id: 'hospital', label: 'Szpitale', icon: <HospitalIcon />, bgClass: ICON_BG, query: 'hospital clinic' },
+  { id: 'beauty', label: 'Uroda', icon: <BeautyIcon />, bgClass: ICON_BG, query: 'beauty salon spa' },
+  { id: 'bar', label: 'Bary', icon: <BarIcon />, bgClass: ICON_BG, query: 'bar pub' },
+  { id: 'mall', label: 'Galerie', icon: <MallIcon />, bgClass: ICON_BG, query: 'shopping mall' },
+  { id: 'cinema', label: 'Kina', icon: <CinemaIcon />, bgClass: ICON_BG, query: 'cinema movie theater' },
+  { id: 'wifi', label: 'Wi-Fi', icon: <WifiIcon />, bgClass: ICON_BG, query: 'wifi cafe' },
+  { id: 'carwash', label: 'Myjnie', icon: <CarWashIcon />, bgClass: ICON_BG, query: 'car wash' },
+  { id: 'service', label: 'Serwisy', icon: <ServiceIcon />, bgClass: ICON_BG, query: 'car service mechanic' },
+  { id: 'fitness', label: 'Fitness', icon: <FitnessIcon />, bgClass: ICON_BG, query: 'gym fitness' },
+  { id: 'sight', label: 'Zwiedzaj', icon: <SightIcon />, bgClass: ICON_BG, query: 'tourist attraction' },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,13 +75,13 @@ const CategoryGrid = ({ onCategorySelect, compact = false }: CategoryGridProps) 
           onClick={() => onCategorySelect(category)}
           className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-accent/50 active:scale-95 transition-all duration-200 group"
         >
-          {/* Rido style icon container - Apple Maps inspired */}
+          {/* Rido style icon container - clean dark slate */}
           <div className={`
             h-14 w-14 rounded-xl 
             ${category.bgClass}
             flex items-center justify-center 
-            shadow-md ring-1 ring-white/10
-            group-hover:shadow-lg group-hover:scale-105
+            shadow-md
+            group-hover:bg-slate-600 group-hover:shadow-lg group-hover:scale-105
             transition-all duration-200
           `}>
             {category.icon}

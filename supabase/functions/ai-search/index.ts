@@ -235,7 +235,71 @@ serve(async (req) => {
       ? REAL_ESTATE_SYSTEM_PROMPT 
       : (settings?.system_prompt || VEHICLE_SYSTEM_PROMPT);
 
-    // Call Lovable AI Gateway
+    // Define tool for structured output
+    const searchTool = isRealEstate ? {
+      type: "function",
+      function: {
+        name: "search_real_estate",
+        description: "Wyszukaj nieruchomości według kryteriów użytkownika",
+        parameters: {
+          type: "object",
+          properties: {
+            filters: {
+              type: "object",
+              properties: {
+                propertyType: { type: "string", description: "Typ nieruchomości: mieszkanie, dom, kawalerka, dzialka, lokal, pokoj, biuro, magazyn" },
+                transactionType: { type: "string", enum: ["sale", "rent", "short_term"] },
+                city: { type: "string" },
+                district: { type: "string" },
+                priceMin: { type: "number" },
+                priceMax: { type: "number" },
+                areaMin: { type: "number" },
+                areaMax: { type: "number" },
+                roomsMin: { type: "number" },
+                roomsMax: { type: "number" },
+                floorMin: { type: "number" },
+                floorMax: { type: "number" },
+                hasBalcony: { type: "boolean" },
+                hasElevator: { type: "boolean" },
+                hasParking: { type: "boolean" },
+                hasGarden: { type: "boolean" }
+              }
+            },
+            explanation: { type: "string", description: "Krótkie wyjaśnienie co zrozumiałeś z zapytania" }
+          },
+          required: ["filters", "explanation"]
+        }
+      }
+    } : {
+      type: "function",
+      function: {
+        name: "search_vehicles",
+        description: "Wyszukaj pojazdy według kryteriów użytkownika",
+        parameters: {
+          type: "object",
+          properties: {
+            filters: {
+              type: "object",
+              properties: {
+                brands: { type: "array", items: { type: "string" } },
+                models: { type: "array", items: { type: "string" } },
+                fuelTypes: { type: "array", items: { type: "string" }, description: "benzyna, diesel, lpg, hybryda, elektryczny" },
+                yearFrom: { type: "number" },
+                yearTo: { type: "number" },
+                priceMin: { type: "number" },
+                priceMax: { type: "number" },
+                city: { type: "string" },
+                transactionType: { type: "string", enum: ["rent", "buy", "all"] }
+              }
+            },
+            explanation: { type: "string", description: "Krótkie wyjaśnienie co zrozumiałeś z zapytania" }
+          },
+          required: ["filters", "explanation"]
+        }
+      }
+    };
+
+    // Call Lovable AI Gateway with tool calling for structured output
     console.log('Calling Lovable AI with query:', query, 'type:', searchType);
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -249,6 +313,8 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
         ],
+        tools: [searchTool],
+        tool_choice: { type: "function", function: { name: isRealEstate ? "search_real_estate" : "search_vehicles" } }
       }),
     });
 
@@ -270,25 +336,31 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content || '';
-    
-    console.log('AI Response:', aiContent);
+    console.log('AI Response data:', JSON.stringify(aiData));
 
-    // Parse AI response
+    // Parse AI response from tool call
     let parsedFilters: VehicleSearchFilters | RealEstateSearchFilters = {};
     let explanation = '';
     
     try {
-      // Extract JSON from response (handle markdown code blocks)
-      let jsonStr = aiContent;
-      const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1];
+      // Extract from tool call response
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        parsedFilters = parsed.filters || {};
+        explanation = parsed.explanation || '';
+      } else {
+        // Fallback to content parsing
+        const aiContent = aiData.choices?.[0]?.message?.content || '';
+        let jsonStr = aiContent;
+        const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1];
+        }
+        const parsed = JSON.parse(jsonStr.trim());
+        parsedFilters = parsed.filters || {};
+        explanation = parsed.explanation || '';
       }
-      
-      const parsed = JSON.parse(jsonStr.trim());
-      parsedFilters = parsed.filters || {};
-      explanation = parsed.explanation || '';
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       // Return empty filters with explanation
@@ -482,14 +554,16 @@ serve(async (req) => {
         onConflict: 'ip_address,device_fingerprint,usage_date'
       });
 
-      // Increment if exists
-      await supabase.rpc('increment_guest_usage', {
-        p_ip: ipAddress || 'unknown',
-        p_fingerprint: deviceFingerprint || null,
-        p_date: today
-      }).catch(() => {
+      // Increment if exists - use try-catch instead of .catch()
+      try {
+        await supabase.rpc('increment_guest_usage', {
+          p_ip: ipAddress || 'unknown',
+          p_fingerprint: deviceFingerprint || null,
+          p_date: today
+        });
+      } catch {
         // RPC might not exist, that's ok - upsert handles it
-      });
+      }
     }
 
     return new Response(
