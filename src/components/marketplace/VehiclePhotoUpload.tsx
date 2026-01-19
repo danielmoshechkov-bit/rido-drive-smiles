@@ -95,15 +95,23 @@ export function VehiclePhotoUpload({
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [previewPairs, setPreviewPairs] = useState<{ original: string; ai: string }[]>([]);
   const [selectedForAi, setSelectedForAi] = useState<number[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   
   const { credits, deductCredits, loading: creditsLoading } = useUserCredits(userId);
 
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  // Shared function to process files (used by both input and drag & drop)
+  const processFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Filter only images
+    const imageFiles = files.filter(f => f.type.startsWith('image/') || f.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff)$/i));
+    if (imageFiles.length === 0) {
+      toast.error("Wybierz pliki graficzne");
+      return;
+    }
+
     const remainingSlots = maxPhotos - photos.length;
-    if (files.length > remainingSlots) {
+    if (imageFiles.length > remainingSlots) {
       toast.error(`Możesz dodać jeszcze ${remainingSlots} zdjęć`);
       return;
     }
@@ -113,10 +121,10 @@ export function VehiclePhotoUpload({
 
     try {
       const newPhotos: string[] = [];
-      const totalFiles = files.length;
+      const totalFiles = imageFiles.length;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
         
         // Always compress for optimal storage
         const blob = await compressImage(file);
@@ -157,11 +165,51 @@ export function VehiclePhotoUpload({
     } finally {
       setUploading(false);
       setUploadProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   }, [photos, maxPhotos, userId, onPhotosChange]);
+
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if leaving the drop zone (not entering a child)
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (photos.length >= maxPhotos) {
+      toast.error("Osiągnięto limit zdjęć");
+      return;
+    }
+
+    const files = Array.from(e.dataTransfer.files);
+    await processFiles(files);
+  }, [photos.length, maxPhotos, processFiles]);
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    await processFiles(files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [processFiles]);
 
   const removePhoto = (index: number) => {
     const newPhotos = photos.filter((_, i) => i !== index);
@@ -282,26 +330,36 @@ export function VehiclePhotoUpload({
 
   return (
     <div className="space-y-4">
-      {/* Upload zone */}
+      {/* Upload zone with drag & drop */}
       <div
         className={cn(
           "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
           "hover:border-primary/50 hover:bg-muted/50",
+          isDragging && "border-primary bg-primary/10 scale-[1.02]",
           photos.length >= maxPhotos && "opacity-50 cursor-not-allowed"
         )}
         onClick={() => photos.length < maxPhotos && fileInputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,image/bmp,image/tiff,image/*"
+          accept="image/*"
           multiple
           onChange={handleFileSelect}
           className="hidden"
           disabled={photos.length >= maxPhotos}
         />
         
-        {uploading ? (
+        {isDragging ? (
+          <div className="space-y-4">
+            <Upload className="h-10 w-10 mx-auto text-primary animate-bounce" />
+            <p className="font-medium text-primary">Upuść zdjęcia tutaj!</p>
+          </div>
+        ) : uploading ? (
           <div className="space-y-4">
             <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
             <Progress value={uploadProgress} className="max-w-xs mx-auto" />
