@@ -527,7 +527,7 @@ export default function MarketplaceDashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Moje ogłoszenia</h2>
-                  <Button>
+                  <Button onClick={() => navigate("/gielda/dodaj-pojazd")}>
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj ogłoszenie
                   </Button>
@@ -536,7 +536,7 @@ export default function MarketplaceDashboard() {
                   <CardContent className="p-8 text-center text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Nie masz jeszcze żadnych ogłoszeń</p>
-                    <Button variant="link" className="mt-2">
+                    <Button variant="link" className="mt-2" onClick={() => navigate("/gielda/dodaj-pojazd")}>
                       Dodaj pierwsze ogłoszenie
                     </Button>
                   </CardContent>

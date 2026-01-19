@@ -287,6 +287,7 @@ export default function AddVehicleListing() {
           color_type: formData.colorType || null,
           equipment: formData.equipment,
           price: parseFloat(formData.price),
+          weekly_price: formData.transactionType === 'wynajem' ? parseFloat(formData.price) : 0,
           transaction_type: formData.transactionType,
           city: formData.city,
           location: formData.city,

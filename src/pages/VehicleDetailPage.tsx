@@ -8,15 +8,16 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   ArrowLeft, Heart, Share2, Home, MapPin, 
-  Phone, Mail, User, Building2, MessageCircle, LogIn
+  Phone, Mail, User, Building2, MessageCircle, LogIn,
+  ShieldCheck, FileCheck, Key
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VehiclePhotoGallery } from "@/components/vehicles/VehiclePhotoGallery";
 import { VehicleSpecsTable } from "@/components/vehicles/VehicleSpecsTable";
 import { AIVehicleAssessment } from "@/components/vehicles/AIVehicleAssessment";
 import { SimilarVehicles } from "@/components/vehicles/SimilarVehicles";
-// AdBannerSlot import removed - will add when component exists
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
+import { toast } from "sonner";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -50,6 +51,7 @@ function mapDbToDisplayListing(db: any) {
     power: db.power,
     bodyType: db.body_type,
     color: db.color,
+    transmission: db.transmission,
     transactionType: trans.label,
     transactionColor: trans.color,
     contactPhone: db.contact_phone,
@@ -57,6 +59,13 @@ function mapDbToDisplayListing(db: any) {
     listingNumber: db.listing_number,
     latitude: db.latitude ? Number(db.latitude) : undefined,
     longitude: db.longitude ? Number(db.longitude) : undefined,
+    // Verification and VIN fields
+    vin: db.vin,
+    vinRevealsCount: db.vin_reveals_count || 0,
+    isVerified: db.is_verified,
+    insuranceValid: db.insurance_valid,
+    inspectionValid: db.inspection_valid,
+    equipment: db.equipment,
   };
 }
 
@@ -69,6 +78,7 @@ export default function VehicleDetailPage() {
   const [showContactPhone, setShowContactPhone] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showVin, setShowVin] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -143,6 +153,24 @@ export default function VehicleDetailPage() {
     }
     if (!showContactPhone) trackInteraction("contact_reveal");
     setShowContactPhone(true);
+  };
+
+  const handleShowVin = async () => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+    
+    // Increment VIN reveals counter
+    const { error } = await supabase
+      .from('vehicle_listings')
+      .update({ vin_reveals_count: (listing?.vinRevealsCount || 0) + 1 })
+      .eq('id', listing?.id);
+    
+    if (!error) {
+      setShowVin(true);
+      toast.success("VIN został odkryty");
+    }
   };
 
   if (loading) {
@@ -226,6 +254,43 @@ export default function VehicleDetailPage() {
                 <div className="flex items-center gap-2 mt-4 text-muted-foreground">
                   <MapPin className="h-5 w-5 text-primary" />
                   <span>{listing.location}</span>
+                </div>
+              )}
+
+              {/* Verification badges */}
+              <div className="flex gap-2 flex-wrap mt-4">
+                {listing.isVerified && (
+                  <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1">
+                    <ShieldCheck className="h-3 w-3" />
+                    Dane zweryfikowane
+                  </Badge>
+                )}
+                {listing.insuranceValid && (
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                    <FileCheck className="h-3 w-3" />
+                    Ważna polisa
+                  </Badge>
+                )}
+                {listing.inspectionValid && (
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                    <FileCheck className="h-3 w-3" />
+                    Przegląd OK
+                  </Badge>
+                )}
+              </div>
+
+              {/* VIN reveal */}
+              {listing.vin && (
+                <div className="flex items-center gap-3 mt-4 p-3 bg-muted/50 rounded-lg">
+                  <Key className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">VIN:</span>
+                  {showVin ? (
+                    <span className="font-mono text-sm font-medium">{listing.vin}</span>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={handleShowVin}>
+                      Pokaż VIN
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
