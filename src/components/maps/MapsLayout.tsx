@@ -48,15 +48,30 @@ const MapsLayout = () => {
   const gps = useUserLocation();
   const routing = useRouting(gps.location ? { latitude: gps.location.latitude, longitude: gps.location.longitude } : null);
   
-  // Reroute callback for when user goes off-route
+  // Reroute callback for when user goes off-route - with toast notifications
   const handleReroute = useCallback(() => {
     if (gps.location && routing.endCoords) {
       console.log('[MapsLayout] Rerouting from current GPS position...');
+      
+      // Show loading toast
+      import('sonner').then(({ toast }) => {
+        toast.loading('Przeliczam trasę...', { id: 'reroute', duration: 5000 });
+      });
+      
+      // Calculate new route
       routing.calculateRoute(
         { latitude: gps.location.latitude, longitude: gps.location.longitude },
         routing.endCoords,
         routing.endInput
-      );
+      ).then(() => {
+        import('sonner').then(({ toast }) => {
+          toast.success('Trasa zaktualizowana', { id: 'reroute' });
+        });
+      }).catch(() => {
+        import('sonner').then(({ toast }) => {
+          toast.error('Nie udało się przeliczyć trasy', { id: 'reroute' });
+        });
+      });
     }
   }, [gps.location, routing]);
   

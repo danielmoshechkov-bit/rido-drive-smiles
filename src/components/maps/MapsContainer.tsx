@@ -19,6 +19,8 @@ import { RidoMapTheme, getActiveStyleUrl, RIDO_THEME_COLORS, getSavedTheme } fro
 import { DRIVING_MODE_HIDDEN_LAYERS, RIDO_ROUTE_STYLE, MAP_ANIMATION } from './ridoCleanMapStyle';
 import { NEON_ROUTE_STYLE, applyCyberpunkTheme, create3DBuildingsLayer } from './ridoCyberpunkStyle';
 import { useSmoothPosition } from './useSmoothPosition';
+import { useMapMatchedPosition, MapMatchedPosition } from './mapMatchingService';
+import NavigationDebugOverlay from './NavigationDebugOverlay';
 // ═══════════════════════════════════════════════════════════════
 // Google-Style Clean Markers - Simple, Readable, Professional
 // ═══════════════════════════════════════════════════════════════
@@ -149,19 +151,23 @@ const RidoUserMarker3D = ({ heading, accuracy, isMoving }: { heading: number | n
 );
 
 // ═══════════════════════════════════════════════════════════════
-// SMOOTH USER MARKER - Uses 60 FPS interpolation for fluid movement
+// SMOOTH USER MARKER - Uses 60 FPS interpolation + MAP MATCHING
 // Supports both arrow and 3D car marker styles
 // ═══════════════════════════════════════════════════════════════
 const SmoothUserMarker = ({ 
   gpsLocation, 
+  mapMatchedPosition,
   hasConsent, 
   status,
+  isNavigating = false,
   cursorStyle = 'arrow',
   navStyle = 'banner'
 }: { 
   gpsLocation: any; 
+  mapMatchedPosition?: MapMatchedPosition | null;
   hasConsent: boolean; 
   status: string;
+  isNavigating?: boolean;
   cursorStyle?: 'arrow' | 'car';
   navStyle?: 'banner' | 'bubble' | 'premium3d';
 }) => {
@@ -175,18 +181,35 @@ const SmoothUserMarker = ({
   const isPremium3D = navStyle === 'premium3d';
   const showCar = cursorStyle === 'car' || isPremium3D;
   
+  // ═══════════════════════════════════════════════════════════════
+  // MAP MATCHING - Use snapped position during navigation for road-lock
+  // ═══════════════════════════════════════════════════════════════
+  let displayLat = smoothPos.lat;
+  let displayLng = smoothPos.lng;
+  let displayHeading = smoothPos.heading;
+  
+  if (isNavigating && mapMatchedPosition?.isSnapped) {
+    // Use map-matched (snapped to road) position
+    displayLat = mapMatchedPosition.lat;
+    displayLng = mapMatchedPosition.lng;
+    // Use route bearing if available and moving
+    if (mapMatchedPosition.bearing !== null && isMoving) {
+      displayHeading = mapMatchedPosition.bearing;
+    }
+  }
+  
   return (
-    <Marker longitude={smoothPos.lng} latitude={smoothPos.lat} anchor="center">
+    <Marker longitude={displayLng} latitude={displayLat} anchor="center">
       {showCar ? (
         <Car3DMarker 
-          heading={smoothPos.heading} 
+          heading={displayHeading} 
           isMoving={isMoving}
           accuracy={gpsLocation?.accuracy || 10}
           theme={isPremium3D ? 'cyberpunk' : 'dark'}
         />
       ) : (
         <RidoUserMarker3D 
-          heading={smoothPos.heading} 
+          heading={displayHeading} 
           accuracy={gpsLocation?.accuracy || 10}
           isMoving={isMoving}
         />
@@ -252,6 +275,15 @@ const MapsContainer = ({
     gps,
     navigation,
     { followModeZoom: config.followModeZoom, navigationPitch: effectiveNavPitch }
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // MAP MATCHING - Snap user position to route during navigation
+  // ═══════════════════════════════════════════════════════════════
+  const mapMatchedPosition = useMapMatchedPosition(
+    location,
+    route?.coordinates || null,
+    navigation.isNavigating
   );
 
   // Expose camera controller to parent
@@ -611,11 +643,13 @@ const MapsContainer = ({
           </Marker>
         ))}
 
-        {/* User Location - Premium 3D RIDO Arrow with SMOOTH INTERPOLATION */}
+        {/* User Location - Premium 3D RIDO Arrow with SMOOTH INTERPOLATION + MAP MATCHING */}
         <SmoothUserMarker 
           gpsLocation={location}
+          mapMatchedPosition={mapMatchedPosition}
           hasConsent={hasConsent}
           status={status}
+          isNavigating={navigation.isNavigating}
           cursorStyle={navSettings.cursor_style}
           navStyle={navSettings.navigation_style}
         />
@@ -682,6 +716,15 @@ const MapsContainer = ({
           )}
         </div>
       )}
+      
+      {/* Debug Overlay - Only visible with ?debug=nav or for admins */}
+      <NavigationDebugOverlay
+        gps={gps}
+        navigation={navigation}
+        mapMatched={mapMatchedPosition}
+        followMode={cameraController.followMode}
+        calculatedBearing={cameraController.calculatedBearing}
+      />
     </div>
   );
 };
