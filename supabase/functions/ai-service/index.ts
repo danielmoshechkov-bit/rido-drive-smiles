@@ -336,8 +336,6 @@ Opis powinien być:
         };
         break;
       }
-        break;
-      }
       
       default:
         return new Response(

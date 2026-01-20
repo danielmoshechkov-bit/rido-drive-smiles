@@ -25,6 +25,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { DriverOnboardingWizard } from "@/components/driver/DriverOnboardingWizard";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
+import { AddListingModal } from "@/components/AddListingModal";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 interface MarketplaceProfile {
   id: string;
@@ -48,6 +50,7 @@ export default function MarketplaceDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [activeTab, setActiveTab] = useState("start");
+  const [user, setUser] = useState<any>(null);
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
   const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
@@ -78,6 +81,8 @@ export default function MarketplaceDashboard() {
         navigate("/gielda/logowanie");
         return;
       }
+      
+      setUser(session.user);
 
       // Check if user has driver account
       const { data: driverData } = await supabase
@@ -317,16 +322,9 @@ export default function MarketplaceDashboard() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div 
-              className="flex items-center gap-3 cursor-pointer" 
-              onClick={() => navigate("/gielda")}
-            >
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="RIDO" 
-                className="h-9 w-9"
-              />
-              <span className="text-xl font-bold">RIDO</span>
+            <div className="flex items-center gap-4">
+              <UniversalHomeButton />
+              <span className="text-xl font-bold text-primary">Mój panel</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -339,7 +337,8 @@ export default function MarketplaceDashboard() {
                 {profile?.account_mode === 'business' && 'Firma'}
               </Badge>
 
-              {/* Switch Account Dropdown - removed from header, moved to tab bar */}
+              {/* Add Listing Modal with category selection */}
+              <AddListingModal user={user} />
 
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
