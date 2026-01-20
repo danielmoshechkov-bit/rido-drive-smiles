@@ -120,3 +120,6 @@ verify_jwt = false
 
 [functions.referral-validator]
 verify_jwt = false
+
+[functions.seed-services-demo]
+verify_jwt = false
