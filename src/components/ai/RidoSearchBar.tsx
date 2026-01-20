@@ -168,9 +168,9 @@ export function RidoSearchBar({ onSearchResults, className }: RidoSearchBarProps
             </div>
             {/* Mascot Image */}
             <img
-              src="/lovable-uploads/getrido-mascot-email.png"
+              src="/lovable-uploads/rido-mascot-transparent.png"
               alt="Rido AI"
-              className="h-16 w-16 object-contain drop-shadow-lg"
+              className="h-16 w-16 object-contain drop-shadow-lg animate-bounce-slow"
             />
           </div>
         </div>

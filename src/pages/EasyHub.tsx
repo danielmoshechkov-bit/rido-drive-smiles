@@ -349,7 +349,7 @@ export default function EasyHub() {
           </div>
           <div className="shrink-0">
             <img 
-              src="/lovable-uploads/getrido-mascot-email.png" 
+              src="/lovable-uploads/rido-mascot-transparent.png" 
               alt="Rido AI"
               className="h-24 w-24 md:h-32 md:w-32 drop-shadow-lg animate-bounce-slow"
             />

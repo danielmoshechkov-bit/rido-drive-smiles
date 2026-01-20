@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
 import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
+import { VehicleSearchWithMap, VehicleSearchFilters } from "@/components/marketplace/VehicleSearchWithMap";
+import { VehicleResultsMapModal } from "@/components/marketplace/VehicleResultsMapModal";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
 import { CompareBar } from "@/components/marketplace/CompareBar";
@@ -95,6 +97,7 @@ export default function VehicleMarketplace() {
   // AI Search
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
+  const [showMapResults, setShowMapResults] = useState(false);
 
   // Compare context
   const { addVehicle, removeVehicle, isVehicleSelected } = useCompare();
