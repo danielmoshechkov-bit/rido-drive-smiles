@@ -8,7 +8,7 @@ import { Car, Building, Sparkles, ArrowRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-
+import { useUserRole } from "@/hooks/useUserRole";
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
@@ -126,12 +126,19 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const [open, setOpen] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const { features } = useFeatureToggles();
+  const { isAdmin } = useUserRole();
 
-  // Filter categories based on feature toggles
-  const availableCategories = categories.map(cat => ({
-    ...cat,
-    available: cat.featureKey ? features[cat.featureKey] !== false : cat.available
-  }));
+  // Filter categories based on feature toggles and admin status
+  const availableCategories = categories.map(cat => {
+    // Admin can always access Services
+    if (cat.id === 'services' && isAdmin) {
+      return { ...cat, available: true };
+    }
+    return {
+      ...cat,
+      available: cat.featureKey ? features[cat.featureKey] !== false : cat.available
+    };
+  });
 
   const handleOpenModal = () => {
     if (!user) {

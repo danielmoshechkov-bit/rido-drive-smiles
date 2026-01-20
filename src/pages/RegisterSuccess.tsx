@@ -19,9 +19,9 @@ export default function RegisterSuccess() {
                 className="h-20 w-20 object-contain"
               />
               <img
-                src="/lovable-uploads/getrido-mascot-email.png"
+                src="/lovable-uploads/rido-mascot-transparent.png"
                 alt="RIDO Mascot"
-                className="h-20 w-20 object-contain"
+                className="h-20 w-20 object-contain animate-bounce-slow"
               />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
