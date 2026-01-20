@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminRealEstate from "./pages/AdminRealEstate";
 import AdminMarketplace from "./pages/AdminMarketplace";
 import AdminMaps from "./pages/AdminMaps";
+import AdminPortal from "./pages/AdminPortal";
 import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import RegisterSuccess from "./pages/RegisterSuccess";
@@ -82,6 +83,8 @@ const App = () => (
             <Route path="/admin/marketplace" element={<AdminMarketplace />} />
             <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
             <Route path="/admin/mapy" element={<AdminMaps />} />
+            <Route path="/admin/portal" element={<AdminPortal />} />
+            <Route path="/admin/uslugi" element={<AdminPortal />} />
             <Route path="/mapy" element={<GetRidoMaps />} />
             <Route path="/fleet/dashboard" element={<FleetDashboard />} />
             <Route path="/admin/system-alerts" element={<SystemAlerts />} />

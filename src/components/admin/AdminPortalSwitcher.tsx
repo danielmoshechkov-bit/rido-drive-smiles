@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,9 +16,18 @@ interface Portal {
   icon: React.ElementType;
   path: string;
   description: string;
+  isGlobal?: boolean;
 }
 
 const portals: Portal[] = [
+  {
+    id: 'portal',
+    name: 'Portal GetRido',
+    icon: Globe,
+    path: '/admin/portal',
+    description: 'Globalne ustawienia portalu',
+    isGlobal: true,
+  },
   {
     id: 'fleet',
     name: 'Flota i Kierowcy',
@@ -46,6 +56,13 @@ const portals: Portal[] = [
     path: '/admin/mapy',
     description: 'Zarządzanie modułem map',
   },
+  {
+    id: 'services',
+    name: 'Usługi',
+    icon: Wrench,
+    path: '/admin/uslugi',
+    description: 'Zarządzanie usługami i wykonawcami',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -53,6 +70,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/portal')) {
+      return portals.find((p) => p.id === 'portal');
+    }
     if (location.pathname.includes('/admin/nieruchomosci')) {
       return portals.find((p) => p.id === 'realestate');
     }
@@ -61,6 +81,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/admin/mapy')) {
       return portals.find((p) => p.id === 'maps');
+    }
+    if (location.pathname.includes('/admin/uslugi')) {
+      return portals.find((p) => p.id === 'services');
     }
     return portals.find((p) => p.id === 'fleet');
   };
@@ -86,7 +109,42 @@ export function AdminPortalSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        {portals.map((portal) => {
+        {/* Global Portal First */}
+        {portals.filter(p => p.isGlobal).map((portal) => {
+          const Icon = portal.icon;
+          const isActive = currentPortal?.id === portal.id;
+
+          return (
+            <DropdownMenuItem
+              key={portal.id}
+              onClick={() => navigate(portal.path)}
+              className={cn(
+                'flex items-start gap-3 p-3 cursor-pointer',
+                isActive && 'bg-primary/10'
+              )}
+            >
+              <div
+                className={cn(
+                  'rounded-lg p-2',
+                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">{portal.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {portal.description}
+                </div>
+              </div>
+            </DropdownMenuItem>
+          );
+        })}
+        
+        <DropdownMenuSeparator />
+        
+        {/* Module Portals */}
+        {portals.filter(p => !p.isGlobal).map((portal) => {
           const Icon = portal.icon;
           const isActive = currentPortal?.id === portal.id;
 

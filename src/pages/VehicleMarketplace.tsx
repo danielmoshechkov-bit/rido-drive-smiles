@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 
 import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
-import { MarketplaceSearch, SearchFilters } from "@/components/marketplace/MarketplaceSearch";
 import { VehicleSearchWithMap, VehicleSearchFilters } from "@/components/marketplace/VehicleSearchWithMap";
 import { VehicleResultsMapModal } from "@/components/marketplace/VehicleResultsMapModal";
 import { ListingCard } from "@/components/marketplace/ListingCard";
@@ -178,7 +177,7 @@ export default function VehicleMarketplace() {
     }
   };
 
-  const handleSearch = (filters: SearchFilters) => {
+  const handleSearchWithMap = (filters: VehicleSearchFilters) => {
     let result = [...listings];
 
     // Multi-brand filter - check both new format and legacy vehicle relation
@@ -196,30 +195,26 @@ export default function VehicleMarketplace() {
       });
     }
 
-    if (filters.yearFrom && filters.yearFrom !== "all") {
-      const yearFrom = parseInt(filters.yearFrom);
+    if (filters.yearFrom) {
       result = result.filter(l => {
         const year = l.year || l.vehicle?.year;
-        return year && year >= yearFrom;
+        return year && year >= filters.yearFrom!;
       });
     }
 
-    if (filters.yearTo && filters.yearTo !== "all") {
-      const yearTo = parseInt(filters.yearTo);
+    if (filters.yearTo) {
       result = result.filter(l => {
         const year = l.year || l.vehicle?.year;
-        return year && year <= yearTo;
+        return year && year <= filters.yearTo!;
       });
     }
 
     if (filters.priceMin) {
-      const priceMin = parseInt(filters.priceMin);
-      result = result.filter(l => (l.price || l.weekly_price) >= priceMin);
+      result = result.filter(l => (l.price || l.weekly_price) >= filters.priceMin!);
     }
 
     if (filters.priceMax) {
-      const priceMax = parseInt(filters.priceMax);
-      result = result.filter(l => (l.price || l.weekly_price) <= priceMax);
+      result = result.filter(l => (l.price || l.weekly_price) <= filters.priceMax!);
     }
 
     // Multi-fuel type filter
@@ -227,6 +222,44 @@ export default function VehicleMarketplace() {
       result = result.filter(l => {
         const fuelType = l.fuel_type || l.vehicle?.fuel_type;
         return fuelType && filters.fuelTypes.includes(fuelType.toLowerCase());
+      });
+    }
+
+    // Transaction type filter
+    if (filters.transactionType) {
+      result = result.filter(l => l.transaction_type === filters.transactionType);
+    }
+
+    // Body type filter
+    if (filters.bodyType) {
+      result = result.filter(l => {
+        const bodyType = l.body_type || l.vehicle?.body_type;
+        return bodyType && bodyType.toLowerCase() === filters.bodyType?.toLowerCase();
+      });
+    }
+
+    // Mileage filter
+    if (filters.mileageMax) {
+      result = result.filter(l => {
+        const mileage = l.odometer || l.vehicle?.odometer;
+        return mileage && mileage <= filters.mileageMax!;
+      });
+    }
+
+    // Power filter
+    if (filters.powerMin) {
+      result = result.filter(l => {
+        const power = l.power || l.vehicle?.power;
+        return power && power >= filters.powerMin!;
+      });
+    }
+
+    // Location/area filter would go here if coordinates are available
+    // For now we filter by city name if location is specified
+    if (filters.location) {
+      result = result.filter(l => {
+        const city = l.city || l.cityName || l.fleet?.city;
+        return city && city.toLowerCase().includes(filters.location!.toLowerCase());
       });
     }
 
@@ -437,13 +470,32 @@ export default function VehicleMarketplace() {
         </section>
       )}
 
-      {/* Search Filters */}
+      {/* Search Filters with Map */}
       <section className="container mx-auto px-4 py-4">
-        <MarketplaceSearch 
-          onSearch={handleSearch}
+        <VehicleSearchWithMap 
+          onSearch={handleSearchWithMap}
+          onShowMapResults={() => setShowMapResults(true)}
           resultCount={filteredListings.length}
         />
       </section>
+
+      {/* Map Results Modal */}
+      <VehicleResultsMapModal
+        open={showMapResults}
+        onOpenChange={setShowMapResults}
+        listings={filteredListings.map(l => ({
+          id: l.id,
+          title: l.title || `${l.brand || l.vehicle?.brand || ''} ${l.model || l.vehicle?.model || ''}`,
+          price: l.price || l.weekly_price,
+          location: l.city || l.cityName || l.fleet?.city || '',
+          lat: 0,  // TODO: Add lat/lng to vehicle_listings
+          lng: 0,
+          year: l.year || l.vehicle?.year,
+          isSale: l.transaction_type === 'sprzedaz',
+          isRent: l.transaction_type?.includes('wynajem') || false,
+        }))}
+        onViewListing={(id) => navigate(`/gielda/ogloszenie/${id}`)}
+      />
 
       {/* Ad Banner - below search */}
       <section className="container mx-auto px-4">
