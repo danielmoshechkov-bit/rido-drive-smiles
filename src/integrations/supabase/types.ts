@@ -3831,6 +3831,54 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_service_reviews: {
+        Row: {
+          booking_id: string | null
+          created_at: string | null
+          id: string
+          is_blocking: boolean | null
+          last_reminder_at: string | null
+          provider_id: string | null
+          reminder_count: number | null
+          user_id: string
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_blocking?: boolean | null
+          last_reminder_at?: string | null
+          provider_id?: string | null
+          reminder_count?: number | null
+          user_id: string
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_blocking?: boolean | null
+          last_reminder_at?: string | null
+          provider_id?: string | null
+          reminder_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_service_reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_service_reviews_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_import_config: {
         Row: {
           columns: Json
@@ -3908,6 +3956,54 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_reminder_confirmations: {
+        Row: {
+          booking_id: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          id: string
+          provider_id: string | null
+          reminder_sent_at: string | null
+          reminder_type: string | null
+          resend_count: number | null
+        }
+        Insert: {
+          booking_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          id?: string
+          provider_id?: string | null
+          reminder_sent_at?: string | null
+          reminder_type?: string | null
+          resend_count?: number | null
+        }
+        Update: {
+          booking_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          id?: string
+          provider_id?: string | null
+          reminder_sent_at?: string | null
+          reminder_type?: string | null
+          resend_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_reminder_confirmations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_reminder_confirmations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]
@@ -4872,6 +4968,89 @@ export type Database = {
         }
         Relationships: []
       }
+      service_commission_settings: {
+        Row: {
+          commission_percent: number | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          max_amount: number | null
+          min_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          commission_percent?: number | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_amount?: number | null
+          min_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          commission_percent?: number | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_amount?: number | null
+          min_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      service_confirmations: {
+        Row: {
+          booking_id: string | null
+          client_code: string
+          client_code_verified_at: string | null
+          client_confirmation_method: string | null
+          client_confirmed_at: string | null
+          commission_amount: number | null
+          commission_status: string | null
+          created_at: string | null
+          final_price: number
+          id: string
+          provider_submitted_at: string | null
+          service_description: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          client_code: string
+          client_code_verified_at?: string | null
+          client_confirmation_method?: string | null
+          client_confirmed_at?: string | null
+          commission_amount?: number | null
+          commission_status?: string | null
+          created_at?: string | null
+          final_price: number
+          id?: string
+          provider_submitted_at?: string | null
+          service_description?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          client_code?: string
+          client_code_verified_at?: string | null
+          client_confirmation_method?: string | null
+          client_confirmed_at?: string | null
+          commission_amount?: number | null
+          commission_status?: string | null
+          created_at?: string | null
+          final_price?: number
+          id?: string
+          provider_submitted_at?: string | null
+          service_description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_confirmations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_customer_notes: {
         Row: {
           created_at: string | null
@@ -5025,6 +5204,47 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_messages: {
+        Row: {
+          booking_id: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          read_at: string | null
+          recipient_user_id: string
+          sender_user_id: string
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          read_at?: string | null
+          recipient_user_id: string
+          sender_user_id: string
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_messages_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
             referencedColumns: ["id"]
           },
         ]
@@ -5292,6 +5512,50 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_subcategories: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by_user_id: string | null
+          id: string
+          is_approved: boolean | null
+          name: string
+          parent_category_id: string | null
+          slug: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          name: string
+          parent_category_id?: string | null
+          slug: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          name?: string
+          parent_category_id?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_subcategories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -6083,6 +6347,74 @@ export type Database = {
           marketplace_type?: string
         }
         Relationships: []
+      }
+      user_calendar_events: {
+        Row: {
+          all_day: boolean | null
+          booking_id: string | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          end_datetime: string | null
+          event_type: string | null
+          id: string
+          is_public: boolean | null
+          location: string | null
+          reminder_before_minutes: number | null
+          reminder_sent: boolean | null
+          shared_with_users: string[] | null
+          start_datetime: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean | null
+          booking_id?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_datetime?: string | null
+          event_type?: string | null
+          id?: string
+          is_public?: boolean | null
+          location?: string | null
+          reminder_before_minutes?: number | null
+          reminder_sent?: boolean | null
+          shared_with_users?: string[] | null
+          start_datetime: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean | null
+          booking_id?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_datetime?: string | null
+          event_type?: string | null
+          id?: string
+          is_public?: boolean | null
+          location?: string | null
+          reminder_before_minutes?: number | null
+          reminder_sent?: boolean | null
+          shared_with_users?: string[] | null
+          start_datetime?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_calendar_events_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_credits: {
         Row: {
