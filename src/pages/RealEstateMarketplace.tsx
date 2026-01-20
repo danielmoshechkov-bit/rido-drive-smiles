@@ -574,20 +574,13 @@ export default function RealEstateMarketplace() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Universal home button */}
-            <UniversalHomeButton className="hidden md:flex" />
+            {/* Universal home button - same size as other elements */}
+            <UniversalHomeButton />
             
-            {/* Marketplace logo */}
-            <div className="flex items-center gap-2">
-              <img 
-                src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
-                alt="RIDO" 
-                className="h-8 w-8"
-              />
-              <span className="font-bold text-lg md:text-xl">
-                <span className="text-primary">RIDO</span> Nieruchomości
-              </span>
-            </div>
+            {/* Portal name only - no duplicate logo */}
+            <span className="font-bold text-lg md:text-xl text-primary">
+              Nieruchomości
+            </span>
           </div>
           <div className="flex gap-2">
             <MyGetRidoButton user={user} />
