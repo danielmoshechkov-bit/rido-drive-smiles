@@ -49,7 +49,6 @@ const categoryIcons: Record<string, React.ReactNode> = {
 
 export default function ServicesMarketplace() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);

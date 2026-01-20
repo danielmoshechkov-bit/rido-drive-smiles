@@ -43,6 +43,7 @@ import FleetRegister from "./pages/FleetRegister";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
+import ServicesMarketplace from "./pages/ServicesMarketplace";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="/nieruchomosci/porownaj" element={<PropertyCompare />} />
             <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
             <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
+            <Route path="/uslugi" element={<ServicesMarketplace />} />
             <Route path="/fleet" element={<FleetLanding />} />
             <Route path="/fleet/rejestracja" element={<FleetRegister />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />

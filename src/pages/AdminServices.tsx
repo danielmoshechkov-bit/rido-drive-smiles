@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
+import { AdminUsersPanel } from '@/components/admin/AdminUsersPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, Wrench, Percent, Tag, Users, Calendar, BarChart } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Loader2, Wrench, Percent, Tag, Users, Calendar, BarChart, Trash2, Database, Star, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CommissionSettings {
@@ -17,6 +20,28 @@ interface CommissionSettings {
   is_enabled: boolean;
   min_amount: number | null;
   max_amount: number | null;
+}
+
+interface ServiceProvider {
+  id: string;
+  company_name: string;
+  company_city: string | null;
+  rating_avg: number | null;
+  rating_count: number;
+  status: string;
+  created_at: string;
+  category?: { name: string };
+}
+
+interface ServiceBooking {
+  id: string;
+  booking_number: string;
+  customer_name: string;
+  scheduled_date: string;
+  status: string;
+  estimated_price: number | null;
+  provider?: { company_name: string };
+  service?: { name: string };
 }
 
 export default function AdminServices() {
@@ -28,10 +53,20 @@ export default function AdminServices() {
   // Commission settings state
   const [commission, setCommission] = useState<CommissionSettings | null>(null);
   const [savingCommission, setSavingCommission] = useState(false);
+  
+  // Providers and bookings
+  const [providers, setProviders] = useState<ServiceProvider[]>([]);
+  const [bookings, setBookings] = useState<ServiceBooking[]>([]);
+  
+  // Demo data state
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const [deletingDemo, setDeletingDemo] = useState(false);
 
   useEffect(() => {
     checkAdmin();
     loadCommissionSettings();
+    loadProviders();
+    loadBookings();
   }, []);
 
   const checkAdmin = async () => {
@@ -42,11 +77,9 @@ export default function AdminServices() {
         return;
       }
 
-      // Check if user is admin (daniel.moshechkov@gmail.com)
       if (user.email === 'daniel.moshechkov@gmail.com') {
         setIsAdmin(true);
       } else {
-        // Check user_roles table for admin role
         const { data: roles } = await supabase
           .from('user_roles')
           .select('role')
@@ -84,6 +117,33 @@ export default function AdminServices() {
     }
   };
 
+  const loadProviders = async () => {
+    try {
+      const { data } = await supabase
+        .from('service_providers')
+        .select('*, category:service_categories(name)')
+        .order('created_at', { ascending: false });
+      
+      if (data) setProviders(data as ServiceProvider[]);
+    } catch (error) {
+      console.error('Error loading providers:', error);
+    }
+  };
+
+  const loadBookings = async () => {
+    try {
+      const { data } = await supabase
+        .from('service_bookings')
+        .select('*, provider:service_providers(company_name), service:services(name)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (data) setBookings(data as ServiceBooking[]);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+    }
+  };
+
   const saveCommissionSettings = async () => {
     if (!commission) return;
     setSavingCommission(true);
@@ -108,12 +168,74 @@ export default function AdminServices() {
     }
   };
 
+  const seedDemoData = async () => {
+    setSeedingDemo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('seed-services-demo', {
+        body: { action: 'create' }
+      });
+      
+      if (error) throw error;
+      toast.success(`Utworzono ${data.providersCreated || 0} przykładowych usługodawców`);
+      loadProviders();
+      loadBookings();
+    } catch (error) {
+      console.error('Error seeding demo:', error);
+      toast.error('Błąd tworzenia danych przykładowych');
+    } finally {
+      setSeedingDemo(false);
+    }
+  };
+
+  const deleteDemoData = async () => {
+    setDeletingDemo(true);
+    try {
+      const { error } = await supabase.functions.invoke('seed-services-demo', {
+        body: { action: 'delete' }
+      });
+      
+      if (error) throw error;
+      toast.success('Dane przykładowe usunięte');
+      loadProviders();
+      loadBookings();
+    } catch (error) {
+      console.error('Error deleting demo:', error);
+      toast.error('Błąd usuwania danych przykładowych');
+    } finally {
+      setDeletingDemo(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      'new': 'secondary',
+      'confirmed': 'default',
+      'in_progress': 'default',
+      'completed': 'outline',
+      'cancelled': 'destructive',
+      'active': 'default',
+      'pending': 'secondary',
+      'suspended': 'destructive'
+    };
+    const labels: Record<string, string> = {
+      'new': 'Nowa',
+      'confirmed': 'Potwierdzona',
+      'in_progress': 'W trakcie',
+      'completed': 'Zakończona',
+      'cancelled': 'Anulowana',
+      'active': 'Aktywny',
+      'pending': 'Oczekuje',
+      'suspended': 'Zawieszony'
+    };
+    return <Badge variant={variants[status] || 'outline'}>{labels[status] || status}</Badge>;
+  };
+
   const subTabs = [
     { value: 'commission', label: 'Prowizje', visible: true },
-    { value: 'categories', label: 'Kategorie', visible: true },
     { value: 'providers', label: 'Wykonawcy', visible: true },
     { value: 'bookings', label: 'Rezerwacje', visible: true },
-    { value: 'stats', label: 'Statystyki', visible: true },
+    { value: 'users', label: 'Użytkownicy', visible: true },
+    { value: 'demo', label: 'Dane testowe', visible: true },
   ];
 
   if (loading) {
@@ -153,7 +275,7 @@ export default function AdminServices() {
             <h1 className="text-2xl font-bold">Zarządzanie Usługami</h1>
           </div>
           <p className="text-muted-foreground">
-            Prowizje, kategorie, wykonawcy i rezerwacje
+            Prowizje, wykonawcy, rezerwacje i użytkownicy
           </p>
         </div>
 
@@ -254,96 +376,190 @@ export default function AdminServices() {
             </div>
           )}
 
-          {/* Categories Tab */}
-          {activeSubTab === 'categories' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
-                    Kategorie usług
-                  </CardTitle>
-                  <CardDescription>
-                    Zarządzanie kategoriami i podkategoriami
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Tag className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Zarządzanie kategoriami wkrótce</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {/* Providers Tab */}
           {activeSubTab === 'providers' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Wykonawcy
-                  </CardTitle>
-                  <CardDescription>
-                    Lista usługodawców, weryfikacja, zawieszanie
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Wykonawcy ({providers.length})
+                </CardTitle>
+                <CardDescription>
+                  Lista usługodawców zarejestrowanych w systemie
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {providers.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Lista wykonawców wkrótce</p>
+                    <p>Brak zarejestrowanych wykonawców</p>
+                    <Button className="mt-4" onClick={() => setActiveSubTab('demo')}>
+                      Utwórz dane testowe
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Firma</TableHead>
+                          <TableHead>Kategoria</TableHead>
+                          <TableHead>Lokalizacja</TableHead>
+                          <TableHead>Ocena</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {providers.map(provider => (
+                          <TableRow key={provider.id}>
+                            <TableCell className="font-medium">{provider.company_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{provider.category?.name || '-'}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center text-sm text-muted-foreground">
+                                <MapPin className="h-3.5 w-3.5 mr-1" />
+                                {provider.company_city || '-'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {provider.rating_avg ? (
+                                <div className="flex items-center">
+                                  <Star className="h-3.5 w-3.5 mr-1 fill-amber-400 text-amber-400" />
+                                  {provider.rating_avg.toFixed(1)} ({provider.rating_count})
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(provider.status)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Bookings Tab */}
           {activeSubTab === 'bookings' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Rezerwacje
-                  </CardTitle>
-                  <CardDescription>
-                    Przegląd wszystkich rezerwacji w systemie
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Rezerwacje ({bookings.length})
+                </CardTitle>
+                <CardDescription>
+                  Przegląd wszystkich rezerwacji w systemie
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {bookings.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Przegląd rezerwacji wkrótce</p>
+                    <p>Brak rezerwacji</p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nr rezerwacji</TableHead>
+                          <TableHead>Klient</TableHead>
+                          <TableHead>Usługa</TableHead>
+                          <TableHead>Wykonawca</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Kwota</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bookings.map(booking => (
+                          <TableRow key={booking.id}>
+                            <TableCell className="font-mono text-sm">{booking.booking_number}</TableCell>
+                            <TableCell>{booking.customer_name}</TableCell>
+                            <TableCell>{booking.service?.name || '-'}</TableCell>
+                            <TableCell>{booking.provider?.company_name || '-'}</TableCell>
+                            <TableCell>{new Date(booking.scheduled_date).toLocaleDateString('pl-PL')}</TableCell>
+                            <TableCell>{booking.estimated_price ? `${booking.estimated_price} zł` : '-'}</TableCell>
+                            <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
-          {/* Stats Tab */}
-          {activeSubTab === 'stats' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart className="h-5 w-5" />
-                    Statystyki usług
-                  </CardTitle>
-                  <CardDescription>
-                    Przychody, rezerwacje, oceny
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <BarChart className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Statystyki będą dostępne po uruchomieniu modułu usług</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          {/* Users Tab */}
+          {activeSubTab === 'users' && (
+            <AdminUsersPanel
+              title="Użytkownicy modułu Usług"
+              description="Usługodawcy zarejestrowani w portalu usług"
+              source="services"
+            />
+          )}
+
+          {/* Demo Data Tab */}
+          {activeSubTab === 'demo' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Dane testowe
+                </CardTitle>
+                <CardDescription>
+                  Zarządzanie przykładowymi danymi do testowania portalu
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="p-6 text-center">
+                      <Database className="h-12 w-12 mx-auto mb-4 text-primary" />
+                      <h3 className="font-semibold mb-2">Utwórz dane przykładowe</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Utworzy 10 przykładowych usługodawców z usługami, rezerwacjami i recenzjami
+                      </p>
+                      <Button onClick={seedDemoData} disabled={seedingDemo}>
+                        {seedingDemo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Utwórz przykłady
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed border-destructive/30">
+                    <CardContent className="p-6 text-center">
+                      <Trash2 className="h-12 w-12 mx-auto mb-4 text-destructive" />
+                      <h3 className="font-semibold mb-2">Usuń dane przykładowe</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Usunie wszystkie dane z oznaczeniem "Demo" (usługodawcy, usługi, rezerwacje, recenzje)
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        onClick={deleteDemoData} 
+                        disabled={deletingDemo}
+                      >
+                        {deletingDemo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Usuń przykłady
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-medium mb-2">Co zostanie utworzone:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 10 usługodawców w różnych kategoriach (Sprzątanie, Warsztaty, Detailing, Złota rączka, Hydraulik)</li>
+                    <li>• 25+ usług z cenami i czasem trwania</li>
+                    <li>• 5 przykładowych rezerwacji w różnych statusach</li>
+                    <li>• 20+ recenzji z ocenami i komentarzami</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

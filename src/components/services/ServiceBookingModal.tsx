@@ -132,9 +132,13 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
     
     setLoading(true);
     try {
+      // Generate booking number (trigger generates it, but TypeScript needs it)
+      const bookingNum = 'BK-' + Date.now().toString(36).toUpperCase();
+      
       const { data: booking, error } = await supabase
         .from('service_bookings')
-        .insert({
+        .insert([{
+          booking_number: bookingNum,
           provider_id: provider.id,
           service_id: service.id,
           customer_user_id: user?.id || null,
@@ -147,7 +151,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
           estimated_price: service.price,
           customer_notes: customerNotes || null,
           status: 'new'
-        })
+        }])
         .select('booking_number')
         .single();
 
@@ -160,7 +164,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         setCashCode(code);
         
-        // Store code in customer_notes for tracking
+        // Store code in provider_notes for tracking
         await supabase
           .from('service_bookings')
           .update({ provider_notes: `Kod gotówkowy: ${code}` })
@@ -170,6 +174,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
         await supabase
           .from('service_bookings')
           .update({ provider_notes: 'Płatność kartą - opłacone' })
+          .eq('booking_number', booking.booking_number);
       }
 
       setStep('confirmation');
