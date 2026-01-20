@@ -134,16 +134,31 @@ export default function MarketplaceRegister() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate("/gielda")}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Powrót do giełdy
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
+      {/* Header */}
+      <div className="flex justify-between items-center p-4 border-b">
+        <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/')}>
+          <img 
+            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+            alt="Get RIDO Logo" 
+            className="h-8 w-8"
+          />
+          <span className="text-xl font-bold text-primary">Get RIDO</span>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-sm text-muted-foreground">Strona główna</span>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-center p-4 py-8">
+        <div className="w-full max-w-md">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/gielda")}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Powrót do giełdy
+          </Button>
 
         <Card className="shadow-xl">
           <CardHeader className="text-center">
@@ -338,6 +353,7 @@ export default function MarketplaceRegister() {
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

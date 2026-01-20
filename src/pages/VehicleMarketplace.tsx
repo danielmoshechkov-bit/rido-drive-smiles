@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Car, Plus, Home, Sparkles, ArrowRight, Building } from "lucide-react";
+import { Car, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare } from "@/contexts/CompareContext";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { AddListingModal } from "@/components/AddListingModal";
 
 // Import hero image (same style as real estate)
 import heroImage from "@/assets/tile-cars.jpg";
@@ -382,21 +383,7 @@ export default function VehicleMarketplace() {
           </div>
           <div className="flex gap-2">
             <MyGetRidoButton user={user} />
-            <Button 
-              size="sm"
-              onClick={() => {
-                if (user) {
-                  navigate('/gielda/dodaj-pojazd');
-                } else {
-                  navigate('/gielda/logowanie?redirect=/gielda/dodaj-pojazd');
-                }
-              }}
-              className="rounded-full"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-              <span className="sm:hidden">Dodaj</span>
-            </Button>
+            <AddListingModal user={user} />
           </div>
         </div>
       </header>

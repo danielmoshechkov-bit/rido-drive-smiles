@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 interface MyGetRidoButtonProps {
   user: any;
@@ -15,7 +15,8 @@ interface MyGetRidoButtonProps {
 
 export function MyGetRidoButton({ user, variant = "outline", size = "sm", className }: MyGetRidoButtonProps) {
   const navigate = useNavigate();
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [accountTypes, setAccountTypes] = useState<{
     isDriver: boolean;
     isFleet: boolean;
@@ -87,65 +88,40 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
     navigate('/');
   };
 
-  // If user is not logged in, show auth dialog trigger
+  const openLoginModal = () => {
+    setAuthMode("login");
+    setShowAuthModal(true);
+  };
+
+  const openRegisterModal = () => {
+    setAuthMode("register");
+    setShowAuthModal(true);
+  };
+
+  // If user is not logged in, show auth modal trigger
   if (!user) {
     return (
       <>
         <Button 
           variant={variant} 
           size={size} 
-          onClick={() => setShowAuthDialog(true)}
+          onClick={openLoginModal}
           className={className}
         >
           <User className="h-4 w-4 mr-2" />
           Moje GetRido
         </Button>
         
-        <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <img 
-                  src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
-                  alt="RIDO" 
-                  className="h-8 w-8"
-                />
-                Moje GetRido
-              </DialogTitle>
-              <DialogDescription>
-                Zaloguj się lub zarejestruj, aby korzystać z pełnych funkcji portalu.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3 mt-4">
-              <Button 
-                onClick={() => {
-                  setShowAuthDialog(false);
-                  navigate('/auth');
-                }}
-                className="w-full"
-              >
-                Zaloguj się
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setShowAuthDialog(false);
-                  navigate('/gielda/rejestracja');
-                }}
-                className="w-full"
-              >
-                Zarejestruj się
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AuthModal 
+          open={showAuthModal} 
+          onOpenChange={setShowAuthModal}
+          initialMode={authMode}
+        />
       </>
     );
   }
 
   // User is logged in - show dropdown with their accounts
-  const hasMultipleAccounts = Object.values(accountTypes).filter(Boolean).length > 1;
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

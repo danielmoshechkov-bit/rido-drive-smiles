@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Car, Building, Sparkles, ArrowRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useUserRole } from "@/hooks/useUserRole";
+import { AuthModal } from "@/components/auth/AuthModal";
+
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
@@ -124,7 +125,8 @@ function CategoryTileCard({
 export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingCategory, setPendingCategory] = useState<CategoryTile | null>(null);
   const { features } = useFeatureToggles();
   const { isAdmin } = useUserRole();
 
@@ -141,16 +143,29 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   });
 
   const handleOpenModal = () => {
-    if (!user) {
-      setShowAuthDialog(true);
-    } else {
-      setOpen(true);
-    }
+    // Always open category selection first, even for non-logged users
+    setOpen(true);
   };
 
   const handleCategoryClick = (tile: CategoryTile) => {
-    setOpen(false);
-    navigate(tile.link);
+    if (!user) {
+      // Store the category and show auth modal
+      setPendingCategory(tile);
+      setOpen(false);
+      setShowAuthModal(true);
+    } else {
+      // User is logged in, navigate directly
+      setOpen(false);
+      navigate(tile.link);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    // After successful login, navigate to the pending category
+    if (pendingCategory) {
+      navigate(pendingCategory.link);
+      setPendingCategory(null);
+    }
   };
 
   return (
@@ -165,47 +180,18 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
         </Button>
       )}
 
-      {/* Auth Dialog - for non-logged users */}
-      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <img 
-                src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
-                alt="RIDO" 
-                className="h-8 w-8"
-              />
-              Dodaj ogłoszenie
-            </DialogTitle>
-            <DialogDescription>
-              Aby dodać ogłoszenie, zaloguj się lub zarejestruj.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            <Button 
-              onClick={() => {
-                setShowAuthDialog(false);
-                navigate('/auth');
-              }}
-              className="w-full"
-            >
-              Zaloguj się
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => {
-                setShowAuthDialog(false);
-                navigate('/gielda/rejestracja');
-              }}
-              className="w-full"
-            >
-              Zarejestruj się
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Auth Modal - for non-logged users after category selection */}
+      <AuthModal 
+        open={showAuthModal} 
+        onOpenChange={(open) => {
+          setShowAuthModal(open);
+          if (!open) setPendingCategory(null);
+        }}
+        initialMode="login"
+        onSuccess={handleAuthSuccess}
+      />
 
-      {/* Category Selection Modal - for logged users */}
+      {/* Category Selection Modal - always shown first */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -215,6 +201,11 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
             </DialogTitle>
             <DialogDescription>
               Wybierz kategorię ogłoszenia, które chcesz dodać.
+              {!user && (
+                <span className="block mt-1 text-primary">
+                  Po wyborze kategorii będziesz mógł się zalogować lub zarejestrować.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           
