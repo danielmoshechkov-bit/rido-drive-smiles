@@ -168,17 +168,28 @@ export default function EasyHub() {
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      
+      // Check if user is the main admin
+      if (user?.email === 'daniel.moshechkov@gmail.com') {
+        setIsMainAdmin(true);
+      }
     };
     checkUser();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
+      if (session?.user?.email === 'daniel.moshechkov@gmail.com') {
+        setIsMainAdmin(true);
+      } else {
+        setIsMainAdmin(false);
+      }
     });
     
     return () => subscription.unsubscribe();
@@ -243,12 +254,21 @@ export default function EasyHub() {
     }
   };
 
-  // Build dynamic tiles list with conditionally visible Maps tile
+  // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
-    const tiles = [...marketplaceTiles];
+    let tiles = [...marketplaceTiles];
     
+    // For main admin: enable Services module
+    if (isMainAdmin) {
+      tiles = tiles.map(t => 
+        t.id === 'services' 
+          ? { ...t, available: true, link: '/uslugi' }
+          : t
+      );
+    }
+    
+    // Insert Maps at position 2 (after Nieruchomości, before Usługi) for logged-in users
     if (mapsVisible && user) {
-      // Insert Maps at position 2 (after Nieruchomości, before Usługi)
       tiles.splice(2, 0, {
         id: 'maps',
         title: 'Mapy',
@@ -261,7 +281,7 @@ export default function EasyHub() {
     }
     
     return tiles;
-  }, [mapsVisible, user]);
+  }, [mapsVisible, user, isMainAdmin]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
