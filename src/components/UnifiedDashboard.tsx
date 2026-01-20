@@ -39,6 +39,7 @@ import { TabsPill } from "@/components/ui/TabsPill";
 import { UserDropdown } from "@/components/UserDropdown";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import FleetLiveMap from "@/components/maps/FleetLiveMap";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -243,16 +244,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <div 
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/')}
-              >
-                <img 
-                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                  alt="Get RIDO Logo" 
-                  className="h-6 w-6"
-                />
-              </div>
+              <UniversalHomeButton />
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold text-primary">
                   {userType === 'admin' ? 'Panel Administracyjny' : `Panel Flotowy - ${fleetName}`}
@@ -298,16 +290,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {/* Mobile header */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <div 
-                className="cursor-pointer"
-                onClick={() => navigate('/')}
-              >
-                <img 
-                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                  alt="Get RIDO Logo" 
-                  className="h-6 w-6"
-                />
-              </div>
+              <UniversalHomeButton />
               <span className="text-sm font-semibold text-primary truncate max-w-[150px]">
                 {userType === 'admin' ? 'Panel Admin' : fleetName}
               </span>

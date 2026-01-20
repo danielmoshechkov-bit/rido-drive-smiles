@@ -19,6 +19,8 @@ import {
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
 import { useModuleVisibility } from "@/hooks/useModuleVisibility";
+import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { AddListingModal } from "@/components/AddListingModal";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -277,32 +279,8 @@ export default function EasyHub() {
             </span>
           </div>
           <div className="flex gap-2">
-            {user ? (
-              <Button 
-                onClick={() => navigate('/driver')}
-                className="rounded-full"
-              >
-                Mój panel
-              </Button>
-            ) : (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/auth')}
-                  className="hidden sm:inline-flex"
-                >
-                  Zaloguj
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => navigate('/gielda/rejestracja')}
-                  className="rounded-full"
-                >
-                  Zarejestruj
-                </Button>
-              </>
-            )}
+            <MyGetRidoButton user={user} />
+            <AddListingModal user={user} />
           </div>
         </div>
       </header>

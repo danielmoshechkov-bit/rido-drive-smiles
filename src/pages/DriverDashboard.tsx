@@ -35,6 +35,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { DriverDocumentsPanel } from "@/components/driver/DriverDocumentsPanel";
 import { DriverPersonalInfo } from "@/components/driver/DriverPersonalInfo";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -300,11 +301,7 @@ const DriverDashboard = () => {
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="Get RIDO Logo" 
-                className="h-6 w-6"
-              />
+              <UniversalHomeButton />
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold text-primary">{t('common.driverPanel')}</span>
                 {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
@@ -354,11 +351,7 @@ const DriverDashboard = () => {
           {/* Mobile header - hamburger menu */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="Get RIDO Logo" 
-                className="h-6 w-6"
-              />
+              <UniversalHomeButton />
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
