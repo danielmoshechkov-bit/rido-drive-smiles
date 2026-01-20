@@ -171,15 +171,19 @@ const MarketplaceAuth = () => {
         <img src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" alt="Get RIDO Mascot" className="absolute bottom-[30%] right-[15%] h-7 w-7 animate-float-slow opacity-5" />
       </div>
 
-      {/* Header */}
+      {/* Header with UniversalHomeButton */}
       <div className="relative z-10 flex justify-between items-center p-6">
-        <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/gielda')}>
-          <img 
-            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-            alt="Get RIDO Logo" 
-            className="h-8 w-8"
-          />
-          <span className="text-xl font-bold text-primary">Get RIDO</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
+            <img 
+              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+              alt="Get RIDO Logo" 
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold text-primary">Get RIDO</span>
+          </div>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-sm text-muted-foreground">Strona główna</span>
         </div>
         <LanguageSelector />
       </div>

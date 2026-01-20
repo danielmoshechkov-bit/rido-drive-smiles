@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
 import { VehiclePhotoUpload } from "@/components/marketplace/VehiclePhotoUpload";
 import { EquipmentAccordion } from "@/components/marketplace/EquipmentAccordion";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { 
   TransactionTypeFields, 
   RentToOwnData, 
@@ -241,13 +242,16 @@ export default function AddVehicleListing() {
     loadTransactionTypes();
   }, []);
 
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   useEffect(() => {
     const loadUser = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error("Musisz być zalogowany");
-        navigate("/gielda/logowanie?redirect=/gielda/dodaj-pojazd");
+        // Show auth modal instead of redirecting
+        setShowAuthModal(true);
+        setLoading(false);
         return;
       }
       setUser(session.user);
@@ -274,6 +278,31 @@ export default function AddVehicleListing() {
     };
     loadUser();
   }, [navigate]);
+
+  // Re-check user after auth modal closes
+  const handleAuthSuccess = async () => {
+    setShowAuthModal(false);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      setUser(session.user);
+      // Load profile
+      const { data: profileData } = await supabase
+        .from("marketplace_user_profiles")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (profileData) {
+        setProfile(profileData);
+        setFormData(prev => ({
+          ...prev,
+          contactName: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim(),
+          contactEmail: profileData.email || session.user.email || '',
+          contactPhone: profileData.phone || '',
+        }));
+      }
+    }
+  };
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -552,6 +581,31 @@ export default function AddVehicleListing() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  // Show auth modal if not logged in
+  if (!user) {
+    return (
+      <>
+        <AuthModal 
+          open={showAuthModal} 
+          onOpenChange={(open) => {
+            if (!open) {
+              // If modal is closed without login, go back to marketplace
+              navigate("/gielda");
+            }
+          }}
+          initialMode="login"
+          onSuccess={handleAuthSuccess}
+        />
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Logowanie...</p>
+          </div>
+        </div>
+      </>
     );
   }
 
