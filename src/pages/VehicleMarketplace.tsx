@@ -14,6 +14,8 @@ import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
 import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare } from "@/contexts/CompareContext";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 
 // Import hero image (same style as real estate)
 import heroImage from "@/assets/tile-cars.jpg";
@@ -334,18 +336,11 @@ export default function VehicleMarketplace() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* GetRido Easy link */}
-            <a 
-              href="/easy" 
-              className="hidden md:flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              <Home className="h-4 w-4" />
-              GetRido Easy
-            </a>
-            <div 
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => navigate("/easy")}
-            >
+            {/* Universal home button */}
+            <UniversalHomeButton className="hidden md:flex" />
+            
+            {/* Marketplace logo */}
+            <div className="flex items-center gap-2">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="RIDO" 
@@ -357,44 +352,22 @@ export default function VehicleMarketplace() {
             </div>
           </div>
           <div className="flex gap-2">
-            {user ? (
-              <>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/gielda/panel')}
-                  className="hidden sm:inline-flex"
-                >
-                  Mój panel
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => navigate('/gielda/panel?tab=add')}
-                  className="rounded-full"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Dodaj ogłoszenie
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/gielda/rejestracja')}
-                  className="hidden sm:inline-flex"
-                >
-                  Zarejestruj się
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => navigate('/gielda/logowanie')}
-                  className="rounded-full"
-                >
-                  Zaloguj
-                </Button>
-              </>
-            )}
+            <MyGetRidoButton user={user} />
+            <Button 
+              size="sm"
+              onClick={() => {
+                if (user) {
+                  navigate('/gielda/dodaj-pojazd');
+                } else {
+                  navigate('/gielda/logowanie?redirect=/gielda/dodaj-pojazd');
+                }
+              }}
+              className="rounded-full"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="sm:hidden">Dodaj</span>
+            </Button>
           </div>
         </div>
       </header>

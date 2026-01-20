@@ -18,6 +18,8 @@ import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
 import { toast } from "sonner";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -572,18 +574,11 @@ export default function RealEstateMarketplace() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* GetRido Easy link */}
-            <a 
-              href="/easy" 
-              className="hidden md:flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              <Home className="h-4 w-4" />
-              GetRido Easy
-            </a>
-            <div 
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => navigate("/easy")}
-            >
+            {/* Universal home button */}
+            <UniversalHomeButton className="hidden md:flex" />
+            
+            {/* Marketplace logo */}
+            <div className="flex items-center gap-2">
               <img 
                 src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
                 alt="RIDO" 
@@ -595,44 +590,22 @@ export default function RealEstateMarketplace() {
             </div>
           </div>
           <div className="flex gap-2">
-            {user ? (
-              <>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/nieruchomosci/agent/panel')}
-                  className="hidden sm:inline-flex"
-                >
-                  Mój panel
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => navigate('/nieruchomosci/agent/panel?tab=add')}
-                  className="rounded-full"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Dodaj ogłoszenie
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/nieruchomosci/agent/rejestracja')}
-                  className="hidden sm:inline-flex"
-                >
-                  Dla agencji
-                </Button>
-                <Button 
-                  size="sm"
-                  onClick={() => navigate('/auth?redirect=/nieruchomosci')}
-                  className="rounded-full"
-                >
-                  Zaloguj
-                </Button>
-              </>
-            )}
+            <MyGetRidoButton user={user} />
+            <Button 
+              size="sm"
+              onClick={() => {
+                if (user) {
+                  navigate('/nieruchomosci/agent/panel?tab=add');
+                } else {
+                  navigate('/auth?redirect=/nieruchomosci/agent/panel?tab=add');
+                }
+              }}
+              className="rounded-full"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="sm:hidden">Dodaj</span>
+            </Button>
           </div>
         </div>
       </header>
