@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3
+  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -325,7 +325,7 @@ export default function RealEstateMarketplace() {
   const [loading, setLoading] = useState(true);
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [aiExplanation, setAiExplanation] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showResultsMap, setShowResultsMap] = useState(false);
   const [initialQuery, setInitialQuery] = useState<string>("");
   const aiSearchTriggered = useRef(false);
@@ -680,6 +680,7 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('grid')}
+                title="Siatka"
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
@@ -688,14 +689,20 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('compact')}
+                title="Kompaktowy"
               >
                 <Rows3 className="h-4 w-4" />
               </Button>
+              <Button 
+                variant={viewMode === 'list' ? 'default' : 'ghost'} 
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setViewMode('list')}
+                title="Lista"
+              >
+                <List className="h-4 w-4" />
+              </Button>
             </div>
-            <Badge variant="outline" className="gap-1 hidden sm:flex">
-              <Building className="h-3 w-3" />
-              Tylko zweryfikowane agencje
-            </Badge>
           </div>
         </div>
       </section>
@@ -704,9 +711,11 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 py-6">
         <div className={cn(
           "grid gap-4 md:gap-6 max-w-7xl mx-auto",
-          viewMode === 'grid' 
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
-            : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          viewMode === 'list' 
+            ? "grid-cols-1" 
+            : viewMode === 'compact' 
+              ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+              : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         )}>
           {listings.map((listing) => (
             <PropertyListingCard
@@ -718,6 +727,7 @@ export default function RealEstateMarketplace() {
               isLoggedIn={!!user}
               isSelectedForCompare={isPropertySelected(listing.id)}
               compact={viewMode === 'compact'}
+              variant={viewMode}
             />
           ))}
         </div>

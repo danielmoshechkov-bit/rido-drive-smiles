@@ -54,6 +54,7 @@ interface PropertyListingCardProps {
   isFavorited?: boolean;
   isSelectedForCompare?: boolean;
   compact?: boolean;
+  variant?: 'grid' | 'compact' | 'list';
 }
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
@@ -80,9 +81,11 @@ export function PropertyListingCard({
   isLoggedIn = false,
   isFavorited = false,
   isSelectedForCompare = false,
-  compact = false
+  compact = false,
+  variant = 'grid'
 }: PropertyListingCardProps) {
   const navigate = useNavigate();
+  const isCompact = compact || variant === 'compact';
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
