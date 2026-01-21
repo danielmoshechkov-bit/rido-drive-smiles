@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Car, Sparkles, ArrowRight } from "lucide-react";
+import { Car, Sparkles, ArrowRight, LayoutGrid, Rows3, List } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
@@ -98,6 +98,9 @@ export default function VehicleMarketplace() {
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [showMapResults, setShowMapResults] = useState(false);
+  
+  // View mode
+  const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
   // Compare context
   const { addVehicle, removeVehicle, isVehicleSelected } = useCompare();
@@ -279,6 +282,43 @@ export default function VehicleMarketplace() {
         : [...prev, typeId]
     );
   };
+
+  // Auto-filter when vehicle type or transaction type changes
+  useEffect(() => {
+    if (listings.length === 0) return;
+    
+    let result = [...listings];
+    
+    // Filter by vehicle type (body_type category)
+    if (selectedVehicleSlug && selectedVehicleSlug !== 'wszystkie') {
+      result = result.filter(l => {
+        const bodyType = (l.body_type || l.vehicle?.body_type || '').toLowerCase();
+        switch(selectedVehicleSlug) {
+          case 'osobowe': 
+            return ['sedan', 'kombi', 'hatchback', 'suv', 'coupe', 'cabrio', 'liftback'].includes(bodyType) || !bodyType;
+          case 'motocykle': 
+            return bodyType === 'motocykl';
+          case 'skutery': 
+            return bodyType === 'skuter';
+          case 'rowery': 
+            return bodyType === 'rower' || bodyType === 'rower elektryczny';
+          case 'dostawcze': 
+            return ['minivan', 'pickup', 'dostawczy', 'bus', 'van'].includes(bodyType);
+          default: 
+            return true;
+        }
+      });
+    }
+    
+    // Filter by transaction types
+    if (selectedTransactionTypes.length > 0) {
+      result = result.filter(l => 
+        selectedTransactionTypes.some(t => l.transaction_type === t)
+      );
+    }
+    
+    setFilteredListings(result);
+  }, [listings, selectedVehicleSlug, selectedTransactionTypes]);
 
   const handleAISearch = async () => {
     if (!aiQuery.trim()) return;
@@ -489,23 +529,55 @@ export default function VehicleMarketplace() {
         <AdBanner slotKey="search_below" className="mb-6" />
       </section>
 
-      {/* Results Count */}
+      {/* Results Count & View Toggle */}
       <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <p className="text-sm text-muted-foreground">
             Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
           </p>
-          <Badge variant="outline" className="gap-1">
-            <Car className="h-3 w-3" />
-            Tylko zweryfikowane floty
-          </Badge>
+          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode('grid')}
+              title="Siatka"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'compact' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode('compact')}
+              title="Kompaktowy"
+            >
+              <Rows3 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode('list')}
+              title="Lista"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Listings Grid */}
       <section className="container mx-auto px-4 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
+          <div className={cn(
+            "grid gap-4 md:gap-6 max-w-7xl mx-auto",
+            viewMode === 'list' 
+              ? "grid-cols-1" 
+              : viewMode === 'compact' 
+                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          )}>
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="bg-card rounded-xl overflow-hidden animate-pulse">
                 <div className="aspect-[4/3] bg-muted" />
@@ -526,7 +598,14 @@ export default function VehicleMarketplace() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
+          <div className={cn(
+            "grid gap-4 md:gap-6 max-w-7xl mx-auto",
+            viewMode === 'list' 
+              ? "grid-cols-1" 
+              : viewMode === 'compact' 
+                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          )}>
             {filteredListings.map(listing => (
               <ListingCard
                 key={listing.id}
@@ -536,6 +615,8 @@ export default function VehicleMarketplace() {
                 onToggleCompare={() => handleToggleCompare(listing)}
                 isLoggedIn={!!user}
                 isSelectedForCompare={isVehicleSelected(listing.id)}
+                compact={viewMode === 'compact'}
+                variant={viewMode}
               />
             ))}
           </div>
