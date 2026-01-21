@@ -236,15 +236,10 @@ export default function EasyHub() {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     
-    const searchType = detectSearchType(searchQuery);
-    
+    // Always go to universal search page for multi-category AI search
     setTimeout(() => {
       setIsSearching(false);
-      if (searchType === 'real_estate') {
-        navigate(`/nieruchomosci?query=${encodeURIComponent(searchQuery)}`);
-      } else {
-        navigate(`/gielda?search=${encodeURIComponent(searchQuery)}`);
-      }
+      navigate(`/wyniki?query=${encodeURIComponent(searchQuery)}`);
     }, 300);
   };
 

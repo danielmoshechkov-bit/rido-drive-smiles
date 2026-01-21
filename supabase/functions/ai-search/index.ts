@@ -43,6 +43,19 @@ interface RealEstateSearchFilters {
   hasGarden?: boolean;
 }
 
+interface ServicesSearchFilters {
+  category?: string;
+  city?: string;
+  keywords?: string[];
+  priceMax?: number;
+}
+
+interface UniversalSearchFilters {
+  vehicle?: VehicleSearchFilters;
+  realEstate?: RealEstateSearchFilters;
+  services?: ServicesSearchFilters;
+}
+
 const VEHICLE_SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania na portalu RIDO.
 Twoim JEDYNYM zadaniem jest analizowanie zapytań użytkowników w języku naturalnym i zamienianie ich na filtry JSON.
 
@@ -138,6 +151,88 @@ Odpowiedź: {"filters":{"propertyType":"mieszkanie","city":"Kraków","floorMin":
 Zapytanie: "apartament na parterze z ogrodem Warszawa"
 Odpowiedź: {"filters":{"propertyType":"mieszkanie","city":"Warszawa","floorMin":0,"floorMax":0,"hasGarden":true},"explanation":"Szukasz mieszkania na parterze z ogrodem w Warszawie"}`;
 
+const SERVICES_SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania usług na portalu RIDO.
+Twoim JEDYNYM zadaniem jest analizowanie zapytań użytkowników w języku naturalnym i zamienianie ich na filtry JSON.
+
+ZASADY:
+1. Odpowiadaj TYLKO w formacie JSON zgodnym ze schematem poniżej
+2. NIE wymyślaj ofert ani danych - zwracasz tylko filtry wyszukiwania
+3. Jeśli użytkownik nie podał jakiegoś kryterium, NIE dodawaj go do filtrów
+
+KATEGORIE USŁUG (slug): sprzatanie, warsztat, detailing, zlota-raczka, hydraulik, elektryk, ogrodnik, przeprowadzki
+
+SCHEMAT ODPOWIEDZI (tylko ten JSON, nic więcej):
+{
+  "filters": {
+    "category": "sprzatanie",
+    "city": "Warszawa",
+    "keywords": ["mieszkanie", "biuro"],
+    "priceMax": 200
+  },
+  "explanation": "Krótkie wyjaśnienie co zrozumiałeś z zapytania"
+}
+
+PRZYKŁADY:
+Zapytanie: "Szukam kogoś do sprzątania mieszkania w Warszawie"
+Odpowiedź: {"filters":{"category":"sprzatanie","city":"Warszawa","keywords":["mieszkanie"]},"explanation":"Szukasz usługi sprzątania mieszkania w Warszawie"}
+
+Zapytanie: "Hydraulik Kraków pilnie"
+Odpowiedź: {"filters":{"category":"hydraulik","city":"Kraków"},"explanation":"Szukasz hydraulika w Krakowie"}
+
+Zapytanie: "Przeprowadzka z Warszawy do Krakowa"
+Odpowiedź: {"filters":{"category":"przeprowadzki","city":"Warszawa","keywords":["Kraków"]},"explanation":"Szukasz usługi przeprowadzki z Warszawy do Krakowa"}`;
+
+const UNIVERSAL_SYSTEM_PROMPT = `Jesteś "Rido AI" - inteligentnym asystentem wyszukiwania na portalu RIDO.
+Analizujesz zapytanie użytkownika i zwracasz filtry dla WSZYSTKICH pasujących kategorii.
+
+KATEGORIE:
+1. vehicle - pojazdy (auto, samochód, motocykl, rower)
+2. realEstate - nieruchomości (mieszkanie, dom, kawalerka, działka, pokój, biuro)
+3. services - usługi (sprzątanie, przeprowadzka, hydraulik, elektryk, złota rączka, warsztat, detailing, ogrodnik)
+
+ZASADY:
+1. Jeśli zapytanie dotyczy auta → wypełnij "vehicle"
+2. Jeśli zapytanie dotyczy nieruchomości → wypełnij "realEstate"  
+3. Jeśli zapytanie dotyczy usługi → wypełnij "services"
+4. Jeśli zapytanie dotyczy kilku kategorii → wypełnij wszystkie pasujące
+5. Jeśli użytkownik podał budżet ogólny → rozdziel proporcjonalnie
+
+SCHEMAT ODPOWIEDZI:
+{
+  "vehicle": {
+    "filters": { "brands": [], "fuelTypes": [], "priceMax": null, "city": "" },
+    "explanation": ""
+  },
+  "realEstate": {
+    "filters": { "propertyType": "", "transactionType": "", "priceMax": null, "city": "" },
+    "explanation": ""
+  },
+  "services": {
+    "filters": { "category": "", "city": "", "keywords": [] },
+    "explanation": ""
+  },
+  "overallExplanation": "Ogólne wyjaśnienie całego zapytania"
+}
+
+Wypełniaj TYLKO te sekcje, które pasują do zapytania. Puste sekcje = null.
+
+PRZYKŁADY:
+Zapytanie: "Szukam auta miejskiego i małego mieszkania do wynajęcia w Warszawie"
+Odpowiedź: {
+  "vehicle": {"filters":{"city":"Warszawa"},"explanation":"Auto miejskie w Warszawie"},
+  "realEstate": {"filters":{"transactionType":"rent","city":"Warszawa","areaMax":50},"explanation":"Małe mieszkanie na wynajem w Warszawie"},
+  "services": null,
+  "overallExplanation": "Szukasz auta i mieszkania na wynajem w Warszawie"
+}
+
+Zapytanie: "Przeprowadzka z Krakowa do Warszawy i mieszkanie 2-pokojowe"
+Odpowiedź: {
+  "vehicle": null,
+  "realEstate": {"filters":{"roomsMin":2,"roomsMax":2,"city":"Warszawa"},"explanation":"Mieszkanie 2-pokojowe w Warszawie"},
+  "services": {"filters":{"category":"przeprowadzki","city":"Kraków","keywords":["Warszawa"]},"explanation":"Przeprowadzka z Krakowa do Warszawy"},
+  "overallExplanation": "Szukasz usługi przeprowadzki z Krakowa do Warszawy oraz mieszkania 2-pokojowego w Warszawie"
+}`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -145,7 +240,6 @@ serve(async (req) => {
 
   try {
     const { query, userId, ipAddress, deviceFingerprint, searchType = 'vehicle' } = await req.json();
-    const isRealEstate = searchType === 'real_estate';
 
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -172,14 +266,12 @@ serve(async (req) => {
 
     // Check usage limits
     if (userId) {
-      // Logged in user - check credits
       const { data: credits } = await supabase
         .from('ai_user_credits')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      // Reset monthly free if new month
       const today = new Date();
       const resetDate = credits?.monthly_reset_date ? new Date(credits.monthly_reset_date) : null;
       const needsReset = !resetDate || 
@@ -192,7 +284,6 @@ serve(async (req) => {
           .eq('user_id', userId);
       }
 
-      // Check if user has free queries left or credits
       const monthlyFreeUsed = (credits?.monthly_free_used || 0);
       const creditsBalance = (credits?.credits_balance || 0);
       const monthlyLimit = settings?.user_monthly_limit || 50;
@@ -208,7 +299,6 @@ serve(async (req) => {
         );
       }
     } else {
-      // Guest user - check IP limits
       const today = new Date().toISOString().split('T')[0];
       const { data: guestUsage } = await supabase
         .from('ai_guest_usage')
@@ -230,77 +320,147 @@ serve(async (req) => {
       }
     }
 
-    // Select system prompt based on search type
-    const systemPrompt = isRealEstate 
-      ? REAL_ESTATE_SYSTEM_PROMPT 
-      : (settings?.system_prompt || VEHICLE_SYSTEM_PROMPT);
+    // Select system prompt and tool based on search type
+    let systemPrompt: string;
+    let searchTool: any;
+    const isUniversal = searchType === 'universal';
+    const isServices = searchType === 'services';
+    const isRealEstate = searchType === 'real_estate';
 
-    // Define tool for structured output
-    const searchTool = isRealEstate ? {
-      type: "function",
-      function: {
-        name: "search_real_estate",
-        description: "Wyszukaj nieruchomości według kryteriów użytkownika",
-        parameters: {
-          type: "object",
-          properties: {
-            filters: {
-              type: "object",
-              properties: {
-                propertyType: { type: "string", description: "Typ nieruchomości: mieszkanie, dom, kawalerka, dzialka, lokal, pokoj, biuro, magazyn" },
-                transactionType: { type: "string", enum: ["sale", "rent", "short_term"] },
-                city: { type: "string" },
-                district: { type: "string" },
-                priceMin: { type: "number" },
-                priceMax: { type: "number" },
-                areaMin: { type: "number" },
-                areaMax: { type: "number" },
-                roomsMin: { type: "number" },
-                roomsMax: { type: "number" },
-                floorMin: { type: "number" },
-                floorMax: { type: "number" },
-                hasBalcony: { type: "boolean" },
-                hasElevator: { type: "boolean" },
-                hasParking: { type: "boolean" },
-                hasGarden: { type: "boolean" }
-              }
-            },
-            explanation: { type: "string", description: "Krótkie wyjaśnienie co zrozumiałeś z zapytania" }
-          },
-          required: ["filters", "explanation"]
+    if (isUniversal) {
+      systemPrompt = UNIVERSAL_SYSTEM_PROMPT;
+      searchTool = {
+        type: "function",
+        function: {
+          name: "search_universal",
+          description: "Wyszukaj w wielu kategoriach na raz",
+          parameters: {
+            type: "object",
+            properties: {
+              vehicle: {
+                type: "object",
+                properties: {
+                  filters: { type: "object" },
+                  explanation: { type: "string" }
+                }
+              },
+              realEstate: {
+                type: "object", 
+                properties: {
+                  filters: { type: "object" },
+                  explanation: { type: "string" }
+                }
+              },
+              services: {
+                type: "object",
+                properties: {
+                  filters: { type: "object" },
+                  explanation: { type: "string" }
+                }
+              },
+              overallExplanation: { type: "string" }
+            }
+          }
         }
-      }
-    } : {
-      type: "function",
-      function: {
-        name: "search_vehicles",
-        description: "Wyszukaj pojazdy według kryteriów użytkownika",
-        parameters: {
-          type: "object",
-          properties: {
-            filters: {
-              type: "object",
-              properties: {
-                brands: { type: "array", items: { type: "string" } },
-                models: { type: "array", items: { type: "string" } },
-                fuelTypes: { type: "array", items: { type: "string" }, description: "benzyna, diesel, lpg, hybryda, elektryczny" },
-                yearFrom: { type: "number" },
-                yearTo: { type: "number" },
-                priceMin: { type: "number" },
-                priceMax: { type: "number" },
-                city: { type: "string" },
-                transactionType: { type: "string", enum: ["rent", "buy", "all"] }
-              }
+      };
+    } else if (isServices) {
+      systemPrompt = SERVICES_SYSTEM_PROMPT;
+      searchTool = {
+        type: "function",
+        function: {
+          name: "search_services",
+          description: "Wyszukaj usługi według kryteriów",
+          parameters: {
+            type: "object",
+            properties: {
+              filters: {
+                type: "object",
+                properties: {
+                  category: { type: "string", description: "Slug kategorii: sprzatanie, warsztat, detailing, zlota-raczka, hydraulik, elektryk, ogrodnik, przeprowadzki" },
+                  city: { type: "string" },
+                  keywords: { type: "array", items: { type: "string" } },
+                  priceMax: { type: "number" }
+                }
+              },
+              explanation: { type: "string" }
             },
-            explanation: { type: "string", description: "Krótkie wyjaśnienie co zrozumiałeś z zapytania" }
-          },
-          required: ["filters", "explanation"]
+            required: ["filters", "explanation"]
+          }
         }
-      }
-    };
+      };
+    } else if (isRealEstate) {
+      systemPrompt = REAL_ESTATE_SYSTEM_PROMPT;
+      searchTool = {
+        type: "function",
+        function: {
+          name: "search_real_estate",
+          description: "Wyszukaj nieruchomości według kryteriów użytkownika",
+          parameters: {
+            type: "object",
+            properties: {
+              filters: {
+                type: "object",
+                properties: {
+                  propertyType: { type: "string" },
+                  transactionType: { type: "string", enum: ["sale", "rent", "short_term"] },
+                  city: { type: "string" },
+                  district: { type: "string" },
+                  priceMin: { type: "number" },
+                  priceMax: { type: "number" },
+                  areaMin: { type: "number" },
+                  areaMax: { type: "number" },
+                  roomsMin: { type: "number" },
+                  roomsMax: { type: "number" },
+                  floorMin: { type: "number" },
+                  floorMax: { type: "number" },
+                  hasBalcony: { type: "boolean" },
+                  hasElevator: { type: "boolean" },
+                  hasParking: { type: "boolean" },
+                  hasGarden: { type: "boolean" }
+                }
+              },
+              explanation: { type: "string" }
+            },
+            required: ["filters", "explanation"]
+          }
+        }
+      };
+    } else {
+      systemPrompt = settings?.system_prompt || VEHICLE_SYSTEM_PROMPT;
+      searchTool = {
+        type: "function",
+        function: {
+          name: "search_vehicles",
+          description: "Wyszukaj pojazdy według kryteriów użytkownika",
+          parameters: {
+            type: "object",
+            properties: {
+              filters: {
+                type: "object",
+                properties: {
+                  brands: { type: "array", items: { type: "string" } },
+                  models: { type: "array", items: { type: "string" } },
+                  fuelTypes: { type: "array", items: { type: "string" } },
+                  yearFrom: { type: "number" },
+                  yearTo: { type: "number" },
+                  priceMin: { type: "number" },
+                  priceMax: { type: "number" },
+                  city: { type: "string" },
+                  transactionType: { type: "string", enum: ["rent", "buy", "all"] }
+                }
+              },
+              explanation: { type: "string" }
+            },
+            required: ["filters", "explanation"]
+          }
+        }
+      };
+    }
 
-    // Call Lovable AI Gateway with tool calling for structured output
+    // Call Lovable AI Gateway
     console.log('Calling Lovable AI with query:', query, 'type:', searchType);
+    const toolName = isUniversal ? "search_universal" : isServices ? "search_services" : isRealEstate ? "search_real_estate" : "search_vehicles";
+    
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -314,7 +474,7 @@ serve(async (req) => {
           { role: 'user', content: query }
         ],
         tools: [searchTool],
-        tool_choice: { type: "function", function: { name: isRealEstate ? "search_real_estate" : "search_vehicles" } }
+        tool_choice: { type: "function", function: { name: toolName } }
       }),
     });
 
@@ -338,241 +498,92 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     console.log('AI Response data:', JSON.stringify(aiData));
 
-    // Parse AI response from tool call
-    let parsedFilters: VehicleSearchFilters | RealEstateSearchFilters = {};
+    // Parse AI response
+    let parsedData: any = {};
     let explanation = '';
     
     try {
-      // Extract from tool call response
       const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
-        const parsed = JSON.parse(toolCall.function.arguments);
-        parsedFilters = parsed.filters || {};
-        explanation = parsed.explanation || '';
+        parsedData = JSON.parse(toolCall.function.arguments);
       } else {
-        // Fallback to content parsing
         const aiContent = aiData.choices?.[0]?.message?.content || '';
         let jsonStr = aiContent;
         const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonMatch) {
           jsonStr = jsonMatch[1];
         }
-        const parsed = JSON.parse(jsonStr.trim());
-        parsedFilters = parsed.filters || {};
-        explanation = parsed.explanation || '';
+        parsedData = JSON.parse(jsonStr.trim());
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Return empty filters with explanation
       explanation = 'Nie udało się zinterpretować zapytania. Spróbuj inaczej sformułować.';
     }
 
-    // Execute search in database - different tables for different types
-    let listings: any[] = [];
-    let searchError: any = null;
+    // Execute search based on type
+    let results: any = {};
 
-    if (isRealEstate) {
-      // Real estate search
-      const reFilters = parsedFilters as RealEstateSearchFilters;
-      let query = supabase
-        .from('real_estate_listings')
-        .select(`
-          id, title, description, price, price_type, photos,
-          location, city, district, address, area, rooms, floor, total_floors, build_year,
-          property_type, transaction_type,
-          has_balcony, has_elevator, has_parking, has_garden,
-          latitude, longitude, contact_person, contact_phone,
-          real_estate_agents!agent_id(company_name)
-        `)
-        .eq('status', 'active');
+    if (isUniversal) {
+      // Universal search - query all relevant tables
+      const vehicleFilters = parsedData.vehicle?.filters;
+      const realEstateFilters = parsedData.realEstate?.filters;
+      const servicesFilters = parsedData.services?.filters;
 
-      if (reFilters.city) {
-        query = query.or(`city.ilike.%${reFilters.city}%,location.ilike.%${reFilters.city}%`);
-      }
-      if (reFilters.district) {
-        query = query.ilike('district', `%${reFilters.district}%`);
-      }
-      if (reFilters.propertyType) {
-        query = query.eq('property_type', reFilters.propertyType);
-      }
-      if (reFilters.transactionType) {
-        const transMap: Record<string, string> = { sale: 'sprzedaz', rent: 'wynajem', short_term: 'wynajem-krotkoterminowy' };
-        query = query.eq('transaction_type', transMap[reFilters.transactionType] || reFilters.transactionType);
-      }
-      if (reFilters.priceMin) query = query.gte('price', reFilters.priceMin);
-      if (reFilters.priceMax) query = query.lte('price', reFilters.priceMax);
-      if (reFilters.areaMin) query = query.gte('area', reFilters.areaMin);
-      if (reFilters.areaMax) query = query.lte('area', reFilters.areaMax);
-      if (reFilters.roomsMin) query = query.gte('rooms', reFilters.roomsMin);
-      if (reFilters.roomsMax) query = query.lte('rooms', reFilters.roomsMax);
-      if (reFilters.floorMin !== undefined) query = query.gte('floor', reFilters.floorMin);
-      if (reFilters.floorMax !== undefined) query = query.lte('floor', reFilters.floorMax);
-      if (reFilters.hasBalcony) query = query.eq('has_balcony', true);
-      if (reFilters.hasElevator) query = query.eq('has_elevator', true);
-      if (reFilters.hasParking) query = query.eq('has_parking', true);
-      if (reFilters.hasGarden) query = query.eq('has_garden', true);
+      // Parallel queries
+      const promises: Promise<any>[] = [];
 
-      const result = await query.limit(20);
-      listings = result.data || [];
-      searchError = result.error;
-    } else {
-      // Vehicle search (existing logic)
-      const vFilters = parsedFilters as VehicleSearchFilters;
-      let query = supabase
-        .from('marketplace_listings')
-        .select(`
-          id,
-          title,
-          description,
-          price,
-          price_type,
-          photos,
-          location_text,
-          is_featured,
-          created_at,
-          vehicle_id,
-          fleet_id,
-          driver_id,
-          fleets:fleet_id (name, contact_phone_for_drivers),
-          vehicles:vehicle_id (brand, model, year, fuel_type, plate)
-        `)
-        .eq('is_active', true)
-        .is('deleted_at', null);
-
-      if (vFilters.city) {
-        query = query.ilike('location_text', `%${vFilters.city}%`);
+      if (vehicleFilters && Object.keys(vehicleFilters).length > 0) {
+        promises.push(searchVehicles(supabase, vehicleFilters).then(r => ({ type: 'vehicles', data: r })));
       }
-      if (vFilters.priceMax) {
-        query = query.lte('price', vFilters.priceMax);
+      if (realEstateFilters && Object.keys(realEstateFilters).length > 0) {
+        promises.push(searchRealEstate(supabase, realEstateFilters).then(r => ({ type: 'realEstate', data: r })));
       }
-      if (vFilters.priceMin) {
-        query = query.gte('price', vFilters.priceMin);
+      if (servicesFilters && Object.keys(servicesFilters).length > 0) {
+        promises.push(searchServices(supabase, servicesFilters).then(r => ({ type: 'services', data: r })));
       }
 
-      const result = await query.limit(20);
-      listings = result.data || [];
-      searchError = result.error;
-    }
-
-    if (searchError) {
-      console.error('Search error:', searchError);
-      return new Response(
-        JSON.stringify({ error: 'Błąd wyszukiwania' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Filter results in memory for vehicle-specific filters (only for vehicle search)
-    let filteredListings = listings || [];
-    
-    if (!isRealEstate) {
-      const vFilters = parsedFilters as VehicleSearchFilters;
+      const searchResults = await Promise.all(promises);
       
-      if (vFilters.brands && vFilters.brands.length > 0) {
-        const brandsLower = vFilters.brands.map(b => b.toLowerCase());
-        filteredListings = filteredListings.filter(l => 
-          l.vehicles?.brand && brandsLower.includes(l.vehicles.brand.toLowerCase())
-        );
+      for (const result of searchResults) {
+        results[result.type] = {
+          items: result.data,
+          count: result.data.length,
+          filters: result.type === 'vehicles' ? vehicleFilters : result.type === 'realEstate' ? realEstateFilters : servicesFilters,
+          explanation: parsedData[result.type === 'vehicles' ? 'vehicle' : result.type]?.explanation || ''
+        };
       }
 
-      if (vFilters.models && vFilters.models.length > 0) {
-        const modelsLower = vFilters.models.map(m => m.toLowerCase());
-        filteredListings = filteredListings.filter(l => 
-          l.vehicles?.model && modelsLower.includes(l.vehicles.model.toLowerCase())
-        );
-      }
-
-      if (vFilters.fuelTypes && vFilters.fuelTypes.length > 0) {
-        const fuelLower = vFilters.fuelTypes.map(f => f.toLowerCase());
-        filteredListings = filteredListings.filter(l => 
-          l.vehicles?.fuel_type && fuelLower.some(f => l.vehicles.fuel_type.toLowerCase().includes(f))
-        );
-      }
-
-      if (vFilters.yearFrom) {
-        filteredListings = filteredListings.filter(l => 
-          l.vehicles?.year && l.vehicles.year >= vFilters.yearFrom!
-        );
-      }
-
-      if (vFilters.yearTo) {
-        filteredListings = filteredListings.filter(l => 
-          l.vehicles?.year && l.vehicles.year <= vFilters.yearTo!
-        );
-      }
+      explanation = parsedData.overallExplanation || '';
+    } else if (isServices) {
+      const filters = parsedData.filters as ServicesSearchFilters || {};
+      const items = await searchServices(supabase, filters);
+      results = items;
+      explanation = parsedData.explanation || '';
+    } else if (isRealEstate) {
+      const filters = parsedData.filters as RealEstateSearchFilters || {};
+      const items = await searchRealEstate(supabase, filters);
+      results = items;
+      explanation = parsedData.explanation || '';
+    } else {
+      const filters = parsedData.filters as VehicleSearchFilters || {};
+      const items = await searchVehicles(supabase, filters);
+      results = items;
+      explanation = parsedData.explanation || '';
     }
 
     // Update usage tracking
-    if (userId) {
-      // Check if user has credits record
-      const { data: existingCredits } = await supabase
-        .from('ai_user_credits')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (existingCredits) {
-        const wasFree = existingCredits.monthly_free_used < (settings?.user_monthly_limit || 50);
-        
-        if (wasFree) {
-          await supabase
-            .from('ai_user_credits')
-            .update({ monthly_free_used: existingCredits.monthly_free_used + 1 })
-            .eq('user_id', userId);
-        } else {
-          await supabase
-            .from('ai_user_credits')
-            .update({ credits_balance: Math.max(0, existingCredits.credits_balance - 1) })
-            .eq('user_id', userId);
-        }
-
-        // Log usage
-        await supabase.from('ai_credit_history').insert({
-          user_id: userId,
-          query_type: 'search',
-          credits_used: wasFree ? 0 : 1,
-          query_summary: query.substring(0, 100),
-          was_free: wasFree
-        });
-      } else {
-        // Create new credits record
-        await supabase.from('ai_user_credits').insert({
-          user_id: userId,
-          credits_balance: 0,
-          monthly_free_used: 1
-        });
-      }
-    } else {
-      // Update guest usage
-      const today = new Date().toISOString().split('T')[0];
-      await supabase.from('ai_guest_usage').upsert({
-        ip_address: ipAddress || 'unknown',
-        device_fingerprint: deviceFingerprint || null,
-        usage_date: today,
-        query_count: 1
-      }, {
-        onConflict: 'ip_address,device_fingerprint,usage_date'
-      });
-
-      // Increment if exists - use try-catch instead of .catch()
-      try {
-        await supabase.rpc('increment_guest_usage', {
-          p_ip: ipAddress || 'unknown',
-          p_fingerprint: deviceFingerprint || null,
-          p_date: today
-        });
-      } catch {
-        // RPC might not exist, that's ok - upsert handles it
-      }
-    }
+    await updateUsageTracking(supabase, userId, ipAddress, deviceFingerprint, query, settings);
 
     return new Response(
       JSON.stringify({
         success: true,
-        filters: parsedFilters,
+        searchType,
+        filters: isUniversal ? { vehicle: parsedData.vehicle?.filters, realEstate: parsedData.realEstate?.filters, services: parsedData.services?.filters } : parsedData.filters,
         explanation,
-        results: filteredListings,
-        totalResults: filteredListings.length
+        results: isUniversal ? results : results,
+        totalResults: isUniversal 
+          ? Object.values(results).reduce((sum: number, r: any) => sum + (r?.count || 0), 0)
+          : (Array.isArray(results) ? results.length : 0)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -585,3 +596,214 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper functions for searching
+async function searchVehicles(supabase: any, filters: VehicleSearchFilters): Promise<any[]> {
+  let query = supabase
+    .from('marketplace_listings')
+    .select(`
+      id, title, description, price, price_type, photos, location_text, is_featured, created_at,
+      vehicle_id, fleet_id, driver_id,
+      fleets:fleet_id (name, contact_phone_for_drivers),
+      vehicles:vehicle_id (brand, model, year, fuel_type, plate)
+    `)
+    .eq('is_active', true)
+    .is('deleted_at', null);
+
+  if (filters.city) {
+    query = query.ilike('location_text', `%${filters.city}%`);
+  }
+  if (filters.priceMax) {
+    query = query.lte('price', filters.priceMax);
+  }
+  if (filters.priceMin) {
+    query = query.gte('price', filters.priceMin);
+  }
+
+  const { data, error } = await query.limit(20);
+  if (error) {
+    console.error('Vehicle search error:', error);
+    return [];
+  }
+
+  let result = data || [];
+
+  // Filter in memory
+  if (filters.brands?.length) {
+    const brandsLower = filters.brands.map(b => b.toLowerCase());
+    result = result.filter((l: any) => l.vehicles?.brand && brandsLower.includes(l.vehicles.brand.toLowerCase()));
+  }
+  if (filters.models?.length) {
+    const modelsLower = filters.models.map(m => m.toLowerCase());
+    result = result.filter((l: any) => l.vehicles?.model && modelsLower.includes(l.vehicles.model.toLowerCase()));
+  }
+  if (filters.fuelTypes?.length) {
+    const fuelLower = filters.fuelTypes.map(f => f.toLowerCase());
+    result = result.filter((l: any) => l.vehicles?.fuel_type && fuelLower.some(f => l.vehicles.fuel_type.toLowerCase().includes(f)));
+  }
+  if (filters.yearFrom) {
+    result = result.filter((l: any) => l.vehicles?.year && l.vehicles.year >= filters.yearFrom!);
+  }
+  if (filters.yearTo) {
+    result = result.filter((l: any) => l.vehicles?.year && l.vehicles.year <= filters.yearTo!);
+  }
+
+  return result;
+}
+
+async function searchRealEstate(supabase: any, filters: RealEstateSearchFilters): Promise<any[]> {
+  let query = supabase
+    .from('real_estate_listings')
+    .select(`
+      id, title, description, price, price_type, photos,
+      location, city, district, address, area, rooms, floor, total_floors, build_year,
+      property_type, transaction_type,
+      has_balcony, has_elevator, has_parking, has_garden,
+      latitude, longitude, contact_person, contact_phone,
+      real_estate_agents!agent_id(company_name)
+    `)
+    .eq('status', 'active');
+
+  if (filters.city) {
+    query = query.or(`city.ilike.%${filters.city}%,location.ilike.%${filters.city}%`);
+  }
+  if (filters.district) {
+    query = query.ilike('district', `%${filters.district}%`);
+  }
+  if (filters.propertyType) {
+    query = query.eq('property_type', filters.propertyType);
+  }
+  if (filters.transactionType) {
+    const transMap: Record<string, string> = { sale: 'sprzedaz', rent: 'wynajem', short_term: 'wynajem-krotkoterminowy' };
+    query = query.eq('transaction_type', transMap[filters.transactionType] || filters.transactionType);
+  }
+  if (filters.priceMin) query = query.gte('price', filters.priceMin);
+  if (filters.priceMax) query = query.lte('price', filters.priceMax);
+  if (filters.areaMin) query = query.gte('area', filters.areaMin);
+  if (filters.areaMax) query = query.lte('area', filters.areaMax);
+  if (filters.roomsMin) query = query.gte('rooms', filters.roomsMin);
+  if (filters.roomsMax) query = query.lte('rooms', filters.roomsMax);
+  if (filters.floorMin !== undefined) query = query.gte('floor', filters.floorMin);
+  if (filters.floorMax !== undefined) query = query.lte('floor', filters.floorMax);
+  if (filters.hasBalcony) query = query.eq('has_balcony', true);
+  if (filters.hasElevator) query = query.eq('has_elevator', true);
+  if (filters.hasParking) query = query.eq('has_parking', true);
+  if (filters.hasGarden) query = query.eq('has_garden', true);
+
+  const { data, error } = await query.limit(20);
+  if (error) {
+    console.error('Real estate search error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+async function searchServices(supabase: any, filters: ServicesSearchFilters): Promise<any[]> {
+  let query = supabase
+    .from('service_providers')
+    .select(`
+      id, company_name, company_city, company_address, company_phone, company_email,
+      description, logo_url, cover_image_url, rating_avg, rating_count, category_id, is_active,
+      category:service_categories!category_id(id, name, slug),
+      services:provider_services(id, name, price, price_type)
+    `)
+    .eq('is_active', true);
+
+  if (filters.city) {
+    query = query.ilike('company_city', `%${filters.city}%`);
+  }
+
+  const { data, error } = await query.limit(30);
+  if (error) {
+    console.error('Services search error:', error);
+    return [];
+  }
+
+  let result = data || [];
+
+  // Filter by category
+  if (filters.category) {
+    result = result.filter((p: any) => p.category?.slug === filters.category);
+  }
+
+  // Filter by keywords in description or service names
+  if (filters.keywords?.length) {
+    const keywordsLower = filters.keywords.map(k => k.toLowerCase());
+    result = result.filter((p: any) => {
+      const desc = (p.description || '').toLowerCase();
+      const companyName = (p.company_name || '').toLowerCase();
+      const serviceNames = (p.services || []).map((s: any) => (s.name || '').toLowerCase()).join(' ');
+      return keywordsLower.some(k => desc.includes(k) || companyName.includes(k) || serviceNames.includes(k));
+    });
+  }
+
+  // Filter by price
+  if (filters.priceMax) {
+    result = result.filter((p: any) => {
+      const minPrice = Math.min(...(p.services || []).map((s: any) => s.price || Infinity));
+      return minPrice <= filters.priceMax!;
+    });
+  }
+
+  return result;
+}
+
+async function updateUsageTracking(supabase: any, userId: string | null, ipAddress: string, deviceFingerprint: string, query: string, settings: any) {
+  if (userId) {
+    const { data: existingCredits } = await supabase
+      .from('ai_user_credits')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingCredits) {
+      const wasFree = existingCredits.monthly_free_used < (settings?.user_monthly_limit || 50);
+      
+      if (wasFree) {
+        await supabase
+          .from('ai_user_credits')
+          .update({ monthly_free_used: existingCredits.monthly_free_used + 1 })
+          .eq('user_id', userId);
+      } else {
+        await supabase
+          .from('ai_user_credits')
+          .update({ credits_balance: Math.max(0, existingCredits.credits_balance - 1) })
+          .eq('user_id', userId);
+      }
+
+      await supabase.from('ai_credit_history').insert({
+        user_id: userId,
+        query_type: 'search',
+        credits_used: wasFree ? 0 : 1,
+        query_summary: query.substring(0, 100),
+        was_free: wasFree
+      });
+    } else {
+      await supabase.from('ai_user_credits').insert({
+        user_id: userId,
+        credits_balance: 0,
+        monthly_free_used: 1
+      });
+    }
+  } else {
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.from('ai_guest_usage').upsert({
+      ip_address: ipAddress || 'unknown',
+      device_fingerprint: deviceFingerprint || null,
+      usage_date: today,
+      query_count: 1
+    }, {
+      onConflict: 'ip_address,device_fingerprint,usage_date'
+    });
+
+    try {
+      await supabase.rpc('increment_guest_usage', {
+        p_ip: ipAddress || 'unknown',
+        p_fingerprint: deviceFingerprint || null,
+        p_date: today
+      });
+    } catch {
+      // RPC might not exist
+    }
+  }
+}
