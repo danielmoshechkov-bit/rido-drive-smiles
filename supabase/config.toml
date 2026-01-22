@@ -123,3 +123,6 @@ verify_jwt = false
 
 [functions.seed-services-demo]
 verify_jwt = false
+
+[functions.invoice-pdf]
+verify_jwt = false
