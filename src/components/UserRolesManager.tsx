@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type AppRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'marketplace_user' | 'real_estate_admin' | 'real_estate_agent';
+type AppRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'marketplace_user' | 'real_estate_admin' | 'real_estate_agent' | 'accounting_admin';
 
 interface UserRole {
   user_id: string;
@@ -290,6 +290,24 @@ export function UserRolesManager() {
                   </Label>
                   <p className="text-xs text-muted-foreground">
                     Dostęp do panelu kierowcy
+                  </p>
+                </div>
+              </div>
+
+              {/* Accounting Admin Role */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id={`${user.id}-accounting_admin`}
+                  checked={hasRole(user.id, 'accounting_admin')}
+                  onCheckedChange={() => toggleRole(user.id, 'accounting_admin')}
+                  disabled={savingUser === user.id}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor={`${user.id}-accounting_admin`} className="cursor-pointer">
+                    <Badge className="ml-1 bg-emerald-600">Księgowy</Badge>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Dostęp do panelu księgowego i faktur
                   </p>
                 </div>
               </div>
