@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InvoiceEditor } from '@/components/accounting/InvoiceEditor';
 import { RecipientEditor } from '@/components/accounting/RecipientEditor';
+import { DocumentInbox } from '@/components/accounting/DocumentInbox';
 import { 
   Building2, 
   FileText, 
@@ -460,25 +461,21 @@ export default function AccountingDashboard() {
           <TabsContent value="documents" className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Dokumenty kosztowe</h2>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Wgraj dokument
-              </Button>
             </div>
             
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-12 text-muted-foreground">
-                  <FolderOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">Inbox dokumentów</p>
-                  <p className="text-sm mb-4">Wgraj faktury kosztowe, paragony i inne dokumenty</p>
-                  <Button variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Wgraj PDF lub zdjęcie
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {selectedEntityId ? (
+              <DocumentInbox entityId={selectedEntityId} />
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FolderOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Wybierz firmę</p>
+                    <p className="text-sm">aby zobaczyć dokumenty kosztowe</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Entities Tab */}
