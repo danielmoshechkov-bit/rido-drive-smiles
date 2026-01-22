@@ -17,50 +17,30 @@ import {
   PieChart, 
   Download,
   Plus,
+  Users,
   Receipt,
   Calculator,
   Loader2,
   Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InvoicesList } from '@/components/accounting/InvoicesList';
-import { EntitiesManager } from '@/components/accounting/EntitiesManager';
 
 interface Entity {
   id: string;
   name: string;
   short_name: string | null;
   nip: string | null;
-  regon: string | null;
-  krs: string | null;
   type: string;
-  vat_payer: boolean;
-  address_street: string | null;
-  address_city: string | null;
-  address_postal_code: string | null;
-  address_country: string | null;
-  email: string | null;
-  phone: string | null;
-  bank_account: string | null;
-  bank_name: string | null;
-  logo_url: string | null;
   created_at: string;
 }
 
 interface Invoice {
   id: string;
-  invoice_number: string | null;
+  invoice_number: string;
   issue_date: string;
-  due_date: string;
   gross_amount: number;
-  net_amount: number;
-  vat_amount: number;
   status: string;
   type: string;
-  payment_method: string | null;
-  pdf_url: string | null;
-  buyer_snapshot: any;
-  recipient_id: string | null;
   entity_id: string;
 }
 
@@ -409,14 +389,58 @@ export default function AccountingDashboard() {
 
           {/* Invoices Tab */}
           <TabsContent value="invoices" className="space-y-4">
-            {selectedEntityId && (
-              <InvoicesList
-                entityId={selectedEntityId}
-                invoices={invoices}
-                loading={loading}
-                onRefresh={() => fetchInvoices(selectedEntityId)}
-              />
-            )}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Faktury sprzedaży</h2>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nowa faktura
+              </Button>
+            </div>
+            
+            <Card>
+              <CardContent className="pt-6">
+                {invoices.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Receipt className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Brak faktur</p>
+                    <p className="text-sm mb-4">Zacznij od wystawienia pierwszej faktury</p>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Wystaw fakturę
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {invoices.map((invoice) => (
+                      <div 
+                        key={invoice.id} 
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-4">
+                          <FileText className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{invoice.invoice_number}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Wystawiona: {formatDate(invoice.issue_date)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {getTypeBadge(invoice.type)}
+                          {getStatusBadge(invoice.status)}
+                          <span className="font-semibold min-w-[100px] text-right">
+                            {formatCurrency(invoice.gross_amount)}
+                          </span>
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Documents Tab */}
@@ -446,11 +470,47 @@ export default function AccountingDashboard() {
 
           {/* Entities Tab */}
           <TabsContent value="entities" className="space-y-4">
-            <EntitiesManager
-              entities={entities}
-              loading={loading}
-              onRefresh={fetchEntities}
-            />
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Firmy i podmioty</h2>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Dodaj firmę
+              </Button>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {entities.map((entity) => (
+                <Card key={entity.id} className="hover:border-primary/50 cursor-pointer transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      {entity.short_name || entity.name}
+                    </CardTitle>
+                    <CardDescription>{entity.name}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1 text-sm">
+                      {entity.nip && (
+                        <p><span className="text-muted-foreground">NIP:</span> {entity.nip}</p>
+                      )}
+                      <p><span className="text-muted-foreground">Typ:</span> {entity.type}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              
+              {entities.length === 0 && (
+                <Card className="col-span-full">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Brak firm</p>
+                      <p className="text-sm">Dodaj pierwszą firmę, aby rozpocząć fakturowanie</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* Reports Tab */}
@@ -481,7 +541,7 @@ export default function AccountingDashboard() {
               <Card className="hover:border-primary/50 cursor-pointer transition-colors">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
+                    <Users className="h-5 w-5" />
                     Kontrahenci
                   </CardTitle>
                   <CardDescription>Analiza obrotów z kontrahentami</CardDescription>
