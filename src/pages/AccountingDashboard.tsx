@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InvoiceEditor } from '@/components/accounting/InvoiceEditor';
+import { RecipientEditor } from '@/components/accounting/RecipientEditor';
 import { 
   Building2, 
   FileText, 
@@ -54,6 +56,11 @@ export default function AccountingDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [user, setUser] = useState<any>(null);
+  
+  // Modal states
+  const [invoiceEditorOpen, setInvoiceEditorOpen] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [recipientEditorOpen, setRecipientEditorOpen] = useState(false);
 
   const canAccessAccounting = isAdmin || roles.includes('accounting_admin' as any);
   const isModuleEnabled = features.module_accounting_enabled;
@@ -324,7 +331,10 @@ export default function AccountingDashboard() {
                 <CardTitle>Szybkie akcje</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => {
+                  setEditingInvoiceId(null);
+                  setInvoiceEditorOpen(true);
+                }}>
                   <Plus className="h-4 w-4" />
                   Nowa faktura
                 </Button>
@@ -391,7 +401,10 @@ export default function AccountingDashboard() {
           <TabsContent value="invoices" className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Faktury sprzedaży</h2>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => {
+                setEditingInvoiceId(null);
+                setInvoiceEditorOpen(true);
+              }}>
                 <Plus className="h-4 w-4" />
                 Nowa faktura
               </Button>
@@ -597,6 +610,28 @@ export default function AccountingDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+        
+        {/* Invoice Editor Modal */}
+        {selectedEntityId && (
+          <InvoiceEditor
+            open={invoiceEditorOpen}
+            onOpenChange={setInvoiceEditorOpen}
+            entityId={selectedEntityId}
+            invoiceId={editingInvoiceId}
+            onSaved={() => {
+              fetchInvoices(selectedEntityId);
+            }}
+          />
+        )}
+        
+        {/* Recipient Editor Modal */}
+        {selectedEntityId && (
+          <RecipientEditor
+            open={recipientEditorOpen}
+            onOpenChange={setRecipientEditorOpen}
+            entityId={selectedEntityId}
+          />
+        )}
       </main>
     </div>
   );
