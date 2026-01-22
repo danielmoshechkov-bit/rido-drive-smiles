@@ -19,6 +19,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   marketplace: "Funkcje Marketplace",
   registration: "Rejestracja",
   general: "Ogólne",
+  accounting: "Moduł Księgowy",
 };
 
 export function FeatureTogglesManagement() {

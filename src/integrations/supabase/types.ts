@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_assignments: {
+        Row: {
+          accounting_user_id: string
+          created_at: string | null
+          entity_id: string
+          id: string
+          role_scope: string
+        }
+        Insert: {
+          accounting_user_id: string
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          role_scope?: string
+        }
+        Update: {
+          accounting_user_id?: string
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          role_scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_assignments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_entries: {
+        Row: {
+          accounting_period: string
+          ai_suggested: boolean | null
+          amount: number
+          approved_at: string | null
+          approved_by_user_id: string | null
+          cost_center: string | null
+          created_at: string | null
+          created_by_user_id: string | null
+          credit_account: string | null
+          debit_account: string | null
+          description: string | null
+          document_id: string | null
+          entity_id: string
+          entry_date: string
+          entry_type: string
+          id: string
+          invoice_id: string | null
+          vat_register: string | null
+        }
+        Insert: {
+          accounting_period: string
+          ai_suggested?: boolean | null
+          amount: number
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          cost_center?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          credit_account?: string | null
+          debit_account?: string | null
+          description?: string | null
+          document_id?: string | null
+          entity_id: string
+          entry_date?: string
+          entry_type: string
+          id?: string
+          invoice_id?: string | null
+          vat_register?: string | null
+        }
+        Update: {
+          accounting_period?: string
+          ai_suggested?: boolean | null
+          amount?: number
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          cost_center?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          credit_account?: string | null
+          debit_account?: string | null
+          description?: string | null
+          document_id?: string | null
+          entity_id?: string
+          entry_date?: string
+          entry_type?: string
+          id?: string
+          invoice_id?: string | null
+          vat_register?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_entries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_inbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_entries_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_entries_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_campaigns: {
         Row: {
           clicks: number | null
@@ -569,6 +686,56 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_type: string | null
+          actor_user_id: string | null
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          target_id: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_type?: string | null
+          actor_user_id?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_type?: string | null
+          actor_user_id?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       car_brands: {
         Row: {
           created_at: string
@@ -772,6 +939,74 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_inbox: {
+        Row: {
+          ai_extraction: Json | null
+          booked_entry_id: string | null
+          created_at: string | null
+          detected_amounts: Json | null
+          detected_supplier: Json | null
+          entity_id: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+          uploaded_by_user_id: string | null
+        }
+        Insert: {
+          ai_extraction?: Json | null
+          booked_entry_id?: string | null
+          created_at?: string | null
+          detected_amounts?: Json | null
+          detected_supplier?: Json | null
+          entity_id: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Update: {
+          ai_extraction?: Json | null
+          booked_entry_id?: string | null
+          created_at?: string | null
+          detected_amounts?: Json | null
+          detected_supplier?: Json | null
+          entity_id?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_inbox_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
         ]
@@ -1008,6 +1243,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      driver_auto_invoicing_settings: {
+        Row: {
+          billing_day_of_month: number | null
+          created_at: string | null
+          custom_interval_days: number | null
+          driver_id: string | null
+          driver_user_id: string
+          enabled: boolean | null
+          fleet_id: string | null
+          frequency: string | null
+          id: string
+          last_run_at: string | null
+          next_run_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          billing_day_of_month?: number | null
+          created_at?: string | null
+          custom_interval_days?: number | null
+          driver_id?: string | null
+          driver_user_id: string
+          enabled?: boolean | null
+          fleet_id?: string | null
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          billing_day_of_month?: number | null
+          created_at?: string | null
+          custom_interval_days?: number | null
+          driver_id?: string | null
+          driver_user_id?: string
+          enabled?: boolean | null
+          fleet_id?: string | null
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      driver_b2b_profiles: {
+        Row: {
+          address_city: string | null
+          address_postal_code: string | null
+          address_street: string | null
+          bank_account: string | null
+          bank_name: string | null
+          company_name: string
+          created_at: string | null
+          driver_id: string | null
+          driver_user_id: string
+          email: string | null
+          id: string
+          nip: string
+          phone: string | null
+          regon: string | null
+          updated_at: string | null
+          vat_payer: boolean | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          company_name: string
+          created_at?: string | null
+          driver_id?: string | null
+          driver_user_id: string
+          email?: string | null
+          id?: string
+          nip: string
+          phone?: string | null
+          regon?: string | null
+          updated_at?: string | null
+          vat_payer?: boolean | null
+        }
+        Update: {
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          company_name?: string
+          created_at?: string | null
+          driver_id?: string | null
+          driver_user_id?: string
+          email?: string | null
+          id?: string
+          nip?: string
+          phone?: string | null
+          regon?: string | null
+          updated_at?: string | null
+          vat_payer?: boolean | null
+        }
+        Relationships: []
       }
       driver_communications: {
         Row: {
@@ -1729,6 +2066,81 @@ export type Database = {
         }
         Relationships: []
       }
+      entities: {
+        Row: {
+          address_city: string | null
+          address_country: string | null
+          address_postal_code: string | null
+          address_street: string | null
+          bank_account: string | null
+          bank_name: string | null
+          created_at: string | null
+          default_currency: string | null
+          email: string | null
+          email_for_invoices: string | null
+          id: string
+          krs: string | null
+          logo_url: string | null
+          name: string
+          nip: string | null
+          owner_user_id: string | null
+          phone: string | null
+          regon: string | null
+          short_name: string | null
+          type: string
+          updated_at: string | null
+          vat_payer: boolean | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          default_currency?: string | null
+          email?: string | null
+          email_for_invoices?: string | null
+          id?: string
+          krs?: string | null
+          logo_url?: string | null
+          name: string
+          nip?: string | null
+          owner_user_id?: string | null
+          phone?: string | null
+          regon?: string | null
+          short_name?: string | null
+          type: string
+          updated_at?: string | null
+          vat_payer?: boolean | null
+        }
+        Update: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          default_currency?: string | null
+          email?: string | null
+          email_for_invoices?: string | null
+          id?: string
+          krs?: string | null
+          logo_url?: string | null
+          name?: string
+          nip?: string | null
+          owner_user_id?: string | null
+          phone?: string | null
+          regon?: string | null
+          short_name?: string | null
+          type?: string
+          updated_at?: string | null
+          vat_payer?: boolean | null
+        }
+        Relationships: []
+      }
       feature_toggles: {
         Row: {
           category: string | null
@@ -2414,6 +2826,430 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          gross_amount: number
+          id: string
+          invoice_id: string
+          name: string
+          net_amount: number
+          pkwiu: string | null
+          position: number | null
+          quantity: number | null
+          unit: string | null
+          unit_net_price: number
+          vat_amount: number
+          vat_rate: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          gross_amount: number
+          id?: string
+          invoice_id: string
+          name: string
+          net_amount: number
+          pkwiu?: string | null
+          position?: number | null
+          quantity?: number | null
+          unit?: string | null
+          unit_net_price: number
+          vat_amount: number
+          vat_rate?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          gross_amount?: number
+          id?: string
+          invoice_id?: string
+          name?: string
+          net_amount?: number
+          pkwiu?: string | null
+          position?: number | null
+          quantity?: number | null
+          unit?: string | null
+          unit_net_price?: number
+          vat_amount?: number
+          vat_rate?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_recipients: {
+        Row: {
+          address_city: string | null
+          address_country: string | null
+          address_postal_code: string | null
+          address_street: string | null
+          created_at: string | null
+          email: string | null
+          entity_id: string
+          id: string
+          name: string
+          nip: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          created_at?: string | null
+          email?: string | null
+          entity_id: string
+          id?: string
+          name: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address_city?: string | null
+          address_country?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          created_at?: string | null
+          email?: string | null
+          entity_id?: string
+          id?: string
+          name?: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_recipients_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_recurring_rules: {
+        Row: {
+          created_at: string | null
+          created_by_user_id: string | null
+          custom_days: number | null
+          enabled: boolean | null
+          end_date: string | null
+          entity_id: string
+          frequency: string | null
+          id: string
+          last_run_at: string | null
+          next_run_at: string | null
+          notes: string | null
+          payment_days: number | null
+          recipient_id: string | null
+          start_date: string
+          template_items: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by_user_id?: string | null
+          custom_days?: number | null
+          enabled?: boolean | null
+          end_date?: string | null
+          entity_id: string
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          notes?: string | null
+          payment_days?: number | null
+          recipient_id?: string | null
+          start_date: string
+          template_items: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by_user_id?: string | null
+          custom_days?: number | null
+          enabled?: boolean | null
+          end_date?: string | null
+          entity_id?: string
+          frequency?: string | null
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          notes?: string | null
+          payment_days?: number | null
+          recipient_id?: string | null
+          start_date?: string
+          template_items?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_recurring_rules_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_recurring_rules_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_series: {
+        Row: {
+          created_at: string | null
+          entity_id: string
+          id: string
+          invoice_type: string | null
+          is_default: boolean | null
+          name: string
+          pattern: string
+          prefix: string
+          reset_rule: string | null
+          sequence_current: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          invoice_type?: string | null
+          is_default?: boolean | null
+          name: string
+          pattern?: string
+          prefix?: string
+          reset_rule?: string | null
+          sequence_current?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          invoice_type?: string | null
+          is_default?: boolean | null
+          name?: string
+          pattern?: string
+          prefix?: string
+          reset_rule?: string | null
+          sequence_current?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_series_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          buyer_snapshot: Json | null
+          correction_of_invoice_id: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_user_id: string | null
+          currency: string | null
+          driver_id: string | null
+          due_date: string | null
+          entity_id: string
+          exchange_rate: number | null
+          fleet_id: string | null
+          gross_amount: number | null
+          id: string
+          internal_notes: string | null
+          invoice_number: string
+          issue_date: string
+          ksef_reference: string | null
+          ksef_status: string | null
+          net_amount: number | null
+          notes: string | null
+          paid_amount: number | null
+          payment_days: number | null
+          payment_method: string | null
+          pdf_url: string | null
+          recipient_id: string | null
+          sale_date: string | null
+          series_id: string | null
+          settlement_id: string | null
+          status: string
+          type: string
+          updated_at: string | null
+          vat_amount: number | null
+        }
+        Insert: {
+          buyer_snapshot?: Json | null
+          correction_of_invoice_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          created_by_user_id?: string | null
+          currency?: string | null
+          driver_id?: string | null
+          due_date?: string | null
+          entity_id: string
+          exchange_rate?: number | null
+          fleet_id?: string | null
+          gross_amount?: number | null
+          id?: string
+          internal_notes?: string | null
+          invoice_number: string
+          issue_date?: string
+          ksef_reference?: string | null
+          ksef_status?: string | null
+          net_amount?: number | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_days?: number | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          recipient_id?: string | null
+          sale_date?: string | null
+          series_id?: string | null
+          settlement_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string | null
+          vat_amount?: number | null
+        }
+        Update: {
+          buyer_snapshot?: Json | null
+          correction_of_invoice_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          created_by_user_id?: string | null
+          currency?: string | null
+          driver_id?: string | null
+          due_date?: string | null
+          entity_id?: string
+          exchange_rate?: number | null
+          fleet_id?: string | null
+          gross_amount?: number | null
+          id?: string
+          internal_notes?: string | null
+          invoice_number?: string
+          issue_date?: string
+          ksef_reference?: string | null
+          ksef_status?: string | null
+          net_amount?: number | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_days?: number | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          recipient_id?: string | null
+          sale_date?: string | null
+          series_id?: string | null
+          settlement_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string | null
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_correction_of_invoice_id_fkey"
+            columns: ["correction_of_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_consents: {
+        Row: {
+          accepted: boolean
+          accepted_at: string | null
+          consent_type: string
+          created_at: string | null
+          document_snapshot_url: string | null
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          source: string | null
+          user_agent: string | null
+          user_id: string
+          version: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          accepted?: boolean
+          accepted_at?: string | null
+          consent_type: string
+          created_at?: string | null
+          document_snapshot_url?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id: string
+          version?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          accepted?: boolean
+          accepted_at?: string | null
+          consent_type?: string
+          created_at?: string | null
+          document_snapshot_url?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id?: string
+          version?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_consents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
         ]
@@ -3956,6 +4792,50 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_config: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          free_invoices_limit: number | null
+          id: string
+          plan: string | null
+          pro_features_enabled: boolean | null
+          show_branding_footer: boolean | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          free_invoices_limit?: number | null
+          id?: string
+          plan?: string | null
+          pro_features_enabled?: boolean | null
+          show_branding_footer?: boolean | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          free_invoices_limit?: number | null
+          id?: string
+          plan?: string | null
+          pro_features_enabled?: boolean | null
+          show_branding_footer?: boolean | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_config_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
         ]
@@ -7238,6 +8118,7 @@ export type Database = {
         | "marketplace_user"
         | "real_estate_admin"
         | "real_estate_agent"
+        | "accounting_admin"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -7374,6 +8255,7 @@ export const Constants = {
         "marketplace_user",
         "real_estate_admin",
         "real_estate_agent",
+        "accounting_admin",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
