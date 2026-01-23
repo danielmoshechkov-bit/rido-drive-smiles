@@ -1756,20 +1756,8 @@ export const DriverSettlements = ({
                           <B2BInvoiceCard
                             driverId={driverId}
                             driverName={driverName}
-                            periodFrom={period.period_from}
-                            periodTo={period.period_to}
-                            invoiceAmount={
-                              // Suma platform z prowizją (brutto)
-                              (amounts.uber_base || 0) +
-                              (amounts.bolt_projected_d || 0) +
-                              (amounts.freenow_base_s || 0)
-                            }
-                            paidAmount={
-                              // Suma gotówek - używamy uber_cash_f (poprawne pole)
-                              Math.abs(amounts.uber_cash_f || 0) +
-                              Math.abs(amounts.bolt_cash || 0) +
-                              Math.abs(amounts.freenow_cash_f || 0)
-                            }
+                            year={selectedYear}
+                            month={new Date(period.period_from).getMonth() + 1}
                             fleetId={driverFleetId}
                           />
                         </div>
