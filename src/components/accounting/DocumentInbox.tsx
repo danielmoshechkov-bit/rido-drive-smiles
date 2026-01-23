@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { 
   Upload, 
@@ -18,6 +17,7 @@ import {
   Sparkles,
   X
 } from 'lucide-react';
+import { AIExtractionPanel, type ExtractionData } from './AIExtractionPanel';
 
 interface Document {
   id: string;
@@ -26,9 +26,9 @@ interface Document {
   file_type: string | null;
   status: string;
   source: string | null;
-  detected_supplier: any;
-  detected_amounts: any;
-  ai_extraction: any;
+  detected_supplier: unknown;
+  detected_amounts: unknown;
+  ai_extraction: unknown;
   created_at: string;
   notes: string | null;
 }
@@ -51,7 +51,16 @@ export function DocumentInbox({ entityId }: DocumentInboxProps) {
   const [uploading, setUploading] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
+  const [bookingDocument, setBookingDocument] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to safely cast ai_extraction to ExtractionData
+  const getExtractionData = (doc: Document): ExtractionData | null => {
+    if (!doc.ai_extraction) return null;
+    const extraction = doc.ai_extraction as Record<string, unknown>;
+    if (typeof extraction !== 'object') return null;
+    return extraction as unknown as ExtractionData;
+  };
 
   useEffect(() => {
     if (entityId) {
@@ -156,24 +165,28 @@ export function DocumentInbox({ entityId }: DocumentInboxProps) {
   const handleAnalyzeWithAI = async (doc: Document) => {
     setAnalyzing(doc.id);
     try {
-      // Call AI extraction edge function (placeholder for now)
       const { data, error } = await supabase.functions.invoke('ai-service', {
         body: {
-          action: 'extract_document',
-          document_url: doc.file_url,
-          document_type: doc.file_type,
+          type: 'document_extract',
+          payload: {
+            document_url: doc.file_url,
+            file_type: doc.file_type || 'image',
+          },
         },
       });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'AI extraction failed');
 
+      const extraction = data.extraction;
+      
       // Update document with AI extraction results
       await supabase
         .from('document_inbox')
         .update({
-          ai_extraction: data?.extraction || null,
-          detected_supplier: data?.supplier || null,
-          detected_amounts: data?.amounts || null,
+          ai_extraction: extraction,
+          detected_supplier: extraction?.supplier || null,
+          detected_amounts: extraction?.amounts || null,
           status: 'needs_review',
         })
         .eq('id', doc.id);
@@ -185,6 +198,61 @@ export function DocumentInbox({ entityId }: DocumentInboxProps) {
       toast.error('Błąd analizy AI: ' + error.message);
     } finally {
       setAnalyzing(null);
+    }
+  };
+
+  const handleConfirmBooking = async (doc: Document, data: ExtractionData) => {
+    setBookingDocument(doc.id);
+    try {
+      // Create accounting entry from extraction
+      const { error } = await supabase.from('accounting_entries').insert({
+        entity_id: entityId,
+        document_id: doc.id,
+        entry_type: 'cost',
+        entry_date: data.issue_date || new Date().toISOString().split('T')[0],
+        accounting_period: data.issue_date?.substring(0, 7) || new Date().toISOString().substring(0, 7),
+        amount: data.amounts?.gross || 0,
+        description: `${data.supplier?.name || 'Dostawca'} - ${data.invoice_number || 'Faktura'}`,
+        vat_register: 'zakupy',
+        ai_suggested: true,
+        approved_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      // Update document status
+      await supabase
+        .from('document_inbox')
+        .update({ status: 'booked' })
+        .eq('id', doc.id);
+
+      toast.success('Dokument zaksięgowany');
+      fetchDocuments();
+    } catch (error: any) {
+      console.error('Booking error:', error);
+      toast.error('Błąd księgowania: ' + error.message);
+    } finally {
+      setBookingDocument(null);
+    }
+  };
+
+  const handleRejectExtraction = async (doc: Document) => {
+    try {
+      await supabase
+        .from('document_inbox')
+        .update({ 
+          status: 'rejected',
+          ai_extraction: null,
+          detected_supplier: null,
+          detected_amounts: null,
+        })
+        .eq('id', doc.id);
+
+      toast.success('Wyniki AI odrzucone');
+      fetchDocuments();
+    } catch (error: any) {
+      console.error('Reject error:', error);
+      toast.error('Błąd odrzucania');
     }
   };
 
@@ -384,30 +452,49 @@ export function DocumentInbox({ entityId }: DocumentInboxProps) {
                 {getStatusBadge(selectedDocument.status)}
               </div>
 
-              {/* AI Extraction Results */}
-              {selectedDocument.ai_extraction && (
-                <div className="p-3 bg-muted rounded-lg space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Wyniki AI:</p>
-                  {selectedDocument.detected_supplier && (
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">Dostawca:</span>{' '}
-                      {selectedDocument.detected_supplier.name || '-'}
-                    </p>
-                  )}
-                  {selectedDocument.detected_amounts && (
-                    <>
-                      <p className="text-sm">
-                        <span className="text-muted-foreground">Netto:</span>{' '}
-                        {selectedDocument.detected_amounts.net || '-'} PLN
-                      </p>
-                      <p className="text-sm">
-                        <span className="text-muted-foreground">Brutto:</span>{' '}
-                        {selectedDocument.detected_amounts.gross || '-'} PLN
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* AI Extraction Panel */}
+              {(() => {
+                const extraction = getExtractionData(selectedDocument);
+                if (extraction && selectedDocument.status === 'needs_review') {
+                  return (
+                    <AIExtractionPanel
+                      extraction={extraction}
+                      onConfirm={(data) => handleConfirmBooking(selectedDocument, data)}
+                      onReject={() => handleRejectExtraction(selectedDocument)}
+                      isLoading={bookingDocument === selectedDocument.id}
+                    />
+                  );
+                }
+                
+                // Show simple extraction summary for already processed docs
+                if (extraction) {
+                  return (
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Wyniki AI:</p>
+                      {extraction.supplier?.name && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Dostawca:</span>{' '}
+                          {extraction.supplier.name}
+                        </p>
+                      )}
+                      {extraction.amounts && (
+                        <>
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Netto:</span>{' '}
+                            {extraction.amounts.net ?? '-'} PLN
+                          </p>
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Brutto:</span>{' '}
+                            {extraction.amounts.gross ?? '-'} PLN
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2">

@@ -11,9 +11,113 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 interface AIServiceRequest {
-  type: 'search' | 'seo' | 'photo_edit' | 'chat' | 'test' | 'vehicle-description';
+  type: 'search' | 'seo' | 'photo_edit' | 'chat' | 'test' | 'vehicle-description' | 'document_extract';
   payload: Record<string, unknown>;
   userId?: string;
+}
+
+// Document extraction using GPT-4o Vision
+async function extractDocumentWithVision(
+  documentUrl: string,
+  fileType: string
+): Promise<Record<string, unknown>> {
+  const systemPrompt = `Jesteś asystentem księgowym specjalizującym się w OCR faktur kosztowych.
+Analizujesz zdjęcie/skan faktury i zwracasz ustrukturyzowane dane w formacie JSON.
+
+ZAWSZE odpowiadaj TYLKO w formacie JSON bez dodatkowego tekstu ani markdown.
+Jeśli nie możesz odczytać wartości, ustaw null.
+Dla kwot używaj liczb (nie stringów).
+Dla dat używaj formatu YYYY-MM-DD.
+
+Wymagana struktura odpowiedzi:
+{
+  "invoice_number": "string lub null",
+  "issue_date": "YYYY-MM-DD lub null",
+  "sale_date": "YYYY-MM-DD lub null", 
+  "due_date": "YYYY-MM-DD lub null",
+  "supplier": {
+    "name": "string lub null",
+    "nip": "string (tylko cyfry) lub null",
+    "address": "string lub null"
+  },
+  "amounts": {
+    "net": number lub null,
+    "vat": number lub null,
+    "gross": number lub null,
+    "vat_rate": "string np. 23% lub null"
+  },
+  "items": [
+    { "name": "string", "qty": number, "net": number }
+  ],
+  "category": "transport|fuel|service|rent|insurance|office|telecommunication|other",
+  "payment_method": "transfer|cash|card lub null",
+  "bank_account": "string lub null",
+  "confidence": number od 0 do 1 (twoja pewność co do poprawności odczytu)
+}`;
+
+  console.log(`[AI Service] Extracting document from: ${documentUrl}`);
+  
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'openai/gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: [
+            { 
+              type: 'text', 
+              text: 'Przeanalizuj tę fakturę i wyodrębnij wszystkie dane. Odpowiedz TYLKO w formacie JSON.' 
+            },
+            { 
+              type: 'image_url', 
+              image_url: { url: documentUrl } 
+            }
+          ]
+        }
+      ],
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[AI Service] Vision API error: ${response.status}`, errorText);
+    throw new Error(`Document extraction failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  
+  console.log(`[AI Service] Raw extraction response:`, content.substring(0, 500));
+
+  // Parse JSON from response
+  try {
+    // Try to extract JSON from markdown code blocks if present
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+    
+    const extraction = JSON.parse(jsonStr);
+    return {
+      success: true,
+      extraction,
+      usage: data.usage,
+    };
+  } catch (parseError) {
+    console.error(`[AI Service] Failed to parse extraction JSON:`, parseError);
+    throw new Error('Failed to parse AI response as JSON');
+  }
 }
 
 interface AISettings {
@@ -334,6 +438,26 @@ Opis powinien być:
           success: true,
           description: descResult.content,
         };
+        break;
+      }
+      
+      case 'document_extract': {
+        const { document_url, file_type } = payload as { document_url: string; file_type: string };
+        if (!document_url) {
+          return new Response(
+            JSON.stringify({ error: 'Missing document_url' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        console.log(`[AI Service] Processing document extraction for: ${document_url}`);
+        
+        const extractionResult = await extractDocumentWithVision(
+          document_url,
+          file_type || 'image'
+        );
+        
+        result = extractionResult;
         break;
       }
       
