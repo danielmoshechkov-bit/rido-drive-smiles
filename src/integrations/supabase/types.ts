@@ -746,6 +746,97 @@ export type Database = {
           },
         ]
       }
+      auto_invoice_number_sequences: {
+        Row: {
+          created_at: string | null
+          fleet_id: string | null
+          id: string
+          last_number: number | null
+          month: number
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          last_number?: number | null
+          month: number
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          last_number?: number | null
+          month?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_invoice_number_sequences_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_invoicing_consents: {
+        Row: {
+          accepted_at: string | null
+          consent_self_billing: boolean
+          consent_terms: boolean
+          created_at: string | null
+          driver_id: string | null
+          id: string
+          ip_address: string | null
+          revoked_at: string | null
+          status: string | null
+          terms_version: string
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          consent_self_billing?: boolean
+          consent_terms?: boolean
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          status?: string | null
+          terms_version?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          consent_self_billing?: boolean
+          consent_terms?: boolean
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          status?: string | null
+          terms_version?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_invoicing_consents_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       car_brands: {
         Row: {
           created_at: string
@@ -1269,6 +1360,7 @@ export type Database = {
       }
       driver_auto_invoicing_settings: {
         Row: {
+          auto_invoice_series: string | null
           billing_day_of_month: number | null
           created_at: string | null
           custom_interval_days: number | null
@@ -1278,12 +1370,14 @@ export type Database = {
           fleet_id: string | null
           frequency: string | null
           id: string
+          include_vat_annotation: boolean | null
           invoice_numbering_mode: string | null
           last_run_at: string | null
           next_run_at: string | null
           updated_at: string | null
         }
         Insert: {
+          auto_invoice_series?: string | null
           billing_day_of_month?: number | null
           created_at?: string | null
           custom_interval_days?: number | null
@@ -1293,12 +1387,14 @@ export type Database = {
           fleet_id?: string | null
           frequency?: string | null
           id?: string
+          include_vat_annotation?: boolean | null
           invoice_numbering_mode?: string | null
           last_run_at?: string | null
           next_run_at?: string | null
           updated_at?: string | null
         }
         Update: {
+          auto_invoice_series?: string | null
           billing_day_of_month?: number | null
           created_at?: string | null
           custom_interval_days?: number | null
@@ -1308,6 +1404,7 @@ export type Database = {
           fleet_id?: string | null
           frequency?: string | null
           id?: string
+          include_vat_annotation?: boolean | null
           invoice_numbering_mode?: string | null
           last_run_at?: string | null
           next_run_at?: string | null
@@ -1333,6 +1430,9 @@ export type Database = {
           regon: string | null
           updated_at: string | null
           vat_payer: boolean | null
+          vat_verification_response: Json | null
+          vat_verification_status: string | null
+          vat_verified_at: string | null
         }
         Insert: {
           address_city?: string | null
@@ -1351,6 +1451,9 @@ export type Database = {
           regon?: string | null
           updated_at?: string | null
           vat_payer?: boolean | null
+          vat_verification_response?: Json | null
+          vat_verification_status?: string | null
+          vat_verified_at?: string | null
         }
         Update: {
           address_city?: string | null
@@ -1369,6 +1472,9 @@ export type Database = {
           regon?: string | null
           updated_at?: string | null
           vat_payer?: boolean | null
+          vat_verification_response?: Json | null
+          vat_verification_status?: string | null
+          vat_verified_at?: string | null
         }
         Relationships: []
       }
@@ -8343,6 +8449,10 @@ export type Database = {
       }
       generate_random_listing_number: { Args: never; Returns: string }
       get_driver_city_id: { Args: never; Returns: string }
+      get_next_auto_invoice_number: {
+        Args: { p_fleet_id: string; p_month: number; p_year: number }
+        Returns: string
+      }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       get_user_marketplace_profile_id: {
         Args: { p_user_id: string }

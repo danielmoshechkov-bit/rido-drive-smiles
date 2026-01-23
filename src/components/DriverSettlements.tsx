@@ -1383,7 +1383,7 @@ export const DriverSettlements = ({
                     <span className="font-bold text-muted-foreground text-lg">0.00 zł</span>
                   </div>
                   <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                    <span className="font-bold">{isB2BDriver ? 'B2B - bez podatku' : t('weekly.totalTax')}:</span>
+                    <span className="font-bold">{isB2BDriver ? 'B2B VAT we własnym zakresie' : t('weekly.totalTax')}:</span>
                     <span className="font-bold text-muted-foreground text-lg">0.00 zł</span>
                   </div>
                 </div>
