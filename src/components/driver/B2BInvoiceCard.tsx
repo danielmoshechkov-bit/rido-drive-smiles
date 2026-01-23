@@ -16,10 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface B2BInvoiceCardProps {
   driverId: string;
   driverName: string;
-  periodFrom: string;
-  periodTo: string;
-  invoiceAmount: number;
-  paidAmount: number;
+  year: number;
+  month: number; // 1-12
   fleetId: string | null;
 }
 
@@ -34,16 +32,21 @@ interface AutoInvoicingSettings {
 export function B2BInvoiceCard({
   driverId,
   driverName,
-  periodFrom,
-  periodTo,
-  invoiceAmount,
-  paidAmount,
+  year,
+  month,
   fleetId,
 }: B2BInvoiceCardProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const { toast } = useToast();
+
+  // Monthly data state
+  const [invoiceAmount, setInvoiceAmount] = useState(0);
+  const [cashAmount, setCashAmount] = useState(0);
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+  const [loadingData, setLoadingData] = useState(true);
 
   // Auto-invoicing state
   const [autoInvoicingEnabled, setAutoInvoicingEnabled] = useState(false);
@@ -66,13 +69,73 @@ export function B2BInvoiceCard({
   const [showInvoiceNumberDialog, setShowInvoiceNumberDialog] = useState(false);
   const [manualInvoiceNumber, setManualInvoiceNumber] = useState('');
 
-  const remainingAmount = invoiceAmount - paidAmount;
-  const invoiceMonth = format(new Date(periodFrom), "LLLL yyyy", { locale: pl });
-  const invoiceMonthShort = format(new Date(periodFrom), "LLLL", { locale: pl });
+  const transferAmount = invoiceAmount - cashAmount;
+  const invoiceMonthLabel = format(new Date(year, month - 1, 1), "LLLL yyyy", { locale: pl });
+  const invoiceMonthShort = format(new Date(year, month - 1, 1), "LLLL", { locale: pl });
 
   useEffect(() => {
     loadAutoInvoicingSettings();
-  }, [driverId]);
+    loadMonthlySettlements();
+  }, [driverId, year, month]);
+
+  // Load all settlements for the month
+  const loadMonthlySettlements = async () => {
+    try {
+      setLoadingData(true);
+      
+      // Calculate month start and next month start
+      const monthStart = `${year}-${month.toString().padStart(2, '0')}-01`;
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const nextMonthStart = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
+      
+      // Fetch all settlements where period starts in this month
+      const { data: settlements, error } = await supabase
+        .from('settlements')
+        .select('period_from, period_to, amounts')
+        .eq('driver_id', driverId)
+        .gte('period_from', monthStart)
+        .lt('period_from', nextMonthStart)
+        .order('period_from', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (settlements && settlements.length > 0) {
+        // Sum all amounts from all weeks
+        let totalBrutto = 0;
+        let totalCash = 0;
+        
+        for (const s of settlements) {
+          const amounts = s.amounts as Record<string, number> || {};
+          // Brutto = sum of base amounts from all platforms
+          totalBrutto += (amounts.uber_base ?? amounts.uberBase ?? amounts.uber ?? 0);
+          totalBrutto += (amounts.bolt_projected_d ?? amounts.boltProjectedD ?? amounts.boltGross ?? 0);
+          totalBrutto += (amounts.freenow_base_s ?? amounts.freenowBaseS ?? amounts.freenowGross ?? 0);
+          
+          // Cash = sum of cash from all platforms
+          totalCash += Math.abs(amounts.uber_cash_f ?? amounts.uberCashF ?? amounts.uberCash ?? 0);
+          totalCash += Math.abs(amounts.bolt_cash ?? amounts.boltCash ?? 0);
+          totalCash += Math.abs(amounts.freenow_cash_f ?? amounts.freenowCashF ?? amounts.freenowCash ?? 0);
+        }
+        
+        setInvoiceAmount(totalBrutto);
+        setCashAmount(totalCash);
+        
+        // Set period from first to last settlement
+        setPeriodFrom(settlements[0].period_from);
+        setPeriodTo(settlements[settlements.length - 1].period_to);
+      } else {
+        setInvoiceAmount(0);
+        setCashAmount(0);
+        setPeriodFrom(monthStart);
+        setPeriodTo(monthStart);
+      }
+    } catch (error) {
+      console.error('Error loading monthly settlements:', error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const loadAutoInvoicingSettings = async () => {
     try {
@@ -178,17 +241,13 @@ export function B2BInvoiceCard({
         .from("driver-invoices")
         .getPublicUrl(fileName);
 
-      const periodDate = new Date(periodFrom);
-      const periodMonth = periodDate.getMonth() + 1;
-      const periodYear = periodDate.getFullYear();
-
       const { error: insertError } = await supabase.from("driver_invoices").insert({
         driver_id: driverId,
-        period_month: periodMonth,
-        period_year: periodYear,
+        period_month: month,
+        period_year: year,
         invoice_amount: invoiceAmount,
-        paid_amount: paidAmount,
-        remaining_amount: remainingAmount,
+        paid_amount: cashAmount,
+        remaining_amount: transferAmount,
         file_url: urlData.publicUrl,
         file_name: file.name,
         uploaded_at: new Date().toISOString(),
@@ -207,8 +266,8 @@ export function B2BInvoiceCard({
             file_url: urlData.publicUrl,
             file_name: file.name,
             invoice_amount: invoiceAmount,
-            paid_amount: paidAmount,
-            remaining_amount: remainingAmount,
+            cash_amount: cashAmount,
+            transfer_amount: transferAmount,
           },
         });
       }
@@ -405,7 +464,7 @@ export function B2BInvoiceCard({
           </div>
           <p className="text-lg font-semibold text-green-800">Faktura wysłana!</p>
           <p className="text-sm text-green-600 mt-1">
-            Faktura za {invoiceMonth} została przesłana
+            Faktura za {invoiceMonthLabel} została przesłana
           </p>
         </CardContent>
       </Card>
@@ -430,36 +489,42 @@ export function B2BInvoiceCard({
             <FileText className="h-5 w-5 text-blue-600" />
             <span>Faktura do wystawienia</span>
           </CardTitle>
-          <p className="text-sm text-muted-foreground capitalize">{invoiceMonth}</p>
+          <p className="text-sm text-muted-foreground capitalize">{invoiceMonthLabel}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Kwota faktury */}
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Kwota faktury:</span>
-            <span className="text-lg font-bold text-blue-600">
-              {formatCurrency(invoiceAmount)}
-            </span>
-          </div>
+          {loadingData ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              {/* Faktura brutto */}
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Faktura brutto:</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {formatCurrency(invoiceAmount)}
+                </span>
+              </div>
 
-          {/* Zapłacone (gotówka) */}
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Zapłacone (gotówka):</span>
-            <span className="text-green-600 font-medium">
-              -{formatCurrency(paidAmount)}
-            </span>
-          </div>
+              <div className="border-t pt-3 space-y-2">
+                {/* W tym gotówka (informacyjnie) */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">W tym gotówka:</span>
+                  <span className="text-muted-foreground">
+                    {formatCurrency(cashAmount)}
+                  </span>
+                </div>
 
-          {/* Pozostało */}
-          <div className="flex justify-between items-center border-t pt-3">
-            <span className="font-medium">Pozostało do zapłaty:</span>
-            <span
-              className={`text-lg font-bold ${
-                remainingAmount > 0 ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {formatCurrency(remainingAmount)}
-            </span>
-          </div>
+                {/* Przelew */}
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Przelew:</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatCurrency(transferAmount)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Auto-invoicing toggle */}
           <div className="border-t pt-4">
