@@ -65,6 +65,7 @@ export type Database = {
           entry_type: string
           id: string
           invoice_id: string | null
+          tax_category_id: string | null
           vat_register: string | null
         }
         Insert: {
@@ -85,6 +86,7 @@ export type Database = {
           entry_type: string
           id?: string
           invoice_id?: string | null
+          tax_category_id?: string | null
           vat_register?: string | null
         }
         Update: {
@@ -105,6 +107,7 @@ export type Database = {
           entry_type?: string
           id?: string
           invoice_id?: string | null
+          tax_category_id?: string | null
           vat_register?: string | null
         }
         Relationships: [
@@ -127,6 +130,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_entries_tax_category_id_fkey"
+            columns: ["tax_category_id"]
+            isOneToOne: false
+            referencedRelation: "tax_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -946,6 +956,7 @@ export type Database = {
       document_inbox: {
         Row: {
           ai_extraction: Json | null
+          ai_tax_advice: string | null
           booked_entry_id: string | null
           created_at: string | null
           detected_amounts: Json | null
@@ -960,11 +971,13 @@ export type Database = {
           reviewed_by_user_id: string | null
           source: string | null
           status: string | null
+          tax_category_id: string | null
           updated_at: string | null
           uploaded_by_user_id: string | null
         }
         Insert: {
           ai_extraction?: Json | null
+          ai_tax_advice?: string | null
           booked_entry_id?: string | null
           created_at?: string | null
           detected_amounts?: Json | null
@@ -979,11 +992,13 @@ export type Database = {
           reviewed_by_user_id?: string | null
           source?: string | null
           status?: string | null
+          tax_category_id?: string | null
           updated_at?: string | null
           uploaded_by_user_id?: string | null
         }
         Update: {
           ai_extraction?: Json | null
+          ai_tax_advice?: string | null
           booked_entry_id?: string | null
           created_at?: string | null
           detected_amounts?: Json | null
@@ -998,6 +1013,7 @@ export type Database = {
           reviewed_by_user_id?: string | null
           source?: string | null
           status?: string | null
+          tax_category_id?: string | null
           updated_at?: string | null
           uploaded_by_user_id?: string | null
         }
@@ -1007,6 +1023,13 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_inbox_tax_category_id_fkey"
+            columns: ["tax_category_id"]
+            isOneToOne: false
+            referencedRelation: "tax_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -2390,6 +2413,44 @@ export type Database = {
           },
         ]
       }
+      fleet_sms_templates: {
+        Row: {
+          created_at: string
+          fleet_id: string | null
+          id: string
+          is_active: boolean
+          template_content: string
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean
+          template_content?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean
+          template_content?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_sms_templates_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleets: {
         Row: {
           address: string | null
@@ -3194,6 +3255,110 @@ export type Database = {
             columns: ["series_id"]
             isOneToOne: false
             referencedRelation: "invoice_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ksef_settings: {
+        Row: {
+          auto_send: boolean
+          created_at: string
+          entity_id: string | null
+          environment: string
+          id: string
+          is_enabled: boolean
+          nip: string | null
+          token_encrypted: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_send?: boolean
+          created_at?: string
+          entity_id?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          nip?: string | null
+          token_encrypted?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_send?: boolean
+          created_at?: string
+          entity_id?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          nip?: string | null
+          token_encrypted?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ksef_settings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ksef_transmissions: {
+        Row: {
+          created_at: string
+          direction: string
+          entity_id: string | null
+          error_message: string | null
+          id: string
+          invoice_id: string | null
+          ksef_reference_number: string | null
+          response_at: string | null
+          sent_at: string | null
+          status: string
+          upo_reference: string | null
+          xml_content: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          invoice_id?: string | null
+          ksef_reference_number?: string | null
+          response_at?: string | null
+          sent_at?: string | null
+          status?: string
+          upo_reference?: string | null
+          xml_content?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          invoice_id?: string | null
+          ksef_reference_number?: string | null
+          response_at?: string | null
+          sent_at?: string | null
+          status?: string
+          upo_reference?: string | null
+          xml_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ksef_transmissions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ksef_transmissions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -5331,6 +5496,82 @@ export type Database = {
           },
         ]
       }
+      rental_payment_reminders: {
+        Row: {
+          amount_due: number
+          created_at: string
+          driver_id: string | null
+          due_date: string
+          fleet_id: string | null
+          id: string
+          last_reminder_at: string | null
+          last_reminder_type: string | null
+          notes: string | null
+          payment_confirmed_at: string | null
+          payment_confirmed_by: string | null
+          reminder_count: number
+          status: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          amount_due?: number
+          created_at?: string
+          driver_id?: string | null
+          due_date: string
+          fleet_id?: string | null
+          id?: string
+          last_reminder_at?: string | null
+          last_reminder_type?: string | null
+          notes?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          reminder_count?: number
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          amount_due?: number
+          created_at?: string
+          driver_id?: string | null
+          due_date?: string
+          fleet_id?: string | null
+          id?: string
+          last_reminder_at?: string | null
+          last_reminder_type?: string | null
+          notes?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          reminder_count?: number
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_payment_reminders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_payment_reminders_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_payment_reminders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_reviews: {
         Row: {
           approved_at: string | null
@@ -7050,6 +7291,42 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           tab_id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tax_categories: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kpir_column: number | null
+          name: string
+          ryczalt_rate: number | null
+          vat_deductible_percent: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kpir_column?: number | null
+          name: string
+          ryczalt_rate?: number | null
+          vat_deductible_percent?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kpir_column?: number | null
+          name?: string
+          ryczalt_rate?: number | null
+          vat_deductible_percent?: number | null
         }
         Relationships: []
       }

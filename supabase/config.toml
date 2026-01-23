@@ -126,3 +126,12 @@ verify_jwt = false
 
 [functions.invoice-pdf]
 verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.rental-payment-reminders]
+verify_jwt = false
+
+[functions.ksef-integration]
+verify_jwt = false
