@@ -17,22 +17,13 @@ const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [showTermsError, setShowTermsError] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!acceptedTerms) {
-      setShowTermsError(true);
-      return;
-    }
-    setShowTermsError(false);
-    
     setIsLoading(true);
     try {
       // ALWAYS sign out first to clear any stale session before new login
@@ -206,34 +197,6 @@ const Auth = () => {
                 >
                   {t('auth.rememberMe')}
                 </label>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="terms"
-                    checked={acceptedTerms}
-                    onCheckedChange={(checked) => {
-                      setAcceptedTerms(checked as boolean);
-                      if (checked) setShowTermsError(false);
-                    }}
-                    className={showTermsError ? "border-red-500" : ""}
-                  />
-                  <label
-                    htmlFor="terms"
-                    className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${showTermsError ? "text-red-500" : ""}`}
-                  >
-                    {t('auth.accept')}{' '}
-                    <Link to="/prawne?tab=regulamin" className="text-primary hover:underline">
-                      {t('auth.termsAndPrivacy')}
-                    </Link>
-                  </label>
-                </div>
-                {showTermsError && (
-                  <p className="text-sm text-red-500 ml-6">
-                    {t('auth.mustAcceptTerms')}
-                  </p>
-                )}
               </div>
 
               <Button 

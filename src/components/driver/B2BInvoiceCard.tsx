@@ -28,6 +28,7 @@ interface AutoInvoicingSettings {
   frequency: 'monthly' | 'weekly' | 'custom';
   custom_interval_days?: number;
   billing_day_of_month: number;
+  invoice_numbering_mode: 'auto' | 'ask_each_time';
 }
 
 export function B2BInvoiceCard({
@@ -58,7 +59,12 @@ export function B2BInvoiceCard({
     frequency: 'monthly' as 'monthly' | 'weekly' | 'custom',
     billingDay: 1,
     customDays: 14,
+    invoiceNumberingMode: 'auto' as 'auto' | 'ask_each_time',
   });
+
+  // Invoice number dialog state
+  const [showInvoiceNumberDialog, setShowInvoiceNumberDialog] = useState(false);
+  const [manualInvoiceNumber, setManualInvoiceNumber] = useState('');
 
   const remainingAmount = invoiceAmount - paidAmount;
   const invoiceMonth = format(new Date(periodFrom), "LLLL yyyy", { locale: pl });
@@ -96,11 +102,13 @@ export function B2BInvoiceCard({
           frequency: settings.frequency as any || 'monthly',
           custom_interval_days: settings.custom_interval_days,
           billing_day_of_month: settings.billing_day_of_month || 1,
+          invoice_numbering_mode: (settings as any).invoice_numbering_mode || 'auto',
         });
         setSettingsForm({
           frequency: settings.frequency as any || 'monthly',
           billingDay: settings.billing_day_of_month || 1,
           customDays: settings.custom_interval_days || 14,
+          invoiceNumberingMode: (settings as any).invoice_numbering_mode || 'auto',
         });
       }
     } catch (error) {
@@ -308,6 +316,7 @@ export function B2BInvoiceCard({
         frequency: settingsForm.frequency,
         billing_day_of_month: settingsForm.billingDay,
         custom_interval_days: settingsForm.frequency === 'custom' ? settingsForm.customDays : null,
+        invoice_numbering_mode: settingsForm.invoiceNumberingMode,
         next_run_at: enabled ? calculateNextRun() : null,
       };
 
@@ -323,6 +332,7 @@ export function B2BInvoiceCard({
         frequency: settingsForm.frequency,
         custom_interval_days: settingsForm.customDays,
         billing_day_of_month: settingsForm.billingDay,
+        invoice_numbering_mode: settingsForm.invoiceNumberingMode,
       });
 
       // Log to audit
@@ -655,6 +665,31 @@ export function B2BInvoiceCard({
                 />
               </div>
             )}
+
+            <div className="space-y-2 border-t pt-4">
+              <Label>Numerowanie faktur</Label>
+              <Select 
+                value={settingsForm.invoiceNumberingMode} 
+                onValueChange={(v) => setSettingsForm(prev => ({ ...prev, invoiceNumberingMode: v as 'auto' | 'ask_each_time' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    Automatycznie (FV/ROK/MIESIĄC/NR)
+                  </SelectItem>
+                  <SelectItem value="ask_each_time">
+                    Pytaj o numer przy każdej fakturze
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {settingsForm.invoiceNumberingMode === 'auto' 
+                  ? 'System automatycznie nada kolejny numer faktury'
+                  : 'Przed wystawieniem faktury zostaniesz poproszony o podanie numeru'}
+              </p>
+            </div>
           </div>
 
           <DialogFooter>
