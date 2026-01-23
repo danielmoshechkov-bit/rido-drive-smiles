@@ -1518,8 +1518,16 @@ export const DriverSettlements = ({
                         )}
                         {isB2BDriver && (
                           <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                            <span className="font-bold text-blue-600">B2B - bez podatku:</span>
-                            <span className="font-bold text-blue-600 text-lg">0.00 zł</span>
+                            <span className={`font-bold ${b2bVatPayer ? 'text-blue-600' : 'text-foreground'}`}>
+                              {b2bVatPayer 
+                                ? "B2B VAT we własnym zakresie:" 
+                                : "B2B z potrąceniem VAT 8%:"}
+                            </span>
+                            <span className={`font-bold text-lg ${b2bVatPayer ? 'text-blue-600' : 'text-foreground'}`}>
+                              {b2bVatPayer 
+                                ? "0.00 zł" 
+                                : `-${totalTax.toFixed(2)} zł`}
+                            </span>
                           </div>
                         )}
                         

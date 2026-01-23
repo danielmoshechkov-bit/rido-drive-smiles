@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus, ChevronDown } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus, ChevronDown, AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -30,6 +30,8 @@ import { PinDisplay } from "@/components/PinDisplay";
 import LanguageSelector from "@/components/LanguageSelector";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PriceChangeModal } from "@/components/driver/PriceChangeModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -768,6 +770,107 @@ function SettlementsWithSubTabs({
   );
 }
 
+// Component to manage company/B2B data with toggle
+function CompanyDataTab({ driverId }: { driverId: string }) {
+  const [isB2BEnabled, setIsB2BEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadB2BStatus();
+  }, [driverId]);
+
+  const loadB2BStatus = async () => {
+    try {
+      const { data } = await supabase
+        .from('drivers')
+        .select('payment_method')
+        .eq('id', driverId)
+        .single();
+      setIsB2BEnabled(data?.payment_method === 'b2b');
+    } catch (error) {
+      console.error('Error loading B2B status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleB2B = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ payment_method: enabled ? 'b2b' : 'transfer' })
+        .eq('id', driverId);
+      
+      if (error) throw error;
+      setIsB2BEnabled(enabled);
+      toast.success(enabled ? 'Włączono rozliczenie B2B' : 'Wyłączono rozliczenie B2B');
+    } catch (error) {
+      console.error('Error toggling B2B:', error);
+      toast.error('Błąd podczas zmiany ustawień');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            <CardTitle>Dane firmy (B2B)</CardTitle>
+          </div>
+          <div className="flex items-center gap-3">
+            <Label htmlFor="b2b-toggle" className="text-sm text-muted-foreground">
+              Rozliczam się jako B2B
+            </Label>
+            <Switch 
+              id="b2b-toggle"
+              checked={isB2BEnabled} 
+              onCheckedChange={toggleB2B}
+              disabled={saving}
+            />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isB2BEnabled ? (
+          <>
+            <Alert className="mb-4 border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                Po włączeniu B2B i uzupełnieniu danych firmy, system może automatycznie 
+                wystawiać faktury w Twoim imieniu na koniec każdego miesiąca rozliczeniowego.
+              </AlertDescription>
+            </Alert>
+            <DriverB2BProfile driverId={driverId} />
+          </>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <p className="font-medium">Włącz rozliczenie B2B aby wprowadzić dane firmy</p>
+            <p className="text-sm mt-2">
+              Dzięki temu będziesz mógł wystawiać faktury za swoje usługi
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Component to display driver notifications and settings with sub-tabs
 function DriverNotifications({ driverId, userId }: { driverId: string; userId: string }) {
   const [activeSubTab, setActiveSubTab] = useState("personal");
@@ -775,6 +878,7 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
 
   const subTabs = [
     { value: "personal", label: t('driver.personalInfo') },
+    { value: "company", label: "Dane firmy" },
     { value: "payment", label: t('driver.paymentMethod') },
     { value: "fleet", label: "Flota" },
     { value: "contact", label: "Dane kontaktowe (giełda)" }
@@ -790,10 +894,11 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
       />
 
       {activeSubTab === "personal" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          <DriverPersonalInfo driverId={driverId} />
-          <DriverB2BProfile driverId={driverId} />
-        </div>
+        <DriverPersonalInfo driverId={driverId} />
+      )}
+
+      {activeSubTab === "company" && (
+        <CompanyDataTab driverId={driverId} />
       )}
 
       {activeSubTab === "payment" && (
