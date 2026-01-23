@@ -798,14 +798,35 @@ function CompanyDataTab({ driverId }: { driverId: string }) {
   const toggleB2B = async (enabled: boolean) => {
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Update payment_method
       const { error } = await supabase
         .from('drivers')
         .update({ payment_method: enabled ? 'b2b' : 'transfer' })
         .eq('id', driverId);
       
       if (error) throw error;
+      
+      // If enabling B2B, automatically create auto-invoicing settings
+      if (enabled && user) {
+        await supabase
+          .from('driver_auto_invoicing_settings')
+          .upsert({
+            driver_user_id: user.id,
+            driver_id: driverId,
+            enabled: true,
+            frequency: 'monthly',
+            billing_day_of_month: 1,
+            invoice_numbering_mode: 'auto',
+          }, { onConflict: 'driver_user_id' });
+      }
+      
       setIsB2BEnabled(enabled);
-      toast.success(enabled ? 'Włączono rozliczenie B2B' : 'Wyłączono rozliczenie B2B');
+      toast.success(enabled 
+        ? 'Włączono rozliczenie B2B - autofakturowanie aktywne' 
+        : 'Wyłączono rozliczenie B2B'
+      );
     } catch (error) {
       console.error('Error toggling B2B:', error);
       toast.error('Błąd podczas zmiany ustawień');

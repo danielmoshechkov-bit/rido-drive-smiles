@@ -58,12 +58,22 @@ serve(async (req: Request) => {
       throw new Error("Nie znaleziono floty");
     }
 
-    if (!fleet?.invoice_email) {
-      console.log("No invoice_email configured for fleet");
+    // Get driver email
+    const { data: driver } = await supabaseAdmin
+      .from("drivers")
+      .select("email")
+      .eq("id", driver_id)
+      .maybeSingle();
+
+    const driverEmail = driver?.email;
+    console.log(`Driver email: ${driverEmail}, Fleet email: ${fleet?.invoice_email}`);
+
+    if (!fleet?.invoice_email && !driverEmail) {
+      console.log("No email addresses configured");
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: "Flota nie ma skonfigurowanego adresu email do faktur" 
+          message: "Brak skonfigurowanych adresów email" 
         }),
         { 
           status: 200, 
@@ -149,19 +159,98 @@ serve(async (req: Request) => {
       </html>
     `;
 
-    const { data: emailData, error: emailError } = await resend.emails.send({
-      from: "RIDO <faktury@resend.dev>",
-      to: [fleet.invoice_email],
-      subject: emailSubject,
-      html: emailHtml,
-    });
+    // Send email to fleet if configured
+    if (fleet?.invoice_email) {
+      const { data: emailData, error: emailError } = await resend.emails.send({
+        from: "RIDO <faktury@resend.dev>",
+        to: [fleet.invoice_email],
+        subject: emailSubject,
+        html: emailHtml,
+      });
 
-    if (emailError) {
-      console.error("Email send error:", emailError);
-      throw new Error("Nie udało się wysłać emaila");
+      if (emailError) {
+        console.error("Fleet email send error:", emailError);
+      } else {
+        console.log("Fleet email sent successfully:", emailData);
+      }
     }
 
-    console.log("Email sent successfully:", emailData);
+    // Send email to driver with invoice copy
+    if (driverEmail) {
+      const driverEmailSubject = `Faktura ${monthCapitalized} - wystawiona automatycznie`;
+      
+      const driverEmailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #16a34a; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+            .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
+            .summary { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
+            .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+            .row:last-child { border-bottom: none; }
+            .label { color: #6b7280; }
+            .value { font-weight: 600; }
+            .total { font-size: 1.2em; color: #16a34a; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 0.9em; }
+            .btn { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; 
+                   text-decoration: none; border-radius: 6px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0;">📄 Wystawiono fakturę w Twoim imieniu</h1>
+            </div>
+            <div class="content">
+              <p>System RIDO automatycznie wystawił fakturę za <strong>${monthCapitalized}</strong>.</p>
+              
+              <div class="summary">
+                <div class="row">
+                  <span class="label">Kwota faktury brutto:</span>
+                  <span class="value">${formatPLN(invoice_amount)}</span>
+                </div>
+                <div class="row">
+                  <span class="label">W tym gotówka:</span>
+                  <span class="value">${formatPLN(paid_amount)}</span>
+                </div>
+                <div class="row">
+                  <span class="label">Do przelewu:</span>
+                  <span class="value total">${formatPLN(remaining_amount)}</span>
+                </div>
+              </div>
+              
+              <p><strong>Załącznik:</strong> ${file_name}</p>
+              <p>Kopia faktury została wysłana do Twojej floty.</p>
+              
+              <a href="${file_url}" class="btn">Pobierz fakturę</a>
+            </div>
+            <div class="footer">
+              <p>Wiadomość wygenerowana automatycznie przez system RIDO</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const { data: driverEmailData, error: driverEmailError } = await resend.emails.send({
+        from: "RIDO <faktury@resend.dev>",
+        to: [driverEmail],
+        subject: driverEmailSubject,
+        html: driverEmailHtml,
+      });
+
+      if (driverEmailError) {
+        console.error("Driver email send error:", driverEmailError);
+      } else {
+        console.log("Driver email sent successfully:", driverEmailData);
+      }
+    }
+
+    console.log("Email(s) sent successfully");
 
     // Update invoice record with sent_at
     await supabaseAdmin
