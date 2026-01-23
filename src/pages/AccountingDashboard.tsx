@@ -12,6 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InvoiceEditor } from '@/components/accounting/InvoiceEditor';
 import { RecipientEditor } from '@/components/accounting/RecipientEditor';
 import { DocumentInbox } from '@/components/accounting/DocumentInbox';
+import { ExportPanel } from '@/components/accounting/ExportPanel';
+import { MonthlyReportPanel } from '@/components/accounting/MonthlyReportPanel';
+import { FleetPaymentPanel } from '@/components/accounting/FleetPaymentPanel';
+import { RecurringInvoicesPanel } from '@/components/accounting/RecurringInvoicesPanel';
 import { 
   Building2, 
   FileText, 
@@ -24,7 +28,9 @@ import {
   Receipt,
   Calculator,
   Loader2,
-  Lock
+  Lock,
+  CreditCard,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -245,7 +251,7 @@ export default function AccountingDashboard() {
       {/* Main Content */}
       <main className="container py-6 px-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-8 gap-1">
             <TabsTrigger value="overview" className="gap-2">
               <PieChart className="h-4 w-4" />
               <span className="hidden sm:inline">Przegląd</span>
@@ -257,6 +263,14 @@ export default function AccountingDashboard() {
             <TabsTrigger value="documents" className="gap-2">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Dokumenty</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Płatności</span>
+            </TabsTrigger>
+            <TabsTrigger value="recurring" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Cykliczne</span>
             </TabsTrigger>
             <TabsTrigger value="entities" className="gap-2">
               <Building2 className="h-4 w-4" />
@@ -478,6 +492,28 @@ export default function AccountingDashboard() {
             )}
           </TabsContent>
 
+          {/* Payments Tab - Fleet B2B Invoice Tracking */}
+          <TabsContent value="payments" className="space-y-4">
+            <FleetPaymentPanel />
+          </TabsContent>
+
+          {/* Recurring Invoices Tab */}
+          <TabsContent value="recurring" className="space-y-4">
+            {selectedEntityId ? (
+              <RecurringInvoicesPanel entityId={selectedEntityId} />
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-12 text-muted-foreground">
+                    <RefreshCw className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Wybierz firmę</p>
+                    <p className="text-sm">aby zobaczyć faktury cykliczne</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
           {/* Entities Tab */}
           <TabsContent value="entities" className="space-y-4">
             <div className="flex items-center justify-between">
@@ -525,39 +561,22 @@ export default function AccountingDashboard() {
 
           {/* Reports Tab */}
           <TabsContent value="reports" className="space-y-4">
-            <h2 className="text-xl font-semibold">Raporty i analizy</h2>
-            
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="hover:border-primary/50 cursor-pointer transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    Rejestr VAT
-                  </CardTitle>
-                  <CardDescription>Sprzedaż i zakupy z podziałem na stawki VAT</CardDescription>
-                </CardHeader>
+            {selectedEntityId ? (
+              <div className="space-y-6">
+                <MonthlyReportPanel entityId={selectedEntityId} />
+                <ExportPanel entityId={selectedEntityId} />
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calculator className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Wybierz firmę</p>
+                    <p className="text-sm">aby zobaczyć raporty</p>
+                  </div>
+                </CardContent>
               </Card>
-              
-              <Card className="hover:border-primary/50 cursor-pointer transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5" />
-                    Przychody / Koszty
-                  </CardTitle>
-                  <CardDescription>Podsumowanie przychodów i kosztów</CardDescription>
-                </CardHeader>
-              </Card>
-              
-              <Card className="hover:border-primary/50 cursor-pointer transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Kontrahenci
-                  </CardTitle>
-                  <CardDescription>Analiza obrotów z kontrahentami</CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
+            )}
           </TabsContent>
 
           {/* Settings Tab */}
