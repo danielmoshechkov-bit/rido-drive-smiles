@@ -35,6 +35,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { DriverDocumentsPanel } from "@/components/driver/DriverDocumentsPanel";
 import { DriverPersonalInfo } from "@/components/driver/DriverPersonalInfo";
+import { DriverB2BProfile } from "@/components/driver/DriverB2BProfile";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 const DriverDashboard = () => {
@@ -789,7 +790,10 @@ function DriverNotifications({ driverId, userId }: { driverId: string; userId: s
       />
 
       {activeSubTab === "personal" && (
-        <DriverPersonalInfo driverId={driverId} />
+        <div className="space-y-4">
+          <DriverPersonalInfo driverId={driverId} />
+          <DriverB2BProfile driverId={driverId} />
+        </div>
       )}
 
       {activeSubTab === "payment" && (

@@ -1278,6 +1278,7 @@ export type Database = {
           fleet_id: string | null
           frequency: string | null
           id: string
+          invoice_numbering_mode: string | null
           last_run_at: string | null
           next_run_at: string | null
           updated_at: string | null
@@ -1292,6 +1293,7 @@ export type Database = {
           fleet_id?: string | null
           frequency?: string | null
           id?: string
+          invoice_numbering_mode?: string | null
           last_run_at?: string | null
           next_run_at?: string | null
           updated_at?: string | null
@@ -1306,6 +1308,7 @@ export type Database = {
           fleet_id?: string | null
           frequency?: string | null
           id?: string
+          invoice_numbering_mode?: string | null
           last_run_at?: string | null
           next_run_at?: string | null
           updated_at?: string | null
