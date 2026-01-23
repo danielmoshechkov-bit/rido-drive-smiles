@@ -40,6 +40,9 @@ import { UserDropdown } from "@/components/UserDropdown";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import FleetLiveMap from "@/components/maps/FleetLiveMap";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
+import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
+import { CreditCard } from "lucide-react";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -403,6 +406,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   Fleet Live
                 </TabsTrigger>
               )}
+              {userType === 'fleet' && fleetId && (
+                <TabsTrigger value="rental-payments">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Płatności
+                </TabsTrigger>
+              )}
               {canViewTab('settings') && (
                 <TabsTrigger value="settings">
                   <Settings className="h-4 w-4 mr-2" />
@@ -529,6 +538,18 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                         </Button>
                       </SheetTrigger>
                     )}
+                    {userType === 'fleet' && fleetId && (
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant={activeTab === 'rental-payments' ? 'default' : 'ghost'} 
+                          className="w-full justify-start rounded-xl transition-all"
+                          onClick={() => setActiveTab('rental-payments')}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Płatności
+                        </Button>
+                      </SheetTrigger>
+                    )}
                     {canViewTab('settings') && (
                       <SheetTrigger asChild>
                         <Button 
@@ -602,6 +623,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                       {activeTab === 'tab-visibility' && 'Widoczność zakładek'}
                       {activeTab === 'data-import' && t('admin.dataImport')}
                       {activeTab === 'fleet-live' && 'Fleet Live'}
+                      {activeTab === 'rental-payments' && 'Płatności'}
                     </span>
                     <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
                   </div>
@@ -880,6 +902,13 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {userType === 'fleet' && fleetId && (
             <TabsContent value="informacje" className="space-y-6">
               <FleetSystemAlerts fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="rental-payments" className="space-y-6">
+              <FleetPaymentNotifications fleetId={fleetId} />
+              <RentalPaymentReminders fleetId={fleetId} />
             </TabsContent>
           )}
 

@@ -2472,6 +2472,51 @@ export type Database = {
           },
         ]
       }
+      fleet_payment_notifications: {
+        Row: {
+          created_at: string | null
+          fleet_id: string | null
+          id: string
+          notification_type: string | null
+          reminder_id: string | null
+          responded_at: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          notification_type?: string | null
+          reminder_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          notification_type?: string | null
+          reminder_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_payment_notifications_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_payment_notifications_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "rental_payment_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_settlement_fees: {
         Row: {
           amount: number
@@ -5615,6 +5660,7 @@ export type Database = {
           driver_id: string | null
           due_date: string
           fleet_id: string | null
+          fleet_notified: boolean | null
           id: string
           last_reminder_at: string | null
           last_reminder_type: string | null
@@ -5623,6 +5669,7 @@ export type Database = {
           payment_confirmed_by: string | null
           reminder_count: number
           status: string
+          upcoming_reminder_sent: boolean | null
           updated_at: string
           vehicle_id: string | null
         }
@@ -5632,6 +5679,7 @@ export type Database = {
           driver_id?: string | null
           due_date: string
           fleet_id?: string | null
+          fleet_notified?: boolean | null
           id?: string
           last_reminder_at?: string | null
           last_reminder_type?: string | null
@@ -5640,6 +5688,7 @@ export type Database = {
           payment_confirmed_by?: string | null
           reminder_count?: number
           status?: string
+          upcoming_reminder_sent?: boolean | null
           updated_at?: string
           vehicle_id?: string | null
         }
@@ -5649,6 +5698,7 @@ export type Database = {
           driver_id?: string | null
           due_date?: string
           fleet_id?: string | null
+          fleet_notified?: boolean | null
           id?: string
           last_reminder_at?: string | null
           last_reminder_type?: string | null
@@ -5657,6 +5707,7 @@ export type Database = {
           payment_confirmed_by?: string | null
           reminder_count?: number
           status?: string
+          upcoming_reminder_sent?: boolean | null
           updated_at?: string
           vehicle_id?: string | null
         }

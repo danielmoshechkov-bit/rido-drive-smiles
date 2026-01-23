@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface ReminderRequest {
-  action: 'check' | 'send' | 'mark_paid' | 'create' | 'get_templates' | 'save_template';
+  action: 'check' | 'send' | 'mark_paid' | 'create' | 'get_templates' | 'save_template' | 'check_upcoming' | 'notify_fleet' | 'daily_check';
   reminder_id?: string;
   driver_id?: string;
   fleet_id?: string;
@@ -52,12 +52,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
 }
 
 // Send SMS via SMSAPI
-async function sendSMS(phone: string, message: string, driverId?: string, fleetId?: string): Promise<boolean> {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
-
+async function sendSMS(supabase: any, phone: string, message: string, driverId?: string, fleetId?: string): Promise<boolean> {
   try {
     const { data, error } = await supabase.functions.invoke('send-sms', {
       body: {
@@ -81,6 +76,35 @@ async function sendSMS(phone: string, message: string, driverId?: string, fleetI
   }
 }
 
+// Get SMS template for fleet
+async function getSmsTemplate(supabase: any, fleetId: string): Promise<string> {
+  const defaultTemplate = 'Przypomnienie: Termin płatności za wynajem pojazdu {plate} minął. Kwota: {amount} PLN. Prosimy o pilną wpłatę.';
+  
+  try {
+    const { data: template } = await supabase
+      .from('fleet_sms_templates')
+      .select('template_content')
+      .eq('fleet_id', fleetId)
+      .eq('template_type', 'payment_reminder')
+      .single();
+    
+    return template?.template_content || defaultTemplate;
+  } catch {
+    return defaultTemplate;
+  }
+}
+
+// Replace placeholders in template
+function replacePlaceholders(template: string, reminder: any): string {
+  return template
+    .replace('{amount}', reminder.amount_due?.toFixed(2) || '0.00')
+    .replace('{plate}', reminder.vehicle?.plate || '')
+    .replace('{brand}', reminder.vehicle?.brand || '')
+    .replace('{model}', reminder.vehicle?.model || '')
+    .replace('{due_date}', reminder.due_date || '')
+    .replace('{driver_name}', `${reminder.driver?.first_name || ''} ${reminder.driver?.last_name || ''}`.trim());
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -94,6 +118,8 @@ serve(async (req) => {
 
     const body: ReminderRequest = await req.json();
     const { action } = body;
+
+    console.log(`Processing action: ${action}`);
 
     // GET TEMPLATES
     if (action === 'get_templates') {
@@ -175,7 +201,6 @@ serve(async (req) => {
 
     // SEND REMINDER
     if (action === 'send') {
-      // Get reminder details
       const { data: reminder, error: reminderError } = await supabase
         .from('rental_payment_reminders')
         .select(`
@@ -190,25 +215,8 @@ serve(async (req) => {
         throw new Error('Reminder not found');
       }
 
-      // Get SMS template
-      const { data: template } = await supabase
-        .from('fleet_sms_templates')
-        .select('template_content')
-        .eq('fleet_id', reminder.fleet_id)
-        .eq('template_type', 'payment_reminder')
-        .single();
-
-      const defaultTemplate = 'Przypomnienie: Termin płatności za wynajem pojazdu {plate} minął. Kwota: {amount} PLN. Prosimy o pilną wpłatę.';
-      let smsContent = template?.template_content || defaultTemplate;
-
-      // Replace placeholders
-      smsContent = smsContent
-        .replace('{amount}', reminder.amount_due?.toFixed(2) || '0.00')
-        .replace('{plate}', reminder.vehicle?.plate || '')
-        .replace('{brand}', reminder.vehicle?.brand || '')
-        .replace('{model}', reminder.vehicle?.model || '')
-        .replace('{due_date}', reminder.due_date || '')
-        .replace('{driver_name}', `${reminder.driver?.first_name || ''} ${reminder.driver?.last_name || ''}`.trim());
+      const smsTemplate = await getSmsTemplate(supabase, reminder.fleet_id);
+      const smsContent = replacePlaceholders(smsTemplate, reminder);
 
       let smsSent = false;
       let emailSent = false;
@@ -216,6 +224,7 @@ serve(async (req) => {
       // Send SMS if phone available
       if (reminder.driver?.phone) {
         smsSent = await sendSMS(
+          supabase,
           reminder.driver.phone,
           smsContent,
           reminder.driver_id,
@@ -272,11 +281,161 @@ serve(async (req) => {
       );
     }
 
-    // CHECK - automatic check for overdue payments
+    // CHECK UPCOMING - Send reminders 3 days before due date
+    if (action === 'check_upcoming') {
+      const today = new Date();
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+      const targetDate = threeDaysLater.toISOString().split('T')[0];
+
+      console.log(`Checking for payments due on: ${targetDate}`);
+
+      const { data: upcomingReminders, error } = await supabase
+        .from('rental_payment_reminders')
+        .select(`
+          *,
+          driver:drivers(first_name, last_name, email, phone),
+          vehicle:vehicles(plate, brand, model)
+        `)
+        .eq('status', 'pending')
+        .eq('due_date', targetDate)
+        .eq('upcoming_reminder_sent', false);
+
+      if (error) throw error;
+
+      let sentCount = 0;
+      for (const reminder of upcomingReminders || []) {
+        const upcomingTemplate = 'Przypomnienie: Za 3 dni ({due_date}) upływa termin płatności {amount} zł za pojazd {plate}. Jeśli już zapłaciłeś, zignoruj tę wiadomość.';
+        const smsContent = replacePlaceholders(upcomingTemplate, reminder);
+
+        let sent = false;
+
+        if (reminder.driver?.phone) {
+          sent = await sendSMS(supabase, reminder.driver.phone, smsContent, reminder.driver_id, reminder.fleet_id);
+        }
+
+        if (reminder.driver?.email) {
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1a1a1a;">Przypomnienie o zbliżającym się terminie płatności</h2>
+              <p>Szanowny/a ${reminder.driver?.first_name || ''} ${reminder.driver?.last_name || ''},</p>
+              <p>Przypominamy, że za 3 dni upływa termin płatności za wynajem pojazdu:</p>
+              <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <p><strong>Pojazd:</strong> ${reminder.vehicle?.brand || ''} ${reminder.vehicle?.model || ''} (${reminder.vehicle?.plate || ''})</p>
+                <p><strong>Kwota do zapłaty:</strong> ${reminder.amount_due?.toFixed(2) || '0.00'} PLN</p>
+                <p><strong>Termin płatności:</strong> ${reminder.due_date || ''}</p>
+              </div>
+              <p>Jeśli płatność została już dokonana, prosimy zignorować tę wiadomość.</p>
+              <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                Wiadomość wygenerowana automatycznie przez system RIDO.
+              </p>
+            </div>
+          `;
+
+          await sendEmail(
+            reminder.driver.email,
+            `Przypomnienie - termin płatności za 3 dni - ${reminder.vehicle?.plate || ''}`,
+            emailHtml
+          );
+          sent = true;
+        }
+
+        if (sent) {
+          await supabase
+            .from('rental_payment_reminders')
+            .update({ upcoming_reminder_sent: true })
+            .eq('id', reminder.id);
+          sentCount++;
+        }
+      }
+
+      console.log(`Sent ${sentCount} upcoming reminders`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          checked: upcomingReminders?.length || 0,
+          sent: sentCount 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // NOTIFY FLEET - Create notifications for fleet on due date
+    if (action === 'notify_fleet') {
+      const today = new Date().toISOString().split('T')[0];
+
+      console.log(`Creating fleet notifications for payments due on: ${today}`);
+
+      const { data: dueReminders, error } = await supabase
+        .from('rental_payment_reminders')
+        .select('id, fleet_id')
+        .in('status', ['pending', 'reminded'])
+        .eq('due_date', today)
+        .eq('fleet_notified', false);
+
+      if (error) throw error;
+
+      let createdCount = 0;
+      for (const reminder of dueReminders || []) {
+        const { error: insertError } = await supabase
+          .from('fleet_payment_notifications')
+          .insert({
+            fleet_id: reminder.fleet_id,
+            reminder_id: reminder.id,
+            notification_type: 'payment_due',
+            status: 'pending'
+          });
+
+        if (!insertError) {
+          await supabase
+            .from('rental_payment_reminders')
+            .update({ fleet_notified: true })
+            .eq('id', reminder.id);
+          createdCount++;
+        }
+      }
+
+      console.log(`Created ${createdCount} fleet notifications`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          checked: dueReminders?.length || 0,
+          created: createdCount 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // DAILY CHECK - Run all automatic checks
+    if (action === 'daily_check') {
+      console.log('Running daily payment check...');
+
+      // 1. Send upcoming reminders (3 days before)
+      const upcomingResult = await handleAction(supabase, 'check_upcoming');
+      
+      // 2. Notify fleet about due payments
+      const notifyResult = await handleAction(supabase, 'notify_fleet');
+      
+      // 3. Auto-send reminders for overdue payments without fleet response
+      const overdueResult = await handleOverdueAutoReminders(supabase);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          upcoming: upcomingResult,
+          fleet_notifications: notifyResult,
+          overdue_auto: overdueResult
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // CHECK - automatic check for overdue payments (legacy)
     if (action === 'check') {
       const today = new Date().toISOString().split('T')[0];
 
-      // Find overdue reminders that haven't been reminded today
       const { data: overdueReminders, error } = await supabase
         .from('rental_payment_reminders')
         .select(`
@@ -297,13 +456,11 @@ serve(async (req) => {
 
       let sentCount = 0;
       for (const reminder of overdueReminders || []) {
-        // Check if already reminded today
         if (reminder.last_reminder_at) {
           const lastReminderDate = reminder.last_reminder_at.split('T')[0];
           if (lastReminderDate === today) continue;
         }
 
-        // Send reminder
         const response = await supabase.functions.invoke('rental-payment-reminders', {
           body: { action: 'send', reminder_id: reminder.id }
         });
@@ -334,3 +491,109 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to handle internal action calls
+async function handleAction(supabase: any, action: string): Promise<any> {
+  try {
+    if (action === 'check_upcoming') {
+      const today = new Date();
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+      const targetDate = threeDaysLater.toISOString().split('T')[0];
+
+      const { data: upcomingReminders } = await supabase
+        .from('rental_payment_reminders')
+        .select(`*, driver:drivers(first_name, last_name, email, phone), vehicle:vehicles(plate, brand, model)`)
+        .eq('status', 'pending')
+        .eq('due_date', targetDate)
+        .eq('upcoming_reminder_sent', false);
+
+      let sentCount = 0;
+      for (const reminder of upcomingReminders || []) {
+        const upcomingTemplate = 'Przypomnienie: Za 3 dni ({due_date}) upływa termin płatności {amount} zł za pojazd {plate}. Jeśli już zapłaciłeś, zignoruj tę wiadomość.';
+        const smsContent = replacePlaceholders(upcomingTemplate, reminder);
+
+        if (reminder.driver?.phone) {
+          await sendSMS(supabase, reminder.driver.phone, smsContent, reminder.driver_id, reminder.fleet_id);
+          await supabase.from('rental_payment_reminders').update({ upcoming_reminder_sent: true }).eq('id', reminder.id);
+          sentCount++;
+        }
+      }
+
+      return { checked: upcomingReminders?.length || 0, sent: sentCount };
+    }
+
+    if (action === 'notify_fleet') {
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: dueReminders } = await supabase
+        .from('rental_payment_reminders')
+        .select('id, fleet_id')
+        .in('status', ['pending', 'reminded'])
+        .eq('due_date', today)
+        .eq('fleet_notified', false);
+
+      let createdCount = 0;
+      for (const reminder of dueReminders || []) {
+        const { error } = await supabase
+          .from('fleet_payment_notifications')
+          .insert({
+            fleet_id: reminder.fleet_id,
+            reminder_id: reminder.id,
+            notification_type: 'payment_due',
+            status: 'pending'
+          });
+
+        if (!error) {
+          await supabase.from('rental_payment_reminders').update({ fleet_notified: true }).eq('id', reminder.id);
+          createdCount++;
+        }
+      }
+
+      return { checked: dueReminders?.length || 0, created: createdCount };
+    }
+
+    return { error: 'Unknown action' };
+  } catch (error) {
+    console.error(`Error in handleAction(${action}):`, error);
+    return { error: error.message };
+  }
+}
+
+// Auto-send reminders for overdue payments where fleet hasn't responded in 24h
+async function handleOverdueAutoReminders(supabase: any): Promise<any> {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString();
+
+    // Find notifications that are pending for more than 24 hours
+    const { data: staleNotifications } = await supabase
+      .from('fleet_payment_notifications')
+      .select('id, reminder_id')
+      .eq('status', 'pending')
+      .lt('created_at', yesterdayStr);
+
+    let autoSentCount = 0;
+    for (const notification of staleNotifications || []) {
+      // Send reminder automatically
+      const { error } = await supabase.functions.invoke('rental-payment-reminders', {
+        body: { action: 'send', reminder_id: notification.reminder_id }
+      });
+
+      if (!error) {
+        // Mark notification as auto-sent
+        await supabase
+          .from('fleet_payment_notifications')
+          .update({ status: 'auto_sent', responded_at: new Date().toISOString() })
+          .eq('id', notification.id);
+        autoSentCount++;
+      }
+    }
+
+    return { checked: staleNotifications?.length || 0, auto_sent: autoSentCount };
+  } catch (error) {
+    console.error('Error in handleOverdueAutoReminders:', error);
+    return { error: error.message };
+  }
+}
