@@ -135,3 +135,6 @@ verify_jwt = false
 
 [functions.ksef-integration]
 verify_jwt = false
+
+[functions.verify-vat]
+verify_jwt = false
