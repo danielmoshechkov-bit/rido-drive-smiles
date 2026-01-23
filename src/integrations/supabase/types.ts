@@ -1426,6 +1426,7 @@ export type Database = {
           email: string | null
           id: string
           nip: string
+          payment_preference: string | null
           phone: string | null
           regon: string | null
           updated_at: string | null
@@ -1447,6 +1448,7 @@ export type Database = {
           email?: string | null
           id?: string
           nip: string
+          payment_preference?: string | null
           phone?: string | null
           regon?: string | null
           updated_at?: string | null
@@ -1468,6 +1470,7 @@ export type Database = {
           email?: string | null
           id?: string
           nip?: string
+          payment_preference?: string | null
           phone?: string | null
           regon?: string | null
           updated_at?: string | null

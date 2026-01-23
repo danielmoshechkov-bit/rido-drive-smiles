@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, Loader2, Save, Check, AlertCircle, CheckCircle2, ExternalLink, FileText, Shield } from "lucide-react";
+import { Building2, Loader2, Save, Check, AlertCircle, CheckCircle2, ExternalLink, FileText, Shield, Banknote, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface DriverB2BProfileProps {
   driverId: string;
@@ -26,6 +27,7 @@ interface B2BProfileData {
   email: string;
   phone: string;
   vat_payer: boolean;
+  payment_preference: 'transfer' | 'cash';
   vat_verification_status?: string;
   vat_verified_at?: string;
 }
@@ -49,6 +51,7 @@ const EMPTY_PROFILE: B2BProfileData = {
   email: "",
   phone: "",
   vat_payer: false,
+  payment_preference: 'transfer',
 };
 
 const TERMS_VERSION = "1.0";
@@ -96,6 +99,7 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
           email: data.email || "",
           phone: data.phone || "",
           vat_payer: data.vat_payer || false,
+          payment_preference: (data as any).payment_preference || 'transfer',
           vat_verification_status: data.vat_verification_status,
           vat_verified_at: data.vat_verified_at,
         });
@@ -247,11 +251,12 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
         address_street: profileData.address_street || null,
         address_city: profileData.address_city || null,
         address_postal_code: profileData.address_postal_code?.replace("-", "") || null,
-        bank_name: profileData.bank_name || null,
-        bank_account: profileData.bank_account || null,
+        bank_name: profileData.payment_preference === 'transfer' ? (profileData.bank_name || null) : null,
+        bank_account: profileData.payment_preference === 'transfer' ? (profileData.bank_account || null) : null,
         email: profileData.email || null,
         phone: profileData.phone || null,
         vat_payer: profileData.vat_payer,
+        payment_preference: profileData.payment_preference,
       };
 
       const { error } = await supabase
@@ -431,25 +436,55 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
             </div>
           </div>
 
-          {/* Bank details */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Dane bankowe</Label>
-            <div className="grid grid-cols-1 gap-2">
-              <Input
-                value={profileData.bank_name}
-                onChange={(e) => handleChange("bank_name", e.target.value)}
-                placeholder="Nazwa banku"
-                className="h-8 text-sm"
-              />
-              <Input
-                value={profileData.bank_account}
-                onChange={(e) => handleChange("bank_account", e.target.value)}
-                placeholder="Numer konta (IBAN)"
-                className="h-8 text-sm font-mono"
-                maxLength={28}
-              />
-            </div>
+          {/* Payment preference */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-semibold flex items-center gap-2">
+              <Banknote className="h-3.5 w-3.5" />
+              Sposób wypłaty
+            </Label>
+            <RadioGroup
+              value={profileData.payment_preference}
+              onValueChange={(value) => handleChange('payment_preference', value)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="transfer" id="payment_transfer" />
+                <Label htmlFor="payment_transfer" className="text-sm cursor-pointer flex items-center gap-1">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Przelew bankowy
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="cash" id="payment_cash" />
+                <Label htmlFor="payment_cash" className="text-sm cursor-pointer flex items-center gap-1">
+                  <Banknote className="h-3.5 w-3.5" />
+                  Gotówka
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
+
+          {/* Bank details - only show for transfer */}
+          {profileData.payment_preference === 'transfer' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Dane bankowe</Label>
+              <div className="grid grid-cols-1 gap-2">
+                <Input
+                  value={profileData.bank_name}
+                  onChange={(e) => handleChange("bank_name", e.target.value)}
+                  placeholder="Nazwa banku"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={profileData.bank_account}
+                  onChange={(e) => handleChange("bank_account", e.target.value)}
+                  placeholder="Numer konta (IBAN)"
+                  className="h-8 text-sm font-mono"
+                  maxLength={28}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Contact */}
           <div className="grid grid-cols-2 gap-3">

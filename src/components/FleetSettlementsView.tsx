@@ -485,7 +485,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const fleetFees = (fleetFeesData as unknown as FleetFee[]) || [];
       setActiveFees(fleetFees);
 
-      // Pobierz kierowców z floty wraz z danymi o pojazdach i planach
+      // Pobierz kierowców z floty wraz z danymi o pojazdach, planach i payment_method
       let driversQuery = supabase
         .from('drivers')
         .select(`
@@ -494,7 +494,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           last_name,
           city_id,
           fuel_card_number,
-          driver_app_users!inner(settlement_plan_id)
+          payment_method,
+          driver_app_users!inner(settlement_plan_id, user_id)
         `)
         .eq('fleet_id', fleetId);
 
@@ -566,6 +567,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       
       const { data: fuelTransactions } = await fuelQuery;
       console.log('⛽ Fuel transactions found:', fuelTransactions?.length || 0);
+      
+      // Pobierz profile B2B dla kierowców aby sprawdzić vat_payer
+      const userIds = driversData
+        .map(d => (d as any).driver_app_users?.user_id)
+        .filter(Boolean);
+      
+      const { data: b2bProfiles } = await supabase
+        .from('driver_b2b_profiles')
+        .select('driver_user_id, vat_payer, payment_preference')
+        .in('driver_user_id', userIds);
+      
+      const b2bProfilesMap = new Map(
+        (b2bProfiles || []).map(p => [p.driver_user_id, p])
+      );
 
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       const driverFuelCards: Record<string, string> = {};
@@ -738,7 +753,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
 
         // Calculate VAT amount from fleet settings
-        const vat_amount = total_base * (fleetVatRate / 100);
+        // B2B drivers with vat_payer=true don't pay VAT - they handle it themselves
+        // B2B drivers with vat_payer=false get 8% VAT deducted (like regular drivers)
+        const driverInfo = driver as any;
+        const appUserData = driverInfo.driver_app_users;
+        const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
+        const isB2BDriver = driverInfo.payment_method === 'b2b';
+        const isB2BVatPayer = isB2BDriver && b2bProfile?.vat_payer === true;
+        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+        const vat_amount = total_base * (effectiveVatRate / 100);
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
         const isFirstFullWeekOfMonth = (weekStart: string): boolean => {

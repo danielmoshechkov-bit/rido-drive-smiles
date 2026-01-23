@@ -144,6 +144,7 @@ export const DriverSettlements = ({
   const [fleetVatRate, setFleetVatRate] = useState<number | null>(null);
   const [fleetBaseFee, setFleetBaseFee] = useState<number | null>(null);
   const [isB2BDriver, setIsB2BDriver] = useState(false);
+  const [b2bVatPayer, setB2bVatPayer] = useState<boolean>(false);
   const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
   const [driverName, setDriverName] = useState<string>('');
   const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
@@ -162,9 +163,23 @@ export const DriverSettlements = ({
         .eq('id', driverId)
         .maybeSingle();
       
-      // Check if B2B driver
+      // Check if B2B driver and get VAT payer status
       if (driver?.payment_method === 'b2b') {
         setIsB2BDriver(true);
+        
+        // Fetch B2B profile to check vat_payer status
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: b2bProfile } = await supabase
+            .from('driver_b2b_profiles')
+            .select('vat_payer')
+            .eq('driver_user_id', user.id)
+            .maybeSingle();
+          
+          if (b2bProfile) {
+            setB2bVatPayer(b2bProfile.vat_payer ?? false);
+          }
+        }
       }
       
       // Set driver name for B2B invoice
@@ -1010,7 +1025,7 @@ export const DriverSettlements = ({
     }
     
     // Check if driver is B2B (at the start of function)
-    const isB2BDriver = driverPaymentMethod === 'b2b';
+    const isB2BDriverLocal = driverPaymentMethod === 'b2b';
     
     // Get calculated net amounts (already have 8% tax deducted)
     const uberNet = amounts.uber_net || 0;
@@ -1018,8 +1033,10 @@ export const DriverSettlements = ({
     const freenowNet = amounts.freenow_net || 0;
     
     // Get taxes - dynamically calculate based on fleet VAT rate if different from 8%
-    // B2B drivers don't pay VAT - they issue their own invoices
-    const effectiveVatRate = isB2BDriver ? 0 : (fleetVatRate ?? 8);
+    // B2B drivers with vat_payer=true don't pay VAT - they issue their own invoices
+    // B2B drivers with vat_payer=false get 8% VAT deducted (like regular drivers)
+    const isB2BVatPayer = isB2BDriverLocal && b2bVatPayer === true;
+    const effectiveVatRate = isB2BVatPayer ? 0 : (fleetVatRate ?? 8);
     
     const calculateDynamicTax = (netAmount: number, originalTax8: number) => {
       if (effectiveVatRate === 0) return 0; // B2B - no tax
@@ -1051,20 +1068,23 @@ export const DriverSettlements = ({
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // Calculate total earnings before any deductions
-    // Dla B2B używamy wartości BRUTTO (przed podatkiem 8%), dla standardowych - NETTO
-    // isB2BDriver is already defined at the start of calculatePayout
+    // Dla B2B z vat_payer=true używamy wartości BRUTTO (przed podatkiem 8%)
+    // Dla B2B z vat_payer=false oraz standardowych - NETTO (po 8% podatku)
     
     let earningsForPayout: number;
-    if (isB2BDriver) {
-      // B2B: użyj wartości brutto (przed podatkiem platformy) - kierowca sam rozlicza VAT
+    if (isB2BVatPayer) {
+      // B2B płatnik VAT: użyj wartości brutto (przed podatkiem platformy) - kierowca sam rozlicza VAT
       const uberBase = amounts.uber_base || 0;
       const boltBase = amounts.bolt_projected_d || 0;
       const freenowBase = amounts.freenow_base_s || 0;
       earningsForPayout = uberBase + boltBase + freenowBase;
-      console.log(`💼 B2B Driver: Using BRUTTO values - Uber: ${uberBase}, Bolt: ${boltBase}, FreeNow: ${freenowBase}`);
+      console.log(`💼 B2B VAT Payer: Using BRUTTO values - Uber: ${uberBase}, Bolt: ${boltBase}, FreeNow: ${freenowBase}`);
     } else {
-      // Standardowo: użyj wartości netto (po 8% podatku platformy)
+      // B2B bez VAT lub standardowy kierowca: użyj wartości netto (po 8% podatku)
       earningsForPayout = uberNet + boltNet + freenowNet;
+      if (isB2BDriverLocal && !b2bVatPayer) {
+        console.log(`💼 B2B Non-VAT Payer: Using NETTO values with 8% VAT deducted`);
+      }
     }
     
     const totalEarnings = earningsForPayout;
@@ -1093,7 +1113,8 @@ export const DriverSettlements = ({
     }
     
     // FORMUŁA WYPŁATY:
-    // Dla B2B: BRUTTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (bez podatku 8%)
+    // Dla B2B płatnik VAT: BRUTTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (bez podatku 8%)
+    // Dla B2B bez VAT: NETTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (z podatkiem 8%)
     // Dla standardowych: NETTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe
     const payout = earningsForPayout - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
     
