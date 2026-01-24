@@ -384,6 +384,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_conversation_sessions: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          id: string
+          messages: Json | null
+          pending_action: Json | null
+          session_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          messages?: Json | null
+          pending_action?: Json | null
+          session_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          messages?: Json | null
+          pending_action?: Json | null
+          session_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_credit_history: {
         Row: {
           ai_type: string | null
@@ -837,6 +870,50 @@ export type Database = {
           },
         ]
       }
+      autofactoring_agreements: {
+        Row: {
+          accepted_at: string | null
+          agreement_version: string | null
+          driver_id: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          revoked_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          agreement_version?: string | null
+          driver_id?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          agreement_version?: string | null
+          driver_id?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autofactoring_agreements_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       car_brands: {
         Row: {
           created_at: string
@@ -940,6 +1017,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      company_ai_settings: {
+        Row: {
+          allow_provider_switch: boolean | null
+          created_at: string | null
+          default_text_provider: string | null
+          default_voice_provider: string | null
+          entity_id: string | null
+          id: string
+          speech_speed: number | null
+          updated_at: string | null
+          user_id: string | null
+          voice_name: string | null
+          voice_replies_enabled: boolean | null
+        }
+        Insert: {
+          allow_provider_switch?: boolean | null
+          created_at?: string | null
+          default_text_provider?: string | null
+          default_voice_provider?: string | null
+          entity_id?: string | null
+          id?: string
+          speech_speed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          voice_name?: string | null
+          voice_replies_enabled?: boolean | null
+        }
+        Update: {
+          allow_provider_switch?: boolean | null
+          created_at?: string | null
+          default_text_provider?: string | null
+          default_voice_provider?: string | null
+          entity_id?: string | null
+          id?: string
+          speech_speed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          voice_name?: string | null
+          voice_replies_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_ai_settings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contractor_verification_logs: {
+        Row: {
+          id: string
+          is_valid: boolean | null
+          nip: string | null
+          recipient_id: string | null
+          result: Json | null
+          verification_type: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_valid?: boolean | null
+          nip?: string | null
+          recipient_id?: string | null
+          result?: Json | null
+          verification_type: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_valid?: boolean | null
+          nip?: string | null
+          recipient_id?: string | null
+          result?: Json | null
+          verification_type?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_verification_logs_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_import_logs: {
         Row: {
@@ -3116,12 +3284,16 @@ export type Database = {
           created_at: string | null
           email: string | null
           entity_id: string
+          gus_data: Json | null
           id: string
+          last_verified_at: string | null
           name: string
           nip: string | null
           notes: string | null
           phone: string | null
           updated_at: string | null
+          verification_status: string | null
+          whitelist_data: Json | null
         }
         Insert: {
           address_city?: string | null
@@ -3131,12 +3303,16 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           entity_id: string
+          gus_data?: Json | null
           id?: string
+          last_verified_at?: string | null
           name: string
           nip?: string | null
           notes?: string | null
           phone?: string | null
           updated_at?: string | null
+          verification_status?: string | null
+          whitelist_data?: Json | null
         }
         Update: {
           address_city?: string | null
@@ -3146,12 +3322,16 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           entity_id?: string
+          gus_data?: Json | null
           id?: string
+          last_verified_at?: string | null
           name?: string
           nip?: string | null
           notes?: string | null
           phone?: string | null
           updated_at?: string | null
+          verification_status?: string | null
+          whitelist_data?: Json | null
         }
         Relationships: [
           {
@@ -8437,6 +8617,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      voice_phrase_cache: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          duration_ms: number | null
+          id: string
+          phrase_hash: string
+          phrase_text: string
+          provider: string | null
+          voice_name: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          phrase_hash: string
+          phrase_text: string
+          provider?: string | null
+          voice_name?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          phrase_hash?: string
+          phrase_text?: string
+          provider?: string | null
+          voice_name?: string | null
+        }
+        Relationships: []
       }
       wallet_transactions: {
         Row: {
