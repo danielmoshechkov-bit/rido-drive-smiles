@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Car, 
   Building2, 
@@ -38,6 +39,7 @@ import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { FeaturedListings } from "@/components/FeaturedListings";
 import { SearchCategoryModal } from "@/components/SearchCategoryModal";
+import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -290,6 +292,7 @@ export default function EasyHub() {
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryView>('main');
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showAccountingModal, setShowAccountingModal] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   // Handle URL parameter for category
@@ -353,7 +356,8 @@ export default function EasyHub() {
       if (user) {
         navigate('/klient?tab=ksiegowosc');
       } else {
-        navigate('/faktury');
+        // For non-logged users, show the modal
+        setShowAccountingModal(true);
       }
       return;
     }
@@ -579,6 +583,95 @@ export default function EasyHub() {
           animation: bounce-slow 3s ease-in-out infinite;
         }
       `}</style>
+
+      {/* Accounting Modal for non-logged users */}
+      {!user && (
+        <AccountingCategoryModal
+          trigger={<span style={{ display: 'none' }} />}
+          user={user}
+        />
+      )}
+      
+      {/* Hidden trigger for accounting modal - controlled by state */}
+      <Dialog open={showAccountingModal} onOpenChange={setShowAccountingModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Receipt className="h-6 w-6 text-primary" />
+              Księgowość Online
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Hero section */}
+          <div className="relative h-32 rounded-lg overflow-hidden mb-4">
+            <img 
+              src={tileInvoicing} 
+              alt="Księgowość" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 flex items-center px-6">
+              <div className="text-white">
+                <h3 className="text-lg font-bold">Darmowy Program do Faktur</h3>
+                <p className="text-sm opacity-90">Profesjonalne faktury dla Twojej firmy</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Services grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { id: 'faktury', title: 'Program do Faktur', description: 'Wystawiaj faktury VAT, proformy i korekty online', icon: Receipt },
+              { id: 'koszty', title: 'Ewidencja Kosztów', description: 'Zarządzaj wydatkami i dokumentami kosztowymi', icon: Wallet },
+              { id: 'kontrahenci', title: 'Baza Kontrahentów', description: 'Weryfikacja VAT, historia transakcji', icon: User },
+              { id: 'raporty', title: 'Raporty i Analizy', description: 'Podsumowania miesięczne, statystyki', icon: Calculator }
+            ].map((service) => {
+              const Icon = service.icon;
+              return (
+                <Card 
+                  key={service.id}
+                  className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 group"
+                  onClick={() => {
+                    setShowAccountingModal(false);
+                    navigate('/faktury');
+                  }}
+                >
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm flex items-center gap-1">
+                        {service.title}
+                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {service.description}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* CTA for non-logged users */}
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Zaloguj się, aby korzystać z pełnych funkcji księgowości
+            </p>
+            <Button
+              variant="link"
+              onClick={() => {
+                setShowAccountingModal(false);
+                navigate('/faktury');
+              }}
+              className="text-primary font-medium text-sm"
+            >
+              Zaloguj się lub zarejestruj →
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
