@@ -296,32 +296,91 @@ serve(async (req) => {
           const lastDay = new Date(targetYear, targetMonth, 0).getDate();
           const endDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${lastDay}`;
           
-          // Fetch sales invoices
+          // Calculate previous month
+          const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+          const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+          const prevStartDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+          const prevLastDay = new Date(prevYear, prevMonth, 0).getDate();
+          const prevEndDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${prevLastDay}`;
+          
+          // Fetch current month sales invoices
           const { data: salesInvoices } = await supabase
             .from('invoices')
-            .select('gross_amount, net_amount, status, type')
+            .select('gross_amount, net_amount, status, type, issue_date')
             .eq('entity_id', entity_id)
             .neq('type', 'cost')
             .gte('issue_date', startDate)
             .lte('issue_date', endDate);
           
-          // Fetch cost invoices
+          // Fetch current month cost invoices
           const { data: costInvoices } = await supabase
             .from('invoices')
-            .select('gross_amount, net_amount')
+            .select('gross_amount, net_amount, issue_date')
             .eq('entity_id', entity_id)
             .eq('type', 'cost')
             .gte('issue_date', startDate)
             .lte('issue_date', endDate);
           
+          // Fetch previous month sales invoices
+          const { data: prevSalesInvoices } = await supabase
+            .from('invoices')
+            .select('gross_amount, net_amount, status, type')
+            .eq('entity_id', entity_id)
+            .neq('type', 'cost')
+            .gte('issue_date', prevStartDate)
+            .lte('issue_date', prevEndDate);
+          
+          // Fetch previous month cost invoices
+          const { data: prevCostInvoices } = await supabase
+            .from('invoices')
+            .select('gross_amount, net_amount')
+            .eq('entity_id', entity_id)
+            .eq('type', 'cost')
+            .gte('issue_date', prevStartDate)
+            .lte('issue_date', prevEndDate);
+          
+          // Current month calculations
           const totalIncome = salesInvoices?.reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
           const totalCosts = costInvoices?.reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
           const paidCount = salesInvoices?.filter(i => i.status === 'paid').length || 0;
           const unpaidCount = salesInvoices?.filter(i => i.status !== 'paid').length || 0;
           
+          // Previous month calculations
+          const prevTotalIncome = prevSalesInvoices?.reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
+          const prevTotalCosts = prevCostInvoices?.reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
+          const prevProfit = prevTotalIncome - prevTotalCosts;
+          
+          // Calculate weekly breakdown
+          const weeklyBreakdown: Array<{ week: string; income: number; costs: number }> = [];
+          for (let w = 1; w <= 4; w++) {
+            const weekStart = (w - 1) * 7 + 1;
+            const weekEnd = w === 4 ? lastDay : w * 7;
+            
+            const weekIncome = salesInvoices?.filter(inv => {
+              const day = new Date(inv.issue_date).getDate();
+              return day >= weekStart && day <= weekEnd;
+            }).reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
+            
+            const weekCosts = costInvoices?.filter(inv => {
+              const day = new Date(inv.issue_date).getDate();
+              return day >= weekStart && day <= weekEnd;
+            }).reduce((sum, i) => sum + (i.gross_amount || 0), 0) || 0;
+            
+            weeklyBreakdown.push({
+              week: `Tydzień ${w}`,
+              income: weekIncome,
+              costs: weekCosts
+            });
+          }
+          
           const monthNames = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 
                              'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
           const monthName = monthNames[targetMonth - 1];
+          const prevMonthName = monthNames[prevMonth - 1];
+          
+          // Calculate percentage changes
+          const incomeChange = prevTotalIncome > 0 ? ((totalIncome - prevTotalIncome) / prevTotalIncome * 100) : 0;
+          const costsChange = prevTotalCosts > 0 ? ((totalCosts - prevTotalCosts) / prevTotalCosts * 100) : 0;
           
           result.summary = {
             period: `${monthName} ${targetYear}`,
@@ -333,10 +392,28 @@ serve(async (req) => {
             invoices_count: salesInvoices?.length || 0,
             costs_count: costInvoices?.length || 0,
             paid_count: paidCount,
-            unpaid_count: unpaidCount
+            unpaid_count: unpaidCount,
+            previous_month: {
+              period: `${prevMonthName} ${prevYear}`,
+              total_income: prevTotalIncome,
+              total_costs: prevTotalCosts,
+              profit: prevProfit,
+              invoices_count: prevSalesInvoices?.length || 0,
+              costs_count: prevCostInvoices?.length || 0
+            },
+            weekly_breakdown: weeklyBreakdown
           };
           result.show_summary = true;
-          result.response = `Podsumowanie za ${monthName} ${targetYear}: przychody ${totalIncome.toLocaleString('pl-PL')} PLN, koszty ${totalCosts.toLocaleString('pl-PL')} PLN, zysk ${(totalIncome - totalCosts).toLocaleString('pl-PL')} PLN. Masz ${unpaidCount} nieopłaconych faktur.`;
+          
+          // Build response with comparison
+          let comparisonText = '';
+          if (prevTotalIncome > 0) {
+            comparisonText = incomeChange >= 0 
+              ? ` Przychody wzrosły o ${incomeChange.toFixed(0)}% w porównaniu do ${prevMonthName}.`
+              : ` Przychody spadły o ${Math.abs(incomeChange).toFixed(0)}% w porównaniu do ${prevMonthName}.`;
+          }
+          
+          result.response = `Podsumowanie za ${monthName} ${targetYear}: przychody ${totalIncome.toLocaleString('pl-PL')} PLN, koszty ${totalCosts.toLocaleString('pl-PL')} PLN, zysk ${(totalIncome - totalCosts).toLocaleString('pl-PL')} PLN.${comparisonText} Masz ${unpaidCount} nieopłaconych faktur.`;
         }
         break;
 
