@@ -148,19 +148,12 @@ export default function InvoiceProgram() {
     setLoading(false);
   };
 
-  // Check role-based access after roles are loaded
+  // Fetch entities for any authenticated user
   useEffect(() => {
     if (!roleLoading && user) {
-      const hasAccess = isAdmin || isAccountingAdmin || isAccountant;
-      
-      if (hasAccess) {
-        fetchEntities();
-      } else {
-        toast.error('Brak dostępu do programu faktur');
-        navigate('/');
-      }
+      fetchEntities();
     }
-  }, [roleLoading, isAdmin, isAccountingAdmin, isAccountant, user]);
+  }, [roleLoading, user]);
 
   const fetchEntities = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -189,18 +182,15 @@ export default function InvoiceProgram() {
 
   const handleNewInvoiceClick = () => {
     if (!selectedEntity) {
-      toast.error('Najpierw dodaj firmę sprzedawcy');
-      setShowCompanySetup(true);
-      return;
+      // Pokazujemy toast z przypomnieniem ale pozwalamy kontynuować
+      toast.warning('Nie masz jeszcze firmy sprzedawcy. Dane wprowadzisz ręcznie na fakturze lub dodaj firmę w ustawieniach.');
     }
     setShowNewInvoice(true);
   };
 
   const handleCostInvoiceClick = () => {
     if (!selectedEntity) {
-      toast.error('Najpierw dodaj firmę');
-      setShowCompanySetup(true);
-      return;
+      toast.warning('Nie masz jeszcze firmy. Dane wprowadzisz ręcznie lub dodaj firmę w ustawieniach.');
     }
     setShowCostInvoice(true);
   };
@@ -847,22 +837,24 @@ export default function InvoiceProgram() {
         </div>
       </main>
 
-      {/* Modals */}
+      {/* Modals - Always render, pass empty entityId if none selected */}
+      <NewInvoiceWizard
+        open={showNewInvoice}
+        onOpenChange={setShowNewInvoice}
+        entityId={selectedEntity || ''}
+        onCreated={() => {
+          fetchEntities(); // Refresh entities in case new one was created
+          fetchInvoices();
+        }}
+        onOpenCompanySetup={() => setShowCompanySetup(true)}
+      />
       {selectedEntity && (
-        <>
-          <NewInvoiceWizard
-            open={showNewInvoice}
-            onOpenChange={setShowNewInvoice}
-            entityId={selectedEntity}
-            onCreated={fetchInvoices}
-          />
-          <CostInvoiceModal
-            open={showCostInvoice}
-            onOpenChange={setShowCostInvoice}
-            entityId={selectedEntity}
-            onCreated={fetchInvoices}
-          />
-        </>
+        <CostInvoiceModal
+          open={showCostInvoice}
+          onOpenChange={setShowCostInvoice}
+          entityId={selectedEntity}
+          onCreated={fetchInvoices}
+        />
       )}
 
       {/* Summary Dialog */}
