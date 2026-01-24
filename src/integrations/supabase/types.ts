@@ -655,11 +655,17 @@ export type Database = {
           ai_seo_enabled: boolean | null
           created_at: string | null
           custom_api_key_encrypted: string | null
+          elevenlabs_api_key_encrypted: string | null
           gemini_api_key_encrypted: string | null
+          google_tts_api_key_encrypted: string | null
           guest_daily_limit: number | null
           id: string
           openai_api_key_encrypted: string | null
+          stt_provider: string | null
           system_prompt: string | null
+          tts_enabled: boolean | null
+          tts_provider: string | null
+          tts_voice_name: string | null
           updated_at: string | null
           user_monthly_limit: number | null
         }
@@ -672,11 +678,17 @@ export type Database = {
           ai_seo_enabled?: boolean | null
           created_at?: string | null
           custom_api_key_encrypted?: string | null
+          elevenlabs_api_key_encrypted?: string | null
           gemini_api_key_encrypted?: string | null
+          google_tts_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
           openai_api_key_encrypted?: string | null
+          stt_provider?: string | null
           system_prompt?: string | null
+          tts_enabled?: boolean | null
+          tts_provider?: string | null
+          tts_voice_name?: string | null
           updated_at?: string | null
           user_monthly_limit?: number | null
         }
@@ -689,11 +701,17 @@ export type Database = {
           ai_seo_enabled?: boolean | null
           created_at?: string | null
           custom_api_key_encrypted?: string | null
+          elevenlabs_api_key_encrypted?: string | null
           gemini_api_key_encrypted?: string | null
+          google_tts_api_key_encrypted?: string | null
           guest_daily_limit?: number | null
           id?: string
           openai_api_key_encrypted?: string | null
+          stt_provider?: string | null
           system_prompt?: string | null
+          tts_enabled?: boolean | null
+          tts_provider?: string | null
+          tts_voice_name?: string | null
           updated_at?: string | null
           user_monthly_limit?: number | null
         }
@@ -2441,6 +2459,51 @@ export type Database = {
           type?: string
           updated_at?: string | null
           vat_payer?: boolean | null
+        }
+        Relationships: []
+      }
+      external_integrations: {
+        Row: {
+          api_key_encrypted: string | null
+          api_url: string | null
+          config: Json | null
+          created_at: string | null
+          environment: string | null
+          id: string
+          is_enabled: boolean | null
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_status: string | null
+          service_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_url?: string | null
+          config?: Json | null
+          created_at?: string | null
+          environment?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_url?: string | null
+          config?: Json | null
+          created_at?: string | null
+          environment?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -8725,6 +8788,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_voice_cache_stats: {
+        Args: never
+        Returns: {
+          estimated_savings_pln: number
+          total_phrases: number
+          total_size_bytes: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -8776,6 +8847,7 @@ export type Database = {
         | "real_estate_admin"
         | "real_estate_agent"
         | "accounting_admin"
+        | "accountant"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -8913,6 +8985,7 @@ export const Constants = {
         "real_estate_admin",
         "real_estate_agent",
         "accounting_admin",
+        "accountant",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
