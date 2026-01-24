@@ -48,6 +48,12 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
   const [propertyCount, setPropertyCount] = useState(0);
   const [serviceCount, setServiceCount] = useState(0);
 
+  // TODO: Future - user location for proximity sorting
+  // const [userCity, setUserCity] = useState<string | null>(null);
+  
+  // Max items per category (3 rows x 4 cols = 12 total, so ~4 per category)
+  const ITEMS_PER_CATEGORY = 4;
+
   useEffect(() => {
     fetchListings();
   }, []);
@@ -56,26 +62,31 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     setLoading(true);
     
     try {
-      // Fetch random vehicle listings
+      // TODO: Future paid listings logic:
+      // 1. First fetch paid/promoted listings (is_promoted = true)
+      // 2. Sort by user's location proximity (using city or coordinates)
+      // 3. Fill remaining slots with random free listings
+      
+      // Fetch random vehicle listings (limit per category for 3 rows mixed view)
       const { data: vehicles } = await (supabase as any)
         .from('vehicle_listings')
         .select('id, title, price, photos, city')
         .eq('status', 'aktywne')
-        .limit(10);
+        .limit(ITEMS_PER_CATEGORY);
 
       // Fetch random property listings
       const { data: properties } = await (supabase as any)
         .from('real_estate_listings')
         .select('id, title, price, photos, city, transaction_type')
         .eq('status', 'active')
-        .limit(10);
+        .limit(ITEMS_PER_CATEGORY);
 
       // Fetch random service providers
       const { data: services } = await (supabase as any)
         .from('service_providers')
         .select('id, company_name, logo_url, company_city, status')
         .eq('status', 'active')
-        .limit(10);
+        .limit(ITEMS_PER_CATEGORY);
 
       const allListings: Listing[] = [];
 
@@ -122,8 +133,9 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         });
       }
 
-      // Shuffle the listings randomly
-      const shuffled = allListings.sort(() => Math.random() - 0.5);
+      // Shuffle the listings randomly for varied display each visit
+      // TODO: Future - sort by: 1) paid/promoted first, 2) proximity to user, 3) random
+      const shuffled = [...allListings].sort(() => Math.random() - 0.5);
       setListings(shuffled);
     } catch (error) {
       console.error('Error fetching listings:', error);
@@ -289,7 +301,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         viewMode === 'compact' && "grid-cols-1 md:grid-cols-2",
         viewMode === 'list' && "grid-cols-1"
       )}>
-        {filteredListings.slice(0, viewMode === 'grid' ? 8 : 6).map((listing) => (
+        {filteredListings.slice(0, 12).map((listing) => (
           <Card 
             key={`${listing.category}-${listing.id}`}
             className="group cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 border-0 shadow-sm"
