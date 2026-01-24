@@ -44,6 +44,7 @@ import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
 import tileServices from "@/assets/tile-services.jpg";
+import tileInvoicing from "@/assets/tile-invoicing.jpg";
 // New unique images for subcategories
 import tileWorkshop from "@/assets/tile-workshop.jpg";
 import tileDetailing from "@/assets/tile-detailing.jpg";
@@ -65,7 +66,7 @@ interface MarketplaceTile {
 
 type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci';
 
-// Main category tiles
+// Main category tiles (no Portal Kierowcy - moved to Motoryzacja)
 const mainTiles: MarketplaceTile[] = [
   {
     id: 'motoryzacja',
@@ -95,17 +96,17 @@ const mainTiles: MarketplaceTile[] = [
     available: true
   },
   {
-    id: 'driver',
-    title: 'Portal Kierowcy',
-    description: 'Rozliczenia i dokumenty',
-    icon: User,
-    image: tileDriver,
-    link: '/driver',
+    id: 'ksiegowosc',
+    title: 'Księgowość',
+    description: 'Program do faktur online',
+    icon: Receipt,
+    image: tileInvoicing,
+    link: '/faktury',
     available: true
   }
 ];
 
-// Motoryzacja sub-tiles - unique images and icons
+// Motoryzacja sub-tiles - unique images and icons (includes Portal Kierowcy)
 const motoryzacjaSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-auto',
@@ -153,12 +154,12 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     available: true
   },
   {
-    id: 'portal-klienta',
-    title: 'Portal Klienta',
-    description: 'Historia zleceń i płatności',
-    icon: Wallet,
-    image: tileClientPortal,
-    link: '/klient',
+    id: 'portal-kierowcy',
+    title: 'Portal Kierowcy',
+    description: 'Rozliczenia i dokumenty',
+    icon: User,
+    image: tileDriver,
+    link: '/driver',
     available: true
   }
 ];
@@ -366,21 +367,21 @@ export default function EasyHub() {
       });
     }
     
-    // Add Invoice Program tile for main admin
-    if (isMainAdmin) {
+    // Add "Moje konto" (Client Portal) for logged-in users as their personal dashboard
+    if (user) {
       tiles.push({
-        id: 'invoices',
-        title: 'Program do faktur',
-        description: 'Wystawiaj faktury online',
-        icon: Receipt,
-        image: null,
-        link: '/faktury',
+        id: 'moje-konto',
+        title: 'Moje konto',
+        description: 'Ogłoszenia, zakupy, ustawienia',
+        icon: User,
+        image: tileClientPortal,
+        link: '/klient',
         available: true
       });
     }
     
     return tiles;
-  }, [mapsVisible, user, isMainAdmin]);
+  }, [mapsVisible, user]);
 
   // Get category title
   const getCategoryTitle = () => {
