@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText } from "lucide-react";
+import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText, UserCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
 
@@ -183,21 +183,18 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           </DropdownMenuItem>
         )}
         
-        {/* Invoice button for all users */}
+        {/* Client Portal - always available for logged in users */}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('/klient')}>
+          <UserCircle className="h-4 w-4 mr-2" />
+          Portal Klienta
+        </DropdownMenuItem>
+        
+        {/* Invoice button for all users */}
         <DropdownMenuItem onClick={() => navigate('/faktury')}>
           <FileText className="h-4 w-4 mr-2" />
           Wystaw fakturę
         </DropdownMenuItem>
-        
-        {/* If no specific account, go to marketplace panel by default */}
-        {!accountTypes.isAdmin && !accountTypes.isFleet && !accountTypes.isDriver && 
-         !accountTypes.isMarketplace && !accountTypes.isRealEstate && (
-          <DropdownMenuItem onClick={() => navigate('/gielda/panel')}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Mój panel
-          </DropdownMenuItem>
-        )}
         
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">
