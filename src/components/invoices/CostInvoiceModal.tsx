@@ -90,23 +90,31 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
 
     setSaving(true);
     try {
+      // Generate invoice number for costs
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      const costInvoiceNumber = invoiceNumber || `KOSZT/${year}/${month}/${randomNum}`;
+
       const { error } = await supabase
         .from('invoices')
         .insert({
           entity_id: entityId,
-          invoice_number: invoiceNumber || null,
-          invoice_type: 'cost',
-          direction: 'incoming',
+          invoice_number: costInvoiceNumber,
+          type: 'cost',
           issue_date: issueDate,
           due_date: dueDate || null,
-          total_net: parseFloat(totalNet) || 0,
-          total_vat: parseFloat(totalVat) || 0,
-          total_gross: parseFloat(totalGross) || 0,
-          cost_category: costCategory,
+          net_amount: parseFloat(totalNet) || 0,
+          vat_amount: parseFloat(totalVat) || 0,
+          gross_amount: parseFloat(totalGross) || 0,
           notes,
           status: 'pending',
-          recipient_name: supplierName,
-          recipient_nip: supplierNip || null
+          buyer_snapshot: {
+            name: supplierName,
+            nip: supplierNip || null,
+            cost_category: costCategory
+          }
         });
 
       if (error) throw error;
