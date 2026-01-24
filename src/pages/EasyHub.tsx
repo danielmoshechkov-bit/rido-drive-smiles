@@ -285,7 +285,7 @@ export default function EasyHub() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
-              src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
+              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
               alt="RIDO" 
               className="h-8 w-8"
             />
