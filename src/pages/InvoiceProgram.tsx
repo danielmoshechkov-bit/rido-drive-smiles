@@ -47,6 +47,7 @@ import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPanel';
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { ContractorsList } from '@/components/invoices/ContractorsList';
+import { MonthlySummaryDialog, MonthlySummaryData } from '@/components/invoices/MonthlySummaryDialog';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -98,16 +99,8 @@ export default function InvoiceProgram() {
   
   // Summary dialog
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
-  const [summaryData, setSummaryData] = useState<{
-    period: string;
-    total_income: number;
-    total_costs: number;
-    profit: number;
-    invoices_count: number;
-    costs_count: number;
-    paid_count: number;
-    unpaid_count: number;
-  } | null>(null);
+  const [summaryData, setSummaryData] = useState<MonthlySummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   
   // Reminder confirmation
   const [pendingReminderConfirmation, setPendingReminderConfirmation] = useState<{
@@ -401,6 +394,35 @@ export default function InvoiceProgram() {
       setIsSendingReminder(false);
       setPendingReminderConfirmation(null);
     }
+  };
+
+  const fetchMonthlySummary = async (month: number, year: number) => {
+    if (!selectedEntity) return;
+    
+    setSummaryLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-invoice-assistant', {
+        body: { 
+          command: `podsumowanie ${month} ${year}`,
+          entity_id: selectedEntity
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.summary) {
+        setSummaryData(data.summary);
+      }
+    } catch (err) {
+      console.error('Error fetching monthly summary:', err);
+      toast.error('Nie udało się pobrać podsumowania');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleSummaryMonthChange = (month: number, year: number) => {
+    fetchMonthlySummary(month, year);
   };
 
   const getStatusBadge = (status: string) => {
@@ -861,58 +883,13 @@ export default function InvoiceProgram() {
         />
       )}
 
-      {/* Summary Dialog */}
-      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Podsumowanie: {summaryData?.period}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">Przychody</p>
-                  <p className="text-xl font-bold text-green-600">
-                    {summaryData?.total_income?.toLocaleString('pl-PL')} PLN
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">Koszty</p>
-                  <p className="text-xl font-bold text-destructive">
-                    {summaryData?.total_costs?.toLocaleString('pl-PL')} PLN
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            <Card className="bg-primary/5">
-              <CardContent className="p-4 text-center">
-                <p className="text-sm text-muted-foreground">Zysk netto</p>
-                <p className="text-2xl font-bold">
-                  {summaryData?.profit?.toLocaleString('pl-PL')} PLN
-                </p>
-              </CardContent>
-            </Card>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Faktury sprzedażowe: {summaryData?.invoices_count}</span>
-              <span>Faktury kosztowe: {summaryData?.costs_count}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-green-600">✓ Opłacone: {summaryData?.paid_count}</span>
-              <span className="text-yellow-600">⏳ Nieopłacone: {summaryData?.unpaid_count}</span>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSummaryDialog(false)}>
-              Zamknij
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Monthly Summary Dialog */}
+      <MonthlySummaryDialog
+        open={showSummaryDialog}
+        onOpenChange={setShowSummaryDialog}
+        data={summaryData}
+        onMonthChange={handleSummaryMonthChange}
+      />
 
       {/* Mark Paid Confirmation */}
       <AlertDialog 
