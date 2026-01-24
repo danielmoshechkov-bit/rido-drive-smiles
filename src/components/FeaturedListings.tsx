@@ -67,14 +67,14 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       const { data: properties } = await (supabase as any)
         .from('real_estate_listings')
         .select('id, title, price, photos, city, transaction_type')
-        .eq('status', 'aktywne')
+        .eq('status', 'active')
         .limit(10);
 
       // Fetch random service providers
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, business_name, hourly_rate, photos, city')
-        .eq('is_verified', true)
+        .select('id, company_name, logo_url, company_city, status')
+        .eq('status', 'active')
         .limit(10);
 
       const allListings: Listing[] = [];
@@ -113,10 +113,10 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         services.forEach((s: any) => {
           allListings.push({
             id: s.id,
-            title: s.business_name || 'Usługa',
-            price: s.hourly_rate || 0,
-            photos: s.photos || [],
-            city: s.city,
+            title: s.company_name || 'Usługa',
+            price: 0,
+            photos: s.logo_url ? [s.logo_url] : [],
+            city: s.company_city,
             category: 'service'
           });
         });
