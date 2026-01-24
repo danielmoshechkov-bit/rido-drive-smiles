@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Loader2, Sparkles, X } from 'lucide-react';
+import { Search, Loader2, Sparkles, X, Mic } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { VoiceInput } from './VoiceInput';
 
 interface SearchFilters {
   brands: string[];
@@ -131,19 +132,30 @@ export function RidoSearchBar({ onSearchResults, className }: RidoSearchBarProps
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Zapytaj Rido o wymarzone auto..."
-                className="h-14 text-lg pl-12 pr-24 rounded-full border-2 border-primary/20 focus:border-primary bg-background shadow-sm"
+                className="h-14 text-lg pl-12 pr-32 rounded-full border-2 border-primary/20 focus:border-primary bg-background shadow-sm"
                 disabled={isLoading}
               />
               {query && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-16 h-8 w-8 rounded-full"
+                  className="absolute right-24 h-8 w-8 rounded-full"
                   onClick={clearSearch}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               )}
+              {/* Voice Input Button */}
+              <div className="absolute right-14">
+                <VoiceInput
+                  onTranscription={(text) => {
+                    setQuery(text);
+                    setTimeout(() => handleSearch(text), 300);
+                  }}
+                  disabled={isLoading}
+                  size="sm"
+                />
+              </div>
               <Button
                 onClick={() => handleSearch()}
                 disabled={isLoading || !query.trim()}
