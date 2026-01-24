@@ -11,6 +11,8 @@ import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AddListingModal } from '@/components/AddListingModal';
+import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
+import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { 
   Car,
   Home,
@@ -97,6 +99,12 @@ export default function ClientPortal() {
   const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  
+  // Invoice state
+  const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [showCompanySetup, setShowCompanySetup] = useState(false);
+  const [userEntities, setUserEntities] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
 
   useEffect(() => {
     checkUser();
@@ -120,7 +128,9 @@ export default function ClientPortal() {
       checkRealEstateAccount(user.id),
       checkAdminAccount(user.id),
       fetchUserListings(user.id),
-      fetchUserFavorites(user.id)
+      fetchUserFavorites(user.id),
+      fetchUserEntities(user.id),
+      fetchUserInvoices(user.id)
     ]);
     
     setLoading(false);
@@ -235,9 +245,45 @@ export default function ClientPortal() {
     }
   };
 
+  const fetchUserEntities = async (userId: string) => {
+    const { data } = await supabase
+      .from('entities')
+      .select('id, name, nip')
+      .eq('owner_user_id', userId)
+      .order('created_at', { ascending: false });
+    if (data) setUserEntities(data);
+  };
+
+  const fetchUserInvoices = async (userId: string) => {
+    // Fetch entities first to get their IDs
+    const { data: entities } = await supabase
+      .from('entities')
+      .select('id')
+      .eq('owner_user_id', userId);
+    
+    if (entities && entities.length > 0) {
+      const entityIds = entities.map(e => e.id);
+      const { data: invoicesData } = await supabase
+        .from('invoices')
+        .select('*')
+        .in('entity_id', entityIds)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (invoicesData) setInvoices(invoicesData);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
+  };
+
+  const handleNewInvoice = () => {
+    if (userEntities.length === 0) {
+      setShowCompanySetup(true);
+    } else {
+      setShowNewInvoice(true);
+    }
   };
 
   if (loading) {
@@ -736,8 +782,10 @@ export default function ClientPortal() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm text-muted-foreground">Faktury (miesiąc)</p>
-                            <p className="text-3xl font-bold">0</p>
-                            <p className="text-sm text-muted-foreground">0 opłaconych</p>
+                            <p className="text-3xl font-bold">{invoices.length}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {invoices.filter(i => i.status === 'paid').length} opłaconych
+                            </p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         </div>
@@ -749,7 +797,9 @@ export default function ClientPortal() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm text-muted-foreground">Przychód brutto</p>
-                            <p className="text-3xl font-bold">0,00 zł</p>
+                            <p className="text-3xl font-bold">
+                              {invoices.reduce((sum, i) => sum + Number(i.total_gross || 0), 0).toLocaleString('pl-PL')} zł
+                            </p>
                             <p className="text-sm text-muted-foreground">Suma faktur</p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
@@ -762,7 +812,9 @@ export default function ClientPortal() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm text-muted-foreground">Do zapłaty</p>
-                            <p className="text-3xl font-bold text-red-500">0</p>
+                            <p className="text-3xl font-bold text-destructive">
+                              {invoices.filter(i => i.status !== 'paid').length}
+                            </p>
                             <p className="text-sm text-muted-foreground">Zaległe faktury</p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
@@ -775,7 +827,7 @@ export default function ClientPortal() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm text-muted-foreground">Firmy</p>
-                            <p className="text-3xl font-bold">0</p>
+                            <p className="text-3xl font-bold">{userEntities.length}</p>
                             <p className="text-sm text-muted-foreground">Przypisane podmioty</p>
                           </div>
                           <Building2 className="h-6 w-6 text-muted-foreground" />
@@ -788,9 +840,9 @@ export default function ClientPortal() {
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
                     <div className="flex flex-wrap gap-3">
-                      <Button onClick={() => navigate('/faktury')}>
+                      <Button onClick={handleNewInvoice}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Nowa faktura
+                        Wystaw fakturę
                       </Button>
                       <Button variant="outline">
                         <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -800,7 +852,7 @@ export default function ClientPortal() {
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Eksport CSV
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => setShowCompanySetup(true)}>
                         <Building2 className="h-4 w-4 mr-2" />
                         Dodaj firmę
                       </Button>
@@ -820,7 +872,7 @@ export default function ClientPortal() {
                         <p className="text-sm mt-1">
                           Wystaw pierwszą fakturę w programie
                         </p>
-                        <Button className="mt-4" onClick={() => navigate('/faktury')}>
+                        <Button className="mt-4" onClick={handleNewInvoice}>
                           <Plus className="h-4 w-4 mr-2" />
                           Wystaw fakturę
                         </Button>
@@ -838,17 +890,51 @@ export default function ClientPortal() {
                         <CardTitle>Faktury</CardTitle>
                         <CardDescription>Lista wszystkich faktur</CardDescription>
                       </div>
-                      <Button onClick={() => navigate('/faktury')}>
+                      <Button onClick={handleNewInvoice}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Nowa faktura
+                        Wystaw fakturę
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-12 text-muted-foreground">
-                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Brak faktur</p>
-                    </div>
+                    {invoices.length > 0 ? (
+                      <div className="space-y-3">
+                        {invoices.map((invoice) => (
+                          <div 
+                            key={invoice.id}
+                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <FileText className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-semibold">{invoice.invoice_number || 'Faktura'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(invoice.created_at).toLocaleDateString('pl-PL')}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <p className="font-semibold">{Number(invoice.total_gross || 0).toLocaleString('pl-PL')} zł</p>
+                              <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                                {invoice.status === 'paid' ? 'Opłacona' : invoice.status === 'sent' ? 'Wysłana' : 'Szkic'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Brak faktur</p>
+                        <p className="text-sm mt-1">Wystaw pierwszą fakturę</p>
+                        <Button className="mt-4" onClick={handleNewInvoice}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Wystaw fakturę
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -963,6 +1049,34 @@ export default function ClientPortal() {
           )}
         </div>
       </main>
+
+      {/* Invoice Wizard Modal */}
+      <NewInvoiceWizard
+        open={showNewInvoice}
+        onOpenChange={setShowNewInvoice}
+        entityId={userEntities[0]?.id || ''}
+        onCreated={() => {
+          setShowNewInvoice(false);
+          if (user) fetchUserInvoices(user.id);
+          toast.success('Faktura została wystawiona');
+        }}
+        onOpenCompanySetup={() => {
+          setShowNewInvoice(false);
+          setShowCompanySetup(true);
+        }}
+      />
+
+      {/* Company Setup Wizard */}
+      <CompanySetupWizard
+        open={showCompanySetup}
+        onOpenChange={setShowCompanySetup}
+        onCreated={() => {
+          setShowCompanySetup(false);
+          if (user) fetchUserEntities(user.id);
+          toast.success('Firma została dodana');
+          setShowNewInvoice(true);
+        }}
+      />
     </div>
   );
 }
