@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { 
   ArrowLeft, Heart, Share2, Home, MapPin, Calendar, Layers, Maximize, 
   Phone, Mail, User, Building2, Eye, GitCompare, MessageCircle,
@@ -480,40 +480,21 @@ export default function PropertyDetailPage() {
         </div>
       </footer>
 
-      {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LogIn className="h-5 w-5 text-primary" />
-              Zaloguj się, aby zobaczyć kontakt
-            </DialogTitle>
-            <DialogDescription>
-              Dane kontaktowe są dostępne tylko dla zalogowanych użytkowników. 
-              Pozwala to agencjom śledzić zainteresowanie ofertami.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            <Button 
-              onClick={() => {
-                setShowLoginDialog(false);
-                navigate(`/auth?redirect=/nieruchomosci/ogloszenie/${id}`);
-              }}
-              className="w-full"
-            >
-              <LogIn className="h-4 w-4 mr-2" />
-              Zaloguj się
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => setShowLoginDialog(false)}
-              className="w-full"
-            >
-              Anuluj
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Auth Modal for login */}
+      <AuthModal
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        initialMode="login"
+        customDescription="Zaloguj się, aby zobaczyć dane kontaktowe. Pozwala to agencjom śledzić zainteresowanie ofertami."
+        onSuccess={() => {
+          setShowLoginDialog(false);
+          // Refresh user state
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user);
+            if (user) setShowContactPhone(true);
+          });
+        }}
+      />
     </div>
   );
 }

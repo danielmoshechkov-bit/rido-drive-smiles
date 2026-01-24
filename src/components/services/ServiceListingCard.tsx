@@ -7,12 +7,7 @@ import {
   Heart, Phone, Mail, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
 
 interface Service {
@@ -280,41 +275,17 @@ export function ServiceListingCard({
         </div>
       </Card>
 
-      {/* Login Required Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              Zaloguj się, aby zobaczyć kontakt
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <p className="text-muted-foreground text-sm">
-              Aby zobaczyć dane kontaktowe do usługodawcy, musisz być zalogowany. 
-              Rejestracja jest darmowa i zajmuje tylko chwilę.
-            </p>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setShowLoginDialog(false)}
-              >
-                Anuluj
-              </Button>
-              <Button 
-                className="flex-1"
-                onClick={() => {
-                  setShowLoginDialog(false);
-                  navigate('/auth');
-                }}
-              >
-                Zaloguj się
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Auth Modal for login */}
+      <AuthModal
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        initialMode="login"
+        customDescription="Zaloguj się, aby zobaczyć dane kontaktowe usługodawcy."
+        onSuccess={() => {
+          setShowLoginDialog(false);
+          setShowContact(true);
+        }}
+      />
     </>
   );
 }

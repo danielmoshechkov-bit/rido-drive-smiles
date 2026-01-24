@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { 
   ArrowLeft, Heart, Share2, Home, MapPin, 
   Phone, Mail, User, Building2, MessageCircle, LogIn,
@@ -362,25 +362,21 @@ export default function VehicleDetailPage() {
         <SimilarVehicles currentListingId={listing.id} brand={listing.brand} />
       </main>
 
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LogIn className="h-5 w-5 text-primary" />
-              Zaloguj się, aby zobaczyć kontakt
-            </DialogTitle>
-            <DialogDescription>
-              Dane kontaktowe są dostępne tylko dla zalogowanych użytkowników.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="flex-1" onClick={() => setShowLoginDialog(false)}>Anuluj</Button>
-            <Button className="flex-1" onClick={() => { setShowLoginDialog(false); navigate(`/gielda/logowanie?redirect=/gielda/ogloszenie/${id}`); }}>
-              Zaloguj się
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Auth Modal for login */}
+      <AuthModal
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        initialMode="login"
+        customDescription="Zaloguj się, aby zobaczyć dane kontaktowe sprzedawcy."
+        onSuccess={() => {
+          setShowLoginDialog(false);
+          // Refresh user state and reveal contact
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user);
+            if (user) setShowContactPhone(true);
+          });
+        }}
+      />
     </div>
   );
 }
