@@ -39,11 +39,13 @@ import {
   Mic,
   Sparkles,
   Loader2,
-  Send
+  Send,
+  Building2
 } from 'lucide-react';
 import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPanel';
+import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -84,6 +86,7 @@ export default function InvoiceProgram() {
   // Modals
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showCostInvoice, setShowCostInvoice] = useState(false);
+  const [showCompanySetup, setShowCompanySetup] = useState(false);
   
   // AI Voice
   const [isListening, setIsListening] = useState(false);
@@ -159,15 +162,46 @@ export default function InvoiceProgram() {
   }, [roleLoading, isAdmin, isAccountingAdmin, isAccountant, user]);
 
   const fetchEntities = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const { data } = await supabase
       .from('entities')
       .select('id, name')
+      .eq('owner_user_id', user?.id)
       .order('name');
     
     if (data && data.length > 0) {
       setEntities(data);
       setSelectedEntity(data[0].id);
+    } else {
+      // Brak firm - pokaż kreator
+      setEntities([]);
+      setSelectedEntity('');
     }
+  };
+
+  const handleCompanyCreated = (entity: { id: string; name: string }) => {
+    setEntities(prev => [...prev, entity]);
+    setSelectedEntity(entity.id);
+    setShowCompanySetup(false);
+  };
+
+  const handleNewInvoiceClick = () => {
+    if (!selectedEntity) {
+      toast.error('Najpierw dodaj firmę sprzedawcy');
+      setShowCompanySetup(true);
+      return;
+    }
+    setShowNewInvoice(true);
+  };
+
+  const handleCostInvoiceClick = () => {
+    if (!selectedEntity) {
+      toast.error('Najpierw dodaj firmę');
+      setShowCompanySetup(true);
+      return;
+    }
+    setShowCostInvoice(true);
   };
 
   const fetchInvoices = async () => {
@@ -447,7 +481,7 @@ export default function InvoiceProgram() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {entities.length > 1 && (
+            {entities.length > 0 && (
               <Select value={selectedEntity} onValueChange={setSelectedEntity}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Wybierz firmę" />
@@ -459,6 +493,10 @@ export default function InvoiceProgram() {
                 </SelectContent>
               </Select>
             )}
+            <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Dodaj firmę
+            </Button>
             <MyGetRidoButton user={user} />
           </div>
         </div>
@@ -496,7 +534,26 @@ export default function InvoiceProgram() {
           </p>
         </div>
 
+        {/* No Company State */}
+        {entities.length === 0 && (
+          <Card className="max-w-lg mx-auto mb-8">
+            <CardContent className="p-8 text-center">
+              <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-xl font-semibold mb-2">Skonfiguruj swoją firmę</h3>
+              <p className="text-muted-foreground mb-6">
+                Aby wystawiać faktury, najpierw dodaj dane swojej firmy (sprzedawcy). 
+                Dane te będą automatycznie uzupełniane na każdej fakturze.
+              </p>
+              <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
+                <Plus className="h-5 w-5" />
+                Dodaj firmę sprzedawcy
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Grid */}
+        {entities.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
@@ -564,8 +621,10 @@ export default function InvoiceProgram() {
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Main Tabs */}
+        {entities.length > 0 && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <TabsList className="bg-muted/50 p-1 rounded-xl">
@@ -584,11 +643,11 @@ export default function InvoiceProgram() {
             </TabsList>
 
             <div className="flex gap-2">
-              <Button onClick={() => setShowNewInvoice(true)} className="gap-2">
+              <Button onClick={handleNewInvoiceClick} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Nowa faktura
               </Button>
-              <Button variant="outline" onClick={() => setShowCostInvoice(true)} className="gap-2">
+              <Button variant="outline" onClick={handleCostInvoiceClick} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Dodaj koszt
               </Button>
@@ -653,7 +712,7 @@ export default function InvoiceProgram() {
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Brak faktur w wybranym okresie</p>
-                    <Button className="mt-4" onClick={() => setShowNewInvoice(true)}>
+                    <Button className="mt-4" onClick={handleNewInvoiceClick}>
                       <Plus className="h-4 w-4 mr-2" />
                       Wystaw pierwszą fakturę
                     </Button>
@@ -773,6 +832,7 @@ export default function InvoiceProgram() {
             </Card>
           </TabsContent>
         </Tabs>
+        )}
 
         {/* Info Banner */}
         <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-background border border-primary/10">
@@ -923,6 +983,13 @@ export default function InvoiceProgram() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Company Setup Wizard */}
+      <CompanySetupWizard
+        open={showCompanySetup}
+        onOpenChange={setShowCompanySetup}
+        onCreated={handleCompanyCreated}
+      />
     </div>
   );
 }
