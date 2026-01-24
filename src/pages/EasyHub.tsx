@@ -36,6 +36,7 @@ import { useModuleVisibility } from "@/hooks/useModuleVisibility";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { FeaturedListings } from "@/components/FeaturedListings";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -502,6 +503,11 @@ export default function EasyHub() {
           ))}
         </div>
       </section>
+
+      {/* Featured Listings Section - only on main view */}
+      {activeCategory === 'main' && (
+        <FeaturedListings className="py-8 md:py-12 bg-muted/30" />
+      )}
 
       {/* Mascot Section - only on main view */}
       {activeCategory === 'main' && (
