@@ -138,3 +138,12 @@ verify_jwt = false
 
 [functions.verify-vat]
 verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.registry-gus]
+verify_jwt = false
+
+[functions.registry-whitelist]
+verify_jwt = false
