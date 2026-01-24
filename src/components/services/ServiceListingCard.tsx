@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
+import { getServiceCoverImage } from "./serviceCategoryImages";
 
 interface Service {
   id: string;
@@ -51,17 +52,18 @@ export function ServiceListingCard({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Get photos - use cover_image_url, logo_url, or placeholder
+  // Get photos - use cover_image_url, category image, or logo_url
+  const categoryImage = getServiceCoverImage(provider.category?.slug);
   const photos = [
-    provider.cover_image_url,
+    provider.cover_image_url || categoryImage,
     provider.logo_url
   ].filter(Boolean) as string[];
   
-  const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
+  const displayPhotos = photos.length > 0 ? photos : [categoryImage];
 
   const getPhotoSrc = (index: number) => {
-    if (imageError) return "/placeholder.svg";
-    return displayPhotos[index] || "/placeholder.svg";
+    if (imageError) return categoryImage;
+    return displayPhotos[index] || categoryImage;
   };
 
   const nextPhoto = (e: React.MouseEvent) => {
@@ -92,11 +94,15 @@ export function ServiceListingCard({
   const displayedServices = provider.services?.slice(0, 3) || [];
   const remainingServicesCount = (provider.services?.length || 0) - 3;
 
+  const handleCardClick = () => {
+    navigate(`/uslugi/uslugodawca/${provider.id}`);
+  };
+
   return (
     <>
       <Card 
         className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer"
-        onClick={onClick}
+        onClick={handleCardClick}
       >
         {/* Photo Gallery */}
         <div className="relative bg-muted overflow-hidden aspect-[4/3]">
@@ -234,7 +240,7 @@ export function ServiceListingCard({
               )}
             </div>
             
-            <Button size="sm" onClick={(e) => { e.stopPropagation(); onClick?.(); }}>
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleCardClick(); }}>
               Szczegóły
             </Button>
           </div>
