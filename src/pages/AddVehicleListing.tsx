@@ -248,30 +248,28 @@ export default function AddVehicleListing() {
     const loadUser = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Show auth modal instead of redirecting
-        setShowAuthModal(true);
-        setLoading(false);
-        return;
-      }
-      setUser(session.user);
+      
+      // Don't require login - allow form access for guests
+      if (session) {
+        setUser(session.user);
 
-      // Load profile
-      const { data: profileData } = await supabase
-        .from("marketplace_user_profiles")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+        // Load profile
+        const { data: profileData } = await supabase
+          .from("marketplace_user_profiles")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-      if (profileData) {
-        setProfile(profileData);
-        // Pre-fill contact info
-        setFormData(prev => ({
-          ...prev,
-          contactName: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim(),
-          contactEmail: profileData.email || session.user.email || '',
-          contactPhone: profileData.phone || '',
-        }));
+        if (profileData) {
+          setProfile(profileData);
+          // Pre-fill contact info
+          setFormData(prev => ({
+            ...prev,
+            contactName: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim(),
+            contactEmail: profileData.email || session.user.email || '',
+            contactPhone: profileData.phone || '',
+          }));
+        }
       }
 
       setLoading(false);
@@ -279,7 +277,9 @@ export default function AddVehicleListing() {
     loadUser();
   }, [navigate]);
 
-  // Re-check user after auth modal closes
+  // Re-check user after auth modal closes and auto-submit
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  
   const handleAuthSuccess = async () => {
     setShowAuthModal(false);
     const { data: { session } } = await supabase.auth.getSession();
@@ -296,13 +296,27 @@ export default function AddVehicleListing() {
         setProfile(profileData);
         setFormData(prev => ({
           ...prev,
-          contactName: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim(),
-          contactEmail: profileData.email || session.user.email || '',
-          contactPhone: profileData.phone || '',
+          contactName: prev.contactName || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim(),
+          contactEmail: prev.contactEmail || profileData.email || session.user.email || '',
+          contactPhone: prev.contactPhone || profileData.phone || '',
         }));
       }
+      
+      // Mark that we need to submit after auth
+      setPendingSubmit(true);
     }
   };
+  
+  // Auto-submit after successful login
+  useEffect(() => {
+    if (pendingSubmit && user) {
+      setPendingSubmit(false);
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        handleSubmit();
+      }, 100);
+    }
+  }, [pendingSubmit, user]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -487,6 +501,12 @@ export default function AddVehicleListing() {
     }
     if (!formData.contactPhone) {
       toast.error("Podaj numer telefonu");
+      return;
+    }
+
+    // Check if user is logged in - show auth modal if not
+    if (!user) {
+      setShowAuthModal(true);
       return;
     }
 
