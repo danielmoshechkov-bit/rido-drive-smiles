@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { AdminUsersPanel } from '@/components/admin/AdminUsersPanel';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -49,6 +51,7 @@ export default function AdminServices() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('commission');
+  const [user, setUser] = useState<any>(null);
   
   // Commission settings state
   const [commission, setCommission] = useState<CommissionSettings | null>(null);
@@ -76,6 +79,7 @@ export default function AdminServices() {
         navigate('/auth');
         return;
       }
+      setUser(user);
 
       if (user.email === 'daniel.moshechkov@gmail.com') {
         setIsAdmin(true);
@@ -256,14 +260,10 @@ export default function AdminServices() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-              alt="RIDO"
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => navigate('/easy')}
-            />
+            <UniversalHomeButton />
             <AdminPortalSwitcher />
           </div>
+          <MyGetRidoButton user={user} />
         </div>
       </header>
 

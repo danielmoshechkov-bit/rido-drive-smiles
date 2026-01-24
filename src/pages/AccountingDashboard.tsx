@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
-import { UserDropdown } from '@/components/UserDropdown';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -239,11 +239,7 @@ export default function AccountingDashboard() {
               </select>
             )}
             
-            <UserDropdown 
-              userName={user?.email?.split('@')[0] || 'Użytkownik'} 
-              userEmail={user?.email || ''} 
-              onLogout={handleLogout}
-            />
+            <MyGetRidoButton user={user} />
           </div>
         </div>
       </header>

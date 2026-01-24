@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { MapsVisibilityPanel } from '@/components/admin/MapsVisibilityPanel';
 import { MapsConfigPanel } from '@/components/admin/MapsConfigPanel';
@@ -12,12 +13,23 @@ import { MapWalletPanel } from '@/components/admin/MapWalletPanel';
 import { MapStyleEditorPanel } from '@/components/admin/MapStyleEditorPanel';
 import ParkingZonesPanel from '@/components/admin/ParkingZonesPanel';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Map, Loader2 } from 'lucide-react';
 
 const AdminMaps = () => {
   const navigate = useNavigate();
   const { isAdmin, loading } = useUserRole();
   const [activeSubTab, setActiveSubTab] = useState('config');
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+  }, []);
 
   const subTabs = [
     { label: 'Konfiguracja', value: 'config', visible: true },
@@ -51,14 +63,10 @@ const AdminMaps = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <div
-                className="font-bold text-xl cursor-pointer"
-                onClick={() => navigate('/')}
-              >
-                GetRido
-              </div>
+              <UniversalHomeButton />
               <AdminPortalSwitcher />
             </div>
+            <MyGetRidoButton user={user} />
           </div>
         </div>
       </header>

@@ -8,7 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Image, Save, Settings, List, Trash2, Search, Grid } from "lucide-react";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { AdminPortalSwitcher } from "@/components/admin/AdminPortalSwitcher";
+import { ArrowLeft, Image, Save, Settings, List, Trash2, Search, Grid, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdSlot {
@@ -49,6 +52,7 @@ export default function AdminMarketplace() {
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,6 +64,11 @@ export default function AdminMarketplace() {
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState(false);
 
   useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
     loadData();
   }, []);
 
@@ -224,15 +233,20 @@ export default function AdminMarketplace() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Marketplace Admin</h1>
-            <p className="text-muted-foreground">Zarządzaj giełdą pojazdów</p>
+      {/* Header */}
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b mb-6">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-4">
+              <UniversalHomeButton />
+              <AdminPortalSwitcher />
+            </div>
+            <MyGetRidoButton user={user} />
           </div>
+        </header>
+
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Marketplace Admin</h1>
+          <p className="text-muted-foreground">Zarządzaj giełdą pojazdów</p>
         </div>
 
         <Tabs defaultValue="listings" className="space-y-6">
