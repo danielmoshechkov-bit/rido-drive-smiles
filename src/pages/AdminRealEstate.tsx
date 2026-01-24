@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
 import { TabsPill } from '@/components/ui/TabsPill';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { UserDropdown } from '@/components/UserDropdown';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { SystemAlertsButton } from '@/components/SystemAlertsButton';
 import {
@@ -73,6 +74,7 @@ const AdminRealEstate = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [settingsSubTab, setSettingsSubTab] = useState('ai');
   const [userEmail, setUserEmail] = useState('');
+  const [user, setUser] = useState<any>(null);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalAgencies: 0,
@@ -84,6 +86,16 @@ const AdminRealEstate = () => {
   const [loading, setLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  // Fetch user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user?.email) setUserEmail(user.email);
+    };
+    fetchUser();
+  }, []);
 
   // PWA install prompt detection
   useEffect(() => {
@@ -307,25 +319,11 @@ const AdminRealEstate = () => {
           {/* Desktop header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <div 
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/')}
-              >
-                <img
-                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-                  alt="Get RIDO Logo"
-                  className="h-6 w-6"
-                />
-              </div>
+              <UniversalHomeButton />
               <AdminPortalSwitcher />
             </div>
             <div className="flex items-center space-x-3">
-              <UserDropdown
-                userName="Administrator"
-                userRole="Admin Nieruchomości"
-                userEmail={userEmail}
-                onLogout={handleLogout}
-              />
+              <MyGetRidoButton user={user} />
               {!isAppInstalled && (
                 <Button
                   variant="outline"
@@ -345,16 +343,7 @@ const AdminRealEstate = () => {
           {/* Mobile header */}
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <div 
-                className="cursor-pointer"
-                onClick={() => navigate('/')}
-              >
-                <img
-                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-                  alt="Get RIDO Logo"
-                  className="h-6 w-6"
-                />
-              </div>
+              <UniversalHomeButton />
               <span className="text-sm font-semibold text-primary">
                 Admin Nieruchomości
               </span>
@@ -362,12 +351,7 @@ const AdminRealEstate = () => {
             <div className="flex items-center space-x-2">
               <AdminPortalSwitcher />
               <SystemAlertsButton />
-              <UserDropdown
-                userName="Admin"
-                userRole="Administrator"
-                userEmail={userEmail}
-                onLogout={handleLogout}
-              />
+              <MyGetRidoButton user={user} />
             </div>
           </div>
         </div>

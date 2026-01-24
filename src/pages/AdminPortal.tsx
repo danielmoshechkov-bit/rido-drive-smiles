@@ -8,6 +8,8 @@ import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement'
 import { UserRolesManager } from '@/components/UserRolesManager';
 import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
 import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2 } from 'lucide-react';
 
@@ -16,6 +18,7 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('api');
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     checkAdmin();
@@ -28,6 +31,7 @@ export default function AdminPortal() {
         navigate('/auth');
         return;
       }
+      setUser(user);
 
       // Check if user is admin (daniel.moshechkov@gmail.com)
       if (user.email === 'daniel.moshechkov@gmail.com') {
@@ -81,14 +85,10 @@ export default function AdminPortal() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-              alt="RIDO"
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => navigate('/easy')}
-            />
+            <UniversalHomeButton />
             <AdminPortalSwitcher />
           </div>
+          <MyGetRidoButton user={user} />
         </div>
       </header>
 
