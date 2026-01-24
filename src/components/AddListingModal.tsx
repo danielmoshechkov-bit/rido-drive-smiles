@@ -148,16 +148,9 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   };
 
   const handleCategoryClick = (tile: CategoryTile) => {
-    if (!user) {
-      // Store the category and show auth modal
-      setPendingCategory(tile);
-      setOpen(false);
-      setShowAuthModal(true);
-    } else {
-      // User is logged in, navigate directly
-      setOpen(false);
-      navigate(tile.link);
-    }
+    // Always navigate directly - login will be required at submit time
+    setOpen(false);
+    navigate(tile.link);
   };
 
   const handleAuthSuccess = () => {
