@@ -18,10 +18,17 @@ import {
   ArrowLeft,
   Wrench,
   Shield,
-  PenTool,
-  Hammer,
+  Palette,
+  Paintbrush,
   HardHat,
-  FileText
+  Receipt,
+  ShoppingCart,
+  Calculator,
+  Droplets,
+  Layers,
+  Home,
+  Wallet,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -89,13 +96,13 @@ const mainTiles: MarketplaceTile[] = [
   }
 ];
 
-// Motoryzacja sub-tiles
+// Motoryzacja sub-tiles - unique icons
 const motoryzacjaSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-auto',
     title: 'Portal Ogłoszeń',
     description: 'Kupuj, sprzedawaj, wymieniaj',
-    icon: Car,
+    icon: ShoppingCart,
     image: tileCars,
     link: '/gielda',
     available: true
@@ -104,16 +111,25 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     id: 'portal-rozliczen',
     title: 'Portal Rozliczeń',
     description: 'Zarządzaj flotą i kierowcami',
-    icon: Building2,
+    icon: Calculator,
     image: tileFleet,
     link: '/fleet',
+    available: true
+  },
+  {
+    id: 'portal-klienta',
+    title: 'Portal Klienta',
+    description: 'Historia zleceń i płatności',
+    icon: Wallet,
+    image: tileDriver,
+    link: '/klient',
     available: true
   },
   {
     id: 'warsztat',
     title: 'Warsztat',
     description: 'Naprawy i serwis samochodowy',
-    icon: Wrench,
+    icon: Settings,
     image: tileServices,
     link: '/uslugi?kategoria=warsztat',
     available: true
@@ -122,7 +138,7 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     id: 'detailing',
     title: 'Detailing',
     description: 'Pielęgnacja i zabezpieczenie',
-    icon: Sparkles,
+    icon: Droplets,
     image: tileServices,
     link: '/uslugi?kategoria=detailing',
     available: true
@@ -131,20 +147,20 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     id: 'ppf',
     title: 'Studio PPF',
     description: 'Folie ochronne i ceramika',
-    icon: Shield,
+    icon: Layers,
     image: tileServices,
     link: '/uslugi?kategoria=ppf',
     available: true
   }
 ];
 
-// Nieruchomości sub-tiles
+// Nieruchomości sub-tiles - unique icons
 const nieruchomosciSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-nieruchomosci',
     title: 'Portal Ogłoszeń',
     description: 'Mieszkania, domy, działki',
-    icon: Building,
+    icon: Home,
     image: tileRealEstate,
     link: '/nieruchomosci',
     available: true
@@ -153,7 +169,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     id: 'projektanci',
     title: 'Projektanci wnętrz',
     description: 'Projekty i wizualizacje',
-    icon: PenTool,
+    icon: Palette,
     image: tileServices,
     link: '/uslugi?kategoria=projektanci',
     available: true
@@ -162,7 +178,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     id: 'remonty',
     title: 'Remonty i wykończenia',
     description: 'Kompleksowe wykończenia',
-    icon: Hammer,
+    icon: Paintbrush,
     image: tileServices,
     link: '/uslugi?kategoria=remonty',
     available: true
@@ -347,7 +363,7 @@ export default function EasyHub() {
         id: 'invoices',
         title: 'Program do faktur',
         description: 'Wystawiaj faktury online',
-        icon: FileText,
+        icon: Receipt,
         image: null,
         link: '/faktury',
         available: true

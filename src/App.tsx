@@ -50,6 +50,7 @@ import AccountingDashboard from "./pages/AccountingDashboard";
 import InsuranceAgentRegister from "./pages/InsuranceAgentRegister";
 import InsuranceAgentDashboard from "./pages/InsuranceAgentDashboard";
 import InvoiceProgram from "./pages/InvoiceProgram";
+import ClientPortal from "./pages/ClientPortal";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +90,7 @@ const App = () => (
             <Route path="/wyniki" element={<UniversalSearchResults />} />
             <Route path="/ksiegowosc" element={<AccountingDashboard />} />
             <Route path="/faktury" element={<InvoiceProgram />} />
+            <Route path="/klient" element={<ClientPortal />} />
             <Route path="/ubezpieczenia/rejestracja" element={<InsuranceAgentRegister />} />
             <Route path="/ubezpieczenia/panel" element={<InsuranceAgentDashboard />} />
             <Route path="/fleet" element={<FleetLanding />} />
