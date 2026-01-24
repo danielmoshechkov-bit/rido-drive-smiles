@@ -32,8 +32,7 @@ export function AuthModal({
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showTermsError, setShowTermsError] = useState(false);
+  // Terms acceptance only for registration, not login
   
   // Register state
   const [registerData, setRegisterData] = useState({
@@ -64,11 +63,7 @@ export function AuthModal({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!acceptedTerms) {
-      setShowTermsError(true);
-      return;
-    }
-    setShowTermsError(false);
+    // No terms validation required for login
     setLoading(true);
     
     try {
@@ -346,33 +341,7 @@ export function AuthModal({
                 </label>
               </div>
               
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="login-terms"
-                    checked={acceptedTerms}
-                    onCheckedChange={(checked) => {
-                      setAcceptedTerms(checked as boolean);
-                      if (checked) setShowTermsError(false);
-                    }}
-                    className={showTermsError ? "border-destructive" : ""}
-                  />
-                  <label
-                    htmlFor="login-terms"
-                    className={`text-sm ${showTermsError ? "text-destructive" : ""}`}
-                  >
-                    Akceptuję{" "}
-                    <a href="/prawne?tab=regulamin" className="text-primary hover:underline" target="_blank">
-                      regulamin
-                    </a>
-                  </label>
-                </div>
-                {showTermsError && (
-                  <p className="text-sm text-destructive ml-6">
-                    Musisz zaakceptować regulamin
-                  </p>
-                )}
-              </div>
+              {/* Terms checkbox removed from login - only required during registration */}
               
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
