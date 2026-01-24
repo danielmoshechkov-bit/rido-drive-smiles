@@ -13,7 +13,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
-import tileServices from "@/assets/tile-services.jpg";
+import tileHandyman from "@/assets/tile-handyman.jpg";
 
 interface AddListingModalProps {
   user: any;
@@ -55,9 +55,9 @@ const categories: CategoryTile[] = [
   {
     id: 'services',
     title: 'Usługi',
-    description: 'Fotograf, mechanik, ubezpieczenia...',
+    description: 'Fachowcy, remonty, serwis',
     icon: Sparkles,
-    image: tileServices,
+    image: tileHandyman,
     link: '/uslugi/dodaj',
     featureKey: 'services_marketplace_enabled',
     available: false
