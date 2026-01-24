@@ -12,6 +12,7 @@ import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { ListingCard } from '@/components/marketplace/ListingCard';
 import { PropertyListingCard } from '@/components/realestate/PropertyListingCard';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
+import { cn } from '@/lib/utils';
 
 type ViewMode = 'grid' | 'compact' | 'list';
 type CategoryFilter = 'all' | 'vehicles' | 'realEstate' | 'services';
@@ -174,27 +175,61 @@ export default function UniversalSearchResults() {
         {/* Filters Row */}
         {hasSearched && (
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            {/* Category Tabs */}
+            {/* Category Tabs - Purple Pill Style */}
             <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
-              <TabsList>
-                <TabsTrigger value="all" className="gap-2">
+              <TabsList className="bg-primary text-white rounded-full p-1 h-auto gap-1">
+                <TabsTrigger 
+                  value="all" 
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150",
+                    "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
+                    "hover:bg-white/20 focus-visible:outline-none"
+                  )}
+                >
                   Wszystko
-                  {totalCounts.all > 0 && <Badge variant="secondary" className="ml-1">{totalCounts.all}</Badge>}
+                  {totalCounts.all > 0 && <Badge variant="secondary" className="ml-2 bg-white/20 text-white data-[state=active]:bg-primary/20 data-[state=active]:text-primary">{totalCounts.all}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="vehicles" className="gap-2" disabled={totalCounts.vehicles === 0}>
+                <TabsTrigger 
+                  value="vehicles" 
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
+                    "hover:bg-white/20 focus-visible:outline-none",
+                    "disabled:opacity-40"
+                  )}
+                  disabled={totalCounts.vehicles === 0}
+                >
                   <Car className="h-4 w-4" />
                   Pojazdy
-                  {totalCounts.vehicles > 0 && <Badge variant="secondary" className="ml-1">{totalCounts.vehicles}</Badge>}
+                  {totalCounts.vehicles > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.vehicles}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="realEstate" className="gap-2" disabled={totalCounts.realEstate === 0}>
+                <TabsTrigger 
+                  value="realEstate" 
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
+                    "hover:bg-white/20 focus-visible:outline-none",
+                    "disabled:opacity-40"
+                  )}
+                  disabled={totalCounts.realEstate === 0}
+                >
                   <Home className="h-4 w-4" />
                   Nieruchomości
-                  {totalCounts.realEstate > 0 && <Badge variant="secondary" className="ml-1">{totalCounts.realEstate}</Badge>}
+                  {totalCounts.realEstate > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.realEstate}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="services" className="gap-2" disabled={totalCounts.services === 0}>
+                <TabsTrigger 
+                  value="services" 
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
+                    "hover:bg-white/20 focus-visible:outline-none",
+                    "disabled:opacity-40"
+                  )}
+                  disabled={totalCounts.services === 0}
+                >
                   <Wrench className="h-4 w-4" />
                   Usługi
-                  {totalCounts.services > 0 && <Badge variant="secondary" className="ml-1">{totalCounts.services}</Badge>}
+                  {totalCounts.services > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.services}</Badge>}
                 </TabsTrigger>
               </TabsList>
             </Tabs>

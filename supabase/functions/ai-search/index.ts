@@ -523,23 +523,68 @@ serve(async (req) => {
     // Execute search based on type
     let results: any = {};
 
+    // Helper to extract city from explanation text
+    const extractCityFromText = (text: string): string | null => {
+      const cityPatterns = ['Warszaw', 'Krak', 'Gdań', 'Gdyni', 'Poznań', 'Wrocław', 'Łód', 'Szczecin', 'Lublin', 'Katowic', 'Bydgoszcz', 'Białystok'];
+      for (const pattern of cityPatterns) {
+        if (text.includes(pattern)) {
+          // Return proper city name
+          if (pattern === 'Warszaw') return 'Warszawa';
+          if (pattern === 'Krak') return 'Kraków';
+          if (pattern === 'Gdań') return 'Gdańsk';
+          if (pattern === 'Gdyni') return 'Gdynia';
+          if (pattern === 'Łód') return 'Łódź';
+          if (pattern === 'Katowic') return 'Katowice';
+          return pattern;
+        }
+      }
+      return null;
+    };
+
     if (isUniversal) {
       // Universal search - query all relevant tables
-      const vehicleFilters = parsedData.vehicle?.filters;
-      const realEstateFilters = parsedData.realEstate?.filters;
-      const servicesFilters = parsedData.services?.filters;
+      let vehicleFilters = parsedData.vehicle?.filters || {};
+      let realEstateFilters = parsedData.realEstate?.filters || {};
+      let servicesFilters = parsedData.services?.filters || {};
+      
+      // Check if AI identified categories even without filters
+      const hasVehicle = parsedData.vehicle !== null && parsedData.vehicle !== undefined;
+      const hasRealEstate = parsedData.realEstate !== null && parsedData.realEstate !== undefined;
+      const hasServices = parsedData.services !== null && parsedData.services !== undefined;
 
-      // Parallel queries
+      // Try to extract city from explanations if missing in filters
+      if (hasVehicle && !vehicleFilters.city && parsedData.vehicle?.explanation) {
+        const city = extractCityFromText(parsedData.vehicle.explanation);
+        if (city) vehicleFilters = { ...vehicleFilters, city };
+      }
+      if (hasRealEstate && !realEstateFilters.city && parsedData.realEstate?.explanation) {
+        const city = extractCityFromText(parsedData.realEstate.explanation);
+        if (city) realEstateFilters = { ...realEstateFilters, city };
+      }
+      if (hasServices && !servicesFilters.city && parsedData.services?.explanation) {
+        const city = extractCityFromText(parsedData.services.explanation);
+        if (city) servicesFilters = { ...servicesFilters, city };
+      }
+
+      // Also try to extract from original query
+      const queryCity = extractCityFromText(query);
+      if (queryCity) {
+        if (hasVehicle && !vehicleFilters.city) vehicleFilters = { ...vehicleFilters, city: queryCity };
+        if (hasRealEstate && !realEstateFilters.city) realEstateFilters = { ...realEstateFilters, city: queryCity };
+        if (hasServices && !servicesFilters.city) servicesFilters = { ...servicesFilters, city: queryCity };
+      }
+
+      // Parallel queries - execute if category was identified (even with empty filters)
       const promises: Promise<any>[] = [];
 
-      if (vehicleFilters && Object.keys(vehicleFilters).length > 0) {
-        promises.push(searchVehicles(supabase, vehicleFilters).then(r => ({ type: 'vehicles', data: r })));
+      if (hasVehicle) {
+        promises.push(searchVehicles(supabase, vehicleFilters).then(r => ({ type: 'vehicles', data: r, filters: vehicleFilters })));
       }
-      if (realEstateFilters && Object.keys(realEstateFilters).length > 0) {
-        promises.push(searchRealEstate(supabase, realEstateFilters).then(r => ({ type: 'realEstate', data: r })));
+      if (hasRealEstate) {
+        promises.push(searchRealEstate(supabase, realEstateFilters).then(r => ({ type: 'realEstate', data: r, filters: realEstateFilters })));
       }
-      if (servicesFilters && Object.keys(servicesFilters).length > 0) {
-        promises.push(searchServices(supabase, servicesFilters).then(r => ({ type: 'services', data: r })));
+      if (hasServices) {
+        promises.push(searchServices(supabase, servicesFilters).then(r => ({ type: 'services', data: r, filters: servicesFilters })));
       }
 
       const searchResults = await Promise.all(promises);
@@ -548,7 +593,7 @@ serve(async (req) => {
         results[result.type] = {
           items: result.data,
           count: result.data.length,
-          filters: result.type === 'vehicles' ? vehicleFilters : result.type === 'realEstate' ? realEstateFilters : servicesFilters,
+          filters: result.filters,
           explanation: parsedData[result.type === 'vehicles' ? 'vehicle' : result.type]?.explanation || ''
         };
       }
