@@ -964,97 +964,132 @@ export default function ClientPortal() {
 
           {/* Settings Tab */}
           {activeTab === 'ustawienia' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Ustawienia konta
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
-                  <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Ustawienia w budowie</p>
-                  <p className="text-sm mt-1">
-                    Wkrótce będziesz mógł zarządzać ustawieniami konta
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {/* Company Data Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Moje firmy
+                  </CardTitle>
+                  <CardDescription>
+                    Zarządzaj danymi firm do wystawiania faktur
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {userEntities.length > 0 ? (
+                    <div className="space-y-4">
+                      {userEntities.map((entity) => (
+                        <div key={entity.id} className="border rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <Building2 className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">{entity.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
+                            {entity.vat_payer ? 'VAT' : 'Bez VAT'}
+                          </Badge>
+                        </div>
+                      ))}
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowCompanySetup(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Dodaj kolejną firmę
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground mb-2">Nie masz jeszcze dodanej firmy</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Dodaj firmę, aby móc wystawiać faktury
+                      </p>
+                      <Button onClick={() => setShowCompanySetup(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Dodaj firmę
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Account Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Dane konta
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">{user?.email}</p>
+                      </div>
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Konto utworzone</p>
+                        <p className="font-medium">
+                          {user?.created_at ? new Date(user.created_at).toLocaleDateString('pl-PL') : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Preferences */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Preferencje
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">Powiadomienia email</p>
+                        <p className="text-sm text-muted-foreground">Otrzymuj powiadomienia o nowych wiadomościach</p>
+                      </div>
+                      <Badge variant="secondary">Wkrótce</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">Tryb ciemny</p>
+                        <p className="text-sm text-muted-foreground">Zmień wygląd interfejsu</p>
+                      </div>
+                      <Badge variant="secondary">Wkrótce</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* Account Switching Tab */}
           {activeTab === 'konta' && (
-            <>
-              <AccountSwitcherPanel
-                isDriverAccount={isDriverAccount}
-                isFleetAccount={isFleetAccount}
-                isMarketplaceAccount={isMarketplaceAccount}
-                isRealEstateAccount={isRealEstateAccount}
-                isAdminAccount={isAdminAccount}
-                isMarketplaceEnabled={true}
-                currentAccountType="marketplace"
-                navigate={navigate}
-              />
-              
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {isDriverAccount && (
-                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/driver')}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Car className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">Panel Kierowcy</p>
-                        <p className="text-sm text-muted-foreground">Rozliczenia i dokumenty</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {isFleetAccount && (
-                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/fleet/dashboard')}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Settings className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">Panel Floty</p>
-                        <p className="text-sm text-muted-foreground">Zarządzaj flotą</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {isRealEstateAccount && (
-                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/nieruchomosci/agent/panel')}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Home className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">Panel Agenta</p>
-                        <p className="text-sm text-muted-foreground">Nieruchomości</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {isAdminAccount && (
-                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/admin/dashboard')}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Settings className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">Panel Admina</p>
-                        <p className="text-sm text-muted-foreground">Zarządzaj platformą</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </>
+            <AccountSwitcherPanel
+              isDriverAccount={isDriverAccount}
+              isFleetAccount={isFleetAccount}
+              isMarketplaceAccount={isMarketplaceAccount}
+              isRealEstateAccount={isRealEstateAccount}
+              isAdminAccount={isAdminAccount}
+              isMarketplaceEnabled={true}
+              currentAccountType="marketplace"
+              navigate={navigate}
+            />
           )}
         </div>
       </main>
