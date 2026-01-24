@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -14,6 +15,15 @@ import {
   CheckCircle,
   Image
 } from 'lucide-react';
+
+const ENTITY_TYPES = [
+  { value: 'jdg', label: 'Jednoosobowa działalność gospodarcza (JDG)' },
+  { value: 'sp_zoo', label: 'Spółka z o.o.' },
+  { value: 'sp_jawna', label: 'Spółka jawna' },
+  { value: 'sp_komandytowa', label: 'Spółka komandytowa' },
+  { value: 'sp_akcyjna', label: 'Spółka akcyjna' },
+  { value: 'other', label: 'Inna forma prawna' }
+];
 
 interface CompanySetupWizardProps {
   open: boolean;
@@ -29,6 +39,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
   
   const [formData, setFormData] = useState({
     name: '',
+    type: 'jdg',
     nip: '',
     regon: '',
     address_street: '',
@@ -152,6 +163,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
       // This is more reliable with RLS policies
       const insertData = {
         name: formData.name.trim(),
+        type: formData.type,
         nip: formData.nip?.trim() || null,
         regon: formData.regon?.trim() || null,
         address_street: formData.address_street?.trim() || null,
@@ -161,8 +173,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
         phone: formData.phone?.trim() || null,
         bank_name: formData.bank_name?.trim() || null,
         bank_account: formData.bank_account?.trim() || null,
-        logo_url: formData.logo_url || null,
-        type: 'jdg'
+        logo_url: formData.logo_url || null
         // owner_user_id uses DB default: auth.uid()
       };
 
@@ -196,6 +207,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
       // Reset form
       setFormData({
         name: '',
+        type: 'jdg',
         nip: '',
         regon: '',
         address_street: '',
@@ -306,6 +318,24 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Nazwa firmy"
               />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Forma prawna</Label>
+              <Select 
+                value={formData.type} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz formę prawną" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENTITY_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>NIP</Label>
