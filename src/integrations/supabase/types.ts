@@ -3279,6 +3279,213 @@ export type Database = {
           },
         ]
       }
+      insurance_agents: {
+        Row: {
+          address: string | null
+          company_name: string
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean | null
+          license_number: string | null
+          nip: string | null
+          phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          company_name: string
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          license_number?: string | null
+          nip?: string | null
+          phone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          license_number?: string | null
+          nip?: string | null
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      insurance_notifications: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          current_premium: number | null
+          expiry_date: string
+          fleet_id: string | null
+          fleet_name: string | null
+          id: string
+          notification_type: string
+          policy_id: string | null
+          policy_type: string | null
+          read_at: string | null
+          sent_at: string | null
+          status: string
+          vehicle_brand: string | null
+          vehicle_id: string
+          vehicle_model: string | null
+          vehicle_plate: string | null
+          vehicle_vin: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          current_premium?: number | null
+          expiry_date: string
+          fleet_id?: string | null
+          fleet_name?: string | null
+          id?: string
+          notification_type: string
+          policy_id?: string | null
+          policy_type?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          status?: string
+          vehicle_brand?: string | null
+          vehicle_id: string
+          vehicle_model?: string | null
+          vehicle_plate?: string | null
+          vehicle_vin?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          current_premium?: number | null
+          expiry_date?: string
+          fleet_id?: string | null
+          fleet_name?: string | null
+          id?: string
+          notification_type?: string
+          policy_id?: string | null
+          policy_type?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          status?: string
+          vehicle_brand?: string | null
+          vehicle_id?: string
+          vehicle_model?: string | null
+          vehicle_plate?: string | null
+          vehicle_vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_notifications_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_notifications_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_notifications_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_notifications_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_offers: {
+        Row: {
+          agent_id: string
+          created_at: string
+          current_premium: number | null
+          fleet_id: string | null
+          fleet_response: string | null
+          id: string
+          offer_details: string | null
+          offer_premium: number
+          policy_type: string
+          responded_at: string | null
+          status: string
+          valid_until: string
+          vehicle_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          current_premium?: number | null
+          fleet_id?: string | null
+          fleet_response?: string | null
+          id?: string
+          offer_details?: string | null
+          offer_premium: number
+          policy_type: string
+          responded_at?: string | null
+          status?: string
+          valid_until: string
+          vehicle_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          current_premium?: number | null
+          fleet_id?: string | null
+          fleet_response?: string | null
+          id?: string
+          offer_details?: string | null
+          offer_premium?: number
+          policy_type?: string
+          responded_at?: string | null
+          status?: string
+          valid_until?: string
+          vehicle_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_offers_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_offers_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_offers_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string | null

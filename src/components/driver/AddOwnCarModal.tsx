@@ -50,6 +50,10 @@ export function AddOwnCarModal({
   const [weeklyPrice, setWeeklyPrice] = useState<number | "">("");
   const [inspValidTo, setInspValidTo] = useState<string>("");
   const [policyValidTo, setPolicyValidTo] = useState<string>("");
+  const [ocPremium, setOcPremium] = useState<number | "">("");
+  const [hasAC, setHasAC] = useState(false);
+  const [acValidTo, setAcValidTo] = useState<string>("");
+  const [acPremium, setAcPremium] = useState<number | "">("");
 
   const save = async () => {
     // Validate all required fields
@@ -140,9 +144,26 @@ export function AddOwnCarModal({
             policy_no: "TBA",
             provider: "TBA",
             valid_from: new Date().toISOString().slice(0, 10),
-            valid_to: policyValidTo
+            valid_to: policyValidTo,
+            premium: ocPremium === "" ? null : Number(ocPremium)
           });
-        if (policyError) console.warn("Ostrzeżenie: nie zapisano polisy:", policyError.message);
+        if (policyError) console.warn("Ostrzeżenie: nie zapisano polisy OC:", policyError.message);
+      }
+
+      // Dodaj polisę AC jeśli zaznaczona
+      if (hasAC && acValidTo) {
+        const { error: acError } = await supabase
+          .from("vehicle_policies")
+          .insert({
+            vehicle_id: veh.id,
+            type: "AC",
+            policy_no: "TBA",
+            provider: "TBA",
+            valid_from: new Date().toISOString().slice(0, 10),
+            valid_to: acValidTo,
+            premium: acPremium === "" ? null : Number(acPremium)
+          });
+        if (acError) console.warn("Ostrzeżenie: nie zapisano polisy AC:", acError.message);
       }
 
       // Automatyczne przypisanie do kierowcy od dziś
@@ -295,6 +316,11 @@ export function AddOwnCarModal({
               onChange={(e) => setInspValidTo(e.target.value)} 
             />
           </div>
+          
+          {/* OC Section */}
+          <div className="md:col-span-2 border-t pt-4 mt-2">
+            <p className="text-sm font-medium text-muted-foreground mb-3">Ubezpieczenie OC</p>
+          </div>
           <div>
             <Label>Polisa OC ważna do</Label>
             <Input 
@@ -303,6 +329,55 @@ export function AddOwnCarModal({
               onChange={(e) => setPolicyValidTo(e.target.value)} 
             />
           </div>
+          <div>
+            <Label>Składka OC (zł/rok)</Label>
+            <Input 
+              type="number" 
+              value={ocPremium} 
+              onChange={(e) => setOcPremium(e.target.value === "" ? "" : Number(e.target.value))} 
+              placeholder="np. 1200" 
+              min="0"
+            />
+          </div>
+          
+          {/* AC Section */}
+          <div className="md:col-span-2 border-t pt-4 mt-2">
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="hasAC" 
+                checked={hasAC} 
+                onChange={(e) => setHasAC(e.target.checked)} 
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="hasAC" className="text-sm font-medium text-muted-foreground cursor-pointer">
+                Pojazd posiada ubezpieczenie AC
+              </Label>
+            </div>
+          </div>
+          
+          {hasAC && (
+            <>
+              <div>
+                <Label>Polisa AC ważna do</Label>
+                <Input 
+                  type="date" 
+                  value={acValidTo} 
+                  onChange={(e) => setAcValidTo(e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label>Składka AC (zł/rok)</Label>
+                <Input 
+                  type="number" 
+                  value={acPremium} 
+                  onChange={(e) => setAcPremium(e.target.value === "" ? "" : Number(e.target.value))} 
+                  placeholder="np. 2500" 
+                  min="0"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter className="mt-4">
