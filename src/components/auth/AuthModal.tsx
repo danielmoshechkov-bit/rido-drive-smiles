@@ -15,6 +15,8 @@ interface AuthModalProps {
   initialMode?: "login" | "register";
   onSuccess?: () => void;
   redirectAfterLogin?: string;
+  /** Custom description to show in the header (e.g., "Zaloguj się, aby zobaczyć kontakt") */
+  customDescription?: string;
 }
 
 export function AuthModal({ 
@@ -22,7 +24,8 @@ export function AuthModal({
   onOpenChange, 
   initialMode = "login",
   onSuccess,
-  redirectAfterLogin
+  redirectAfterLogin,
+  customDescription
 }: AuthModalProps) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">(initialMode);
@@ -244,9 +247,11 @@ export function AuthModal({
                 <DialogDescription className="text-sm">
                   {showResetForm 
                     ? "Podaj email, wyślemy Ci link do resetowania"
-                    : mode === "login"
-                      ? "Zaloguj się, aby kontynuować"
-                      : "Jedno konto – kupuj, sprzedawaj, zarządzaj"
+                    : customDescription 
+                      ? customDescription
+                      : mode === "login"
+                        ? "Zaloguj się, aby kontynuować"
+                        : "Jedno konto – kupuj, sprzedawaj, zarządzaj"
                   }
                 </DialogDescription>
               </div>

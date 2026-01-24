@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -40,7 +41,8 @@ import {
   Sparkles,
   Loader2,
   Send,
-  Building2
+  Building2,
+  LogIn
 } from 'lucide-react';
 import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
@@ -89,6 +91,7 @@ export default function InvoiceProgram() {
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showCostInvoice, setShowCostInvoice] = useState(false);
   const [showCompanySetup, setShowCompanySetup] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   // AI Voice
   const [isListening, setIsListening] = useState(false);
@@ -132,13 +135,17 @@ export default function InvoiceProgram() {
   const checkAccess = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
-    
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    
+    // Allow guest access - don't redirect to auth
     setLoading(false);
+  };
+
+  // Require login for actions (creating invoices, etc.)
+  const requireLogin = (): boolean => {
+    if (!user) {
+      setShowAuthModal(true);
+      return false;
+    }
+    return true;
   };
 
   // Fetch entities for any authenticated user
@@ -510,7 +517,9 @@ export default function InvoiceProgram() {
                 </SelectContent>
               </Select>
             )}
-            <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)}>
+            <Button variant="outline" size="sm" onClick={() => {
+              if (requireLogin()) setShowCompanySetup(true);
+            }}>
               <Plus className="h-4 w-4 mr-1" />
               Dodaj firmę
             </Button>
@@ -561,7 +570,9 @@ export default function InvoiceProgram() {
                 Aby wystawiać faktury, najpierw dodaj dane swojej firmy (sprzedawcy). 
                 Dane te będą automatycznie uzupełniane na każdej fakturze.
               </p>
-              <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
+              <Button onClick={() => {
+                if (requireLogin()) setShowCompanySetup(true);
+              }} size="lg" className="gap-2">
                 <Plus className="h-5 w-5" />
                 Dodaj firmę sprzedawcy
               </Button>
@@ -958,6 +969,18 @@ export default function InvoiceProgram() {
         open={showCompanySetup}
         onOpenChange={setShowCompanySetup}
         onCreated={handleCompanyCreated}
+      />
+
+      {/* Auth Modal for login prompts */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        initialMode="login"
+        customDescription="Zaloguj się, aby korzystać z programu do faktur"
+        onSuccess={() => {
+          setShowAuthModal(false);
+          checkAccess();
+        }}
       />
     </div>
   );
