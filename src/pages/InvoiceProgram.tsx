@@ -50,6 +50,7 @@ import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPan
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { ContractorsList } from '@/components/invoices/ContractorsList';
 import { MonthlySummaryDialog, MonthlySummaryData } from '@/components/invoices/MonthlySummaryDialog';
+import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -592,34 +593,48 @@ export default function InvoiceProgram() {
           </p>
         </div>
 
-        {/* No Company State - show different message for logged in vs guest */}
+        {/* Guest view - show SimpleFreeInvoice without login */}
         {!user ? (
-          <Card className="max-w-lg mx-auto mb-8">
-            <CardContent className="p-8 text-center">
-              <Receipt className="h-16 w-16 mx-auto mb-4 text-primary/60" />
-              <h3 className="text-xl font-semibold mb-2">Program do Faktur</h3>
-              <p className="text-muted-foreground mb-6">
-                Wystawiaj faktury VAT, proformy, korekty i więcej. Zarządzaj kosztami i kontrahentami w jednym miejscu.
-              </p>
-              <Button onClick={() => setShowAuthModal(true)} size="lg" className="gap-2">
-                <LogIn className="h-5 w-5" />
-                Zaloguj się, aby rozpocząć
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="max-w-4xl mx-auto">
+            <SimpleFreeInvoice />
+            
+            {/* Login prompt at bottom */}
+            <Card className="mt-8 border-primary/20">
+              <CardContent className="p-6 text-center">
+                <p className="text-muted-foreground mb-4">
+                  Chcesz zapisywać faktury, zarządzać kontrahentami i generować raporty?
+                </p>
+                <Button onClick={() => setShowAuthModal(true)} variant="outline" className="gap-2">
+                  <LogIn className="h-4 w-4" />
+                  Zaloguj się do pełnego portalu
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         ) : entities.length === 0 ? (
           <Card className="max-w-lg mx-auto mb-8">
             <CardContent className="p-8 text-center">
               <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-semibold mb-2">Skonfiguruj swoją firmę</h3>
               <p className="text-muted-foreground mb-6">
-                Aby wystawiać faktury, najpierw dodaj dane swojej firmy (sprzedawcy). 
+                Aby wystawiać faktury z zapisywaniem, najpierw dodaj dane swojej firmy (sprzedawcy). 
                 Dane te będą automatycznie uzupełniane na każdej fakturze.
               </p>
-              <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
-                <Plus className="h-5 w-5" />
-                Dodaj firmę sprzedawcy
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
+                  <Plus className="h-5 w-5" />
+                  Dodaj firmę sprzedawcy
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  onClick={() => setShowNewInvoice(true)}
+                  className="gap-2"
+                >
+                  <FileText className="h-5 w-5" />
+                  Wystaw bez firmy
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : null}

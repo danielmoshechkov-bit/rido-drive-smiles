@@ -162,7 +162,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
         bank_name: formData.bank_name?.trim() || null,
         bank_account: formData.bank_account?.trim() || null,
         logo_url: formData.logo_url || null,
-        type: 'company'
+        type: 'jdg'
         // owner_user_id uses DB default: auth.uid()
       };
 
