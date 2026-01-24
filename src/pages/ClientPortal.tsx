@@ -2,27 +2,67 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft,
   Car,
+  Home,
   FileText,
   Clock,
   CheckCircle,
-  Wallet,
+  User,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Heart,
+  ShoppingCart,
+  Settings,
+  RefreshCw,
+  Package,
+  Plus,
+  LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface VehicleListing {
+  id: string;
+  title: string;
+  price: number;
+  status: string;
+  created_at: string;
+  photos: string[];
+}
+
+interface PropertyListing {
+  id: string;
+  title: string;
+  price: number;
+  status: string;
+  created_at: string;
+  photos: string[];
+}
 
 export default function ClientPortal() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ogloszenia');
+  
+  // Account types
+  const [isDriverAccount, setIsDriverAccount] = useState(false);
+  const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
+  
+  // User listings
+  const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
+  const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
+  const [favorites, setFavorites] = useState<any[]>([]);
 
   useEffect(() => {
     checkUser();
@@ -37,8 +77,134 @@ export default function ClientPortal() {
       navigate('/easy/login');
       return;
     }
+
+    // Check account types
+    await Promise.all([
+      checkDriverAccount(user.id),
+      checkFleetAccount(user.id),
+      checkMarketplaceAccount(user.id),
+      checkRealEstateAccount(user.id),
+      checkAdminAccount(user.id),
+      fetchUserListings(user.id),
+      fetchUserFavorites(user.id)
+    ]);
     
     setLoading(false);
+  };
+
+  const checkDriverAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('driver_app_users')
+      .select('driver_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setIsDriverAccount(!!data?.driver_id);
+  };
+
+  const checkFleetAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['fleet_settlement', 'fleet_rental'])
+      .maybeSingle();
+    setIsFleetAccount(!!data);
+  };
+
+  const checkMarketplaceAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('marketplace_user_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setIsMarketplaceAccount(!!data);
+  };
+
+  const checkRealEstateAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('real_estate_agents')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setIsRealEstateAccount(!!data);
+  };
+
+  const checkAdminAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    setIsAdminAccount(!!data);
+  };
+
+  const fetchUserListings = async (userId: string) => {
+    // Fetch vehicle listings
+    const vehicleResult = await (supabase as any)
+      .from('vehicle_listings')
+      .select('id, title, price, status, created_at, photos')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (vehicleResult.data) {
+      setVehicleListings(vehicleResult.data as VehicleListing[]);
+    }
+
+    // Fetch property listings (via real estate agent if applicable)
+    const agentResult = await (supabase as any)
+      .from('real_estate_agents')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (agentResult.data) {
+      const propertyResult = await (supabase as any)
+        .from('property_listings')
+        .select('id, title, price, status, created_at, photos')
+        .eq('agent_id', agentResult.data.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (propertyResult.data) {
+        setPropertyListings(propertyResult.data as PropertyListing[]);
+      }
+    }
+  };
+
+  const fetchUserFavorites = async (userId: string) => {
+    const favResult = await (supabase as any)
+      .from('vehicle_favorites')
+      .select('id, vehicle_id')
+      .eq('user_id', userId)
+      .limit(10);
+    
+    const favData = favResult.data as { id: string; vehicle_id: string }[] | null;
+    
+    if (favData && favData.length > 0) {
+      // Fetch the related vehicle listings
+      const vehicleIds = favData.map((f: any) => f.vehicle_id);
+      const vehicleResult = await (supabase as any)
+        .from('vehicle_listings')
+        .select('id, title, price, photos')
+        .in('id', vehicleIds);
+      
+      const vehicleData = vehicleResult.data as { id: string; title: string; price: number; photos: string[] }[] | null;
+      
+      if (vehicleData) {
+        const favoritesWithVehicles = favData.map((fav: any) => ({
+          ...fav,
+          vehicle_listings: vehicleData.find((v: any) => v.id === fav.vehicle_id)
+        }));
+        setFavorites(favoritesWithVehicles);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
   };
 
   if (loading) {
@@ -49,31 +215,23 @@ export default function ClientPortal() {
     );
   }
 
-  // Mock data for demo
-  const mockServices = [
-    { id: '1', service: 'Detailing Premium', provider: 'Auto Spa Warszawa', date: '2026-01-15', status: 'completed', amount: 850 },
-    { id: '2', service: 'Wymiana opon', provider: 'TireMax', date: '2026-01-10', status: 'completed', amount: 320 },
-    { id: '3', service: 'Folia PPF - maska', provider: 'PPF Studio Pro', date: '2026-01-20', status: 'scheduled', amount: 2500 },
-  ];
-
-  const mockInvoices = [
-    { id: '1', number: 'FV/2026/01/045', provider: 'Auto Spa Warszawa', date: '2026-01-15', amount: 850, status: 'paid' },
-    { id: '2', number: 'FV/2026/01/089', provider: 'TireMax', date: '2026-01-10', amount: 320, status: 'paid' },
-  ];
-
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
-      case 'paid':
-        return <Badge className="bg-green-500/10 text-green-600">Zakończone</Badge>;
-      case 'scheduled':
-        return <Badge className="bg-blue-500/10 text-blue-600">Zaplanowane</Badge>;
+      case 'active':
+        return <Badge className="bg-green-500/10 text-green-600">Aktywne</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-500/10 text-yellow-600">Oczekuje</Badge>;
+      case 'sold':
+      case 'completed':
+        return <Badge className="bg-blue-500/10 text-blue-600">Zakończone</Badge>;
+      case 'inactive':
+        return <Badge className="bg-muted text-muted-foreground">Nieaktywne</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
+
+  const totalListings = vehicleListings.length + propertyListings.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,26 +241,31 @@ export default function ClientPortal() {
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
             <div className="hidden sm:flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
-              <span className="font-bold text-lg">Portal Klienta</span>
+              <User className="h-5 w-5 text-primary" />
+              <span className="font-bold text-lg">Moje konto</span>
             </div>
           </div>
-          <MyGetRidoButton user={user} />
+          <div className="flex items-center gap-2">
+            <MyGetRidoButton user={user} />
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6">
         {/* Back Button */}
-        <Button variant="ghost" size="sm" className="mb-6" onClick={() => navigate('/?kategoria=motoryzacja')}>
+        <Button variant="ghost" size="sm" className="mb-6" onClick={() => navigate('/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Wróć do Motoryzacji
+          Wróć do strony głównej
         </Button>
 
         {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Witaj w Portalu Klienta</h1>
+          <h1 className="text-3xl font-bold">Witaj, {user?.email?.split('@')[0]}!</h1>
           <p className="text-muted-foreground mt-1">
-            Śledź swoje zlecenia, faktury i płatności
+            Zarządzaj swoimi ogłoszeniami, zakupami i ustawieniami
           </p>
         </div>
 
@@ -112,11 +275,11 @@ export default function ClientPortal() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <Car className="h-5 w-5 text-primary" />
+                  <Package className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">3</p>
-                  <p className="text-sm text-muted-foreground">Zlecenia</p>
+                  <p className="text-2xl font-bold">{totalListings}</p>
+                  <p className="text-sm text-muted-foreground">Ogłoszenia</p>
                 </div>
               </div>
             </CardContent>
@@ -125,12 +288,12 @@ export default function ClientPortal() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 rounded-lg bg-red-500/10">
+                  <Heart className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">2</p>
-                  <p className="text-sm text-muted-foreground">Zakończone</p>
+                  <p className="text-2xl font-bold">{favorites.length}</p>
+                  <p className="text-sm text-muted-foreground">Obserwowane</p>
                 </div>
               </div>
             </CardContent>
@@ -140,11 +303,11 @@ export default function ClientPortal() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                  <ShoppingCart className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">1</p>
-                  <p className="text-sm text-muted-foreground">Zaplanowane</p>
+                  <p className="text-2xl font-bold">0</p>
+                  <p className="text-sm text-muted-foreground">Zakupy</p>
                 </div>
               </div>
             </CardContent>
@@ -154,11 +317,11 @@ export default function ClientPortal() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-purple-500/10">
-                  <FileText className="h-5 w-5 text-purple-600" />
+                  <MessageSquare className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">2</p>
-                  <p className="text-sm text-muted-foreground">Faktury</p>
+                  <p className="text-2xl font-bold">0</p>
+                  <p className="text-sm text-muted-foreground">Wiadomości</p>
                 </div>
               </div>
             </CardContent>
@@ -166,99 +329,195 @@ export default function ClientPortal() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="bg-muted/50 p-1 rounded-xl">
-            <TabsTrigger value="services" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Historia zleceń
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-muted/50 p-1 rounded-xl flex-wrap h-auto">
+            <TabsTrigger value="ogloszenia" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Package className="h-4 w-4 mr-2" />
+              Moje ogłoszenia
             </TabsTrigger>
-            <TabsTrigger value="invoices" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Faktury
+            <TabsTrigger value="obserwowane" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Heart className="h-4 w-4 mr-2" />
+              Obserwowane
             </TabsTrigger>
-            <TabsTrigger value="messages" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="wiadomosci" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <MessageSquare className="h-4 w-4 mr-2" />
               Wiadomości
+            </TabsTrigger>
+            <TabsTrigger value="konta" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Przełącz konto
             </TabsTrigger>
           </TabsList>
 
-          {/* Services Tab */}
-          <TabsContent value="services">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Historia zleceń
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockServices.map((service) => (
-                    <div
-                      key={service.id}
-                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <Car className="h-5 w-5 text-primary" />
+          {/* My Listings Tab */}
+          <TabsContent value="ogloszenia">
+            <div className="space-y-6">
+              {/* Vehicle Listings */}
+              {vehicleListings.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Car className="h-5 w-5" />
+                      Ogłoszenia motoryzacyjne
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {vehicleListings.map((listing) => (
+                        <div
+                          key={listing.id}
+                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}
+                        >
+                          <div className="flex items-center gap-4">
+                            {listing.photos?.[0] ? (
+                              <img 
+                                src={listing.photos[0]} 
+                                alt={listing.title}
+                                className="w-16 h-12 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                                <Car className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold">{listing.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(listing.created_at).toLocaleDateString('pl-PL')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                            {getStatusBadge(listing.status)}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{service.service}</p>
-                          <p className="text-sm text-muted-foreground">{service.provider}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">{service.amount.toLocaleString('pl-PL')} PLN</p>
-                          <p className="text-sm text-muted-foreground">{service.date}</p>
-                        </div>
-                        {getStatusBadge(service.status)}
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Property Listings */}
+              {propertyListings.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Home className="h-5 w-5" />
+                      Ogłoszenia nieruchomości
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {propertyListings.map((listing) => (
+                        <div
+                          key={listing.id}
+                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                        >
+                          <div className="flex items-center gap-4">
+                            {listing.photos?.[0] ? (
+                              <img 
+                                src={listing.photos[0]} 
+                                alt={listing.title}
+                                className="w-16 h-12 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                                <Home className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold">{listing.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(listing.created_at).toLocaleDateString('pl-PL')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                            {getStatusBadge(listing.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty State */}
+              {totalListings === 0 && (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="font-semibold mb-2">Brak ogłoszeń</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Nie masz jeszcze żadnych ogłoszeń
+                    </p>
+                    <Button onClick={() => navigate('/gielda/dodaj-pojazd')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Dodaj ogłoszenie
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
 
-          {/* Invoices Tab */}
-          <TabsContent value="invoices">
+          {/* Favorites Tab */}
+          <TabsContent value="obserwowane">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Otrzymane faktury
+                  <Heart className="h-5 w-5" />
+                  Obserwowane ogłoszenia
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-lg bg-purple-500/10">
-                          <FileText className="h-5 w-5 text-purple-600" />
+                {favorites.length > 0 ? (
+                  <div className="space-y-4">
+                    {favorites.map((fav) => (
+                      <div
+                        key={fav.id}
+                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/gielda/ogloszenie/${fav.vehicle_id}`)}
+                      >
+                        <div className="flex items-center gap-4">
+                          {fav.vehicle_listings?.photos?.[0] ? (
+                            <img 
+                              src={fav.vehicle_listings.photos[0]} 
+                              alt={fav.vehicle_listings.title}
+                              className="w-16 h-12 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                              <Car className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold">{fav.vehicle_listings?.title}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{invoice.number}</p>
-                          <p className="text-sm text-muted-foreground">{invoice.provider}</p>
-                        </div>
+                        <p className="font-semibold">{fav.vehicle_listings?.price?.toLocaleString('pl-PL')} PLN</p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">{invoice.amount.toLocaleString('pl-PL')} PLN</p>
-                          <p className="text-sm text-muted-foreground">{invoice.date}</p>
-                        </div>
-                        {getStatusBadge(invoice.status)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Brak obserwowanych ogłoszeń</p>
+                    <p className="text-sm mt-1">
+                      Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Messages Tab */}
-          <TabsContent value="messages">
+          <TabsContent value="wiadomosci">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -271,11 +530,84 @@ export default function ClientPortal() {
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Brak nowych wiadomości</p>
                   <p className="text-sm mt-1">
-                    Tutaj pojawią się wiadomości od wykonawców
+                    Tutaj pojawią się wiadomości od sprzedawców i kupujących
                   </p>
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Account Switching Tab */}
+          <TabsContent value="konta">
+            <AccountSwitcherPanel
+              isDriverAccount={isDriverAccount}
+              isFleetAccount={isFleetAccount}
+              isMarketplaceAccount={isMarketplaceAccount}
+              isRealEstateAccount={isRealEstateAccount}
+              isAdminAccount={isAdminAccount}
+              isMarketplaceEnabled={true}
+              currentAccountType="marketplace"
+              navigate={navigate}
+            />
+            
+            {/* Quick actions based on account types */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {isDriverAccount && (
+                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/driver')}>
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10">
+                      <Car className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Panel Kierowcy</p>
+                      <p className="text-sm text-muted-foreground">Rozliczenia i dokumenty</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {isFleetAccount && (
+                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/fleet/dashboard')}>
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-blue-500/10">
+                      <Settings className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Panel Floty</p>
+                      <p className="text-sm text-muted-foreground">Zarządzaj flotą</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {isRealEstateAccount && (
+                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/nieruchomosci/agent/panel')}>
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-green-500/10">
+                      <Home className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Panel Agenta</p>
+                      <p className="text-sm text-muted-foreground">Nieruchomości</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {isAdminAccount && (
+                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/admin/dashboard')}>
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-purple-500/10">
+                      <Settings className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Panel Admina</p>
+                      <p className="text-sm text-muted-foreground">Zarządzaj platformą</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>
