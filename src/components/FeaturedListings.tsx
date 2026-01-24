@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
-  Car, 
+  Car,
   Home, 
   Wrench, 
   Heart, 
@@ -47,6 +53,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // TODO: Future - user location for proximity sorting
   // const [userCity, setUserCity] = useState<string | null>(null);
@@ -175,7 +182,19 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     } else if (activeCategory === 'services') {
       navigate('/uslugi');
     } else {
-      navigate('/wyniki');
+      // Show category selection modal when "Wszystko" is active
+      setShowCategoryModal(true);
+    }
+  };
+
+  const handleCategorySelect = (category: 'vehicles' | 'properties' | 'services') => {
+    setShowCategoryModal(false);
+    if (category === 'vehicles') {
+      navigate('/gielda');
+    } else if (category === 'properties') {
+      navigate('/nieruchomosci');
+    } else if (category === 'services') {
+      navigate('/uslugi');
     }
   };
 
@@ -404,6 +423,57 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
+
+      {/* Category Selection Modal */}
+      <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">
+              Wybierz kategorię
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 py-4">
+            <button
+              onClick={() => handleCategorySelect('vehicles')}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <Car className="h-6 w-6" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold">Motoryzacja</h3>
+                <p className="text-sm text-muted-foreground">Samochody, motocykle, pojazdy</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleCategorySelect('properties')}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <Home className="h-6 w-6" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold">Nieruchomości</h3>
+                <p className="text-sm text-muted-foreground">Mieszkania, domy, działki</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleCategorySelect('services')}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <Wrench className="h-6 w-6" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold">Usługi</h3>
+                <p className="text-sm text-muted-foreground">Warsztaty, remonty, fachowcy</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
