@@ -17,6 +17,7 @@ import { ExportPanel } from '@/components/accounting/ExportPanel';
 import { MonthlyReportPanel } from '@/components/accounting/MonthlyReportPanel';
 import { FleetPaymentPanel } from '@/components/accounting/FleetPaymentPanel';
 import { RecurringInvoicesPanel } from '@/components/accounting/RecurringInvoicesPanel';
+import { HighValuePaymentsReport } from '@/components/accounting/HighValuePaymentsReport';
 import { 
   Building2, 
   FileText, 
@@ -561,6 +562,9 @@ export default function AccountingDashboard() {
           <TabsContent value="reports" className="space-y-4">
             {selectedEntityId ? (
               <div className="space-y-6">
+                {/* High Value Payments Report */}
+                <HighValuePaymentsReport entityId={selectedEntityId} />
+                
                 <MonthlyReportPanel entityId={selectedEntityId} />
                 <ExportPanel entityId={selectedEntityId} />
               </div>
