@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Users, Plus, UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -13,6 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 type AppRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'marketplace_user' | 'real_estate_admin' | 'real_estate_agent' | 'accounting_admin' | 'accountant';
 
@@ -33,11 +44,26 @@ interface AuthUser {
   roles: UserRole[];
 }
 
+const AVAILABLE_ROLES: { value: AppRole; label: string; description: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }[] = [
+  { value: 'admin', label: 'Administrator', description: 'Pełny dostęp do systemu', variant: 'destructive' },
+  { value: 'fleet_settlement', label: 'Rozliczenia flotowe', description: 'Dostęp do rozliczeń kierowców', variant: 'default' },
+  { value: 'fleet_rental', label: 'Wynajem flotowy', description: 'Zarządzanie pojazdami', variant: 'secondary' },
+  { value: 'driver', label: 'Kierowca', description: 'Panel kierowcy', variant: 'outline' },
+  { value: 'accounting_admin', label: 'Admin Księgowy', description: 'Panel księgowy i faktury', variant: 'default' },
+  { value: 'accountant', label: 'Księgowy', description: 'Pracownik biura księgowego', variant: 'secondary' },
+];
+
 export function UserRolesManager() {
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingUser, setSavingUser] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRoles, setNewUserRoles] = useState<AppRole[]>([]);
+  const [newUserFleetId, setNewUserFleetId] = useState<string>('');
+  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -45,17 +71,34 @@ export function UserRolesManager() {
 
   const fetchData = async () => {
     try {
-      // Fetch all auth users
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Musisz być zalogowany');
+        setLoading(false);
+        return;
+      }
+
+      // Use edge function to list users
+      const response = await fetch(
+        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/admin-list-users',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
       
-      if (authError) throw authError;
+      if (!result.success) {
+        throw new Error(result.error || 'Błąd pobierania użytkowników');
+      }
 
-      // Fetch all user roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      if (rolesError) throw rolesError;
+      setUsers(result.users || []);
 
       // Fetch all fleets
       const { data: fleetsData, error: fleetsError } = await supabase
@@ -63,17 +106,8 @@ export function UserRolesManager() {
         .select('id, name');
 
       if (fleetsError) throw fleetsError;
-
       setFleets(fleetsData || []);
 
-      // Combine users with their roles
-      const usersWithRoles = authData.users.map(user => ({
-        id: user.id,
-        email: user.email || '',
-        roles: rolesData?.filter(r => r.user_id === user.id) || []
-      }));
-
-      setUsers(usersWithRoles);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error('Błąd ładowania danych: ' + error.message);
@@ -149,6 +183,72 @@ export function UserRolesManager() {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword) {
+      toast.error('Email i hasło są wymagane');
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      toast.error('Hasło musi mieć minimum 6 znaków');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Musisz być zalogowany');
+        return;
+      }
+
+      const response = await fetch(
+        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/admin-create-user',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: newUserEmail,
+            password: newUserPassword,
+            roles: newUserRoles,
+            fleet_id: newUserFleetId || null,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Błąd tworzenia użytkownika');
+      }
+
+      toast.success(`Utworzono użytkownika ${newUserEmail}`);
+      setCreateDialogOpen(false);
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRoles([]);
+      setNewUserFleetId('');
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error('Błąd: ' + error.message);
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const toggleNewUserRole = (role: AppRole) => {
+    setNewUserRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
+  };
+
   if (loading) {
     return (
       <Card>
@@ -162,13 +262,110 @@ export function UserRolesManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Zarządzanie rolami użytkowników
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Zaznacz checkboxy aby przypisać role użytkownikom. Role określają dostęp do funkcji systemu.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Zarządzanie rolami użytkowników
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Zaznacz checkboxy aby przypisać role użytkownikom. Role określają dostęp do funkcji systemu.
+            </p>
+          </div>
+          
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Dodaj użytkownika
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Utwórz nowego użytkownika</DialogTitle>
+                <DialogDescription>
+                  Podaj email, hasło i wybierz role dla nowego użytkownika.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="uzytkownik@example.com"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Hasło</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Minimum 6 znaków"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Role (opcjonalnie)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {AVAILABLE_ROLES.map(role => (
+                      <div key={role.value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`new-${role.value}`}
+                          checked={newUserRoles.includes(role.value)}
+                          onCheckedChange={() => toggleNewUserRole(role.value)}
+                        />
+                        <Label htmlFor={`new-${role.value}`} className="text-sm cursor-pointer">
+                          {role.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {(newUserRoles.includes('fleet_settlement') || newUserRoles.includes('fleet_rental')) && (
+                  <div className="space-y-2">
+                    <Label>Flota</Label>
+                    <Select value={newUserFleetId} onValueChange={setNewUserFleetId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz flotę" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fleets.map(fleet => (
+                          <SelectItem key={fleet.id} value={fleet.id}>
+                            {fleet.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Anuluj
+                </Button>
+                <Button onClick={handleCreateUser} disabled={creatingUser}>
+                  {creatingUser ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Tworzę...
+                    </>
+                  ) : (
+                    'Utwórz użytkownika'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {users.map(user => (
@@ -304,10 +501,28 @@ export function UserRolesManager() {
                 />
                 <div className="space-y-1">
                   <Label htmlFor={`${user.id}-accounting_admin`} className="cursor-pointer">
-                    <Badge className="ml-1 bg-emerald-600">Księgowy</Badge>
+                    <Badge className="ml-1 bg-emerald-600">Admin Księgowy</Badge>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Dostęp do panelu księgowego i faktur
+                    Pełny dostęp do panelu księgowego
+                  </p>
+                </div>
+              </div>
+
+              {/* Accountant Role */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id={`${user.id}-accountant`}
+                  checked={hasRole(user.id, 'accountant')}
+                  onCheckedChange={() => toggleRole(user.id, 'accountant')}
+                  disabled={savingUser === user.id}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor={`${user.id}-accountant`} className="cursor-pointer">
+                    <Badge variant="secondary" className="ml-1">Księgowy</Badge>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Pracownik biura księgowego
                   </p>
                 </div>
               </div>
@@ -316,9 +531,20 @@ export function UserRolesManager() {
         ))}
 
         {users.length === 0 && (
-          <p className="text-center text-muted-foreground py-8">
-            Brak użytkowników w systemie
-          </p>
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">
+              Brak użytkowników w systemie
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Dodaj pierwszego użytkownika
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

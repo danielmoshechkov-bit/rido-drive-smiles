@@ -147,3 +147,9 @@ verify_jwt = false
 
 [functions.registry-whitelist]
 verify_jwt = false
+
+[functions.admin-list-users]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false

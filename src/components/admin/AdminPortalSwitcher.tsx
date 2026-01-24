@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +63,13 @@ const portals: Portal[] = [
     path: '/admin/uslugi',
     description: 'Zarządzanie usługami i wykonawcami',
   },
+  {
+    id: 'accounting',
+    name: 'Księgowość',
+    icon: Calculator,
+    path: '/ksiegowosc',
+    description: 'Panel księgowy i faktury',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -84,6 +91,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/admin/uslugi')) {
       return portals.find((p) => p.id === 'services');
+    }
+    if (location.pathname.includes('/ksiegowosc')) {
+      return portals.find((p) => p.id === 'accounting');
     }
     return portals.find((p) => p.id === 'fleet');
   };

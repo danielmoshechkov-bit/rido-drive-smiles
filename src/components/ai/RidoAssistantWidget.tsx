@@ -21,6 +21,13 @@ import { ConfirmationScreen } from "./ConfirmationScreen";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Import global type from VoiceInput
+declare global {
+  interface Window {
+    __voiceInputStopRecording?: () => void;
+  }
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -83,6 +90,16 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Stop recording when widget closes
+  useEffect(() => {
+    if (!isOpen) {
+      // @ts-ignore - access global function from VoiceInput
+      if (typeof window !== 'undefined' && window.__voiceInputStopRecording) {
+        window.__voiceInputStopRecording();
+      }
     }
   }, [isOpen]);
 
