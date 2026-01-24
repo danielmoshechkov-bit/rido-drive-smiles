@@ -148,6 +148,8 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
 
       console.log('Creating entity with owner_user_id:', user.id, 'email:', user.email);
 
+      // Don't pass owner_user_id - let DB default (auth.uid()) handle it
+      // This is more reliable with RLS policies
       const insertData = {
         name: formData.name.trim(),
         nip: formData.nip?.trim() || null,
@@ -160,8 +162,8 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
         bank_name: formData.bank_name?.trim() || null,
         bank_account: formData.bank_account?.trim() || null,
         logo_url: formData.logo_url || null,
-        owner_user_id: user.id,
         type: 'company'
+        // owner_user_id uses DB default: auth.uid()
       };
 
       console.log('Insert data:', insertData);
