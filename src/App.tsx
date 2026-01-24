@@ -3,7 +3,7 @@ import AddVehicleListing from "./pages/AddVehicleListing";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { RidoAssistantWidget } from "@/components/ai/RidoAssistantWidget";
 import Index from "./pages/Index";
@@ -87,6 +87,7 @@ const App = () => (
             <Route path="/ksiegowosc" element={<AccountingDashboard />} />
             <Route path="/fleet" element={<FleetLanding />} />
             <Route path="/fleet/rejestracja" element={<FleetRegister />} />
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/marketplace" element={<AdminMarketplace />} />
             <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />

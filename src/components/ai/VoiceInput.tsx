@@ -1,7 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, MicOff, Loader2, Square } from "lucide-react";
+import { Mic, Loader2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+// Declare global for stopping recording
+declare global {
+  interface Window {
+    __voiceInputStopRecording?: () => void;
+  }
+}
 
 interface VoiceInputProps {
   onTranscription: (text: string) => void;
@@ -27,6 +34,8 @@ export function VoiceInput({
   const audioChunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const sizeClasses = {
     sm: "h-8 w-8",
@@ -62,66 +71,29 @@ export function VoiceInput({
     };
   }, [isRecording, updateAudioLevel]);
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Setup audio analyser for visualization
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-          ? 'audio/webm;codecs=opus' 
-          : 'audio/webm'
-      });
-      
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
-        
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          await processAudio(audioBlob);
-        }
-      };
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      setIsRecording(true);
-      onRecordingStart?.();
-
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Nie można uruchomić mikrofonu. Sprawdź uprawnienia przeglądarki.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setAudioLevel(0);
-      onRecordingEnd?.();
-      
+  // Cleanup on unmount - stop all recording
+  useEffect(() => {
+    return () => {
+      // Stop media recorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      // Stop all tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      // Close audio context
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+      // Cancel animation frame
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-    }
-  };
+    };
+  }, []);
 
-  const processAudio = async (audioBlob: Blob) => {
+  const processAudio = useCallback(async (audioBlob: Blob) => {
     setIsProcessing(true);
     
     try {
@@ -170,7 +142,90 @@ export function VoiceInput({
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [onTranscription]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      
+      // Setup audio analyser for visualization
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+          ? 'audio/webm;codecs=opus' 
+          : 'audio/webm'
+      });
+      
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        
+        // Close audio context
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          await processAudio(audioBlob);
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      onRecordingStart?.();
+
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      alert('Nie można uruchomić mikrofonu. Sprawdź uprawnienia przeglądarki.');
+    }
+  }, [onRecordingStart, processAudio]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    setAudioLevel(0);
+    onRecordingEnd?.();
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+  }, [onRecordingEnd]);
+
+  // Expose stopRecording for parent components
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__voiceInputStopRecording = stopRecording;
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.__voiceInputStopRecording;
+      }
+    };
+  }, [stopRecording]);
 
   const handleClick = () => {
     if (isRecording) {
@@ -185,7 +240,7 @@ export function VoiceInput({
       {/* Audio level ring */}
       {isRecording && (
         <div 
-          className="absolute inset-0 rounded-full bg-red-500/20 animate-pulse"
+          className="absolute inset-0 rounded-full bg-destructive/20 animate-pulse"
           style={{
             transform: `scale(${1 + audioLevel * 0.5})`,
             transition: 'transform 0.1s ease-out',
@@ -202,7 +257,7 @@ export function VoiceInput({
         className={cn(
           sizeClasses[size],
           "rounded-full transition-all duration-200",
-          isRecording && "ring-2 ring-red-500 ring-offset-2",
+          isRecording && "ring-2 ring-destructive ring-offset-2",
           !isRecording && !disabled && "hover:bg-primary hover:text-primary-foreground"
         )}
       >
@@ -217,7 +272,7 @@ export function VoiceInput({
 
       {/* Recording indicator */}
       {isRecording && (
-        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-red-500 font-medium whitespace-nowrap">
+        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-destructive font-medium whitespace-nowrap">
           Nagrywam...
         </span>
       )}
