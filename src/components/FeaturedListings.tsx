@@ -53,8 +53,8 @@ interface Listing {
   // Vehicle-specific fields
   year?: number;
   fuel_type?: string;
-  power_hp?: number;
-  mileage?: number;
+  power?: number;
+  odometer?: number;
   // Property-specific fields
   area?: number;
   rooms?: number;
@@ -103,7 +103,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       // Fetch 12 vehicle listings for category view with specs
       const { data: vehicles } = await (supabase as any)
         .from('vehicle_listings')
-        .select('id, title, price, photos, city, transaction_type, year, fuel_type, power_hp, mileage')
+        .select('id, title, price, photos, city, transaction_type, year, fuel_type, power, odometer')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
@@ -135,8 +135,8 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             transaction_type: v.transaction_type,
             year: v.year,
             fuel_type: v.fuel_type,
-            power_hp: v.power_hp,
-            mileage: v.mileage
+            power: v.power,
+            odometer: v.odometer
           });
         });
       }
@@ -454,20 +454,20 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                         {listing.fuel_type}
                       </span>
                     )}
-                    {listing.power_hp && (
+                    {listing.power && (
                       <span className="flex items-center gap-0.5">
                         <Zap className="h-3 w-3" />
-                        {listing.power_hp} KM
+                        {listing.power} KM
                       </span>
                     )}
                   </div>
                 )}
                 {listing.category === 'vehicle' && (
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
-                    {listing.mileage && (
+                    {listing.odometer && (
                       <span className="flex items-center gap-0.5">
                         <Gauge className="h-3 w-3" />
-                        {listing.mileage > 1000 ? `${Math.round(listing.mileage / 1000)} tys.` : listing.mileage} km
+                        {listing.odometer > 1000 ? `${Math.round(listing.odometer / 1000)} tys.` : listing.odometer} km
                       </span>
                     )}
                     {listing.city && (
