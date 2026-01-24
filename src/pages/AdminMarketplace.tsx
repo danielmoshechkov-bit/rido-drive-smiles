@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AdminPortalSwitcher } from "@/components/admin/AdminPortalSwitcher";
-import { ArrowLeft, Image, Save, Settings, List, Trash2, Search, Grid, Loader2 } from "lucide-react";
+import { ArrowLeft, Image, Save, Settings, List, Trash2, Search, Grid, Loader2, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdSlot {
@@ -45,11 +45,20 @@ interface TransactionType {
   is_active: boolean;
 }
 
+interface FeatureToggle {
+  id: string;
+  feature_key: string;
+  feature_name: string;
+  description: string | null;
+  is_enabled: boolean;
+}
+
 export default function AdminMarketplace() {
   const navigate = useNavigate();
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [listings, setListings] = useState<VehicleListing[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [premiumFeatures, setPremiumFeatures] = useState<FeatureToggle[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -118,6 +127,16 @@ export default function AdminMarketplace() {
       setTransactionTypes(typesData);
     }
 
+    // Load premium feature toggles
+    const { data: featuresData } = await supabase
+      .from("feature_toggles")
+      .select("id, feature_key, feature_name, description, is_enabled")
+      .eq("category", "marketplace");
+
+    if (featuresData) {
+      setPremiumFeatures(featuresData as FeatureToggle[]);
+    }
+
     setLoading(false);
   };
 
@@ -167,6 +186,23 @@ export default function AdminMarketplace() {
       prev.map(t => t.id === typeId ? { ...t, is_active: isActive } : t)
     );
     toast.success(isActive ? "Kategoria aktywowana" : "Kategoria dezaktywowana");
+  };
+
+  const togglePremiumFeature = async (featureId: string, isEnabled: boolean) => {
+    const { error } = await supabase
+      .from("feature_toggles")
+      .update({ is_enabled: isEnabled, updated_at: new Date().toISOString() })
+      .eq("id", featureId);
+
+    if (error) {
+      toast.error("Błąd zmiany ustawienia");
+      return;
+    }
+
+    setPremiumFeatures(prev => 
+      prev.map(f => f.id === featureId ? { ...f, is_enabled: isEnabled } : f)
+    );
+    toast.success(isEnabled ? "Funkcja włączona" : "Funkcja wyłączona");
   };
 
   const toggleListingStatus = async (listing: VehicleListing) => {
@@ -262,6 +298,10 @@ export default function AdminMarketplace() {
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <Grid className="h-4 w-4" />
               Kategorie
+            </TabsTrigger>
+            <TabsTrigger value="premium" className="flex items-center gap-2">
+              <Star className="h-4 w-4" />
+              Premium
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -436,6 +476,69 @@ export default function AdminMarketplace() {
                     />
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Premium Features Tab */}
+          <TabsContent value="premium">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-primary" />
+                  Funkcje Premium
+                </CardTitle>
+                <CardDescription>
+                  Zarządzaj płatnymi opcjami dla ogłoszeń premium
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {premiumFeatures.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Brak skonfigurowanych funkcji premium
+                  </p>
+                ) : (
+                  premiumFeatures.map((feature) => (
+                    <div
+                      key={feature.id}
+                      className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-primary/5 to-transparent"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-4 w-4 text-primary" />
+                          <p className="font-medium">{feature.feature_name}</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {feature.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2 font-mono">
+                          Klucz: {feature.feature_key}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                          feature.is_enabled 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {feature.is_enabled ? 'Aktywna' : 'Wyłączona'}
+                        </span>
+                        <Switch
+                          checked={feature.is_enabled}
+                          onCheckedChange={(checked) => togglePremiumFeature(feature.id, checked)}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Wyróżnione na stronie głównej:</strong> Gdy włączone, ogłoszenia z wykupioną opcją premium 
+                    będą priorytetowo wyświetlane w sekcji "Proponowane oferty" na stronie głównej, 
+                    posortowane według lokalizacji użytkownika.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
