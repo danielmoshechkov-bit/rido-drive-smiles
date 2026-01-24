@@ -156,3 +156,6 @@ verify_jwt = false
 
 [functions.insurance-alerts]
 verify_jwt = false
+
+[functions.ai-invoice-assistant]
+verify_jwt = false
