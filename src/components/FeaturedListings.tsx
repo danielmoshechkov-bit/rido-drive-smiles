@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { 
   Car,
@@ -26,6 +27,11 @@ import {
   Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Import tile images for category modal
+import tileCars from "@/assets/tile-cars.jpg";
+import tileRealEstate from "@/assets/tile-realestate.jpg";
+import tileHandyman from "@/assets/tile-handyman.jpg";
 
 type ListingCategory = 'all' | 'vehicles' | 'properties' | 'services';
 
@@ -424,53 +430,86 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         </Button>
       </div>
 
-      {/* Category Selection Modal */}
+      {/* Category Selection Modal - styled like AddListingModal */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-center text-xl">
+            <DialogTitle className="text-xl">
               Wybierz kategorię
             </DialogTitle>
+            <DialogDescription>
+              Przejdź do wybranego portalu ogłoszeń
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 gap-3 py-4">
-            <button
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            {/* Motoryzacja */}
+            <Card 
+              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border-0 shadow-md"
               onClick={() => handleCategorySelect('vehicles')}
-              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
             >
-              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Car className="h-6 w-6" />
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                style={{ backgroundImage: `url(${tileCars})` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
               </div>
-              <div className="text-left">
-                <h3 className="font-semibold">Motoryzacja</h3>
-                <p className="text-sm text-muted-foreground">Samochody, motocykle, pojazdy</p>
-              </div>
-            </button>
+              <CardContent className="relative z-10 p-4 h-32 flex flex-col justify-end">
+                <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
+                  <Car className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="font-bold text-base text-white leading-tight">Giełda Aut</h3>
+                <p className="text-xs text-white/80 mt-1">Samochody, motocykle, pojazdy</p>
+                <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowRight className="h-3 w-3 text-white" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <button
+            {/* Nieruchomości */}
+            <Card 
+              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border-0 shadow-md"
               onClick={() => handleCategorySelect('properties')}
-              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
             >
-              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Home className="h-6 w-6" />
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                style={{ backgroundImage: `url(${tileRealEstate})` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
               </div>
-              <div className="text-left">
-                <h3 className="font-semibold">Nieruchomości</h3>
-                <p className="text-sm text-muted-foreground">Mieszkania, domy, działki</p>
-              </div>
-            </button>
+              <CardContent className="relative z-10 p-4 h-32 flex flex-col justify-end">
+                <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
+                  <Home className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="font-bold text-base text-white leading-tight">Nieruchomości</h3>
+                <p className="text-xs text-white/80 mt-1">Mieszkania, domy, działki</p>
+                <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowRight className="h-3 w-3 text-white" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <button
+            {/* Usługi */}
+            <Card 
+              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border-0 shadow-md sm:col-span-2"
               onClick={() => handleCategorySelect('services')}
-              className="flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary hover:bg-primary/5 transition-all group"
             >
-              <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Wrench className="h-6 w-6" />
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                style={{ backgroundImage: `url(${tileHandyman})` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
               </div>
-              <div className="text-left">
-                <h3 className="font-semibold">Usługi</h3>
-                <p className="text-sm text-muted-foreground">Warsztaty, remonty, fachowcy</p>
-              </div>
-            </button>
+              <CardContent className="relative z-10 p-4 h-32 flex flex-col justify-end">
+                <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
+                  <Wrench className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="font-bold text-base text-white leading-tight">Usługi</h3>
+                <p className="text-xs text-white/80 mt-1">Fachowcy, remonty, serwis</p>
+                <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowRight className="h-3 w-3 text-white" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </DialogContent>
       </Dialog>
