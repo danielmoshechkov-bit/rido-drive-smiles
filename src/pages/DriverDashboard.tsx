@@ -318,6 +318,16 @@ const DriverDashboard = () => {
           <div className="hidden md:flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <UniversalHomeButton />
+              {/* Motoryzacja button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10"
+                onClick={() => navigate('/?kategoria=motoryzacja')}
+              >
+                <Car className="h-4 w-4 text-primary" />
+                <span className="font-medium">Motoryzacja</span>
+              </Button>
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold text-primary">{t('common.driverPanel')}</span>
                 {driverData?.drivers?.first_name && driverData?.drivers?.last_name && (
@@ -368,6 +378,15 @@ const DriverDashboard = () => {
           <div className="md:hidden flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <UniversalHomeButton />
+              {/* Motoryzacja button - mobile */}
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="h-9 w-9 rounded-xl border-primary/20 bg-primary/5"
+                onClick={() => navigate('/?kategoria=motoryzacja')}
+              >
+                <Car className="h-4 w-4 text-primary" />
+              </Button>
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
