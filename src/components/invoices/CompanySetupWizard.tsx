@@ -130,14 +130,23 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
 
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error in handleSave:', authError);
+        toast.error('Błąd autoryzacji. Spróbuj zalogować się ponownie.');
+        setIsSaving(false);
+        return;
+      }
+      
       if (!user) {
-        toast.error('Musisz być zalogowany');
+        console.error('No user found in handleSave');
+        toast.error('Sesja wygasła. Zaloguj się ponownie.');
         setIsSaving(false);
         return;
       }
 
-      console.log('Creating entity with owner_user_id:', user.id);
+      console.log('Creating entity with owner_user_id:', user.id, 'email:', user.email);
 
       const insertData = {
         name: formData.name.trim(),
