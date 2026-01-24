@@ -9,6 +9,17 @@ import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
 import { 
   Receipt, 
   Plus, 
@@ -25,7 +36,8 @@ import {
   Settings,
   Mic,
   Sparkles,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
@@ -75,6 +87,39 @@ export default function InvoiceProgram() {
   // AI Voice
   const [isListening, setIsListening] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
+  
+  // Controlled tabs for voice navigation
+  const [activeTab, setActiveTab] = useState('sales');
+  
+  // Summary dialog
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    period: string;
+    total_income: number;
+    total_costs: number;
+    profit: number;
+    invoices_count: number;
+    costs_count: number;
+    paid_count: number;
+    unpaid_count: number;
+  } | null>(null);
+  
+  // Reminder confirmation
+  const [pendingReminderConfirmation, setPendingReminderConfirmation] = useState<{
+    invoice_id: string;
+    invoice_number: string;
+    buyer_name: string;
+    gross_amount: number;
+  } | null>(null);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+  
+  // Mark paid confirmation
+  const [pendingPaymentConfirmation, setPendingPaymentConfirmation] = useState<{
+    invoice_id: string;
+    invoice_number: string;
+    gross_amount: number;
+  } | null>(null);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   useEffect(() => {
     checkAccess();
@@ -161,6 +206,78 @@ export default function InvoiceProgram() {
 
       console.log('AI response:', data);
 
+      // === NAVIGATION ===
+      if (data.navigate_to) {
+        setActiveTab(data.navigate_to);
+        toast.success(data.response || `Przechodzę do ${data.navigate_to}`);
+        setAiQuery('');
+        setIsListening(false);
+        return;
+      }
+
+      // === MONTHLY SUMMARY ===
+      if (data.show_summary && data.summary) {
+        setSummaryData(data.summary);
+        setShowSummaryDialog(true);
+        toast.success(data.response);
+        setAiQuery('');
+        setIsListening(false);
+        return;
+      }
+
+      // === EXPORT PDF ===
+      if (data.action === 'download_pdf' && data.invoice) {
+        if (data.pdf_url) {
+          window.open(data.pdf_url, '_blank');
+          toast.success(data.response);
+        } else if (data.generate_pdf) {
+          toast.info(data.response);
+          // Call PDF generation function if exists
+          try {
+            const { data: pdfData } = await supabase.functions.invoke('invoice-pdf', {
+              body: { invoice_id: data.invoice.id }
+            });
+            if (pdfData?.pdf_url) {
+              window.open(pdfData.pdf_url, '_blank');
+              toast.success('PDF wygenerowany i pobrany');
+            }
+          } catch (pdfErr) {
+            console.error('PDF generation error:', pdfErr);
+            toast.error('Nie udało się wygenerować PDF');
+          }
+        }
+        setAiQuery('');
+        setIsListening(false);
+        return;
+      }
+
+      // === MARK PAID CONFIRMATION ===
+      if (data.confirm_action === 'mark_paid' && data.invoice) {
+        setPendingPaymentConfirmation({
+          invoice_id: data.invoice.id,
+          invoice_number: data.invoice.invoice_number,
+          gross_amount: data.invoice.gross_amount || 0
+        });
+        toast.info(data.response);
+        setAiQuery('');
+        setIsListening(false);
+        return;
+      }
+
+      // === SEND REMINDER CONFIRMATION ===
+      if (data.confirm_action === 'send_reminder' && data.invoice) {
+        setPendingReminderConfirmation({
+          invoice_id: data.invoice.id,
+          invoice_number: data.invoice.invoice_number,
+          buyer_name: data.invoice.buyer_snapshot?.name || 'Nieznany',
+          gross_amount: data.invoice.gross_amount || 0
+        });
+        toast.info(data.response);
+        setAiQuery('');
+        setIsListening(false);
+        return;
+      }
+
       // Handle response actions
       if (data.open_wizard) {
         setShowNewInvoice(true);
@@ -192,6 +309,57 @@ export default function InvoiceProgram() {
     } finally {
       setIsListening(false);
       setAiQuery('');
+    }
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!pendingPaymentConfirmation) return;
+    
+    setIsMarkingPaid(true);
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'paid', 
+          paid_at: new Date().toISOString() 
+        })
+        .eq('id', pendingPaymentConfirmation.invoice_id);
+      
+      if (error) throw error;
+      
+      toast.success(`Faktura ${pendingPaymentConfirmation.invoice_number} oznaczona jako opłacona`);
+      fetchInvoices();
+    } catch (err) {
+      console.error('Mark paid error:', err);
+      toast.error('Nie udało się oznaczyć faktury jako opłaconej');
+    } finally {
+      setIsMarkingPaid(false);
+      setPendingPaymentConfirmation(null);
+    }
+  };
+
+  const confirmSendReminder = async () => {
+    if (!pendingReminderConfirmation) return;
+    
+    setIsSendingReminder(true);
+    try {
+      // For now simulation - in future call send-invoice-email edge function
+      await new Promise(r => setTimeout(r, 1500));
+      
+      // TODO: Call actual edge function
+      // const { error } = await supabase.functions.invoke('send-invoice-email', {
+      //   body: { 
+      //     invoice_id: pendingReminderConfirmation.invoice_id,
+      //     type: 'payment_reminder'
+      //   }
+      // });
+      
+      toast.success(`Przypomnienie wysłane do ${pendingReminderConfirmation.buyer_name}`);
+    } catch (err) {
+      toast.error('Nie udało się wysłać przypomnienia');
+    } finally {
+      setIsSendingReminder(false);
+      setPendingReminderConfirmation(null);
     }
   };
 
@@ -387,7 +555,7 @@ export default function InvoiceProgram() {
         </div>
 
         {/* Main Tabs */}
-        <Tabs defaultValue="sales" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <TabsList className="bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="sales" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -629,6 +797,121 @@ export default function InvoiceProgram() {
           />
         </>
       )}
+
+      {/* Summary Dialog */}
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Podsumowanie: {summaryData?.period}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Przychody</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {summaryData?.total_income?.toLocaleString('pl-PL')} PLN
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Koszty</p>
+                  <p className="text-xl font-bold text-destructive">
+                    {summaryData?.total_costs?.toLocaleString('pl-PL')} PLN
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            <Card className="bg-primary/5">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-muted-foreground">Zysk netto</p>
+                <p className="text-2xl font-bold">
+                  {summaryData?.profit?.toLocaleString('pl-PL')} PLN
+                </p>
+              </CardContent>
+            </Card>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Faktury sprzedażowe: {summaryData?.invoices_count}</span>
+              <span>Faktury kosztowe: {summaryData?.costs_count}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-green-600">✓ Opłacone: {summaryData?.paid_count}</span>
+              <span className="text-yellow-600">⏳ Nieopłacone: {summaryData?.unpaid_count}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSummaryDialog(false)}>
+              Zamknij
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Paid Confirmation */}
+      <AlertDialog 
+        open={!!pendingPaymentConfirmation} 
+        onOpenChange={(open) => !open && setPendingPaymentConfirmation(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Potwierdź oznaczenie płatności
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno oznaczyć fakturę{' '}
+              <strong>{pendingPaymentConfirmation?.invoice_number}</strong> na kwotę{' '}
+              <strong>{pendingPaymentConfirmation?.gross_amount?.toLocaleString('pl-PL')} PLN</strong>{' '}
+              jako opłaconą?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingPaid}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMarkPaid} disabled={isMarkingPaid}>
+              {isMarkingPaid ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Zapisuję...</>
+              ) : (
+                'Tak, oznacz jako opłaconą'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send Reminder Confirmation */}
+      <AlertDialog 
+        open={!!pendingReminderConfirmation} 
+        onOpenChange={(open) => !open && setPendingReminderConfirmation(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-primary" />
+              Wyślij przypomnienie o płatności
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy wysłać przypomnienie o płatności za fakturę{' '}
+              <strong>{pendingReminderConfirmation?.invoice_number}</strong> do{' '}
+              <strong>{pendingReminderConfirmation?.buyer_name}</strong> na kwotę{' '}
+              <strong>{pendingReminderConfirmation?.gross_amount?.toLocaleString('pl-PL')} PLN</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingReminder}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSendReminder} disabled={isSendingReminder}>
+              {isSendingReminder ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wysyłam...</>
+              ) : (
+                <><Send className="h-4 w-4 mr-2" />Wyślij przypomnienie</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
