@@ -149,10 +149,12 @@ async function callOpenAI(
 ): Promise<{ content: string; tool_calls?: unknown[]; usage?: { total_tokens: number } }> {
   const startTime = Date.now();
   
-  // Use Lovable Gateway by default
+  // Priority: ai_settings.openai_api_key_encrypted > LOVABLE_API_KEY
+  const apiKey = settings.openai_api_key_encrypted || LOVABLE_API_KEY;
   const apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-  const apiKey = LOVABLE_API_KEY;
   const model = options.model || settings.ai_model || 'openai/gpt-5.2';
+  
+  console.log(`[AI Service] Using ${settings.openai_api_key_encrypted ? 'custom OpenAI key from settings' : 'Lovable Gateway'}`);
   
   const body: Record<string, unknown> = {
     model,

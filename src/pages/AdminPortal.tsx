@@ -6,8 +6,10 @@ import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
 import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement';
 import { UserRolesManager } from '@/components/UserRolesManager';
+import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
+import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Globe, Settings, Palette, Users, Wrench } from 'lucide-react';
+import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2 } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -54,6 +56,8 @@ export default function AdminPortal() {
 
   const subTabs = [
     { value: 'api', label: 'API i Integracje', visible: true },
+    { value: 'voice', label: 'Głos i TTS', visible: true },
+    { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
     { value: 'features', label: 'Funkcje portalu', visible: true },
     { value: 'branding', label: 'Wygląd', visible: true },
     { value: 'users', label: 'Użytkownicy systemu', visible: true },
@@ -122,6 +126,46 @@ export default function AdminPortal() {
                 </CardHeader>
                 <CardContent>
                   <AISettingsPanel />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Voice / TTS Tab */}
+          {activeSubTab === 'voice' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Volume2 className="h-5 w-5" />
+                    Ustawienia głosu
+                  </CardTitle>
+                  <CardDescription>
+                    Konfiguracja TTS (synteza mowy) dla nawigacji i asystenta
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TTSSettingsPanel />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* External Registries Tab */}
+          {activeSubTab === 'registries' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Rejestry zewnętrzne
+                  </CardTitle>
+                  <CardDescription>
+                    Integracje z GUS REGON, Białą Listą VAT i KSeF
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RegistryIntegrationsPanel />
                 </CardContent>
               </Card>
             </div>

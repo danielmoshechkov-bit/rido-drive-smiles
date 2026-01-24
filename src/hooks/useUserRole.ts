@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
-export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | null;
+export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | null;
 
 interface UseUserRoleReturn {
   role: UserRole;
@@ -15,6 +15,8 @@ interface UseUserRoleReturn {
   isDriver: boolean;
   isRealEstateAgent: boolean;
   isRealEstateAdmin: boolean;
+  isAccountant: boolean;
+  isAccountingAdmin: boolean;
   refetch: () => Promise<void>;
   delegatedRole?: {
     fleet_id: string;
@@ -161,10 +163,12 @@ export const useUserRole = (): UseUserRoleReturn => {
     isFleetSettlement: roles.includes('fleet_settlement'),
     isFleetRental: roles.includes('fleet_rental'),
     isDriver: role === 'driver' || roles.includes('driver'),
-    isRealEstateAgent: role === 'real_estate_agent' || roles.includes('real_estate_agent' as UserRole),
-    isRealEstateAdmin: role === 'admin' || roles.includes('real_estate_admin' as UserRole),
-    refetch: fetchUserRole,
-    delegatedRole,
-    isDelegatedFleetManager: !!delegatedRole,
-  };
+  isRealEstateAgent: role === 'real_estate_agent' || roles.includes('real_estate_agent' as UserRole),
+  isRealEstateAdmin: role === 'admin' || roles.includes('real_estate_admin' as UserRole),
+  isAccountant: role === 'accountant' || roles.includes('accountant' as UserRole),
+  isAccountingAdmin: role === 'accounting_admin' || roles.includes('accounting_admin' as UserRole),
+  refetch: fetchUserRole,
+  delegatedRole,
+  isDelegatedFleetManager: !!delegatedRole,
+};
 };

@@ -73,16 +73,36 @@ Format odpowiedzi:
   }
 }`;
 
+// Get API key with priority: ai_settings.openai_api_key_encrypted > LOVABLE_API_KEY
+async function getOpenAIKey(supabase: ReturnType<typeof createClient>): Promise<string> {
+  // First try to get key from ai_settings table
+  const { data } = await supabase
+    .from('ai_settings')
+    .select('openai_api_key_encrypted')
+    .limit(1)
+    .maybeSingle();
+
+  if (data?.openai_api_key_encrypted) {
+    console.log('[AI Assistant] Using OpenAI key from ai_settings');
+    return data.openai_api_key_encrypted;
+  }
+
+  // Fallback to LOVABLE_API_KEY
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (lovableKey) {
+    console.log('[AI Assistant] Using Lovable Gateway key');
+    return lovableKey;
+  }
+
+  throw new Error('No OpenAI API key configured - add key in Admin Portal or set LOVABLE_API_KEY');
+}
+
 async function interpretCommand(
   userText: string,
   context: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>
 ): Promise<IntentResponse> {
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-  
-  if (!lovableApiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
+  const apiKey = await getOpenAIKey(supabase);
 
   const messages = [
     { role: 'system', content: INTENT_SYSTEM_PROMPT },
@@ -92,7 +112,7 @@ async function interpretCommand(
   const response = await fetch('https://ai.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -217,13 +237,10 @@ async function executeToolCalls(
 
 async function transcribeAudio(
   audioBase64: string,
-  mimeType: string
+  mimeType: string,
+  supabase: ReturnType<typeof createClient>
 ): Promise<string> {
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-  
-  if (!lovableApiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
+  const apiKey = await getOpenAIKey(supabase);
 
   // Convert base64 to binary
   const binaryString = atob(audioBase64);
@@ -242,7 +259,7 @@ async function transcribeAudio(
   const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: formData,
   });
@@ -281,17 +298,13 @@ async function generateSpeech(
     return { audioUrl: cached.audio_url, cached: true };
   }
 
-  // Generate new audio
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-  
-  if (!lovableApiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
+  // Generate new audio - get API key from settings
+  const apiKey = await getOpenAIKey(supabase);
 
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -387,7 +400,7 @@ serve(async (req) => {
           throw new Error('Audio data is required');
         }
 
-        const transcribedText = await transcribeAudio(audio, mimeType);
+        const transcribedText = await transcribeAudio(audio, mimeType, supabase);
         response = { success: true, text: transcribedText };
         break;
 
