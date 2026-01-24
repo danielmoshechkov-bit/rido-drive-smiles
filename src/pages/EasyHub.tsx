@@ -37,6 +37,7 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { FeaturedListings } from "@/components/FeaturedListings";
+import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -288,6 +289,7 @@ export default function EasyHub() {
   const [isSearching, setIsSearching] = useState(false);
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryView>('main');
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   // Handle URL parameter for category
@@ -471,13 +473,25 @@ export default function EasyHub() {
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg"
             />
-            <Button
-              onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-            >
-              {isSearching ? "..." : "Szukaj"}
-            </Button>
+            {searchQuery.trim() ? (
+              <Button
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+              >
+                {isSearching ? "..." : "Szukaj"}
+              </Button>
+            ) : (
+              <SearchCategoryModal
+                trigger={
+                  <Button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+                  >
+                    Szukaj
+                  </Button>
+                }
+              />
+            )}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">
             Powered by <span className="text-primary font-medium">Rido AI</span>
