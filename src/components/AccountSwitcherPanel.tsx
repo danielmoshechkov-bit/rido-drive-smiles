@@ -10,17 +10,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Truck, User, Plus, Building2, Home } from "lucide-react";
+import { Car, Truck, User, Plus, Building2, Home, Globe } from "lucide-react";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
   isFleetAccount: boolean;
   isMarketplaceAccount: boolean;
   isRealEstateAccount?: boolean;
+  isAdminAccount?: boolean;
   isMarketplaceEnabled: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate';
+  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin';
   navigate: ReturnType<typeof useNavigate>;
-  hideDriverForFleet?: boolean; // Hide driver option for fleet users since they have access in the same panel
+  hideDriverForFleet?: boolean;
 }
 
 export function AccountSwitcherPanel({
@@ -28,6 +29,7 @@ export function AccountSwitcherPanel({
   isFleetAccount,
   isMarketplaceAccount,
   isRealEstateAccount = false,
+  isAdminAccount = false,
   isMarketplaceEnabled,
   currentAccountType,
   navigate,
@@ -35,10 +37,9 @@ export function AccountSwitcherPanel({
 }: AccountSwitcherPanelProps) {
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   
-  // For fleet users, don't show driver switch option since they have access in the same panel
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
-  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate') => {
+  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin') => {
     if (type === currentAccountType) return;
     
     switch (type) {
@@ -53,6 +54,9 @@ export function AccountSwitcherPanel({
         break;
       case 'real_estate':
         navigate('/nieruchomosci/agent/panel');
+        break;
+      case 'admin':
+        navigate('/admin/dashboard');
         break;
     }
   };
@@ -70,7 +74,25 @@ export function AccountSwitcherPanel({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Driver account - hide for fleet users since they already have driver access */}
+          {/* Admin account */}
+          {isAdminAccount && (
+            <div 
+              className={`border-2 rounded-xl p-4 text-center transition-colors ${
+                currentAccountType === 'admin' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border cursor-pointer hover:bg-muted'
+              }`}
+              onClick={() => handleAccountClick('admin')}
+            >
+              <Globe className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'admin' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <p className="font-medium text-sm">Administrator</p>
+              {currentAccountType === 'admin' && (
+                <Badge className="mt-2 text-xs">aktywne</Badge>
+              )}
+            </div>
+          )}
+
+          {/* Driver account */}
           {showDriverOption && (
             <div 
               className={`border-2 rounded-xl p-4 text-center transition-colors ${

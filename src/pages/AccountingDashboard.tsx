@@ -5,6 +5,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -217,6 +218,7 @@ export default function AccountingDashboard() {
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
+            <AdminPortalSwitcher />
             <div className="hidden md:block">
               <h1 className="text-lg font-semibold">Panel Księgowy</h1>
               <p className="text-xs text-muted-foreground">Zarządzanie fakturami i dokumentami</p>
@@ -229,7 +231,7 @@ export default function AccountingDashboard() {
               <select
                 value={selectedEntityId || ''}
                 onChange={(e) => setSelectedEntityId(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-full border-2 border-primary/20 bg-primary/5 px-4 text-sm font-medium focus:border-primary focus:outline-none"
               >
                 {entities.map((entity) => (
                   <option key={entity.id} value={entity.id}>
@@ -247,36 +249,36 @@ export default function AccountingDashboard() {
       {/* Main Content */}
       <main className="container py-6 px-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-8 gap-1">
-            <TabsTrigger value="overview" className="gap-2">
+          <TabsList className="bg-primary text-primary-foreground rounded-full p-1 flex flex-wrap gap-1">
+            <TabsTrigger value="overview" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <PieChart className="h-4 w-4" />
               <span className="hidden sm:inline">Przegląd</span>
             </TabsTrigger>
-            <TabsTrigger value="invoices" className="gap-2">
+            <TabsTrigger value="invoices" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Faktury</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" className="gap-2">
+            <TabsTrigger value="documents" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Dokumenty</span>
             </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2">
+            <TabsTrigger value="payments" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Płatności</span>
             </TabsTrigger>
-            <TabsTrigger value="recurring" className="gap-2">
+            <TabsTrigger value="recurring" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <RefreshCw className="h-4 w-4" />
               <span className="hidden sm:inline">Cykliczne</span>
             </TabsTrigger>
-            <TabsTrigger value="entities" className="gap-2">
+            <TabsTrigger value="entities" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Firmy</span>
             </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2">
+            <TabsTrigger value="reports" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <Calculator className="h-4 w-4" />
               <span className="hidden sm:inline">Raporty</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
+            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Ustawienia</span>
             </TabsTrigger>
