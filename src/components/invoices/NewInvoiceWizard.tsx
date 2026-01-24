@@ -59,6 +59,7 @@ interface Recipient {
   address_street?: string;
   address_city?: string;
   address_postal_code?: string;
+  bank_account?: string;
 }
 
 interface NewInvoiceWizardProps {
@@ -87,6 +88,12 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
   const [isVerifyingVat, setIsVerifyingVat] = useState(false);
   const [showVatWarningDialog, setShowVatWarningDialog] = useState(false);
   
+  // Bank account verification state
+  const [recipientBankAccount, setRecipientBankAccount] = useState('');
+  const [bankAccountVerified, setBankAccountVerified] = useState<boolean | null>(null);
+  const [isVerifyingBank, setIsVerifyingBank] = useState(false);
+  const [showBankWarningDialog, setShowBankWarningDialog] = useState(false);
+  
   // Invoice items
   const [items, setItems] = useState<InvoiceItem[]>([
     { name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }
@@ -99,6 +106,9 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
   const [notes, setNotes] = useState('');
   
   const [saving, setSaving] = useState(false);
+  
+  // Bank account limit for whitelist verification (15000 PLN)
+  const BANK_VERIFICATION_THRESHOLD = 15000;
 
   useEffect(() => {
     if (open) {
@@ -258,6 +268,105 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
     );
   };
 
+  // Bank account verification function
+  const verifyBankAccount = async (nip: string, bankAccount: string): Promise<boolean> => {
+    const cleanAccount = bankAccount.replace(/[\s-]/g, '');
+    
+    if (!cleanAccount || cleanAccount.length < 26) {
+      toast.error('Numer konta musi mieć 26 cyfr');
+      return false;
+    }
+    
+    // Check if we already have account numbers from whitelist
+    if (vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0) {
+      const isOnWhitelist = vatStatus.accountNumbers.some(
+        acc => acc.replace(/[\s-]/g, '') === cleanAccount
+      );
+      setBankAccountVerified(isOnWhitelist);
+      return isOnWhitelist;
+    }
+    
+    // Fetch from API
+    setIsVerifyingBank(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('registry-whitelist', {
+        body: { nip, bankAccount: cleanAccount }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.success && data?.data) {
+        const isVerified = data.data.bankAccountVerified === true;
+        setBankAccountVerified(isVerified);
+        
+        // Update vatStatus with account numbers
+        if (data.data.accountNumbers) {
+          setVatStatus(prev => prev ? {
+            ...prev,
+            accountNumbers: data.data.accountNumbers
+          } : {
+            checked: true,
+            isActiveVat: data.data.statusVat === 'Czynny',
+            statusLabel: data.data.statusLabel || data.data.statusVat,
+            statusVat: data.data.statusVat,
+            verifiedAt: new Date().toISOString(),
+            accountNumbers: data.data.accountNumbers
+          });
+        }
+        
+        if (isVerified) {
+          toast.success('Konto bankowe zweryfikowane na białej liście');
+        } else {
+          toast.warning('Konto NIE znajduje się na białej liście MF');
+        }
+        
+        return isVerified;
+      }
+      
+      setBankAccountVerified(false);
+      return false;
+    } catch (err) {
+      console.error('Bank verification error:', err);
+      setBankAccountVerified(null);
+      toast.error('Błąd weryfikacji konta bankowego');
+      return false;
+    } finally {
+      setIsVerifyingBank(false);
+    }
+  };
+
+  // Bank Account Status Badge Component
+  const BankAccountStatusBadge = () => {
+    if (isVerifyingBank) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Weryfikacja konta...
+        </div>
+      );
+    }
+
+    if (bankAccountVerified === null) {
+      return null;
+    }
+
+    if (bankAccountVerified) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-green-600">
+          <ShieldCheck className="h-4 w-4" />
+          Konto na białej liście MF
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2 text-sm text-destructive">
+        <ShieldX className="h-4 w-4" />
+        Konto NIE znajduje się na białej liście MF
+      </div>
+    );
+  };
+
   const addItem = () => {
     setItems([...items, { name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
   };
@@ -304,6 +413,26 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       return;
     }
 
+    const totals = calculateTotals();
+    const recipientNip = selectedRecipient?.nip || newRecipientData.nip;
+    
+    // Check bank account verification for transactions >= 15000 PLN
+    if (totals.gross >= BANK_VERIFICATION_THRESHOLD && paymentMethod === 'przelew') {
+      if (!recipientBankAccount) {
+        toast.error('Przy transakcjach powyżej 15 000 PLN wymagany jest numer konta bankowego');
+        return;
+      }
+      
+      if (recipientNip && bankAccountVerified !== true) {
+        // Verify bank account first
+        const isVerified = await verifyBankAccount(recipientNip, recipientBankAccount);
+        if (!isVerified) {
+          setShowBankWarningDialog(true);
+          return;
+        }
+      }
+    }
+
     // Sprawdź status VAT przed zapisem - pokaż ostrzeżenie jeśli nieaktywny
     if (vatStatus?.checked && !vatStatus.isActiveVat) {
       setShowVatWarningDialog(true);
@@ -311,6 +440,16 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
     }
 
     await performSave();
+  };
+  
+  const proceedAfterBankWarning = () => {
+    setShowBankWarningDialog(false);
+    // Continue to VAT check or save
+    if (vatStatus?.checked && !vatStatus.isActiveVat) {
+      setShowVatWarningDialog(true);
+    } else {
+      performSave();
+    }
   };
 
   const performSave = async () => {
@@ -328,13 +467,20 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
             nip: newRecipientData.nip,
             address_street: newRecipientData.address_street,
             address_city: newRecipientData.address_city,
-            address_postal_code: newRecipientData.address_postal_code
+            address_postal_code: newRecipientData.address_postal_code,
+            bank_account: recipientBankAccount || null
           })
           .select()
           .single();
 
         if (recError) throw recError;
         recipientId = newRec.id;
+      } else if (recipientId && recipientBankAccount) {
+        // Update existing recipient with bank account
+        await supabase
+          .from('invoice_recipients')
+          .update({ bank_account: recipientBankAccount })
+          .eq('id', recipientId);
       }
 
       const totals = calculateTotals();
@@ -428,6 +574,9 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       setNewRecipientData({});
       setVatStatus(null);
       setShowVatWarningDialog(false);
+      setShowBankWarningDialog(false);
+      setRecipientBankAccount('');
+      setBankAccountVerified(null);
       setItems([{ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
       setNotes('');
       
@@ -534,6 +683,36 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
                         </div>
                       </div>
                     )}
+                    
+                    {/* Whitelist Bank Accounts */}
+                    {vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
+                      <div className="mt-3 p-3 bg-muted rounded-lg">
+                        <p className="text-sm font-medium mb-2">
+                          Konta bankowe na białej liście ({vatStatus.accountNumbers.length}):
+                        </p>
+                        <div className="max-h-24 overflow-y-auto space-y-1">
+                          {vatStatus.accountNumbers.slice(0, 5).map((acc, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="w-full text-left text-xs font-mono p-1.5 bg-background rounded hover:bg-primary/10 transition-colors border"
+                              onClick={() => {
+                                setRecipientBankAccount(acc);
+                                setBankAccountVerified(true);
+                                toast.success('Wybrano konto z białej listy');
+                              }}
+                            >
+                              {acc}
+                            </button>
+                          ))}
+                          {vatStatus.accountNumbers.length > 5 && (
+                            <p className="text-xs text-muted-foreground">
+                              +{vatStatus.accountNumbers.length - 5} więcej...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -594,6 +773,8 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
                           setSelectedRecipient(rec);
                           setNewRecipientData({});
                           setVatStatus(null); // Reset VAT when changing recipient
+                          setRecipientBankAccount(rec.bank_account || '');
+                          setBankAccountVerified(null);
                         }}
                       >
                         <CardContent className="p-3">
@@ -603,6 +784,83 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
                       </Card>
                     ))}
                   </div>
+                </div>
+              )}
+              
+              {/* Bank Account Input - visible when recipient is selected/created */}
+              {(selectedRecipient || newRecipientData.name) && (
+                <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+                  <Label className="text-sm font-medium mb-2 block">
+                    Numer konta bankowego kontrahenta
+                    {paymentMethod === 'przelew' && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        (wymagane powyżej 15 000 PLN)
+                      </span>
+                    )}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="00 0000 0000 0000 0000 0000 0000"
+                      value={recipientBankAccount}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^\d\s]/g, '');
+                        setRecipientBankAccount(value);
+                        setBankAccountVerified(null);
+                      }}
+                      className="font-mono"
+                    />
+                    {recipientBankAccount && (selectedRecipient?.nip || newRecipientData.nip) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => verifyBankAccount(
+                          (selectedRecipient?.nip || newRecipientData.nip)!,
+                          recipientBankAccount
+                        )}
+                        disabled={isVerifyingBank}
+                      >
+                        {isVerifyingBank ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="mt-2">
+                    <BankAccountStatusBadge />
+                  </div>
+                  
+                  {/* Whitelist accounts for selected recipient */}
+                  {selectedRecipient?.nip && vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
+                    <div className="mt-3 p-3 bg-background rounded-lg border">
+                      <p className="text-xs font-medium mb-2">
+                        Wybierz z białej listy ({vatStatus.accountNumbers.length}):
+                      </p>
+                      <div className="max-h-20 overflow-y-auto space-y-1">
+                        {vatStatus.accountNumbers.slice(0, 3).map((acc, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="w-full text-left text-xs font-mono p-1.5 bg-muted rounded hover:bg-primary/10 transition-colors"
+                            onClick={() => {
+                              setRecipientBankAccount(acc);
+                              setBankAccountVerified(true);
+                              toast.success('Wybrano konto z białej listy');
+                            }}
+                          >
+                            {acc}
+                          </button>
+                        ))}
+                        {vatStatus.accountNumbers.length > 3 && (
+                          <p className="text-xs text-muted-foreground text-center">
+                            +{vatStatus.accountNumbers.length - 3} więcej
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -827,6 +1085,49 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
                   setShowVatWarningDialog(false);
                   performSave();
                 }}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Zapisz mimo ostrzeżenia
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bank Account Warning Dialog */}
+        <AlertDialog open={showBankWarningDialog} onOpenChange={setShowBankWarningDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Konto bankowe spoza białej listy VAT
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Kwota faktury wynosi <strong>{calculateTotals().gross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN brutto</strong>, 
+                  co przekracza limit 15 000 PLN.
+                </p>
+                <p>
+                  Podany numer konta bankowego kontrahenta 
+                  <strong className="text-destructive"> nie znajduje się na białej liście </strong>
+                  Ministerstwa Finansów.
+                </p>
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded">
+                  <p className="font-medium text-sm">Konsekwencje płatności na to konto (art. 117ba Ordynacji podatkowej):</p>
+                  <ul className="list-disc list-inside text-sm mt-1 space-y-1 text-muted-foreground">
+                    <li>Brak możliwości zaliczenia wydatku do kosztów podatkowych</li>
+                    <li>Odpowiedzialność solidarna za VAT kontrahenta</li>
+                    <li>Potencjalne sankcje podczas kontroli skarbowej</li>
+                  </ul>
+                </div>
+                <p className="font-medium">
+                  Czy mimo to chcesz zapisać fakturę?
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Popraw dane</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={proceedAfterBankWarning}
                 className="bg-destructive hover:bg-destructive/90"
               >
                 Zapisz mimo ostrzeżenia
