@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft } from 'lucide-react';
+import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat } from 'lucide-react';
 import { ServiceCategoryTile, categoryImages } from '@/components/services/ServiceCategoryTile';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import LanguageSelector from '@/components/LanguageSelector';
 import { User } from '@supabase/supabase-js';
 
@@ -47,6 +48,9 @@ const categoryIcons: Record<string, any> = {
   'zap': Zap,
   'flower': Flower,
   'truck': Truck,
+  'shield': Shield,
+  'pen-tool': PenTool,
+  'hard-hat': HardHat,
 };
 
 const categoryDescriptions: Record<string, string> = {
@@ -58,6 +62,10 @@ const categoryDescriptions: Record<string, string> = {
   'elektryk': 'Instalacje elektryczne i naprawy',
   'ogrodnik': 'Pielęgnacja ogrodów i terenów zielonych',
   'przeprowadzki': 'Transport mebli i przeprowadzki',
+  'ppf': 'Folie ochronne PPF, ceramika i zabezpieczenia lakieru',
+  'projektanci': 'Projekty wnętrz, aranżacje i wizualizacje 3D',
+  'remonty': 'Kompleksowe wykończenia mieszkań i domów',
+  'budowlanka': 'Prace budowlane, konstrukcyjne i ziemne',
 };
 
 export default function ServicesMarketplace() {
@@ -175,12 +183,7 @@ export default function ServicesMarketplace() {
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-                alt="RIDO"
-                className="h-8 w-8 cursor-pointer"
-                onClick={() => navigate('/')}
-              />
+              <UniversalHomeButton />
               <span className="font-bold text-lg hidden sm:block">Usługi</span>
             </div>
             
@@ -191,7 +194,7 @@ export default function ServicesMarketplace() {
           </div>
         </header>
 
-        {/* Hero Section */}
+        {/* Hero Section with AI Search */}
         <section className="bg-gradient-to-r from-primary/10 via-primary/5 to-background py-12 md:py-16">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-3xl md:text-5xl font-bold mb-4">
@@ -200,6 +203,38 @@ export default function ServicesMarketplace() {
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
               Warsztaty, sprzątanie, złota rączka i więcej. Sprawdź oceny i zarezerwuj termin online.
             </p>
+            
+            {/* AI Search Bar */}
+            <div className="max-w-2xl mx-auto">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="AI, które znajdzie to za Ciebie…"
+                  className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                      navigate(`/wyniki?query=${encodeURIComponent((e.target as HTMLInputElement).value)}`);
+                    }
+                  }}
+                />
+                <Button
+                  onClick={(e) => {
+                    const input = (e.target as HTMLElement).parentElement?.querySelector('input');
+                    if (input?.value.trim()) {
+                      navigate(`/wyniki?query=${encodeURIComponent(input.value)}`);
+                    }
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Szukaj
+                </Button>
+              </div>
+              <p className="text-center text-xs text-muted-foreground mt-2">
+                Powered by <span className="text-primary font-medium">Rido AI</span>
+              </p>
+            </div>
           </div>
         </section>
 
@@ -240,35 +275,30 @@ export default function ServicesMarketplace() {
   // View: Category Listings
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleBackToCategories}
-              className="mr-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <img
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
-              alt="RIDO"
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => navigate('/')}
-            />
-            <span className="font-bold text-lg hidden sm:block">
-              {selectedCategory?.name || 'Usługi'}
-            </span>
+        {/* Header */}
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleBackToCategories}
+                className="mr-2"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <UniversalHomeButton />
+              <span className="font-bold text-lg hidden sm:block">
+                {selectedCategory?.name || 'Usługi'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <LanguageSelector />
+              <MyGetRidoButton user={user} />
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <LanguageSelector />
-            <MyGetRidoButton user={user} />
-          </div>
-        </div>
-      </header>
+        </header>
 
       {/* Search Bar */}
       <section className="bg-gradient-to-r from-primary/10 via-primary/5 to-background py-6">
