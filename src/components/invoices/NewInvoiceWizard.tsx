@@ -34,6 +34,7 @@ import {
   ShieldQuestion
 } from 'lucide-react';
 import { InvoiceTypeSelector, InvoiceType } from './InvoiceTypeSelector';
+import { BankAccountSelector } from './BankAccountSelector';
 
 interface VatStatus {
   checked: boolean;
@@ -882,31 +883,17 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                     
                     {/* Whitelist Bank Accounts */}
                     {vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
-                      <div className="mt-3 p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-medium mb-2">
-                          Konta bankowe na białej liście ({vatStatus.accountNumbers.length}):
-                        </p>
-                        <div className="max-h-24 overflow-y-auto space-y-1">
-                          {vatStatus.accountNumbers.slice(0, 5).map((acc, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              className="w-full text-left text-xs font-mono p-1.5 bg-background rounded hover:bg-primary/10 transition-colors border"
-                              onClick={() => {
-                                setRecipientBankAccount(acc);
-                                setBankAccountVerified(true);
-                                toast.success('Wybrano konto z białej listy');
-                              }}
-                            >
-                              {acc}
-                            </button>
-                          ))}
-                          {vatStatus.accountNumbers.length > 5 && (
-                            <p className="text-xs text-muted-foreground">
-                              +{vatStatus.accountNumbers.length - 5} więcej...
-                            </p>
-                          )}
-                        </div>
+                      <div className="mt-4">
+                        <BankAccountSelector
+                          accounts={vatStatus.accountNumbers}
+                          selectedAccount={recipientBankAccount}
+                          onSelectAccount={(account) => {
+                            setRecipientBankAccount(account);
+                            setBankAccountVerified(true);
+                          }}
+                          companyName={newRecipientData.name || nipSearch}
+                          nip={nipSearch}
+                        />
                       </div>
                     )}
                   </CardContent>
@@ -1030,31 +1017,18 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                   
                   {/* Whitelist accounts for selected recipient */}
                   {selectedRecipient?.nip && vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
-                    <div className="mt-3 p-3 bg-background rounded-lg border">
-                      <p className="text-xs font-medium mb-2">
-                        Wybierz z białej listy ({vatStatus.accountNumbers.length}):
-                      </p>
-                      <div className="max-h-20 overflow-y-auto space-y-1">
-                        {vatStatus.accountNumbers.slice(0, 3).map((acc, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            className="w-full text-left text-xs font-mono p-1.5 bg-muted rounded hover:bg-primary/10 transition-colors"
-                            onClick={() => {
-                              setRecipientBankAccount(acc);
-                              setBankAccountVerified(true);
-                              toast.success('Wybrano konto z białej listy');
-                            }}
-                          >
-                            {acc}
-                          </button>
-                        ))}
-                        {vatStatus.accountNumbers.length > 3 && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            +{vatStatus.accountNumbers.length - 3} więcej
-                          </p>
-                        )}
-                      </div>
+                    <div className="mt-4">
+                      <BankAccountSelector
+                        accounts={vatStatus.accountNumbers}
+                        selectedAccount={recipientBankAccount}
+                        onSelectAccount={(account) => {
+                          setRecipientBankAccount(account);
+                          setBankAccountVerified(true);
+                        }}
+                        companyName={selectedRecipient.name}
+                        nip={selectedRecipient.nip}
+                        compact
+                      />
                     </div>
                   )}
                 </div>
