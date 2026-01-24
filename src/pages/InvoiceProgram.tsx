@@ -560,8 +560,22 @@ export default function InvoiceProgram() {
           </p>
         </div>
 
-        {/* No Company State */}
-        {entities.length === 0 && (
+        {/* No Company State - show different message for logged in vs guest */}
+        {!user ? (
+          <Card className="max-w-lg mx-auto mb-8">
+            <CardContent className="p-8 text-center">
+              <Receipt className="h-16 w-16 mx-auto mb-4 text-primary/60" />
+              <h3 className="text-xl font-semibold mb-2">Program do Faktur</h3>
+              <p className="text-muted-foreground mb-6">
+                Wystawiaj faktury VAT, proformy, korekty i więcej. Zarządzaj kosztami i kontrahentami w jednym miejscu.
+              </p>
+              <Button onClick={() => setShowAuthModal(true)} size="lg" className="gap-2">
+                <LogIn className="h-5 w-5" />
+                Zaloguj się, aby rozpocząć
+              </Button>
+            </CardContent>
+          </Card>
+        ) : entities.length === 0 ? (
           <Card className="max-w-lg mx-auto mb-8">
             <CardContent className="p-8 text-center">
               <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
@@ -570,18 +584,16 @@ export default function InvoiceProgram() {
                 Aby wystawiać faktury, najpierw dodaj dane swojej firmy (sprzedawcy). 
                 Dane te będą automatycznie uzupełniane na każdej fakturze.
               </p>
-              <Button onClick={() => {
-                if (requireLogin()) setShowCompanySetup(true);
-              }} size="lg" className="gap-2">
+              <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
                 <Plus className="h-5 w-5" />
                 Dodaj firmę sprzedawcy
               </Button>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
-        {/* Stats Grid */}
-        {entities.length > 0 && (
+        {/* Stats Grid - only show when user has entities */}
+        {user && entities.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
@@ -651,8 +663,8 @@ export default function InvoiceProgram() {
         </div>
         )}
 
-        {/* Main Tabs */}
-        {entities.length > 0 && (
+        {/* Main Tabs - only for logged in users with entities */}
+        {user && entities.length > 0 && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <TabsList className="bg-muted/50 p-1 rounded-xl">
