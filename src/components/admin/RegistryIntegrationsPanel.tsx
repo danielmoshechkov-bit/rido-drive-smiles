@@ -347,10 +347,31 @@ export function RegistryIntegrationsPanel() {
             <div className="text-sm text-muted-foreground">
               <p className="font-medium mb-1">Informacje o integracjach:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li><strong>Biała Lista VAT</strong> - publiczne API, nie wymaga klucza</li>
-                <li><strong>GUS REGON</strong> - wymaga klucza z api.stat.gov.pl (bezpłatny)</li>
+                <li><strong>Biała Lista VAT</strong> - publiczne API Ministerstwa Finansów, nie wymaga klucza</li>
+                <li>
+                  <strong>GUS REGON</strong> - wymaga klucza z{' '}
+                  <a href="https://api.stat.gov.pl/Home/RegonApi" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                    api.stat.gov.pl
+                  </a>{' '}
+                  (bezpłatny dla środowiska testowego)
+                </li>
                 <li><strong>KSeF</strong> - wymaga certyfikatu lub tokenu z podatki.gov.pl</li>
               </ul>
+              <div className="mt-3 p-3 bg-background rounded border">
+                <p className="font-medium text-foreground mb-2">📋 Jak uzyskać klucz GUS REGON:</p>
+                <ol className="list-decimal list-inside space-y-1 text-xs">
+                  <li>Wejdź na <a href="https://api.stat.gov.pl/Home/RegonApi" target="_blank" rel="noopener noreferrer" className="text-primary underline">api.stat.gov.pl</a></li>
+                  <li>Zarejestruj się i zaloguj</li>
+                  <li>Przejdź do sekcji "Klucze użytkownika"</li>
+                  <li>Wygeneruj klucz dla środowiska testowego (demo) lub produkcyjnego</li>
+                  <li>Skopiuj klucz i wklej w polu "Klucz API" powyżej</li>
+                  <li>Wybierz odpowiednie środowisko (Demo/Produkcja)</li>
+                  <li>Włącz integrację przełącznikiem</li>
+                </ol>
+                <p className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                  ⚠️ Klucz testowy: <code className="bg-muted px-1 rounded">abcde12345abcde12345</code> (tylko do testów)
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>

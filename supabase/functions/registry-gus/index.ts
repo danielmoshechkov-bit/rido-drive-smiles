@@ -13,31 +13,78 @@ interface GUSResponse {
     nip: string;
     regon: string;
     address: string;
+    street?: string;
+    propertyNumber?: string;
+    apartmentNumber?: string;
     city: string;
     postalCode: string;
     voivodeship: string;
     status: string;
   };
   error?: string;
+  mode?: 'api' | 'simulation';
+}
+
+// Get API key from external_integrations table or environment
+async function getGusApiKey(): Promise<{ key: string | null; isEnabled: boolean; environment: string }> {
+  // First try environment variable
+  const envKey = Deno.env.get('GUS_API_KEY');
+  if (envKey) {
+    console.log('Using GUS_API_KEY from environment');
+    return { key: envKey, isEnabled: true, environment: 'production' };
+  }
+
+  // Otherwise check database
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data, error } = await supabase
+      .from('external_integrations')
+      .select('api_key_encrypted, is_enabled, environment')
+      .eq('service_name', 'gus_regon')
+      .single();
+
+    if (error) {
+      console.log('No GUS integration config found in database:', error.message);
+      return { key: null, isEnabled: false, environment: 'demo' };
+    }
+
+    return { 
+      key: data?.api_key_encrypted || null, 
+      isEnabled: data?.is_enabled || false,
+      environment: data?.environment || 'demo'
+    };
+  } catch (e) {
+    console.error('Error fetching GUS config:', e);
+    return { key: null, isEnabled: false, environment: 'demo' };
+  }
 }
 
 // GUS BIR 1.1 API helper
-async function queryGUS(nip: string): Promise<GUSResponse> {
-  const gusApiKey = Deno.env.get('GUS_API_KEY');
-  
+async function queryGUS(nip: string, gusApiKey: string | null, environment: string): Promise<GUSResponse> {
   if (!gusApiKey) {
-    // Fallback: use public data simulation for development
     console.log('GUS_API_KEY not configured, using simulation mode');
-    return simulateGUSResponse(nip);
+    const result = simulateGUSResponse(nip);
+    result.mode = 'simulation';
+    return result;
   }
 
+  // Use correct endpoint based on environment
+  const endpoint = environment === 'production'
+    ? 'https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc'
+    : 'https://wyszukiwarkaregontest.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc';
+
+  console.log(`Using GUS ${environment} endpoint:`, endpoint);
+
   try {
-    // GUS BIR 1.1 SOAP endpoint
+    // GUS BIR 1.1 SOAP endpoint - Login
     const loginEnvelope = `
       <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07">
         <soap:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
           <wsa:Action>http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworcznikow/Zaloguj</wsa:Action>
-          <wsa:To>https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc</wsa:To>
+          <wsa:To>${endpoint}</wsa:To>
         </soap:Header>
         <soap:Body>
           <ns:Zaloguj>
@@ -47,7 +94,7 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
       </soap:Envelope>
     `;
 
-    const loginResponse = await fetch('https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc', {
+    const loginResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/soap+xml;charset=UTF-8',
@@ -56,24 +103,29 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
     });
 
     if (!loginResponse.ok) {
-      throw new Error('GUS login failed');
+      console.error('GUS login failed:', loginResponse.status, await loginResponse.text());
+      throw new Error(`GUS login failed: ${loginResponse.status}`);
     }
 
     const loginXml = await loginResponse.text();
+    console.log('GUS login response received');
+    
     const sessionMatch = loginXml.match(/<ZalogujResult>([^<]+)<\/ZalogujResult>/);
     
     if (!sessionMatch || !sessionMatch[1]) {
-      throw new Error('Failed to get GUS session');
+      console.error('Failed to extract session from:', loginXml.substring(0, 500));
+      throw new Error('Failed to get GUS session - invalid API key or service unavailable');
     }
 
     const sessionId = sessionMatch[1];
+    console.log('GUS session obtained');
 
     // Query for company data
     const searchEnvelope = `
       <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07" xmlns:dat="http://CIS/BIR/PUBL/2014/07/DataContract">
         <soap:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
           <wsa:Action>http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworcznikow/DaneSzukajPodmioty</wsa:Action>
-          <wsa:To>https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc</wsa:To>
+          <wsa:To>${endpoint}</wsa:To>
         </soap:Header>
         <soap:Body>
           <ns:DaneSzukajPodmioty>
@@ -85,7 +137,7 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
       </soap:Envelope>
     `;
 
-    const searchResponse = await fetch('https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzworcznikow.svc', {
+    const searchResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/soap+xml;charset=UTF-8',
@@ -99,8 +151,9 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
     }
 
     const searchXml = await searchResponse.text();
+    console.log('GUS search response received');
     
-    // Parse XML response (simplified)
+    // Parse XML response
     const extractField = (xml: string, field: string): string => {
       const match = xml.match(new RegExp(`<${field}>([^<]*)</${field}>`));
       return match ? match[1] : '';
@@ -109,7 +162,7 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
     const resultMatch = searchXml.match(/<DaneSzukajPodmiotyResult>([^]*?)<\/DaneSzukajPodmiotyResult>/);
     
     if (!resultMatch) {
-      return { success: false, error: 'Nie znaleziono podmiotu o podanym NIP' };
+      return { success: false, error: 'Nie znaleziono podmiotu o podanym NIP', mode: 'api' };
     }
 
     const resultXml = resultMatch[1]
@@ -117,13 +170,21 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
 
+    const street = extractField(resultXml, 'Ulica');
+    const propertyNumber = extractField(resultXml, 'NrNieruchomosci');
+    const apartmentNumber = extractField(resultXml, 'NrLokalu');
+
     return {
       success: true,
+      mode: 'api',
       data: {
         name: extractField(resultXml, 'Nazwa'),
         nip: extractField(resultXml, 'Nip'),
         regon: extractField(resultXml, 'Regon'),
-        address: `${extractField(resultXml, 'Ulica')} ${extractField(resultXml, 'NrNieruchomosci')}`,
+        street,
+        propertyNumber,
+        apartmentNumber,
+        address: `${street} ${propertyNumber}${apartmentNumber ? '/' + apartmentNumber : ''}`.trim(),
         city: extractField(resultXml, 'Miejscowosc'),
         postalCode: extractField(resultXml, 'KodPocztowy'),
         voivodeship: extractField(resultXml, 'Wojewodztwo'),
@@ -134,7 +195,10 @@ async function queryGUS(nip: string): Promise<GUSResponse> {
   } catch (error) {
     console.error('GUS API error:', error);
     // Fallback to simulation in case of API errors
-    return simulateGUSResponse(nip);
+    const result = simulateGUSResponse(nip);
+    result.mode = 'simulation';
+    result.error = `API GUS niedostępne: ${String(error)}. Używam danych symulowanych.`;
+    return result;
   }
 }
 
@@ -218,8 +282,12 @@ serve(async (req) => {
       );
     }
 
+    // Get API config
+    const config = await getGusApiKey();
+    console.log(`GUS config: enabled=${config.isEnabled}, hasKey=${!!config.key}, env=${config.environment}`);
+
     // Query GUS
-    const result = await queryGUS(cleanNip);
+    const result = await queryGUS(cleanNip, config.key, config.environment);
 
     // If we have a recipient ID and success, log the verification
     if (result.success && recipientId) {
