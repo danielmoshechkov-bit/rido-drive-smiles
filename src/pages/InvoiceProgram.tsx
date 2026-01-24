@@ -46,6 +46,7 @@ import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPanel';
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
+import { ContractorsList } from '@/components/invoices/ContractorsList';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -815,21 +816,16 @@ export default function InvoiceProgram() {
 
           {/* Contractors Tab */}
           <TabsContent value="contractors">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Kontrahenci
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
+            {selectedEntity ? (
+              <ContractorsList entityId={selectedEntity} />
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Lista kontrahentów pojawi się automatycznie</p>
-                  <p className="text-sm mt-1">Dodaj kontrahenta wystawiając pierwszą fakturę</p>
-                </div>
-              </CardContent>
-            </Card>
+                  <p>Wybierz firmę, aby zobaczyć kontrahentów</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
         )}
