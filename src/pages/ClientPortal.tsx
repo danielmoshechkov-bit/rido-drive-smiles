@@ -21,7 +21,7 @@ import {
   Calendar,
   MessageSquare,
   Heart,
-  ShoppingCart,
+  ShoppingBag,
   Settings,
   RefreshCw,
   Package,
@@ -51,6 +51,16 @@ interface PropertyListing {
   photos: string[];
 }
 
+interface Purchase {
+  id: string;
+  title: string;
+  price: number;
+  status: string;
+  created_at: string;
+  photo?: string;
+  type: 'vehicle' | 'property' | 'service';
+}
+
 export default function ClientPortal() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -68,6 +78,7 @@ export default function ClientPortal() {
   const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
   const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
 
   useEffect(() => {
     checkUser();
@@ -291,6 +302,10 @@ export default function ClientPortal() {
               <Package className="h-4 w-4 mr-2" />
               Moje ogłoszenia
             </TabsTrigger>
+            <TabsTrigger value="zakupy">
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Zakupy
+            </TabsTrigger>
             <TabsTrigger value="obserwowane">
               <Heart className="h-4 w-4 mr-2" />
               Obserwowane
@@ -333,6 +348,16 @@ export default function ClientPortal() {
                   </SheetTrigger>
                   <SheetTrigger asChild>
                     <Button 
+                      variant={activeTab === 'zakupy' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('zakupy')}
+                    >
+                      <ShoppingBag className="h-4 w-4 mr-2" />
+                      Zakupy
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
                       variant={activeTab === 'obserwowane' ? 'default' : 'ghost'} 
                       className="w-full justify-start rounded-xl transition-all"
                       onClick={() => setActiveTab('obserwowane')}
@@ -371,6 +396,7 @@ export default function ClientPortal() {
                 <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
                   <span className="font-medium text-sm truncate">
                     {activeTab === 'ogloszenia' && 'Moje ogłoszenia'}
+                    {activeTab === 'zakupy' && 'Zakupy'}
                     {activeTab === 'obserwowane' && 'Obserwowane'}
                     {activeTab === 'wiadomosci' && 'Wiadomości'}
                     {activeTab === 'konta' && 'Przełącz konto'}
@@ -388,6 +414,15 @@ export default function ClientPortal() {
                   >
                     <Package className="h-3 w-3 mr-2" />
                     Moje ogłoszenia
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'zakupy' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('zakupy')}
+                  >
+                    <ShoppingBag className="h-3 w-3 mr-2" />
+                    Zakupy
                   </Button>
                   <Button 
                     variant={activeTab === 'obserwowane' ? 'secondary' : 'ghost'} 
@@ -538,6 +573,68 @@ export default function ClientPortal() {
                 </Card>
               )}
             </div>
+          )}
+
+          {/* Purchases Tab */}
+          {activeTab === 'zakupy' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5" />
+                  Historia zakupów
+                </CardTitle>
+                <CardDescription>
+                  Twoje zamówienia i zakupione usługi
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {purchases.length > 0 ? (
+                  <div className="space-y-4">
+                    {purchases.map((purchase) => (
+                      <div
+                        key={purchase.id}
+                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          {purchase.photo ? (
+                            <img 
+                              src={purchase.photo} 
+                              alt={purchase.title}
+                              className="w-16 h-12 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                              <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold">{purchase.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(purchase.created_at).toLocaleDateString('pl-PL')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className="font-semibold">{purchase.price?.toLocaleString('pl-PL')} PLN</p>
+                          {getStatusBadge(purchase.status)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-semibold mb-2">Brak zakupów</p>
+                    <p className="text-sm">
+                      Tutaj pojawią się Twoje zakupy i zamówione usługi
+                    </p>
+                    <Button variant="outline" className="mt-4" onClick={() => navigate('/gielda')}>
+                      Przeglądaj ogłoszenia
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Favorites Tab */}
