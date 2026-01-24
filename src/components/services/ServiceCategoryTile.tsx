@@ -43,7 +43,7 @@ export function ServiceCategoryTile({
     <button
       onClick={onClick}
       className={cn(
-        "relative overflow-hidden rounded-2xl aspect-[4/3] group",
+        "relative overflow-hidden rounded-2xl aspect-[16/10] group",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl",
         "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       )}
