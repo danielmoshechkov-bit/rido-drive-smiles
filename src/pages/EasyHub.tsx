@@ -35,6 +35,7 @@ import Footer from "@/components/Footer";
 import { useModuleVisibility } from "@/hooks/useModuleVisibility";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -43,6 +44,14 @@ import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
 import tileServices from "@/assets/tile-services.jpg";
+// New unique images for subcategories
+import tileWorkshop from "@/assets/tile-workshop.jpg";
+import tileDetailing from "@/assets/tile-detailing.jpg";
+import tilePPF from "@/assets/tile-ppf.jpg";
+import tileInteriorDesign from "@/assets/tile-interior-design.jpg";
+import tileRenovation from "@/assets/tile-renovation.jpg";
+import tileConstruction from "@/assets/tile-construction.jpg";
+import tileClientPortal from "@/assets/tile-client-portal.jpg";
 
 interface MarketplaceTile {
   id: string;
@@ -96,7 +105,7 @@ const mainTiles: MarketplaceTile[] = [
   }
 ];
 
-// Motoryzacja sub-tiles - unique icons
+// Motoryzacja sub-tiles - unique images and icons
 const motoryzacjaSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-auto',
@@ -117,20 +126,11 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     available: true
   },
   {
-    id: 'portal-klienta',
-    title: 'Portal Klienta',
-    description: 'Historia zleceń i płatności',
-    icon: Wallet,
-    image: tileDriver,
-    link: '/klient',
-    available: true
-  },
-  {
     id: 'warsztat',
     title: 'Warsztat',
     description: 'Naprawy i serwis samochodowy',
-    icon: Settings,
-    image: tileServices,
+    icon: Wrench,
+    image: tileWorkshop,
     link: '/uslugi?kategoria=warsztat',
     available: true
   },
@@ -139,7 +139,7 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     title: 'Detailing',
     description: 'Pielęgnacja i zabezpieczenie',
     icon: Droplets,
-    image: tileServices,
+    image: tileDetailing,
     link: '/uslugi?kategoria=detailing',
     available: true
   },
@@ -148,13 +148,22 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     title: 'Studio PPF',
     description: 'Folie ochronne i ceramika',
     icon: Layers,
-    image: tileServices,
+    image: tilePPF,
     link: '/uslugi?kategoria=ppf',
+    available: true
+  },
+  {
+    id: 'portal-klienta',
+    title: 'Portal Klienta',
+    description: 'Historia zleceń i płatności',
+    icon: Wallet,
+    image: tileClientPortal,
+    link: '/klient',
     available: true
   }
 ];
 
-// Nieruchomości sub-tiles - unique icons
+// Nieruchomości sub-tiles - unique images and icons
 const nieruchomosciSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-nieruchomosci',
@@ -170,7 +179,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     title: 'Projektanci wnętrz',
     description: 'Projekty i wizualizacje',
     icon: Palette,
-    image: tileServices,
+    image: tileInteriorDesign,
     link: '/uslugi?kategoria=projektanci',
     available: true
   },
@@ -179,7 +188,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     title: 'Remonty i wykończenia',
     description: 'Kompleksowe wykończenia',
     icon: Paintbrush,
-    image: tileServices,
+    image: tileRenovation,
     link: '/uslugi?kategoria=remonty',
     available: true
   },
@@ -188,7 +197,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     title: 'Budowlanka',
     description: 'Prace budowlane i konstrukcyjne',
     icon: HardHat,
-    image: tileServices,
+    image: tileConstruction,
     link: '/uslugi?kategoria=budowlanka',
     available: true
   }
@@ -396,16 +405,28 @@ export default function EasyHub() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img 
-              src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-              alt="RIDO" 
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => setActiveCategory('main')}
-            />
-            <span className="font-bold text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              GetRido Easy
-            </span>
+          <div className="flex items-center gap-3">
+            {activeCategory !== 'main' ? (
+              <>
+                <UniversalHomeButton />
+                <span className="text-muted-foreground">/</span>
+                <span className="font-semibold text-foreground">
+                  {getCategoryTitle()}
+                </span>
+              </>
+            ) : (
+              <>
+                <img 
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                  alt="RIDO" 
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => setActiveCategory('main')}
+                />
+                <span className="font-bold text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  GetRido Easy
+                </span>
+              </>
+            )}
           </div>
           <div className="flex gap-2">
             <MyGetRidoButton user={user} />
@@ -462,9 +483,8 @@ export default function EasyHub() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Wróć
+              Wróć do głównej
             </Button>
-            <h2 className="text-xl md:text-2xl font-bold mt-2">{getCategoryTitle()}</h2>
           </div>
         </section>
       )}
