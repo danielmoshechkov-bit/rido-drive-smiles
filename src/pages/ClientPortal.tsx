@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
-import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsPill } from '@/components/ui/TabsPill';
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   ArrowLeft,
   Car,
@@ -24,9 +26,12 @@ import {
   RefreshCw,
   Package,
   Plus,
-  LogOut
+  LogOut,
+  Menu,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
+import LanguageSelector from '@/components/LanguageSelector';
 
 interface VehicleListing {
   id: string;
@@ -234,123 +239,193 @@ export default function ClientPortal() {
   const totalListings = vehicleListings.length + propertyListings.length;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <UniversalHomeButton />
-            <div className="hidden sm:flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              <span className="font-bold text-lg">Moje konto</span>
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Header - matching DriverDashboard style */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          {/* Desktop header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <UniversalHomeButton />
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-primary">Moje konto</span>
+                <span className="text-muted-foreground">-</span>
+                <span className="font-medium text-foreground">
+                  {user?.email?.split('@')[0]}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="scale-90">
+                <LanguageSelector />
+              </div>
+              <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
+                <LogOut className="h-4 w-4 mr-1" />
+                Wyloguj
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <MyGetRidoButton user={user} />
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
+
+          {/* Mobile header */}
+          <div className="md:hidden flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <UniversalHomeButton />
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex items-center gap-2">
+              <LanguageSelector />
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="container mx-auto px-4 py-6">
-        {/* Back Button */}
-        <Button variant="ghost" size="sm" className="mb-6" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Wróć do strony głównej
-        </Button>
-
-        {/* Page Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Witaj, {user?.email?.split('@')[0]}!</h1>
-          <p className="text-muted-foreground mt-1">
-            Zarządzaj swoimi ogłoszeniami, zakupami i ustawieniami
-          </p>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{totalListings}</p>
-                  <p className="text-sm text-muted-foreground">Ogłoszenia</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500/10">
-                  <Heart className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{favorites.length}</p>
-                  <p className="text-sm text-muted-foreground">Obserwowane</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <ShoppingCart className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">0</p>
-                  <p className="text-sm text-muted-foreground">Zakupy</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <MessageSquare className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">0</p>
-                  <p className="text-sm text-muted-foreground">Wiadomości</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-muted/50 p-1 rounded-xl flex-wrap h-auto">
-            <TabsTrigger value="ogloszenia" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        {/* Desktop TabsPill - matching driver dashboard */}
+        <div className="hidden md:block mb-6">
+          <TabsPill value={activeTab} onValueChange={setActiveTab}>
+            <TabsTrigger value="ogloszenia">
               <Package className="h-4 w-4 mr-2" />
               Moje ogłoszenia
             </TabsTrigger>
-            <TabsTrigger value="obserwowane" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="obserwowane">
               <Heart className="h-4 w-4 mr-2" />
               Obserwowane
             </TabsTrigger>
-            <TabsTrigger value="wiadomosci" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="wiadomosci">
               <MessageSquare className="h-4 w-4 mr-2" />
               Wiadomości
             </TabsTrigger>
-            <TabsTrigger value="konta" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="konta">
               <RefreshCw className="h-4 w-4 mr-2" />
               Przełącz konto
             </TabsTrigger>
-          </TabsList>
+          </TabsPill>
+        </div>
 
+        {/* Mobile Hamburger Menu - matching driver dashboard */}
+        <div className="md:hidden mb-3">
+          <div className="flex items-center gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button 
+                  variant="default" 
+                  size="icon" 
+                  className="h-10 w-10 rounded-xl shrink-0"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
+                <div className="space-y-2 mt-4">
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'ogloszenia' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('ogloszenia')}
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Moje ogłoszenia
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'obserwowane' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('obserwowane')}
+                    >
+                      <Heart className="h-4 w-4 mr-2" />
+                      Obserwowane
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'wiadomosci' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('wiadomosci')}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Wiadomości
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
+                      variant={activeTab === 'konta' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl transition-all"
+                      onClick={() => setActiveTab('konta')}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Przełącz konto
+                    </Button>
+                  </SheetTrigger>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Current tab label - collapsible */}
+            <Collapsible className="flex-1">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+                  <span className="font-medium text-sm truncate">
+                    {activeTab === 'ogloszenia' && 'Moje ogłoszenia'}
+                    {activeTab === 'obserwowane' && 'Obserwowane'}
+                    {activeTab === 'wiadomosci' && 'Wiadomości'}
+                    {activeTab === 'konta' && 'Przełącz konto'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1">
+                <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
+                  <Button 
+                    variant={activeTab === 'ogloszenia' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('ogloszenia')}
+                  >
+                    <Package className="h-3 w-3 mr-2" />
+                    Moje ogłoszenia
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'obserwowane' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('obserwowane')}
+                  >
+                    <Heart className="h-3 w-3 mr-2" />
+                    Obserwowane
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'wiadomosci' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('wiadomosci')}
+                  >
+                    <MessageSquare className="h-3 w-3 mr-2" />
+                    Wiadomości
+                  </Button>
+                  <Button 
+                    variant={activeTab === 'konta' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => setActiveTab('konta')}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Przełącz konto
+                  </Button>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="space-y-6">
           {/* My Listings Tab */}
-          <TabsContent value="ogloszenia">
+          {activeTab === 'ogloszenia' && (
             <div className="space-y-6">
               {/* Vehicle Listings */}
               {vehicleListings.length > 0 && (
@@ -463,10 +538,10 @@ export default function ClientPortal() {
                 </Card>
               )}
             </div>
-          </TabsContent>
+          )}
 
           {/* Favorites Tab */}
-          <TabsContent value="obserwowane">
+          {activeTab === 'obserwowane' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -514,10 +589,10 @@ export default function ClientPortal() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
           {/* Messages Tab */}
-          <TabsContent value="wiadomosci">
+          {activeTab === 'wiadomosci' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -535,81 +610,83 @@ export default function ClientPortal() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
           {/* Account Switching Tab */}
-          <TabsContent value="konta">
-            <AccountSwitcherPanel
-              isDriverAccount={isDriverAccount}
-              isFleetAccount={isFleetAccount}
-              isMarketplaceAccount={isMarketplaceAccount}
-              isRealEstateAccount={isRealEstateAccount}
-              isAdminAccount={isAdminAccount}
-              isMarketplaceEnabled={true}
-              currentAccountType="marketplace"
-              navigate={navigate}
-            />
-            
-            {/* Quick actions based on account types */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {isDriverAccount && (
-                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/driver')}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <Car className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Panel Kierowcy</p>
-                      <p className="text-sm text-muted-foreground">Rozliczenia i dokumenty</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+          {activeTab === 'konta' && (
+            <>
+              <AccountSwitcherPanel
+                isDriverAccount={isDriverAccount}
+                isFleetAccount={isFleetAccount}
+                isMarketplaceAccount={isMarketplaceAccount}
+                isRealEstateAccount={isRealEstateAccount}
+                isAdminAccount={isAdminAccount}
+                isMarketplaceEnabled={true}
+                currentAccountType="marketplace"
+                navigate={navigate}
+              />
               
-              {isFleetAccount && (
-                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/fleet/dashboard')}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-blue-500/10">
-                      <Settings className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Panel Floty</p>
-                      <p className="text-sm text-muted-foreground">Zarządzaj flotą</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {isRealEstateAccount && (
-                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/nieruchomosci/agent/panel')}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-green-500/10">
-                      <Home className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Panel Agenta</p>
-                      <p className="text-sm text-muted-foreground">Nieruchomości</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {isAdminAccount && (
-                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/admin/dashboard')}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-purple-500/10">
-                      <Settings className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Panel Admina</p>
-                      <p className="text-sm text-muted-foreground">Zarządzaj platformą</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+              {/* Quick actions based on account types */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {isDriverAccount && (
+                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/driver')}>
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Car className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">Panel Kierowcy</p>
+                        <p className="text-sm text-muted-foreground">Rozliczenia i dokumenty</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {isFleetAccount && (
+                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/fleet/dashboard')}>
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Settings className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">Panel Floty</p>
+                        <p className="text-sm text-muted-foreground">Zarządzaj flotą</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {isRealEstateAccount && (
+                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/nieruchomosci/agent/panel')}>
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Home className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">Panel Agenta</p>
+                        <p className="text-sm text-muted-foreground">Nieruchomości</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {isAdminAccount && (
+                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/admin/dashboard')}>
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Settings className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">Panel Admina</p>
+                        <p className="text-sm text-muted-foreground">Zarządzaj platformą</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </main>
     </div>
   );
