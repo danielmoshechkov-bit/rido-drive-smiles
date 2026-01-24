@@ -56,7 +56,10 @@ interface FeaturedListingsProps {
 export function FeaturedListings({ className }: FeaturedListingsProps) {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<ListingCategory>('all');
-  const [listings, setListings] = useState<Listing[]>([]);
+  const [allListings, setAllListings] = useState<Listing[]>([]);
+  const [vehicleListings, setVehicleListings] = useState<Listing[]>([]);
+  const [propertyListings, setPropertyListings] = useState<Listing[]>([]);
+  const [serviceListings, setServiceListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -64,8 +67,10 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
   // TODO: Future - user location for proximity sorting
   // const [userCity, setUserCity] = useState<string | null>(null);
   
-  // Max items per category (3 rows x 4 cols = 12 total, so ~4 per category)
-  const ITEMS_PER_CATEGORY = 4;
+  // Items for mixed view (4 per category = 12 total)
+  const ITEMS_PER_CATEGORY_MIXED = 4;
+  // Items for single category view
+  const ITEMS_PER_CATEGORY_SINGLE = 12;
 
   useEffect(() => {
     fetchListings();
@@ -80,32 +85,32 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       // 2. Sort by user's location proximity (using city or coordinates)
       // 3. Fill remaining slots with random free listings
       
-      // Fetch random vehicle listings (limit per category for 3 rows mixed view)
+      // Fetch 12 vehicle listings for category view
       const { data: vehicles } = await (supabase as any)
         .from('vehicle_listings')
         .select('id, title, price, photos, city')
         .eq('status', 'active')
-        .limit(ITEMS_PER_CATEGORY);
+        .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Fetch random property listings
+      // Fetch 12 property listings for category view
       const { data: properties } = await (supabase as any)
         .from('real_estate_listings')
         .select('id, title, price, photos, city, transaction_type')
         .eq('status', 'active')
-        .limit(ITEMS_PER_CATEGORY);
+        .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Fetch random service providers with ratings
+      // Fetch 12 service providers for category view
       const { data: services } = await (supabase as any)
         .from('service_providers')
         .select('id, company_name, logo_url, company_city, status, rating_avg, rating_count, services(price_from)')
         .eq('status', 'active')
-        .limit(ITEMS_PER_CATEGORY);
+        .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      const allListings: Listing[] = [];
-
+      // Process vehicles
+      const vehiclesData: Listing[] = [];
       if (vehicles) {
         vehicles.forEach((v: any) => {
-          allListings.push({
+          vehiclesData.push({
             id: v.id,
             title: v.title || 'Pojazd',
             price: v.price || 0,
@@ -116,9 +121,11 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         });
       }
 
+      // Process properties
+      const propertiesData: Listing[] = [];
       if (properties) {
         properties.forEach((p: any) => {
-          allListings.push({
+          propertiesData.push({
             id: p.id,
             title: p.title || 'Nieruchomość',
             price: p.price || 0,
@@ -130,6 +137,8 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         });
       }
 
+      // Process services
+      const servicesData: Listing[] = [];
       if (services) {
         services.forEach((s: any) => {
           // Get lowest price from services
@@ -137,7 +146,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             return svc.price_from && svc.price_from < min ? svc.price_from : min;
           }, Infinity) || 0;
           
-          allListings.push({
+          servicesData.push({
             id: s.id,
             title: s.company_name || 'Usługa',
             price: 0,
@@ -151,10 +160,19 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         });
       }
 
-      // Shuffle the listings randomly for varied display each visit
-      // TODO: Future - sort by: 1) paid/promoted first, 2) proximity to user, 3) random
-      const shuffled = [...allListings].sort(() => Math.random() - 0.5);
-      setListings(shuffled);
+      // Set category-specific listings (12 each)
+      setVehicleListings(vehiclesData.sort(() => Math.random() - 0.5));
+      setPropertyListings(propertiesData.sort(() => Math.random() - 0.5));
+      setServiceListings(servicesData.sort(() => Math.random() - 0.5));
+
+      // Create mixed listings for "Wszystko" (4 from each category = 12 total)
+      const mixedListings: Listing[] = [
+        ...vehiclesData.slice(0, ITEMS_PER_CATEGORY_MIXED),
+        ...propertiesData.slice(0, ITEMS_PER_CATEGORY_MIXED),
+        ...servicesData.slice(0, ITEMS_PER_CATEGORY_MIXED)
+      ].sort(() => Math.random() - 0.5);
+      
+      setAllListings(mixedListings);
     } catch (error) {
       console.error('Error fetching listings:', error);
     } finally {
@@ -162,13 +180,17 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     }
   };
 
-  const filteredListings = listings.filter(listing => {
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'vehicles') return listing.category === 'vehicle';
-    if (activeCategory === 'properties') return listing.category === 'property';
-    if (activeCategory === 'services') return listing.category === 'service';
-    return true;
-  });
+  // Get listings based on active category
+  const getDisplayListings = (): Listing[] => {
+    switch (activeCategory) {
+      case 'vehicles': return vehicleListings;
+      case 'properties': return propertyListings;
+      case 'services': return serviceListings;
+      default: return allListings;
+    }
+  };
+
+  const displayListings = getDisplayListings();
 
   const handleListingClick = (listing: Listing) => {
     if (listing.category === 'vehicle') {
@@ -224,7 +246,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     );
   }
 
-  if (listings.length === 0) {
+  if (displayListings.length === 0) {
     return null;
   }
 
@@ -303,7 +325,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         viewMode === 'compact' && "grid-cols-1 md:grid-cols-2",
         viewMode === 'list' && "grid-cols-1"
       )}>
-        {filteredListings.slice(0, 12).map((listing) => (
+        {displayListings.slice(0, 12).map((listing) => (
           <Card 
             key={`${listing.category}-${listing.id}`}
             className="group cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 border-0 shadow-sm"
