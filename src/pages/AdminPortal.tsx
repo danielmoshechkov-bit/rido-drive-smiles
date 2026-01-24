@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
@@ -15,48 +16,31 @@ import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2 } 
 
 export default function AdminPortal() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState('api');
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState('api');
 
   useEffect(() => {
-    checkAdmin();
-  }, []);
-
-  const checkAdmin = async () => {
-    try {
+    const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
       if (!user) {
         navigate('/auth');
-        return;
       }
-      setUser(user);
-
-      // Check if user is admin (daniel.moshechkov@gmail.com)
-      if (user.email === 'daniel.moshechkov@gmail.com') {
-        setIsAdmin(true);
-      } else {
-        // Check user_roles table for admin role
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id);
-        
-        const hasAdminRole = roles?.some(r => r.role === 'admin');
-        if (!hasAdminRole) {
-          navigate('/');
-          return;
-        }
-        setIsAdmin(true);
-      }
-    } catch (error) {
-      console.error('Error checking admin:', error);
-      navigate('/');
-    } finally {
       setLoading(false);
+    };
+    fetchUser();
+  }, []);
+
+  // Check admin access after roles are loaded
+  useEffect(() => {
+    if (!roleLoading && !loading && user) {
+      if (!isAdmin) {
+        navigate('/');
+      }
     }
-  };
+  }, [roleLoading, isAdmin, user, loading]);
 
   const subTabs = [
     { value: 'api', label: 'API i Integracje', visible: true },
@@ -67,7 +51,7 @@ export default function AdminPortal() {
     { value: 'users', label: 'Użytkownicy systemu', visible: true },
   ];
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
