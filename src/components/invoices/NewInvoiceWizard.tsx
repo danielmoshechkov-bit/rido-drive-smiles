@@ -512,7 +512,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
             address_postal_code: manualSellerData.address_postal_code || null,
             bank_name: manualSellerData.bank_name || null,
             bank_account: manualSellerData.bank_account || null,
-            type: 'company'
+            type: 'jdg'
             // owner_user_id uses DB default: auth.uid()
           })
           .select('id')
