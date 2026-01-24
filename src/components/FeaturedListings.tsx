@@ -84,7 +84,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       const { data: vehicles } = await (supabase as any)
         .from('vehicle_listings')
         .select('id, title, price, photos, city')
-        .eq('status', 'aktywne')
+        .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY);
 
       // Fetch random property listings
