@@ -7,8 +7,11 @@ import {
   Loader2, 
   ShieldCheck,
   ShieldX,
-  ExternalLink,
-  RefreshCw
+  RefreshCw,
+  CreditCard,
+  Copy,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +27,43 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
+
+// Bank identification helper
+function getBankInfo(iban: string): { name: string; color: string } | null {
+  const cleanIban = iban.replace(/[\s-]/g, '');
+  const bankPrefix = cleanIban.substring(2, 6);
+  
+  const banks: Record<string, { name: string; color: string }> = {
+    '1020': { name: 'PKO BP', color: 'bg-blue-600' },
+    '1050': { name: 'ING', color: 'bg-orange-500' },
+    '1140': { name: 'mBank', color: 'bg-teal-500' },
+    '1160': { name: 'Millennium', color: 'bg-purple-600' },
+    '1240': { name: 'Pekao SA', color: 'bg-red-600' },
+    '1090': { name: 'Santander', color: 'bg-red-500' },
+    '2490': { name: 'Alior Bank', color: 'bg-amber-500' },
+    '1060': { name: 'BNP Paribas', color: 'bg-green-600' },
+    '1030': { name: 'Citi Handlowy', color: 'bg-sky-500' },
+    '2520': { name: 'Credit Agricole', color: 'bg-lime-600' },
+  };
+  
+  return banks[bankPrefix] || null;
+}
+
+function formatIBAN(iban: string): string {
+  const clean = iban.replace(/[\s-]/g, '');
+  return clean.replace(/(.{2})(.{4})(.{4})(.{4})(.{4})(.{4})(.{4})/, '$1 $2 $3 $4 $5 $6 $7').trim();
+}
 
 interface GUSData {
   name: string;
@@ -84,6 +120,8 @@ export function ContractorWizard({
   const [postalCode, setPostalCode] = useState('');
   const [email, setEmail] = useState('');
   const [bankAccount, setBankAccount] = useState('');
+  const [bankAccountVerified, setBankAccountVerified] = useState(false);
+  const [verifyingBankAccount, setVerifyingBankAccount] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -104,6 +142,7 @@ export function ContractorWizard({
     setPostalCode('');
     setEmail('');
     setBankAccount('');
+    setBankAccountVerified(false);
   };
 
   const cleanNip = (value: string) => {
@@ -196,7 +235,73 @@ export function ContractorWizard({
   };
 
   const handleConfirm = () => {
+    // Auto-select first bank account if available
+    if (whitelistData?.accountNumbers?.length && !bankAccount) {
+      setBankAccount(whitelistData.accountNumbers[0]);
+      setBankAccountVerified(true);
+    }
     setStep('confirm');
+  };
+
+  const selectBankAccount = (account: string) => {
+    setBankAccount(account);
+    setBankAccountVerified(true);
+    toast.success('Wybrano konto z białej listy VAT');
+  };
+
+  const verifyBankAccount = async () => {
+    if (!bankAccount.trim()) {
+      toast.error('Wprowadź numer konta do weryfikacji');
+      return;
+    }
+
+    const cleanAccount = bankAccount.replace(/[\s-]/g, '');
+    
+    // Check if account is on whitelist
+    if (whitelistData?.accountNumbers?.includes(cleanAccount)) {
+      setBankAccountVerified(true);
+      toast.success('Konto znajduje się na białej liście VAT');
+      return;
+    }
+
+    // Verify against API
+    setVerifyingBankAccount(true);
+    try {
+      const response = await fetch(
+        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/registry-whitelist',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
+          },
+          body: JSON.stringify({ 
+            nip: cleanNip(nip), 
+            bankAccount: cleanAccount 
+          }),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success && result.data?.bankAccountVerified) {
+        setBankAccountVerified(true);
+        toast.success('Konto zweryfikowane na białej liście VAT');
+      } else {
+        setBankAccountVerified(false);
+        toast.warning('Konto nie znajduje się na białej liście VAT dla tego NIP');
+      }
+    } catch (error) {
+      console.error('Bank account verification error:', error);
+      toast.error('Błąd weryfikacji konta bankowego');
+    } finally {
+      setVerifyingBankAccount(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text.replace(/[\s-]/g, ''));
+    toast.success('Skopiowano numer konta');
   };
 
   const handleSave = async () => {
@@ -363,9 +468,55 @@ export function ContractorWizard({
                 {whitelistData.statusLabel || whitelistData.statusVat}
               </Badge>
               {whitelistData.accountNumbers && whitelistData.accountNumbers.length > 0 && (
-                <p className="text-muted-foreground">
-                  Zarejestrowane rachunki: {whitelistData.accountNumbers.length}
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Zarejestrowane rachunki bankowe ({whitelistData.accountNumbers.length}):
+                  </p>
+                  <ScrollArea className="max-h-32">
+                    <div className="space-y-1">
+                      {whitelistData.accountNumbers.slice(0, 5).map((account, idx) => {
+                        const bank = getBankInfo(account);
+                        return (
+                          <div 
+                            key={idx}
+                            className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors group"
+                            onClick={() => selectBankAccount(account)}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {bank && (
+                                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0", bank.color)}>
+                                  {bank.name.substring(0, 2)}
+                                </div>
+                              )}
+                              <span className="font-mono text-xs truncate">
+                                {formatIBAN(account)}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(account);
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                      {whitelistData.accountNumbers.length > 5 && (
+                        <p className="text-xs text-center text-muted-foreground py-1">
+                          +{whitelistData.accountNumbers.length - 5} więcej
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                  <p className="text-xs text-muted-foreground">
+                    Kliknij konto aby je wybrać
+                  </p>
+                </div>
               )}
             </div>
           ) : (
@@ -446,13 +597,108 @@ export function ContractorWizard({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bank">Numer konta (opcjonalnie)</Label>
-          <Input
-            id="bank"
-            value={bankAccount}
-            onChange={(e) => setBankAccount(e.target.value)}
-            placeholder="PL00 0000 0000 0000 0000 0000 0000"
-          />
+          <Label htmlFor="bank" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Numer konta bankowego
+            {bankAccountVerified && (
+              <Badge variant="outline" className="gap-1 text-green-700 border-green-300 bg-green-50">
+                <CheckCircle2 className="h-3 w-3" />
+                Zweryfikowane
+              </Badge>
+            )}
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="bank"
+                value={bankAccount}
+                onChange={(e) => {
+                  setBankAccount(e.target.value);
+                  setBankAccountVerified(false);
+                }}
+                placeholder="PL00 0000 0000 0000 0000 0000 0000"
+                className={cn(
+                  bankAccountVerified && "border-green-500 pr-8"
+                )}
+              />
+              {bankAccountVerified && (
+                <CheckCircle2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+              )}
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={bankAccountVerified ? "outline" : "secondary"}
+                    onClick={verifyBankAccount}
+                    disabled={verifyingBankAccount || !bankAccount.trim()}
+                  >
+                    {verifyingBankAccount ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sprawdź na białej liście VAT</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          {/* Whitelist accounts quick select */}
+          {whitelistData?.accountNumbers && whitelistData.accountNumbers.length > 0 && (
+            <div className="mt-2 p-3 bg-muted/50 rounded-lg border">
+              <p className="text-xs font-medium mb-2 flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-primary" />
+                Wybierz z białej listy VAT:
+              </p>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
+                {whitelistData.accountNumbers.map((account, idx) => {
+                  const bank = getBankInfo(account);
+                  const isSelected = bankAccount.replace(/[\s-]/g, '') === account.replace(/[\s-]/g, '');
+                  return (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded cursor-pointer transition-all",
+                        isSelected 
+                          ? "bg-primary/10 border border-primary" 
+                          : "hover:bg-background border border-transparent"
+                      )}
+                      onClick={() => selectBankAccount(account)}
+                    >
+                      {bank && (
+                        <div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0", bank.color)}>
+                          {bank.name.substring(0, 2)}
+                        </div>
+                      )}
+                      <span className="font-mono text-xs flex-1 truncate">
+                        {formatIBAN(account)}
+                      </span>
+                      {bank && (
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                          {bank.name}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <Check className="h-3 w-3 text-primary shrink-0" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {!bankAccountVerified && bankAccount.trim() && (
+            <p className="text-xs text-amber-600 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Konto nie zostało zweryfikowane na białej liście VAT
+            </p>
+          )}
         </div>
       </div>
     </div>
