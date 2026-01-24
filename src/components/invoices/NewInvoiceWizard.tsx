@@ -7,6 +7,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -17,9 +27,22 @@ import {
   Plus, 
   Trash2,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  AlertTriangle,
+  ShieldCheck,
+  ShieldX,
+  ShieldQuestion
 } from 'lucide-react';
 import { InvoiceTypeSelector, InvoiceType } from './InvoiceTypeSelector';
+
+interface VatStatus {
+  checked: boolean;
+  isActiveVat: boolean;
+  statusLabel: string;
+  statusVat: string;
+  verifiedAt?: string;
+  accountNumbers?: string[];
+}
 
 interface InvoiceItem {
   name: string;
@@ -59,6 +82,11 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
   const [isSearchingNip, setIsSearchingNip] = useState(false);
   const [newRecipientData, setNewRecipientData] = useState<Partial<Recipient>>({});
   
+  // VAT verification state
+  const [vatStatus, setVatStatus] = useState<VatStatus | null>(null);
+  const [isVerifyingVat, setIsVerifyingVat] = useState(false);
+  const [showVatWarningDialog, setShowVatWarningDialog] = useState(false);
+  
   // Invoice items
   const [items, setItems] = useState<InvoiceItem[]>([
     { name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }
@@ -92,6 +120,55 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
     if (data) setRecipients(data);
   };
 
+  const verifyVatStatus = async (nip: string) => {
+    setIsVerifyingVat(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('registry-whitelist', {
+        body: { nip }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.data) {
+        const isActive = data.data.statusVat === 'Czynny';
+        const isExempt = data.data.statusVat === 'Zwolniony';
+        setVatStatus({
+          checked: true,
+          isActiveVat: isActive || isExempt,
+          statusLabel: data.data.statusLabel || data.data.statusVat,
+          statusVat: data.data.statusVat,
+          verifiedAt: new Date().toISOString(),
+          accountNumbers: data.data.accountNumbers
+        });
+        
+        if (!isActive && !isExempt) {
+          toast.warning(`Uwaga: ${data.data.statusLabel || data.data.statusVat}`);
+        }
+      } else {
+        setVatStatus({
+          checked: true,
+          isActiveVat: false,
+          statusLabel: data?.error || 'Nie znaleziono w bazie MF',
+          statusVat: 'unknown',
+          verifiedAt: new Date().toISOString()
+        });
+        toast.warning('Nie znaleziono kontrahenta w Wykazie Podatników VAT');
+      }
+    } catch (err) {
+      console.error('VAT verification error:', err);
+      setVatStatus({
+        checked: true,
+        isActiveVat: false,
+        statusLabel: 'Błąd weryfikacji',
+        statusVat: 'error',
+        verifiedAt: new Date().toISOString()
+      });
+      toast.error('Błąd weryfikacji statusu VAT');
+    } finally {
+      setIsVerifyingVat(false);
+    }
+  };
+
   const searchGUS = async () => {
     if (!nipSearch || nipSearch.length !== 10) {
       toast.error('NIP musi mieć 10 cyfr');
@@ -99,6 +176,8 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
     }
 
     setIsSearchingNip(true);
+    setVatStatus(null); // Reset VAT status
+    
     try {
       const { data, error } = await supabase.functions.invoke('registry-gus', {
         body: { nip: nipSearch }
@@ -116,6 +195,10 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
           address_postal_code: gus.postalCode
         });
         toast.success('Dane pobrane z GUS');
+        
+        // Automatyczne sprawdzenie VAT po pobraniu z GUS
+        await verifyVatStatus(gus.nip);
+        
         setStep(2);
       } else {
         toast.error(data?.error || 'Nie znaleziono firmy');
@@ -126,6 +209,53 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
     } finally {
       setIsSearchingNip(false);
     }
+  };
+
+  // VAT Status Badge Component
+  const VatStatusBadge = () => {
+    if (isVerifyingVat) {
+      return (
+        <Badge variant="outline" className="gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Weryfikacja VAT...
+        </Badge>
+      );
+    }
+
+    if (!vatStatus?.checked) {
+      return (
+        <Badge variant="outline" className="gap-1 text-muted-foreground">
+          <ShieldQuestion className="h-3 w-3" />
+          VAT niesprawdzony
+        </Badge>
+      );
+    }
+
+    if (vatStatus.statusVat === 'Czynny') {
+      return (
+        <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+          <ShieldCheck className="h-3 w-3" />
+          Czynny podatnik VAT
+        </Badge>
+      );
+    }
+
+    if (vatStatus.statusVat === 'Zwolniony') {
+      return (
+        <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+          <ShieldCheck className="h-3 w-3" />
+          Zwolniony z VAT
+        </Badge>
+      );
+    }
+
+    // Niezarejestrowany, unknown, error
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <ShieldX className="h-3 w-3" />
+        {vatStatus.statusLabel}
+      </Badge>
+    );
   };
 
   const addItem = () => {
@@ -174,6 +304,16 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       return;
     }
 
+    // Sprawdź status VAT przed zapisem - pokaż ostrzeżenie jeśli nieaktywny
+    if (vatStatus?.checked && !vatStatus.isActiveVat) {
+      setShowVatWarningDialog(true);
+      return;
+    }
+
+    await performSave();
+  };
+
+  const performSave = async () => {
     setSaving(true);
     try {
       let recipientId = selectedRecipient?.id;
@@ -286,6 +426,8 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       setInvoiceType('invoice');
       setSelectedRecipient(null);
       setNewRecipientData({});
+      setVatStatus(null);
+      setShowVatWarningDialog(false);
       setItems([{ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
       setNotes('');
       
@@ -346,10 +488,16 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
 
               {/* GUS Result */}
               {newRecipientData.name && !selectedRecipient && (
-                <Card className="mb-4 border-green-500/50 bg-green-50/50 dark:bg-green-900/10">
+                <Card className={`mb-4 border-2 ${
+                  vatStatus?.isActiveVat 
+                    ? 'border-green-500/50 bg-green-50/50 dark:bg-green-900/10' 
+                    : vatStatus?.checked 
+                      ? 'border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10'
+                      : 'border-muted'
+                }`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           <span className="font-semibold">{newRecipientData.name}</span>
@@ -358,27 +506,94 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
                         <p className="text-sm text-muted-foreground">
                           {newRecipientData.address_street}, {newRecipientData.address_postal_code} {newRecipientData.address_city}
                         </p>
+                        
+                        {/* VAT Status Info */}
+                        {vatStatus?.checked && vatStatus.verifiedAt && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Sprawdzono: {new Date(vatStatus.verifiedAt).toLocaleString('pl-PL')}
+                          </p>
+                        )}
                       </div>
-                      <Badge variant="secondary">Z GUS</Badge>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant="secondary">Z GUS</Badge>
+                        <VatStatusBadge />
+                      </div>
                     </div>
+                    
+                    {/* Warning Alert */}
+                    {vatStatus?.checked && !vatStatus.isActiveVat && (
+                      <div className="mt-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-destructive">
+                            Kontrahent nie jest czynnym podatnikiem VAT
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Wystawiając fakturę VAT dla tego kontrahenta, możesz narazić się na problemy z odliczeniem podatku.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Existing Recipients with VAT Check */}
+              {selectedRecipient && (
+                <Card className="mb-4 ring-2 ring-primary">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">{selectedRecipient.name}</p>
+                        {selectedRecipient.nip && <p className="text-sm text-muted-foreground">NIP: {selectedRecipient.nip}</p>}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant="outline">Wybrany</Badge>
+                        {selectedRecipient.nip && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => verifyVatStatus(selectedRecipient.nip!)}
+                            disabled={isVerifyingVat}
+                          >
+                            {isVerifyingVat ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <ShieldCheck className="h-3 w-3 mr-1" />
+                            )}
+                            Sprawdź VAT
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {vatStatus?.checked && selectedRecipient.nip && (
+                      <div className="mt-2">
+                        <VatStatusBadge />
+                        {!vatStatus.isActiveVat && (
+                          <div className="mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded text-xs text-destructive">
+                            <AlertTriangle className="h-3 w-3 inline mr-1" />
+                            {vatStatus.statusLabel}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
 
               {/* Existing Recipients */}
-              {recipients.length > 0 && (
+              {recipients.length > 0 && !selectedRecipient && (
                 <div>
                   <Label className="text-sm text-muted-foreground mb-2 block">Lub wybierz z listy:</Label>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {recipients.map((rec) => (
                       <Card
                         key={rec.id}
-                        className={`cursor-pointer transition-all ${
-                          selectedRecipient?.id === rec.id ? 'ring-2 ring-primary' : 'hover:bg-muted/50'
-                        }`}
+                        className="cursor-pointer transition-all hover:bg-muted/50"
                         onClick={() => {
                           setSelectedRecipient(rec);
                           setNewRecipientData({});
+                          setVatStatus(null); // Reset VAT when changing recipient
                         }}
                       >
                         <CardContent className="p-3">
@@ -577,6 +792,48 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
             </div>
           </div>
         )}
+
+        {/* VAT Warning Dialog */}
+        <AlertDialog open={showVatWarningDialog} onOpenChange={setShowVatWarningDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Ostrzeżenie - Status VAT kontrahenta
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Kontrahent <strong>{newRecipientData.name || selectedRecipient?.name}</strong> 
+                  ma status: <strong className="text-destructive">{vatStatus?.statusLabel}</strong>
+                </p>
+                <p>
+                  Wystawiając fakturę VAT dla podmiotu, który nie jest czynnym podatnikiem VAT, 
+                  możesz narazić się na:
+                </p>
+                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                  <li>Brak możliwości odliczenia VAT przez kontrahenta</li>
+                  <li>Problemy podczas kontroli skarbowej</li>
+                  <li>Konieczność korygowania dokumentów</li>
+                </ul>
+                <p className="font-medium pt-2">
+                  Czy mimo to chcesz zapisać fakturę?
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Anuluj</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  setShowVatWarningDialog(false);
+                  performSave();
+                }}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Zapisz mimo ostrzeżenia
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
