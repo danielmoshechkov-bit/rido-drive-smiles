@@ -57,12 +57,25 @@ const DriverDashboard = () => {
   const [isFleetAccount, setIsFleetAccount] = useState(false);
   const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
   const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
 
   // Check for other account types
   useEffect(() => {
     const checkAccounts = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+
+      // Check for main admin by email
+      const isMainAdmin = session.user.email === 'daniel.moshechkov@gmail.com';
+
+      // Check for admin role in database
+      const { data: adminRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdminAccount(isMainAdmin || !!adminRole);
 
       // Check for fleet account
       const { data: fleetRoles } = await supabase
@@ -667,6 +680,7 @@ const DriverDashboard = () => {
             isFleetAccount={isFleetAccount}
             isMarketplaceAccount={isMarketplaceAccount}
             isRealEstateAccount={isRealEstateAccount}
+            isAdminAccount={isAdminAccount}
             isMarketplaceEnabled={isMarketplaceEnabled}
             currentAccountType="driver"
             navigate={navigate}

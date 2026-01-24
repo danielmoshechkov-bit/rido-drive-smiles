@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator } from "lucide-react";
+import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
 
@@ -37,6 +37,9 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
     if (!user) return;
     
     const checkAccountTypes = async () => {
+      // Check for main admin by email first
+      const isMainAdmin = user.email === 'daniel.moshechkov@gmail.com';
+      
       // Check for driver
       const { data: driverApp } = await supabase
         .from("driver_app_users")
@@ -65,7 +68,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         .eq("user_id", user.id)
         .in("role", ["real_estate_agent", "real_estate_admin"]);
       
-      // Check for admin
+      // Check for admin role in database
       const { data: adminRole } = await supabase
         .from("user_roles")
         .select("role")
@@ -86,7 +89,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         isFleet: !!fleetRoles && fleetRoles.length > 0,
         isMarketplace: !!marketplaceProfile,
         isRealEstate: !!realEstateRoles && realEstateRoles.length > 0,
-        isAdmin: !!adminRole,
+        isAdmin: isMainAdmin || !!adminRole,
         isAccounting: !!accountingRole,
       });
     };
@@ -179,6 +182,13 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
             Panel Księgowy
           </DropdownMenuItem>
         )}
+        
+        {/* Invoice button for all users */}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('/faktury')}>
+          <FileText className="h-4 w-4 mr-2" />
+          Wystaw fakturę
+        </DropdownMenuItem>
         
         {/* If no specific account, go to marketplace panel by default */}
         {!accountTypes.isAdmin && !accountTypes.isFleet && !accountTypes.isDriver && 
