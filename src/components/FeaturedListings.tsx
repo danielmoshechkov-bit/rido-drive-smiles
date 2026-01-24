@@ -16,7 +16,8 @@ import {
   ArrowRight,
   Grid3X3,
   LayoutList,
-  List
+  List,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,10 @@ interface Listing {
   city?: string;
   category: 'vehicle' | 'property' | 'service';
   transaction_type?: string;
+  // Service-specific fields
+  rating_avg?: number;
+  rating_count?: number;
+  price_from?: number;
 }
 
 interface FeaturedListingsProps {
@@ -42,11 +47,6 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
-  
-  // Count per category
-  const [vehicleCount, setVehicleCount] = useState(0);
-  const [propertyCount, setPropertyCount] = useState(0);
-  const [serviceCount, setServiceCount] = useState(0);
 
   // TODO: Future - user location for proximity sorting
   // const [userCity, setUserCity] = useState<string | null>(null);
@@ -81,17 +81,16 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY);
 
-      // Fetch random service providers
+      // Fetch random service providers with ratings
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, company_name, logo_url, company_city, status')
+        .select('id, company_name, logo_url, company_city, status, rating_avg, rating_count, services(price_from)')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY);
 
       const allListings: Listing[] = [];
 
       if (vehicles) {
-        setVehicleCount(vehicles.length);
         vehicles.forEach((v: any) => {
           allListings.push({
             id: v.id,
@@ -105,7 +104,6 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       }
 
       if (properties) {
-        setPropertyCount(properties.length);
         properties.forEach((p: any) => {
           allListings.push({
             id: p.id,
@@ -120,15 +118,22 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       }
 
       if (services) {
-        setServiceCount(services.length);
         services.forEach((s: any) => {
+          // Get lowest price from services
+          const minPrice = s.services?.reduce((min: number, svc: any) => {
+            return svc.price_from && svc.price_from < min ? svc.price_from : min;
+          }, Infinity) || 0;
+          
           allListings.push({
             id: s.id,
             title: s.company_name || 'Usługa',
             price: 0,
             photos: s.logo_url ? [s.logo_url] : [],
             city: s.company_city,
-            category: 'service'
+            category: 'service',
+            rating_avg: s.rating_avg || 0,
+            rating_count: s.rating_count || 0,
+            price_from: minPrice === Infinity ? 0 : minPrice
           });
         });
       }
@@ -183,16 +188,6 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     }
   };
 
-  const getCategoryLabel = () => {
-    switch (activeCategory) {
-      case 'vehicles': return 'Pojazdy';
-      case 'properties': return 'Nieruchomości';
-      case 'services': return 'Usługi';
-      default: return 'Wszystkie ogłoszenia';
-    }
-  };
-
-  const totalCount = vehicleCount + propertyCount + serviceCount;
 
   if (loading) {
     return (
@@ -219,20 +214,10 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
           <TabsTrigger value="vehicles" className="gap-2">
             <Car className="h-4 w-4" />
             Pojazdy
-            {vehicleCount > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                {vehicleCount}
-              </Badge>
-            )}
           </TabsTrigger>
           <TabsTrigger value="properties" className="gap-2">
             <Home className="h-4 w-4" />
             Nieruchomości
-            {propertyCount > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                {propertyCount}
-              </Badge>
-            )}
           </TabsTrigger>
           <TabsTrigger value="services" className="gap-2">
             <Wrench className="h-4 w-4" />
@@ -272,11 +257,8 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          {activeCategory === 'vehicles' && <Car className="h-5 w-5 text-primary" />}
-          {activeCategory === 'properties' && <Home className="h-5 w-5 text-primary" />}
-          {activeCategory === 'services' && <Wrench className="h-5 w-5 text-primary" />}
           <h2 className="text-lg md:text-xl font-bold">
-            {getCategoryLabel()} ({filteredListings.length})
+            Proponowane oferty
           </h2>
         </div>
         <Button 
@@ -288,11 +270,6 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
-
-      {/* Subtitle */}
-      <p className="text-sm text-muted-foreground mb-4">
-        Przeglądaj najnowsze ogłoszenia z naszego portalu
-      </p>
 
       {/* Listings Grid */}
       <div className={cn(
@@ -380,17 +357,35 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                   {listing.title}
                 </h3>
                 {listing.city && (
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground mb-1">
                     {listing.city}
                   </p>
                 )}
+                
+                {/* Service-specific: Rating and reviews */}
+                {listing.category === 'service' && listing.rating_count !== undefined && listing.rating_count > 0 && (
+                  <div className="flex items-center gap-1 mb-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    <span className="text-xs font-medium">{(listing.rating_avg || 0).toFixed(1)}</span>
+                    <span className="text-xs text-muted-foreground">({listing.rating_count} opinii)</span>
+                  </div>
+                )}
+                
+                {/* Price display */}
                 <p className="font-bold text-primary">
-                  {listing.price > 0 ? (
+                  {listing.category === 'service' ? (
+                    listing.price_from && listing.price_from > 0 ? (
+                      <>
+                        od {listing.price_from.toLocaleString('pl-PL')} 
+                        <span className="text-xs font-normal text-muted-foreground ml-1">PLN</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Zapytaj o cenę</span>
+                    )
+                  ) : listing.price > 0 ? (
                     <>
                       {listing.price.toLocaleString('pl-PL')} 
-                      <span className="text-xs font-normal text-muted-foreground ml-1">
-                        {listing.category === 'service' ? 'PLN/h' : 'PLN'}
-                      </span>
+                      <span className="text-xs font-normal text-muted-foreground ml-1">PLN</span>
                     </>
                   ) : (
                     <span className="text-muted-foreground text-sm">Zapytaj o cenę</span>
