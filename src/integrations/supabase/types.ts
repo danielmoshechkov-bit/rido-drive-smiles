@@ -1913,6 +1913,51 @@ export type Database = {
           },
         ]
       }
+      driver_fleet_relations: {
+        Row: {
+          created_at: string | null
+          driver_id: string
+          fleet_id: string
+          id: string
+          is_active: boolean | null
+          relation_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id: string
+          fleet_id: string
+          id?: string
+          is_active?: boolean | null
+          relation_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string
+          fleet_id?: string
+          id?: string
+          is_active?: boolean | null
+          relation_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_fleet_relations_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_fleet_relations_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_invoices: {
         Row: {
           created_at: string

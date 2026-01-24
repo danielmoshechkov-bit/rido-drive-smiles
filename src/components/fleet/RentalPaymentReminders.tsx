@@ -27,6 +27,8 @@ import {
   Settings,
   RefreshCw
 } from 'lucide-react';
+import { DriverSearchableSelect } from './DriverSearchableSelect';
+import { AddFleetDriverModal } from './AddFleetDriverModal';
 
 interface Reminder {
   id: string;
@@ -71,6 +73,7 @@ export function RentalPaymentReminders({ fleetId }: RentalPaymentRemindersProps)
   const [sending, setSending] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showAddDriverModal, setShowAddDriverModal] = useState(false);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [smsTemplate, setSmsTemplate] = useState('Przypomnienie: Termin płatności za wynajem pojazdu {plate} minął. Kwota: {amount} PLN. Prosimy o pilną wpłatę.');
@@ -294,18 +297,13 @@ export function RentalPaymentReminders({ fleetId }: RentalPaymentRemindersProps)
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>Kierowca *</Label>
-                  <Select value={newReminder.driver_id} onValueChange={(v) => setNewReminder({ ...newReminder, driver_id: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Wybierz kierowcę" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {drivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {driver.first_name} {driver.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <DriverSearchableSelect
+                    drivers={drivers}
+                    value={newReminder.driver_id}
+                    onChange={(id) => setNewReminder({ ...newReminder, driver_id: id })}
+                    onAddNew={() => setShowAddDriverModal(true)}
+                    placeholder="Wyszukaj kierowcę..."
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -461,6 +459,17 @@ export function RentalPaymentReminders({ fleetId }: RentalPaymentRemindersProps)
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Add Driver Modal */}
+      <AddFleetDriverModal
+        isOpen={showAddDriverModal}
+        onClose={() => setShowAddDriverModal(false)}
+        fleetId={fleetId}
+        onSuccess={(driverId) => {
+          fetchDriversAndVehicles();
+          setNewReminder({ ...newReminder, driver_id: driverId });
+        }}
+      />
     </div>
   );
 }
