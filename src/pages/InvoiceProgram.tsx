@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +41,6 @@ import {
   Loader2,
   Send
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPanel';
@@ -65,8 +66,8 @@ interface Entity {
 
 export default function InvoiceProgram() {
   const navigate = useNavigate();
+  const { isAdmin, isAccountingAdmin, isAccountant, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Data
@@ -135,17 +136,27 @@ export default function InvoiceProgram() {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     
-    if (user?.email === 'daniel.moshechkov@gmail.com') {
-      setIsAdmin(true);
-      await fetchEntities();
-    } else {
-      toast.error('Brak dostępu do programu faktur');
-      navigate('/');
+    if (!user) {
+      navigate('/auth');
       return;
     }
     
     setLoading(false);
   };
+
+  // Check role-based access after roles are loaded
+  useEffect(() => {
+    if (!roleLoading && user) {
+      const hasAccess = isAdmin || isAccountingAdmin || isAccountant;
+      
+      if (hasAccess) {
+        fetchEntities();
+      } else {
+        toast.error('Brak dostępu do programu faktur');
+        navigate('/');
+      }
+    }
+  }, [roleLoading, isAdmin, isAccountingAdmin, isAccountant, user]);
 
   const fetchEntities = async () => {
     const { data } = await supabase
