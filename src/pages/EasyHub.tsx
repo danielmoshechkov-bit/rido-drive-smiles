@@ -44,7 +44,7 @@ import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
-import tileServices from "@/assets/tile-services.jpg";
+import tileServices from "@/assets/tile-handyman.jpg";
 import tileInvoicing from "@/assets/tile-invoicing.jpg";
 // New unique images for subcategories
 import tileWorkshop from "@/assets/tile-workshop.jpg";
