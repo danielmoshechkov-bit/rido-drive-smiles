@@ -102,7 +102,7 @@ const mainTiles: MarketplaceTile[] = [
     description: 'Program do faktur online',
     icon: Receipt,
     image: tileInvoicing,
-    link: '/faktury',
+    link: '/klient?tab=ksiegowosc',
     available: true
   }
 ];
@@ -345,6 +345,17 @@ export default function EasyHub() {
       setActiveCategory('nieruchomosci');
       return;
     }
+    
+    // Księgowość - route based on auth status
+    if (tile.id === 'ksiegowosc') {
+      if (user) {
+        navigate('/klient?tab=ksiegowosc');
+      } else {
+        navigate('/faktury');
+      }
+      return;
+    }
+    
     // Direct link
     if (tile.link) {
       navigate(tile.link);

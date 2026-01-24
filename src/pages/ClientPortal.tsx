@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -82,6 +82,7 @@ const accountingSubTabs = [
 
 export default function ClientPortal() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('start');
@@ -105,6 +106,14 @@ export default function ClientPortal() {
   const [showCompanySetup, setShowCompanySetup] = useState(false);
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     checkUser();
