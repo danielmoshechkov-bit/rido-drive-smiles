@@ -379,19 +379,23 @@ export default function InvoiceProgram() {
     
     setIsSendingReminder(true);
     try {
-      // For now simulation - in future call send-invoice-email edge function
-      await new Promise(r => setTimeout(r, 1500));
+      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
+        body: { 
+          invoice_id: pendingReminderConfirmation.invoice_id,
+          type: 'payment_reminder'
+        }
+      });
       
-      // TODO: Call actual edge function
-      // const { error } = await supabase.functions.invoke('send-invoice-email', {
-      //   body: { 
-      //     invoice_id: pendingReminderConfirmation.invoice_id,
-      //     type: 'payment_reminder'
-      //   }
-      // });
-      
-      toast.success(`Przypomnienie wysłane do ${pendingReminderConfirmation.buyer_name}`);
+      if (error) {
+        console.error('Send reminder error:', error);
+        toast.error(error.message || 'Nie udało się wysłać przypomnienia');
+      } else if (data?.success) {
+        toast.success(`Przypomnienie wysłane do ${pendingReminderConfirmation.buyer_name}`);
+      } else {
+        toast.error(data?.error || 'Błąd wysyłania przypomnienia');
+      }
     } catch (err) {
+      console.error('Send reminder exception:', err);
       toast.error('Nie udało się wysłać przypomnienia');
     } finally {
       setIsSendingReminder(false);
