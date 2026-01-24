@@ -7,18 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 import { TabsPill } from '@/components/ui/TabsPill';
-import { TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AddListingModal } from '@/components/AddListingModal';
 import { 
-  ArrowLeft,
   Car,
   Home,
   FileText,
-  Clock,
-  CheckCircle,
   User,
-  Calendar,
   MessageSquare,
   Heart,
   ShoppingBag,
@@ -28,7 +25,16 @@ import {
   Plus,
   LogOut,
   Menu,
-  ChevronDown
+  ChevronDown,
+  Search,
+  Users,
+  Calculator,
+  FileSpreadsheet,
+  CreditCard,
+  Building2,
+  BarChart3,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import LanguageSelector from '@/components/LanguageSelector';
@@ -61,11 +67,23 @@ interface Purchase {
   type: 'vehicle' | 'property' | 'service';
 }
 
+// Accounting sub-tabs
+const accountingSubTabs = [
+  { id: 'przeglad', label: 'Przegląd', icon: BarChart3 },
+  { id: 'faktury', label: 'Faktury', icon: FileText },
+  { id: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet },
+  { id: 'platnosci', label: 'Płatności', icon: CreditCard },
+  { id: 'cykliczne', label: 'Cykliczne', icon: Clock },
+  { id: 'firmy', label: 'Firmy', icon: Building2 },
+  { id: 'raporty', label: 'Raporty', icon: BarChart3 },
+];
+
 export default function ClientPortal() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('ogloszenia');
+  const [activeTab, setActiveTab] = useState('start');
+  const [accountingSubTab, setAccountingSubTab] = useState('przeglad');
   
   // Account types
   const [isDriverAccount, setIsDriverAccount] = useState(false);
@@ -199,7 +217,6 @@ export default function ClientPortal() {
     const favData = favResult.data as { id: string; vehicle_id: string }[] | null;
     
     if (favData && favData.length > 0) {
-      // Fetch the related vehicle listings
       const vehicleIds = favData.map((f: any) => f.vehicle_id);
       const vehicleResult = await (supabase as any)
         .from('vehicle_listings')
@@ -249,6 +266,16 @@ export default function ClientPortal() {
 
   const totalListings = vehicleListings.length + propertyListings.length;
 
+  const mainTabs = [
+    { id: 'start', label: 'Start', icon: Home },
+    { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
+    { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
+    { id: 'ulubione', label: 'Ulubione', icon: Heart },
+    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
+    { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
+    { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header - matching DriverDashboard style */}
@@ -268,6 +295,15 @@ export default function ClientPortal() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <AddListingModal 
+                user={user}
+                trigger={
+                  <Button className="bg-primary hover:bg-primary/90">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Dodaj ogłoszenie
+                  </Button>
+                }
+              />
               <div className="scale-90">
                 <LanguageSelector />
               </div>
@@ -285,6 +321,14 @@ export default function ClientPortal() {
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex items-center gap-2">
+              <AddListingModal 
+                user={user}
+                trigger={
+                  <Button size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
               <LanguageSelector />
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
@@ -298,30 +342,16 @@ export default function ClientPortal() {
         {/* Desktop TabsPill - matching driver dashboard */}
         <div className="hidden md:block mb-6">
           <TabsPill value={activeTab} onValueChange={setActiveTab}>
-            <TabsTrigger value="ogloszenia">
-              <Package className="h-4 w-4 mr-2" />
-              Moje ogłoszenia
-            </TabsTrigger>
-            <TabsTrigger value="zakupy">
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              Zakupy
-            </TabsTrigger>
-            <TabsTrigger value="obserwowane">
-              <Heart className="h-4 w-4 mr-2" />
-              Obserwowane
-            </TabsTrigger>
-            <TabsTrigger value="wiadomosci">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Wiadomości
-            </TabsTrigger>
-            <TabsTrigger value="konta">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Przełącz konto
-            </TabsTrigger>
+            {mainTabs.map(tab => (
+              <TabsTrigger key={tab.id} value={tab.id}>
+                <tab.icon className="h-4 w-4 mr-2" />
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsPill>
         </div>
 
-        {/* Mobile Hamburger Menu - matching driver dashboard */}
+        {/* Mobile Hamburger Menu */}
         <div className="md:hidden mb-3">
           <div className="flex items-center gap-2">
             <Sheet>
@@ -336,133 +366,177 @@ export default function ClientPortal() {
               </SheetTrigger>
               <SheetContent side="left" className="w-64 bg-gradient-to-b from-primary/5 to-background">
                 <div className="space-y-2 mt-4">
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'ogloszenia' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('ogloszenia')}
-                    >
-                      <Package className="h-4 w-4 mr-2" />
-                      Moje ogłoszenia
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'zakupy' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('zakupy')}
-                    >
-                      <ShoppingBag className="h-4 w-4 mr-2" />
-                      Zakupy
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'obserwowane' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('obserwowane')}
-                    >
-                      <Heart className="h-4 w-4 mr-2" />
-                      Obserwowane
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'wiadomosci' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('wiadomosci')}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Wiadomości
-                    </Button>
-                  </SheetTrigger>
-                  <SheetTrigger asChild>
-                    <Button 
-                      variant={activeTab === 'konta' ? 'default' : 'ghost'} 
-                      className="w-full justify-start rounded-xl transition-all"
-                      onClick={() => setActiveTab('konta')}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Przełącz konto
-                    </Button>
-                  </SheetTrigger>
+                  {mainTabs.map(tab => (
+                    <SheetTrigger key={tab.id} asChild>
+                      <Button 
+                        variant={activeTab === tab.id ? 'default' : 'ghost'} 
+                        className="w-full justify-start rounded-xl transition-all"
+                        onClick={() => setActiveTab(tab.id)}
+                      >
+                        <tab.icon className="h-4 w-4 mr-2" />
+                        {tab.label}
+                      </Button>
+                    </SheetTrigger>
+                  ))}
                 </div>
               </SheetContent>
             </Sheet>
 
-            {/* Current tab label - collapsible */}
             <Collapsible className="flex-1">
               <CollapsibleTrigger className="w-full">
                 <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
                   <span className="font-medium text-sm truncate">
-                    {activeTab === 'ogloszenia' && 'Moje ogłoszenia'}
-                    {activeTab === 'zakupy' && 'Zakupy'}
-                    {activeTab === 'obserwowane' && 'Obserwowane'}
-                    {activeTab === 'wiadomosci' && 'Wiadomości'}
-                    {activeTab === 'konta' && 'Przełącz konto'}
+                    {mainTabs.find(t => t.id === activeTab)?.label}
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-1">
                 <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
-                  <Button 
-                    variant={activeTab === 'ogloszenia' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setActiveTab('ogloszenia')}
-                  >
-                    <Package className="h-3 w-3 mr-2" />
-                    Moje ogłoszenia
-                  </Button>
-                  <Button 
-                    variant={activeTab === 'zakupy' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setActiveTab('zakupy')}
-                  >
-                    <ShoppingBag className="h-3 w-3 mr-2" />
-                    Zakupy
-                  </Button>
-                  <Button 
-                    variant={activeTab === 'obserwowane' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setActiveTab('obserwowane')}
-                  >
-                    <Heart className="h-3 w-3 mr-2" />
-                    Obserwowane
-                  </Button>
-                  <Button 
-                    variant={activeTab === 'wiadomosci' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setActiveTab('wiadomosci')}
-                  >
-                    <MessageSquare className="h-3 w-3 mr-2" />
-                    Wiadomości
-                  </Button>
-                  <Button 
-                    variant={activeTab === 'konta' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setActiveTab('konta')}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-2" />
-                    Przełącz konto
-                  </Button>
+                  {mainTabs.map(tab => (
+                    <Button 
+                      key={tab.id}
+                      variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() => setActiveTab(tab.id)}
+                    >
+                      <tab.icon className="h-3 w-3 mr-2" />
+                      {tab.label}
+                    </Button>
+                  ))}
                 </div>
               </CollapsibleContent>
             </Collapsible>
           </div>
         </div>
 
+        {/* Accounting Sub-Tabs (when Księgowość is selected) */}
+        {activeTab === 'ksiegowosc' && (
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+              {accountingSubTabs.map(sub => (
+                <Button
+                  key={sub.id}
+                  variant={accountingSubTab === sub.id ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAccountingSubTab(sub.id)}
+                  className="rounded-full"
+                >
+                  <sub.icon className="h-4 w-4 mr-2" />
+                  {sub.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tab Content */}
         <div className="space-y-6">
+          {/* Start Tab - Dashboard View */}
+          {activeTab === 'start' && (
+            <div className="space-y-6">
+              {/* Quick Actions Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/gielda')}>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-blue-100">
+                        <Search className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Szukam</h3>
+                        <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+
+                <AddListingModal 
+                  user={user}
+                  trigger={
+                    <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-amber-100">
+                            <Plus className="h-8 w-8 text-amber-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-lg">Sprzedaję</h3>
+                            <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy, aby wystawiać ogłoszenia</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      </CardContent>
+                    </Card>
+                  }
+                />
+
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('konta')}>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-purple-100">
+                        <Users className="h-8 w-8 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Przełącz konto</h3>
+                        <p className="text-sm text-muted-foreground">Zarządzaj kontami kierowcy, floty i sprzedawcy</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-lg bg-primary/10 w-fit mx-auto mb-3">
+                      <Package className="h-6 w-6 text-primary" />
+                    </div>
+                    <p className="text-3xl font-bold">{totalListings}</p>
+                    <p className="text-sm text-muted-foreground">Ogłoszenia</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-lg bg-primary/10 w-fit mx-auto mb-3">
+                      <MessageSquare className="h-6 w-6 text-primary" />
+                    </div>
+                    <p className="text-3xl font-bold">0</p>
+                    <p className="text-sm text-muted-foreground">Wiadomości</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-lg bg-primary/10 w-fit mx-auto mb-3">
+                      <Heart className="h-6 w-6 text-primary" />
+                    </div>
+                    <p className="text-3xl font-bold">{favorites.length}</p>
+                    <p className="text-sm text-muted-foreground">Ulubione</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-lg bg-primary/10 w-fit mx-auto mb-3">
+                      <Search className="h-6 w-6 text-primary" />
+                    </div>
+                    <p className="text-3xl font-bold">0</p>
+                    <p className="text-sm text-muted-foreground">Zapisane wyszukiwania</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
           {/* My Listings Tab */}
           {activeTab === 'ogloszenia' && (
             <div className="space-y-6">
-              {/* Vehicle Listings */}
               {vehicleListings.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -509,7 +583,6 @@ export default function ClientPortal() {
                 </Card>
               )}
 
-              {/* Property Listings */}
               {propertyListings.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -556,7 +629,6 @@ export default function ClientPortal() {
                 </Card>
               )}
 
-              {/* Empty State */}
               {totalListings === 0 && (
                 <Card>
                   <CardContent className="py-12 text-center">
@@ -565,85 +637,49 @@ export default function ClientPortal() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Nie masz jeszcze żadnych ogłoszeń
                     </p>
-                    <Button onClick={() => navigate('/gielda/dodaj-pojazd')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Dodaj ogłoszenie
-                    </Button>
+                    <AddListingModal 
+                      user={user}
+                      trigger={
+                        <Button>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Dodaj ogłoszenie
+                        </Button>
+                      }
+                    />
                   </CardContent>
                 </Card>
               )}
             </div>
           )}
 
-          {/* Purchases Tab */}
-          {activeTab === 'zakupy' && (
+          {/* Messages Tab */}
+          {activeTab === 'wiadomosci' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5" />
-                  Historia zakupów
+                  <MessageSquare className="h-5 w-5" />
+                  Wiadomości
                 </CardTitle>
-                <CardDescription>
-                  Twoje zamówienia i zakupione usługi
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                {purchases.length > 0 ? (
-                  <div className="space-y-4">
-                    {purchases.map((purchase) => (
-                      <div
-                        key={purchase.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          {purchase.photo ? (
-                            <img 
-                              src={purchase.photo} 
-                              alt={purchase.title}
-                              className="w-16 h-12 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
-                              <ShoppingBag className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold">{purchase.title}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(purchase.created_at).toLocaleDateString('pl-PL')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <p className="font-semibold">{purchase.price?.toLocaleString('pl-PL')} PLN</p>
-                          {getStatusBadge(purchase.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="font-semibold mb-2">Brak zakupów</p>
-                    <p className="text-sm">
-                      Tutaj pojawią się Twoje zakupy i zamówione usługi
-                    </p>
-                    <Button variant="outline" className="mt-4" onClick={() => navigate('/gielda')}>
-                      Przeglądaj ogłoszenia
-                    </Button>
-                  </div>
-                )}
+                <div className="text-center py-12 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Brak nowych wiadomości</p>
+                  <p className="text-sm mt-1">
+                    Tutaj pojawią się wiadomości od sprzedawców i kupujących
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
 
           {/* Favorites Tab */}
-          {activeTab === 'obserwowane' && (
+          {activeTab === 'ulubione' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Heart className="h-5 w-5" />
-                  Obserwowane ogłoszenia
+                  Ulubione ogłoszenia
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -678,7 +714,7 @@ export default function ClientPortal() {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak obserwowanych ogłoszeń</p>
+                    <p>Brak ulubionych ogłoszeń</p>
                     <p className="text-sm mt-1">
                       Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć
                     </p>
@@ -688,21 +724,164 @@ export default function ClientPortal() {
             </Card>
           )}
 
-          {/* Messages Tab */}
-          {activeTab === 'wiadomosci' && (
+          {/* Accounting Tab */}
+          {activeTab === 'ksiegowosc' && (
+            <div className="space-y-6">
+              {accountingSubTab === 'przeglad' && (
+                <>
+                  {/* Stats Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Faktury (miesiąc)</p>
+                            <p className="text-3xl font-bold">0</p>
+                            <p className="text-sm text-muted-foreground">0 opłaconych</p>
+                          </div>
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Przychód brutto</p>
+                            <p className="text-3xl font-bold">0,00 zł</p>
+                            <p className="text-sm text-muted-foreground">Suma faktur</p>
+                          </div>
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Do zapłaty</p>
+                            <p className="text-3xl font-bold text-red-500">0</p>
+                            <p className="text-sm text-muted-foreground">Zaległe faktury</p>
+                          </div>
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Firmy</p>
+                            <p className="text-3xl font-bold">0</p>
+                            <p className="text-sm text-muted-foreground">Przypisane podmioty</p>
+                          </div>
+                          <Building2 className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
+                    <div className="flex flex-wrap gap-3">
+                      <Button onClick={() => navigate('/faktury')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nowa faktura
+                      </Button>
+                      <Button variant="outline">
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Wgraj dokument
+                      </Button>
+                      <Button variant="outline">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Eksport CSV
+                      </Button>
+                      <Button variant="outline">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Dodaj firmę
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Recent Invoices */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Ostatnie faktury</CardTitle>
+                      <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-12 text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Brak faktur</p>
+                        <p className="text-sm mt-1">
+                          Wystaw pierwszą fakturę w programie
+                        </p>
+                        <Button className="mt-4" onClick={() => navigate('/faktury')}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Wystaw fakturę
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+
+              {accountingSubTab === 'faktury' && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Faktury</CardTitle>
+                        <CardDescription>Lista wszystkich faktur</CardDescription>
+                      </div>
+                      <Button onClick={() => navigate('/faktury')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nowa faktura
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-12 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Brak faktur</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="font-semibold mb-2">{accountingSubTabs.find(s => s.id === accountingSubTab)?.label}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Ta sekcja jest w trakcie budowy
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'ustawienia' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Wiadomości
+                  <Settings className="h-5 w-5" />
+                  Ustawienia konta
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12 text-muted-foreground">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Brak nowych wiadomości</p>
+                  <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Ustawienia w budowie</p>
                   <p className="text-sm mt-1">
-                    Tutaj pojawią się wiadomości od sprzedawców i kupujących
+                    Wkrótce będziesz mógł zarządzać ustawieniami konta
                   </p>
                 </div>
               </CardContent>
@@ -723,7 +902,6 @@ export default function ClientPortal() {
                 navigate={navigate}
               />
               
-              {/* Quick actions based on account types */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isDriverAccount && (
                   <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate('/driver')}>
