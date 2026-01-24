@@ -24,7 +24,14 @@ import {
   Grid3X3,
   LayoutList,
   List,
-  Star
+  Star,
+  Calendar,
+  Fuel,
+  Gauge,
+  MapPin,
+  Maximize,
+  BedDouble,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +50,14 @@ interface Listing {
   city?: string;
   category: 'vehicle' | 'property' | 'service';
   transaction_type?: string;
+  // Vehicle-specific fields
+  year?: number;
+  fuel_type?: string;
+  power_hp?: number;
+  mileage?: number;
+  // Property-specific fields
+  area?: number;
+  rooms?: number;
   // Service-specific fields
   rating_avg?: number;
   rating_count?: number;
@@ -85,17 +100,17 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       // 2. Sort by user's location proximity (using city or coordinates)
       // 3. Fill remaining slots with random free listings
       
-      // Fetch 12 vehicle listings for category view
+      // Fetch 12 vehicle listings for category view with specs
       const { data: vehicles } = await (supabase as any)
         .from('vehicle_listings')
-        .select('id, title, price, photos, city')
+        .select('id, title, price, photos, city, transaction_type, year, fuel_type, power_hp, mileage')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Fetch 12 property listings for category view
+      // Fetch 12 property listings for category view with specs
       const { data: properties } = await (supabase as any)
         .from('real_estate_listings')
-        .select('id, title, price, photos, city, transaction_type')
+        .select('id, title, price, photos, city, transaction_type, area, rooms')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
@@ -106,7 +121,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Process vehicles
+      // Process vehicles with specs
       const vehiclesData: Listing[] = [];
       if (vehicles) {
         vehicles.forEach((v: any) => {
@@ -116,12 +131,17 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             price: v.price || 0,
             photos: v.photos || [],
             city: v.city,
-            category: 'vehicle'
+            category: 'vehicle',
+            transaction_type: v.transaction_type,
+            year: v.year,
+            fuel_type: v.fuel_type,
+            power_hp: v.power_hp,
+            mileage: v.mileage
           });
         });
       }
 
-      // Process properties
+      // Process properties with specs
       const propertiesData: Listing[] = [];
       if (properties) {
         properties.forEach((p: any) => {
@@ -132,7 +152,9 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             photos: p.photos || [],
             city: p.city,
             category: 'property',
-            transaction_type: p.transaction_type
+            transaction_type: p.transaction_type,
+            area: p.area,
+            rooms: p.rooms
           });
         });
       }
@@ -369,9 +391,9 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                 <Badge 
                   className={cn(
                     "absolute top-2 left-2 text-[10px] gap-1",
-                    listing.category === 'vehicle' && "bg-blue-500/90",
-                    listing.category === 'property' && "bg-emerald-500/90",
-                    listing.category === 'service' && "bg-purple-500/90"
+                    listing.category === 'vehicle' && "bg-blue-500/90 hover:bg-blue-500",
+                    listing.category === 'property' && "bg-emerald-500/90 hover:bg-emerald-500",
+                    listing.category === 'service' && "bg-purple-500/90 hover:bg-purple-500"
                   )}
                 >
                   {getCategoryIcon(listing.category)}
@@ -379,6 +401,19 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                   {listing.category === 'property' && 'Nieruchomość'}
                   {listing.category === 'service' && 'Usługa'}
                 </Badge>
+
+                {/* Transaction type badge */}
+                {listing.transaction_type && (listing.category === 'vehicle' || listing.category === 'property') && (
+                  <Badge 
+                    className={cn(
+                      "absolute bottom-2 right-2 text-[10px]",
+                      listing.transaction_type === 'sale' && "bg-emerald-500/90 hover:bg-emerald-500",
+                      listing.transaction_type === 'rent' && "bg-blue-500/90 hover:bg-blue-500"
+                    )}
+                  >
+                    {listing.transaction_type === 'sale' ? 'Na sprzedaż' : 'Na wynajem'}
+                  </Badge>
+                )}
 
                 {/* Navigation arrows for gallery */}
                 <button 
@@ -403,8 +438,75 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                 <h3 className="font-semibold text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">
                   {listing.title}
                 </h3>
-                {listing.city && (
-                  <p className="text-xs text-muted-foreground mb-1">
+
+                {/* Vehicle specs row */}
+                {listing.category === 'vehicle' && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
+                    {listing.year && (
+                      <span className="flex items-center gap-0.5">
+                        <Calendar className="h-3 w-3" />
+                        {listing.year}
+                      </span>
+                    )}
+                    {listing.fuel_type && (
+                      <span className="flex items-center gap-0.5">
+                        <Fuel className="h-3 w-3" />
+                        {listing.fuel_type}
+                      </span>
+                    )}
+                    {listing.power_hp && (
+                      <span className="flex items-center gap-0.5">
+                        <Zap className="h-3 w-3" />
+                        {listing.power_hp} KM
+                      </span>
+                    )}
+                  </div>
+                )}
+                {listing.category === 'vehicle' && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
+                    {listing.mileage && (
+                      <span className="flex items-center gap-0.5">
+                        <Gauge className="h-3 w-3" />
+                        {listing.mileage > 1000 ? `${Math.round(listing.mileage / 1000)} tys.` : listing.mileage} km
+                      </span>
+                    )}
+                    {listing.city && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin className="h-3 w-3" />
+                        {listing.city}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Property specs row */}
+                {listing.category === 'property' && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
+                    {listing.area && (
+                      <span className="flex items-center gap-0.5">
+                        <Maximize className="h-3 w-3" />
+                        {listing.area} m²
+                      </span>
+                    )}
+                    {listing.rooms && (
+                      <span className="flex items-center gap-0.5">
+                        <BedDouble className="h-3 w-3" />
+                        {listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}
+                      </span>
+                    )}
+                    {listing.city && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin className="h-3 w-3" />
+                        {listing.city}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Service location */}
+                {listing.category === 'service' && listing.city && (
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
                     {listing.city}
                   </p>
                 )}
@@ -412,7 +514,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
                 {/* Service-specific: Rating and reviews */}
                 {listing.category === 'service' && listing.rating_count !== undefined && listing.rating_count > 0 && (
                   <div className="flex items-center gap-1 mb-1">
-                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                     <span className="text-xs font-medium">{(listing.rating_avg || 0).toFixed(1)}</span>
                     <span className="text-xs text-muted-foreground">({listing.rating_count} opinii)</span>
                   </div>
