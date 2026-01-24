@@ -10,6 +10,10 @@ import tilePlumber from "@/assets/tile-plumber.jpg";
 import tileElectrician from "@/assets/tile-electrician.jpg";
 import tileGardener from "@/assets/tile-gardener.jpg";
 import tileMoving from "@/assets/tile-moving.jpg";
+import tilePpf from "@/assets/tile-ppf.jpg";
+import tileInteriorDesign from "@/assets/tile-interior-design.jpg";
+import tileRenovation from "@/assets/tile-renovation.jpg";
+import tileConstruction from "@/assets/tile-construction.jpg";
 
 export const categoryImages: Record<string, string> = {
   'sprzatanie': tileCleaning,
@@ -20,6 +24,10 @@ export const categoryImages: Record<string, string> = {
   'elektryk': tileElectrician,
   'ogrodnik': tileGardener,
   'przeprowadzki': tileMoving,
+  'ppf': tilePpf,
+  'projektanci': tileInteriorDesign,
+  'remonty': tileRenovation,
+  'budowlanka': tileConstruction,
 };
 
 interface ServiceCategoryTileProps {
