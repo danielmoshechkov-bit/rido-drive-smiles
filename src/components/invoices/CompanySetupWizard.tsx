@@ -133,30 +133,50 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Musisz być zalogowany');
+        setIsSaving(false);
         return;
       }
 
+      console.log('Creating entity with owner_user_id:', user.id);
+
+      const insertData = {
+        name: formData.name.trim(),
+        nip: formData.nip?.trim() || null,
+        regon: formData.regon?.trim() || null,
+        address_street: formData.address_street?.trim() || null,
+        address_city: formData.address_city?.trim() || null,
+        address_postal_code: formData.address_postal_code?.trim() || null,
+        email: formData.email?.trim() || null,
+        phone: formData.phone?.trim() || null,
+        bank_name: formData.bank_name?.trim() || null,
+        bank_account: formData.bank_account?.trim() || null,
+        logo_url: formData.logo_url || null,
+        owner_user_id: user.id,
+        type: 'company'
+      };
+
+      console.log('Insert data:', insertData);
+
       const { data, error } = await supabase
         .from('entities')
-        .insert({
-          name: formData.name,
-          nip: formData.nip || null,
-          regon: formData.regon || null,
-          address_street: formData.address_street || null,
-          address_city: formData.address_city || null,
-          address_postal_code: formData.address_postal_code || null,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          bank_name: formData.bank_name || null,
-          bank_account: formData.bank_account || null,
-          logo_url: formData.logo_url || null,
-          owner_user_id: user.id,
-          type: 'company'
-        })
+        .insert(insertData)
         .select('id, name')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        
+        if (error.code === '42501') {
+          toast.error('Brak uprawnień do tworzenia firm. Skontaktuj się z administratorem.');
+        } else if (error.code === '23505') {
+          toast.error('Firma o takim NIP już istnieje.');
+        } else if (error.message?.includes('row-level security')) {
+          toast.error('Błąd uprawnień RLS. Sprawdź konfigurację bazy danych.');
+        } else {
+          toast.error(`Błąd zapisu: ${error.message}`);
+        }
+        return;
+      }
 
       toast.success('Firma utworzona');
       onCreated(data);
@@ -180,7 +200,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated }: CompanySet
       setGusLoaded(false);
     } catch (err) {
       console.error('Save error:', err);
-      toast.error('Błąd zapisu firmy');
+      toast.error('Nieoczekiwany błąd zapisu firmy');
     } finally {
       setIsSaving(false);
     }

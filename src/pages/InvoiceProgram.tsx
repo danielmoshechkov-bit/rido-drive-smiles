@@ -467,8 +467,8 @@ export default function InvoiceProgram() {
     );
   }
 
-  if (!isAdmin) return null;
-
+  // Remove check for !isAdmin - we already checked access above
+  // Allow users to enter even without entities
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
