@@ -115,38 +115,58 @@ serve(async (req) => {
       );
     }
 
-    // Call OpenAI for intent detection
-    const openaiResponse = await fetch('https://ai.lovable.dev/v1/chat/completions', {
+    // Call Lovable AI Gateway for intent detection
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: INTENT_PROMPT },
           { role: 'user', content: command }
         ],
-        response_format: { type: 'json_object' },
         temperature: 0.3,
         max_tokens: 500,
       }),
     });
 
-    if (!openaiResponse.ok) {
-      console.error('OpenAI error:', await openaiResponse.text());
-      throw new Error('Błąd AI');
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Gateway error:', aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Za dużo zapytań. Spróbuj ponownie za chwilę.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Limit kredytów AI wyczerpany.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error('Błąd AI Gateway');
     }
 
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices?.[0]?.message?.content;
+    const content = aiData.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error('Brak odpowiedzi AI');
     }
 
-    const intent: InvoiceIntent = JSON.parse(content);
+    // Parse JSON from content (may be wrapped in markdown code blocks)
+    let jsonContent = content;
+    if (content.includes('```json')) {
+      jsonContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    } else if (content.includes('```')) {
+      jsonContent = content.replace(/```\n?/g, '').trim();
+    }
+
+    const intent: InvoiceIntent = JSON.parse(jsonContent);
     console.log('Detected intent:', intent);
 
     // Handle different actions

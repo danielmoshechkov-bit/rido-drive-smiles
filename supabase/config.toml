@@ -159,3 +159,6 @@ verify_jwt = false
 
 [functions.ai-invoice-assistant]
 verify_jwt = false
+
+[functions.send-invoice-email]
+verify_jwt = false
