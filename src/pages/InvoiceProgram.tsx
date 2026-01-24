@@ -123,7 +123,38 @@ export default function InvoiceProgram() {
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   useEffect(() => {
-    checkAccess();
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Defer Supabase call to avoid deadlock
+          setTimeout(() => {
+            fetchEntities();
+          }, 0);
+        } else if (event === 'SIGNED_OUT') {
+          setEntities([]);
+          setSelectedEntity('');
+          setInvoices([]);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        fetchEntities();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -131,13 +162,6 @@ export default function InvoiceProgram() {
       fetchInvoices();
     }
   }, [selectedEntity, selectedMonth, statusFilter]);
-
-  const checkAccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    // Allow guest access - don't redirect to auth
-    setLoading(false);
-  };
 
   // Require login for actions (creating invoices, etc.)
   const requireLogin = (): boolean => {
@@ -148,27 +172,35 @@ export default function InvoiceProgram() {
     return true;
   };
 
-  // Fetch entities for any authenticated user
-  useEffect(() => {
-    if (user) {
-      fetchEntities();
-    }
-  }, [user]);
-
   const fetchEntities = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     
-    const { data } = await supabase
+    if (!currentUser) {
+      console.log('fetchEntities: No user logged in');
+      setEntities([]);
+      setSelectedEntity('');
+      return;
+    }
+    
+    console.log('fetchEntities: Fetching for user', currentUser.id);
+    
+    const { data, error } = await supabase
       .from('entities')
       .select('id, name')
-      .eq('owner_user_id', user?.id)
+      .eq('owner_user_id', currentUser.id)
       .order('name');
     
+    if (error) {
+      console.error('fetchEntities error:', error);
+      return;
+    }
+    
     if (data && data.length > 0) {
+      console.log('fetchEntities: Found', data.length, 'entities');
       setEntities(data);
       setSelectedEntity(data[0].id);
     } else {
-      // Brak firm - pokaż kreator
+      console.log('fetchEntities: No entities found');
       setEntities([]);
       setSelectedEntity('');
     }
@@ -991,7 +1023,7 @@ export default function InvoiceProgram() {
         customDescription="Zaloguj się, aby korzystać z programu do faktur"
         onSuccess={() => {
           setShowAuthModal(false);
-          checkAccess();
+          // Auth state listener will handle the rest
         }}
       />
     </div>
