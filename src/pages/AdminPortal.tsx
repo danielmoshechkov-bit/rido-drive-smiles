@@ -9,10 +9,11 @@ import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement'
 import { UserRolesManager } from '@/components/UserRolesManager';
 import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
 import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
+import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2 } from 'lucide-react';
+import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function AdminPortal() {
     { value: 'api', label: 'API i Integracje', visible: true },
     { value: 'voice', label: 'Głos i TTS', visible: true },
     { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
+    { value: 'accounting', label: 'Moduł księgowy', visible: true },
     { value: 'features', label: 'Funkcje portalu', visible: true },
     { value: 'branding', label: 'Wygląd', visible: true },
     { value: 'users', label: 'Użytkownicy systemu', visible: true },
@@ -150,6 +152,26 @@ export default function AdminPortal() {
                 </CardHeader>
                 <CardContent>
                   <RegistryIntegrationsPanel />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Accounting Module Tab */}
+          {activeSubTab === 'accounting' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5" />
+                    Moduł księgowy
+                  </CardTitle>
+                  <CardDescription>
+                    Ustawienia fakturowania, integracje GUS, biała lista VAT i KSeF
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AccountingModuleSettings />
                 </CardContent>
               </Card>
             </div>
