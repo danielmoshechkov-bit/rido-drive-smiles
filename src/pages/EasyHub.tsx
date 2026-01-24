@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,12 +255,23 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
 
 export default function EasyHub() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryView>('main');
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
+
+  // Handle URL parameter for category
+  useEffect(() => {
+    const kategoria = searchParams.get('kategoria');
+    if (kategoria === 'motoryzacja') {
+      setActiveCategory('motoryzacja');
+    } else if (kategoria === 'nieruchomosci') {
+      setActiveCategory('nieruchomosci');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const checkUser = async () => {
