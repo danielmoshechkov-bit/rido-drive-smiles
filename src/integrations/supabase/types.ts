@@ -3596,6 +3596,7 @@ export type Database = {
           address_country: string | null
           address_postal_code: string | null
           address_street: string | null
+          bank_account: string | null
           created_at: string | null
           email: string | null
           entity_id: string
@@ -3615,6 +3616,7 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          bank_account?: string | null
           created_at?: string | null
           email?: string | null
           entity_id: string
@@ -3634,6 +3636,7 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          bank_account?: string | null
           created_at?: string | null
           email?: string | null
           entity_id?: string
