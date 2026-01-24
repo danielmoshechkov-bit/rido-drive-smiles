@@ -62,19 +62,41 @@ interface Recipient {
   bank_account?: string;
 }
 
+interface SellerData {
+  name: string;
+  nip: string;
+  regon?: string;
+  address_street: string;
+  address_postal_code: string;
+  address_city: string;
+  bank_name?: string;
+  bank_account?: string;
+}
+
 interface NewInvoiceWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entityId: string;
+  entityId: string; // może być pusty
   onCreated?: () => void;
+  onOpenCompanySetup?: () => void;
 }
 
 const VAT_RATES = ['23%', '8%', '5%', '0%', 'zw.', 'np.'];
 const UNITS = ['szt.', 'godz.', 'usł.', 'km', 'kg', 'm²', 'm³'];
 
-export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: NewInvoiceWizardProps) {
+export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOpenCompanySetup }: NewInvoiceWizardProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('invoice');
+  
+  // Seller (manual entry when no entityId)
+  const [manualSellerData, setManualSellerData] = useState<SellerData>({
+    name: '',
+    nip: '',
+    address_street: '',
+    address_postal_code: '',
+    address_city: ''
+  });
+  const [showManualSellerForm, setShowManualSellerForm] = useState(false);
   
   // Recipient state
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -109,18 +131,29 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
   
   // Bank account limit for whitelist verification (15000 PLN)
   const BANK_VERIFICATION_THRESHOLD = 15000;
+  
+  // Check if entity is available
+  const hasEntity = !!entityId;
 
   useEffect(() => {
     if (open) {
-      fetchRecipients();
+      if (hasEntity) {
+        fetchRecipients();
+      }
       // Set default due date to 14 days from now
       const due = new Date();
       due.setDate(due.getDate() + 14);
       setDueDate(due.toISOString().split('T')[0]);
+      
+      // Show manual seller form if no entity
+      if (!hasEntity) {
+        setShowManualSellerForm(true);
+      }
     }
-  }, [open, entityId]);
+  }, [open, entityId, hasEntity]);
 
   const fetchRecipients = async () => {
+    if (!entityId) return;
     const { data } = await supabase
       .from('invoice_recipients')
       .select('*')
@@ -455,6 +488,52 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
   const performSave = async () => {
     setSaving(true);
     try {
+      // If no entity, create one first from manual seller data
+      let effectiveEntityId = entityId;
+      
+      if (!hasEntity && manualSellerData.name) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error('Musisz być zalogowany');
+          setSaving(false);
+          return;
+        }
+        
+        // Create new entity
+        const { data: newEntity, error: entityError } = await supabase
+          .from('entities')
+          .insert({
+            name: manualSellerData.name,
+            nip: manualSellerData.nip || null,
+            regon: manualSellerData.regon || null,
+            address_street: manualSellerData.address_street || null,
+            address_city: manualSellerData.address_city || null,
+            address_postal_code: manualSellerData.address_postal_code || null,
+            bank_name: manualSellerData.bank_name || null,
+            bank_account: manualSellerData.bank_account || null,
+            owner_user_id: user.id,
+            type: 'company'
+          })
+          .select('id')
+          .single();
+        
+        if (entityError) {
+          console.error('Entity creation error:', entityError);
+          toast.error('Nie udało się utworzyć firmy sprzedawcy');
+          setSaving(false);
+          return;
+        }
+        
+        effectiveEntityId = newEntity.id;
+        toast.success('Firma sprzedawcy utworzona automatycznie');
+      }
+      
+      if (!effectiveEntityId) {
+        toast.error('Brak danych sprzedawcy - wprowadź dane lub skonfiguruj firmę');
+        setSaving(false);
+        return;
+      }
+      
       let recipientId = selectedRecipient?.id;
 
       // Create new recipient if needed
@@ -462,7 +541,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
         const { data: newRec, error: recError } = await supabase
           .from('invoice_recipients')
           .insert({
-            entity_id: entityId,
+            entity_id: effectiveEntityId,
             name: newRecipientData.name,
             nip: newRecipientData.nip,
             address_street: newRecipientData.address_street,
@@ -505,7 +584,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       const { count } = await supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
-        .eq('entity_id', entityId)
+        .eq('entity_id', effectiveEntityId)
         .gte('created_at', `${year}-01-01`);
       
       const nextNum = String((count || 0) + 1).padStart(3, '0');
@@ -515,7 +594,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
       const { data: invoice, error: invError } = await supabase
         .from('invoices')
         .insert({
-          entity_id: entityId,
+          entity_id: effectiveEntityId,
           recipient_id: recipientId,
           invoice_number: invoiceNumber,
           type: invoiceType,
@@ -603,13 +682,130 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated }: Ne
         {/* Step 1: Invoice Type */}
         {step === 1 && (
           <div className="space-y-6">
+            {/* Alert when no company is configured */}
+            {!hasEntity && (
+              <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Nie masz skonfigurowanej firmy sprzedawcy</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Możesz kontynuować i wprowadzić dane ręcznie, lub skonfigurować firmę w ustawieniach aby korzystać z automatycznego wypełniania.
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange(false);
+                            onOpenCompanySetup?.();
+                          }}
+                        >
+                          <Building2 className="h-3 w-3 mr-1" />
+                          Skonfiguruj firmę
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowManualSellerForm(true)}
+                        >
+                          Wprowadź ręcznie
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Manual Seller Data Form */}
+            {showManualSellerForm && !hasEntity && (
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-4">
+                  <Label className="text-sm font-semibold">Dane sprzedawcy (ręczne wprowadzanie)</Label>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="md:col-span-2">
+                      <Label className="text-xs">Nazwa firmy *</Label>
+                      <Input
+                        value={manualSellerData.name}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Nazwa firmy"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">NIP *</Label>
+                      <Input
+                        value={manualSellerData.nip}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
+                        placeholder="1234567890"
+                        maxLength={10}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">REGON</Label>
+                      <Input
+                        value={manualSellerData.regon || ''}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, regon: e.target.value }))}
+                        placeholder="REGON (opcjonalnie)"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-xs">Adres (ulica) *</Label>
+                      <Input
+                        value={manualSellerData.address_street}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_street: e.target.value }))}
+                        placeholder="ul. Przykładowa 1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Kod pocztowy *</Label>
+                      <Input
+                        value={manualSellerData.address_postal_code}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_postal_code: e.target.value }))}
+                        placeholder="00-000"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Miasto *</Label>
+                      <Input
+                        value={manualSellerData.address_city}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_city: e.target.value }))}
+                        placeholder="Miasto"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nazwa banku</Label>
+                      <Input
+                        value={manualSellerData.bank_name || ''}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, bank_name: e.target.value }))}
+                        placeholder="PKO BP"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Numer konta</Label>
+                      <Input
+                        value={manualSellerData.bank_account || ''}
+                        onChange={(e) => setManualSellerData(prev => ({ ...prev, bank_account: e.target.value }))}
+                        placeholder="00 0000 0000 0000 0000 0000 0000"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <div>
               <Label className="text-base font-semibold mb-4 block">Wybierz rodzaj faktury</Label>
               <InvoiceTypeSelector value={invoiceType} onChange={setInvoiceType} />
             </div>
             
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)}>
+              <Button 
+                onClick={() => setStep(2)}
+                disabled={!hasEntity && showManualSellerForm && !manualSellerData.name}
+              >
                 Dalej <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
