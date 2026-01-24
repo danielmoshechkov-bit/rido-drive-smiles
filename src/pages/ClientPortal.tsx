@@ -257,7 +257,7 @@ export default function ClientPortal() {
   const fetchUserEntities = async (userId: string) => {
     const { data } = await supabase
       .from('entities')
-      .select('id, name, nip')
+      .select('id, name, nip, address_city, vat_payer')
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false });
     if (data) setUserEntities(data);
@@ -1114,9 +1114,9 @@ export default function ClientPortal() {
       <CompanySetupWizard
         open={showCompanySetup}
         onOpenChange={setShowCompanySetup}
-        onCreated={() => {
+        onCreated={(entity) => {
           setShowCompanySetup(false);
-          if (user) fetchUserEntities(user.id);
+          setUserEntities(prev => [...prev, entity]);
           toast.success('Firma została dodana');
           setShowNewInvoice(true);
         }}

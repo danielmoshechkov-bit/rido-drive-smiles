@@ -500,7 +500,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
           return;
         }
         
-        // Create new entity
+        // Create new entity - don't pass owner_user_id, let DB default handle it
         const { data: newEntity, error: entityError } = await supabase
           .from('entities')
           .insert({
@@ -512,8 +512,8 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
             address_postal_code: manualSellerData.address_postal_code || null,
             bank_name: manualSellerData.bank_name || null,
             bank_account: manualSellerData.bank_account || null,
-            owner_user_id: user.id,
             type: 'company'
+            // owner_user_id uses DB default: auth.uid()
           })
           .select('id')
           .single();
