@@ -93,6 +93,7 @@ export default function InvoiceProgram() {
   const [showCostInvoice, setShowCostInvoice] = useState(false);
   const [showCompanySetup, setShowCompanySetup] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   
   // AI Voice
   const [isListening, setIsListening] = useState(false);
@@ -561,11 +562,17 @@ export default function InvoiceProgram() {
                 </>
               ) : (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => setShowAuthModal(true)}>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setAuthModalMode('login');
+                    setShowAuthModal(true);
+                  }}>
                     <LogIn className="h-4 w-4 mr-1" />
                     Zaloguj
                   </Button>
-                  <Button size="sm" onClick={() => setShowAuthModal(true)}>
+                  <Button size="sm" onClick={() => {
+                    setAuthModalMode('register');
+                    setShowAuthModal(true);
+                  }}>
                     Zarejestruj
                   </Button>
                 </>
@@ -1039,8 +1046,10 @@ export default function InvoiceProgram() {
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
-        initialMode="login"
-        customDescription="Zaloguj się, aby korzystać z programu do faktur"
+        initialMode={authModalMode}
+        customDescription={authModalMode === 'register' 
+          ? "Zarejestruj się, aby korzystać z programu do faktur"
+          : "Zaloguj się, aby korzystać z programu do faktur"}
         onSuccess={() => {
           setShowAuthModal(false);
           // Auth state listener will handle the rest
