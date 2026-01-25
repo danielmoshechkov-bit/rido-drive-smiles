@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Truck, User, Plus, Building2, Home, Globe } from "lucide-react";
+import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle } from "lucide-react";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
@@ -18,8 +18,9 @@ interface AccountSwitcherPanelProps {
   isMarketplaceAccount: boolean;
   isRealEstateAccount?: boolean;
   isAdminAccount?: boolean;
+  isClientPortal?: boolean; // New prop - everyone has client portal access
   isMarketplaceEnabled: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin';
+  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
 }
@@ -30,6 +31,7 @@ export function AccountSwitcherPanel({
   isMarketplaceAccount,
   isRealEstateAccount = false,
   isAdminAccount = false,
+  isClientPortal = true, // Default to true - everyone has access
   isMarketplaceEnabled,
   currentAccountType,
   navigate,
@@ -39,7 +41,7 @@ export function AccountSwitcherPanel({
   
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
-  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin') => {
+  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client') => {
     if (type === currentAccountType) return;
     
     switch (type) {
@@ -57,6 +59,9 @@ export function AccountSwitcherPanel({
         break;
       case 'admin':
         navigate('/admin/dashboard');
+        break;
+      case 'client':
+        navigate('/klient');
         break;
     }
   };
@@ -128,39 +133,36 @@ export function AccountSwitcherPanel({
             </div>
           )}
 
-          {/* Marketplace account */}
-          {isMarketplaceAccount && (
+          {/* Client Portal - always available */}
+          {isClientPortal && currentAccountType !== 'client' && (
             <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'marketplace' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
+              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
+              onClick={() => handleAccountClick('client')}
+            >
+              <UserCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="font-medium text-sm">Portal Klienta</p>
+            </div>
+          )}
+
+          {/* Marketplace account */}
+          {isMarketplaceAccount && currentAccountType !== 'marketplace' && (
+            <div 
+              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
               onClick={() => handleAccountClick('marketplace')}
             >
-              <User className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'marketplace' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="font-medium text-sm">Giełda</p>
-              {currentAccountType === 'marketplace' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
             </div>
           )}
 
           {/* Real Estate account */}
-          {isRealEstateAccount && (
+          {isRealEstateAccount && currentAccountType !== 'real_estate' && (
             <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'real_estate' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
+              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
               onClick={() => handleAccountClick('real_estate')}
             >
-              <Home className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'real_estate' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <Home className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="font-medium text-sm">Nieruchomości</p>
-              {currentAccountType === 'real_estate' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
             </div>
           )}
 

@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AddListingModal } from '@/components/AddListingModal';
 import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
+import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { 
   Car,
   Home,
@@ -107,6 +108,9 @@ export default function ClientPortal() {
   const [editingEntity, setEditingEntity] = useState<any | null>(null);
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  
+  // Search modal
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Read tab from URL on mount
   useEffect(() => {
@@ -325,9 +329,9 @@ export default function ClientPortal() {
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
+    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ulubione', label: 'Ulubione', icon: Heart },
-    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
   ];
@@ -494,11 +498,11 @@ export default function ClientPortal() {
             <div className="space-y-6">
               {/* Quick Actions Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/gielda')}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setShowSearchModal(true)}>
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-blue-100">
-                        <Search className="h-8 w-8 text-blue-600" />
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Search className="h-8 w-8 text-primary" />
                       </div>
                       <div>
                         <h3 className="font-bold text-lg">Szukam</h3>
@@ -1103,8 +1107,9 @@ export default function ClientPortal() {
               isMarketplaceAccount={isMarketplaceAccount}
               isRealEstateAccount={isRealEstateAccount}
               isAdminAccount={isAdminAccount}
+              isClientPortal={true}
               isMarketplaceEnabled={true}
-              currentAccountType="marketplace"
+              currentAccountType="client"
               navigate={navigate}
             />
           )}
@@ -1141,6 +1146,12 @@ export default function ClientPortal() {
           // Refresh entities list
           if (user) fetchUserEntities(user.id);
         }}
+      />
+
+      {/* Search Category Modal */}
+      <SearchCategoryModal
+        open={showSearchModal}
+        onOpenChange={setShowSearchModal}
       />
     </div>
   );

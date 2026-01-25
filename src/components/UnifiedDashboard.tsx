@@ -917,6 +917,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               isDriverAccount={isDriverAccount}
               isFleetAccount={true}
               isMarketplaceAccount={isMarketplaceAccount}
+              isClientPortal={true}
               isMarketplaceEnabled={isMarketplaceEnabled}
               currentAccountType="fleet"
               navigate={navigate}

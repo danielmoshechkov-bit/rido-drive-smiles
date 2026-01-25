@@ -700,6 +700,7 @@ const DriverDashboard = () => {
             isMarketplaceAccount={isMarketplaceAccount}
             isRealEstateAccount={isRealEstateAccount}
             isAdminAccount={isAdminAccount}
+            isClientPortal={true}
             isMarketplaceEnabled={isMarketplaceEnabled}
             currentAccountType="driver"
             navigate={navigate}
