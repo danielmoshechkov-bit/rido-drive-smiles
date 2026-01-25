@@ -54,6 +54,12 @@ export interface InvoiceData {
   currency?: string;
   discount_global?: number;
   discount_mode?: 'percent' | 'amount';
+  // Payment tracking
+  paid_amount?: number;
+  is_fully_paid?: boolean;
+  // Signature options
+  signature_type?: 'none' | 'receiver' | 'issuer' | 'both_none' | 'valid_without_signature';
+  issued_by?: string;
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
@@ -389,6 +395,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <span class="totals-label">DO ZAPŁATY:</span>
           <span class="totals-value">${formatCurrency(grossTotal, currency)}</span>
         </div>
+        ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
+        <div class="totals-row" style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+          <span class="totals-label">Zapłacono:</span>
+          <span class="totals-value" style="color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
+        </div>
+        <div class="totals-row" style="background: #fef3c7; padding: 8px; border-radius: 4px;">
+          <span class="totals-label" style="font-weight: bold;">Pozostało do zapłaty:</span>
+          <span class="totals-value" style="font-weight: bold; color: #dc2626;">${formatCurrency(grossTotal - invoice.paid_amount, currency)}</span>
+        </div>
+        ` : ''}
       </div>
     </div>
 
@@ -422,12 +438,22 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     ` : ''}
 
     <div class="footer">
+      ${invoice.signature_type === 'valid_without_signature' || invoice.signature_type === 'none' || !invoice.signature_type ? `
+      <div style="width: 100%; text-align: center; font-size: 11px; color: #666; font-style: italic;">
+        Faktura ważna bez podpisu
+      </div>
+      ` : `
       <div class="signature">
+        ${invoice.signature_type === 'receiver' || invoice.signature_type === 'both_none' ? '' : `
         <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru faktury</div>
+        `}
       </div>
       <div class="signature">
-        <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia faktury</div>
+        ${invoice.signature_type === 'issuer' || invoice.signature_type === 'both_none' ? '' : `
+        <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia faktury${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
+        `}
       </div>
+      `}
     </div>
   </div>
 </body>
