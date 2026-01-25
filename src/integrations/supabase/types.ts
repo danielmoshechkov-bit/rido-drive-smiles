@@ -8234,6 +8234,57 @@ export type Database = {
           },
         ]
       }
+      user_contractors: {
+        Row: {
+          address_apartment_number: string | null
+          address_building_number: string | null
+          address_city: string | null
+          address_postal_code: string | null
+          address_street: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          nip: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address_apartment_number?: string | null
+          address_building_number?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address_apartment_number?: string | null
+          address_building_number?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string | null
@@ -8257,6 +8308,205 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      user_invoice_companies: {
+        Row: {
+          address_apartment_number: string | null
+          address_building_number: string | null
+          address_city: string | null
+          address_postal_code: string | null
+          address_street: string | null
+          bank_account: string | null
+          bank_name: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_default: boolean | null
+          logo_url: string | null
+          name: string
+          nip: string | null
+          phone: string | null
+          swift_code: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address_apartment_number?: string | null
+          address_building_number?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name: string
+          nip?: string | null
+          phone?: string | null
+          swift_code?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address_apartment_number?: string | null
+          address_building_number?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          address_street?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name?: string
+          nip?: string | null
+          phone?: string | null
+          swift_code?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_invoice_items: {
+        Row: {
+          gross_amount: number | null
+          id: string
+          invoice_id: string
+          name: string
+          net_amount: number | null
+          quantity: number | null
+          sort_order: number | null
+          unit: string | null
+          unit_net_price: number | null
+          vat_amount: number | null
+          vat_rate: string | null
+        }
+        Insert: {
+          gross_amount?: number | null
+          id?: string
+          invoice_id: string
+          name: string
+          net_amount?: number | null
+          quantity?: number | null
+          sort_order?: number | null
+          unit?: string | null
+          unit_net_price?: number | null
+          vat_amount?: number | null
+          vat_rate?: string | null
+        }
+        Update: {
+          gross_amount?: number | null
+          id?: string
+          invoice_id?: string
+          name?: string
+          net_amount?: number | null
+          quantity?: number | null
+          sort_order?: number | null
+          unit?: string | null
+          unit_net_price?: number | null
+          vat_amount?: number | null
+          vat_rate?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "user_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_invoices: {
+        Row: {
+          buyer_address: string | null
+          buyer_name: string | null
+          buyer_nip: string | null
+          company_id: string | null
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          gross_total: number | null
+          id: string
+          invoice_number: string
+          invoice_type: string | null
+          is_paid: boolean | null
+          issue_date: string
+          issue_place: string | null
+          net_total: number | null
+          notes: string | null
+          paid_amount: number | null
+          payment_method: string | null
+          pdf_url: string | null
+          sale_date: string | null
+          updated_at: string | null
+          user_id: string
+          vat_total: number | null
+        }
+        Insert: {
+          buyer_address?: string | null
+          buyer_name?: string | null
+          buyer_nip?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gross_total?: number | null
+          id?: string
+          invoice_number: string
+          invoice_type?: string | null
+          is_paid?: boolean | null
+          issue_date: string
+          issue_place?: string | null
+          net_total?: number | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          sale_date?: string | null
+          updated_at?: string | null
+          user_id: string
+          vat_total?: number | null
+        }
+        Update: {
+          buyer_address?: string | null
+          buyer_name?: string | null
+          buyer_nip?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gross_total?: number | null
+          id?: string
+          invoice_number?: string
+          invoice_type?: string | null
+          is_paid?: boolean | null
+          issue_date?: string
+          issue_place?: string | null
+          net_total?: number | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          sale_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+          vat_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "user_invoice_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

@@ -43,6 +43,7 @@ import { InvoicePreviewModal } from './InvoicePreviewModal';
 import { CurrencySelector, Currency, getCurrencySymbol, formatCurrencyAmount } from './CurrencySelector';
 import { UnitSelector } from './UnitSelector';
 import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
@@ -204,17 +205,78 @@ export function SimpleFreeInvoice() {
   
   // Preview modal
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Auth modal for preview
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // User's saved company
+  const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
-  // Check auth state
+  // Check auth state and load saved company data
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndLoadData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
+      
+      if (session?.user) {
+        // Load user's default company
+        const { data: company } = await supabase
+          .from('user_invoice_companies')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .eq('is_default', true)
+          .maybeSingle();
+        
+        if (company) {
+          setSavedCompanyId(company.id);
+          setSeller({
+            name: company.name || '',
+            nip: company.nip || '',
+            address_street: company.address_street || '',
+            address_building_number: company.address_building_number || '',
+            address_apartment_number: company.address_apartment_number || '',
+            address_city: company.address_city || '',
+            address_postal_code: company.address_postal_code || '',
+            bank_name: company.bank_name || '',
+            bank_account: company.bank_account || ''
+          });
+          // Collapse seller section if data is loaded
+          setSellerExpanded(false);
+        }
+      }
     };
-    checkAuth();
+    checkAuthAndLoadData();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsLoggedIn(!!session);
+      if (session?.user) {
+        // Reload company data on login
+        setTimeout(() => {
+          supabase
+            .from('user_invoice_companies')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .eq('is_default', true)
+            .maybeSingle()
+            .then(({ data: company }) => {
+              if (company) {
+                setSavedCompanyId(company.id);
+                setSeller({
+                  name: company.name || '',
+                  nip: company.nip || '',
+                  address_street: company.address_street || '',
+                  address_building_number: company.address_building_number || '',
+                  address_apartment_number: company.address_apartment_number || '',
+                  address_city: company.address_city || '',
+                  address_postal_code: company.address_postal_code || '',
+                  bank_name: company.bank_name || '',
+                  bank_account: company.bank_account || ''
+                });
+                setSellerExpanded(false);
+              }
+            });
+        }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -392,13 +454,162 @@ export function SimpleFreeInvoice() {
   };
 
   const handleSave = async () => {
-    toast.success('Faktura została zapisana na Twoim koncie!');
-    setShowPreview(false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Musisz być zalogowany, aby zapisać fakturę');
+        return;
+      }
+
+      const invoiceData = getInvoiceData();
+      
+      // Save or update company if data changed
+      if (seller.name && seller.nip) {
+        const sellerAddress = [
+          seller.address_street,
+          seller.address_building_number,
+          seller.address_apartment_number ? `/${seller.address_apartment_number}` : ''
+        ].filter(Boolean).join(' ');
+
+        if (savedCompanyId) {
+          await supabase
+            .from('user_invoice_companies')
+            .update({
+              name: seller.name,
+              nip: seller.nip,
+              address_street: seller.address_street,
+              address_building_number: seller.address_building_number,
+              address_apartment_number: seller.address_apartment_number,
+              address_city: seller.address_city,
+              address_postal_code: seller.address_postal_code,
+              bank_name: seller.bank_name,
+              bank_account: seller.bank_account
+            })
+            .eq('id', savedCompanyId);
+        } else {
+          const { data: newCompany } = await supabase
+            .from('user_invoice_companies')
+            .insert({
+              user_id: user.id,
+              name: seller.name,
+              nip: seller.nip,
+              address_street: seller.address_street,
+              address_building_number: seller.address_building_number,
+              address_apartment_number: seller.address_apartment_number,
+              address_city: seller.address_city,
+              address_postal_code: seller.address_postal_code,
+              bank_name: seller.bank_name,
+              bank_account: seller.bank_account,
+              is_default: true
+            })
+            .select()
+            .single();
+          
+          if (newCompany) {
+            setSavedCompanyId(newCompany.id);
+          }
+        }
+      }
+
+      // Calculate totals
+      const netTotal = invoiceData.items.reduce((sum, item) => sum + item.net_amount, 0);
+      const vatTotal = invoiceData.items.reduce((sum, item) => sum + item.vat_amount, 0);
+      const grossTotal = invoiceData.items.reduce((sum, item) => sum + item.gross_amount, 0);
+
+      // Build buyer address
+      const buyerAddress = [
+        buyer.address_street,
+        buyer.address_building_number,
+        buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : ''
+      ].filter(Boolean).join(' ');
+
+      // Save invoice
+      const { data: savedInvoice, error } = await supabase
+        .from('user_invoices')
+        .insert({
+          user_id: user.id,
+          company_id: savedCompanyId,
+          invoice_number: invoiceData.invoice_number,
+          invoice_type: invoiceData.type,
+          issue_date: invoiceData.issue_date,
+          sale_date: invoiceData.sale_date,
+          due_date: invoiceData.due_date,
+          issue_place: invoiceData.issue_place,
+          payment_method: invoiceData.payment_method,
+          currency: invoiceData.currency,
+          buyer_name: buyer.name,
+          buyer_nip: buyer.nip,
+          buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
+          net_total: netTotal,
+          vat_total: vatTotal,
+          gross_total: grossTotal,
+          paid_amount: paidAmount,
+          is_paid: isFullyPaid,
+          notes: notes
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Save invoice items
+      if (savedInvoice) {
+        const itemsToInsert = invoiceData.items.map((item, idx) => ({
+          invoice_id: savedInvoice.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_net_price: item.unit_net_price,
+          vat_rate: item.vat_rate,
+          net_amount: item.net_amount,
+          vat_amount: item.vat_amount,
+          gross_amount: item.gross_amount,
+          sort_order: idx
+        }));
+
+        await supabase.from('user_invoice_items').insert(itemsToInsert);
+      }
+
+      // Save contractor if new
+      if (buyer.name) {
+        const { data: existingContractor } = await supabase
+          .from('user_contractors')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('nip', buyer.nip || '')
+          .maybeSingle();
+
+        if (!existingContractor && buyer.nip) {
+          await supabase.from('user_contractors').insert({
+            user_id: user.id,
+            name: buyer.name,
+            nip: buyer.nip,
+            address_street: buyer.address_street,
+            address_building_number: buyer.address_building_number,
+            address_apartment_number: buyer.address_apartment_number,
+            address_city: buyer.address_city,
+            address_postal_code: buyer.address_postal_code
+          });
+        }
+      }
+
+      toast.success('Faktura została zapisana na Twoim koncie!');
+      setShowPreview(false);
+    } catch (err) {
+      console.error('Error saving invoice:', err);
+      toast.error('Błąd podczas zapisywania faktury');
+    }
   };
 
   const handleSend = async (email: string) => {
     toast.success(`Faktura została wysłana na adres ${email}`);
     setShowPreview(false);
+  };
+  
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    // After login, proceed to preview
+    setShowPreview(true);
   };
 
   const paymentStatus = getPaymentStatus();
@@ -1159,6 +1370,15 @@ export function SimpleFreeInvoice() {
         isLoggedIn={isLoggedIn}
         onSave={handleSave}
         onSend={handleSend}
+      />
+      
+      {/* Auth Modal for non-logged users */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        initialMode="register"
+        onSuccess={handleAuthSuccess}
+        customDescription="Zarejestruj się za darmo, aby zapisywać faktury, zarządzać kontrahentami i mieć pełną historię dokumentów."
       />
       </div>
 
