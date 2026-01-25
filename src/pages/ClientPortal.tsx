@@ -131,34 +131,55 @@ export default function ClientPortal() {
   }, [searchParams]);
 
   useEffect(() => {
+    // Initial check
     checkUser();
+    
+    // Listen for auth state changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // User just logged in - refresh everything
+        setTimeout(() => {
+          checkUser();
+        }, 0);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user;
     
-    if (!user) {
+    console.log('ClientPortal - checkUser:', currentUser?.id, currentUser?.email);
+    
+    setUser(currentUser);
+    
+    if (!currentUser) {
       toast.error('Zaloguj się, aby uzyskać dostęp');
       navigate('/easy/login');
       return;
     }
 
     // Initialize account form with user data
-    setAccountEmail(user.email || '');
-    setAccountPhone(user.user_metadata?.phone || user.phone || '');
+    setAccountEmail(currentUser.email || '');
+    setAccountPhone(currentUser.user_metadata?.phone || currentUser.phone || '');
 
     // Check account types
     await Promise.all([
-      checkDriverAccount(user.id),
-      checkFleetAccount(user.id),
-      checkMarketplaceAccount(user.id),
-      checkRealEstateAccount(user.id),
-      checkAdminAccount(user.id),
-      fetchUserListings(user.id),
-      fetchUserFavorites(user.id),
-      fetchUserEntities(user.id),
-      fetchUserInvoices(user.id)
+      checkDriverAccount(currentUser.id),
+      checkFleetAccount(currentUser.id),
+      checkMarketplaceAccount(currentUser.id),
+      checkRealEstateAccount(currentUser.id),
+      checkAdminAccount(currentUser.id),
+      fetchUserListings(currentUser.id),
+      fetchUserFavorites(currentUser.id),
+      fetchUserEntities(currentUser.id),
+      fetchUserInvoices(currentUser.id)
     ]);
     
     setLoading(false);
@@ -538,7 +559,7 @@ export default function ClientPortal() {
           {activeTab === 'start' && (
             <div className="space-y-6">
               {/* Quick Actions Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setShowSearchModal(true)}>
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -583,6 +604,22 @@ export default function ClientPortal() {
                       <div>
                         <h3 className="font-bold text-lg">Przełącz konto</h3>
                         <p className="text-sm text-muted-foreground">Zarządzaj kontami kierowcy, floty i sprzedawcy</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+
+                {/* Wystaw fakturę tile */}
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleNewInvoice}>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-green-100">
+                        <FileText className="h-8 w-8 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Wystaw fakturę</h3>
+                        <p className="text-sm text-muted-foreground">Szybko wystaw fakturę VAT dla kontrahenta</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -891,28 +928,42 @@ export default function ClientPortal() {
                     </Card>
                   </div>
 
-                  {/* Quick Actions */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
-                    <div className="flex flex-wrap gap-3">
-                      <Button onClick={handleNewInvoice}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Wystaw fakturę
-                      </Button>
-                      <Button variant="outline">
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        Wgraj dokument
-                      </Button>
-                      <Button variant="outline">
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        Eksport CSV
-                      </Button>
-                      <Button variant="outline" onClick={() => setShowCompanySetup(true)}>
-                        <Building2 className="h-4 w-4 mr-2" />
-                        Dodaj firmę
-                      </Button>
-                    </div>
-                  </div>
+              {/* Quick Actions */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={handleNewInvoice}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Wystaw fakturę
+                  </Button>
+                  <Button variant="outline">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Wgraj dokument
+                  </Button>
+                  <Button variant="outline">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Eksport CSV
+                  </Button>
+                  {userEntities.length === 0 && (
+                    <Button variant="outline" onClick={() => setShowCompanySetup(true)}>
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Dodaj firmę
+                    </Button>
+                  )}
+                  {userEntities.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setEditingEntity(userEntities[0]);
+                        setShowCompanySetup(true);
+                      }}
+                    >
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Edytuj firmę
+                    </Button>
+                  )}
+                </div>
+              </div>
 
                   {/* Recent Invoices */}
                   <Card>
@@ -1011,59 +1062,48 @@ export default function ClientPortal() {
           {/* Settings Tab */}
           {activeTab === 'ustawienia' && (
             <div className="space-y-6">
-              {/* Company Data Section */}
+              {/* Company Data Section - 1 company per account */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5" />
-                    Moje firmy
+                    Moja firma
                   </CardTitle>
                   <CardDescription>
-                    Zarządzaj danymi firm do wystawiania faktur
+                    Dane Twojej firmy do wystawiania faktur
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {userEntities.length > 0 ? (
                     <div className="space-y-4">
-                      {userEntities.map((entity) => (
-                        <div 
-                          key={entity.id} 
-                          className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            setEditingEntity(entity);
-                            setShowCompanySetup(true);
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <Building2 className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-semibold">{entity.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
-                              {entity.vat_payer ? 'VAT' : 'Bez VAT'}
-                            </Badge>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
+                      <div 
+                        className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => {
-                          setEditingEntity(null);
+                          setEditingEntity(userEntities[0]);
                           setShowCompanySetup(true);
                         }}
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Dodaj kolejną firmę
-                      </Button>
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Building2 className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold">{userEntities[0].name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              NIP: {userEntities[0].nip || '—'} | {userEntities[0].address_city || 'Brak adresu'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={userEntities[0].vat_payer ? 'default' : 'secondary'}>
+                            {userEntities[0].vat_payer ? 'VAT' : 'Bez VAT'}
+                          </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Kliknij, aby edytować dane firmy
+                      </p>
                     </div>
                   ) : (
                     <div className="text-center py-8">
