@@ -232,7 +232,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @page { 
-      margin: 15mm; 
+      margin: 10mm; 
       size: A4;
     }
     @media print {
@@ -245,16 +245,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         max-width: 100%; 
         page-break-inside: avoid;
       }
-      /* Remove browser headers/footers */
       thead { display: table-header-group; }
       tfoot { display: table-footer-group; }
     }
     body { 
       font-family: 'Segoe UI', Arial, sans-serif; 
-      font-size: 12px; 
-      line-height: 1.4; 
+      font-size: 11px; 
+      line-height: 1.3; 
       color: #333; 
-      padding: 20px;
+      padding: 10px;
       background: white;
     }
     .invoice { 
@@ -267,47 +266,48 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       display: flex; 
       justify-content: space-between; 
       align-items: flex-start; 
-      margin-bottom: 30px; 
-      padding-bottom: 20px; 
+      margin-bottom: 15px; 
+      padding-bottom: 10px; 
       border-bottom: 2px solid #7c3aed; 
     }
-    .logo-area { min-width: 200px; min-height: 60px; }
-    .logo-area img { max-width: 200px; max-height: 60px; object-fit: contain; }
-    .logo-text { font-size: 20px; font-weight: bold; color: #7c3aed; }
+    .logo-area { min-width: 150px; min-height: 40px; }
+    .logo-area img { max-width: 150px; max-height: 40px; object-fit: contain; }
+    .logo-text { font-size: 18px; font-weight: bold; color: #7c3aed; }
     .invoice-title { text-align: right; }
-    .invoice-title h1 { font-size: 20px; color: #333; margin-bottom: 5px; }
-    .invoice-number { font-size: 16px; font-weight: bold; color: #7c3aed; }
-    .parties { display: flex; gap: 40px; margin-bottom: 30px; }
+    .invoice-title h1 { font-size: 16px; color: #333; margin-bottom: 3px; }
+    .invoice-number { font-size: 13px; font-weight: bold; color: #7c3aed; }
+    .parties { display: flex; gap: 20px; margin-bottom: 15px; }
     .party { flex: 1; }
-    .party-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
-    .party-name { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
-    .party-details { font-size: 11px; color: #555; }
-    .dates { display: flex; gap: 30px; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; flex-wrap: wrap; }
+    .party-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
+    .party-name { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+    .party-details { font-size: 10px; color: #555; line-height: 1.4; }
+    .dates { display: flex; gap: 20px; margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; flex-wrap: wrap; }
     .date-item { }
-    .date-label { font-size: 10px; color: #666; text-transform: uppercase; }
-    .date-value { font-size: 13px; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th { background: #7c3aed; color: white; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 600; }
-    th:first-child { border-radius: 6px 0 0 0; }
-    th:last-child { border-radius: 0 6px 0 0; }
-    .totals { display: flex; justify-content: flex-end; margin-bottom: 20px; }
-    .totals-table { width: 300px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 12px; border-radius: 6px; font-size: 14px; }
+    .date-label { font-size: 9px; color: #666; text-transform: uppercase; }
+    .date-value { font-size: 11px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    th { background: #7c3aed; color: white; padding: 6px 4px; text-align: left; font-size: 10px; font-weight: 600; }
+    th:first-child { border-radius: 4px 0 0 0; }
+    th:last-child { border-radius: 0 4px 0 0; }
+    td { padding: 4px; font-size: 10px; }
+    .totals { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+    .totals-table { width: 250px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 11px; }
+    .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 8px; border-radius: 4px; font-size: 12px; }
     .totals-label { font-weight: 500; }
     .totals-value { font-weight: bold; }
-    .amount-words { margin-bottom: 20px; padding: 15px; background: #f0f9ff; border-left: 4px solid #7c3aed; border-radius: 4px; }
-    .amount-words-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 4px; }
-    .amount-words-value { font-style: italic; }
-    .payment { margin-bottom: 20px; }
-    .payment-row { display: flex; gap: 30px; margin-bottom: 8px; }
-    .payment-label { color: #666; min-width: 120px; }
+    .amount-words { margin-bottom: 12px; padding: 10px; background: #f0f9ff; border-left: 3px solid #7c3aed; border-radius: 3px; }
+    .amount-words-label { font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+    .amount-words-value { font-style: italic; font-size: 10px; }
+    .payment { margin-bottom: 12px; font-size: 11px; }
+    .payment-row { display: flex; gap: 20px; margin-bottom: 4px; }
+    .payment-label { color: #666; min-width: 100px; }
     .payment-value { font-weight: 500; }
-    .notes { margin-bottom: 30px; padding: 15px; background: #fef3c7; border-radius: 8px; }
-    .notes-label { font-size: 10px; color: #92400e; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
-    .footer { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; }
-    .signature { width: 200px; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 8px; font-size: 10px; color: #666; }
+    .notes { margin-bottom: 15px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 10px; }
+    .notes-label { font-size: 9px; color: #92400e; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
+    .footer { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 10px; }
+    .signature { width: 180px; text-align: center; }
+    .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 6px; font-size: 9px; color: #666; }
   </style>
 </head>
 <body>
