@@ -607,35 +607,43 @@ export function SimpleFreeInvoice() {
                 onChange={(e) => setIssuePlace(e.target.value)}
               />
             </div>
-            <div>
-              <Label className="text-xs mb-1 block">Data wystawienia</Label>
-              <Input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="h-10 text-sm pr-2"
-              />
+            <div className="relative">
+              <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                <span className="absolute left-3 top-1 text-xs text-primary">Data wystawienia</span>
+                <Input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0"
+                />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs mb-1 block">Data sprzedaży</Label>
-              <Input
-                type="date"
-                value={saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-                className="h-10 text-sm pr-2"
-              />
+            <div className="relative">
+              <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                <span className="absolute left-3 top-1 text-xs text-primary">Data sprzedaży</span>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0"
+                />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs mb-1 block">Termin płatności</Label>
-              <PaymentTermSelector
-                issueDate={issueDate}
-                dueDate={dueDate}
-                onDueDateChange={setDueDate}
-              />
+            <div className="relative">
+              <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                <span className="absolute left-3 top-1 text-xs text-primary">Termin płatności</span>
+                <PaymentTermSelector
+                  issueDate={issueDate}
+                  dueDate={dueDate}
+                  onDueDateChange={setDueDate}
+                />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs mb-1 block">Waluta</Label>
-              <CurrencySelector value={currency} onChange={setCurrency} />
+            <div className="relative">
+              <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                <span className="absolute left-3 top-1 text-xs text-primary">Waluta</span>
+                <CurrencySelector value={currency} onChange={setCurrency} />
+              </div>
             </div>
           </div>
         </CardContent>
