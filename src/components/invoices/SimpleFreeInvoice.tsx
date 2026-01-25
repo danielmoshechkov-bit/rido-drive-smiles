@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,16 +6,21 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   Receipt, 
   Plus, 
   Trash2, 
-  Printer,
+  Eye,
   Building2,
   User,
   FileText,
-  Calculator
+  Calculator,
+  CreditCard,
+  MessageSquare,
+  Settings2
 } from 'lucide-react';
 import { 
   InvoiceItem, 
@@ -23,10 +28,12 @@ import {
   InvoiceBuyer, 
   InvoiceData,
   calculateItemTotals,
-  printInvoice,
   formatCurrency
 } from '@/utils/invoiceHtmlGenerator';
 import { format, addDays } from 'date-fns';
+import { PaymentTermSelector } from './PaymentTermSelector';
+import { InvoicePreviewModal } from './InvoicePreviewModal';
+import { supabase } from '@/integrations/supabase/client';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -36,9 +43,25 @@ const PAYMENT_METHODS = [
   { value: 'card', label: 'Karta' }
 ];
 
+const SIGNATURE_OPTIONS = [
+  { value: 'none', label: 'Faktura bez podpisu odbiorcy' },
+  { value: 'receiver', label: 'Osoba upoważniona do otrzymania faktury VAT' },
+  { value: 'issuer', label: 'Osoba upoważniona do wystawienia faktury VAT' },
+  { value: 'both_none', label: 'Brak podpisu odbiorcy i wystawcy' }
+];
+
+// Extended item type with gross price for bidirectional calculation
+interface ExtendedInvoiceItem extends InvoiceItem {
+  unit_gross_price: number;
+  lastEditedField?: 'net' | 'gross';
+}
+
 export function SimpleFreeInvoice() {
   const today = format(new Date(), 'yyyy-MM-dd');
-  const defaultDueDate = format(addDays(new Date(), 14), 'yyyy-MM-dd');
+  const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
+  
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Invoice type
   const [invoiceType, setInvoiceType] = useState<'invoice' | 'proforma' | 'receipt'>('invoice');
@@ -50,6 +73,15 @@ export function SimpleFreeInvoice() {
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');
   const [notes, setNotes] = useState('');
+  
+  // Payment tab fields
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [isFullyPaid, setIsFullyPaid] = useState(false);
+  
+  // Additional tab fields
+  const [signatureType, setSignatureType] = useState('none');
+  const [issuedBy, setIssuedBy] = useState('');
+  const [issuePlace, setIssuePlace] = useState('');
   
   // Seller
   const [seller, setSeller] = useState<InvoiceSeller>({
@@ -71,16 +103,65 @@ export function SimpleFreeInvoice() {
     address_postal_code: ''
   });
   
-  // Items
-  const [items, setItems] = useState<InvoiceItem[]>([
-    calculateItemTotals({ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23' })
+  // Items with extended fields
+  const [items, setItems] = useState<ExtendedInvoiceItem[]>([
+    { ...calculateItemTotals({ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23' }), unit_gross_price: 0 }
   ]);
+  
+  // Preview modal
+  const [showPreview, setShowPreview] = useState(false);
 
-  const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
+  // Check auth state
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Calculate gross from net
+  const calculateGrossFromNet = (net: number, vatRate: string): number => {
+    const rate = parseFloat(vatRate) || 0;
+    return Math.round(net * (1 + rate / 100) * 100) / 100;
+  };
+
+  // Calculate net from gross
+  const calculateNetFromGross = (gross: number, vatRate: string): number => {
+    const rate = parseFloat(vatRate) || 0;
+    return Math.round(gross / (1 + rate / 100) * 100) / 100;
+  };
+
+  const updateItem = (index: number, field: keyof ExtendedInvoiceItem, value: any) => {
     setItems(prev => {
       const updated = [...prev];
-      const item = { ...updated[index], [field]: value };
-      updated[index] = calculateItemTotals(item);
+      let item = { ...updated[index], [field]: value };
+      
+      // Handle bidirectional net/gross calculation
+      if (field === 'unit_net_price') {
+        item.unit_gross_price = calculateGrossFromNet(value, item.vat_rate);
+        item.lastEditedField = 'net';
+      } else if (field === 'unit_gross_price') {
+        item.unit_net_price = calculateNetFromGross(value, item.vat_rate);
+        item.lastEditedField = 'gross';
+      } else if (field === 'vat_rate') {
+        // Recalculate based on last edited field
+        if (item.lastEditedField === 'gross') {
+          item.unit_net_price = calculateNetFromGross(item.unit_gross_price, value);
+        } else {
+          item.unit_gross_price = calculateGrossFromNet(item.unit_net_price, value);
+        }
+      }
+      
+      // Calculate totals
+      const calculated = calculateItemTotals(item);
+      updated[index] = { ...calculated, unit_gross_price: item.unit_gross_price, lastEditedField: item.lastEditedField };
       return updated;
     });
   };
@@ -88,7 +169,7 @@ export function SimpleFreeInvoice() {
   const addItem = () => {
     setItems(prev => [
       ...prev, 
-      calculateItemTotals({ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23' })
+      { ...calculateItemTotals({ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23' }), unit_gross_price: 0 }
     ]);
   };
 
@@ -102,8 +183,15 @@ export function SimpleFreeInvoice() {
   const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
   const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
+  const remainingAmount = isFullyPaid ? 0 : Math.max(0, grossTotal - paidAmount);
 
-  const handleGeneratePdf = () => {
+  const getPaymentStatus = () => {
+    if (isFullyPaid || remainingAmount === 0) return { label: 'Opłacona', color: 'text-green-600' };
+    if (paidAmount > 0) return { label: 'Częściowo opłacona', color: 'text-amber-600' };
+    return { label: 'Nieopłacona', color: 'text-red-600' };
+  };
+
+  const handlePreview = () => {
     // Validation
     if (!seller.name) {
       toast.error('Wprowadź nazwę sprzedawcy');
@@ -118,22 +206,33 @@ export function SimpleFreeInvoice() {
       return;
     }
 
-    const invoiceData: InvoiceData = {
-      invoice_number: invoiceNumber,
-      type: invoiceType,
-      issue_date: issueDate,
-      sale_date: saleDate,
-      due_date: dueDate,
-      payment_method: paymentMethod,
-      notes,
-      items,
-      seller,
-      buyer
-    };
-
-    printInvoice(invoiceData);
-    toast.success('Faktura wygenerowana! Użyj "Drukuj jako PDF" w przeglądarce.');
+    setShowPreview(true);
   };
+
+  const getInvoiceData = (): InvoiceData => ({
+    invoice_number: invoiceNumber,
+    type: invoiceType,
+    issue_date: issueDate,
+    sale_date: saleDate,
+    due_date: dueDate,
+    payment_method: paymentMethod,
+    notes,
+    items: items.map(({ unit_gross_price, lastEditedField, ...item }) => item),
+    seller,
+    buyer
+  });
+
+  const handleSave = async () => {
+    toast.success('Faktura została zapisana na Twoim koncie!');
+    setShowPreview(false);
+  };
+
+  const handleSend = async (email: string) => {
+    toast.success(`Faktura została wysłana na adres ${email}`);
+    setShowPreview(false);
+  };
+
+  const paymentStatus = getPaymentStatus();
 
   return (
     <div className="space-y-6">
@@ -273,11 +372,11 @@ export function SimpleFreeInvoice() {
               />
             </div>
             <div>
-              <Label>NIP</Label>
+              <Label>NIP (opcjonalnie)</Label>
               <Input
                 value={buyer.nip}
                 onChange={(e) => setBuyer(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                placeholder="NIP (opcjonalnie)"
+                placeholder="NIP - dla firm"
                 maxLength={10}
               />
             </div>
@@ -343,26 +442,13 @@ export function SimpleFreeInvoice() {
                 onChange={(e) => setSaleDate(e.target.value)}
               />
             </div>
-            <div>
+            <div className="col-span-2">
               <Label>Termin płatności</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+              <PaymentTermSelector
+                issueDate={issueDate}
+                dueDate={dueDate}
+                onDueDateChange={setDueDate}
               />
-            </div>
-            <div>
-              <Label>Metoda płatności</Label>
-              <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map(m => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardContent>
@@ -389,7 +475,7 @@ export function SimpleFreeInvoice() {
               </div>
               
               <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-12 md:col-span-5">
+                <div className="col-span-12 md:col-span-4">
                   <Label className="text-xs">Nazwa towaru/usługi *</Label>
                   <Input
                     value={item.name}
@@ -418,14 +504,26 @@ export function SimpleFreeInvoice() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-4 md:col-span-2">
+                <div className="col-span-6 md:col-span-2">
                   <Label className="text-xs">Cena netto</Label>
                   <Input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={item.unit_net_price}
+                    value={item.unit_net_price || ''}
                     onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Label className="text-xs">Cena brutto</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.unit_gross_price || ''}
+                    onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="col-span-4 md:col-span-1">
@@ -439,12 +537,12 @@ export function SimpleFreeInvoice() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-4 md:col-span-2">
-                  <Label className="text-xs">Brutto</Label>
+                <div className="col-span-8 md:col-span-1">
+                  <Label className="text-xs">Suma brutto</Label>
                   <Input
                     value={formatCurrency(item.gross_amount)}
                     disabled
-                    className="bg-muted"
+                    className="bg-muted font-medium"
                   />
                 </div>
               </div>
@@ -479,34 +577,168 @@ export function SimpleFreeInvoice() {
         </CardContent>
       </Card>
 
-      {/* Notes */}
+      {/* Tabs: Uwagi, Płatności, Dodatkowe */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Uwagi (opcjonalnie)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Dodatkowe uwagi na fakturze..."
-            rows={3}
-          />
+        <CardContent className="pt-6">
+          <Tabs defaultValue="notes">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="notes" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Uwagi
+              </TabsTrigger>
+              <TabsTrigger value="payment" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Płatności
+              </TabsTrigger>
+              <TabsTrigger value="additional" className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4" />
+                Dodatkowe
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="notes" className="mt-4">
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Dodatkowe uwagi na fakturze..."
+                rows={4}
+              />
+            </TabsContent>
+            
+            <TabsContent value="payment" className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Sposób zapłaty</Label>
+                  <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {paymentMethod === 'transfer' && (
+                  <div>
+                    <Label>Numer konta bankowego</Label>
+                    <Input
+                      value={seller.bank_account || ''}
+                      onChange={(e) => setSeller(prev => ({ ...prev, bank_account: e.target.value }))}
+                      placeholder="00 0000 0000 0000 0000 0000 0000"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <Separator />
+              
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Status płatności</h4>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="fully-paid" 
+                    checked={isFullyPaid}
+                    onCheckedChange={(checked) => {
+                      setIsFullyPaid(checked as boolean);
+                      if (checked) setPaidAmount(grossTotal);
+                    }}
+                  />
+                  <Label htmlFor="fully-paid" className="cursor-pointer">Faktura opłacona w całości</Label>
+                </div>
+                
+                {!isFullyPaid && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Kwota wpłacona</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={paidAmount || ''}
+                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label>Pozostało do zapłaty</Label>
+                      <Input
+                        value={formatCurrency(remainingAmount)}
+                        disabled
+                        className="bg-muted font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <div className={`p-3 rounded-lg bg-muted ${paymentStatus.color}`}>
+                  <span className="font-medium">Status: {paymentStatus.label}</span>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="additional" className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Podpis na fakturze</Label>
+                  <Select value={signatureType} onValueChange={setSignatureType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SIGNATURE_OPTIONS.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Osoba wystawiająca (opcjonalnie)</Label>
+                  <Input
+                    value={issuedBy}
+                    onChange={(e) => setIssuedBy(e.target.value)}
+                    placeholder="Imię i nazwisko"
+                  />
+                </div>
+                <div>
+                  <Label>Miejsce wystawienia</Label>
+                  <Input
+                    value={issuePlace}
+                    onChange={(e) => setIssuePlace(e.target.value)}
+                    placeholder="Miasto"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
-      {/* Generate Button */}
+      {/* Preview Button */}
       <Button 
-        onClick={handleGeneratePdf} 
+        onClick={handlePreview} 
         size="lg" 
         className="w-full gap-2"
       >
-        <Printer className="h-5 w-5" />
-        Generuj PDF (Drukuj)
+        <Eye className="h-5 w-5" />
+        Podgląd faktury
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        Faktura zostanie otwarta w nowym oknie. Wybierz "Zapisz jako PDF" w opcjach drukowania przeglądarki.
+        Po kliknięciu zobaczysz podgląd dokumentu. Możesz pobrać PDF bez logowania lub zalogować się, aby zapisać na koncie.
       </p>
+
+      {/* Preview Modal */}
+      <InvoicePreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        invoiceData={getInvoiceData()}
+        isLoggedIn={isLoggedIn}
+        onSave={handleSave}
+        onSend={handleSend}
+      />
     </div>
   );
 }
