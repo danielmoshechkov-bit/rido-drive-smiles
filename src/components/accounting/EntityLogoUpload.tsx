@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Upload, Trash2, Loader2, Building2 } from 'lucide-react';
+import { compressLogoImage } from '@/utils/imageCompression';
 
 interface EntityLogoUploadProps {
   entityId: string;
@@ -33,23 +34,20 @@ export function EntityLogoUpload({
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: 'Błąd', description: 'Maksymalny rozmiar pliku to 2MB', variant: 'destructive' });
-      return;
-    }
-
     setUploading(true);
     try {
+      // Compress image automatically - no size limit for user
+      const compressedBlob = await compressLogoImage(file);
+      
       // Generate unique filename
-      const ext = file.name.split('.').pop();
-      const fileName = `${entityId}-${Date.now()}.${ext}`;
+      const fileName = `${entityId}-${Date.now()}.jpg`;
       const filePath = `logos/${fileName}`;
+      const compressedFile = new File([compressedBlob], fileName, { type: 'image/jpeg' });
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('entity-logos')
-        .upload(filePath, file, {
+        .upload(filePath, compressedFile, {
           cacheControl: '3600',
           upsert: true,
         });
@@ -70,7 +68,11 @@ export function EntityLogoUpload({
       if (updateError) throw updateError;
 
       onLogoUpdated(publicUrl);
-      toast({ title: 'Sukces', description: 'Logo zostało zaktualizowane' });
+      
+      // Show compression info
+      const originalSize = (file.size / 1024).toFixed(0);
+      const compressedSize = (compressedBlob.size / 1024).toFixed(0);
+      toast({ title: 'Sukces', description: `Logo zaktualizowane (${originalSize}KB → ${compressedSize}KB)` });
     } catch (error) {
       console.error('Error uploading logo:', error);
       toast({ title: 'Błąd', description: 'Nie udało się przesłać logo', variant: 'destructive' });
@@ -174,7 +176,7 @@ export function EntityLogoUpload({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Zalecany format: PNG lub JPG, max 2MB. Logo będzie widoczne na fakturach.
+        Dowolny rozmiar obrazu - system automatycznie optymalizuje. Logo będzie widoczne na fakturach.
       </p>
     </div>
   );
