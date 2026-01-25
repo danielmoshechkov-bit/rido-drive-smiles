@@ -72,6 +72,7 @@ const DOCUMENT_TYPES = [
 type DocumentType = typeof DOCUMENT_TYPES[number]['value'];
 
 const SIGNATURE_OPTIONS = [
+  { value: 'valid_without_signature', label: 'Faktura ważna bez podpisu' },
   { value: 'none', label: 'Faktura bez podpisu odbiorcy' },
   { value: 'receiver', label: 'Osoba upoważniona do otrzymania faktury VAT' },
   { value: 'issuer', label: 'Osoba upoważniona do wystawienia faktury VAT' },
@@ -143,7 +144,7 @@ export function SimpleFreeInvoice() {
   const [isFullyPaid, setIsFullyPaid] = useState(false);
   
   // Additional tab fields
-  const [signatureType, setSignatureType] = useState('none');
+  const [signatureType, setSignatureType] = useState('valid_without_signature');
   const [issuedBy, setIssuedBy] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   
@@ -355,11 +356,18 @@ export function SimpleFreeInvoice() {
       seller: {
         ...seller,
         address_street: sellerAddress,
+        logo_url: companyLogo || undefined,
       },
       buyer: {
         ...buyer,
         address_street: buyerAddress,
-      }
+      },
+      // Payment info
+      paid_amount: paidAmount,
+      is_fully_paid: isFullyPaid,
+      // Signature
+      signature_type: signatureType as any,
+      issued_by: issuedBy,
     };
   };
 
