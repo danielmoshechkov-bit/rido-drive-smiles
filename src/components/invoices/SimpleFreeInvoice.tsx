@@ -213,36 +213,72 @@ export function SimpleFreeInvoice() {
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
   // Check auth state and load saved company data
+  // Helper function to load user company data from multiple sources
+  const loadUserCompanyData = async (userId: string) => {
+    // First try user_invoice_companies
+    const { data: company } = await supabase
+      .from('user_invoice_companies')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .maybeSingle();
+    
+    if (company) {
+      setSavedCompanyId(company.id);
+      setSeller({
+        name: company.name || '',
+        nip: company.nip || '',
+        address_street: company.address_street || '',
+        address_building_number: company.address_building_number || '',
+        address_apartment_number: company.address_apartment_number || '',
+        address_city: company.address_city || '',
+        address_postal_code: company.address_postal_code || '',
+        bank_name: company.bank_name || '',
+        bank_account: company.bank_account || ''
+      });
+      setSellerExpanded(false);
+      return;
+    }
+    
+    // Fallback to entities table (from ClientPortal company setup)
+    const { data: entity } = await supabase
+      .from('entities')
+      .select('*')
+      .eq('owner_user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (entity) {
+      setSavedCompanyId(entity.id);
+      // Parse address_street to extract building/apartment numbers
+      const streetParts = (entity.address_street || '').split(' ');
+      const hasNumber = streetParts.length > 1 && /\d/.test(streetParts[streetParts.length - 1]);
+      const street = hasNumber ? streetParts.slice(0, -1).join(' ') : entity.address_street || '';
+      const buildingNum = hasNumber ? streetParts[streetParts.length - 1] : '';
+      
+      setSeller({
+        name: entity.name || '',
+        nip: entity.nip || '',
+        address_street: street,
+        address_building_number: buildingNum,
+        address_apartment_number: '',
+        address_city: entity.address_city || '',
+        address_postal_code: entity.address_postal_code || '',
+        bank_name: entity.bank_name || '',
+        bank_account: entity.bank_account || ''
+      });
+      setSellerExpanded(false);
+    }
+  };
+
   useEffect(() => {
     const checkAuthAndLoadData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
       
       if (session?.user) {
-        // Load user's default company
-        const { data: company } = await supabase
-          .from('user_invoice_companies')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('is_default', true)
-          .maybeSingle();
-        
-        if (company) {
-          setSavedCompanyId(company.id);
-          setSeller({
-            name: company.name || '',
-            nip: company.nip || '',
-            address_street: company.address_street || '',
-            address_building_number: company.address_building_number || '',
-            address_apartment_number: company.address_apartment_number || '',
-            address_city: company.address_city || '',
-            address_postal_code: company.address_postal_code || '',
-            bank_name: company.bank_name || '',
-            bank_account: company.bank_account || ''
-          });
-          // Collapse seller section if data is loaded
-          setSellerExpanded(false);
-        }
+        await loadUserCompanyData(session.user.id);
       }
     };
     checkAuthAndLoadData();
@@ -252,29 +288,7 @@ export function SimpleFreeInvoice() {
       if (session?.user) {
         // Reload company data on login
         setTimeout(() => {
-          supabase
-            .from('user_invoice_companies')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .eq('is_default', true)
-            .maybeSingle()
-            .then(({ data: company }) => {
-              if (company) {
-                setSavedCompanyId(company.id);
-                setSeller({
-                  name: company.name || '',
-                  nip: company.nip || '',
-                  address_street: company.address_street || '',
-                  address_building_number: company.address_building_number || '',
-                  address_apartment_number: company.address_apartment_number || '',
-                  address_city: company.address_city || '',
-                  address_postal_code: company.address_postal_code || '',
-                  bank_name: company.bank_name || '',
-                  bank_account: company.bank_account || ''
-                });
-                setSellerExpanded(false);
-              }
-            });
+          loadUserCompanyData(session.user.id);
         }, 0);
       }
     });

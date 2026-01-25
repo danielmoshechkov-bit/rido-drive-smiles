@@ -534,6 +534,15 @@ export default function InvoiceProgram() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-4">
               <UniversalHomeButton />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/klient')}
+                className="gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Portal Klienta</span>
+              </Button>
               <div className="hidden md:flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-primary" />
                 <span className="font-bold text-lg">Program do Faktur</span>
