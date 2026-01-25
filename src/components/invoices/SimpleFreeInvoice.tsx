@@ -408,7 +408,21 @@ export function SimpleFreeInvoice() {
       return;
     }
 
+    // Require login to see preview, save, or send
+    if (!isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+
     setShowPreview(true);
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    // After successful login, show the preview
+    setTimeout(() => {
+      setShowPreview(true);
+    }, 100);
   };
 
   const getInvoiceData = (): InvoiceData => {
@@ -606,11 +620,6 @@ export function SimpleFreeInvoice() {
     setShowPreview(false);
   };
   
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false);
-    // After login, proceed to preview
-    setShowPreview(true);
-  };
 
   const paymentStatus = getPaymentStatus();
   const currencySymbol = getCurrencySymbol(currency);
@@ -901,50 +910,48 @@ export function SimpleFreeInvoice() {
               </div>
             </div>
             
-            {/* Row 2: Data wystawienia + Data sprzedaży (side by side) */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: All 3 dates in one row on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className="relative">
-                <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data wystawienia</span>
+                <div className="flex h-10 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-2 top-0.5 text-[9px] text-primary z-10">Wystawienia</span>
                   <Input
                     type="date"
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
-                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    className="h-10 border-0 pt-3 pb-1 pl-2 pr-1 shadow-none focus-visible:ring-0 text-xs [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
               <div className="relative">
-                <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data sprzedaży</span>
+                <div className="flex h-10 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-2 top-0.5 text-[9px] text-primary z-10">Sprzedaży</span>
                   <Input
                     type="date"
                     value={saleDate}
                     onChange={(e) => setSaleDate(e.target.value)}
-                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    className="h-10 border-0 pt-3 pb-1 pl-2 pr-1 shadow-none focus-visible:ring-0 text-xs [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
-            </div>
-            
-            {/* Row 3: Termin płatności + Selector (side by side) */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
-                  <Input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                  />
+              <div className="flex gap-1">
+                <div className="relative flex-1 min-w-0">
+                  <div className="flex h-10 w-full rounded-md border border-input bg-background">
+                    <span className="absolute left-2 top-0.5 text-[9px] text-primary z-10">Płatność</span>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="h-10 border-0 pt-3 pb-1 pl-2 pr-1 shadow-none focus-visible:ring-0 text-xs [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </div>
                 </div>
+                <PaymentTermSelector
+                  issueDate={issueDate}
+                  dueDate={dueDate}
+                  onDueDateChange={setDueDate}
+                />
               </div>
-              <PaymentTermSelector
-                issueDate={issueDate}
-                dueDate={dueDate}
-                onDueDateChange={setDueDate}
-              />
             </div>
           </div>
         </CardContent>
@@ -1372,13 +1379,13 @@ export function SimpleFreeInvoice() {
         onSend={handleSend}
       />
       
-      {/* Auth Modal for non-logged users */}
+      {/* Auth Modal for non-logged users - blocks preview/save/send */}
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
         initialMode="register"
         onSuccess={handleAuthSuccess}
-        customDescription="Zarejestruj się za darmo, aby zapisywać faktury, zarządzać kontrahentami i mieć pełną historię dokumentów."
+        customDescription="Aby zobaczyć podgląd, zapisać lub wysłać fakturę, musisz się zalogować lub założyć darmowe konto."
       />
       </div>
 
