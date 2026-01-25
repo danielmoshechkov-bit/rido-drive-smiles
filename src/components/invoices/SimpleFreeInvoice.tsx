@@ -617,23 +617,23 @@ export function SimpleFreeInvoice() {
             </div>
             <div className="relative">
               <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-1 text-xs text-primary">Data wystawienia</span>
+                <span className="absolute left-3 top-1 text-xs text-primary z-10">Data wystawienia</span>
                 <Input
                   type="date"
                   value={issueDate}
                   onChange={(e) => setIssueDate(e.target.value)}
-                  className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0"
+                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
             </div>
             <div className="relative">
               <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-1 text-xs text-primary">Data sprzedaży</span>
+                <span className="absolute left-3 top-1 text-xs text-primary z-10">Data sprzedaży</span>
                 <Input
                   type="date"
                   value={saleDate}
                   onChange={(e) => setSaleDate(e.target.value)}
-                  className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0"
+                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
             </div>
@@ -641,12 +641,12 @@ export function SimpleFreeInvoice() {
             <div className="col-span-2 flex gap-2">
               <div className="relative flex-1">
                 <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                  <span className="absolute left-3 top-1 text-xs text-primary">Termin płatności</span>
+                  <span className="absolute left-3 top-1 text-xs text-primary z-10">Termin płatności</span>
                   <Input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0 text-sm"
+                    className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
