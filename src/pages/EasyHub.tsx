@@ -233,17 +233,8 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-muted" />
       )}
       
-      {/* Content */}
+      {/* Content - no icons, only text */}
       <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
-        <div className={cn(
-          "mb-1 md:mb-2 p-1.5 md:p-2 rounded-lg w-fit transition-all duration-300",
-          tile.image ? "bg-white/20 backdrop-blur-sm" : "bg-primary/10"
-        )}>
-          <Icon className={cn(
-            "h-3.5 w-3.5 md:h-5 md:w-5",
-            tile.image ? "text-white" : "text-primary"
-          )} />
-        </div>
         <h3 className={cn(
           "font-bold text-sm md:text-base leading-tight",
           tile.image ? "text-white" : "text-foreground"
