@@ -493,11 +493,14 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
 
   const handleSave = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Use getSession() to get the user ID from the current auth token
+      // This ensures the user_id matches auth.uid() in RLS policies
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         toast.error('Musisz być zalogowany, aby zapisać fakturę');
         return;
       }
+      const user = session.user;
 
       const invoiceData = getInvoiceData();
       
@@ -631,12 +634,12 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
         }
       }
 
-      toast.success('Faktura została zapisana na Twoim koncie!');
-      setShowPreview(false);
       onSaved?.();
+      return true; // Return success
     } catch (err) {
       console.error('Error saving invoice:', err);
       toast.error('Błąd podczas zapisywania faktury');
+      throw err; // Re-throw for caller to handle
     }
   };
 
@@ -678,7 +681,7 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
       toast.success('Faktura została wystawiona!');
     } catch (err) {
       console.error('Error issuing invoice:', err);
-      toast.error('Błąd podczas wystawiania faktury');
+      // Error toast already shown in handleSave
     } finally {
       setIsIssuing(false);
     }
