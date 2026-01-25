@@ -12,9 +12,11 @@ import { TabsPill } from '@/components/ui/TabsPill';
 import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AddListingModal } from '@/components/AddListingModal';
 
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
+import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { 
   Car,
@@ -109,6 +111,7 @@ export default function ClientPortal() {
   const [editingEntity, setEditingEntity] = useState<any | null>(null);
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [showNewInvoice, setShowNewInvoice] = useState(false);
   
   // Search modal
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -330,8 +333,8 @@ export default function ClientPortal() {
   };
 
   const handleNewInvoice = () => {
-    // Navigate to the full invoice program page instead of opening simple wizard
-    navigate('/faktury');
+    // Open invoice dialog inside client portal
+    setShowNewInvoice(true);
   };
 
   const handleSaveAccountSettings = async () => {
@@ -910,18 +913,6 @@ export default function ClientPortal() {
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Firmy</p>
-                            <p className="text-3xl font-bold">{userEntities.length}</p>
-                            <p className="text-sm text-muted-foreground">Przypisane podmioty</p>
-                          </div>
-                          <Building2 className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      </CardContent>
-                    </Card>
                   </div>
 
               {/* Quick Actions */}
@@ -1260,6 +1251,21 @@ export default function ClientPortal() {
         open={showSearchModal}
         onOpenChange={setShowSearchModal}
       />
+
+      {/* New Invoice Dialog */}
+      <Dialog open={showNewInvoice} onOpenChange={setShowNewInvoice}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          <SimpleFreeInvoice 
+            onClose={() => setShowNewInvoice(false)}
+            onSaved={() => {
+              if (user) {
+                fetchUserInvoices(user.id);
+              }
+              setShowNewInvoice(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
