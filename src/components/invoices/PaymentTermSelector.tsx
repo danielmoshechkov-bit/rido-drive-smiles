@@ -25,28 +25,27 @@ export function PaymentTermSelector({ issueDate, dueDate, onDueDateChange }: Pay
   };
 
   return (
-    <div className="flex gap-2 items-end">
-      <div className="flex-1">
-        <Input
-          type="date"
-          value={dueDate}
-          onChange={(e) => onDueDateChange(e.target.value)}
-        />
-      </div>
+    <div className="flex items-center">
+      <Input
+        type="date"
+        value={dueDate}
+        onChange={(e) => onDueDateChange(e.target.value)}
+        className="h-9 text-sm rounded-r-none border-r-0"
+      />
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 rounded-l-none">
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-40 p-2" align="end">
-          <div className="flex flex-col gap-1">
+        <PopoverContent className="w-36 p-1" align="end">
+          <div className="flex flex-col gap-0.5">
             {PAYMENT_PRESETS.map((preset) => (
               <Button
                 key={preset.days}
                 variant="ghost"
                 size="sm"
-                className="justify-start"
+                className="justify-start h-8 text-sm"
                 onClick={() => handlePresetClick(preset.days)}
               >
                 {preset.label}

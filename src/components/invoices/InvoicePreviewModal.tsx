@@ -40,20 +40,6 @@ export function InvoicePreviewModal({
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Update iframe content when invoice data changes
-  useEffect(() => {
-    if (open && iframeRef.current) {
-      const html = generateInvoiceHtml(invoiceData);
-      const iframe = iframeRef.current;
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (doc) {
-        doc.open();
-        doc.write(html);
-        doc.close();
-      }
-    }
-  }, [open, invoiceData]);
-
   const handleDownloadPdf = () => {
     const html = generateInvoiceHtml(invoiceData);
     const printWindow = window.open('', '_blank');
@@ -129,15 +115,12 @@ export function InvoicePreviewModal({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Action buttons - simplified */}
-          <div className="flex flex-wrap gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
+          {/* Action buttons - aligned in single row */}
+          <div className="flex items-center gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Wróć
             </Button>
-            
-            <div className="flex-1" />
-            
             <Button variant="default" size="sm" onClick={handleDownloadPdf}>
               <Download className="h-4 w-4 mr-2" />
               Pobierz PDF
@@ -196,10 +179,12 @@ export function InvoicePreviewModal({
                 ref={iframeRef}
                 className="w-full border-0"
                 style={{ 
-                  height: '1122px', // A4 at 96dpi
+                  height: '1122px',
                   width: '100%',
                 }}
                 title="Podgląd faktury"
+                sandbox="allow-same-origin"
+                srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}
               />
             </div>
           </div>
