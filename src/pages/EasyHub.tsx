@@ -102,10 +102,10 @@ const mainTiles: MarketplaceTile[] = [
   {
     id: 'ksiegowosc',
     title: 'Księgowość',
-    description: 'Program do faktur online',
+    description: 'Darmowy program do faktur online',
     icon: Receipt,
     image: tileInvoicing,
-    link: '/klient?tab=ksiegowosc',
+    link: '/faktury',
     available: true
   }
 ];
@@ -240,7 +240,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
           tile.image ? "bg-white/20 backdrop-blur-sm" : "bg-primary/10"
         )}>
           <Icon className={cn(
-            "h-4 w-4 md:h-5 md:w-5",
+            "h-3.5 w-3.5 md:h-5 md:w-5",
             tile.image ? "text-white" : "text-primary"
           )} />
         </div>
@@ -441,14 +441,14 @@ export default function EasyHub() {
                   className="h-6 w-6 sm:h-8 sm:w-8 cursor-pointer"
                   onClick={() => setActiveCategory('main')}
                 />
-                <span className="font-bold text-base sm:text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <span className="font-bold text-sm sm:text-lg md:text-xl text-primary">
                   GetRido
                 </span>
               </>
             )}
           </div>
-          <div className="flex gap-1 sm:gap-2">
-            <MyGetRidoButton user={user} />
+          <div className="flex gap-0.5 sm:gap-2 items-center">
+            <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
             <AddListingModal user={user} />
           </div>
         </div>
@@ -456,7 +456,7 @@ export default function EasyHub() {
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3">
+        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 text-primary">
           GetRido
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
