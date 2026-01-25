@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FloatingInput } from '@/components/ui/floating-input';
 import { toast } from 'sonner';
 import { 
   Receipt, 
@@ -446,64 +447,61 @@ export function SimpleFreeInvoice() {
             Sprzedawca (Twoja firma)
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Label>Pełna nazwa firmy <span className="text-destructive">*</span></Label>
-              <Input
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="col-span-2">
+              <FloatingInput
+                label="Pełna nazwa firmy"
+                required
                 value={seller.name}
                 onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nazwa firmy lub imię i nazwisko"
               />
             </div>
             <div>
-              <Label>NIP <span className="text-destructive">*</span></Label>
-              <Input
+              <FloatingInput
+                label="NIP"
+                required
                 value={seller.nip}
                 onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                placeholder="NIP (10 cyfr)"
                 maxLength={10}
               />
             </div>
             <div>
-              <Label>Ulica <span className="text-destructive">*</span></Label>
-              <Input
+              <FloatingInput
+                label="Ulica"
+                required
                 value={seller.address_street}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_street: e.target.value }))}
-                placeholder="ul. Przykładowa"
               />
             </div>
             <div>
-              <Label>Nr budynku <span className="text-destructive">*</span></Label>
-              <Input
+              <FloatingInput
+                label="Nr budynku"
+                required
                 value={seller.address_building_number}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_building_number: e.target.value }))}
-                placeholder="1A"
               />
             </div>
             <div>
-              <Label>Nr lokalu</Label>
-              <Input
-                value={seller.address_apartment_number}
+              <FloatingInput
+                label="Nr lokalu"
+                value={seller.address_apartment_number || ''}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_apartment_number: e.target.value }))}
-                placeholder="(opcjonalnie)"
               />
             </div>
             <div>
-              <Label>Kod pocztowy</Label>
-              <Input
+              <FloatingInput
+                label="Kod pocztowy"
                 value={seller.address_postal_code}
                 onChange={(e) => handlePostalCodeChange('seller', e.target.value)}
-                placeholder="00-000"
                 maxLength={6}
               />
             </div>
             <div>
-              <Label>Miasto</Label>
-              <Input
+              <FloatingInput
+                label="Miasto"
                 value={seller.address_city}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_city: e.target.value }))}
-                placeholder="Miasto"
               />
             </div>
           </div>
@@ -518,64 +516,58 @@ export function SimpleFreeInvoice() {
             Nabywca (Klient)
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Label>Nazwa firmy / Imię i nazwisko <span className="text-destructive">*</span></Label>
-              <Input
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="col-span-2">
+              <FloatingInput
+                label="Nazwa firmy / Imię i nazwisko"
+                required
                 value={buyer.name}
                 onChange={(e) => setBuyer(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nazwa firmy lub imię i nazwisko klienta"
               />
             </div>
             <div>
-              <Label>NIP (opcjonalnie)</Label>
-              <Input
-                value={buyer.nip}
+              <FloatingInput
+                label="NIP (opcjonalnie)"
+                value={buyer.nip || ''}
                 onChange={(e) => setBuyer(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                placeholder="NIP - dla firm"
                 maxLength={10}
               />
             </div>
             <div>
-              <Label>Ulica</Label>
-              <Input
+              <FloatingInput
+                label="Ulica"
                 value={buyer.address_street}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_street: e.target.value }))}
-                placeholder="ul. Przykładowa"
               />
             </div>
             <div>
-              <Label>Nr budynku</Label>
-              <Input
+              <FloatingInput
+                label="Nr budynku"
                 value={buyer.address_building_number}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_building_number: e.target.value }))}
-                placeholder="1A"
               />
             </div>
             <div>
-              <Label>Nr lokalu</Label>
-              <Input
-                value={buyer.address_apartment_number}
+              <FloatingInput
+                label="Nr lokalu"
+                value={buyer.address_apartment_number || ''}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_apartment_number: e.target.value }))}
-                placeholder="(opcjonalnie)"
               />
             </div>
             <div>
-              <Label>Kod pocztowy</Label>
-              <Input
+              <FloatingInput
+                label="Kod pocztowy"
                 value={buyer.address_postal_code}
                 onChange={(e) => handlePostalCodeChange('buyer', e.target.value)}
-                placeholder="00-000"
                 maxLength={6}
               />
             </div>
             <div>
-              <Label>Miasto</Label>
-              <Input
+              <FloatingInput
+                label="Miasto"
                 value={buyer.address_city}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_city: e.target.value }))}
-                placeholder="Miasto"
               />
             </div>
           </div>
