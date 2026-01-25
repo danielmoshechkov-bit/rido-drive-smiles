@@ -82,7 +82,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
   
   const [formData, setFormData] = useState<EntityData>({
     name: '',
-    type: 'jdg',
+    type: '', // No default - user must select
     nip: '',
     regon: '',
     address_street: '',
@@ -95,8 +95,26 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
     bank_name: '',
     bank_account: '',
     logo_url: '',
-    vat_payer: true
+    vat_payer: false // Default to unchecked - user must explicitly check
   });
+  
+  // Load user's contact data for pre-fill
+  useEffect(() => {
+    const loadUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !editEntity) {
+        // Pre-fill email and phone from user account (but allow editing)
+        setFormData(prev => ({
+          ...prev,
+          email: prev.email || user.email || '',
+          phone: prev.phone || user.phone || ''
+        }));
+      }
+    };
+    if (open && !editEntity) {
+      loadUserData();
+    }
+  }, [open, editEntity]);
   
   const [gusLoaded, setGusLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +140,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
       setFormData({
         id: editEntity.id,
         name: editEntity.name || '',
-        type: editEntity.type || 'jdg',
+        type: editEntity.type || '', // Keep original or empty for selection
         nip: editEntity.nip || '',
         regon: editEntity.regon || '',
         address_street: street,
@@ -135,14 +153,15 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         bank_name: editEntity.bank_name || '',
         bank_account: editEntity.bank_account || '',
         logo_url: editEntity.logo_url || '',
-        vat_payer: editEntity.vat_payer ?? true
+        vat_payer: editEntity.vat_payer ?? false // Default false if not set
       });
       setNip(editEntity.nip || '');
     } else {
-      // Reset form for new entity
-      setFormData({
+      // Reset form for new entity - keep email/phone from user data
+      setFormData(prev => ({
+        ...prev,
         name: '',
-        type: 'jdg',
+        type: '', // No default - user must select
         nip: '',
         regon: '',
         address_street: '',
@@ -150,13 +169,11 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         address_apartment: '',
         address_city: '',
         address_postal_code: '',
-        email: '',
-        phone: '',
         bank_name: '',
         bank_account: '',
         logo_url: '',
-        vat_payer: true
-      });
+        vat_payer: false // Default unchecked
+      }));
       setNip('');
       setGusLoaded(false);
     }
@@ -276,8 +293,24 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
   };
 
   const handleSave = async () => {
+    // Validate required fields
     if (!formData.name) {
       toast.error('Nazwa firmy jest wymagana');
+      return;
+    }
+    
+    if (!formData.type) {
+      toast.error('Forma prawna jest wymagana');
+      return;
+    }
+    
+    if (!formData.nip || formData.nip.length !== 10) {
+      toast.error('NIP jest wymagany (10 cyfr)');
+      return;
+    }
+    
+    if (!formData.address_street) {
+      toast.error('Ulica jest wymagana');
       return;
     }
     
@@ -314,7 +347,8 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         bank_name: formData.bank_name?.trim() || null,
         bank_account: formData.bank_account?.trim() || null,
         logo_url: formData.logo_url || null,
-        vat_payer: formData.vat_payer
+        vat_payer: formData.vat_payer,
+        owner_user_id: user.id // Link entity to logged in user!
       };
 
       let result;
@@ -347,10 +381,10 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
       onCreated(result);
       onOpenChange(false);
       
-      // Reset form
-      setFormData({
+      // Reset form - keep email/phone for convenience
+      setFormData(prev => ({
         name: '',
-        type: 'jdg',
+        type: '', // No default
         nip: '',
         regon: '',
         address_street: '',
@@ -358,13 +392,13 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         address_apartment: '',
         address_city: '',
         address_postal_code: '',
-        email: '',
-        phone: '',
+        email: prev.email, // Keep user's email
+        phone: prev.phone, // Keep user's phone
         bank_name: '',
         bank_account: '',
         logo_url: '',
-        vat_payer: true
-      });
+        vat_payer: false // Default unchecked
+      }));
       setNip('');
       setGusLoaded(false);
     } catch (error: any) {
@@ -430,7 +464,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
                   </Button>
                 </div>
                 {gusLoaded && (
-                  <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                  <p className="text-xs text-primary mt-2 flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Dane pobrane z rejestru GUS
                   </p>
@@ -482,7 +516,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label>Nazwa firmy *</Label>
+              <Label>Nazwa firmy <span className="text-destructive">*</span></Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -490,12 +524,12 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Forma prawna</Label>
+              <Label>Forma prawna <span className="text-destructive">*</span></Label>
               <Select 
                 value={formData.type} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className={!formData.type ? 'text-muted-foreground' : ''}>
                   <SelectValue placeholder="Wybierz formę prawną" />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,11 +542,11 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
               </Select>
             </div>
             <div>
-              <Label>NIP</Label>
+              <Label>NIP <span className="text-destructive">*</span></Label>
               <Input
                 value={formData.nip}
                 onChange={(e) => setFormData(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                placeholder="NIP"
+                placeholder="NIP (10 cyfr)"
                 maxLength={10}
               />
             </div>
@@ -541,7 +575,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
           {/* Address - Split fields */}
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 md:col-span-6">
-              <Label>Ulica</Label>
+              <Label>Ulica <span className="text-destructive">*</span></Label>
               <Input
                 value={formData.address_street}
                 onChange={(e) => setFormData(prev => ({ ...prev, address_street: e.target.value }))}
@@ -549,7 +583,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
               />
             </div>
             <div className="col-span-6 md:col-span-3">
-              <Label>Nr budynku *</Label>
+              <Label>Nr budynku <span className="text-destructive">*</span></Label>
               <Input
                 value={formData.address_building}
                 onChange={(e) => setFormData(prev => ({ ...prev, address_building: e.target.value }))}
