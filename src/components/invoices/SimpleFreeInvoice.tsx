@@ -26,7 +26,8 @@ import {
   ChevronUp,
   MapPin,
   ImagePlus,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { 
   InvoiceItem, 
@@ -213,6 +214,10 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
   
   // Auth modal for preview
   const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // Invoice issuing state
+  const [isIssuing, setIsIssuing] = useState(false);
+  const [invoiceIssued, setInvoiceIssued] = useState(false);
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
@@ -638,6 +643,45 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
   const handleSend = async (email: string) => {
     toast.success(`Faktura została wysłana na adres ${email}`);
     setShowPreview(false);
+  };
+
+  // Handle "Wystaw fakturę" - saves invoice and opens preview
+  const handleIssueInvoice = async () => {
+    // Check if logged in
+    if (!isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    // Validate required fields
+    if (!seller.name || !seller.nip) {
+      toast.error('Uzupełnij dane sprzedawcy (nazwa i NIP)');
+      setSellerExpanded(true);
+      return;
+    }
+
+    if (!buyer.name) {
+      toast.error('Uzupełnij dane nabywcy');
+      return;
+    }
+
+    if (items.every(item => !item.name || item.quantity === 0)) {
+      toast.error('Dodaj co najmniej jedną pozycję na fakturze');
+      return;
+    }
+
+    setIsIssuing(true);
+    try {
+      await handleSave();
+      setInvoiceIssued(true);
+      setShowPreview(true);
+      toast.success('Faktura została wystawiona!');
+    } catch (err) {
+      console.error('Error issuing invoice:', err);
+      toast.error('Błąd podczas wystawiania faktury');
+    } finally {
+      setIsIssuing(false);
+    }
   };
   
 
@@ -1363,37 +1407,48 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
         </CardContent>
       </Card>
 
-      {/* Preview Button - visible on mobile/tablet */}
+      {/* Issue Invoice Button - visible on mobile/tablet */}
       <Button 
-        onClick={handlePreview} 
+        onClick={handleIssueInvoice} 
         size="lg" 
         className="w-full gap-2 xl:hidden"
+        disabled={isIssuing}
       >
-        <Eye className="h-5 w-5" />
-        Podgląd faktury
+        {isIssuing ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Wystawianie...
+          </>
+        ) : (
+          <>
+            <Receipt className="h-5 w-5" />
+            Wystaw fakturę
+          </>
+        )}
       </Button>
 
       <p className="text-center text-xs text-muted-foreground xl:hidden">
-        Po kliknięciu zobaczysz podgląd dokumentu. Możesz pobrać PDF bez logowania lub zalogować się, aby zapisać na koncie.
+        Po kliknięciu faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.
       </p>
 
-      {/* Preview Modal - for mobile/tablet */}
+      {/* Preview Modal - shows after invoice is issued */}
       <InvoicePreviewModal
         open={showPreview}
         onOpenChange={setShowPreview}
         invoiceData={getInvoiceData()}
         isLoggedIn={isLoggedIn}
-        onSave={handleSave}
+        onSave={undefined} // No save needed - already saved
         onSend={handleSend}
+        invoiceIssued={invoiceIssued}
       />
       
-      {/* Auth Modal for non-logged users - blocks preview/save/send */}
+      {/* Auth Modal for non-logged users */}
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
         initialMode="login"
         onSuccess={handleAuthSuccess}
-        customDescription="Zaloguj się, aby zobaczyć podgląd, zapisać lub wysłać fakturę."
+        customDescription="Zaloguj się, aby wystawić fakturę."
       />
       </div>
 
@@ -1405,16 +1460,23 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
               <Eye className="h-4 w-4 text-primary" />
               <span className="font-medium text-sm">Podgląd na żywo</span>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handlePreview}
-              >
-                <Eye className="h-4 w-4 mr-1" />
-                Pełny ekran
-              </Button>
-            </div>
+            <Button 
+              size="sm"
+              onClick={handleIssueInvoice}
+              disabled={isIssuing}
+            >
+              {isIssuing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Wystawianie...
+                </>
+              ) : (
+                <>
+                  <Receipt className="h-4 w-4 mr-1" />
+                  Wystaw fakturę
+                </>
+              )}
+            </Button>
           </div>
           <div className="flex-1 overflow-auto bg-muted/20 p-3">
             <div className="bg-white shadow-lg rounded overflow-hidden" style={{ aspectRatio: '210/297' }}>
