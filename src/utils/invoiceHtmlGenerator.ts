@@ -24,6 +24,7 @@ export interface InvoiceSeller {
   address_postal_code?: string;
   bank_name?: string;
   bank_account?: string;
+  swift_code?: string;
   email?: string;
   phone?: string;
   logo_url?: string;
@@ -185,9 +186,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
   const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
   
-  // Compact mode uses smaller padding
-  const cellPadding = compact_pdf ? '3px' : '8px';
-  const cellFontSize = compact_pdf ? '9px' : '10px';
+  const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
+  const cellFontSize = compact_pdf ? '8px' : '9px';
   
   const itemsHtml = items.map((item, index) => `
     <tr>
@@ -225,43 +225,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     nota: 'Nota księgowa'
   };
 
-  // Generate safe filename for PDF
   const safeFileName = `${invoice.invoice_number.replace(/\//g, '_')}_${invoice.buyer.name.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '_').substring(0, 30)}`;
   
-  // Compact mode CSS overrides
-  const compactStyles = compact_pdf ? `
-    body { font-size: 9px; line-height: 1.2; padding: 5px; }
-    .header { margin-bottom: 8px; padding-bottom: 6px; }
-    .logo-area { min-width: 120px; min-height: 30px; }
-    .logo-area img { max-width: 120px; max-height: 30px; }
-    .invoice-title h1 { font-size: 13px; margin-bottom: 2px; }
-    .invoice-number { font-size: 11px; }
-    .parties { gap: 15px; margin-bottom: 8px; }
-    .party-label { font-size: 8px; margin-bottom: 2px; }
-    .party-name { font-size: 10px; margin-bottom: 1px; }
-    .party-details { font-size: 8px; line-height: 1.3; }
-    .dates { gap: 12px; margin-bottom: 6px; padding: 6px; }
-    .date-label { font-size: 7px; }
-    .date-value { font-size: 9px; }
-    table { margin-bottom: 6px; }
-    th { padding: 3px 2px; font-size: 8px; }
-    .totals { margin-bottom: 6px; }
-    .totals-table { width: 200px; }
-    .totals-row { padding: 3px 0; font-size: 9px; }
-    .totals-row.grand { padding: 5px; font-size: 10px; }
-    .amount-words { margin-bottom: 6px; padding: 6px; }
-    .amount-words-label { font-size: 7px; margin-bottom: 1px; }
-    .amount-words-value { font-size: 8px; }
-    .payment { margin-bottom: 6px; font-size: 9px; }
-    .payment-row { gap: 12px; margin-bottom: 2px; }
-    .payment-label { min-width: 80px; }
-    .notes { margin-bottom: 8px; padding: 6px; font-size: 8px; }
-    .notes-label { font-size: 7px; margin-bottom: 2px; }
-    .footer { margin-top: 10px; padding-top: 6px; }
-    .signature { width: 150px; }
-    .signature-line { margin-top: 20px; padding-top: 4px; font-size: 7px; }
-    @page { margin: 8mm; }
-  ` : '';
+  const baseFontSize = compact_pdf ? '8px' : '9px';
+  const titleFontSize = compact_pdf ? '12px' : '14px';
+  const pageMargin = compact_pdf ? '6mm' : '8mm';
 
   return `
 <!DOCTYPE html>
@@ -272,95 +240,81 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   <title>${safeFileName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { 
-      margin: 10mm; 
-      size: A4;
-    }
+    @page { margin: ${pageMargin}; size: A4; }
     @media print {
-      html, body { 
-        height: 100%; 
-        margin: 0 !important; 
-        padding: 0 !important;
-      }
-      .invoice { 
-        max-width: 100%; 
-        page-break-inside: avoid;
-      }
-      thead { display: table-header-group; }
-      tfoot { display: table-footer-group; }
+      html, body { height: 100%; margin: 0 !important; padding: 0 !important; }
+      .invoice { max-width: 100%; page-break-inside: avoid; }
     }
     body { 
-      font-family: 'Segoe UI', Arial, sans-serif; 
-      font-size: 11px; 
+      font-family: Arial, sans-serif; 
+      font-size: ${baseFontSize}; 
       line-height: 1.3; 
       color: #333; 
-      padding: 10px;
+      padding: 8px;
       background: white;
     }
-    .invoice { 
-      max-width: 800px; 
-      margin: 0 auto; 
-      background: white;
-      min-height: 100%;
-    }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: flex-start; 
-      margin-bottom: 15px; 
-      padding-bottom: 10px; 
-      border-bottom: 2px solid #7c3aed; 
-    }
-    .logo-area { min-width: 150px; min-height: 40px; }
-    .logo-area img { max-width: 150px; max-height: 40px; object-fit: contain; }
-    .logo-text { font-size: 18px; font-weight: bold; color: #7c3aed; }
+    .invoice { max-width: 800px; margin: 0 auto; background: white; }
+    .top-meta { font-size: 8px; color: #666; margin-bottom: 4px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid #7c3aed; }
+    .logo-area { min-width: 100px; }
+    .logo-area img { max-width: 100px; max-height: 30px; object-fit: contain; }
     .invoice-title { text-align: right; }
-    .invoice-title h1 { font-size: 16px; color: #333; margin-bottom: 3px; }
-    .invoice-number { font-size: 13px; font-weight: bold; color: #7c3aed; }
-    .parties { display: flex; gap: 20px; margin-bottom: 15px; }
+    .invoice-title h1 { font-size: ${titleFontSize}; color: #333; margin-bottom: 1px; }
+    .invoice-number { font-size: 11px; font-weight: bold; color: #7c3aed; margin-bottom: 4px; }
+    .invoice-meta { font-size: 8px; color: #555; text-align: right; }
+    .invoice-meta-row { display: flex; justify-content: flex-end; gap: 8px; }
+    .invoice-meta-item { display: flex; gap: 4px; }
+    .invoice-meta-label { color: #888; }
+    .parties { display: flex; gap: 16px; margin-bottom: 8px; }
     .party { flex: 1; }
-    .party-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
-    .party-name { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
-    .party-details { font-size: 10px; color: #555; line-height: 1.4; }
-    .dates { display: flex; gap: 20px; margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; flex-wrap: wrap; }
-    .date-item { }
-    .date-label { font-size: 9px; color: #666; text-transform: uppercase; }
-    .date-value { font-size: 11px; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-    th { background: #7c3aed; color: white; padding: 6px 4px; text-align: left; font-size: 10px; font-weight: 600; }
-    th:first-child { border-radius: 4px 0 0 0; }
-    th:last-child { border-radius: 0 4px 0 0; }
-    td { padding: 4px; font-size: 10px; }
-    .totals { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-    .totals-table { width: 250px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 11px; }
-    .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 8px; border-radius: 4px; font-size: 12px; }
-    .totals-label { font-weight: 500; }
-    .totals-value { font-weight: bold; }
-    .amount-words { margin-bottom: 12px; padding: 10px; background: #f0f9ff; border-left: 3px solid #7c3aed; border-radius: 3px; }
-    .amount-words-label { font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
-    .amount-words-value { font-style: italic; font-size: 10px; }
-    .payment { margin-bottom: 12px; font-size: 11px; }
-    .payment-row { display: flex; gap: 20px; margin-bottom: 4px; }
-    .payment-label { color: #666; min-width: 100px; }
+    .party-label { font-size: 8px; color: #666; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
+    .party-name { font-size: 10px; font-weight: bold; margin-bottom: 1px; }
+    .party-details { font-size: 8px; color: #555; line-height: 1.3; }
+    .dates-box { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; font-size: 8px; }
+    .date-item { display: flex; gap: 4px; }
+    .date-label { color: #666; }
+    .date-value { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    th { background: #7c3aed; color: white; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; }
+    th:first-child { border-radius: 3px 0 0 0; }
+    th:last-child { border-radius: 0 3px 0 0; }
+    .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+    .totals-table { width: 180px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
+    .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 5px 6px; border-radius: 3px; font-size: 10px; margin-top: 2px; }
+    .amount-words { display: flex; gap: 4px; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid #7c3aed; border-radius: 2px; font-size: 8px; }
+    .amount-words-label { color: #666; font-weight: 600; }
+    .amount-words-value { font-style: italic; }
+    .payment { margin-bottom: 6px; font-size: 8px; }
+    .payment-row { display: flex; gap: 12px; margin-bottom: 2px; }
+    .payment-label { color: #666; min-width: 80px; }
     .payment-value { font-weight: 500; }
-    .notes { margin-bottom: 15px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 10px; }
-    .notes-label { font-size: 9px; color: #92400e; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
-    .footer { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 10px; }
-    .signature { width: 180px; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 6px; font-size: 9px; color: #666; }
-    ${compactStyles}
+    .notes { margin-bottom: 8px; padding: 6px; background: #fef3c7; border-radius: 4px; font-size: 8px; }
+    .notes-label { font-size: 7px; color: #92400e; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
+    .footer { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; }
+    .signature { width: 160px; text-align: center; }
+    .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
+    .valid-note { text-align: center; font-size: 9px; color: #666; font-style: italic; margin-top: 16px; }
   </style>
 </head>
 <body>
   <div class="invoice">
+    <div class="top-meta">
+      Wystawiono dnia ${formatDate(invoice.issue_date)}${invoice.issue_place ? `, ${invoice.issue_place}` : ''}
+    </div>
+
     <div class="header">
       <div class="logo-area">
         ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo" />` : ''}
       </div>
       <div class="invoice-title">
-        <h1>${typeLabels[invoice.type] || 'Faktura VAT'}</h1>
-        <div class="invoice-number">${invoice.invoice_number}</div>
+        <h1>${typeLabels[invoice.type] || 'Faktura VAT'} nr ${invoice.invoice_number}</h1>
+        <div class="invoice-meta">
+          <div class="invoice-meta-row">
+            <div class="invoice-meta-item"><span class="invoice-meta-label">Data sprzedaży:</span> <span>${formatDate(invoice.sale_date)}</span></div>
+            <div class="invoice-meta-item"><span class="invoice-meta-label">Termin płatności:</span> <span>${formatDate(invoice.due_date)}</span></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -383,39 +337,18 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
 
-    <div class="dates">
-      ${invoice.issue_place ? `
-      <div class="date-item">
-        <div class="date-label">Miejsce wystawienia</div>
-        <div class="date-value">${invoice.issue_place}</div>
-      </div>
-      ` : ''}
-      <div class="date-item">
-        <div class="date-label">Data wystawienia</div>
-        <div class="date-value">${formatDate(invoice.issue_date)}</div>
-      </div>
-      <div class="date-item">
-        <div class="date-label">Data sprzedaży</div>
-        <div class="date-value">${formatDate(invoice.sale_date)}</div>
-      </div>
-      <div class="date-item">
-        <div class="date-label">Termin płatności</div>
-        <div class="date-value">${formatDate(invoice.due_date)}</div>
-      </div>
-    </div>
-
     <table>
       <thead>
         <tr>
-          <th style="width: 30px;">Lp.</th>
+          <th style="width: 22px;">Lp.</th>
           <th>Nazwa towaru / usługi</th>
-          <th style="width: 50px;">Jm.</th>
-          <th style="width: 50px;">Ilość</th>
-          <th style="width: 80px;">Cena netto</th>
-          <th style="width: 90px;">Wartość netto</th>
-          <th style="width: 50px;">VAT</th>
-          <th style="width: 80px;">Kwota VAT</th>
-          <th style="width: 100px;">Wartość brutto</th>
+          <th style="width: 32px;">Jm.</th>
+          <th style="width: 35px;">Ilość</th>
+          <th style="width: 60px;">Cena netto</th>
+          <th style="width: 65px;">Wart. netto</th>
+          <th style="width: 35px;">VAT</th>
+          <th style="width: 55px;">Kwota VAT</th>
+          <th style="width: 70px;">Wart. brutto</th>
         </tr>
       </thead>
       <tbody>
@@ -426,33 +359,33 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     <div class="totals">
       <div class="totals-table">
         <div class="totals-row">
-          <span class="totals-label">Razem netto:</span>
-          <span class="totals-value">${formatCurrency(netTotal, currency)}</span>
+          <span>Razem netto:</span>
+          <span style="font-weight: bold;">${formatCurrency(netTotal, currency)}</span>
         </div>
         <div class="totals-row">
-          <span class="totals-label">VAT:</span>
-          <span class="totals-value">${formatCurrency(vatTotal, currency)}</span>
+          <span>VAT:</span>
+          <span style="font-weight: bold;">${formatCurrency(vatTotal, currency)}</span>
         </div>
         <div class="totals-row grand">
-          <span class="totals-label">DO ZAPŁATY:</span>
-          <span class="totals-value">${formatCurrency(grossTotal, currency)}</span>
+          <span>DO ZAPŁATY:</span>
+          <span style="font-weight: bold;">${formatCurrency(grossTotal, currency)}</span>
         </div>
         ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
-        <div class="totals-row" style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
-          <span class="totals-label">Zapłacono:</span>
-          <span class="totals-value" style="color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
+        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
+          <span>Zapłacono:</span>
+          <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
         </div>
-        <div class="totals-row" style="background: #fef3c7; padding: 8px; border-radius: 4px;">
-          <span class="totals-label" style="font-weight: bold;">Pozostało do zapłaty:</span>
-          <span class="totals-value" style="font-weight: bold; color: #dc2626;">${formatCurrency(grossTotal - invoice.paid_amount, currency)}</span>
+        <div class="totals-row" style="background: #fef3c7; padding: 4px 6px; border-radius: 3px;">
+          <span style="font-weight: bold;">Pozostało:</span>
+          <span style="font-weight: bold; color: #dc2626;">${formatCurrency(grossTotal - invoice.paid_amount, currency)}</span>
         </div>
         ` : ''}
       </div>
     </div>
 
     <div class="amount-words">
-      <div class="amount-words-label">Słownie</div>
-      <div class="amount-words-value">${numberToWords(grossTotal)}</div>
+      <span class="amount-words-label">Słownie:</span>
+      <span class="amount-words-value">${numberToWords(grossTotal)}</span>
     </div>
 
     <div class="payment">
@@ -466,9 +399,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <span class="payment-value">${seller.bank_name || ''}</span>
       </div>
       <div class="payment-row">
-        <span class="payment-label">Numer konta:</span>
+        <span class="payment-label">IBAN:</span>
         <span class="payment-value">${seller.bank_account}</span>
       </div>
+      ${seller.swift_code ? `
+      <div class="payment-row">
+        <span class="payment-label">SWIFT/BIC:</span>
+        <span class="payment-value">${seller.swift_code}</span>
+      </div>
+      ` : ''}
       ` : ''}
     </div>
 
@@ -479,24 +418,18 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
+    ${invoice.signature_type === 'valid_without_signature' || invoice.signature_type === 'none' || !invoice.signature_type ? `
+    <div class="valid-note">Faktura ważna bez podpisu</div>
+    ` : `
     <div class="footer">
-      ${invoice.signature_type === 'valid_without_signature' || invoice.signature_type === 'none' || !invoice.signature_type ? `
-      <div style="width: 100%; text-align: center; font-size: 11px; color: #666; font-style: italic;">
-        Faktura ważna bez podpisu
-      </div>
-      ` : `
       <div class="signature">
-        ${invoice.signature_type === 'receiver' || invoice.signature_type === 'both_none' ? '' : `
         <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru faktury</div>
-        `}
       </div>
       <div class="signature">
-        ${invoice.signature_type === 'issuer' || invoice.signature_type === 'both_none' ? '' : `
         <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia faktury${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
-        `}
       </div>
-      `}
     </div>
+    `}
   </div>
 </body>
 </html>

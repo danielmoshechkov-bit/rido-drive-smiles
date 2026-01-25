@@ -608,71 +608,74 @@ export function SimpleFreeInvoice() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="sm:col-span-2">
+          <div className="space-y-3">
+            {/* Row 1: Numer faktury + Miejsce wystawienia */}
+            <div className="grid grid-cols-2 gap-3">
               <FloatingInput
                 label="Numer faktury"
                 required
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
               />
-            </div>
-            <div className="sm:col-span-2">
               <FloatingInput
                 label="Miejsce wystawienia"
                 value={issuePlace}
                 onChange={(e) => setIssuePlace(e.target.value)}
               />
             </div>
-            {/* Data wystawienia */}
-            <div className="relative">
-              <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data wystawienia</span>
-                <Input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
-                />
-              </div>
-            </div>
-            {/* Data sprzedaży */}
-            <div className="relative">
-              <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data sprzedaży</span>
-                <Input
-                  type="date"
-                  value={saleDate}
-                  onChange={(e) => setSaleDate(e.target.value)}
-                  className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
-                />
-              </div>
-            </div>
-            {/* Termin płatności */}
-            <div className="flex gap-1">
-              <div className="relative flex-1">
+            
+            {/* Row 2: Data wystawienia + Data sprzedaży (side by side) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative">
                 <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
+                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data wystawienia</span>
                   <Input
                     type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
+                    value={issueDate}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
-              <PaymentTermSelector
-                issueDate={issueDate}
-                dueDate={dueDate}
-                onDueDateChange={setDueDate}
-              />
+              <div className="relative">
+                <div className="flex h-11 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Data sprzedaży</span>
+                  <Input
+                    type="date"
+                    value={saleDate}
+                    onChange={(e) => setSaleDate(e.target.value)}
+                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </div>
+              </div>
             </div>
-            {/* Waluta */}
-            <div className="relative">
-              <div className="flex h-11 w-full rounded-md border border-input bg-background items-center px-3">
-                <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Waluta</span>
-                <div className="pt-3 w-full">
-                  <CurrencySelector value={currency} onChange={setCurrency} />
+            
+            {/* Row 3: Termin płatności + Waluta (side by side) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex gap-1">
+                <div className="relative flex-1">
+                  <div className="flex h-11 w-full rounded-md border border-input bg-background">
+                    <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </div>
+                </div>
+                <PaymentTermSelector
+                  issueDate={issueDate}
+                  dueDate={dueDate}
+                  onDueDateChange={setDueDate}
+                />
+              </div>
+              <div className="relative">
+                <div className="flex h-11 w-full rounded-md border border-input bg-background items-center px-3">
+                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Waluta</span>
+                  <div className="pt-3 w-full">
+                    <CurrencySelector value={currency} onChange={setCurrency} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -919,11 +922,19 @@ export function SimpleFreeInvoice() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Numer konta bankowego</Label>
+                      <Label>Numer konta (IBAN)</Label>
                       <Input
                         value={seller.bank_account || ''}
                         onChange={(e) => setSeller(prev => ({ ...prev, bank_account: e.target.value }))}
-                        placeholder="00 0000 0000 0000 0000 0000 0000"
+                        placeholder="PL00 0000 0000 0000 0000 0000 0000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Kod SWIFT/BIC (dla przelewów zagranicznych)</Label>
+                      <Input
+                        value={(seller as any).swift_code || ''}
+                        onChange={(e) => setSeller(prev => ({ ...prev, swift_code: e.target.value }))}
+                        placeholder="np. BREXPLPW"
                       />
                     </div>
                   </>
