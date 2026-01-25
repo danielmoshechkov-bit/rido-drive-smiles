@@ -108,40 +108,41 @@ export function InvoicePreviewModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[95vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle className="flex items-center justify-between">
-              <span>Podgląd: {invoiceData.invoice_number}</span>
+        <DialogContent className="max-w-5xl w-full h-[95vh] md:h-[95vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-4 md:px-6 pt-4 pb-3 border-b shrink-0">
+            <DialogTitle className="text-base md:text-lg">
+              Podgląd: {invoiceData.invoice_number}
             </DialogTitle>
           </DialogHeader>
 
-          {/* Action buttons - aligned in single row */}
-          <div className="flex items-center gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
+          {/* Action buttons - responsive, wrap on mobile */}
+          <div className="flex flex-wrap items-center gap-2 px-4 md:px-6 py-2 border-b bg-muted/30 shrink-0">
+            <Button variant="outline" size="sm" className="text-xs md:text-sm" onClick={() => onOpenChange(false)}>
+              <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
               Wróć
             </Button>
-            <Button variant="default" size="sm" onClick={handleDownloadPdf}>
-              <Download className="h-4 w-4 mr-2" />
-              Pobierz PDF
+            <Button variant="default" size="sm" className="text-xs md:text-sm" onClick={handleDownloadPdf}>
+              <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              PDF
             </Button>
             <Button 
               variant="outline" 
               size="sm"
+              className="text-xs md:text-sm"
               onClick={handleSendClick}
               disabled={isSending}
             >
-              <Send className="h-4 w-4 mr-2" />
-              Wyślij mailem
+              <Send className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              Email
             </Button>
           </div>
 
           {/* Email dialog */}
           {showEmailDialog && (
-            <div className="px-6 py-4 bg-primary/5 border-b shrink-0">
-              <div className="flex items-center gap-2 mb-3">
+            <div className="px-4 md:px-6 py-3 bg-primary/5 border-b shrink-0">
+              <div className="flex items-center gap-2 mb-2">
                 <Mail className="h-4 w-4 text-primary" />
-                <Label className="font-medium">Wyślij fakturę na adres email:</Label>
+                <Label className="font-medium text-sm">Wyślij fakturę:</Label>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -149,39 +150,35 @@ export function InvoicePreviewModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="adres@email.com"
-                  className="flex-1"
+                  className="flex-1 h-9"
                   autoFocus
                 />
-                <Button onClick={handleSendEmail} disabled={isSending || !email}>
+                <Button size="sm" onClick={handleSendEmail} disabled={isSending || !email}>
                   {isSending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     'Wyślij'
                   )}
                 </Button>
-                <Button variant="ghost" onClick={() => setShowEmailDialog(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setShowEmailDialog(false)}>
                   Anuluj
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Invoice Preview - Full page iframe with pinch zoom */}
-          <div className="flex-1 overflow-auto bg-muted/50 p-4 touch-pan-x touch-pan-y">
+          {/* Invoice Preview - responsive scaling */}
+          <div className="flex-1 overflow-auto bg-muted/50 p-2 md:p-4">
             <div 
-              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden"
+              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden origin-top"
               style={{ 
-                width: '210mm',
-                minHeight: '297mm',
+                width: 'min(100%, 210mm)',
+                aspectRatio: '210 / 297',
               }}
             >
               <iframe
                 ref={iframeRef}
-                className="w-full border-0"
-                style={{ 
-                  height: '1122px',
-                  width: '100%',
-                }}
+                className="w-full h-full border-0"
                 title="Podgląd faktury"
                 sandbox="allow-same-origin"
                 srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}

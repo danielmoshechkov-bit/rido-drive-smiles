@@ -679,12 +679,18 @@ export function SimpleFreeInvoice() {
                   value={item.quantity}
                   onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                 />
-                <div>
-                  <Label className="text-xs mb-1 block text-muted-foreground">Jedn.</Label>
-                  <UnitSelector
-                    value={item.unit}
-                    onChange={(v) => updateItem(index, 'unit', v)}
-                  />
+                <div className="relative">
+                  <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                    <span className="absolute left-3 top-1 text-xs text-primary">Jedn.</span>
+                    <Select value={item.unit} onValueChange={(v) => updateItem(index, 'unit', v)}>
+                      <SelectTrigger className="h-12 border-0 pt-4 pb-1 shadow-none focus:ring-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               
@@ -710,16 +716,18 @@ export function SimpleFreeInvoice() {
               
               {/* Row 3: VAT %, Suma brutto */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs mb-1 block text-muted-foreground">VAT %</Label>
-                  <Select value={item.vat_rate} onValueChange={(v) => updateItem(index, 'vat_rate', v)}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VAT_RATES.map(r => <SelectItem key={r} value={r}>{r}%</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="relative">
+                  <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                    <span className="absolute left-3 top-1 text-xs text-primary">VAT</span>
+                    <Select value={item.vat_rate} onValueChange={(v) => updateItem(index, 'vat_rate', v)}>
+                      <SelectTrigger className="h-12 border-0 pt-4 pb-1 shadow-none focus:ring-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VAT_RATES.map(r => <SelectItem key={r} value={r}>{r}%</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <FloatingInput
                   label="Suma brutto"
