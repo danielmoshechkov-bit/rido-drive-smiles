@@ -215,14 +215,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </tr>
   `).join('');
 
-  // VAT summary rows
+  // VAT summary rows - table format like reference image
   const vatSummaryHtml = Object.entries(vatSummary).map(([rate, amounts]) => `
-    <div class="vat-row">
-      <span>VAT ${rate}%:</span>
-      <span>Netto: ${formatCurrency(amounts.net, currency)}</span>
-      <span>VAT: ${formatCurrency(amounts.vat, currency)}</span>
-      <span>Brutto: ${formatCurrency(amounts.gross, currency)}</span>
-    </div>
+    <tr>
+      <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${rate}%</td>
+      <td style="padding: 4px 8px; text-align: right;">${formatCurrency(amounts.net, currency)}</td>
+      <td style="padding: 4px 8px; text-align: right;">${formatCurrency(amounts.vat, currency)}</td>
+      <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
+    </tr>
   `).join('');
 
   const paymentMethodLabels: Record<string, string> = {
@@ -282,6 +282,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .logo-area img { max-width: 100px; max-height: 30px; object-fit: contain; }
     .invoice-title { text-align: right; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #333; margin-bottom: 1px; }
+    .invoice-title h1 .invoice-number { color: #7c3aed; }
     .invoice-dates { font-size: 8px; color: #555; text-align: right; margin-top: 4px; }
     .invoice-dates-row { margin-bottom: 2px; }
     .invoice-dates-label { color: #888; }
@@ -294,10 +295,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     th { background: #7c3aed; color: white; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; }
     th:first-child { border-radius: 3px 0 0 0; }
     th:last-child { border-radius: 0 3px 0 0; }
-    .vat-summary { margin-bottom: 6px; padding: 5px 8px; background: #f8f9fa; border-radius: 4px; font-size: 8px; }
-    .vat-summary-title { font-weight: 600; margin-bottom: 3px; color: #666; }
-    .vat-row { display: flex; gap: 12px; margin-bottom: 2px; }
-    .vat-row span:first-child { font-weight: 600; min-width: 60px; }
+    .vat-summary { margin-bottom: 8px; font-size: 9px; }
+    .vat-summary-title { font-weight: 600; margin-bottom: 4px; color: #333; font-size: 10px; }
+    .vat-summary-table { width: 100%; border-collapse: collapse; }
+    .vat-summary-table th { background: #f1f1f1; padding: 4px 8px; text-align: right; font-weight: 600; font-size: 8px; border-bottom: 1px solid #ddd; }
+    .vat-summary-table td { background: #fafafa; border-bottom: 1px solid #eee; }
+    .vat-summary-table tr:nth-child(even) td { background: #f5f5f5; }
     .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
     .totals-table { width: 180px; }
     .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
@@ -327,7 +330,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo" />` : ''}
       </div>
       <div class="invoice-title">
-        <h1>${typeLabels[invoice.type] || 'Faktura VAT'} nr ${invoice.invoice_number}</h1>
+        <h1>${typeLabels[invoice.type] || 'Faktura VAT'}<br><span class="invoice-number">${invoice.invoice_number}</span></h1>
         <div class="invoice-dates">
           <div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>
           <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> ${formatDate(invoice.due_date)}</div>
@@ -374,8 +377,26 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </table>
 
     <div class="vat-summary">
-      <div class="vat-summary-title">Podsumowanie wg stawek VAT:</div>
-      ${vatSummaryHtml}
+      <div class="vat-summary-title">PODSUMOWANIE</div>
+      <table class="vat-summary-table">
+        <thead>
+          <tr>
+            <th style="text-align: right;">Stawka VAT</th>
+            <th style="text-align: right;">Wartość netto</th>
+            <th style="text-align: right;">VAT</th>
+            <th style="text-align: right;">Wartość brutto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${vatSummaryHtml}
+          <tr style="font-weight: bold; background: #e8e8e8 !important;">
+            <td style="padding: 4px 8px; text-align: right; font-weight: 700;">Razem:</td>
+            <td style="padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(netTotal, currency)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(grossTotal, currency)}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="totals">

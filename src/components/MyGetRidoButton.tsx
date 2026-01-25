@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText, UserCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { cn } from "@/lib/utils";
 
 interface MyGetRidoButtonProps {
   user: any;
@@ -120,10 +121,11 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           variant={variant} 
           size={size} 
           onClick={openLoginModal}
-          className={className}
+          className={cn("text-xs sm:text-sm px-2 sm:px-3", className)}
         >
-          <User className="h-4 w-4 mr-2" />
-          Moje GetRido
+          <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+          <span className="hidden sm:inline">Moje GetRido</span>
+          <span className="sm:hidden">Moje</span>
         </Button>
         
         <AuthModal 
@@ -139,10 +141,11 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size={size} className={className}>
-          <User className="h-4 w-4 mr-2" />
-          Moje GetRido
-          <ChevronDown className="h-3 w-3 ml-1" />
+        <Button variant={variant} size={size} className={cn("text-xs sm:text-sm px-2 sm:px-3", className)}>
+          <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+          <span className="hidden sm:inline">Moje GetRido</span>
+          <span className="sm:hidden">Moje</span>
+          <ChevronDown className="h-3 w-3 ml-0.5 sm:ml-1" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
