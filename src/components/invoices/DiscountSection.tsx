@@ -9,8 +9,9 @@ export type DiscountMode = 'percent' | 'amount';
 
 export interface DiscountConfig {
   type: DiscountType;
-  mode: DiscountMode;
+  mode: DiscountMode; // Used for global discount
   globalValue: number;
+  allowPerItemModeChoice?: boolean; // When per_item, allow each item to choose percent or amount
 }
 
 interface DiscountSectionProps {
@@ -46,47 +47,50 @@ export function DiscountSection({ config, onChange, currencySymbol = 'zł' }: Di
       {isEnabled && (
         <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
           {/* Discount type */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <Label className="text-xs">Zastosuj do</Label>
               <Select 
                 value={config.type} 
                 onValueChange={(v) => onChange({ ...config, type: v as DiscountType })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">Cała faktura</SelectItem>
-                  <SelectItem value="per_item">Każda pozycja</SelectItem>
+                  <SelectItem value="per_item">Każda pozycja osobno</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Typ rabatu</Label>
-              <Select 
-                value={config.mode} 
-                onValueChange={(v) => onChange({ ...config, mode: v as DiscountMode })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="percent">
-                    <span className="flex items-center gap-2">
-                      <Percent className="h-3 w-3" />
-                      Procent (%)
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="amount">
-                    <span className="flex items-center gap-2">
-                      <span className="font-bold">{currencySymbol}</span>
-                      Kwota
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            
+            {config.type === 'global' && (
+              <div>
+                <Label className="text-xs">Typ rabatu</Label>
+                <Select 
+                  value={config.mode} 
+                  onValueChange={(v) => onChange({ ...config, mode: v as DiscountMode })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">
+                      <span className="flex items-center gap-2">
+                        <Percent className="h-3 w-3 flex-shrink-0" />
+                        <span>Procent (%)</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="amount">
+                      <span className="flex items-center gap-2">
+                        <span className="font-bold flex-shrink-0">{currencySymbol}</span>
+                        <span>Kwota</span>
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Global discount value */}
@@ -109,7 +113,7 @@ export function DiscountSection({ config, onChange, currencySymbol = 'zł' }: Di
 
           {config.type === 'per_item' && (
             <p className="text-xs text-muted-foreground">
-              Rabat zostanie dodany do każdej pozycji faktury osobno.
+              Przy każdej pozycji możesz wybrać rabat procentowy lub kwotowy.
             </p>
           )}
         </div>
