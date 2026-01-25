@@ -605,51 +605,40 @@ export default function InvoiceProgram() {
           </div>
         </div>
 
-        {/* Guest view - show SimpleFreeInvoice without login */}
-        {!user ? (
+        {/* Guest view OR logged-in users without entity - show SimpleFreeInvoice */}
+        {(!user || entities.length === 0) && (
           <div className="max-w-4xl mx-auto">
             <SimpleFreeInvoice />
             
-            {/* Login prompt at bottom */}
-            <Card className="mt-8 border-primary/20">
-              <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground mb-4">
-                  Chcesz zapisywać faktury, zarządzać kontrahentami i generować raporty?
-                </p>
-                <Button onClick={() => setShowAuthModal(true)} variant="outline" className="gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Zaloguj się do pełnego portalu
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Bottom prompt based on login state */}
+            {!user ? (
+              <Card className="mt-8 border-primary/20">
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    Chcesz zapisywać faktury, zarządzać kontrahentami i generować raporty?
+                  </p>
+                  <Button onClick={() => setShowAuthModal(true)} variant="outline" className="gap-2">
+                    <LogIn className="h-4 w-4" />
+                    Zaloguj się do pełnego portalu
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="mt-4 border-primary/20 bg-primary/5">
+                <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">Chcesz automatycznie wypełniać dane sprzedawcy?</p>
+                    <p className="text-sm text-muted-foreground">Dodaj swoją firmę, a dane będą uzupełniane automatycznie</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)} className="shrink-0 gap-1">
+                    <Plus className="h-4 w-4" />
+                    Dodaj firmę
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        ) : entities.length === 0 ? (
-          <Card className="max-w-lg mx-auto mb-8">
-            <CardContent className="p-8 text-center">
-              <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">Skonfiguruj swoją firmę</h3>
-              <p className="text-muted-foreground mb-6">
-                Aby wystawiać faktury z zapisywaniem, najpierw dodaj dane swojej firmy (sprzedawcy). 
-                Dane te będą automatycznie uzupełniane na każdej fakturze.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button onClick={() => setShowCompanySetup(true)} size="lg" className="gap-2">
-                  <Plus className="h-5 w-5" />
-                  Dodaj firmę sprzedawcy
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  onClick={() => setShowNewInvoice(true)}
-                  className="gap-2"
-                >
-                  <FileText className="h-5 w-5" />
-                  Wystaw bez firmy
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
+        )}
 
         {/* Stats Grid - only show when user has entities */}
         {user && entities.length > 0 && (

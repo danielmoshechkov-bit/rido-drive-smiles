@@ -1383,9 +1383,9 @@ export function SimpleFreeInvoice() {
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
-        initialMode="register"
+        initialMode="login"
         onSuccess={handleAuthSuccess}
-        customDescription="Aby zobaczyć podgląd, zapisać lub wysłać fakturę, musisz się zalogować lub założyć darmowe konto."
+        customDescription="Zaloguj się, aby zobaczyć podgląd, zapisać lub wysłać fakturę."
       />
       </div>
 
