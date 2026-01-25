@@ -1072,34 +1072,50 @@ export default function ClientPortal() {
                 <CardContent>
                   {userEntities.length > 0 ? (
                     <div className="space-y-4">
-                      <div 
-                        className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => {
-                          setEditingEntity(userEntities[0]);
-                          setShowCompanySetup(true);
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Building2 className="h-5 w-5 text-primary" />
+                      {userEntities.map((entity, index) => (
+                        <div 
+                          key={entity.id}
+                          className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            setEditingEntity(entity);
+                            setShowCompanySetup(true);
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <Building2 className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">{entity.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold">{userEntities[0].name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              NIP: {userEntities[0].nip || '—'} | {userEntities[0].address_city || 'Brak adresu'}
-                            </p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
+                              {entity.vat_payer ? 'VAT' : 'Bez VAT'}
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={userEntities[0].vat_payer ? 'default' : 'secondary'}>
-                            {userEntities[0].vat_payer ? 'VAT' : 'Bez VAT'}
-                          </Badge>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
+                      ))}
+                      <div className="flex justify-between items-center pt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Kliknij firmę, aby edytować dane
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setEditingEntity(null);
+                            setShowCompanySetup(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Dodaj kolejną
+                        </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground text-center">
-                        Kliknij, aby edytować dane firmy
-                      </p>
                     </div>
                   ) : (
                     <div className="text-center py-8">

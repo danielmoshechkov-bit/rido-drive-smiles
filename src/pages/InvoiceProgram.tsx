@@ -632,7 +632,7 @@ export default function InvoiceProgram() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : (
+            ) : entities.length === 0 ? (
               <Card className="mt-4 border-primary/20 bg-primary/5">
                 <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
@@ -645,7 +645,7 @@ export default function InvoiceProgram() {
                   </Button>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
           </div>
         )}
 
