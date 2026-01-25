@@ -93,6 +93,8 @@ interface ExtendedInvoiceItem extends InvoiceItem {
   unit_gross_price: number;
   lastEditedField?: 'net' | 'gross';
   discount_percent?: number;
+  discount_amount?: number;
+  discount_type?: 'percent' | 'amount';
 }
 
 // Extended seller with separate address fields
@@ -594,8 +596,8 @@ export function SimpleFreeInvoice() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <Label>Numer faktury <span className="text-destructive">*</span></Label>
               <Input
                 value={invoiceNumber}
@@ -603,7 +605,7 @@ export function SimpleFreeInvoice() {
                 placeholder="FV/2026/01/001"
               />
             </div>
-            <div className="col-span-2">
+            <div>
               <Label className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
                 Miejsce wystawienia
@@ -620,6 +622,7 @@ export function SimpleFreeInvoice() {
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full"
               />
             </div>
             <div>
@@ -628,9 +631,10 @@ export function SimpleFreeInvoice() {
                 type="date"
                 value={saleDate}
                 onChange={(e) => setSaleDate(e.target.value)}
+                className="w-full"
               />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <Label>Termin płatności</Label>
               <PaymentTermSelector
                 issueDate={issueDate}
@@ -726,18 +730,46 @@ export function SimpleFreeInvoice() {
                   </Select>
                 </div>
                 {discountConfig.type === 'per_item' && (
-                  <div className="col-span-4 md:col-span-1">
-                    <Label className="text-xs">Rabat %</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={item.discount_percent || ''}
-                      onChange={(e) => updateItem(index, 'discount_percent', parseFloat(e.target.value) || 0)}
-                      placeholder="0"
-                    />
-                  </div>
+                  <>
+                    <div className="col-span-6 md:col-span-1">
+                      <Label className="text-xs">Typ rabatu</Label>
+                      <Select 
+                        value={item.discount_type || 'percent'} 
+                        onValueChange={(v) => updateItem(index, 'discount_type', v)}
+                      >
+                        <SelectTrigger className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percent">%</SelectItem>
+                          <SelectItem value="amount">{currencySymbol}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-6 md:col-span-1">
+                      <Label className="text-xs">
+                        Rabat {(item.discount_type || 'percent') === 'percent' ? '%' : currencySymbol}
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={(item.discount_type || 'percent') === 'percent' ? '100' : undefined}
+                        step={(item.discount_type || 'percent') === 'percent' ? '1' : '0.01'}
+                        value={(item.discount_type || 'percent') === 'percent' 
+                          ? (item.discount_percent || '') 
+                          : (item.discount_amount || '')}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          if ((item.discount_type || 'percent') === 'percent') {
+                            updateItem(index, 'discount_percent', value);
+                          } else {
+                            updateItem(index, 'discount_amount', value);
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </>
                 )}
                 <div className="col-span-8 md:col-span-1">
                   <Label className="text-xs">Suma brutto</Label>
@@ -783,7 +815,7 @@ export function SimpleFreeInvoice() {
                 <span className="font-medium">{formatAmount(grossTotal)}</span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
+                <div className="flex justify-between text-sm" style={{ color: 'hsl(142, 76%, 36%)' }}>
                   <span>Rabat:</span>
                   <span className="font-medium">-{formatAmount(discountAmount)}</span>
                 </div>

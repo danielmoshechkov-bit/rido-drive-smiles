@@ -8,13 +8,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Download, 
   Send, 
-  Save,
   ArrowLeft,
   Mail,
-  Loader2,
-  ZoomIn,
-  ZoomOut,
-  Maximize2
+  Loader2
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml, formatCurrency } from '@/utils/invoiceHtmlGenerator';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -42,7 +38,6 @@ export function InvoicePreviewModal({
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
-  const [zoom, setZoom] = useState(100);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Update iframe content when invoice data changes
@@ -121,10 +116,6 @@ export function InvoicePreviewModal({
     setPendingAction(null);
   };
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50));
-  const handleResetZoom = () => setZoom(100);
-
   const grossTotal = invoiceData.items.reduce((sum, item) => sum + item.gross_amount, 0);
   const currency = invoiceData.currency || 'PLN';
 
@@ -138,26 +129,12 @@ export function InvoicePreviewModal({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Action buttons */}
+          {/* Action buttons - simplified */}
           <div className="flex flex-wrap gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Wróć
             </Button>
-            
-            {/* Zoom controls */}
-            <div className="flex items-center gap-1 border rounded-md">
-              <Button variant="ghost" size="sm" onClick={handleZoomOut} className="h-8 w-8 p-0">
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-xs w-12 text-center">{zoom}%</span>
-              <Button variant="ghost" size="sm" onClick={handleZoomIn} className="h-8 w-8 p-0">
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleResetZoom} className="h-8 w-8 p-0">
-                <Maximize2 className="h-3 w-3" />
-              </Button>
-            </div>
             
             <div className="flex-1" />
             
@@ -173,19 +150,6 @@ export function InvoicePreviewModal({
             >
               <Send className="h-4 w-4 mr-2" />
               Wyślij mailem
-            </Button>
-            <Button 
-              variant="secondary"
-              size="sm"
-              onClick={handleSaveClick}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Zapisz
             </Button>
           </div>
 
@@ -219,24 +183,21 @@ export function InvoicePreviewModal({
             </div>
           )}
 
-          {/* Invoice Preview - Full page iframe */}
-          <div className="flex-1 overflow-auto bg-muted/50 p-4">
+          {/* Invoice Preview - Full page iframe with pinch zoom */}
+          <div className="flex-1 overflow-auto bg-muted/50 p-4 touch-pan-x touch-pan-y">
             <div 
-              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden transition-transform"
+              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden"
               style={{ 
-                width: `${210 * (zoom / 100)}mm`,
-                minHeight: `${297 * (zoom / 100)}mm`,
-                transform: 'translateZ(0)',
+                width: '210mm',
+                minHeight: '297mm',
               }}
             >
               <iframe
                 ref={iframeRef}
                 className="w-full border-0"
                 style={{ 
-                  height: `${297 * (zoom / 100) * 3.78}px`,
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: 'top left',
-                  width: `${100 / (zoom / 100)}%`,
+                  height: '1122px', // A4 at 96dpi
+                  width: '100%',
                 }}
                 title="Podgląd faktury"
               />
