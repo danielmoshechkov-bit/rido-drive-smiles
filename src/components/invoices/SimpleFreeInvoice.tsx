@@ -1408,29 +1408,30 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
         </CardContent>
       </Card>
 
-      {/* Issue Invoice Button - visible on mobile/tablet */}
-      <Button 
-        onClick={handleIssueInvoice} 
-        size="lg" 
-        className="w-full gap-2 xl:hidden"
-        disabled={isIssuing}
-      >
-        {isIssuing ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Wystawianie...
-          </>
-        ) : (
-          <>
-            <Receipt className="h-5 w-5" />
-            Wystaw fakturę
-          </>
-        )}
-      </Button>
-
-      <p className="text-center text-xs text-muted-foreground xl:hidden">
-        Po kliknięciu faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.
-      </p>
+      {/* Sticky Issue Invoice Button - always visible */}
+      <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t p-4 -mx-4 mt-4">
+        <Button 
+          onClick={handleIssueInvoice} 
+          size="lg" 
+          className="w-full gap-2"
+          disabled={isIssuing}
+        >
+          {isIssuing ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Wystawianie...
+            </>
+          ) : (
+            <>
+              <Receipt className="h-5 w-5" />
+              Wystaw fakturę
+            </>
+          )}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground mt-2">
+          Faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.
+        </p>
+      </div>
 
       {/* Preview Modal - shows after invoice is issued */}
       <InvoicePreviewModal
