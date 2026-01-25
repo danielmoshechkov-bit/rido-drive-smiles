@@ -671,21 +671,15 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Main document types - always visible */}
+          {/* Main document type selector */}
           <div className="flex gap-2">
-            <Button 
-              variant={invoiceType === 'invoice' ? 'default' : 'outline'}
-              onClick={() => setInvoiceType('invoice')}
-              className="flex-1"
-            >
-              Faktura VAT
-            </Button>
             <Button 
               variant="outline"
               onClick={() => setShowAllTypes(!showAllTypes)}
-              className="px-3"
+              className="flex-1 justify-between"
             >
-              {showAllTypes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <span>{DOCUMENT_TYPES.find(t => t.value === invoiceType)?.label || 'Faktura VAT'}</span>
+              {showAllTypes ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
             </Button>
           </div>
           
@@ -701,6 +695,7 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
                     // Update invoice number prefix based on type
                     const currentNum = invoiceNumber.split('/').pop() || '001';
                     setInvoiceNumber(`${type.prefix}/${format(new Date(), 'yyyy/MM')}/${currentNum}`);
+                    setShowAllTypes(false); // Close after selection
                   }}
                   className="text-xs h-auto py-2 px-3 whitespace-nowrap"
                   size="sm"
@@ -709,13 +704,6 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
                 </Button>
               ))}
             </div>
-          )}
-          
-          {/* Show selected type if not default */}
-          {invoiceType !== 'invoice' && !showAllTypes && (
-            <p className="text-sm text-muted-foreground">
-              Wybrany: <span className="font-medium text-foreground">{DOCUMENT_TYPES.find(t => t.value === invoiceType)?.label}</span>
-            </p>
           )}
         </CardContent>
       </Card>
