@@ -295,12 +295,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     th { background: #7c3aed; color: white; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; }
     th:first-child { border-radius: 3px 0 0 0; }
     th:last-child { border-radius: 0 3px 0 0; }
-    .vat-summary { margin-bottom: 8px; font-size: 9px; }
-    .vat-summary-title { font-weight: 600; margin-bottom: 4px; color: #333; font-size: 10px; }
-    .vat-summary-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .vat-summary-table th { width: 25%; background: #f1f1f1; padding: 4px 8px; text-align: right; font-weight: 600; font-size: 8px; border-bottom: 1px solid #ddd; }
-    .vat-summary-table td { width: 25%; background: #fafafa; border-bottom: 1px solid #eee; }
-    .vat-summary-table tr:nth-child(even) td { background: #f5f5f5; }
+    .vat-summary { margin-bottom: 8px; font-size: 8px; }
     .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
     .totals-table { width: 180px; }
     .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
@@ -376,24 +371,31 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </tbody>
     </table>
 
-    <div class="vat-summary">
-      <div class="vat-summary-title">PODSUMOWANIE</div>
-      <table class="vat-summary-table">
+    <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
+      <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
+      <table style="width: 60%; max-width: 350px; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
         <thead>
-          <tr>
-            <th style="width: 25%; text-align: right;">Stawka VAT</th>
-            <th style="width: 25%; text-align: right;">Wartość netto</th>
-            <th style="width: 25%; text-align: right;">VAT</th>
-            <th style="width: 25%; text-align: right;">Wartość brutto</th>
+          <tr style="background: #f5f5f5;">
+            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Stawka</th>
+            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Netto</th>
+            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">VAT</th>
+            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Brutto</th>
           </tr>
         </thead>
         <tbody>
-          ${vatSummaryHtml}
-          <tr style="font-weight: bold; background: #e8e8e8 !important;">
-            <td style="width: 25%; padding: 4px 8px; text-align: right; font-weight: 700;">Razem:</td>
-            <td style="width: 25%; padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(netTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(vatTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 8px; text-align: right; font-weight: 700;">${formatCurrency(grossTotal, currency)}</td>
+          ${Object.entries(vatSummary).map(([rate, amounts]) => `
+            <tr>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${rate}%</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.gross, currency)}</td>
+            </tr>
+          `).join('')}
+          <tr style="border-top: 1px solid #ddd;">
+            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">Razem:</td>
+            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
+            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(grossTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
