@@ -7,7 +7,7 @@ interface FloatingInputProps extends React.InputHTMLAttributes<HTMLInputElement>
 }
 
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, label, required, value, ...props }, ref) => {
+  ({ className, label, required, value, type, ...props }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const hasValue = value !== undefined && value !== '';
     const isActive = isFocused || hasValue;
@@ -16,9 +16,11 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
       <div className="relative">
         <input
           ref={ref}
+          type={type}
           value={value}
           className={cn(
             "peer flex h-12 w-full rounded-md border border-input bg-background px-3 pt-5 pb-1 text-sm ring-offset-background placeholder:text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            type === "number" && "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
             className
           )}
           placeholder={label}

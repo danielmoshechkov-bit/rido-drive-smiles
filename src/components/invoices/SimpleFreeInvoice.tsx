@@ -613,7 +613,7 @@ export function SimpleFreeInvoice() {
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                className="h-9 text-sm"
+                className="h-10 text-sm pr-2"
               />
             </div>
             <div>
@@ -622,7 +622,7 @@ export function SimpleFreeInvoice() {
                 type="date"
                 value={saleDate}
                 onChange={(e) => setSaleDate(e.target.value)}
-                className="h-9 text-sm"
+                className="h-10 text-sm pr-2"
               />
             </div>
             <div>
@@ -651,7 +651,7 @@ export function SimpleFreeInvoice() {
         </CardHeader>
         <CardContent className="space-y-4">
           {items.map((item, index) => (
-            <div key={index} className="p-4 border rounded-lg space-y-4">
+            <div key={index} className="p-4 border rounded-lg space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">Pozycja {index + 1}</span>
                 {items.length > 1 && (
@@ -661,65 +661,59 @@ export function SimpleFreeInvoice() {
                 )}
               </div>
               
-              {/* Row 1: Name */}
-              <div>
-                <Label className="text-xs">Nazwa towaru/usługi <span className="text-destructive">*</span></Label>
-                <Input
-                  value={item.name}
-                  onChange={(e) => updateItem(index, 'name', e.target.value)}
-                  placeholder="Nazwa pozycji"
-                />
-              </div>
+              {/* Name - full width with floating label */}
+              <FloatingInput
+                label="Nazwa towaru/usługi"
+                required
+                value={item.name}
+                onChange={(e) => updateItem(index, 'name', e.target.value)}
+              />
               
-              {/* Row 2: Ilość, Jednostka, Cena netto, Cena brutto */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* Row 1: Ilość, Jednostka */}
+              <div className="grid grid-cols-2 gap-3">
+                <FloatingInput
+                  label="Ilość"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={item.quantity}
+                  onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                />
                 <div>
-                  <Label className="text-xs">Ilość</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Jedn.</Label>
+                  <Label className="text-xs mb-1 block text-muted-foreground">Jedn.</Label>
                   <UnitSelector
                     value={item.unit}
                     onChange={(v) => updateItem(index, 'unit', v)}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">Cena netto</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_net_price || ''}
-                    onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Cena brutto</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_gross_price || ''}
-                    onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                  />
-                </div>
               </div>
               
-              {/* Row 3: VAT, Rabaty, Suma */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* Row 2: Cena netto, Cena brutto */}
+              <div className="grid grid-cols-2 gap-3">
+                <FloatingInput
+                  label="Cena netto"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={item.unit_net_price || ''}
+                  onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
+                />
+                <FloatingInput
+                  label="Cena brutto"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={item.unit_gross_price || ''}
+                  onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              
+              {/* Row 3: VAT %, Suma brutto */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">VAT %</Label>
+                  <Label className="text-xs mb-1 block text-muted-foreground">VAT %</Label>
                   <Select value={item.vat_rate} onValueChange={(v) => updateItem(index, 'vat_rate', v)}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-12">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -727,59 +721,52 @@ export function SimpleFreeInvoice() {
                     </SelectContent>
                   </Select>
                 </div>
-                {discountConfig.type === 'per_item' ? (
-                  <>
-                    <div>
-                      <Label className="text-xs">Typ rabatu</Label>
-                      <Select 
-                        value={item.discount_type || 'percent'} 
-                        onValueChange={(v) => updateItem(index, 'discount_type', v)}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percent">%</SelectItem>
-                          <SelectItem value="amount">{currencySymbol}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">
-                        Rabat {(item.discount_type || 'percent') === 'percent' ? '%' : currencySymbol}
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={(item.discount_type || 'percent') === 'percent' ? '100' : undefined}
-                        step={(item.discount_type || 'percent') === 'percent' ? '1' : '0.01'}
-                        value={(item.discount_type || 'percent') === 'percent' 
-                          ? (item.discount_percent || '') 
-                          : (item.discount_amount || '')}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          if ((item.discount_type || 'percent') === 'percent') {
-                            updateItem(index, 'discount_percent', value);
-                          } else {
-                            updateItem(index, 'discount_amount', value);
-                          }
-                        }}
-                        placeholder="0"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="col-span-2" />
-                )}
-                <div>
-                  <Label className="text-xs">Suma brutto</Label>
-                  <Input
-                    value={formatAmount(item.gross_amount)}
-                    disabled
-                    className="bg-muted font-medium h-10"
+                <FloatingInput
+                  label="Suma brutto"
+                  value={formatAmount(item.gross_amount)}
+                  disabled
+                  className="bg-muted font-medium"
+                />
+              </div>
+
+              {/* Discount row (only if per_item discount enabled) */}
+              {discountConfig.type === 'per_item' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1 block text-muted-foreground">Typ rabatu</Label>
+                    <Select 
+                      value={item.discount_type || 'percent'} 
+                      onValueChange={(v) => updateItem(index, 'discount_type', v)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percent">%</SelectItem>
+                        <SelectItem value="amount">{currencySymbol}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <FloatingInput
+                    label={`Rabat ${(item.discount_type || 'percent') === 'percent' ? '%' : currencySymbol}`}
+                    type="number"
+                    min={0}
+                    max={(item.discount_type || 'percent') === 'percent' ? 100 : undefined}
+                    step={(item.discount_type || 'percent') === 'percent' ? 1 : 0.01}
+                    value={(item.discount_type || 'percent') === 'percent' 
+                      ? (item.discount_percent || '') 
+                      : (item.discount_amount || '')}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      if ((item.discount_type || 'percent') === 'percent') {
+                        updateItem(index, 'discount_percent', value);
+                      } else {
+                        updateItem(index, 'discount_amount', value);
+                      }
+                    }}
                   />
                 </div>
-              </div>
+              )}
             </div>
           ))}
 
