@@ -13,7 +13,7 @@ interface CurrencyOption {
   label: string;
 }
 
-// All world currencies - only codes, no symbols
+// All world currencies - only codes
 export const CURRENCIES: CurrencyOption[] = [
   { value: 'PLN', label: 'Polski złoty' },
   { value: 'EUR', label: 'Euro' },
@@ -85,12 +85,12 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="w-full justify-between h-12 pt-4 pb-1 px-3 hover:bg-transparent">
-          <span className="font-medium text-sm">{selectedCurrency.value}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        <Button variant="ghost" className="w-full justify-between h-12 pt-5 pb-1 px-2 hover:bg-transparent text-sm">
+          <span className="font-medium">{selectedCurrency.value}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="end">
+      <PopoverContent className="w-56 p-0" align="end">
         <div className="p-2 border-b">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -137,7 +137,7 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
 }
 
 export function getCurrencySymbol(currency: Currency): string {
-  return currency; // Return just the code
+  return currency;
 }
 
 export function formatCurrencyAmount(amount: number, currency: Currency): string {
