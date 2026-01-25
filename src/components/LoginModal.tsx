@@ -55,7 +55,8 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
       if (onSuccess) {
         onSuccess();
       } else {
-        navigate(redirectTo);
+        // Force full page reload to ensure fresh session is used
+        window.location.href = redirectTo;
       }
     } catch (error: any) {
       console.error("Login error:", error);
