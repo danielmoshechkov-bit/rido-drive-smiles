@@ -60,6 +60,8 @@ export interface InvoiceData {
   // Signature options
   signature_type?: 'none' | 'receiver' | 'issuer' | 'both_none' | 'valid_without_signature';
   issued_by?: string;
+  // PDF options
+  compact_pdf?: boolean;
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
@@ -177,23 +179,27 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
 };
 
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
-  const { seller, buyer, items, currency = 'PLN' } = invoice;
+  const { seller, buyer, items, currency = 'PLN', compact_pdf = false } = invoice;
   
   const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
   const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
   
+  // Compact mode uses smaller padding
+  const cellPadding = compact_pdf ? '3px' : '8px';
+  const cellFontSize = compact_pdf ? '9px' : '10px';
+  
   const itemsHtml = items.map((item, index) => `
     <tr>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${index + 1}</td>
-      <td style="border: 1px solid #ddd; padding: 8px;">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.unit}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${item.quantity}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.unit_net_price, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.net_amount, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.vat_rate}%</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.vat_amount, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(item.gross_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.vat_rate}%</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.vat_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
   `).join('');
 
@@ -222,6 +228,41 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   // Generate safe filename for PDF
   const safeFileName = `${invoice.invoice_number.replace(/\//g, '_')}_${invoice.buyer.name.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '_').substring(0, 30)}`;
   
+  // Compact mode CSS overrides
+  const compactStyles = compact_pdf ? `
+    body { font-size: 9px; line-height: 1.2; padding: 5px; }
+    .header { margin-bottom: 8px; padding-bottom: 6px; }
+    .logo-area { min-width: 120px; min-height: 30px; }
+    .logo-area img { max-width: 120px; max-height: 30px; }
+    .invoice-title h1 { font-size: 13px; margin-bottom: 2px; }
+    .invoice-number { font-size: 11px; }
+    .parties { gap: 15px; margin-bottom: 8px; }
+    .party-label { font-size: 8px; margin-bottom: 2px; }
+    .party-name { font-size: 10px; margin-bottom: 1px; }
+    .party-details { font-size: 8px; line-height: 1.3; }
+    .dates { gap: 12px; margin-bottom: 6px; padding: 6px; }
+    .date-label { font-size: 7px; }
+    .date-value { font-size: 9px; }
+    table { margin-bottom: 6px; }
+    th { padding: 3px 2px; font-size: 8px; }
+    .totals { margin-bottom: 6px; }
+    .totals-table { width: 200px; }
+    .totals-row { padding: 3px 0; font-size: 9px; }
+    .totals-row.grand { padding: 5px; font-size: 10px; }
+    .amount-words { margin-bottom: 6px; padding: 6px; }
+    .amount-words-label { font-size: 7px; margin-bottom: 1px; }
+    .amount-words-value { font-size: 8px; }
+    .payment { margin-bottom: 6px; font-size: 9px; }
+    .payment-row { gap: 12px; margin-bottom: 2px; }
+    .payment-label { min-width: 80px; }
+    .notes { margin-bottom: 8px; padding: 6px; font-size: 8px; }
+    .notes-label { font-size: 7px; margin-bottom: 2px; }
+    .footer { margin-top: 10px; padding-top: 6px; }
+    .signature { width: 150px; }
+    .signature-line { margin-top: 20px; padding-top: 4px; font-size: 7px; }
+    @page { margin: 8mm; }
+  ` : '';
+
   return `
 <!DOCTYPE html>
 <html lang="pl">
@@ -308,6 +349,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 10px; }
     .signature { width: 180px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 6px; font-size: 9px; color: #666; }
+    ${compactStyles}
   </style>
 </head>
 <body>
