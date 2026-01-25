@@ -260,7 +260,14 @@ export function SimpleFreeInvoice() {
       
       // Calculate totals
       const calculated = calculateItemTotals(item);
-      updated[index] = { ...calculated, unit_gross_price: item.unit_gross_price, lastEditedField: item.lastEditedField, discount_percent: item.discount_percent };
+      updated[index] = { 
+        ...calculated, 
+        unit_gross_price: item.unit_gross_price, 
+        lastEditedField: item.lastEditedField, 
+        discount_percent: item.discount_percent,
+        discount_amount: item.discount_amount,
+        discount_type: item.discount_type
+      };
       return updated;
     });
   };
@@ -369,16 +376,13 @@ export function SimpleFreeInvoice() {
 
   return (
     <div className="space-y-4">
-      {/* Compact Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-6 w-6 text-primary shrink-0" />
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
-          </div>
+      {/* Compact Header - no currency here, moved to dates section */}
+      <div className="flex items-center gap-2">
+        <Receipt className="h-6 w-6 text-primary shrink-0" />
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
         </div>
-        <CurrencySelector value={currency} onChange={setCurrency} />
       </div>
 
       {/* Invoice Type Selection */}
@@ -583,51 +587,51 @@ export function SimpleFreeInvoice() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Numer faktury <span className="text-destructive">*</span></Label>
-              <Input
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="col-span-2">
+              <FloatingInput
+                label="Numer faktury"
+                required
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="FV/2026/01/001"
               />
             </div>
-            <div>
-              <Label className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Miejsce wystawienia
-              </Label>
-              <Input
+            <div className="col-span-2">
+              <FloatingInput
+                label="Miejsce wystawienia"
                 value={issuePlace}
                 onChange={(e) => setIssuePlace(e.target.value)}
-                placeholder="Miasto"
               />
             </div>
             <div>
-              <Label>Data wystawienia</Label>
+              <Label className="text-xs mb-1 block">Data wystawienia</Label>
               <Input
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                className="w-full"
+                className="h-9 text-sm"
               />
             </div>
             <div>
-              <Label>Data sprzedaży</Label>
+              <Label className="text-xs mb-1 block">Data sprzedaży</Label>
               <Input
                 type="date"
                 value={saleDate}
                 onChange={(e) => setSaleDate(e.target.value)}
-                className="w-full"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="md:col-span-2">
-              <Label>Termin płatności</Label>
+            <div>
+              <Label className="text-xs mb-1 block">Termin płatności</Label>
               <PaymentTermSelector
                 issueDate={issueDate}
                 dueDate={dueDate}
                 onDueDateChange={setDueDate}
               />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Waluta</Label>
+              <CurrencySelector value={currency} onChange={setCurrency} />
             </div>
           </div>
         </CardContent>
