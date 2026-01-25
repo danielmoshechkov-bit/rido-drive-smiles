@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -20,30 +21,17 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
-  ArrowLeft, 
-  ArrowRight, 
   Building2, 
-  Search, 
   Plus, 
   Trash2,
   Loader2,
-  CheckCircle,
   AlertTriangle,
-  ShieldCheck,
-  ShieldX,
-  ShieldQuestion
+  FileText,
+  Calculator,
+  Settings2
 } from 'lucide-react';
 import { InvoiceTypeSelector, InvoiceType } from './InvoiceTypeSelector';
-import { BankAccountSelector } from './BankAccountSelector';
-
-interface VatStatus {
-  checked: boolean;
-  isActiveVat: boolean;
-  statusLabel: string;
-  statusVat: string;
-  verifiedAt?: string;
-  accountNumbers?: string[];
-}
+import { ContractorSelector } from './ContractorSelector';
 
 interface InvoiceItem {
   name: string;
@@ -53,7 +41,7 @@ interface InvoiceItem {
   vat_rate: string;
 }
 
-interface Recipient {
+interface Contractor {
   id: string;
   name: string;
   nip?: string;
@@ -77,17 +65,21 @@ interface SellerData {
 interface NewInvoiceWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entityId: string; // może być pusty
+  entityId: string;
   onCreated?: () => void;
   onOpenCompanySetup?: () => void;
 }
 
 const VAT_RATES = ['23%', '8%', '5%', '0%', 'zw.', 'np.'];
 const UNITS = ['szt.', 'godz.', 'usł.', 'km', 'kg', 'm²', 'm³'];
+const BANK_VERIFICATION_THRESHOLD = 15000;
 
 export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOpenCompanySetup }: NewInvoiceWizardProps) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Invoice type
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('invoice');
+  
+  // Contractor (recipient)
+  const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
   
   // Seller (manual entry when no entityId)
   const [manualSellerData, setManualSellerData] = useState<SellerData>({
@@ -97,25 +89,6 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
     address_postal_code: '',
     address_city: ''
   });
-  const [showManualSellerForm, setShowManualSellerForm] = useState(false);
-  
-  // Recipient state
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
-  const [nipSearch, setNipSearch] = useState('');
-  const [isSearchingNip, setIsSearchingNip] = useState(false);
-  const [newRecipientData, setNewRecipientData] = useState<Partial<Recipient>>({});
-  
-  // VAT verification state
-  const [vatStatus, setVatStatus] = useState<VatStatus | null>(null);
-  const [isVerifyingVat, setIsVerifyingVat] = useState(false);
-  const [showVatWarningDialog, setShowVatWarningDialog] = useState(false);
-  
-  // Bank account verification state
-  const [recipientBankAccount, setRecipientBankAccount] = useState('');
-  const [bankAccountVerified, setBankAccountVerified] = useState<boolean | null>(null);
-  const [isVerifyingBank, setIsVerifyingBank] = useState(false);
-  const [showBankWarningDialog, setShowBankWarningDialog] = useState(false);
   
   // Invoice items
   const [items, setItems] = useState<InvoiceItem[]>([
@@ -128,278 +101,23 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
   const [paymentMethod, setPaymentMethod] = useState('przelew');
   const [notes, setNotes] = useState('');
   
+  // UI state
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('items');
   
-  // Bank account limit for whitelist verification (15000 PLN)
-  const BANK_VERIFICATION_THRESHOLD = 15000;
+  // Alert dialogs
+  const [showHighValueWarning, setShowHighValueWarning] = useState(false);
   
-  // Check if entity is available
   const hasEntity = !!entityId;
 
   useEffect(() => {
     if (open) {
-      if (hasEntity) {
-        fetchRecipients();
-      }
       // Set default due date to 14 days from now
       const due = new Date();
       due.setDate(due.getDate() + 14);
       setDueDate(due.toISOString().split('T')[0]);
-      
-      // Show manual seller form if no entity
-      if (!hasEntity) {
-        setShowManualSellerForm(true);
-      }
     }
-  }, [open, entityId, hasEntity]);
-
-  const fetchRecipients = async () => {
-    if (!entityId) return;
-    const { data } = await supabase
-      .from('invoice_recipients')
-      .select('*')
-      .eq('entity_id', entityId)
-      .order('name');
-    
-    if (data) setRecipients(data);
-  };
-
-  const verifyVatStatus = async (nip: string) => {
-    setIsVerifyingVat(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('registry-whitelist', {
-        body: { nip }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const isActive = data.data.statusVat === 'Czynny';
-        const isExempt = data.data.statusVat === 'Zwolniony';
-        setVatStatus({
-          checked: true,
-          isActiveVat: isActive || isExempt,
-          statusLabel: data.data.statusLabel || data.data.statusVat,
-          statusVat: data.data.statusVat,
-          verifiedAt: new Date().toISOString(),
-          accountNumbers: data.data.accountNumbers
-        });
-        
-        if (!isActive && !isExempt) {
-          toast.warning(`Uwaga: ${data.data.statusLabel || data.data.statusVat}`);
-        }
-      } else {
-        setVatStatus({
-          checked: true,
-          isActiveVat: false,
-          statusLabel: data?.error || 'Nie znaleziono w bazie MF',
-          statusVat: 'unknown',
-          verifiedAt: new Date().toISOString()
-        });
-        toast.warning('Nie znaleziono kontrahenta w Wykazie Podatników VAT');
-      }
-    } catch (err) {
-      console.error('VAT verification error:', err);
-      setVatStatus({
-        checked: true,
-        isActiveVat: false,
-        statusLabel: 'Błąd weryfikacji',
-        statusVat: 'error',
-        verifiedAt: new Date().toISOString()
-      });
-      toast.error('Błąd weryfikacji statusu VAT');
-    } finally {
-      setIsVerifyingVat(false);
-    }
-  };
-
-  const searchGUS = async () => {
-    if (!nipSearch || nipSearch.length !== 10) {
-      toast.error('NIP musi mieć 10 cyfr');
-      return;
-    }
-
-    setIsSearchingNip(true);
-    setVatStatus(null); // Reset VAT status
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
-        body: { nip: nipSearch }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const gus = data.data;
-        setNewRecipientData({
-          name: gus.name,
-          nip: gus.nip,
-          address_street: gus.address,
-          address_city: gus.city,
-          address_postal_code: gus.postalCode
-        });
-        toast.success('Dane pobrane z GUS');
-        
-        // Automatyczne sprawdzenie VAT po pobraniu z GUS
-        await verifyVatStatus(gus.nip);
-        
-        setStep(2);
-      } else {
-        toast.error(data?.error || 'Nie znaleziono firmy');
-      }
-    } catch (err) {
-      console.error('GUS error:', err);
-      toast.error('Błąd pobierania danych z GUS');
-    } finally {
-      setIsSearchingNip(false);
-    }
-  };
-
-  // VAT Status Badge Component
-  const VatStatusBadge = () => {
-    if (isVerifyingVat) {
-      return (
-        <Badge variant="outline" className="gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Weryfikacja VAT...
-        </Badge>
-      );
-    }
-
-    if (!vatStatus?.checked) {
-      return (
-        <Badge variant="outline" className="gap-1 text-muted-foreground">
-          <ShieldQuestion className="h-3 w-3" />
-          VAT niesprawdzony
-        </Badge>
-      );
-    }
-
-    if (vatStatus.statusVat === 'Czynny') {
-      return (
-        <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
-          <ShieldCheck className="h-3 w-3" />
-          Czynny podatnik VAT
-        </Badge>
-      );
-    }
-
-    if (vatStatus.statusVat === 'Zwolniony') {
-      return (
-        <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-          <ShieldCheck className="h-3 w-3" />
-          Zwolniony z VAT
-        </Badge>
-      );
-    }
-
-    // Niezarejestrowany, unknown, error
-    return (
-      <Badge variant="destructive" className="gap-1">
-        <ShieldX className="h-3 w-3" />
-        {vatStatus.statusLabel}
-      </Badge>
-    );
-  };
-
-  // Bank account verification function
-  const verifyBankAccount = async (nip: string, bankAccount: string): Promise<boolean> => {
-    const cleanAccount = bankAccount.replace(/[\s-]/g, '');
-    
-    if (!cleanAccount || cleanAccount.length < 26) {
-      toast.error('Numer konta musi mieć 26 cyfr');
-      return false;
-    }
-    
-    // Check if we already have account numbers from whitelist
-    if (vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0) {
-      const isOnWhitelist = vatStatus.accountNumbers.some(
-        acc => acc.replace(/[\s-]/g, '') === cleanAccount
-      );
-      setBankAccountVerified(isOnWhitelist);
-      return isOnWhitelist;
-    }
-    
-    // Fetch from API
-    setIsVerifyingBank(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('registry-whitelist', {
-        body: { nip, bankAccount: cleanAccount }
-      });
-      
-      if (error) throw error;
-      
-      if (data?.success && data?.data) {
-        const isVerified = data.data.bankAccountVerified === true;
-        setBankAccountVerified(isVerified);
-        
-        // Update vatStatus with account numbers
-        if (data.data.accountNumbers) {
-          setVatStatus(prev => prev ? {
-            ...prev,
-            accountNumbers: data.data.accountNumbers
-          } : {
-            checked: true,
-            isActiveVat: data.data.statusVat === 'Czynny',
-            statusLabel: data.data.statusLabel || data.data.statusVat,
-            statusVat: data.data.statusVat,
-            verifiedAt: new Date().toISOString(),
-            accountNumbers: data.data.accountNumbers
-          });
-        }
-        
-        if (isVerified) {
-          toast.success('Konto bankowe zweryfikowane na białej liście');
-        } else {
-          toast.warning('Konto NIE znajduje się na białej liście MF');
-        }
-        
-        return isVerified;
-      }
-      
-      setBankAccountVerified(false);
-      return false;
-    } catch (err) {
-      console.error('Bank verification error:', err);
-      setBankAccountVerified(null);
-      toast.error('Błąd weryfikacji konta bankowego');
-      return false;
-    } finally {
-      setIsVerifyingBank(false);
-    }
-  };
-
-  // Bank Account Status Badge Component
-  const BankAccountStatusBadge = () => {
-    if (isVerifyingBank) {
-      return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Weryfikacja konta...
-        </div>
-      );
-    }
-
-    if (bankAccountVerified === null) {
-      return null;
-    }
-
-    if (bankAccountVerified) {
-      return (
-        <div className="flex items-center gap-2 text-sm text-green-600">
-          <ShieldCheck className="h-4 w-4" />
-          Konto na białej liście MF
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex items-center gap-2 text-sm text-destructive">
-        <ShieldX className="h-4 w-4" />
-        Konto NIE znajduje się na białej liście MF
-      </div>
-    );
-  };
+  }, [open]);
 
   const addItem = () => {
     setItems([...items, { name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
@@ -437,8 +155,9 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
   };
 
   const handleSave = async () => {
-    if (!selectedRecipient && !newRecipientData.name) {
-      toast.error('Wybierz lub dodaj odbiorcę');
+    // Validation
+    if (!selectedContractor?.name) {
+      toast.error('Wybierz lub dodaj kontrahenta');
       return;
     }
 
@@ -448,50 +167,22 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
     }
 
     const totals = calculateTotals();
-    const recipientNip = selectedRecipient?.nip || newRecipientData.nip;
     
-    // Check bank account verification for transactions >= 15000 PLN
+    // Check if high-value transaction - show warning but don't block
     if (totals.gross >= BANK_VERIFICATION_THRESHOLD && paymentMethod === 'przelew') {
-      if (!recipientBankAccount) {
-        toast.error('Przy transakcjach powyżej 15 000 PLN wymagany jest numer konta bankowego');
-        return;
-      }
-      
-      if (recipientNip && bankAccountVerified !== true) {
-        // Verify bank account first
-        const isVerified = await verifyBankAccount(recipientNip, recipientBankAccount);
-        if (!isVerified) {
-          setShowBankWarningDialog(true);
-          return;
-        }
-      }
-    }
-
-    // Sprawdź status VAT przed zapisem - pokaż ostrzeżenie jeśli nieaktywny
-    if (vatStatus?.checked && !vatStatus.isActiveVat) {
-      setShowVatWarningDialog(true);
+      setShowHighValueWarning(true);
       return;
     }
 
     await performSave();
   };
-  
-  const proceedAfterBankWarning = () => {
-    setShowBankWarningDialog(false);
-    // Continue to VAT check or save
-    if (vatStatus?.checked && !vatStatus.isActiveVat) {
-      setShowVatWarningDialog(true);
-    } else {
-      performSave();
-    }
-  };
 
   const performSave = async () => {
     setSaving(true);
     try {
-      // If no entity, create one first from manual seller data
       let effectiveEntityId = entityId;
       
+      // If no entity, create one first from manual seller data
       if (!hasEntity && manualSellerData.name) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -500,7 +191,6 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
           return;
         }
         
-        // Create new entity - don't pass owner_user_id, let DB default handle it
         const { data: newEntity, error: entityError } = await supabase
           .from('entities')
           .insert({
@@ -513,7 +203,6 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
             bank_name: manualSellerData.bank_name || null,
             bank_account: manualSellerData.bank_account || null,
             type: 'jdg'
-            // owner_user_id uses DB default: auth.uid()
           })
           .select('id')
           .single();
@@ -535,44 +224,37 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
         return;
       }
       
-      let recipientId = selectedRecipient?.id;
+      // Create or find recipient
+      let recipientId = selectedContractor?.id;
 
-      // Create new recipient if needed
-      if (!recipientId && newRecipientData.name) {
+      if (!recipientId && selectedContractor?.name) {
         const { data: newRec, error: recError } = await supabase
           .from('invoice_recipients')
           .insert({
             entity_id: effectiveEntityId,
-            name: newRecipientData.name,
-            nip: newRecipientData.nip,
-            address_street: newRecipientData.address_street,
-            address_city: newRecipientData.address_city,
-            address_postal_code: newRecipientData.address_postal_code,
-            bank_account: recipientBankAccount || null
+            name: selectedContractor.name,
+            nip: selectedContractor.nip,
+            address_street: selectedContractor.address_street,
+            address_city: selectedContractor.address_city,
+            address_postal_code: selectedContractor.address_postal_code,
+            bank_account: selectedContractor.bank_account || null
           })
           .select()
           .single();
 
         if (recError) throw recError;
         recipientId = newRec.id;
-      } else if (recipientId && recipientBankAccount) {
-        // Update existing recipient with bank account
-        await supabase
-          .from('invoice_recipients')
-          .update({ bank_account: recipientBankAccount })
-          .eq('id', recipientId);
       }
 
       const totals = calculateTotals();
       
-      // Build buyer snapshot for invoice
-      const buyerData = selectedRecipient || newRecipientData;
+      // Build buyer snapshot
       const buyerSnapshot = {
-        name: buyerData.name,
-        nip: buyerData.nip,
+        name: selectedContractor.name,
+        nip: selectedContractor.nip,
         address: [
-          buyerData.address_street,
-          [buyerData.address_postal_code, buyerData.address_city].filter(Boolean).join(' ')
+          selectedContractor.address_street,
+          [selectedContractor.address_postal_code, selectedContractor.address_city].filter(Boolean).join(' ')
         ].filter(Boolean).join(', ')
       };
 
@@ -581,7 +263,6 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       
-      // Get next number in sequence
       const { count } = await supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
@@ -648,17 +329,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
       onCreated?.();
       
       // Reset form
-      setStep(1);
-      setInvoiceType('invoice');
-      setSelectedRecipient(null);
-      setNewRecipientData({});
-      setVatStatus(null);
-      setShowVatWarningDialog(false);
-      setShowBankWarningDialog(false);
-      setRecipientBankAccount('');
-      setBankAccountVerified(null);
-      setItems([{ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
-      setNotes('');
+      resetForm();
       
     } catch (err) {
       console.error('Save error:', err);
@@ -668,399 +339,105 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
     }
   };
 
+  const resetForm = () => {
+    setInvoiceType('invoice');
+    setSelectedContractor(null);
+    setItems([{ name: '', quantity: 1, unit: 'szt.', unit_net_price: 0, vat_rate: '23%' }]);
+    setNotes('');
+    setActiveTab('items');
+  };
+
+  const handleContractorChange = (contractor: Contractor | null) => {
+    setSelectedContractor(contractor);
+  };
+
+  const handleAddNewContractor = (contractor: Contractor) => {
+    // New contractor added - will be saved on invoice save
+    setSelectedContractor(contractor);
+  };
+
   const totals = calculateTotals();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            Nowa faktura - Krok {step} z 4
+            <FileText className="h-5 w-5 text-primary" />
+            Nowa faktura
           </DialogTitle>
         </DialogHeader>
 
-        {/* Step 1: Invoice Type */}
-        {step === 1 && (
-          <div className="space-y-6">
-            {/* Alert when no company is configured */}
-            {!hasEntity && (
-              <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">Nie masz skonfigurowanej firmy sprzedawcy</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Możesz kontynuować i wprowadzić dane ręcznie, lub skonfigurować firmę w ustawieniach aby korzystać z automatycznego wypełniania.
-                      </p>
-                      <div className="flex gap-2 mt-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            onOpenChange(false);
-                            onOpenCompanySetup?.();
-                          }}
-                        >
-                          <Building2 className="h-3 w-3 mr-1" />
-                          Skonfiguruj firmę
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowManualSellerForm(true)}
-                        >
-                          Wprowadź ręcznie
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Manual Seller Data Form */}
-            {showManualSellerForm && !hasEntity && (
-              <Card className="border-dashed">
-                <CardContent className="p-4 space-y-4">
-                  <Label className="text-sm font-semibold">Dane sprzedawcy (ręczne wprowadzanie)</Label>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="md:col-span-2">
-                      <Label className="text-xs">Nazwa firmy *</Label>
-                      <Input
-                        value={manualSellerData.name}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Nazwa firmy"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">NIP *</Label>
-                      <Input
-                        value={manualSellerData.nip}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                        placeholder="1234567890"
-                        maxLength={10}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">REGON</Label>
-                      <Input
-                        value={manualSellerData.regon || ''}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, regon: e.target.value }))}
-                        placeholder="REGON (opcjonalnie)"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label className="text-xs">Adres (ulica) *</Label>
-                      <Input
-                        value={manualSellerData.address_street}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_street: e.target.value }))}
-                        placeholder="ul. Przykładowa 1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Kod pocztowy *</Label>
-                      <Input
-                        value={manualSellerData.address_postal_code}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_postal_code: e.target.value }))}
-                        placeholder="00-000"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Miasto *</Label>
-                      <Input
-                        value={manualSellerData.address_city}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, address_city: e.target.value }))}
-                        placeholder="Miasto"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Nazwa banku</Label>
-                      <Input
-                        value={manualSellerData.bank_name || ''}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, bank_name: e.target.value }))}
-                        placeholder="PKO BP"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Numer konta</Label>
-                      <Input
-                        value={manualSellerData.bank_account || ''}
-                        onChange={(e) => setManualSellerData(prev => ({ ...prev, bank_account: e.target.value }))}
-                        placeholder="00 0000 0000 0000 0000 0000 0000"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            <div>
-              <Label className="text-base font-semibold mb-4 block">Wybierz rodzaj faktury</Label>
-              <InvoiceTypeSelector value={invoiceType} onChange={setInvoiceType} />
-            </div>
-            
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setStep(2)}
-                disabled={!hasEntity && showManualSellerForm && !manualSellerData.name}
-              >
-                Dalej <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Recipient */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <Label className="text-base font-semibold mb-4 block">Odbiorca faktury</Label>
-              
-              {/* Search by NIP */}
-              <div className="flex gap-2 mb-4">
-                <Input
-                  placeholder="Wpisz NIP i pobierz dane z GUS..."
-                  value={nipSearch}
-                  onChange={(e) => setNipSearch(e.target.value.replace(/\D/g, ''))}
-                  maxLength={10}
-                />
-                <Button onClick={searchGUS} disabled={isSearchingNip}>
-                  {isSearchingNip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                </Button>
-              </div>
-
-              {/* GUS Result */}
-              {newRecipientData.name && !selectedRecipient && (
-                <Card className={`mb-4 border-2 ${
-                  vatStatus?.isActiveVat 
-                    ? 'border-green-500/50 bg-green-50/50 dark:bg-green-900/10' 
-                    : vatStatus?.checked 
-                      ? 'border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10'
-                      : 'border-muted'
-                }`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="font-semibold">{newRecipientData.name}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">NIP: {newRecipientData.nip}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {newRecipientData.address_street}, {newRecipientData.address_postal_code} {newRecipientData.address_city}
-                        </p>
-                        
-                        {/* VAT Status Info */}
-                        {vatStatus?.checked && vatStatus.verifiedAt && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Sprawdzono: {new Date(vatStatus.verifiedAt).toLocaleString('pl-PL')}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant="secondary">Z GUS</Badge>
-                        <VatStatusBadge />
-                      </div>
-                    </div>
-                    
-                    {/* Warning Alert */}
-                    {vatStatus?.checked && !vatStatus.isActiveVat && (
-                      <div className="mt-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md flex items-start gap-2">
-                        <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-destructive">
-                            Kontrahent nie jest czynnym podatnikiem VAT
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Wystawiając fakturę VAT dla tego kontrahenta, możesz narazić się na problemy z odliczeniem podatku.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Whitelist Bank Accounts */}
-                    {vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
-                      <div className="mt-4">
-                        <BankAccountSelector
-                          accounts={vatStatus.accountNumbers}
-                          selectedAccount={recipientBankAccount}
-                          onSelectAccount={(account) => {
-                            setRecipientBankAccount(account);
-                            setBankAccountVerified(true);
-                          }}
-                          companyName={newRecipientData.name || nipSearch}
-                          nip={nipSearch}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Existing Recipients with VAT Check */}
-              {selectedRecipient && (
-                <Card className="mb-4 ring-2 ring-primary">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{selectedRecipient.name}</p>
-                        {selectedRecipient.nip && <p className="text-sm text-muted-foreground">NIP: {selectedRecipient.nip}</p>}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant="outline">Wybrany</Badge>
-                        {selectedRecipient.nip && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => verifyVatStatus(selectedRecipient.nip!)}
-                            disabled={isVerifyingVat}
-                          >
-                            {isVerifyingVat ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <ShieldCheck className="h-3 w-3 mr-1" />
-                            )}
-                            Sprawdź VAT
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {vatStatus?.checked && selectedRecipient.nip && (
-                      <div className="mt-2">
-                        <VatStatusBadge />
-                        {!vatStatus.isActiveVat && (
-                          <div className="mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded text-xs text-destructive">
-                            <AlertTriangle className="h-3 w-3 inline mr-1" />
-                            {vatStatus.statusLabel}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Existing Recipients */}
-              {recipients.length > 0 && !selectedRecipient && (
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">Lub wybierz z listy:</Label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {recipients.map((rec) => (
-                      <Card
-                        key={rec.id}
-                        className="cursor-pointer transition-all hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedRecipient(rec);
-                          setNewRecipientData({});
-                          setVatStatus(null); // Reset VAT when changing recipient
-                          setRecipientBankAccount(rec.bank_account || '');
-                          setBankAccountVerified(null);
-                        }}
-                      >
-                        <CardContent className="p-3">
-                          <p className="font-medium">{rec.name}</p>
-                          {rec.nip && <p className="text-sm text-muted-foreground">NIP: {rec.nip}</p>}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Bank Account Input - visible when recipient is selected/created */}
-              {(selectedRecipient || newRecipientData.name) && (
-                <div className="mt-4 p-4 border rounded-lg bg-muted/30">
-                  <Label className="text-sm font-medium mb-2 block">
-                    Numer konta bankowego kontrahenta
-                    {paymentMethod === 'przelew' && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        (wymagane powyżej 15 000 PLN)
-                      </span>
-                    )}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="00 0000 0000 0000 0000 0000 0000"
-                      value={recipientBankAccount}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^\d\s]/g, '');
-                        setRecipientBankAccount(value);
-                        setBankAccountVerified(null);
+        <div className="space-y-6">
+          {/* Alert when no company is configured */}
+          {!hasEntity && (
+            <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-900/10">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">Nie masz skonfigurowanej firmy sprzedawcy</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Skonfiguruj firmę w ustawieniach, aby korzystać z automatycznego wypełniania danych.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        onOpenChange(false);
+                        onOpenCompanySetup?.();
                       }}
-                      className="font-mono"
-                    />
-                    {recipientBankAccount && (selectedRecipient?.nip || newRecipientData.nip) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => verifyBankAccount(
-                          (selectedRecipient?.nip || newRecipientData.nip)!,
-                          recipientBankAccount
-                        )}
-                        disabled={isVerifyingBank}
-                      >
-                        {isVerifyingBank ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <ShieldCheck className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
+                    >
+                      <Building2 className="h-3 w-3 mr-1" />
+                      Skonfiguruj firmę
+                    </Button>
                   </div>
-                  
-                  <div className="mt-2">
-                    <BankAccountStatusBadge />
-                  </div>
-                  
-                  {/* Whitelist accounts for selected recipient */}
-                  {selectedRecipient?.nip && vatStatus?.accountNumbers && vatStatus.accountNumbers.length > 0 && (
-                    <div className="mt-4">
-                      <BankAccountSelector
-                        accounts={vatStatus.accountNumbers}
-                        selectedAccount={recipientBankAccount}
-                        onSelectAccount={(account) => {
-                          setRecipientBankAccount(account);
-                          setBankAccountVerified(true);
-                        }}
-                        companyName={selectedRecipient.name}
-                        nip={selectedRecipient.nip}
-                        compact
-                      />
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
-            
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Wstecz
-              </Button>
-              <Button 
-                onClick={() => setStep(3)}
-                disabled={!selectedRecipient && !newRecipientData.name}
-              >
-                Dalej <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        )}
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Step 3: Items */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div>
-              <Label className="text-base font-semibold mb-4 block">Pozycje faktury</Label>
-              
+          {/* Invoice Type Selector - Compact */}
+          <div>
+            <Label className="text-sm font-medium mb-3 block">Rodzaj dokumentu</Label>
+            <InvoiceTypeSelector value={invoiceType} onChange={setInvoiceType} />
+          </div>
+
+          {/* Contractor Selector - Like ifirma */}
+          <ContractorSelector
+            entityId={entityId}
+            value={selectedContractor}
+            onChange={handleContractorChange}
+            onAddNew={handleAddNewContractor}
+          />
+
+          {/* Main Content Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="items" className="gap-2">
+                <Calculator className="h-4 w-4" />
+                Pozycje
+              </TabsTrigger>
+              <TabsTrigger value="dates" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Daty i płatność
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="gap-2">
+                <Settings2 className="h-4 w-4" />
+                Dodatkowe
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Items Tab */}
+            <TabsContent value="items" className="space-y-4 mt-4">
               <div className="space-y-3">
                 {items.map((item, index) => (
                   <Card key={index}>
                     <CardContent className="p-3">
                       <div className="grid grid-cols-12 gap-2">
                         <div className="col-span-12 sm:col-span-4">
+                          <Label className="text-xs">Nazwa *</Label>
                           <Input
                             placeholder="Nazwa usługi/produktu"
                             value={item.name}
@@ -1068,14 +445,15 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                           />
                         </div>
                         <div className="col-span-4 sm:col-span-2">
+                          <Label className="text-xs">Ilość</Label>
                           <Input
                             type="number"
-                            placeholder="Ilość"
                             value={item.quantity}
                             onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                           />
                         </div>
-                        <div className="col-span-4 sm:col-span-2">
+                        <div className="col-span-4 sm:col-span-1">
+                          <Label className="text-xs">Jedn.</Label>
                           <Select value={item.unit} onValueChange={(v) => updateItem(index, 'unit', v)}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
@@ -1084,14 +462,15 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                           </Select>
                         </div>
                         <div className="col-span-4 sm:col-span-2">
+                          <Label className="text-xs">Cena netto</Label>
                           <Input
                             type="number"
-                            placeholder="Cena netto"
                             value={item.unit_net_price}
                             onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
                           />
                         </div>
-                        <div className="col-span-6 sm:col-span-1">
+                        <div className="col-span-6 sm:col-span-2">
+                          <Label className="text-xs">VAT</Label>
                           <Select value={item.vat_rate} onValueChange={(v) => updateItem(index, 'vat_rate', v)}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
@@ -1099,7 +478,7 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="col-span-6 sm:col-span-1 flex items-center justify-end">
+                        <div className="col-span-6 sm:col-span-1 flex items-end justify-end pb-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1115,192 +494,156 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                 ))}
               </div>
 
-              <Button variant="outline" className="mt-3" onClick={addItem}>
+              <Button variant="outline" onClick={addItem}>
                 <Plus className="h-4 w-4 mr-2" /> Dodaj pozycję
               </Button>
-            </div>
 
-            {/* Totals */}
-            <Card className="bg-muted/50">
-              <CardContent className="p-4">
-                <div className="grid grid-cols-3 gap-4 text-right">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Netto</p>
-                    <p className="text-lg font-semibold">{totals.net.toFixed(2)} PLN</p>
+              {/* Totals */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-3 gap-4 text-right">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Netto</p>
+                      <p className="text-lg font-semibold">{totals.net.toFixed(2)} PLN</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">VAT</p>
+                      <p className="text-lg font-semibold">{totals.vat.toFixed(2)} PLN</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Brutto</p>
+                      <p className="text-xl font-bold text-primary">{totals.gross.toFixed(2)} PLN</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">VAT</p>
-                    <p className="text-lg font-semibold">{totals.vat.toFixed(2)} PLN</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Brutto</p>
-                    <p className="text-xl font-bold text-primary">{totals.gross.toFixed(2)} PLN</p>
-                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Dates Tab */}
+            <TabsContent value="dates" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Data wystawienia</Label>
+                  <Input
+                    type="date"
+                    value={issueDate}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-            
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(2)}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Wstecz
-              </Button>
-              <Button onClick={() => setStep(4)}>
-                Dalej <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        )}
+                <div>
+                  <Label>Termin płatności</Label>
+                  <Input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
 
-        {/* Step 4: Dates & Save */}
-        {step === 4 && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Data wystawienia</Label>
-                <Input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
+                <Label>Metoda płatności</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="przelew">Przelew bankowy</SelectItem>
+                    <SelectItem value="gotowka">Gotówka</SelectItem>
+                    <SelectItem value="karta">Karta płatnicza</SelectItem>
+                    <SelectItem value="blik">BLIK</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+
+            {/* Notes Tab */}
+            <TabsContent value="notes" className="space-y-4 mt-4">
+              <div>
+                <Label>Uwagi na fakturze (opcjonalnie)</Label>
+                <Textarea
+                  placeholder="Dodatkowe informacje..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
                 />
               </div>
-              <div>
-                <Label>Termin płatności</Label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
-              </div>
-            </div>
+            </TabsContent>
+          </Tabs>
 
-            <div>
-              <Label>Metoda płatności</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="przelew">Przelew bankowy</SelectItem>
-                  <SelectItem value="gotowka">Gotówka</SelectItem>
-                  <SelectItem value="karta">Karta płatnicza</SelectItem>
-                  <SelectItem value="blik">BLIK</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Uwagi (opcjonalnie)</Label>
-              <Textarea
-                placeholder="Dodatkowe informacje..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Summary */}
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
-                <h4 className="font-semibold mb-2">Podsumowanie</h4>
-                <div className="text-sm space-y-1">
-                  <p><span className="text-muted-foreground">Typ:</span> {invoiceType === 'invoice' ? 'Faktura VAT' : invoiceType}</p>
-                  <p><span className="text-muted-foreground">Odbiorca:</span> {selectedRecipient?.name || newRecipientData.name}</p>
-                  <p><span className="text-muted-foreground">Pozycji:</span> {items.filter(i => i.name).length}</p>
-                  <p className="text-lg font-bold text-primary">Do zapłaty: {totals.gross.toFixed(2)} PLN</p>
+          {/* Summary & Actions */}
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {invoiceType === 'invoice' ? 'Faktura VAT' : invoiceType} 
+                    {selectedContractor?.name && ` • ${selectedContractor.name}`}
+                  </p>
+                  <p className="text-xl font-bold text-primary">Do zapłaty: {totals.gross.toFixed(2)} PLN</p>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(3)}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Wstecz
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Zapisz szkic
-              </Button>
-            </div>
-          </div>
-        )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Anuluj
+                  </Button>
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Zapisz fakturę
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* VAT Warning Dialog */}
-        <AlertDialog open={showVatWarningDialog} onOpenChange={setShowVatWarningDialog}>
-          <AlertDialogContent>
+        {/* High Value Transaction Warning - Like ifirma */}
+        <AlertDialog open={showHighValueWarning} onOpenChange={setShowHighValueWarning}>
+          <AlertDialogContent className="max-w-lg">
             <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="h-5 w-5" />
-                Ostrzeżenie - Status VAT kontrahenta
+                Mechanizm podzielonej płatności
               </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-3">
+              <AlertDialogDescription className="space-y-4 text-left">
                 <p>
-                  Kontrahent <strong>{newRecipientData.name || selectedRecipient?.name}</strong> 
-                  ma status: <strong className="text-destructive">{vatStatus?.statusLabel}</strong>
+                  <strong>Uwaga!</strong><br />
+                  Ponieważ wartość faktury przekracza <strong>15 000,00 zł</strong> to konieczne jest 
+                  sprawdzenie, czy nie jest ona objęta obowiązkiem zastosowania <strong>Mechanizmu 
+                  Podzielonej Płatności (MPP)</strong>.
                 </p>
-                <p>
-                  Wystawiając fakturę VAT dla podmiotu, który nie jest czynnym podatnikiem VAT, 
-                  możesz narazić się na:
+                
+                <p className="text-sm">
+                  MPP jest bezwzględnie wymagany gdy łącznie są spełnione warunki:
                 </p>
+                
                 <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                  <li>Brak możliwości odliczenia VAT przez kontrahenta</li>
-                  <li>Problemy podczas kontroli skarbowej</li>
-                  <li>Konieczność korygowania dokumentów</li>
+                  <li>Wartość faktury przekracza 15 000,00 zł</li>
+                  <li>Faktura jest wystawiona dla kontrahenta, który podał polski numer NIP</li>
+                  <li>Faktura dotyczy towarów/usług objętych MPP (np. elektronika, paliwa, metale)</li>
                 </ul>
-                <p className="font-medium pt-2">
-                  Czy mimo to chcesz zapisać fakturę?
-                </p>
+
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md text-sm">
+                  <p>
+                    <strong>Informacja:</strong> Weryfikacja białej listy VAT jest zalecana przy 
+                    <strong> płaceniu </strong> faktury, nie przy jej wystawianiu. Możesz kontynuować 
+                    wystawienie faktury.
+                  </p>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+              <AlertDialogCancel className="mt-0">Anuluj</AlertDialogCancel>
+              <Button variant="outline" onClick={() => {
+                setShowHighValueWarning(false);
+                performSave();
+              }}>
+                Wystaw fakturę
+              </Button>
               <AlertDialogAction 
                 onClick={() => {
-                  setShowVatWarningDialog(false);
+                  setShowHighValueWarning(false);
                   performSave();
                 }}
-                className="bg-destructive hover:bg-destructive/90"
+                className="bg-primary"
               >
-                Zapisz mimo ostrzeżenia
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Bank Account Warning Dialog */}
-        <AlertDialog open={showBankWarningDialog} onOpenChange={setShowBankWarningDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                Konto bankowe spoza białej listy VAT
-              </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-3">
-                <p>
-                  Kwota faktury wynosi <strong>{calculateTotals().gross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN brutto</strong>, 
-                  co przekracza limit 15 000 PLN.
-                </p>
-                <p>
-                  Podany numer konta bankowego kontrahenta 
-                  <strong className="text-destructive"> nie znajduje się na białej liście </strong>
-                  Ministerstwa Finansów.
-                </p>
-                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded">
-                  <p className="font-medium text-sm">Konsekwencje płatności na to konto (art. 117ba Ordynacji podatkowej):</p>
-                  <ul className="list-disc list-inside text-sm mt-1 space-y-1 text-muted-foreground">
-                    <li>Brak możliwości zaliczenia wydatku do kosztów podatkowych</li>
-                    <li>Odpowiedzialność solidarna za VAT kontrahenta</li>
-                    <li>Potencjalne sankcje podczas kontroli skarbowej</li>
-                  </ul>
-                </div>
-                <p className="font-medium">
-                  Czy mimo to chcesz zapisać fakturę?
-                </p>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Popraw dane</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={proceedAfterBankWarning}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                Zapisz mimo ostrzeżenia
+                Wystaw ze split payment
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
