@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { compressLogoImage } from '@/utils/imageCompression';
 import { 
   Building2, 
   Search, 
@@ -261,20 +262,19 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Maksymalny rozmiar logo to 2MB');
-      return;
-    }
-
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `logo-${Date.now()}.${fileExt}`;
+      // Compress image automatically - no size limit for user
+      const compressedBlob = await compressLogoImage(file);
+      
+      // Create new file from compressed blob
+      const fileName = `logo-${Date.now()}.jpg`;
       const filePath = `logos/${fileName}`;
+      const compressedFile = new File([compressedBlob], fileName, { type: 'image/jpeg' });
 
       const { error: uploadError } = await supabase.storage
         .from('entity-logos')
-        .upload(filePath, file);
+        .upload(filePath, compressedFile);
 
       if (uploadError) throw uploadError;
 
@@ -283,7 +283,11 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         .getPublicUrl(filePath);
 
       setFormData(prev => ({ ...prev, logo_url: publicUrl }));
-      toast.success('Logo przesłane');
+      
+      // Show compression info
+      const originalSize = (file.size / 1024).toFixed(0);
+      const compressedSize = (compressedBlob.size / 1024).toFixed(0);
+      toast.success(`Logo przesłane (${originalSize}KB → ${compressedSize}KB)`);
     } catch (err) {
       console.error('Upload error:', err);
       toast.error('Błąd przesyłania logo');
