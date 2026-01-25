@@ -118,7 +118,12 @@ interface ExtendedBuyer extends Omit<InvoiceBuyer, 'address_street'> {
   address_apartment_number?: string;
 }
 
-export function SimpleFreeInvoice() {
+interface SimpleFreeInvoiceProps {
+  onClose?: () => void;
+  onSaved?: () => void;
+}
+
+export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -623,6 +628,7 @@ export function SimpleFreeInvoice() {
 
       toast.success('Faktura została zapisana na Twoim koncie!');
       setShowPreview(false);
+      onSaved?.();
     } catch (err) {
       console.error('Error saving invoice:', err);
       toast.error('Błąd podczas zapisywania faktury');
