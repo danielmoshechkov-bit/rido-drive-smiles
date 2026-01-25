@@ -367,22 +367,17 @@ export function SimpleFreeInvoice() {
   const formatAmount = (amount: number) => formatCurrencyAmount(amount, currency);
 
   return (
-    <div className="space-y-6">
-      {/* Header with Currency Selector */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-center sm:text-left">
-          <h1 className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
-            <Receipt className="h-7 w-7 text-primary" />
-            Darmowy Generator Faktur
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Bez rejestracji, bez logowania. Wygeneruj PDF w przeglądarce.
-          </p>
-        </div>
+    <div className="space-y-4">
+      {/* Compact Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Waluta:</Label>
-          <CurrencySelector value={currency} onChange={setCurrency} />
+          <Receipt className="h-6 w-6 text-primary shrink-0" />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
+          </div>
         </div>
+        <CurrencySelector value={currency} onChange={setCurrency} />
       </div>
 
       {/* Invoice Type Selection */}
