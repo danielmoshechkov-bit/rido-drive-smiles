@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,7 +21,9 @@ import {
   Calculator,
   CreditCard,
   MessageSquare,
-  Settings2
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { 
   InvoiceItem, 
@@ -43,6 +46,25 @@ const PAYMENT_METHODS = [
   { value: 'card', label: 'Karta' }
 ];
 
+// Extended document types available in Polish accounting
+const DOCUMENT_TYPES = [
+  { value: 'invoice', label: 'Faktura VAT', prefix: 'FV' },
+  { value: 'proforma', label: 'Faktura Proforma', prefix: 'PRO' },
+  { value: 'receipt', label: 'Rachunek', prefix: 'R' },
+  { value: 'vat_margin', label: 'Faktura VAT marża', prefix: 'FVM' },
+  { value: 'vat_rr', label: 'Faktura VAT RR (rolnik)', prefix: 'RR' },
+  { value: 'correction', label: 'Faktura korygująca', prefix: 'FK' },
+  { value: 'advance', label: 'Faktura zaliczkowa', prefix: 'FZ' },
+  { value: 'final', label: 'Faktura końcowa', prefix: 'FK' },
+  { value: 'kp', label: 'KP - Kasa Przyjmie', prefix: 'KP' },
+  { value: 'kw', label: 'KW - Kasa Wyda', prefix: 'KW' },
+  { value: 'wz', label: 'WZ - Wydanie Zewnętrzne', prefix: 'WZ' },
+  { value: 'pz', label: 'PZ - Przyjęcie Zewnętrzne', prefix: 'PZ' },
+  { value: 'nota', label: 'Nota księgowa', prefix: 'NK' }
+];
+
+type DocumentType = typeof DOCUMENT_TYPES[number]['value'];
+
 const SIGNATURE_OPTIONS = [
   { value: 'none', label: 'Faktura bez podpisu odbiorcy' },
   { value: 'receiver', label: 'Osoba upoważniona do otrzymania faktury VAT' },
@@ -64,7 +86,8 @@ export function SimpleFreeInvoice() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Invoice type
-  const [invoiceType, setInvoiceType] = useState<'invoice' | 'proforma' | 'receipt'>('invoice');
+  const [invoiceType, setInvoiceType] = useState<string>('invoice');
+  const [showAllTypes, setShowAllTypes] = useState(false);
   
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
@@ -211,7 +234,7 @@ export function SimpleFreeInvoice() {
 
   const getInvoiceData = (): InvoiceData => ({
     invoice_number: invoiceNumber,
-    type: invoiceType,
+    type: invoiceType as 'invoice' | 'proforma' | 'receipt',
     issue_date: issueDate,
     sale_date: saleDate,
     due_date: dueDate,
@@ -252,10 +275,11 @@ export function SimpleFreeInvoice() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Typ dokumentu
+            Typ dokumentu <span className="text-destructive">*</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {/* Main document types - always visible */}
           <div className="flex gap-2">
             <Button 
               variant={invoiceType === 'invoice' ? 'default' : 'outline'}
@@ -265,20 +289,42 @@ export function SimpleFreeInvoice() {
               Faktura VAT
             </Button>
             <Button 
-              variant={invoiceType === 'proforma' ? 'default' : 'outline'}
-              onClick={() => setInvoiceType('proforma')}
-              className="flex-1"
+              variant="outline"
+              onClick={() => setShowAllTypes(!showAllTypes)}
+              className="px-3"
             >
-              Proforma
-            </Button>
-            <Button 
-              variant={invoiceType === 'receipt' ? 'default' : 'outline'}
-              onClick={() => setInvoiceType('receipt')}
-              className="flex-1"
-            >
-              Rachunek
+              {showAllTypes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
+          
+          {/* Expanded document types */}
+          {showAllTypes && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t">
+              {DOCUMENT_TYPES.map((type) => (
+                <Button
+                  key={type.value}
+                  variant={invoiceType === type.value ? 'default' : 'outline'}
+                  onClick={() => {
+                    setInvoiceType(type.value);
+                    // Update invoice number prefix based on type
+                    const currentNum = invoiceNumber.split('/').pop() || '001';
+                    setInvoiceNumber(`${type.prefix}/${format(new Date(), 'yyyy/MM')}/${currentNum}`);
+                  }}
+                  className="text-xs h-auto py-2 px-3"
+                  size="sm"
+                >
+                  {type.label}
+                </Button>
+              ))}
+            </div>
+          )}
+          
+          {/* Show selected type if not default */}
+          {invoiceType !== 'invoice' && !showAllTypes && (
+            <p className="text-sm text-muted-foreground">
+              Wybrany: <span className="font-medium text-foreground">{DOCUMENT_TYPES.find(t => t.value === invoiceType)?.label}</span>
+            </p>
+          )}
         </CardContent>
       </Card>
 
