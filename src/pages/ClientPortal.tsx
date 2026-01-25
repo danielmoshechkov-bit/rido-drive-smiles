@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 import { TabsPill } from '@/components/ui/TabsPill';
@@ -111,6 +113,14 @@ export default function ClientPortal() {
   
   // Search modal
   const [showSearchModal, setShowSearchModal] = useState(false);
+  
+  // Mobile tab dropdown state
+  const [mobileTabOpen, setMobileTabOpen] = useState(false);
+  
+  // Account settings form
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPhone, setAccountPhone] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
 
   // Read tab from URL on mount
   useEffect(() => {
@@ -133,6 +143,10 @@ export default function ClientPortal() {
       navigate('/easy/login');
       return;
     }
+
+    // Initialize account form with user data
+    setAccountEmail(user.email || '');
+    setAccountPhone(user.user_metadata?.phone || user.phone || '');
 
     // Check account types
     await Promise.all([
@@ -300,6 +314,27 @@ export default function ClientPortal() {
     }
   };
 
+  const handleSaveAccountSettings = async () => {
+    setSavingAccount(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: accountEmail !== user?.email ? accountEmail : undefined,
+        data: {
+          phone: accountPhone
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Ustawienia konta zostały zapisane');
+    } catch (err: any) {
+      console.error('Save account error:', err);
+      toast.error(err.message || 'Błąd zapisywania ustawień');
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -442,7 +477,7 @@ export default function ClientPortal() {
               </SheetContent>
             </Sheet>
 
-            <Collapsible className="flex-1">
+            <Collapsible open={mobileTabOpen} onOpenChange={setMobileTabOpen} className="flex-1">
               <CollapsibleTrigger className="w-full">
                 <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
                   <span className="font-medium text-sm truncate">
@@ -459,7 +494,10 @@ export default function ClientPortal() {
                       variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
                       size="sm"
                       className="w-full justify-start text-xs"
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMobileTabOpen(false); // Close dropdown after selection
+                      }}
                     >
                       <tab.icon className="h-3 w-3 mr-2" />
                       {tab.label}
@@ -1054,16 +1092,38 @@ export default function ClientPortal() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 border rounded-lg">
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-medium">{user?.email}</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="account-email">Email</Label>
+                        <Input
+                          id="account-email"
+                          type="email"
+                          value={accountEmail}
+                          onChange={(e) => setAccountEmail(e.target.value)}
+                          placeholder="twoj@email.com"
+                        />
                       </div>
-                      <div className="p-4 border rounded-lg">
-                        <p className="text-sm text-muted-foreground">Konto utworzone</p>
-                        <p className="font-medium">
-                          {user?.created_at ? new Date(user.created_at).toLocaleDateString('pl-PL') : '—'}
-                        </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="account-phone">Telefon</Label>
+                        <Input
+                          id="account-phone"
+                          type="tel"
+                          value={accountPhone}
+                          onChange={(e) => setAccountPhone(e.target.value)}
+                          placeholder="+48 123 456 789"
+                        />
                       </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        Konto utworzone: {user?.created_at ? new Date(user.created_at).toLocaleDateString('pl-PL') : '—'}
+                      </p>
+                      <Button 
+                        onClick={handleSaveAccountSettings} 
+                        disabled={savingAccount}
+                        size="sm"
+                      >
+                        {savingAccount ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
