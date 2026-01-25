@@ -105,24 +105,25 @@ export function AccountingCategoryModal({ trigger, user }: AccountingCategoryMod
           </div>
 
           {/* Services grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {accountingServices.map((service) => {
               const Icon = service.icon;
               return (
                 <Card 
                   key={service.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-md hover:border-primary/50",
+                    "cursor-pointer transition-all duration-200",
+                    "hover:shadow-lg hover:bg-primary/5 hover:border-primary",
                     "group"
                   )}
                   onClick={() => handleServiceClick(service)}
                 >
-                  <CardContent className="p-4 flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-5 w-5 text-primary" />
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200">
+                      <Icon className="h-5 w-5 text-primary group-hover:text-primary-foreground transition-colors" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm flex items-center gap-1">
+                      <h4 className="font-semibold text-sm flex items-center gap-1 group-hover:text-primary transition-colors">
                         {service.title}
                         <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </h4>

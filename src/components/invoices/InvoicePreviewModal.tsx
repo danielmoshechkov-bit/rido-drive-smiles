@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Download, 
   Send, 
   Save,
   ArrowLeft,
   Mail,
-  Loader2
+  Loader2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml, formatCurrency } from '@/utils/invoiceHtmlGenerator';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -38,6 +42,22 @@ export function InvoicePreviewModal({
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
+  const [zoom, setZoom] = useState(100);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Update iframe content when invoice data changes
+  useEffect(() => {
+    if (open && iframeRef.current) {
+      const html = generateInvoiceHtml(invoiceData);
+      const iframe = iframeRef.current;
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(html);
+        doc.close();
+      }
+    }
+  }, [open, invoiceData]);
 
   const handleDownloadPdf = () => {
     const html = generateInvoiceHtml(invoiceData);
@@ -101,31 +121,53 @@ export function InvoicePreviewModal({
     setPendingAction(null);
   };
 
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50));
+  const handleResetZoom = () => setZoom(100);
+
   const grossTotal = invoiceData.items.reduce((sum, item) => sum + item.gross_amount, 0);
+  const currency = invoiceData.currency || 'PLN';
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogTitle className="flex items-center justify-between">
-              <span>Podgląd faktury: {invoiceData.invoice_number}</span>
+              <span>Podgląd: {invoiceData.invoice_number}</span>
             </DialogTitle>
           </DialogHeader>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 py-4 border-b">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex flex-wrap gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Wróć do edycji
+              Wróć
             </Button>
+            
+            {/* Zoom controls */}
+            <div className="flex items-center gap-1 border rounded-md">
+              <Button variant="ghost" size="sm" onClick={handleZoomOut} className="h-8 w-8 p-0">
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="text-xs w-12 text-center">{zoom}%</span>
+              <Button variant="ghost" size="sm" onClick={handleZoomIn} className="h-8 w-8 p-0">
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleResetZoom} className="h-8 w-8 p-0">
+                <Maximize2 className="h-3 w-3" />
+              </Button>
+            </div>
+            
             <div className="flex-1" />
-            <Button variant="outline" onClick={handleDownloadPdf}>
+            
+            <Button variant="default" size="sm" onClick={handleDownloadPdf}>
               <Download className="h-4 w-4 mr-2" />
               Pobierz PDF
             </Button>
             <Button 
               variant="outline" 
+              size="sm"
               onClick={handleSendClick}
               disabled={isSending}
             >
@@ -133,6 +175,8 @@ export function InvoicePreviewModal({
               Wyślij mailem
             </Button>
             <Button 
+              variant="secondary"
+              size="sm"
               onClick={handleSaveClick}
               disabled={isSaving}
             >
@@ -141,16 +185,16 @@ export function InvoicePreviewModal({
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Zapisz na koncie
+              Zapisz
             </Button>
           </div>
 
           {/* Email dialog */}
           {showEmailDialog && (
-            <div className="p-4 bg-muted rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <Label>Wyślij fakturę na adres email:</Label>
+            <div className="px-6 py-4 bg-primary/5 border-b shrink-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="h-4 w-4 text-primary" />
+                <Label className="font-medium">Wyślij fakturę na adres email:</Label>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -159,6 +203,7 @@ export function InvoicePreviewModal({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="adres@email.com"
                   className="flex-1"
+                  autoFocus
                 />
                 <Button onClick={handleSendEmail} disabled={isSending || !email}>
                   {isSending ? (
@@ -174,137 +219,28 @@ export function InvoicePreviewModal({
             </div>
           )}
 
-          {/* Invoice Preview */}
-          <div className="bg-white border rounded-lg p-6 space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-bold text-primary">{invoiceData.seller.name}</h2>
-                {invoiceData.seller.nip && <p className="text-sm text-muted-foreground">NIP: {invoiceData.seller.nip}</p>}
-              </div>
-              <div className="text-right">
-                <h3 className="text-lg font-semibold">
-                  {invoiceData.type === 'invoice' ? 'Faktura VAT' : invoiceData.type === 'proforma' ? 'Faktura Proforma' : 'Rachunek'}
-                </h3>
-                <p className="text-primary font-medium">{invoiceData.invoice_number}</p>
-              </div>
+          {/* Invoice Preview - Full page iframe */}
+          <div className="flex-1 overflow-auto bg-muted/50 p-4">
+            <div 
+              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden transition-transform"
+              style={{ 
+                width: `${210 * (zoom / 100)}mm`,
+                minHeight: `${297 * (zoom / 100)}mm`,
+                transform: 'translateZ(0)',
+              }}
+            >
+              <iframe
+                ref={iframeRef}
+                className="w-full border-0"
+                style={{ 
+                  height: `${297 * (zoom / 100) * 3.78}px`,
+                  transform: `scale(${zoom / 100})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (zoom / 100)}%`,
+                }}
+                title="Podgląd faktury"
+              />
             </div>
-
-            <Separator />
-
-            {/* Parties */}
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Sprzedawca</h4>
-                <p className="font-medium">{invoiceData.seller.name}</p>
-                {invoiceData.seller.nip && <p className="text-sm">NIP: {invoiceData.seller.nip}</p>}
-                {invoiceData.seller.address_street && <p className="text-sm">{invoiceData.seller.address_street}</p>}
-                {(invoiceData.seller.address_postal_code || invoiceData.seller.address_city) && (
-                  <p className="text-sm">{invoiceData.seller.address_postal_code} {invoiceData.seller.address_city}</p>
-                )}
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Nabywca</h4>
-                <p className="font-medium">{invoiceData.buyer.name}</p>
-                {invoiceData.buyer.nip && <p className="text-sm">NIP: {invoiceData.buyer.nip}</p>}
-                {invoiceData.buyer.address_street && <p className="text-sm">{invoiceData.buyer.address_street}</p>}
-                {(invoiceData.buyer.address_postal_code || invoiceData.buyer.address_city) && (
-                  <p className="text-sm">{invoiceData.buyer.address_postal_code} {invoiceData.buyer.address_city}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div className="flex gap-6 text-sm bg-muted/50 p-3 rounded-lg">
-              <div>
-                <span className="text-muted-foreground">Data wystawienia: </span>
-                <span className="font-medium">{new Date(invoiceData.issue_date).toLocaleDateString('pl-PL')}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Data sprzedaży: </span>
-                <span className="font-medium">{new Date(invoiceData.sale_date).toLocaleDateString('pl-PL')}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Termin płatności: </span>
-                <span className="font-medium">{new Date(invoiceData.due_date).toLocaleDateString('pl-PL')}</span>
-              </div>
-            </div>
-
-            {/* Items table */}
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-primary text-primary-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Lp.</th>
-                    <th className="px-3 py-2 text-left">Nazwa</th>
-                    <th className="px-3 py-2 text-center">Jm.</th>
-                    <th className="px-3 py-2 text-right">Ilość</th>
-                    <th className="px-3 py-2 text-right">Cena netto</th>
-                    <th className="px-3 py-2 text-right">Wart. netto</th>
-                    <th className="px-3 py-2 text-center">VAT</th>
-                    <th className="px-3 py-2 text-right">Wart. brutto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceData.items.map((item, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-3 py-2">{index + 1}</td>
-                      <td className="px-3 py-2">{item.name}</td>
-                      <td className="px-3 py-2 text-center">{item.unit}</td>
-                      <td className="px-3 py-2 text-right">{item.quantity}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(item.unit_net_price)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(item.net_amount)}</td>
-                      <td className="px-3 py-2 text-center">{item.vat_rate}%</td>
-                      <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.gross_amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Totals */}
-            <div className="flex justify-end">
-              <div className="w-64 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Razem netto:</span>
-                  <span>{formatCurrency(invoiceData.items.reduce((s, i) => s + i.net_amount, 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">VAT:</span>
-                  <span>{formatCurrency(invoiceData.items.reduce((s, i) => s + i.vat_amount, 0))}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Do zapłaty:</span>
-                  <span className="text-primary">{formatCurrency(grossTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment & Notes */}
-            {(invoiceData.payment_method || invoiceData.notes) && (
-              <div className="text-sm space-y-2">
-                <p>
-                  <span className="text-muted-foreground">Sposób płatności: </span>
-                  <span className="font-medium">
-                    {invoiceData.payment_method === 'transfer' ? 'Przelew' : 
-                     invoiceData.payment_method === 'cash' ? 'Gotówka' : 'Karta'}
-                  </span>
-                </p>
-                {invoiceData.seller.bank_account && invoiceData.payment_method === 'transfer' && (
-                  <p>
-                    <span className="text-muted-foreground">Nr konta: </span>
-                    <span className="font-medium">{invoiceData.seller.bank_account}</span>
-                  </p>
-                )}
-                {invoiceData.notes && (
-                  <div className="p-3 bg-accent border border-border rounded-lg mt-4">
-                    <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Uwagi</p>
-                    <p className="text-foreground">{invoiceData.notes}</p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>

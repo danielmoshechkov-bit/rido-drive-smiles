@@ -10,12 +10,16 @@ export interface InvoiceItem {
   net_amount: number;
   vat_amount: number;
   gross_amount: number;
+  discount_percent?: number;
+  discount_amount?: number;
 }
 
 export interface InvoiceSeller {
   name: string;
   nip?: string;
   address_street?: string;
+  address_building_number?: string;
+  address_apartment_number?: string;
   address_city?: string;
   address_postal_code?: string;
   bank_name?: string;
@@ -29,27 +33,45 @@ export interface InvoiceBuyer {
   name: string;
   nip?: string;
   address_street?: string;
+  address_building_number?: string;
+  address_apartment_number?: string;
   address_city?: string;
   address_postal_code?: string;
 }
 
 export interface InvoiceData {
   invoice_number: string;
-  type: 'invoice' | 'proforma' | 'receipt' | string; // Extended to support all document types
+  type: 'invoice' | 'proforma' | 'receipt' | string;
   issue_date: string;
   sale_date: string;
   due_date: string;
+  issue_place?: string;
   payment_method: 'transfer' | 'cash' | 'card';
   notes?: string;
   items: InvoiceItem[];
   seller: InvoiceSeller;
   buyer: InvoiceBuyer;
+  currency?: string;
+  discount_global?: number;
+  discount_mode?: 'percent' | 'amount';
 }
 
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('pl-PL', { 
+export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
+
+const CURRENCY_CONFIG: Record<string, { locale: string; symbol: string }> = {
+  PLN: { locale: 'pl-PL', symbol: 'zł' },
+  EUR: { locale: 'de-DE', symbol: '€' },
+  USD: { locale: 'en-US', symbol: '$' },
+  GBP: { locale: 'en-GB', symbol: '£' },
+  CHF: { locale: 'de-CH', symbol: 'CHF' },
+  CZK: { locale: 'cs-CZ', symbol: 'Kč' },
+};
+
+export const formatCurrency = (amount: number, currency: string = 'PLN'): string => {
+  const config = CURRENCY_CONFIG[currency] || CURRENCY_CONFIG.PLN;
+  return new Intl.NumberFormat(config.locale, { 
     style: 'currency', 
-    currency: 'PLN',
+    currency: currency,
     minimumFractionDigits: 2 
   }).format(amount);
 };
@@ -120,12 +142,36 @@ export const calculateItemTotals = (item: Partial<InvoiceItem>): InvoiceItem => 
     vat_rate: item.vat_rate || '23',
     net_amount: Math.round(netAmount * 100) / 100,
     vat_amount: Math.round(vatAmount * 100) / 100,
-    gross_amount: Math.round(grossAmount * 100) / 100
+    gross_amount: Math.round(grossAmount * 100) / 100,
+    discount_percent: item.discount_percent,
+    discount_amount: item.discount_amount,
   };
 };
 
+// Helper to format address
+const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
+  const parts: string[] = [];
+  
+  if (entity.address_street) {
+    let streetLine = entity.address_street;
+    if (entity.address_building_number) {
+      streetLine += ` ${entity.address_building_number}`;
+    }
+    if (entity.address_apartment_number) {
+      streetLine += `/${entity.address_apartment_number}`;
+    }
+    parts.push(streetLine);
+  }
+  
+  if (entity.address_postal_code || entity.address_city) {
+    parts.push(`${entity.address_postal_code || ''} ${entity.address_city || ''}`.trim());
+  }
+  
+  return parts.join('<br>');
+};
+
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
-  const { seller, buyer, items } = invoice;
+  const { seller, buyer, items, currency = 'PLN' } = invoice;
   
   const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
@@ -137,11 +183,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <td style="border: 1px solid #ddd; padding: 8px;">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
       <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.unit}</td>
       <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${item.quantity}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.unit_net_price)}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.net_amount)}</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.net_amount, currency)}</td>
       <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.vat_rate}%</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.vat_amount)}</td>
-      <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(item.gross_amount)}</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatCurrency(item.vat_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
   `).join('');
 
@@ -179,10 +225,46 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   <title>${safeFileName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { margin: 15mm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #333; padding: 20px; }
-    .invoice { max-width: 800px; margin: 0 auto; background: white; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #7c3aed; }
+    @page { 
+      margin: 15mm; 
+      size: A4;
+    }
+    @media print {
+      html, body { 
+        height: 100%; 
+        margin: 0 !important; 
+        padding: 0 !important;
+      }
+      .invoice { 
+        max-width: 100%; 
+        page-break-inside: avoid;
+      }
+      /* Remove browser headers/footers */
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+    }
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      font-size: 12px; 
+      line-height: 1.4; 
+      color: #333; 
+      padding: 20px;
+      background: white;
+    }
+    .invoice { 
+      max-width: 800px; 
+      margin: 0 auto; 
+      background: white;
+      min-height: 100%;
+    }
+    .header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: flex-start; 
+      margin-bottom: 30px; 
+      padding-bottom: 20px; 
+      border-bottom: 2px solid #7c3aed; 
+    }
     .logo-area { min-width: 200px; min-height: 60px; }
     .logo-area img { max-width: 200px; max-height: 60px; object-fit: contain; }
     .logo-text { font-size: 20px; font-weight: bold; color: #7c3aed; }
@@ -194,7 +276,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .party-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
     .party-name { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
     .party-details { font-size: 11px; color: #555; }
-    .dates { display: flex; gap: 30px; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; }
+    .dates { display: flex; gap: 30px; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; flex-wrap: wrap; }
     .date-item { }
     .date-label { font-size: 10px; color: #666; text-transform: uppercase; }
     .date-value { font-size: 13px; font-weight: 600; }
@@ -220,10 +302,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; }
     .signature { width: 200px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 8px; font-size: 10px; color: #666; }
-    @media print {
-      body { padding: 0; }
-      .invoice { max-width: 100%; }
-    }
   </style>
 </head>
 <body>
@@ -244,9 +322,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="party-name">${seller.name || ''}</div>
         <div class="party-details">
           ${seller.nip ? `NIP: ${seller.nip}<br>` : ''}
-          ${seller.address_street || ''}<br>
-          ${seller.address_postal_code || ''} ${seller.address_city || ''}<br>
-          ${seller.bank_account ? `Bank: ${seller.bank_name || ''}<br>Nr konta: ${seller.bank_account}` : ''}
+          ${formatAddress(seller)}
         </div>
       </div>
       <div class="party">
@@ -254,13 +330,18 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="party-name">${buyer.name || ''}</div>
         <div class="party-details">
           ${buyer.nip ? `NIP: ${buyer.nip}<br>` : ''}
-          ${buyer.address_street || ''}<br>
-          ${buyer.address_postal_code || ''} ${buyer.address_city || ''}
+          ${formatAddress(buyer)}
         </div>
       </div>
     </div>
 
     <div class="dates">
+      ${invoice.issue_place ? `
+      <div class="date-item">
+        <div class="date-label">Miejsce wystawienia</div>
+        <div class="date-value">${invoice.issue_place}</div>
+      </div>
+      ` : ''}
       <div class="date-item">
         <div class="date-label">Data wystawienia</div>
         <div class="date-value">${formatDate(invoice.issue_date)}</div>
@@ -298,15 +379,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <div class="totals-table">
         <div class="totals-row">
           <span class="totals-label">Razem netto:</span>
-          <span class="totals-value">${formatCurrency(netTotal)}</span>
+          <span class="totals-value">${formatCurrency(netTotal, currency)}</span>
         </div>
         <div class="totals-row">
           <span class="totals-label">VAT:</span>
-          <span class="totals-value">${formatCurrency(vatTotal)}</span>
+          <span class="totals-value">${formatCurrency(vatTotal, currency)}</span>
         </div>
         <div class="totals-row grand">
           <span class="totals-label">DO ZAPŁATY:</span>
-          <span class="totals-value">${formatCurrency(grossTotal)}</span>
+          <span class="totals-value">${formatCurrency(grossTotal, currency)}</span>
         </div>
       </div>
     </div>
@@ -322,6 +403,10 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <span class="payment-value">${paymentMethodLabels[invoice.payment_method] || invoice.payment_method}</span>
       </div>
       ${seller.bank_account && invoice.payment_method === 'transfer' ? `
+      <div class="payment-row">
+        <span class="payment-label">Bank:</span>
+        <span class="payment-value">${seller.bank_name || ''}</span>
+      </div>
       <div class="payment-row">
         <span class="payment-label">Numer konta:</span>
         <span class="payment-value">${seller.bank_account}</span>
