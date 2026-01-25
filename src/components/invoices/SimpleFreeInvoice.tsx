@@ -629,20 +629,29 @@ export function SimpleFreeInvoice() {
                 />
               </div>
             </div>
-            <div className="relative">
-              <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-1 text-xs text-primary">Termin płatności</span>
-                <PaymentTermSelector
-                  issueDate={issueDate}
-                  dueDate={dueDate}
-                  onDueDateChange={setDueDate}
-                />
+            {/* Termin płatności + strzałka dni + Waluta w jednym rzędzie */}
+            <div className="col-span-2 flex gap-2">
+              <div className="relative flex-1">
+                <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-3 top-1 text-xs text-primary">Termin płatności</span>
+                  <Input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-12 border-0 pt-5 pb-1 shadow-none focus-visible:ring-0 text-sm"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="relative">
-              <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-1 text-xs text-primary">Waluta</span>
-                <CurrencySelector value={currency} onChange={setCurrency} />
+              <PaymentTermSelector
+                issueDate={issueDate}
+                dueDate={dueDate}
+                onDueDateChange={setDueDate}
+              />
+              <div className="relative w-24 shrink-0">
+                <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-3 top-1 text-xs text-primary">Waluta</span>
+                  <CurrencySelector value={currency} onChange={setCurrency} />
+                </div>
               </div>
             </div>
           </div>
