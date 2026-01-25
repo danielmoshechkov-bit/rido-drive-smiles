@@ -682,7 +682,7 @@ export default function EasyHub() {
       <LoginModal
         open={showLoginModal}
         onOpenChange={setShowLoginModal}
-        redirectTo="/konto"
+        redirectTo="/klient"
       />
     </div>
   );

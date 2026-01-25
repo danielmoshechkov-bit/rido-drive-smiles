@@ -101,7 +101,7 @@ const Header = () => {
       <LoginModal
         open={showLoginModal}
         onOpenChange={setShowLoginModal}
-        redirectTo="/konto"
+        redirectTo="/klient"
       />
     </header>
   );

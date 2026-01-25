@@ -323,7 +323,10 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
+      console.log('CompanySetupWizard - Current user:', user?.id, user?.email);
+      
       if (authError || !user) {
+        console.error('Auth error in CompanySetupWizard:', authError);
         toast.error('Błąd autoryzacji. Spróbuj zalogować się ponownie.');
         setIsSaving(false);
         return;
@@ -367,13 +370,18 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         toast.success('Dane firmy zaktualizowane');
       } else {
         // Create new entity
+        console.log('Creating new entity with data:', entityData);
         const { data, error } = await supabase
           .from('entities')
           .insert(entityData)
           .select('id, name')
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert entity error:', error);
+          throw error;
+        }
+        console.log('Entity created successfully:', data);
         result = data;
         toast.success('Firma została dodana');
       }
