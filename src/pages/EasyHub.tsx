@@ -420,16 +420,16 @@ export default function EasyHub() {
   }, [activeCategory, dynamicTiles]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
             {activeCategory !== 'main' ? (
               <>
                 <UniversalHomeButton />
                 <span className="text-muted-foreground">/</span>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-foreground text-sm sm:text-base">
                   {getCategoryTitle()}
                 </span>
               </>
@@ -438,16 +438,16 @@ export default function EasyHub() {
                 <img 
                   src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                   alt="RIDO" 
-                  className="h-8 w-8 cursor-pointer"
+                  className="h-6 w-6 sm:h-8 sm:w-8 cursor-pointer"
                   onClick={() => setActiveCategory('main')}
                 />
-                <span className="font-bold text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <span className="font-bold text-base sm:text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                   GetRido
                 </span>
               </>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <MyGetRidoButton user={user} />
             <AddListingModal user={user} />
           </div>
@@ -455,11 +455,11 @@ export default function EasyHub() {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-8 pb-4 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2 md:mb-3">
+      <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
+        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3">
           GetRido
         </h1>
-        <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto whitespace-nowrap">
+        <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
           Wszystko, czego potrzebujesz – łatwo i w jednym miejscu.
         </p>
       </section>
