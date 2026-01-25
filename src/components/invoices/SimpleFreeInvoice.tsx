@@ -147,6 +147,7 @@ export function SimpleFreeInvoice() {
   const [signatureType, setSignatureType] = useState('valid_without_signature');
   const [issuedBy, setIssuedBy] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [compactPdf, setCompactPdf] = useState(false);
   
   // Discount
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
@@ -368,6 +369,8 @@ export function SimpleFreeInvoice() {
       // Signature
       signature_type: signatureType as any,
       issued_by: issuedBy,
+      // PDF options
+      compact_pdf: compactPdf,
     };
   };
 
@@ -1015,6 +1018,20 @@ export function SimpleFreeInvoice() {
                     />
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              {/* Compact PDF toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div>
+                  <Label className="font-medium">Tryb kompaktowy PDF</Label>
+                  <p className="text-xs text-muted-foreground">Mniejsze marginesy i czcionki - idealne dla wielu pozycji</p>
+                </div>
+                <Checkbox 
+                  checked={compactPdf}
+                  onCheckedChange={(checked) => setCompactPdf(checked as boolean)}
+                />
               </div>
 
               <Separator />
