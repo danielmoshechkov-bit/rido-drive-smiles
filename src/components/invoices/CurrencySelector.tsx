@@ -87,12 +87,12 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-between h-10">
+        <Button variant="outline" size="sm" className="w-full justify-between h-10 min-w-0">
           <span className="flex items-center gap-1 truncate">
             <span className="font-bold">{selectedCurrency.symbol}</span>
             <span className="text-xs">{selectedCurrency.value}</span>
           </span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50 ml-1" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-0" align="end">

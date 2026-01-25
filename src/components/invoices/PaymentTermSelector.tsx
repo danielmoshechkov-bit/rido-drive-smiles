@@ -30,15 +30,15 @@ export function PaymentTermSelector({ issueDate, dueDate, onDueDateChange }: Pay
         type="date"
         value={dueDate}
         onChange={(e) => onDueDateChange(e.target.value)}
-        className="h-10 text-sm rounded-r-none border-r-0 pr-2"
+        className="h-10 text-sm rounded-r-none border-r-0 flex-1 min-w-0"
       />
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" className="h-10 w-8 shrink-0 rounded-l-none border-l-0">
+          <Button variant="outline" size="icon" className="h-10 w-9 shrink-0 rounded-l-none border-l-0">
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-32 p-1" align="end">
+        <PopoverContent className="w-28 p-1" align="end">
           <div className="flex flex-col gap-0.5">
             {PAYMENT_PRESETS.map((preset) => (
               <Button
