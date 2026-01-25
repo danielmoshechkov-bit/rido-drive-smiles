@@ -260,7 +260,9 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
       .maybeSingle();
     
     if (entity) {
-      setSavedCompanyId(entity.id);
+      // DON'T set savedCompanyId here - entities.id is NOT the same as user_invoice_companies.id
+      // The company will be created in user_invoice_companies when saving the invoice
+      setSavedCompanyId(null);
       // Parse address_street to extract building/apartment numbers
       const streetParts = (entity.address_street || '').split(' ');
       const hasNumber = streetParts.length > 1 && /\d/.test(streetParts[streetParts.length - 1]);
@@ -504,6 +506,9 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
 
       const invoiceData = getInvoiceData();
       
+      // Track company ID locally (state update is async, so we need local variable)
+      let companyIdToUse = savedCompanyId;
+      
       // Save or update company if data changed
       if (seller.name && seller.nip) {
         const sellerAddress = [
@@ -512,7 +517,8 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
           seller.address_apartment_number ? `/${seller.address_apartment_number}` : ''
         ].filter(Boolean).join(' ');
 
-        if (savedCompanyId) {
+        if (companyIdToUse) {
+          // Update existing company
           await supabase
             .from('user_invoice_companies')
             .update({
@@ -526,9 +532,10 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
               bank_name: seller.bank_name,
               bank_account: seller.bank_account
             })
-            .eq('id', savedCompanyId);
+            .eq('id', companyIdToUse);
         } else {
-          const { data: newCompany } = await supabase
+          // Create new company in user_invoice_companies
+          const { data: newCompany, error: companyError } = await supabase
             .from('user_invoice_companies')
             .insert({
               user_id: user.id,
@@ -546,7 +553,13 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
             .select()
             .single();
           
+          if (companyError) {
+            console.error('Error creating company:', companyError);
+            throw companyError;
+          }
+          
           if (newCompany) {
+            companyIdToUse = newCompany.id;
             setSavedCompanyId(newCompany.id);
           }
         }
@@ -564,12 +577,12 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
         buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : ''
       ].filter(Boolean).join(' ');
 
-      // Save invoice
+      // Save invoice - use the local companyIdToUse variable
       const { data: savedInvoice, error } = await supabase
         .from('user_invoices')
         .insert({
           user_id: user.id,
-          company_id: savedCompanyId,
+          company_id: companyIdToUse,
           invoice_number: invoiceData.invoice_number,
           invoice_type: invoiceData.type,
           issue_date: invoiceData.issue_date,
