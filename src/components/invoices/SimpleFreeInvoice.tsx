@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,7 +22,8 @@ import {
   MessageSquare,
   Settings2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  MapPin
 } from 'lucide-react';
 import { 
   InvoiceItem, 
@@ -36,6 +36,8 @@ import {
 import { format, addDays } from 'date-fns';
 import { PaymentTermSelector } from './PaymentTermSelector';
 import { InvoicePreviewModal } from './InvoicePreviewModal';
+import { CurrencySelector, Currency, getCurrencySymbol, formatCurrencyAmount } from './CurrencySelector';
+import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
 import { supabase } from '@/integrations/supabase/client';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
@@ -72,10 +74,39 @@ const SIGNATURE_OPTIONS = [
   { value: 'both_none', label: 'Brak podpisu odbiorcy i wystawcy' }
 ];
 
+// Polish postal code to city mapping
+const POSTAL_CODE_MAP: Record<string, string> = {
+  '00': 'Warszawa', '01': 'Warszawa', '02': 'Warszawa', '03': 'Warszawa', '04': 'Warszawa',
+  '30': 'Kraków', '31': 'Kraków',
+  '50': 'Wrocław', '51': 'Wrocław',
+  '60': 'Poznań', '61': 'Poznań',
+  '80': 'Gdańsk', '81': 'Gdynia',
+  '90': 'Łódź', '91': 'Łódź', '92': 'Łódź',
+  '40': 'Katowice', '41': 'Chorzów',
+  '70': 'Szczecin', '71': 'Szczecin',
+  '20': 'Lublin', '35': 'Rzeszów', '15': 'Białystok', '25': 'Kielce',
+  '45': 'Opole', '10': 'Olsztyn', '85': 'Bydgoszcz', '87': 'Toruń',
+};
+
 // Extended item type with gross price for bidirectional calculation
 interface ExtendedInvoiceItem extends InvoiceItem {
   unit_gross_price: number;
   lastEditedField?: 'net' | 'gross';
+  discount_percent?: number;
+}
+
+// Extended seller with separate address fields
+interface ExtendedSeller extends Omit<InvoiceSeller, 'address_street'> {
+  address_street: string;
+  address_building_number: string;
+  address_apartment_number?: string;
+}
+
+// Extended buyer with separate address fields
+interface ExtendedBuyer extends Omit<InvoiceBuyer, 'address_street'> {
+  address_street: string;
+  address_building_number: string;
+  address_apartment_number?: string;
 }
 
 export function SimpleFreeInvoice() {
@@ -89,11 +120,15 @@ export function SimpleFreeInvoice() {
   const [invoiceType, setInvoiceType] = useState<string>('invoice');
   const [showAllTypes, setShowAllTypes] = useState(false);
   
+  // Currency
+  const [currency, setCurrency] = useState<Currency>('PLN');
+  
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
   const [issueDate, setIssueDate] = useState(today);
   const [saleDate, setSaleDate] = useState(today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
+  const [issuePlace, setIssuePlace] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');
   const [notes, setNotes] = useState('');
   
@@ -104,13 +139,21 @@ export function SimpleFreeInvoice() {
   // Additional tab fields
   const [signatureType, setSignatureType] = useState('none');
   const [issuedBy, setIssuedBy] = useState('');
-  const [issuePlace, setIssuePlace] = useState('');
+  
+  // Discount
+  const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
+    type: 'none',
+    mode: 'percent',
+    globalValue: 0,
+  });
   
   // Seller
-  const [seller, setSeller] = useState<InvoiceSeller>({
+  const [seller, setSeller] = useState<ExtendedSeller>({
     name: '',
     nip: '',
     address_street: '',
+    address_building_number: '',
+    address_apartment_number: '',
     address_city: '',
     address_postal_code: '',
     bank_name: '',
@@ -118,10 +161,12 @@ export function SimpleFreeInvoice() {
   });
   
   // Buyer
-  const [buyer, setBuyer] = useState<InvoiceBuyer>({
+  const [buyer, setBuyer] = useState<ExtendedBuyer>({
     name: '',
     nip: '',
     address_street: '',
+    address_building_number: '',
+    address_apartment_number: '',
     address_city: '',
     address_postal_code: ''
   });
@@ -148,6 +193,34 @@ export function SimpleFreeInvoice() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Auto-fill city based on postal code
+  const handlePostalCodeChange = (
+    type: 'seller' | 'buyer',
+    value: string
+  ) => {
+    const formatted = value.replace(/\D/g, '');
+    const postalCode = formatted.length > 2 
+      ? `${formatted.substring(0, 2)}-${formatted.substring(2, 5)}`
+      : formatted;
+
+    const prefix = formatted.substring(0, 2);
+    const suggestedCity = POSTAL_CODE_MAP[prefix];
+
+    if (type === 'seller') {
+      setSeller(prev => ({
+        ...prev,
+        address_postal_code: postalCode,
+        address_city: suggestedCity && !prev.address_city ? suggestedCity : prev.address_city
+      }));
+    } else {
+      setBuyer(prev => ({
+        ...prev,
+        address_postal_code: postalCode,
+        address_city: suggestedCity && !prev.address_city ? suggestedCity : prev.address_city
+      }));
+    }
+  };
 
   // Calculate gross from net
   const calculateGrossFromNet = (net: number, vatRate: string): number => {
@@ -184,7 +257,7 @@ export function SimpleFreeInvoice() {
       
       // Calculate totals
       const calculated = calculateItemTotals(item);
-      updated[index] = { ...calculated, unit_gross_price: item.unit_gross_price, lastEditedField: item.lastEditedField };
+      updated[index] = { ...calculated, unit_gross_price: item.unit_gross_price, lastEditedField: item.lastEditedField, discount_percent: item.discount_percent };
       return updated;
     });
   };
@@ -206,18 +279,29 @@ export function SimpleFreeInvoice() {
   const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
   const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
-  const remainingAmount = isFullyPaid ? 0 : Math.max(0, grossTotal - paidAmount);
+  
+  // Apply discount
+  const { discountAmount, finalAmount } = calculateDiscount(grossTotal, discountConfig);
+  const remainingAmount = isFullyPaid ? 0 : Math.max(0, finalAmount - paidAmount);
 
   const getPaymentStatus = () => {
-    if (isFullyPaid || remainingAmount === 0) return { label: 'Opłacona', color: 'text-green-600' };
-    if (paidAmount > 0) return { label: 'Częściowo opłacona', color: 'text-amber-600' };
-    return { label: 'Nieopłacona', color: 'text-red-600' };
+    if (isFullyPaid || remainingAmount === 0) return { label: 'Opłacona', color: 'text-green-600 bg-green-50' };
+    if (paidAmount > 0) return { label: 'Częściowo opłacona', color: 'text-amber-600 bg-amber-50' };
+    return { label: 'Nieopłacona', color: 'text-red-600 bg-red-50' };
   };
 
   const handlePreview = () => {
     // Validation
     if (!seller.name) {
-      toast.error('Wprowadź nazwę sprzedawcy');
+      toast.error('Wprowadź pełną nazwę sprzedawcy');
+      return;
+    }
+    if (!seller.nip) {
+      toast.error('Wprowadź NIP sprzedawcy');
+      return;
+    }
+    if (!seller.address_street || !seller.address_building_number) {
+      toast.error('Wprowadź ulicę i numer budynku sprzedawcy');
       return;
     }
     if (!buyer.name) {
@@ -232,18 +316,38 @@ export function SimpleFreeInvoice() {
     setShowPreview(true);
   };
 
-  const getInvoiceData = (): InvoiceData => ({
-    invoice_number: invoiceNumber,
-    type: invoiceType as 'invoice' | 'proforma' | 'receipt',
-    issue_date: issueDate,
-    sale_date: saleDate,
-    due_date: dueDate,
-    payment_method: paymentMethod,
-    notes,
-    items: items.map(({ unit_gross_price, lastEditedField, ...item }) => item),
-    seller,
-    buyer
-  });
+  const getInvoiceData = (): InvoiceData => {
+    // Combine address fields for seller
+    const sellerAddress = seller.address_street + 
+      (seller.address_building_number ? ` ${seller.address_building_number}` : '') +
+      (seller.address_apartment_number ? `/${seller.address_apartment_number}` : '');
+    
+    // Combine address fields for buyer  
+    const buyerAddress = buyer.address_street +
+      (buyer.address_building_number ? ` ${buyer.address_building_number}` : '') +
+      (buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : '');
+
+    return {
+      invoice_number: invoiceNumber,
+      type: invoiceType as 'invoice' | 'proforma' | 'receipt',
+      issue_date: issueDate,
+      sale_date: saleDate,
+      due_date: dueDate,
+      issue_place: issuePlace,
+      payment_method: paymentMethod,
+      notes,
+      currency,
+      items: items.map(({ unit_gross_price, lastEditedField, ...item }) => item),
+      seller: {
+        ...seller,
+        address_street: sellerAddress,
+      },
+      buyer: {
+        ...buyer,
+        address_street: buyerAddress,
+      }
+    };
+  };
 
   const handleSave = async () => {
     toast.success('Faktura została zapisana na Twoim koncie!');
@@ -256,18 +360,27 @@ export function SimpleFreeInvoice() {
   };
 
   const paymentStatus = getPaymentStatus();
+  const currencySymbol = getCurrencySymbol(currency);
+
+  const formatAmount = (amount: number) => formatCurrencyAmount(amount, currency);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
-          <Receipt className="h-7 w-7 text-primary" />
-          Darmowy Generator Faktur
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Bez rejestracji, bez logowania. Wygeneruj PDF w przeglądarce.
-        </p>
+      {/* Header with Currency Selector */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-center sm:text-left">
+          <h1 className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
+            <Receipt className="h-7 w-7 text-primary" />
+            Darmowy Generator Faktur
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Bez rejestracji, bez logowania. Wygeneruj PDF w przeglądarce.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">Waluta:</Label>
+          <CurrencySelector value={currency} onChange={setCurrency} />
+        </div>
       </div>
 
       {/* Invoice Type Selection */}
@@ -297,9 +410,9 @@ export function SimpleFreeInvoice() {
             </Button>
           </div>
           
-          {/* Expanded document types */}
+          {/* Expanded document types - fixed for mobile */}
           {showAllTypes && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t">
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
               {DOCUMENT_TYPES.map((type) => (
                 <Button
                   key={type.value}
@@ -310,7 +423,7 @@ export function SimpleFreeInvoice() {
                     const currentNum = invoiceNumber.split('/').pop() || '001';
                     setInvoiceNumber(`${type.prefix}/${format(new Date(), 'yyyy/MM')}/${currentNum}`);
                   }}
-                  className="text-xs h-auto py-2 px-3"
+                  className="text-xs h-auto py-2 px-3 whitespace-nowrap"
                   size="sm"
                 >
                   {type.label}
@@ -339,7 +452,7 @@ export function SimpleFreeInvoice() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label>Nazwa firmy *</Label>
+              <Label>Pełna nazwa firmy <span className="text-destructive">*</span></Label>
               <Input
                 value={seller.name}
                 onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
@@ -347,7 +460,7 @@ export function SimpleFreeInvoice() {
               />
             </div>
             <div>
-              <Label>NIP</Label>
+              <Label>NIP <span className="text-destructive">*</span></Label>
               <Input
                 value={seller.nip}
                 onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
@@ -356,19 +469,36 @@ export function SimpleFreeInvoice() {
               />
             </div>
             <div>
-              <Label>Ulica i numer</Label>
+              <Label>Ulica <span className="text-destructive">*</span></Label>
               <Input
                 value={seller.address_street}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_street: e.target.value }))}
-                placeholder="ul. Przykładowa 1"
+                placeholder="ul. Przykładowa"
+              />
+            </div>
+            <div>
+              <Label>Nr budynku <span className="text-destructive">*</span></Label>
+              <Input
+                value={seller.address_building_number}
+                onChange={(e) => setSeller(prev => ({ ...prev, address_building_number: e.target.value }))}
+                placeholder="1A"
+              />
+            </div>
+            <div>
+              <Label>Nr lokalu</Label>
+              <Input
+                value={seller.address_apartment_number}
+                onChange={(e) => setSeller(prev => ({ ...prev, address_apartment_number: e.target.value }))}
+                placeholder="(opcjonalnie)"
               />
             </div>
             <div>
               <Label>Kod pocztowy</Label>
               <Input
                 value={seller.address_postal_code}
-                onChange={(e) => setSeller(prev => ({ ...prev, address_postal_code: e.target.value }))}
+                onChange={(e) => handlePostalCodeChange('seller', e.target.value)}
                 placeholder="00-000"
+                maxLength={6}
               />
             </div>
             <div>
@@ -377,22 +507,6 @@ export function SimpleFreeInvoice() {
                 value={seller.address_city}
                 onChange={(e) => setSeller(prev => ({ ...prev, address_city: e.target.value }))}
                 placeholder="Miasto"
-              />
-            </div>
-            <div>
-              <Label>Nazwa banku</Label>
-              <Input
-                value={seller.bank_name}
-                onChange={(e) => setSeller(prev => ({ ...prev, bank_name: e.target.value }))}
-                placeholder="Wpisz nazwę banku"
-              />
-            </div>
-            <div>
-              <Label>Numer konta</Label>
-              <Input
-                value={seller.bank_account}
-                onChange={(e) => setSeller(prev => ({ ...prev, bank_account: e.target.value }))}
-                placeholder="00 0000 0000 0000 0000 0000 0000"
               />
             </div>
           </div>
@@ -410,7 +524,7 @@ export function SimpleFreeInvoice() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label>Nazwa firmy / Imię i nazwisko *</Label>
+              <Label>Nazwa firmy / Imię i nazwisko <span className="text-destructive">*</span></Label>
               <Input
                 value={buyer.name}
                 onChange={(e) => setBuyer(prev => ({ ...prev, name: e.target.value }))}
@@ -427,19 +541,36 @@ export function SimpleFreeInvoice() {
               />
             </div>
             <div>
-              <Label>Ulica i numer</Label>
+              <Label>Ulica</Label>
               <Input
                 value={buyer.address_street}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_street: e.target.value }))}
-                placeholder="ul. Przykładowa 1"
+                placeholder="ul. Przykładowa"
+              />
+            </div>
+            <div>
+              <Label>Nr budynku</Label>
+              <Input
+                value={buyer.address_building_number}
+                onChange={(e) => setBuyer(prev => ({ ...prev, address_building_number: e.target.value }))}
+                placeholder="1A"
+              />
+            </div>
+            <div>
+              <Label>Nr lokalu</Label>
+              <Input
+                value={buyer.address_apartment_number}
+                onChange={(e) => setBuyer(prev => ({ ...prev, address_apartment_number: e.target.value }))}
+                placeholder="(opcjonalnie)"
               />
             </div>
             <div>
               <Label>Kod pocztowy</Label>
               <Input
                 value={buyer.address_postal_code}
-                onChange={(e) => setBuyer(prev => ({ ...prev, address_postal_code: e.target.value }))}
+                onChange={(e) => handlePostalCodeChange('buyer', e.target.value)}
                 placeholder="00-000"
+                maxLength={6}
               />
             </div>
             <div>
@@ -465,11 +596,22 @@ export function SimpleFreeInvoice() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="col-span-2">
-              <Label>Numer faktury *</Label>
+              <Label>Numer faktury <span className="text-destructive">*</span></Label>
               <Input
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 placeholder="FV/2026/01/001"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                Miejsce wystawienia
+              </Label>
+              <Input
+                value={issuePlace}
+                onChange={(e) => setIssuePlace(e.target.value)}
+                placeholder="Miasto"
               />
             </div>
             <div>
@@ -522,7 +664,7 @@ export function SimpleFreeInvoice() {
               
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-12 md:col-span-4">
-                  <Label className="text-xs">Nazwa towaru/usługi *</Label>
+                  <Label className="text-xs">Nazwa towaru/usługi <span className="text-destructive">*</span></Label>
                   <Input
                     value={item.name}
                     onChange={(e) => updateItem(index, 'name', e.target.value)}
@@ -583,10 +725,24 @@ export function SimpleFreeInvoice() {
                     </SelectContent>
                   </Select>
                 </div>
+                {discountConfig.type === 'per_item' && (
+                  <div className="col-span-4 md:col-span-1">
+                    <Label className="text-xs">Rabat %</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={item.discount_percent || ''}
+                      onChange={(e) => updateItem(index, 'discount_percent', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
                 <div className="col-span-8 md:col-span-1">
                   <Label className="text-xs">Suma brutto</Label>
                   <Input
-                    value={formatCurrency(item.gross_amount)}
+                    value={formatAmount(item.gross_amount)}
                     disabled
                     className="bg-muted font-medium"
                   />
@@ -602,21 +758,40 @@ export function SimpleFreeInvoice() {
 
           <Separator />
 
+          {/* Discount Section */}
+          <DiscountSection 
+            config={discountConfig}
+            onChange={setDiscountConfig}
+            currencySymbol={currencySymbol}
+          />
+
+          <Separator />
+
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-64 space-y-2">
+            <div className="w-72 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Razem netto:</span>
-                <span className="font-medium">{formatCurrency(netTotal)}</span>
+                <span className="font-medium">{formatAmount(netTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>VAT:</span>
-                <span className="font-medium">{formatCurrency(vatTotal)}</span>
+                <span className="font-medium">{formatAmount(vatTotal)}</span>
               </div>
+              <div className="flex justify-between text-sm">
+                <span>Razem brutto:</span>
+                <span className="font-medium">{formatAmount(grossTotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Rabat:</span>
+                  <span className="font-medium">-{formatAmount(discountAmount)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between text-lg font-bold">
                 <span>Do zapłaty:</span>
-                <span className="text-primary">{formatCurrency(grossTotal)}</span>
+                <span className="text-primary">{formatAmount(finalAmount)}</span>
               </div>
             </div>
           </div>
@@ -628,17 +803,17 @@ export function SimpleFreeInvoice() {
         <CardContent className="pt-6">
           <Tabs defaultValue="notes">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="notes" className="flex items-center gap-2">
+              <TabsTrigger value="notes" className="flex items-center gap-1 text-xs sm:text-sm">
                 <MessageSquare className="h-4 w-4" />
-                Uwagi
+                <span className="hidden sm:inline">Uwagi</span>
               </TabsTrigger>
-              <TabsTrigger value="payment" className="flex items-center gap-2">
+              <TabsTrigger value="payment" className="flex items-center gap-1 text-xs sm:text-sm">
                 <CreditCard className="h-4 w-4" />
-                Płatności
+                <span className="hidden sm:inline">Płatności</span>
               </TabsTrigger>
-              <TabsTrigger value="additional" className="flex items-center gap-2">
+              <TabsTrigger value="additional" className="flex items-center gap-1 text-xs sm:text-sm">
                 <Settings2 className="h-4 w-4" />
-                Dodatkowe
+                <span className="hidden sm:inline">Dodatkowe</span>
               </TabsTrigger>
             </TabsList>
             
@@ -668,14 +843,24 @@ export function SimpleFreeInvoice() {
                 </div>
                 
                 {paymentMethod === 'transfer' && (
-                  <div>
-                    <Label>Numer konta bankowego</Label>
-                    <Input
-                      value={seller.bank_account || ''}
-                      onChange={(e) => setSeller(prev => ({ ...prev, bank_account: e.target.value }))}
-                      placeholder="00 0000 0000 0000 0000 0000 0000"
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <Label>Nazwa banku</Label>
+                      <Input
+                        value={seller.bank_name || ''}
+                        onChange={(e) => setSeller(prev => ({ ...prev, bank_name: e.target.value }))}
+                        placeholder="Nazwa banku"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Numer konta bankowego</Label>
+                      <Input
+                        value={seller.bank_account || ''}
+                        onChange={(e) => setSeller(prev => ({ ...prev, bank_account: e.target.value }))}
+                        placeholder="00 0000 0000 0000 0000 0000 0000"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
               
@@ -689,7 +874,7 @@ export function SimpleFreeInvoice() {
                     checked={isFullyPaid}
                     onCheckedChange={(checked) => {
                       setIsFullyPaid(checked as boolean);
-                      if (checked) setPaidAmount(grossTotal);
+                      if (checked) setPaidAmount(finalAmount);
                     }}
                   />
                   <Label htmlFor="fully-paid" className="cursor-pointer">Faktura opłacona w całości</Label>
@@ -711,7 +896,7 @@ export function SimpleFreeInvoice() {
                     <div>
                       <Label>Pozostało do zapłaty</Label>
                       <Input
-                        value={formatCurrency(remainingAmount)}
+                        value={formatAmount(remainingAmount)}
                         disabled
                         className="bg-muted font-medium"
                       />
@@ -719,7 +904,7 @@ export function SimpleFreeInvoice() {
                   </div>
                 )}
                 
-                <div className={`p-3 rounded-lg bg-muted ${paymentStatus.color}`}>
+                <div className={`p-3 rounded-lg border ${paymentStatus.color}`}>
                   <span className="font-medium">Status: {paymentStatus.label}</span>
                 </div>
               </div>
@@ -746,14 +931,6 @@ export function SimpleFreeInvoice() {
                     value={issuedBy}
                     onChange={(e) => setIssuedBy(e.target.value)}
                     placeholder="Imię i nazwisko"
-                  />
-                </div>
-                <div>
-                  <Label>Miejsce wystawienia</Label>
-                  <Input
-                    value={issuePlace}
-                    onChange={(e) => setIssuePlace(e.target.value)}
-                    placeholder="Miasto"
                   />
                 </div>
               </div>
