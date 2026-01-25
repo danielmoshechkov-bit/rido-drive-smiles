@@ -23,6 +23,7 @@ interface InvoicePreviewModalProps {
   isLoggedIn: boolean;
   onSave?: () => Promise<void>;
   onSend?: (email: string) => Promise<void>;
+  invoiceIssued?: boolean; // If true, invoice is already saved
 }
 
 export function InvoicePreviewModal({
@@ -31,7 +32,8 @@ export function InvoicePreviewModal({
   invoiceData,
   isLoggedIn,
   onSave,
-  onSend
+  onSend,
+  invoiceIssued = false
 }: InvoicePreviewModalProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -112,32 +114,35 @@ export function InvoicePreviewModal({
         <DialogContent className="max-w-5xl w-full h-[95vh] md:h-[95vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="px-4 md:px-6 pt-4 pb-3 border-b shrink-0">
             <DialogTitle className="text-base md:text-lg">
-              Podgląd: {invoiceData.invoice_number}
+              {invoiceIssued ? '✅ Faktura wystawiona' : 'Podgląd'}: {invoiceData.invoice_number}
             </DialogTitle>
           </DialogHeader>
 
-          {/* Action buttons - all 4 in one row */}
+          {/* Action buttons */}
           <div className="flex items-center gap-1.5 px-3 md:px-6 py-2 border-b bg-muted/30 shrink-0">
             <Button variant="outline" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={() => onOpenChange(false)}>
               <ArrowLeft className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Wróć</span>
+              <span className="hidden sm:inline">{invoiceIssued ? 'Zamknij' : 'Wróć'}</span>
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-xs px-2 md:px-3 h-8"
-              onClick={handleSaveClick}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <>
-                  <Save className="h-3 w-3 mr-1" />
-                  <span className="hidden sm:inline">Zapisz</span>
-                </>
-              )}
-            </Button>
+            {/* Only show Save button if invoice is not already issued */}
+            {!invoiceIssued && onSave && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-xs px-2 md:px-3 h-8"
+                onClick={handleSaveClick}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Zapisz</span>
+                  </>
+                )}
+              </Button>
+            )}
             <Button variant="default" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handleDownloadPdf}>
               <Download className="h-3 w-3 mr-1" />
               PDF
