@@ -13,7 +13,7 @@ import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AddListingModal } from '@/components/AddListingModal';
-import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
+
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { 
@@ -105,7 +105,6 @@ export default function ClientPortal() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   
   // Invoice state
-  const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showCompanySetup, setShowCompanySetup] = useState(false);
   const [editingEntity, setEditingEntity] = useState<any | null>(null);
   const [userEntities, setUserEntities] = useState<any[]>([]);
@@ -331,11 +330,8 @@ export default function ClientPortal() {
   };
 
   const handleNewInvoice = () => {
-    if (userEntities.length === 0) {
-      setShowCompanySetup(true);
-    } else {
-      setShowNewInvoice(true);
-    }
+    // Navigate to the full invoice program page instead of opening simple wizard
+    navigate('/faktury');
   };
 
   const handleSaveAccountSettings = async () => {
@@ -1219,21 +1215,6 @@ export default function ClientPortal() {
         </div>
       </main>
 
-      {/* Invoice Wizard Modal */}
-      <NewInvoiceWizard
-        open={showNewInvoice}
-        onOpenChange={setShowNewInvoice}
-        entityId={userEntities[0]?.id || ''}
-        onCreated={() => {
-          setShowNewInvoice(false);
-          if (user) fetchUserInvoices(user.id);
-          toast.success('Faktura została wystawiona');
-        }}
-        onOpenCompanySetup={() => {
-          setShowNewInvoice(false);
-          setShowCompanySetup(true);
-        }}
-      />
 
       {/* Company Setup Wizard */}
       <CompanySetupWizard
