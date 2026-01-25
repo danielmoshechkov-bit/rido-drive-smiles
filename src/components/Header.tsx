@@ -1,11 +1,12 @@
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import LanguageSelector from "@/components/LanguageSelector";
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { LoginModal } from "@/components/LoginModal";
 
 const Header = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -75,7 +76,7 @@ const Header = () => {
         {/* CTA Button and Language Selector */}
         <div className="flex items-center gap-3">
           <LanguageSelector />
-          <Button variant="accent" size="sm" onClick={() => navigate('/auth')}>
+          <Button variant="accent" size="sm" onClick={() => setShowLoginModal(true)}>
             {t('header.joinNow')}
           </Button>
         </div>
@@ -95,6 +96,13 @@ const Header = () => {
           </button>
         </nav>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal
+        open={showLoginModal}
+        onOpenChange={setShowLoginModal}
+        redirectTo="/konto"
+      />
     </header>
   );
 };

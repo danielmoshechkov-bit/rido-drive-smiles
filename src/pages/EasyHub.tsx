@@ -40,6 +40,7 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { FeaturedListings } from "@/components/FeaturedListings";
 import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
+import { LoginModal } from "@/components/LoginModal";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -284,6 +285,7 @@ export default function EasyHub() {
   const [activeCategory, setActiveCategory] = useState<CategoryView>('main');
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showAccountingModal, setShowAccountingModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   // Handle URL parameter for category
@@ -439,7 +441,7 @@ export default function EasyHub() {
                 variant="outline"
                 size="sm"
                 className="h-9 px-4 text-sm font-medium"
-                onClick={() => navigate('/auth')}
+                onClick={() => setShowLoginModal(true)}
               >
                 Zaloguj
               </Button>
@@ -675,6 +677,13 @@ export default function EasyHub() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Login Modal */}
+      <LoginModal
+        open={showLoginModal}
+        onOpenChange={setShowLoginModal}
+        redirectTo="/konto"
+      />
     </div>
   );
 }

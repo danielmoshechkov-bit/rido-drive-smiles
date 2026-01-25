@@ -274,11 +274,14 @@ export default function ClientPortal() {
   };
 
   const fetchUserEntities = async (userId: string) => {
-    const { data } = await supabase
+    console.log('Fetching entities for user:', userId);
+    const { data, error } = await supabase
       .from('entities')
       .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer')
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false });
+    
+    console.log('Entities result:', { data, error });
     if (data) setUserEntities(data);
   };
 
