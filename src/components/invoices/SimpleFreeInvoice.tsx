@@ -703,7 +703,7 @@ export function SimpleFreeInvoice() {
               />
               
               {/* Row 1: Ilość, Jednostka */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FloatingInput
                   label="Ilość"
                   type="number"
@@ -728,7 +728,7 @@ export function SimpleFreeInvoice() {
               </div>
               
               {/* Row 2: Cena netto, Cena brutto */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FloatingInput
                   label="Cena netto"
                   type="number"
@@ -748,7 +748,7 @@ export function SimpleFreeInvoice() {
               </div>
               
               {/* Row 3: VAT %, Suma brutto */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="relative">
                   <div className="flex h-12 w-full rounded-md border border-input bg-background">
                     <span className="absolute left-3 top-1 text-xs text-primary">VAT</span>
