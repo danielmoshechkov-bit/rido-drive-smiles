@@ -44,7 +44,7 @@ import {
   Building2,
   LogIn
 } from 'lucide-react';
-import { NewInvoiceWizard } from '@/components/invoices/NewInvoiceWizard';
+// NewInvoiceWizard removed - using SimpleFreeInvoice instead
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { PaymentRemindersPanel } from '@/components/invoices/PaymentRemindersPanel';
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
@@ -943,17 +943,19 @@ export default function InvoiceProgram() {
         </div>
       </main>
 
-      {/* Modals - Always render, pass empty entityId if none selected */}
-      <NewInvoiceWizard
-        open={showNewInvoice}
-        onOpenChange={setShowNewInvoice}
-        entityId={selectedEntity || ''}
-        onCreated={() => {
-          fetchEntities(); // Refresh entities in case new one was created
-          fetchInvoices();
-        }}
-        onOpenCompanySetup={() => setShowCompanySetup(true)}
-      />
+      {/* New Invoice Modal - using SimpleFreeInvoice */}
+      <Dialog open={showNewInvoice} onOpenChange={setShowNewInvoice}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          <SimpleFreeInvoice 
+            onClose={() => setShowNewInvoice(false)}
+            onSaved={() => {
+              fetchEntities();
+              fetchInvoices();
+              setShowNewInvoice(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
       {selectedEntity && (
         <CostInvoiceModal
           open={showCostInvoice}
