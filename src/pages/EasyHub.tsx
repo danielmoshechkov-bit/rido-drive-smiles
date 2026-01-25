@@ -434,20 +434,15 @@ export default function EasyHub() {
                 </span>
               </>
             ) : (
-              <>
-                <img 
-                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                  alt="RIDO" 
-                  className="h-6 w-6 sm:h-8 sm:w-8 cursor-pointer"
-                  onClick={() => setActiveCategory('main')}
-                />
-                <span className="font-bold text-sm sm:text-lg md:text-xl text-primary">
-                  GetRido
-                </span>
-              </>
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="RIDO" 
+                className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer"
+                onClick={() => setActiveCategory('main')}
+              />
             )}
           </div>
-          <div className="flex gap-0.5 sm:gap-2 items-center">
+          <div className="flex gap-1.5 sm:gap-2 items-center">
             <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
             <AddListingModal user={user} />
           </div>
@@ -456,7 +451,7 @@ export default function EasyHub() {
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 text-primary">
+        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
           GetRido
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
