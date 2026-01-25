@@ -442,16 +442,33 @@ export default function EasyHub() {
               />
             )}
           </div>
-          <div className="flex gap-1.5 sm:gap-2 items-center">
-            <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
-            <AddListingModal user={user} />
+          <div className="flex gap-2 items-center">
+            {!user ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 text-sm font-medium"
+                onClick={() => navigate('/auth')}
+              >
+                Zaloguj
+              </Button>
+            ) : (
+              <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
+            )}
+            <Button
+              size="sm"
+              className="h-9 px-4 text-sm font-medium"
+              onClick={() => navigate('/dodaj')}
+            >
+              Dodaj ogłoszenie
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
+        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 text-primary">
           GetRido
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">

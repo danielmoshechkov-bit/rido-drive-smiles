@@ -412,12 +412,12 @@ export function SimpleFreeInvoice() {
     <div className="flex flex-col xl:flex-row gap-6">
       {/* Left side - Form */}
       <div className="flex-1 space-y-4 xl:max-w-2xl">
-        {/* Compact Header - no currency here, moved to dates section */}
+        {/* Compact Header */}
         <div className="flex items-center gap-2">
           <Receipt className="h-6 w-6 text-primary shrink-0" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
+            <h1 className="text-xl sm:text-2xl font-bold">Program do Fakturowania</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Za darmo wygeneruj PDF w przeglądarce</p>
           </div>
         </div>
 
@@ -647,14 +647,16 @@ export function SimpleFreeInvoice() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {/* Row 1: Numer faktury + Miejsce wystawienia + Waluta */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FloatingInput
-                label="Numer faktury"
-                required
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-              />
+            {/* Row 1: Numer faktury (full width) */}
+            <FloatingInput
+              label="Numer faktury"
+              required
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+            />
+
+            {/* Row 2: Miejsce wystawienia + Waluta (side by side) */}
+            <div className="grid grid-cols-2 gap-3">
               <FloatingInput
                 label="Miejscowość wystawienia"
                 value={issuePlace}
