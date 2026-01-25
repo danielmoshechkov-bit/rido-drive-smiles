@@ -442,7 +442,7 @@ export default function EasyHub() {
                   onClick={() => setActiveCategory('main')}
                 />
                 <span className="font-bold text-lg md:text-xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                  GetRido Easy
+                  GetRido
                 </span>
               </>
             )}
@@ -457,9 +457,9 @@ export default function EasyHub() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-8 pb-4 md:pt-12 md:pb-6 text-center">
         <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2 md:mb-3">
-          GetRido <span className="text-primary">Easy</span>
+          GetRido
         </h1>
-        <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
+        <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto whitespace-nowrap">
           Wszystko, czego potrzebujesz – łatwo i w jednym miejscu.
         </p>
       </section>
