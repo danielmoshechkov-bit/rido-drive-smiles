@@ -45,22 +45,28 @@ export function InvoiceTypeSelector({ value, onChange }: InvoiceTypeSelectorProp
           <Card
             key={type.value}
             className={cn(
-              "cursor-pointer transition-all hover:shadow-md",
+              "cursor-pointer transition-all hover:shadow-md border-2",
               isSelected 
-                ? "ring-2 ring-primary bg-primary/5" 
-                : "hover:bg-muted/50"
+                ? "border-primary bg-primary/10 shadow-lg" 
+                : "border-transparent hover:bg-muted/50 hover:border-muted"
             )}
             onClick={() => onChange(type.value)}
           >
             <CardContent className="p-4 text-center">
               <div className={cn(
-                "w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center",
+                "w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center transition-colors",
                 isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
               )}>
                 <Icon className="h-5 w-5" />
               </div>
-              <p className="font-semibold text-sm">{type.label}</p>
-              <p className="text-xs text-muted-foreground">{type.description}</p>
+              <p className={cn(
+                "font-semibold text-sm transition-colors",
+                isSelected && "text-primary"
+              )}>{type.label}</p>
+              <p className={cn(
+                "text-xs transition-colors",
+                isSelected ? "text-primary/70" : "text-muted-foreground"
+              )}>{type.description}</p>
             </CardContent>
           </Card>
         );
