@@ -24,7 +24,9 @@ import {
   Settings2,
   ChevronDown,
   ChevronUp,
-  MapPin
+  MapPin,
+  ImagePlus,
+  X
 } from 'lucide-react';
 import { 
   InvoiceItem, 
@@ -38,6 +40,7 @@ import { format, addDays } from 'date-fns';
 import { PaymentTermSelector } from './PaymentTermSelector';
 import { InvoicePreviewModal } from './InvoicePreviewModal';
 import { CurrencySelector, Currency, getCurrencySymbol, formatCurrencyAmount } from './CurrencySelector';
+import { UnitSelector } from './UnitSelector';
 import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -142,6 +145,7 @@ export function SimpleFreeInvoice() {
   // Additional tab fields
   const [signatureType, setSignatureType] = useState('none');
   const [issuedBy, setIssuedBy] = useState('');
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   
   // Discount
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
@@ -647,7 +651,7 @@ export function SimpleFreeInvoice() {
         </CardHeader>
         <CardContent className="space-y-4">
           {items.map((item, index) => (
-            <div key={index} className="p-4 border rounded-lg space-y-3">
+            <div key={index} className="p-4 border rounded-lg space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">Pozycja {index + 1}</span>
                 {items.length > 1 && (
@@ -657,16 +661,19 @@ export function SimpleFreeInvoice() {
                 )}
               </div>
               
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-12 md:col-span-4">
-                  <Label className="text-xs">Nazwa towaru/usługi <span className="text-destructive">*</span></Label>
-                  <Input
-                    value={item.name}
-                    onChange={(e) => updateItem(index, 'name', e.target.value)}
-                    placeholder="Nazwa pozycji"
-                  />
-                </div>
-                <div className="col-span-4 md:col-span-1">
+              {/* Row 1: Name */}
+              <div>
+                <Label className="text-xs">Nazwa towaru/usługi <span className="text-destructive">*</span></Label>
+                <Input
+                  value={item.name}
+                  onChange={(e) => updateItem(index, 'name', e.target.value)}
+                  placeholder="Nazwa pozycji"
+                />
+              </div>
+              
+              {/* Row 2: Ilość, Jednostka, Cena netto, Cena brutto */}
+              <div className="grid grid-cols-4 gap-2">
+                <div>
                   <Label className="text-xs">Ilość</Label>
                   <Input
                     type="number"
@@ -676,18 +683,14 @@ export function SimpleFreeInvoice() {
                     onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                   />
                 </div>
-                <div className="col-span-4 md:col-span-1">
+                <div>
                   <Label className="text-xs">Jedn.</Label>
-                  <Select value={item.unit} onValueChange={(v) => updateItem(index, 'unit', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <UnitSelector
+                    value={item.unit}
+                    onChange={(v) => updateItem(index, 'unit', v)}
+                  />
                 </div>
-                <div className="col-span-6 md:col-span-2">
+                <div>
                   <Label className="text-xs">Cena netto</Label>
                   <Input
                     type="number"
@@ -698,7 +701,7 @@ export function SimpleFreeInvoice() {
                     placeholder="0.00"
                   />
                 </div>
-                <div className="col-span-6 md:col-span-2">
+                <div>
                   <Label className="text-xs">Cena brutto</Label>
                   <Input
                     type="number"
@@ -709,10 +712,14 @@ export function SimpleFreeInvoice() {
                     placeholder="0.00"
                   />
                 </div>
-                <div className="col-span-4 md:col-span-1">
+              </div>
+              
+              {/* Row 3: VAT, Rabaty, Suma */}
+              <div className="grid grid-cols-4 gap-2">
+                <div>
                   <Label className="text-xs">VAT %</Label>
                   <Select value={item.vat_rate} onValueChange={(v) => updateItem(index, 'vat_rate', v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -720,15 +727,15 @@ export function SimpleFreeInvoice() {
                     </SelectContent>
                   </Select>
                 </div>
-                {discountConfig.type === 'per_item' && (
+                {discountConfig.type === 'per_item' ? (
                   <>
-                    <div className="col-span-6 md:col-span-1">
+                    <div>
                       <Label className="text-xs">Typ rabatu</Label>
                       <Select 
                         value={item.discount_type || 'percent'} 
                         onValueChange={(v) => updateItem(index, 'discount_type', v)}
                       >
-                        <SelectTrigger className="text-xs">
+                        <SelectTrigger className="h-10">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -737,7 +744,7 @@ export function SimpleFreeInvoice() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-6 md:col-span-1">
+                    <div>
                       <Label className="text-xs">
                         Rabat {(item.discount_type || 'percent') === 'percent' ? '%' : currencySymbol}
                       </Label>
@@ -761,13 +768,15 @@ export function SimpleFreeInvoice() {
                       />
                     </div>
                   </>
+                ) : (
+                  <div className="col-span-2" />
                 )}
-                <div className="col-span-8 md:col-span-1">
+                <div>
                   <Label className="text-xs">Suma brutto</Label>
                   <Input
                     value={formatAmount(item.gross_amount)}
                     disabled
-                    className="bg-muted font-medium"
+                    className="bg-muted font-medium h-10"
                   />
                 </div>
               </div>
@@ -934,6 +943,57 @@ export function SimpleFreeInvoice() {
             </TabsContent>
             
             <TabsContent value="additional" className="mt-4 space-y-4">
+              {/* Logo upload section */}
+              <div>
+                <Label className="mb-2 block">Logo firmy (opcjonalnie)</Label>
+                {companyLogo ? (
+                  <div className="flex items-center gap-4">
+                    <div className="w-24 h-24 border rounded-lg overflow-hidden flex items-center justify-center bg-muted">
+                      <img src={companyLogo} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setCompanyLogo(null)}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Usuń logo
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <ImagePlus className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">Dodaj logo do faktury</p>
+                    <label htmlFor="logo-upload">
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Wybierz plik
+                        </span>
+                      </Button>
+                    </label>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setCompanyLogo(event.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Podpis na fakturze</Label>
