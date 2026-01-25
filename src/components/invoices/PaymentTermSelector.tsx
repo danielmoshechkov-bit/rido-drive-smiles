@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ChevronDown } from 'lucide-react';
 import { addDays, format } from 'date-fns';
@@ -24,17 +23,19 @@ export function PaymentTermSelector({ issueDate, dueDate, onDueDateChange }: Pay
     onDueDateChange(newDueDate);
   };
 
+  // Format date for display
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return format(date, 'dd.MM.yyyy');
+  };
+
   return (
-    <div className="flex items-center">
-      <Input
-        type="date"
-        value={dueDate}
-        onChange={(e) => onDueDateChange(e.target.value)}
-        className="h-10 text-sm rounded-r-none border-r-0 flex-1 min-w-0"
-      />
+    <div className="flex items-center w-full h-12 pt-4 pb-1 px-3">
+      <span className="flex-1 text-sm">{formatDisplayDate(dueDate)}</span>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" className="h-10 w-9 shrink-0 rounded-l-none border-l-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mr-1">
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>

@@ -167,18 +167,15 @@ export function InvoicePreviewModal({
             </div>
           )}
 
-          {/* Invoice Preview - responsive scaling */}
+          {/* Invoice Preview - full width responsive */}
           <div className="flex-1 overflow-auto bg-muted/50 p-2 md:p-4">
             <div 
-              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden origin-top"
-              style={{ 
-                width: 'min(100%, 210mm)',
-                aspectRatio: '210 / 297',
-              }}
+              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden w-full max-w-[100%]"
             >
               <iframe
                 ref={iframeRef}
-                className="w-full h-full border-0"
+                className="w-full border-0"
+                style={{ minHeight: '80vh' }}
                 title="Podgląd faktury"
                 sandbox="allow-same-origin"
                 srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}

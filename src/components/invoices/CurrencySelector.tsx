@@ -11,56 +11,55 @@ export type Currency = string;
 interface CurrencyOption {
   value: string;
   label: string;
-  symbol: string;
 }
 
-// All world currencies
+// All world currencies - only codes, no symbols
 export const CURRENCIES: CurrencyOption[] = [
-  { value: 'PLN', label: 'Polski złoty', symbol: 'zł' },
-  { value: 'EUR', label: 'Euro', symbol: '€' },
-  { value: 'USD', label: 'Dolar amerykański', symbol: '$' },
-  { value: 'GBP', label: 'Funt brytyjski', symbol: '£' },
-  { value: 'CHF', label: 'Frank szwajcarski', symbol: 'CHF' },
-  { value: 'CZK', label: 'Korona czeska', symbol: 'Kč' },
-  { value: 'SEK', label: 'Korona szwedzka', symbol: 'kr' },
-  { value: 'NOK', label: 'Korona norweska', symbol: 'kr' },
-  { value: 'DKK', label: 'Korona duńska', symbol: 'kr' },
-  { value: 'HUF', label: 'Forint węgierski', symbol: 'Ft' },
-  { value: 'RON', label: 'Lej rumuński', symbol: 'lei' },
-  { value: 'BGN', label: 'Lew bułgarski', symbol: 'лв' },
-  { value: 'HRK', label: 'Kuna chorwacka', symbol: 'kn' },
-  { value: 'UAH', label: 'Hrywna ukraińska', symbol: '₴' },
-  { value: 'RUB', label: 'Rubel rosyjski', symbol: '₽' },
-  { value: 'TRY', label: 'Lira turecka', symbol: '₺' },
-  { value: 'JPY', label: 'Jen japoński', symbol: '¥' },
-  { value: 'CNY', label: 'Juan chiński', symbol: '¥' },
-  { value: 'KRW', label: 'Won południowokoreański', symbol: '₩' },
-  { value: 'INR', label: 'Rupia indyjska', symbol: '₹' },
-  { value: 'AUD', label: 'Dolar australijski', symbol: 'A$' },
-  { value: 'CAD', label: 'Dolar kanadyjski', symbol: 'C$' },
-  { value: 'NZD', label: 'Dolar nowozelandzki', symbol: 'NZ$' },
-  { value: 'MXN', label: 'Peso meksykańskie', symbol: '$' },
-  { value: 'BRL', label: 'Real brazylijski', symbol: 'R$' },
-  { value: 'ARS', label: 'Peso argentyńskie', symbol: '$' },
-  { value: 'ZAR', label: 'Rand południowoafrykański', symbol: 'R' },
-  { value: 'AED', label: 'Dirham ZEA', symbol: 'د.إ' },
-  { value: 'SAR', label: 'Rial saudyjski', symbol: '﷼' },
-  { value: 'ILS', label: 'Nowy szekel izraelski', symbol: '₪' },
-  { value: 'THB', label: 'Baht tajski', symbol: '฿' },
-  { value: 'SGD', label: 'Dolar singapurski', symbol: 'S$' },
-  { value: 'HKD', label: 'Dolar hongkoński', symbol: 'HK$' },
-  { value: 'IDR', label: 'Rupia indonezyjska', symbol: 'Rp' },
-  { value: 'MYR', label: 'Ringgit malezyjski', symbol: 'RM' },
-  { value: 'PHP', label: 'Peso filipińskie', symbol: '₱' },
-  { value: 'VND', label: 'Dong wietnamski', symbol: '₫' },
-  { value: 'EGP', label: 'Funt egipski', symbol: 'E£' },
-  { value: 'NGN', label: 'Naira nigeryjska', symbol: '₦' },
-  { value: 'KES', label: 'Szyling kenijski', symbol: 'KSh' },
-  { value: 'PKR', label: 'Rupia pakistańska', symbol: '₨' },
-  { value: 'BDT', label: 'Taka bangladeska', symbol: '৳' },
-  { value: 'CLP', label: 'Peso chilijskie', symbol: '$' },
-  { value: 'COP', label: 'Peso kolumbijskie', symbol: '$' },
-  { value: 'PEN', label: 'Sol peruwiański', symbol: 'S/' },
+  { value: 'PLN', label: 'Polski złoty' },
+  { value: 'EUR', label: 'Euro' },
+  { value: 'USD', label: 'Dolar amerykański' },
+  { value: 'GBP', label: 'Funt brytyjski' },
+  { value: 'CHF', label: 'Frank szwajcarski' },
+  { value: 'CZK', label: 'Korona czeska' },
+  { value: 'SEK', label: 'Korona szwedzka' },
+  { value: 'NOK', label: 'Korona norweska' },
+  { value: 'DKK', label: 'Korona duńska' },
+  { value: 'HUF', label: 'Forint węgierski' },
+  { value: 'RON', label: 'Lej rumuński' },
+  { value: 'BGN', label: 'Lew bułgarski' },
+  { value: 'HRK', label: 'Kuna chorwacka' },
+  { value: 'UAH', label: 'Hrywna ukraińska' },
+  { value: 'RUB', label: 'Rubel rosyjski' },
+  { value: 'TRY', label: 'Lira turecka' },
+  { value: 'JPY', label: 'Jen japoński' },
+  { value: 'CNY', label: 'Juan chiński' },
+  { value: 'KRW', label: 'Won południowokoreański' },
+  { value: 'INR', label: 'Rupia indyjska' },
+  { value: 'AUD', label: 'Dolar australijski' },
+  { value: 'CAD', label: 'Dolar kanadyjski' },
+  { value: 'NZD', label: 'Dolar nowozelandzki' },
+  { value: 'MXN', label: 'Peso meksykańskie' },
+  { value: 'BRL', label: 'Real brazylijski' },
+  { value: 'ARS', label: 'Peso argentyńskie' },
+  { value: 'ZAR', label: 'Rand południowoafrykański' },
+  { value: 'AED', label: 'Dirham ZEA' },
+  { value: 'SAR', label: 'Rial saudyjski' },
+  { value: 'ILS', label: 'Nowy szekel izraelski' },
+  { value: 'THB', label: 'Baht tajski' },
+  { value: 'SGD', label: 'Dolar singapurski' },
+  { value: 'HKD', label: 'Dolar hongkoński' },
+  { value: 'IDR', label: 'Rupia indonezyjska' },
+  { value: 'MYR', label: 'Ringgit malezyjski' },
+  { value: 'PHP', label: 'Peso filipińskie' },
+  { value: 'VND', label: 'Dong wietnamski' },
+  { value: 'EGP', label: 'Funt egipski' },
+  { value: 'NGN', label: 'Naira nigeryjska' },
+  { value: 'KES', label: 'Szyling kenijski' },
+  { value: 'PKR', label: 'Rupia pakistańska' },
+  { value: 'BDT', label: 'Taka bangladeska' },
+  { value: 'CLP', label: 'Peso chilijskie' },
+  { value: 'COP', label: 'Peso kolumbijskie' },
+  { value: 'PEN', label: 'Sol peruwiański' },
 ];
 
 interface CurrencySelectorProps {
@@ -79,20 +78,16 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
     const searchLower = search.toLowerCase();
     return CURRENCIES.filter(c => 
       c.value.toLowerCase().includes(searchLower) ||
-      c.label.toLowerCase().includes(searchLower) ||
-      c.symbol.toLowerCase().includes(searchLower)
+      c.label.toLowerCase().includes(searchLower)
     );
   }, [search]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-between h-10 min-w-0">
-          <span className="flex items-center gap-1 truncate">
-            <span className="font-bold">{selectedCurrency.symbol}</span>
-            <span className="text-xs">{selectedCurrency.value}</span>
-          </span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-50 ml-1" />
+        <Button variant="ghost" className="w-full justify-between h-12 pt-4 pb-1 px-3 hover:bg-transparent">
+          <span className="font-medium text-sm">{selectedCurrency.value}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-0" align="end">
@@ -128,8 +123,8 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
                     value === currency.value && "bg-accent"
                   )}
                 >
-                  <span className="font-bold w-8 shrink-0">{currency.symbol}</span>
-                  <span className="flex-1 truncate">{currency.value} - {currency.label}</span>
+                  <span className="font-bold w-10 shrink-0">{currency.value}</span>
+                  <span className="flex-1 truncate text-muted-foreground">{currency.label}</span>
                   {value === currency.value && <Check className="h-4 w-4 shrink-0" />}
                 </button>
               ))
@@ -142,7 +137,7 @@ export function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
 }
 
 export function getCurrencySymbol(currency: Currency): string {
-  return CURRENCIES.find(c => c.value === currency)?.symbol || 'zł';
+  return currency; // Return just the code
 }
 
 export function formatCurrencyAmount(amount: number, currency: Currency): string {
