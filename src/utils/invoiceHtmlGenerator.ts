@@ -22,6 +22,7 @@ export interface InvoiceSeller {
   bank_account?: string;
   email?: string;
   phone?: string;
+  logo_url?: string;
 }
 
 export interface InvoiceBuyer {
@@ -156,19 +157,25 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     receipt: 'Rachunek'
   };
 
+  // Generate safe filename for PDF
+  const safeFileName = `${invoice.invoice_number.replace(/\//g, '_')}_${invoice.buyer.name.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '_').substring(0, 30)}`;
+  
   return `
 <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${invoice.invoice_number}</title>
+  <title>${safeFileName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { margin: 15mm; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #333; padding: 20px; }
     .invoice { max-width: 800px; margin: 0 auto; background: white; }
-    .header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #7c3aed; }
-    .logo { font-size: 24px; font-weight: bold; color: #7c3aed; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #7c3aed; }
+    .logo-area { min-width: 200px; min-height: 60px; }
+    .logo-area img { max-width: 200px; max-height: 60px; object-fit: contain; }
+    .logo-text { font-size: 20px; font-weight: bold; color: #7c3aed; }
     .invoice-title { text-align: right; }
     .invoice-title h1 { font-size: 20px; color: #333; margin-bottom: 5px; }
     .invoice-number { font-size: 16px; font-weight: bold; color: #7c3aed; }
@@ -203,19 +210,17 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; }
     .signature { width: 200px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 8px; font-size: 10px; color: #666; }
-    .watermark { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #ccc; }
     @media print {
       body { padding: 0; }
       .invoice { max-width: 100%; }
-      .watermark { display: none; }
     }
   </style>
 </head>
 <body>
   <div class="invoice">
     <div class="header">
-      <div class="logo">
-        ${seller.name || 'Twoja Firma'}
+      <div class="logo-area">
+        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo" />` : `<div class="logo-text">${seller.name || ''}</div>`}
       </div>
       <div class="invoice-title">
         <h1>${typeLabels[invoice.type] || 'Faktura VAT'}</h1>
@@ -330,7 +335,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
   </div>
-  <div class="watermark">Wygenerowano w GetRido.pl</div>
 </body>
 </html>
   `;
