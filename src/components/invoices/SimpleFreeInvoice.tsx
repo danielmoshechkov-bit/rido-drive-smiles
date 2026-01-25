@@ -150,7 +150,8 @@ export function SimpleFreeInvoice() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [compactPdf, setCompactPdf] = useState(false);
   
-  // Discount
+  // Collapsible sections
+  const [sellerExpanded, setSellerExpanded] = useState(true);
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
     type: 'none',
     mode: 'percent',
@@ -479,73 +480,90 @@ export function SimpleFreeInvoice() {
         </CardContent>
       </Card>
 
-      {/* Seller Section */}
+      {/* Seller Section - Collapsible */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Sprzedawca (Twoja firma)
+        <CardHeader 
+          className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => setSellerExpanded(!sellerExpanded)}
+        >
+          <CardTitle className="text-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Sprzedawca (Twoja firma)
+              {seller.name && (
+                <span className="text-xs font-normal text-muted-foreground ml-2">
+                  {seller.name}
+                </span>
+              )}
+            </div>
+            {sellerExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="col-span-2">
-              <FloatingInput
-                label="Pełna nazwa firmy"
-                required
-                value={seller.name}
-                onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
-              />
+        {sellerExpanded && (
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="col-span-2">
+                <FloatingInput
+                  label="Pełna nazwa firmy"
+                  required
+                  value={seller.name}
+                  onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="NIP"
+                  required
+                  value={seller.nip}
+                  onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
+                  maxLength={10}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="Ulica"
+                  required
+                  value={seller.address_street}
+                  onChange={(e) => setSeller(prev => ({ ...prev, address_street: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="Nr budynku"
+                  required
+                  value={seller.address_building_number}
+                  onChange={(e) => setSeller(prev => ({ ...prev, address_building_number: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="Nr lokalu"
+                  value={seller.address_apartment_number || ''}
+                  onChange={(e) => setSeller(prev => ({ ...prev, address_apartment_number: e.target.value }))}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="Kod pocztowy"
+                  value={seller.address_postal_code}
+                  onChange={(e) => handlePostalCodeChange('seller', e.target.value)}
+                  maxLength={6}
+                />
+              </div>
+              <div>
+                <FloatingInput
+                  label="Miasto"
+                  value={seller.address_city}
+                  onChange={(e) => setSeller(prev => ({ ...prev, address_city: e.target.value }))}
+                />
+              </div>
             </div>
-            <div>
-              <FloatingInput
-                label="NIP"
-                required
-                value={seller.nip}
-                onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                maxLength={10}
-              />
-            </div>
-            <div>
-              <FloatingInput
-                label="Ulica"
-                required
-                value={seller.address_street}
-                onChange={(e) => setSeller(prev => ({ ...prev, address_street: e.target.value }))}
-              />
-            </div>
-            <div>
-              <FloatingInput
-                label="Nr budynku"
-                required
-                value={seller.address_building_number}
-                onChange={(e) => setSeller(prev => ({ ...prev, address_building_number: e.target.value }))}
-              />
-            </div>
-            <div>
-              <FloatingInput
-                label="Nr lokalu"
-                value={seller.address_apartment_number || ''}
-                onChange={(e) => setSeller(prev => ({ ...prev, address_apartment_number: e.target.value }))}
-              />
-            </div>
-            <div>
-              <FloatingInput
-                label="Kod pocztowy"
-                value={seller.address_postal_code}
-                onChange={(e) => handlePostalCodeChange('seller', e.target.value)}
-                maxLength={6}
-              />
-            </div>
-            <div>
-              <FloatingInput
-                label="Miasto"
-                value={seller.address_city}
-                onChange={(e) => setSeller(prev => ({ ...prev, address_city: e.target.value }))}
-              />
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* Buyer Section */}
