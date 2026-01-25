@@ -1104,17 +1104,20 @@ export default function ClientPortal() {
                         <p className="text-xs text-muted-foreground">
                           Kliknij firmę, aby edytować dane
                         </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setEditingEntity(null);
-                            setShowCompanySetup(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Dodaj kolejną
-                        </Button>
+                        {/* Regular users can only have 1 company - hide "Add another" button for them */}
+                        {isAdminAccount && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingEntity(null);
+                              setShowCompanySetup(true);
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Dodaj kolejną
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ) : (
