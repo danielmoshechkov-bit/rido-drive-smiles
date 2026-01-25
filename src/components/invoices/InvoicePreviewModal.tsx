@@ -10,7 +10,8 @@ import {
   Send, 
   ArrowLeft,
   Mail,
-  Loader2
+  Loader2,
+  Save
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml, formatCurrency } from '@/utils/invoiceHtmlGenerator';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -115,25 +116,41 @@ export function InvoicePreviewModal({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Action buttons - responsive, wrap on mobile */}
-          <div className="flex flex-wrap items-center gap-2 px-4 md:px-6 py-2 border-b bg-muted/30 shrink-0">
-            <Button variant="outline" size="sm" className="text-xs md:text-sm" onClick={() => onOpenChange(false)}>
-              <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              Wróć
+          {/* Action buttons - all 4 in one row */}
+          <div className="flex items-center gap-1.5 px-3 md:px-6 py-2 border-b bg-muted/30 shrink-0">
+            <Button variant="outline" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={() => onOpenChange(false)}>
+              <ArrowLeft className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Wróć</span>
             </Button>
-            <Button variant="default" size="sm" className="text-xs md:text-sm" onClick={handleDownloadPdf}>
-              <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-xs px-2 md:px-3 h-8"
+              onClick={handleSaveClick}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <>
+                  <Save className="h-3 w-3 mr-1" />
+                  <span className="hidden sm:inline">Zapisz</span>
+                </>
+              )}
+            </Button>
+            <Button variant="default" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handleDownloadPdf}>
+              <Download className="h-3 w-3 mr-1" />
               PDF
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="text-xs md:text-sm"
+              className="text-xs px-2 md:px-3 h-8"
               onClick={handleSendClick}
               disabled={isSending}
             >
-              <Send className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              Email
+              <Send className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Email</span>
             </Button>
           </div>
 
