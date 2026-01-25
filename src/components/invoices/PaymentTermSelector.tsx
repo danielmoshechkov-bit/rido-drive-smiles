@@ -29,9 +29,9 @@ export function PaymentTermSelector({ issueDate, dueDate, onDueDateChange }: Pay
         <Button 
           variant="outline" 
           size="icon" 
-          className="h-11 w-11 shrink-0"
+          className="h-10 w-10 shrink-0"
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3 w-3" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-24 p-1" align="center">
