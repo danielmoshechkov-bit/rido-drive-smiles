@@ -622,7 +622,7 @@ export function SimpleFreeInvoice() {
                   type="date"
                   value={issueDate}
                   onChange={(e) => setIssueDate(e.target.value)}
-                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
                 />
               </div>
             </div>
@@ -633,7 +633,7 @@ export function SimpleFreeInvoice() {
                   type="date"
                   value={saleDate}
                   onChange={(e) => setSaleDate(e.target.value)}
-                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="h-12 border-0 pt-5 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
                 />
               </div>
             </div>
@@ -646,7 +646,7 @@ export function SimpleFreeInvoice() {
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="h-12 border-0 pt-5 pb-1 pl-3 pr-1 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    className="h-12 border-0 pt-5 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-datetime-edit-fields-wrapper]:pr-0"
                   />
                 </div>
               </div>
