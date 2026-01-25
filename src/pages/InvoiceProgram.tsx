@@ -539,59 +539,62 @@ export default function InvoiceProgram() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {entities.length > 0 && (
-                <Select value={selectedEntity} onValueChange={setSelectedEntity}>
-                  <SelectTrigger className="w-40 sm:w-48">
-                    <SelectValue placeholder="Wybierz firmę" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entities.map(e => (
-                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {user ? (
+                <>
+                  {entities.length > 0 && (
+                    <Select value={selectedEntity} onValueChange={setSelectedEntity}>
+                      <SelectTrigger className="w-40 sm:w-48">
+                        <SelectValue placeholder="Wybierz firmę" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {entities.map(e => (
+                          <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)}>
+                    <Plus className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Dodaj firmę</span>
+                  </Button>
+                  <MyGetRidoButton user={user} />
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setShowAuthModal(true)}>
+                    <LogIn className="h-4 w-4 mr-1" />
+                    Zaloguj
+                  </Button>
+                  <Button size="sm" onClick={() => setShowAuthModal(true)}>
+                    Zarejestruj
+                  </Button>
+                </>
               )}
-              <Button variant="outline" size="sm" onClick={() => {
-                if (requireLogin()) setShowCompanySetup(true);
-              }}>
-                <Plus className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Dodaj firmę</span>
-              </Button>
-              <MyGetRidoButton user={user} />
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Back Button + AI Voice Bar - Compact Row */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="shrink-0">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Wróć
-          </Button>
-          
-          {/* AI Voice Bar - Inline */}
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
-              <Mic className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isListening ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
-              <Input
-                placeholder="Powiedz: wystaw fakturę..."
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAiCommand()}
-                className="pl-9 pr-16 h-9 rounded-full border border-primary/20 focus:border-primary text-sm"
-              />
-              <Button
-                onClick={handleAiCommand}
-                disabled={!aiQuery.trim()}
-                size="sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-7 px-3 text-xs"
-              >
-                <Sparkles className="h-3 w-3 mr-1" />
-                AI
-              </Button>
-            </div>
+      <main className="container mx-auto px-4 py-4">
+        {/* AI Voice Bar - Full width at top */}
+        <div className="mb-6">
+          <div className="relative max-w-3xl mx-auto">
+            <Mic className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 ${isListening ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+            <Input
+              placeholder="Powiedz: wystaw fakturę, dodaj koszt, pokaż nieopłacone..."
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAiCommand()}
+              className="pl-12 pr-20 h-12 rounded-full border-2 border-primary/20 focus:border-primary"
+            />
+            <Button
+              onClick={handleAiCommand}
+              disabled={!aiQuery.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 px-4"
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              AI
+            </Button>
           </div>
         </div>
 
