@@ -338,7 +338,7 @@ export function SimpleFreeInvoice() {
               <Input
                 value={seller.bank_name}
                 onChange={(e) => setSeller(prev => ({ ...prev, bank_name: e.target.value }))}
-                placeholder="PKO BP, mBank, itp."
+                placeholder="Wpisz nazwę banku"
               />
             </div>
             <div>

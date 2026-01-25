@@ -104,6 +104,7 @@ export default function ClientPortal() {
   // Invoice state
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showCompanySetup, setShowCompanySetup] = useState(false);
+  const [editingEntity, setEditingEntity] = useState<any | null>(null);
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
 
@@ -257,7 +258,7 @@ export default function ClientPortal() {
   const fetchUserEntities = async (userId: string) => {
     const { data } = await supabase
       .from('entities')
-      .select('id, name, nip, address_city, vat_payer')
+      .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer')
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false });
     if (data) setUserEntities(data);
@@ -980,7 +981,14 @@ export default function ClientPortal() {
                   {userEntities.length > 0 ? (
                     <div className="space-y-4">
                       {userEntities.map((entity) => (
-                        <div key={entity.id} className="border rounded-lg p-4 flex items-center justify-between">
+                        <div 
+                          key={entity.id} 
+                          className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            setEditingEntity(entity);
+                            setShowCompanySetup(true);
+                          }}
+                        >
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-primary/10">
                               <Building2 className="h-5 w-5 text-primary" />
@@ -992,15 +1000,21 @@ export default function ClientPortal() {
                               </p>
                             </div>
                           </div>
-                          <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
-                            {entity.vat_payer ? 'VAT' : 'Bez VAT'}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
+                              {entity.vat_payer ? 'VAT' : 'Bez VAT'}
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         </div>
                       ))}
                       <Button 
                         variant="outline" 
                         className="w-full"
-                        onClick={() => setShowCompanySetup(true)}
+                        onClick={() => {
+                          setEditingEntity(null);
+                          setShowCompanySetup(true);
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Dodaj kolejną firmę
@@ -1013,7 +1027,10 @@ export default function ClientPortal() {
                       <p className="text-sm text-muted-foreground mb-4">
                         Dodaj firmę, aby móc wystawiać faktury
                       </p>
-                      <Button onClick={() => setShowCompanySetup(true)}>
+                      <Button onClick={() => {
+                        setEditingEntity(null);
+                        setShowCompanySetup(true);
+                      }}>
                         <Plus className="h-4 w-4 mr-2" />
                         Dodaj firmę
                       </Button>
@@ -1113,12 +1130,16 @@ export default function ClientPortal() {
       {/* Company Setup Wizard */}
       <CompanySetupWizard
         open={showCompanySetup}
-        onOpenChange={setShowCompanySetup}
+        onOpenChange={(open) => {
+          setShowCompanySetup(open);
+          if (!open) setEditingEntity(null);
+        }}
+        editEntity={editingEntity}
         onCreated={(entity) => {
           setShowCompanySetup(false);
-          setUserEntities(prev => [...prev, entity]);
-          toast.success('Firma została dodana');
-          setShowNewInvoice(true);
+          setEditingEntity(null);
+          // Refresh entities list
+          if (user) fetchUserEntities(user.id);
         }}
       />
     </div>
