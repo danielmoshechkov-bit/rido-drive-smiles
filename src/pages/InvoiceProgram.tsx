@@ -563,10 +563,13 @@ export default function InvoiceProgram() {
                       </SelectContent>
                     </Select>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)}>
-                    <Plus className="h-4 w-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Dodaj firmę</span>
-                  </Button>
+                  {/* Only show "Add company" if user has no companies */}
+                  {entities.length === 0 && (
+                    <Button variant="outline" size="sm" onClick={() => setShowCompanySetup(true)}>
+                      <Plus className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Dodaj firmę</span>
+                    </Button>
+                  )}
                   <MyGetRidoButton user={user} />
                 </>
               ) : (
