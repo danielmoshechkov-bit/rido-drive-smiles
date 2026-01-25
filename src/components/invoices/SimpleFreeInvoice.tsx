@@ -696,16 +696,16 @@ export function SimpleFreeInvoice() {
               </div>
             </div>
             
-            {/* Row 3: Termin płatności + Selector (side by side on mobile) */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
+            {/* Row 3: Termin płatności + Selector (side by side) */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
                 <div className="flex h-11 w-full rounded-md border border-input bg-background">
                   <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
                   <Input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="h-11 border-0 pt-4 pb-1 pl-2 pr-0 shadow-none focus-visible:ring-0 text-xs [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
