@@ -34,7 +34,8 @@ import {
   InvoiceBuyer, 
   InvoiceData,
   calculateItemTotals,
-  formatCurrency
+  formatCurrency,
+  generateInvoiceHtml
 } from '@/utils/invoiceHtmlGenerator';
 import { format, addDays } from 'date-fns';
 import { PaymentTermSelector } from './PaymentTermSelector';
@@ -389,16 +390,21 @@ export function SimpleFreeInvoice() {
 
   const formatAmount = (amount: number) => formatCurrencyAmount(amount, currency);
 
+  // Generate live preview HTML
+  const livePreviewHtml = generateInvoiceHtml(getInvoiceData());
+
   return (
-    <div className="space-y-4">
-      {/* Compact Header - no currency here, moved to dates section */}
-      <div className="flex items-center gap-2">
-        <Receipt className="h-6 w-6 text-primary shrink-0" />
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
+    <div className="flex flex-col xl:flex-row gap-6">
+      {/* Left side - Form */}
+      <div className="flex-1 space-y-4 xl:max-w-2xl">
+        {/* Compact Header - no currency here, moved to dates section */}
+        <div className="flex items-center gap-2">
+          <Receipt className="h-6 w-6 text-primary shrink-0" />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold">Darmowy Generator Faktur</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Wygeneruj PDF w przeglądarce</p>
+          </div>
         </div>
-      </div>
 
       {/* Invoice Type Selection */}
       <Card>
@@ -1064,21 +1070,21 @@ export function SimpleFreeInvoice() {
         </CardContent>
       </Card>
 
-      {/* Preview Button */}
+      {/* Preview Button - visible on mobile/tablet */}
       <Button 
         onClick={handlePreview} 
         size="lg" 
-        className="w-full gap-2"
+        className="w-full gap-2 xl:hidden"
       >
         <Eye className="h-5 w-5" />
         Podgląd faktury
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground xl:hidden">
         Po kliknięciu zobaczysz podgląd dokumentu. Możesz pobrać PDF bez logowania lub zalogować się, aby zapisać na koncie.
       </p>
 
-      {/* Preview Modal */}
+      {/* Preview Modal - for mobile/tablet */}
       <InvoicePreviewModal
         open={showPreview}
         onOpenChange={setShowPreview}
@@ -1087,6 +1093,39 @@ export function SimpleFreeInvoice() {
         onSave={handleSave}
         onSend={handleSend}
       />
+      </div>
+
+      {/* Right side - Live Preview (desktop only) */}
+      <div className="hidden xl:flex flex-col w-[500px] shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)]">
+        <div className="bg-card rounded-lg border shadow-sm overflow-hidden flex flex-col h-full">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">Podgląd na żywo</span>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handlePreview}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Pełny ekran
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto bg-muted/20 p-3">
+            <div className="bg-white shadow-lg rounded overflow-hidden" style={{ aspectRatio: '210/297' }}>
+              <iframe
+                className="w-full h-full border-0"
+                title="Podgląd faktury"
+                sandbox="allow-same-origin"
+                srcDoc={livePreviewHtml}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
