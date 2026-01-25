@@ -16,7 +16,7 @@ interface LoginModalProps {
   onSuccess?: () => void;
 }
 
-export function LoginModal({ open, onOpenChange, redirectTo = '/konto', onSuccess }: LoginModalProps) {
+export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSuccess }: LoginModalProps) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [isLoading, setIsLoading] = useState(false);

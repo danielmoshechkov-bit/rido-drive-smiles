@@ -1204,10 +1204,14 @@ export default function ClientPortal() {
         }}
         editEntity={editingEntity}
         onCreated={(entity) => {
+          console.log('Company created/updated:', entity);
           setShowCompanySetup(false);
           setEditingEntity(null);
           // Refresh entities list
-          if (user) fetchUserEntities(user.id);
+          if (user) {
+            console.log('Refreshing entities for user:', user.id);
+            fetchUserEntities(user.id);
+          }
         }}
       />
 
