@@ -186,6 +186,18 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
   const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
   
+  // Group items by VAT rate for summary
+  const vatSummary: Record<string, { net: number; vat: number; gross: number }> = {};
+  items.forEach(item => {
+    const rate = item.vat_rate;
+    if (!vatSummary[rate]) {
+      vatSummary[rate] = { net: 0, vat: 0, gross: 0 };
+    }
+    vatSummary[rate].net += item.net_amount;
+    vatSummary[rate].vat += item.vat_amount;
+    vatSummary[rate].gross += item.gross_amount;
+  });
+  
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
   
@@ -201,6 +213,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.vat_amount, currency)}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
+  `).join('');
+
+  // VAT summary rows
+  const vatSummaryHtml = Object.entries(vatSummary).map(([rate, amounts]) => `
+    <div class="vat-row">
+      <span>VAT ${rate}%:</span>
+      <span>Netto: ${formatCurrency(amounts.net, currency)}</span>
+      <span>VAT: ${formatCurrency(amounts.vat, currency)}</span>
+      <span>Brutto: ${formatCurrency(amounts.gross, currency)}</span>
+    </div>
   `).join('');
 
   const paymentMethodLabels: Record<string, string> = {
@@ -254,36 +276,34 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       background: white;
     }
     .invoice { max-width: 800px; margin: 0 auto; background: white; }
-    .top-meta { font-size: 8px; color: #666; margin-bottom: 4px; }
+    .top-meta { display: flex; justify-content: flex-end; font-size: 8px; color: #666; margin-bottom: 4px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid #7c3aed; }
     .logo-area { min-width: 100px; }
     .logo-area img { max-width: 100px; max-height: 30px; object-fit: contain; }
     .invoice-title { text-align: right; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #333; margin-bottom: 1px; }
-    .invoice-number { font-size: 11px; font-weight: bold; color: #7c3aed; margin-bottom: 4px; }
-    .invoice-meta { font-size: 8px; color: #555; text-align: right; }
-    .invoice-meta-row { display: flex; justify-content: flex-end; gap: 8px; }
-    .invoice-meta-item { display: flex; gap: 4px; }
-    .invoice-meta-label { color: #888; }
+    .invoice-dates { font-size: 8px; color: #555; text-align: right; margin-top: 4px; }
+    .invoice-dates-row { margin-bottom: 2px; }
+    .invoice-dates-label { color: #888; }
     .parties { display: flex; gap: 16px; margin-bottom: 8px; }
     .party { flex: 1; }
     .party-label { font-size: 8px; color: #666; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
     .party-name { font-size: 10px; font-weight: bold; margin-bottom: 1px; }
     .party-details { font-size: 8px; color: #555; line-height: 1.3; }
-    .dates-box { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; font-size: 8px; }
-    .date-item { display: flex; gap: 4px; }
-    .date-label { color: #666; }
-    .date-value { font-weight: 600; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     th { background: #7c3aed; color: white; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; }
     th:first-child { border-radius: 3px 0 0 0; }
     th:last-child { border-radius: 0 3px 0 0; }
+    .vat-summary { margin-bottom: 6px; padding: 5px 8px; background: #f8f9fa; border-radius: 4px; font-size: 8px; }
+    .vat-summary-title { font-weight: 600; margin-bottom: 3px; color: #666; }
+    .vat-row { display: flex; gap: 12px; margin-bottom: 2px; }
+    .vat-row span:first-child { font-weight: 600; min-width: 60px; }
     .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
     .totals-table { width: 180px; }
     .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
     .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 5px 6px; border-radius: 3px; font-size: 10px; margin-top: 2px; }
     .amount-words { display: flex; gap: 4px; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid #7c3aed; border-radius: 2px; font-size: 8px; }
-    .amount-words-label { color: #666; font-weight: 600; }
+    .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
     .payment { margin-bottom: 6px; font-size: 8px; }
     .payment-row { display: flex; gap: 12px; margin-bottom: 2px; }
@@ -294,13 +314,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; }
     .signature { width: 160px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
-    .valid-note { text-align: center; font-size: 9px; color: #666; font-style: italic; margin-top: 16px; }
   </style>
 </head>
 <body>
   <div class="invoice">
     <div class="top-meta">
-      Wystawiono dnia ${formatDate(invoice.issue_date)}${invoice.issue_place ? `, ${invoice.issue_place}` : ''}
+      ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
     </div>
 
     <div class="header">
@@ -309,11 +328,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
       <div class="invoice-title">
         <h1>${typeLabels[invoice.type] || 'Faktura VAT'} nr ${invoice.invoice_number}</h1>
-        <div class="invoice-meta">
-          <div class="invoice-meta-row">
-            <div class="invoice-meta-item"><span class="invoice-meta-label">Data sprzedaży:</span> <span>${formatDate(invoice.sale_date)}</span></div>
-            <div class="invoice-meta-item"><span class="invoice-meta-label">Termin płatności:</span> <span>${formatDate(invoice.due_date)}</span></div>
-          </div>
+        <div class="invoice-dates">
+          <div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>
+          <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> ${formatDate(invoice.due_date)}</div>
         </div>
       </div>
     </div>
@@ -355,6 +372,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         ${itemsHtml}
       </tbody>
     </table>
+
+    <div class="vat-summary">
+      <div class="vat-summary-title">Podsumowanie wg stawek VAT:</div>
+      ${vatSummaryHtml}
+    </div>
 
     <div class="totals">
       <div class="totals-table">
@@ -418,9 +440,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
-    ${invoice.signature_type === 'valid_without_signature' || invoice.signature_type === 'none' || !invoice.signature_type ? `
-    <div class="valid-note">Faktura ważna bez podpisu</div>
-    ` : `
     <div class="footer">
       <div class="signature">
         <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru faktury</div>
@@ -429,7 +448,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia faktury${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
       </div>
     </div>
-    `}
   </div>
 </body>
 </html>

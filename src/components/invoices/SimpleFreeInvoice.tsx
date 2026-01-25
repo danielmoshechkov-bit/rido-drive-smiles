@@ -171,15 +171,30 @@ export function SimpleFreeInvoice() {
   });
   
   // Buyer
-  const [buyer, setBuyer] = useState<ExtendedBuyer>({
+  const [buyer, setBuyer] = useState<ExtendedBuyer & { country?: string }>({
     name: '',
     nip: '',
     address_street: '',
     address_building_number: '',
     address_apartment_number: '',
     address_city: '',
-    address_postal_code: ''
+    address_postal_code: '',
+    country: 'Polska'
   });
+  
+  // Country list for buyer
+  const [countrySearch, setCountrySearch] = useState('');
+  const COUNTRIES = [
+    'Polska', 'Niemcy', 'Austria', 'Belgia', 'Bułgaria', 'Chorwacja', 'Cypr', 'Czechy', 
+    'Dania', 'Estonia', 'Finlandia', 'Francja', 'Grecja', 'Hiszpania', 'Holandia', 
+    'Irlandia', 'Litwa', 'Luksemburg', 'Łotwa', 'Malta', 'Portugalia', 'Rumunia', 
+    'Słowacja', 'Słowenia', 'Szwecja', 'Węgry', 'Wielka Brytania', 'Włochy',
+    'USA', 'Kanada', 'Australia', 'Chiny', 'Japonia', 'Korea Południowa', 'Indie',
+    'Brazylia', 'Meksyk', 'Szwajcaria', 'Norwegia', 'Ukraina', 'Rosja'
+  ];
+  const filteredCountries = COUNTRIES.filter(c => 
+    c.toLowerCase().includes(countrySearch.toLowerCase())
+  );
   
   // Items with extended fields
   const [items, setItems] = useState<ExtendedInvoiceItem[]>([
@@ -559,6 +574,29 @@ export function SimpleFreeInvoice() {
                 maxLength={10}
               />
             </div>
+            <div className="relative">
+              <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                <span className="absolute left-3 top-1 text-xs text-primary">Kraj</span>
+                <Select value={(buyer as any).country || 'Polska'} onValueChange={(v) => setBuyer(prev => ({ ...prev, country: v }))}>
+                  <SelectTrigger className="h-12 border-0 pt-4 pb-1 shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="px-2 py-1 sticky top-0 bg-background">
+                      <Input
+                        placeholder="Szukaj kraju..."
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                    {filteredCountries.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <FloatingInput
                 label="Ulica"
@@ -609,8 +647,8 @@ export function SimpleFreeInvoice() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {/* Row 1: Numer faktury + Miejsce wystawienia */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 1: Numer faktury + Miejsce wystawienia + Waluta */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FloatingInput
                 label="Numer faktury"
                 required
@@ -618,10 +656,18 @@ export function SimpleFreeInvoice() {
                 onChange={(e) => setInvoiceNumber(e.target.value)}
               />
               <FloatingInput
-                label="Miejsce wystawienia"
+                label="Miejscowość wystawienia"
                 value={issuePlace}
                 onChange={(e) => setIssuePlace(e.target.value)}
               />
+              <div className="relative">
+                <div className="flex h-12 w-full rounded-md border border-input bg-background items-center px-3">
+                  <span className="absolute left-3 top-1 text-xs text-primary">Waluta</span>
+                  <div className="pt-3 w-full">
+                    <CurrencySelector value={currency} onChange={setCurrency} />
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* Row 2: Data wystawienia + Data sprzedaży (side by side) */}
@@ -650,34 +696,24 @@ export function SimpleFreeInvoice() {
               </div>
             </div>
             
-            {/* Row 3: Termin płatności + Waluta (side by side) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex gap-1">
-                <div className="relative flex-1">
-                  <div className="flex h-11 w-full rounded-md border border-input bg-background">
-                    <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
-                    <Input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    />
-                  </div>
-                </div>
-                <PaymentTermSelector
-                  issueDate={issueDate}
-                  dueDate={dueDate}
-                  onDueDateChange={setDueDate}
-                />
-              </div>
-              <div className="relative">
-                <div className="flex h-11 w-full rounded-md border border-input bg-background items-center px-3">
-                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Waluta</span>
-                  <div className="pt-3 w-full">
-                    <CurrencySelector value={currency} onChange={setCurrency} />
-                  </div>
+            {/* Row 3: Termin płatności (full width with payment selector) */}
+            <div className="flex gap-1">
+              <div className="relative flex-1">
+                <div className="flex h-11 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-3 top-0.5 text-[10px] text-primary z-10">Termin płatności</span>
+                  <Input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-11 border-0 pt-4 pb-1 pl-3 pr-0 shadow-none focus-visible:ring-0 text-sm [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
                 </div>
               </div>
+              <PaymentTermSelector
+                issueDate={issueDate}
+                dueDate={dueDate}
+                onDueDateChange={setDueDate}
+              />
             </div>
           </div>
         </CardContent>
@@ -711,8 +747,8 @@ export function SimpleFreeInvoice() {
                 onChange={(e) => updateItem(index, 'name', e.target.value)}
               />
               
-              {/* Row 1: Ilość, Jednostka */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Row 1: Ilość + Jednostka (always side by side) */}
+              <div className="grid grid-cols-2 gap-3">
                 <FloatingInput
                   label="Ilość"
                   type="number"
@@ -736,8 +772,8 @@ export function SimpleFreeInvoice() {
                 </div>
               </div>
               
-              {/* Row 2: Cena netto, Cena brutto */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Row 2: Cena netto + Cena brutto (always side by side) */}
+              <div className="grid grid-cols-2 gap-3">
                 <FloatingInput
                   label="Cena netto"
                   type="number"
@@ -756,8 +792,8 @@ export function SimpleFreeInvoice() {
                 />
               </div>
               
-              {/* Row 3: VAT %, Suma brutto */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Row 3: VAT + Suma brutto (always side by side) */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <div className="flex h-12 w-full rounded-md border border-input bg-background">
                     <span className="absolute left-3 top-1 text-xs text-primary">VAT</span>
