@@ -361,10 +361,26 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
       let result;
       
       if (editEntity?.id) {
-        // Update existing entity
+        // Update existing entity - DON'T change owner_user_id
+        const updateData = {
+          name: formData.name.trim(),
+          type: formData.type,
+          nip: formData.nip?.trim() || null,
+          regon: formData.regon?.trim() || null,
+          address_street: fullStreet.trim() || null,
+          address_city: formData.address_city?.trim() || null,
+          address_postal_code: formData.address_postal_code?.trim() || null,
+          email: formData.email?.trim() || null,
+          phone: formData.phone?.trim() || null,
+          bank_name: formData.bank_name?.trim() || null,
+          bank_account: formData.bank_account?.trim() || null,
+          logo_url: formData.logo_url || null,
+          vat_payer: formData.vat_payer,
+        };
+        
         const { data, error } = await supabase
           .from('entities')
-          .update(entityData)
+          .update(updateData)
           .eq('id', editEntity.id)
           .select('id, name')
           .single();
@@ -373,7 +389,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
         result = data;
         toast.success('Dane firmy zaktualizowane');
       } else {
-        // Create new entity
+        // Create new entity - include owner_user_id
         console.log('Creating new entity with data:', entityData);
         const { data, error } = await supabase
           .from('entities')
