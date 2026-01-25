@@ -35,7 +35,7 @@ export interface InvoiceBuyer {
 
 export interface InvoiceData {
   invoice_number: string;
-  type: 'invoice' | 'proforma' | 'receipt';
+  type: 'invoice' | 'proforma' | 'receipt' | string; // Extended to support all document types
   issue_date: string;
   sale_date: string;
   due_date: string;
@@ -154,7 +154,17 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const typeLabels: Record<string, string> = {
     invoice: 'Faktura VAT',
     proforma: 'Faktura Proforma',
-    receipt: 'Rachunek'
+    receipt: 'Rachunek',
+    vat_margin: 'Faktura VAT marża',
+    vat_rr: 'Faktura VAT RR',
+    correction: 'Faktura korygująca',
+    advance: 'Faktura zaliczkowa',
+    final: 'Faktura końcowa',
+    kp: 'KP - Kasa Przyjmie',
+    kw: 'KW - Kasa Wyda',
+    wz: 'WZ - Wydanie Zewnętrzne',
+    pz: 'PZ - Przyjęcie Zewnętrzne',
+    nota: 'Nota księgowa'
   };
 
   // Generate safe filename for PDF
@@ -220,7 +230,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   <div class="invoice">
     <div class="header">
       <div class="logo-area">
-        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo" />` : `<div class="logo-text">${seller.name || ''}</div>`}
+        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo" />` : ''}
       </div>
       <div class="invoice-title">
         <h1>${typeLabels[invoice.type] || 'Faktura VAT'}</h1>
