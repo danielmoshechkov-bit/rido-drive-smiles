@@ -139,14 +139,21 @@ export function PropertyListingCard({
     setShowContact(!showContact);
   };
 
+  const handleCardClick = () => {
+    navigate(`/nieruchomosci/ogloszenie/${listing.id}`);
+  };
+
   // List variant layout
   if (isList) {
     return (
       <>
-        <Card className={cn(
-          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md",
-          isSelectedForCompare && "ring-2 ring-primary"
-        )}>
+        <Card 
+          className={cn(
+            "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+            isSelectedForCompare && "ring-2 ring-primary"
+          )}
+          onClick={handleCardClick}
+        >
           <div className="flex flex-col sm:flex-row">
             {/* Photo - Left side */}
             <div className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48">
@@ -351,10 +358,13 @@ export function PropertyListingCard({
 
   return (
     <>
-      <Card className={cn(
-        "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md",
-        isSelectedForCompare && "ring-2 ring-primary"
-      )}>
+      <Card 
+        className={cn(
+          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+          isSelectedForCompare && "ring-2 ring-primary"
+        )}
+        onClick={handleCardClick}
+      >
         {/* Photo Gallery */}
         <div className={cn(
           "relative bg-muted overflow-hidden",

@@ -134,12 +134,19 @@ export function VehicleListingCard({
     setShowContact(!showContact);
   };
 
+  const handleCardClick = () => {
+    navigate(`/gielda/ogloszenie/${listing.id}`);
+  };
+
   return (
     <>
-      <Card className={cn(
-        "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md",
-        isSelectedForCompare && "ring-2 ring-primary"
-      )}>
+      <Card 
+        className={cn(
+          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+          isSelectedForCompare && "ring-2 ring-primary"
+        )}
+        onClick={handleCardClick}
+      >
         {/* Photo Gallery */}
         <div className={cn(
           "relative bg-muted overflow-hidden",
