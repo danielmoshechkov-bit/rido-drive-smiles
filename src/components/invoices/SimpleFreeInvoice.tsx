@@ -693,13 +693,11 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
 
   const formatAmount = (amount: number) => formatCurrencyAmount(amount, currency);
 
-  // Generate live preview HTML
-  const livePreviewHtml = generateInvoiceHtml(getInvoiceData());
 
   return (
-    <div className="flex flex-col xl:flex-row gap-6">
-      {/* Left side - Form */}
-      <div className="flex-1 space-y-4 xl:max-w-2xl">
+    <div className="max-w-3xl mx-auto">
+      {/* Form */}
+      <div className="space-y-4">
         {/* Compact Header */}
         <div className="flex items-center gap-2">
           <Receipt className="h-6 w-6 text-primary shrink-0" />
@@ -1453,45 +1451,6 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
         onSuccess={handleAuthSuccess}
         customDescription="Zaloguj się, aby wystawić fakturę."
       />
-      </div>
-
-      {/* Right side - Live Preview (desktop only) */}
-      <div className="hidden xl:flex flex-col w-[500px] shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)]">
-        <div className="bg-card rounded-lg border shadow-sm overflow-hidden flex flex-col h-full">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Podgląd na żywo</span>
-            </div>
-            <Button 
-              size="sm"
-              onClick={handleIssueInvoice}
-              disabled={isIssuing}
-            >
-              {isIssuing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Wystawianie...
-                </>
-              ) : (
-                <>
-                  <Receipt className="h-4 w-4 mr-1" />
-                  Wystaw fakturę
-                </>
-              )}
-            </Button>
-          </div>
-          <div className="flex-1 overflow-auto bg-muted/20 p-3">
-            <div className="bg-white shadow-lg rounded overflow-hidden" style={{ aspectRatio: '210/297' }}>
-              <iframe
-                className="w-full h-full border-0"
-                title="Podgląd faktury"
-                sandbox="allow-same-origin"
-                srcDoc={livePreviewHtml}
-              />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
