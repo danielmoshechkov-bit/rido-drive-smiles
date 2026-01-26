@@ -193,9 +193,9 @@ Deno.serve(async (req) => {
               .single();
             
             if (fullSettlement) {
-              // Oblicz calculated_payout (tu musimy zreplikować logikę z DriverSettlements)
+              // Oblicz calculated_payout używając poprawnych nazw pól snake_case
               const amounts = fullSettlement.amounts || {};
-              const calculatedPayout = (amounts.uberNet || 0) + (amounts.boltNet || 0) + (amounts.freenowNet || 0);
+              const calculatedPayout = (amounts.uber_net || 0) + (amounts.bolt_net || 0) + (amounts.freenow_net || 0);
               
               try {
                 const debtResponse = await fetch(`${supabaseUrl}/functions/v1/update-driver-debt`, {

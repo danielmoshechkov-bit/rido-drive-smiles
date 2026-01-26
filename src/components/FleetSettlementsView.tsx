@@ -32,6 +32,7 @@ import { CompanyRevenueSummary } from './CompanyRevenueSummary';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
+import { DriverDebtHistory } from './DriverDebtHistory';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -72,6 +73,8 @@ interface DriverSettlement {
   debt_current?: number;
   debt_previous?: number;
   covered_rental?: boolean;
+  // For negative balance tracking
+  has_negative_balance?: boolean;
 }
 
 interface FleetFee {
@@ -102,6 +105,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteCityId, setDeleteCityId] = useState<string>('all');
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false);
+  const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{id: string, name: string} | null>(null);
+  const [driverDebts, setDriverDebts] = useState<Record<string, number>>({});
 
   // Fetch cities for filter
   useEffect(() => {
@@ -681,6 +687,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         (b2bProfiles || []).map(p => [p.driver_user_id, p])
       );
 
+      // Pobierz aktualne długi kierowców
+      const { data: debtsData } = await supabase
+        .from('driver_debts')
+        .select('driver_id, current_balance')
+        .in('driver_id', driverIds);
+      
+      const debtsMap: Record<string, number> = {};
+      (debtsData || []).forEach(d => {
+        debtsMap[d.driver_id] = d.current_balance || 0;
+      });
+      setDriverDebts(debtsMap);
+
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       const driverFuelCards: Record<string, string> = {};
       driversData.forEach(d => {
@@ -792,9 +810,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
 
-        // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
-        // Jeśli kierowca nie jeździł (suma zarobków = 0), nie naliczaj żadnych opłat
-        if (total_base === 0) {
+        // Oblicz net z platform (może być ujemne np. z Bolt)
+        const uber_net = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.uber_net || '0');
+        }, 0);
+        const bolt_net = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_net || '0');
+        }, 0);
+        const freenow_net = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.freenow_net || '0');
+        }, 0);
+        const platform_net = uber_net + bolt_net + freenow_net;
+
+        // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW - ale UWZGLĘDNIJ UJEMNE SALDA
+        // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
+        if (total_base === 0 && platform_net >= 0) {
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -819,25 +852,26 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             fuel_vat_refund: 0,
             net_without_commission: 0,
             final_payout: 0,
+            has_negative_balance: false,
           };
         }
 
-        // Jeśli zarobki są ujemne (np. kara z aplikacji do 10 zł), tylko to pokazuj bez opłat
-        if (total_base < 0 && total_base > -10) {
+        // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - NIE NALICZAJ OPŁAT
+        if (platform_net < 0) {
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
             uber_base,
             uber_cash: 0,
-            uber_commission: 0,
+            uber_commission,
             bolt_base,
             bolt_cash: 0,
-            bolt_commission: 0,
+            bolt_commission,
             freenow_base,
             freenow_cash: 0,
-            freenow_commission: 0,
+            freenow_commission,
             total_base,
-            total_commission: 0,
+            total_commission,
             total_cash: 0,
             tax_8_percent: 0,
             vat_amount: 0,
@@ -846,8 +880,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             rental: 0,
             fuel: 0,
             fuel_vat_refund: 0,
-            net_without_commission: total_base,
-            final_payout: total_base,
+            net_without_commission: platform_net,
+            final_payout: platform_net,
+            has_negative_balance: true,
           };
         }
 
@@ -1616,6 +1651,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>
+                      <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1681,6 +1717,35 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         </TableCell>
                         <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
+                          {settlement.has_negative_balance && (
+                            <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
+                              MINUS
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                          {(() => {
+                            const debt = driverDebts[settlement.driver_id] || 0;
+                            if (debt <= 0) {
+                              return (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                  ✓ 0
+                                </Badge>
+                              );
+                            }
+                            return (
+                              <Badge 
+                                variant="destructive" 
+                                className="cursor-pointer text-[10px]"
+                                onClick={() => {
+                                  setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
+                                  setDebtDialogOpen(true);
+                                }}
+                              >
+                                {formatCurrency(debt)} zł
+                              </Badge>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     )})}
@@ -1752,6 +1817,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
                       </TableCell>
+                      <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                        {(() => {
+                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
+                          return totalDebt > 0 ? (
+                            <Badge variant="destructive" className="text-[10px]">
+                              {formatCurrency(totalDebt)} zł
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                              ✓ 0
+                            </Badge>
+                          );
+                        })()}
+                      </TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
@@ -1760,6 +1839,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           );
         })()}
       </CardContent>
+
+      {/* Debt History Dialog */}
+      <Dialog open={debtDialogOpen} onOpenChange={setDebtDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Historia zadłużenia: {selectedDriverForDebt?.name}</DialogTitle>
+            <DialogDescription>
+              Szczegóły ujemnych sald i spłat kierowcy
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDriverForDebt && (
+            <DriverDebtHistory driverId={selectedDriverForDebt.id} />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
     </div>
   );
