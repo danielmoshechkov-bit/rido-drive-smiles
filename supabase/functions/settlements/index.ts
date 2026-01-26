@@ -381,7 +381,18 @@ async function process3PlatformCsvs(
     // Przykład: (422.70 - 422.70/1.23) / 2 = (422.70 - 343.66) / 2 = 79.04 / 2 = 39.52 zł
     const fuel_vat_refund = fuel > 0 ? (fuel - fuel / 1.23) / 2 : 0;
     
-    console.log(`💰 Driver ${driverId} amounts: bolt_cash=${data.bolt_cash}, bolt_commission=${data.bolt_commission}, fuel=${fuel}, fuel_vat_refund=${fuel_vat_refund.toFixed(2)}`);
+    // Suma gotówki do zwrotu (kierowca odebrał gotówkę od pasażerów)
+    const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
+    
+    // POPRAWIONA FORMUŁA NET_AMOUNT:
+    // = suma net z platform - gotówka do zwrotu + VAT refund - paliwo
+    // Uwaga: rental_fee jest aplikowana osobno przy wypłacie
+    const calculated_net = (data.uber_net || 0) + (data.bolt_net || 0) + (data.freenow_net || 0) 
+                           - total_cash 
+                           + fuel_vat_refund 
+                           - fuel;
+    
+    console.log(`💰 Driver ${driverId}: uber_net=${data.uber_net?.toFixed(2)}, bolt_net=${data.bolt_net?.toFixed(2)}, freenow_net=${data.freenow_net?.toFixed(2)}, total_cash=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, net_amount=${calculated_net.toFixed(2)}`);
     
     settlements.push({
       city_id: meta.city_id,
@@ -392,8 +403,8 @@ async function process3PlatformCsvs(
       week_start: meta.period_from,
       week_end: meta.period_to,
       total_earnings: data.uber_base + data.bolt_projected_d + data.freenow_base_s,
-      commission_amount: data.freenow_commission_t,
-      net_amount: data.uber_net + data.bolt_net + data.freenow_net,
+      commission_amount: data.freenow_commission_t + (data.bolt_commission || 0),
+      net_amount: calculated_net,
       amounts: {
         uber_payout_d: data.uber_payout_d || 0,
         uber_cash_f: data.uber_cash_f || 0,
@@ -514,14 +525,19 @@ async function processRidoTemplate(
     const fuel = parsePLNumber(getColValue(row, fuelIdx, 15));
     const fuelVATRefund = parsePLNumber(getColValue(row, fuelVATRefundIdx, 20));
 
-    // Calculate 8% tax
+    // Calculate 8% tax and net amounts
+    // UBER: base = D + F (payout + cash), tax = 8% od base, net = D - tax - cash
     const uber_base = uber_payout_d + uber_cash_f;
     const uber_tax_8 = uber_base * 0.08;
-    const uber_net = uber_payout_d - uber_tax_8;
+    const uber_net = uber_payout_d - uber_tax_8 - uber_cash_f;  // POPRAWIONE: odejmij gotówkę
 
+    // BOLT: base = D (projected), tax = 8% od D, net = S - tax - cash
+    // Gotówka Bolt jest pobierana z osobnej kolumny (G)
+    const bolt_cash = 0;  // W template Bolt gotówka jest w amounts z platform CSV
     const bolt_tax_8 = bolt_projected_d * 0.08;
-    const bolt_net = bolt_payout_s - bolt_tax_8;
+    const bolt_net = bolt_payout_s - bolt_tax_8 - bolt_cash;  // POPRAWIONE: odejmij gotówkę
 
+    // FREENOW: net = S - tax - commission - cash (to było OK)
     const freenow_tax_8 = freenow_base_s * 0.08;
     const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
 
@@ -620,7 +636,8 @@ async function parseUberCsv(
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
     const uber_tax_8 = uber_base * 0.08;
-    const uber_net = uber_payout_d - uber_tax_8;
+    // POPRAWIONE: uber_net = D - podatek - gotówka (kierowca musi oddać gotówkę)
+    const uber_net = uber_payout_d - uber_tax_8 - uber_cash_f;
 
     let platformId = row[driverIdIdx]?.trim();
     const driverName = row[driverNameIdx]?.trim() || '';
@@ -767,8 +784,9 @@ async function parseBoltCsv(
     // Podatek 8% od zarobków brutto (D)
     const bolt_tax_8 = bolt_projected_d * 0.08;
     
-    // Wypłata netto Bolt = S (projected payout) - podatek 8%
-    const bolt_net = bolt_payout_s - bolt_tax_8;
+    // POPRAWIONE: Wypłata netto Bolt = S (projected payout) - podatek 8% - gotówka
+    // Kierowca musi oddać gotówkę którą zebrał od pasażerów
+    const bolt_net = bolt_payout_s - bolt_tax_8 - bolt_cash;
     
     console.log(`📊 BOLT wiersz ${i}: D(brutto)=${bolt_projected_d}, S(payout)=${bolt_payout_s}, G(gotówka)=${bolt_cash}, prowizja=${bolt_commission}, podatek=${bolt_tax_8.toFixed(2)}, net=${bolt_net.toFixed(2)}`);
 
