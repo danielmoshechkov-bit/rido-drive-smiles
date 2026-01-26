@@ -29,6 +29,7 @@ import {
   X,
   Loader2
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   InvoiceItem, 
   InvoiceSeller, 
@@ -879,29 +880,44 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
                 maxLength={10}
               />
             </div>
-            <div className="relative">
-              <div className="flex h-12 w-full rounded-md border border-input bg-background">
-                <span className="absolute left-3 top-1 text-xs text-primary">Kraj</span>
-                <Select value={(buyer as any).country || 'Polska'} onValueChange={(v) => setBuyer(prev => ({ ...prev, country: v }))}>
-                  <SelectTrigger className="h-12 border-0 pt-4 pb-1 shadow-none focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 py-1 sticky top-0 bg-background">
-                      <Input
-                        placeholder="Szukaj kraju..."
-                        value={countrySearch}
-                        onChange={(e) => setCountrySearch(e.target.value)}
-                        className="h-8"
-                      />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="h-12 w-full justify-between text-left font-normal relative"
+                >
+                  <span className="absolute left-3 top-1 text-xs text-primary">Kraj</span>
+                  <span className="pt-3 text-sm">{buyer.country || 'Polska'}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="start">
+                <Input
+                  placeholder="Szukaj kraju..."
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  className="h-9 mb-2"
+                  autoFocus
+                />
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {filteredCountries.map(c => (
+                    <div 
+                      key={c} 
+                      className="px-2 py-1.5 text-sm hover:bg-primary/10 rounded cursor-pointer transition-colors"
+                      onClick={() => {
+                        setBuyer(prev => ({ ...prev, country: c }));
+                        setCountrySearch('');
+                      }}
+                    >
+                      {c}
                     </div>
-                    {filteredCountries.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  ))}
+                  {filteredCountries.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">Nie znaleziono kraju</p>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <div>
               <FloatingInput
                 label="Ulica"
@@ -996,7 +1012,7 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
             </div>
 
             {/* Row 4: Termin płatności + przycisk +7 dni */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-end">
               <div className="flex-1">
                 <DatePickerButton
                   label="Termin płatności"
@@ -1005,13 +1021,11 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
                   required
                 />
               </div>
-              <div className="pt-5">
-                <PaymentTermSelector
-                  issueDate={issueDate}
-                  dueDate={dueDate}
-                  onDueDateChange={setDueDate}
-                />
-              </div>
+              <PaymentTermSelector
+                issueDate={issueDate}
+                dueDate={dueDate}
+                onDueDateChange={setDueDate}
+              />
             </div>
           </div>
         </CardContent>

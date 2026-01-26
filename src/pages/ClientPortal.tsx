@@ -17,6 +17,7 @@ import { AddListingModal } from '@/components/AddListingModal';
 
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { 
   Car,
@@ -112,6 +113,8 @@ export default function ClientPortal() {
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   
   // Search modal
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -915,44 +918,47 @@ export default function ClientPortal() {
 
                   </div>
 
-              {/* Quick Actions */}
+              {/* Quick Actions - organized layout */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
-                <div className="flex flex-wrap gap-3">
-                  <Button onClick={handleNewInvoice}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Wystaw fakturę
-                  </Button>
-                  <Button variant="outline">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Wgraj dokument
-                  </Button>
-                  <Button variant="outline">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Eksport CSV
-                  </Button>
-                  {userEntities.length === 0 && (
-                    <Button variant="outline" onClick={() => setShowCompanySetup(true)}>
-                      <Building2 className="h-4 w-4 mr-2" />
-                      Dodaj firmę
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button onClick={handleNewInvoice} className="h-auto py-3">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Wystaw fakturę
                     </Button>
-                  )}
-                  {userEntities.length > 0 && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setEditingEntity(userEntities[0]);
-                        setShowCompanySetup(true);
-                      }}
-                    >
-                      <Building2 className="h-4 w-4 mr-2" />
-                      Edytuj firmę
+                    <Button variant="outline" className="h-auto py-3">
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Dodaj fakturę kosztową
                     </Button>
-                  )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="h-auto py-3">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Eksport CSV
+                    </Button>
+                    {userEntities.length === 0 ? (
+                      <Button variant="outline" className="h-auto py-3" onClick={() => setShowCompanySetup(true)}>
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Dodaj firmę
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="h-auto py-3"
+                        onClick={() => {
+                          setEditingEntity(userEntities[0]);
+                          setShowCompanySetup(true);
+                        }}
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Edytuj firmę
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-                  {/* Recent Invoices - showing actual user invoices */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Ostatnie faktury</CardTitle>
@@ -960,34 +966,53 @@ export default function ClientPortal() {
                     </CardHeader>
                     <CardContent>
                       {invoices.length > 0 ? (
-                        <div className="space-y-3">
-                          {invoices.slice(0, 5).map((invoice) => (
-                            <div 
-                              key={invoice.id}
-                              className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-primary/10">
-                                  <FileText className="h-4 w-4 text-primary" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm">{invoice.invoice_number || 'Faktura'}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {invoice.buyer_name && <span className="mr-2">{invoice.buyer_name}</span>}
-                                  </p>
+                        <div className="space-y-3 pb-20">
+                          {invoices.slice(0, 5).map((invoice) => {
+                            const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
+                            const statusColor = invoice.is_paid === true 
+                              ? 'bg-green-500/10 text-green-600 border-green-200' 
+                              : isOverdue 
+                                ? 'bg-red-500/10 text-red-600 border-red-200' 
+                                : 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
+                            
+                            return (
+                              <div 
+                                key={invoice.id}
+                                className="p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                                onClick={() => {
+                                  setSelectedInvoice(invoice);
+                                  setShowInvoiceDetail(true);
+                                }}
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                                      <FileText className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm truncate">{invoice.invoice_number || 'Faktura'}</p>
+                                      <p className="text-xs text-muted-foreground truncate">{invoice.buyer_name || '—'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
+                                    <p className="font-semibold text-sm whitespace-nowrap">
+                                      {Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł
+                                    </p>
+                                    <Badge className={`${statusColor} text-xs shrink-0`}>
+                                      {invoice.is_paid === true 
+                                        ? 'Opłacona' 
+                                        : isOverdue 
+                                          ? 'Po terminie' 
+                                          : invoice.due_date 
+                                            ? `Do ${new Date(invoice.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`
+                                            : 'Nieopłacona'
+                                      }
+                                    </Badge>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <p className="font-semibold text-sm">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
-                                <Badge 
-                                  variant={invoice.is_paid === true ? 'default' : 'secondary'}
-                                  className={invoice.is_paid === true ? 'bg-green-500/10 text-green-600 text-xs' : 'bg-yellow-500/10 text-yellow-600 text-xs'}
-                                >
-                                  {invoice.is_paid === true ? 'Opłacona' : 'Nieopłacona'}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                           {invoices.length > 5 && (
                             <Button 
                               variant="ghost" 
@@ -1033,35 +1058,53 @@ export default function ClientPortal() {
                   </CardHeader>
                   <CardContent>
                     {invoices.length > 0 ? (
-                      <div className="space-y-3">
-                        {invoices.map((invoice) => (
-                          <div 
-                            key={invoice.id}
-                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-2 rounded-lg bg-primary/10">
-                                <FileText className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <p className="font-semibold">{invoice.invoice_number || 'Faktura'}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {invoice.buyer_name && <span className="mr-2">{invoice.buyer_name}</span>}
-                                  {new Date(invoice.created_at).toLocaleDateString('pl-PL')}
-                                </p>
+                      <div className="space-y-3 pb-20">
+                        {invoices.map((invoice) => {
+                          const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
+                          const statusColor = invoice.is_paid === true 
+                            ? 'bg-green-500/10 text-green-600 border-green-200' 
+                            : isOverdue 
+                              ? 'bg-red-500/10 text-red-600 border-red-200' 
+                              : 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
+                          
+                          return (
+                            <div 
+                              key={invoice.id}
+                              className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setShowInvoiceDetail(true);
+                              }}
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                                    <FileText className="h-5 w-5 text-primary" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold truncate">{invoice.invoice_number || 'Faktura'}</p>
+                                    <p className="text-sm text-muted-foreground truncate">
+                                      {invoice.buyer_name || '—'} • {new Date(invoice.created_at).toLocaleDateString('pl-PL')}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between sm:justify-end gap-4 pl-12 sm:pl-0">
+                                  <p className="font-semibold whitespace-nowrap">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
+                                  <Badge className={`${statusColor} shrink-0`}>
+                                    {invoice.is_paid === true 
+                                      ? 'Opłacona' 
+                                      : isOverdue 
+                                        ? 'Po terminie' 
+                                        : invoice.due_date 
+                                          ? `Do ${new Date(invoice.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`
+                                          : 'Nieopłacona'
+                                    }
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <p className="font-semibold">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
-                              <Badge 
-                                variant={invoice.is_paid === true ? 'default' : 'secondary'}
-                                className={invoice.is_paid === true ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}
-                              >
-                                {invoice.is_paid === true ? 'Opłacona' : 'Nieopłacona'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
@@ -1299,7 +1342,16 @@ export default function ClientPortal() {
       />
 
       {/* New Invoice Dialog */}
-      <Dialog open={showNewInvoice} onOpenChange={setShowNewInvoice}>
+      <Dialog 
+        open={showNewInvoice} 
+        onOpenChange={(open) => {
+          setShowNewInvoice(open);
+          // Refresh invoices when modal closes
+          if (!open && user) {
+            fetchUserInvoices(user.id);
+          }
+        }}
+      >
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
           <SimpleFreeInvoice 
             onClose={() => setShowNewInvoice(false)}
@@ -1312,6 +1364,18 @@ export default function ClientPortal() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Detail Sheet */}
+      <InvoiceDetailSheet
+        invoice={selectedInvoice}
+        open={showInvoiceDetail}
+        onOpenChange={setShowInvoiceDetail}
+        onUpdate={() => {
+          if (user) {
+            fetchUserInvoices(user.id);
+          }
+        }}
+      />
     </div>
   );
 }
