@@ -28,23 +28,23 @@ export function PaymentTermSelector({ issueDate, dueDate, onDueDateChange }: Pay
       <PopoverTrigger asChild>
         <Button 
           variant="outline" 
-          size="icon" 
-          className="h-10 w-10 shrink-0"
+          className="h-10 px-3 gap-1 text-sm font-medium shrink-0"
         >
+          +7 dni
           <ChevronDown className="h-3 w-3" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-24 p-1" align="center">
+      <PopoverContent className="w-28 p-1" align="end">
         <div className="flex flex-col gap-0.5">
           {PAYMENT_PRESETS.map((preset) => (
             <Button
               key={preset.days}
               variant="ghost"
               size="sm"
-              className="justify-start h-7 text-xs"
+              className="justify-start h-8 text-sm"
               onClick={() => handlePresetClick(preset.days)}
             >
-              {preset.label}
+              +{preset.days} dni
             </Button>
           ))}
         </div>
