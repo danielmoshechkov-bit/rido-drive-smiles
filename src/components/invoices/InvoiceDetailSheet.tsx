@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { 
   CheckCircle, 
   Download, 
@@ -22,18 +23,24 @@ import {
 
 interface UserInvoice {
   id: string;
+  user_id?: string;
+  company_id?: string;
   invoice_number?: string;
+  invoice_type?: string;
   buyer_name?: string;
   buyer_nip?: string;
   buyer_address?: string;
   issue_date?: string;
+  issue_place?: string;
   sale_date?: string;
   due_date?: string;
+  payment_method?: string;
   net_total?: number;
   vat_total?: number;
   gross_total?: number;
   is_paid?: boolean;
   paid_at?: string;
+  paid_amount?: number;
   currency?: string;
   notes?: string;
   created_at: string;
@@ -48,6 +55,7 @@ interface InvoiceDetailSheetProps {
 
 export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: InvoiceDetailSheetProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   if (!invoice) return null;
 
@@ -65,39 +73,127 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
   const handleMarkAsPaid = async () => {
     setIsUpdating(true);
     try {
+      const newIsPaid = !invoice.is_paid;
       const { error } = await supabase
         .from('user_invoices')
         .update({ 
-          is_paid: !invoice.is_paid,
-          paid_at: !invoice.is_paid ? new Date().toISOString() : null
+          is_paid: newIsPaid,
+          paid_at: newIsPaid ? new Date().toISOString() : null,
+          paid_amount: newIsPaid ? invoice.gross_total : 0
         })
         .eq('id', invoice.id);
 
       if (error) throw error;
 
-      toast.success(invoice.is_paid ? 'Oznaczono jako nieopłaconą' : 'Oznaczono jako opłaconą');
+      toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
       onUpdate();
+      onOpenChange(false); // Close sheet to show updated list
     } catch (err: any) {
       console.error('Error updating invoice:', err);
-      toast.error('Błąd aktualizacji faktury');
+      toast.error('Błąd aktualizacji faktury: ' + (err.message || ''));
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleDownloadPdf = () => {
-    toast.info('Funkcja pobierania PDF w przygotowaniu');
-    // TODO: Implement PDF download
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      // Fetch invoice items
+      const { data: items, error: itemsError } = await supabase
+        .from('user_invoice_items')
+        .select('*')
+        .eq('invoice_id', invoice.id);
+
+      if (itemsError) {
+        console.error('Error fetching invoice items:', itemsError);
+      }
+
+      // Fetch company data
+      let companyData: any = null;
+      if (invoice.company_id) {
+        const { data: company } = await supabase
+          .from('user_invoice_companies')
+          .select('*')
+          .eq('id', invoice.company_id)
+          .maybeSingle();
+        companyData = company;
+      }
+
+      // Build invoice data for HTML generator
+      const invoiceData = {
+        invoice_number: invoice.invoice_number || 'Faktura',
+        type: invoice.invoice_type || 'invoice',
+        issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
+        sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
+        due_date: invoice.due_date || new Date().toISOString().split('T')[0],
+        issue_place: invoice.issue_place || '',
+        payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
+        notes: invoice.notes || '',
+        currency: invoice.currency || 'PLN',
+        paid_amount: invoice.paid_amount || 0,
+        is_fully_paid: invoice.is_paid || false,
+        items: (items || []).map((item: any) => ({
+          name: item.name || '',
+          pkwiu: item.pkwiu || '',
+          quantity: item.quantity || 1,
+          unit: item.unit || 'szt.',
+          unit_net_price: item.unit_net_price || 0,
+          vat_rate: item.vat_rate || '23',
+          net_amount: item.net_amount || 0,
+          vat_amount: item.vat_amount || 0,
+          gross_amount: item.gross_amount || 0,
+        })),
+        seller: {
+          name: companyData?.name || '',
+          nip: companyData?.nip || '',
+          address_street: companyData?.address_street || '',
+          address_building_number: companyData?.address_building_number || '',
+          address_apartment_number: companyData?.address_apartment_number || '',
+          address_city: companyData?.address_city || '',
+          address_postal_code: companyData?.address_postal_code || '',
+          bank_name: companyData?.bank_name || '',
+          bank_account: companyData?.bank_account || '',
+          email: companyData?.email || '',
+          phone: companyData?.phone || '',
+          logo_url: companyData?.logo_url || '',
+        },
+        buyer: {
+          name: invoice.buyer_name || '',
+          nip: invoice.buyer_nip || '',
+          address_street: invoice.buyer_address || '',
+        },
+      };
+
+      // Generate HTML and open print window
+      const html = generateInvoiceHtml(invoiceData);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 300);
+      }
+
+      toast.success('PDF gotowy do druku');
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      toast.error('Błąd generowania PDF');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleSendEmail = () => {
     toast.info('Funkcja wysyłania email w przygotowaniu');
-    // TODO: Implement email sending
+    // TODO: Implement email sending dialog
   };
 
   const handleSetReminder = () => {
     toast.info('Funkcja przypomnień w przygotowaniu');
-    // TODO: Implement reminder
+    // TODO: Implement reminder dialog
   };
 
   return (
@@ -121,15 +217,16 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-medium">Status płatności</p>
               <Badge 
-                className={
+                className={`cursor-pointer transition-colors ${
                   invoice.is_paid 
-                    ? 'bg-green-500/10 text-green-600' 
+                    ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20' 
                     : isOverdue 
-                      ? 'bg-red-500/10 text-red-600' 
-                      : 'bg-yellow-500/10 text-yellow-600'
-                }
+                      ? 'bg-red-500/10 text-red-600 hover:bg-red-500/20' 
+                      : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
+                }`}
+                onClick={handleMarkAsPaid}
               >
-                {invoice.is_paid ? 'Opłacona' : isOverdue ? 'Po terminie' : 'Nieopłacona'}
+                {invoice.is_paid ? 'Opłacona ✓' : isOverdue ? 'Po terminie!' : 'Nieopłacona'}
               </Badge>
             </div>
             {invoice.due_date && !invoice.is_paid && (
@@ -165,7 +262,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                 <Clock className="h-3 w-3" />
                 Termin płatności
               </p>
-              <p className={`font-medium text-sm ${isOverdue ? 'text-red-600' : ''}`}>
+              <p className={`font-medium text-sm ${isOverdue ? 'text-destructive' : ''}`}>
                 {formatDate(invoice.due_date)}
               </p>
             </div>
@@ -241,8 +338,12 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
             {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
           </Button>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={handleDownloadPdf}>
-              <Download className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+              {isGeneratingPdf ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
               Pobierz PDF
             </Button>
             <Button variant="outline" onClick={handleSendEmail}>

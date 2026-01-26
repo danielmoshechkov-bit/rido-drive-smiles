@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -966,48 +967,95 @@ export default function ClientPortal() {
                     </CardHeader>
                     <CardContent>
                       {invoices.length > 0 ? (
-                        <div className="space-y-3 pb-20">
+                        <div className="space-y-4 pb-20">
                           {invoices.slice(0, 5).map((invoice) => {
                             const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
                             const statusColor = invoice.is_paid === true 
-                              ? 'bg-green-500/10 text-green-600 border-green-200' 
+                              ? 'bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20' 
                               : isOverdue 
-                                ? 'bg-red-500/10 text-red-600 border-red-200' 
-                                : 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
+                                ? 'bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20' 
+                                : 'bg-yellow-500/10 text-yellow-600 border-yellow-200 hover:bg-yellow-500/20';
+                            
+                            const handleStatusClick = async (e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              const newIsPaid = !invoice.is_paid;
+                              const { error } = await supabase
+                                .from('user_invoices')
+                                .update({ 
+                                  is_paid: newIsPaid,
+                                  paid_at: newIsPaid ? new Date().toISOString() : null,
+                                  paid_amount: newIsPaid ? invoice.gross_total : 0
+                                })
+                                .eq('id', invoice.id);
+                              
+                              if (error) {
+                                toast.error('Błąd aktualizacji statusu');
+                              } else {
+                                toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
+                                fetchUserInvoices(user.id);
+                              }
+                            };
                             
                             return (
                               <div 
                                 key={invoice.id}
-                                className="p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                                onClick={() => {
-                                  setSelectedInvoice(invoice);
-                                  setShowInvoiceDetail(true);
-                                }}
+                                className="p-4 rounded-xl border bg-card shadow-sm hover:shadow-md transition-all"
                               >
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                      <FileText className="h-4 w-4 text-primary" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-sm truncate">{invoice.invoice_number || 'Faktura'}</p>
-                                      <p className="text-xs text-muted-foreground truncate">{invoice.buyer_name || '—'}</p>
-                                    </div>
+                                {/* Header: Invoice number + clickable status */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-primary" />
+                                    <span className="font-semibold text-sm">{invoice.invoice_number || 'Faktura'}</span>
                                   </div>
-                                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
-                                    <p className="font-semibold text-sm whitespace-nowrap">
-                                      {Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł
-                                    </p>
-                                    <Badge className={`${statusColor} text-xs shrink-0`}>
-                                      {invoice.is_paid === true 
-                                        ? 'Opłacona' 
-                                        : isOverdue 
-                                          ? 'Po terminie' 
-                                          : invoice.due_date 
-                                            ? `Do ${new Date(invoice.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`
-                                            : 'Nieopłacona'
-                                      }
-                                    </Badge>
+                                  <Badge 
+                                    className={`cursor-pointer transition-colors ${statusColor}`}
+                                    onClick={handleStatusClick}
+                                  >
+                                    {invoice.is_paid === true 
+                                      ? 'Opłacona ✓' 
+                                      : isOverdue 
+                                        ? 'Po terminie!' 
+                                        : 'Nieopłacona'
+                                    }
+                                  </Badge>
+                                </div>
+                                
+                                {/* Buyer + dates */}
+                                <div className="text-sm mb-3">
+                                  <p className="font-medium text-foreground truncate">{invoice.buyer_name || '—'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Wystawiono: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('pl-PL') : '—'}
+                                    {invoice.due_date && (
+                                      <span className={isOverdue ? 'text-destructive font-medium' : ''}>
+                                        {' '}• Termin: {new Date(invoice.due_date).toLocaleDateString('pl-PL')}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                                
+                                <Separator className="my-3" />
+                                
+                                {/* Amounts + Details button */}
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-muted-foreground space-x-2">
+                                    <span>Netto: {Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</span>
+                                    <span>•</span>
+                                    <span>VAT: {Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-base">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</span>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      className="text-primary hover:text-primary/80"
+                                      onClick={() => {
+                                        setSelectedInvoice(invoice);
+                                        setShowInvoiceDetail(true);
+                                      }}
+                                    >
+                                      Szczegóły
+                                      <ChevronRight className="h-4 w-4 ml-1" />
+                                    </Button>
                                   </div>
                                 </div>
                               </div>
@@ -1058,48 +1106,95 @@ export default function ClientPortal() {
                   </CardHeader>
                   <CardContent>
                     {invoices.length > 0 ? (
-                      <div className="space-y-3 pb-20">
+                      <div className="space-y-4 pb-20">
                         {invoices.map((invoice) => {
                           const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
                           const statusColor = invoice.is_paid === true 
-                            ? 'bg-green-500/10 text-green-600 border-green-200' 
+                            ? 'bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20' 
                             : isOverdue 
-                              ? 'bg-red-500/10 text-red-600 border-red-200' 
-                              : 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
+                              ? 'bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20' 
+                              : 'bg-yellow-500/10 text-yellow-600 border-yellow-200 hover:bg-yellow-500/20';
+                          
+                          const handleStatusClick = async (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            const newIsPaid = !invoice.is_paid;
+                            const { error } = await supabase
+                              .from('user_invoices')
+                              .update({ 
+                                is_paid: newIsPaid,
+                                paid_at: newIsPaid ? new Date().toISOString() : null,
+                                paid_amount: newIsPaid ? invoice.gross_total : 0
+                              })
+                              .eq('id', invoice.id);
+                            
+                            if (error) {
+                              toast.error('Błąd aktualizacji statusu');
+                            } else {
+                              toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
+                              fetchUserInvoices(user.id);
+                            }
+                          };
                           
                           return (
                             <div 
                               key={invoice.id}
-                              className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                              onClick={() => {
-                                setSelectedInvoice(invoice);
-                                setShowInvoiceDetail(true);
-                              }}
+                              className="p-4 rounded-xl border bg-card shadow-sm hover:shadow-md transition-all"
                             >
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                <div className="flex items-center gap-4">
-                                  <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                    <FileText className="h-5 w-5 text-primary" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold truncate">{invoice.invoice_number || 'Faktura'}</p>
-                                    <p className="text-sm text-muted-foreground truncate">
-                                      {invoice.buyer_name || '—'} • {new Date(invoice.created_at).toLocaleDateString('pl-PL')}
-                                    </p>
-                                  </div>
+                              {/* Header: Invoice number + clickable status */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4 text-primary" />
+                                  <span className="font-semibold">{invoice.invoice_number || 'Faktura'}</span>
                                 </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-4 pl-12 sm:pl-0">
-                                  <p className="font-semibold whitespace-nowrap">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
-                                  <Badge className={`${statusColor} shrink-0`}>
-                                    {invoice.is_paid === true 
-                                      ? 'Opłacona' 
-                                      : isOverdue 
-                                        ? 'Po terminie' 
-                                        : invoice.due_date 
-                                          ? `Do ${new Date(invoice.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`
-                                          : 'Nieopłacona'
-                                    }
-                                  </Badge>
+                                <Badge 
+                                  className={`cursor-pointer transition-colors ${statusColor}`}
+                                  onClick={handleStatusClick}
+                                >
+                                  {invoice.is_paid === true 
+                                    ? 'Opłacona ✓' 
+                                    : isOverdue 
+                                      ? 'Po terminie!' 
+                                      : 'Nieopłacona'
+                                  }
+                                </Badge>
+                              </div>
+                              
+                              {/* Buyer + dates */}
+                              <div className="text-sm mb-3">
+                                <p className="font-medium text-foreground truncate">{invoice.buyer_name || '—'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Wystawiono: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('pl-PL') : '—'}
+                                  {invoice.due_date && (
+                                    <span className={isOverdue ? 'text-destructive font-medium' : ''}>
+                                      {' '}• Termin: {new Date(invoice.due_date).toLocaleDateString('pl-PL')}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              
+                              <Separator className="my-3" />
+                              
+                              {/* Amounts + Details button */}
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-muted-foreground space-x-2">
+                                  <span>Netto: {Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</span>
+                                  <span>•</span>
+                                  <span>VAT: {Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-base">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</span>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="text-primary hover:text-primary/80"
+                                    onClick={() => {
+                                      setSelectedInvoice(invoice);
+                                      setShowInvoiceDetail(true);
+                                    }}
+                                  >
+                                    Szczegóły
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                  </Button>
                                 </div>
                               </div>
                             </div>
