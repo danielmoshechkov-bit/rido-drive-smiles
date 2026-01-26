@@ -13,7 +13,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { UniversalSubTabBar } from './UniversalSubTabBar';
 import { DriverSettlements } from './DriverSettlements';
 import { FleetFuelView } from './FleetFuelView';
@@ -89,6 +99,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [hideZeroRows, setHideZeroRows] = useState<boolean>(false);
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [payoutType, setPayoutType] = useState<'cash' | 'transfer' | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteCityId, setDeleteCityId] = useState<string>('all');
 
   // Fetch cities for filter
   useEffect(() => {
@@ -336,7 +349,93 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
-  // Fetch latest settlement week on mount
+  // Delete settlements for selected period
+  const handleDeleteSettlements = async () => {
+    if (!currentWeek) {
+      toast.error('Nie wybrano okresu rozliczeniowego');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Get all drivers from fleet
+      const { data: driversData } = await supabase
+        .from('drivers')
+        .select('id, city_id')
+        .eq('fleet_id', fleetId);
+
+      if (!driversData || driversData.length === 0) {
+        toast.error('Brak kierowców we flocie');
+        setIsDeleting(false);
+        return;
+      }
+
+      // Filter by city if selected
+      let driverIds = driversData.map(d => d.id);
+      if (deleteCityId !== 'all') {
+        driverIds = driversData.filter(d => d.city_id === deleteCityId).map(d => d.id);
+      }
+
+      if (driverIds.length === 0) {
+        toast.error('Brak kierowców dla wybranego miasta');
+        setIsDeleting(false);
+        return;
+      }
+
+      // 1. Fetch settlements to delete (to revert debt payments)
+      const { data: settlementsToDelete, error: fetchError } = await supabase
+        .from('settlements')
+        .select('id, driver_id, debt_payment, actual_payout')
+        .in('driver_id', driverIds)
+        .gte('period_from', currentWeek.start)
+        .lte('period_to', currentWeek.end);
+
+      if (fetchError) throw fetchError;
+
+      if (!settlementsToDelete || settlementsToDelete.length === 0) {
+        toast.info('Brak rozliczeń do usunięcia dla wybranego okresu');
+        setIsDeleting(false);
+        setDeleteDialogOpen(false);
+        return;
+      }
+
+      console.log(`🗑️ Deleting ${settlementsToDelete.length} settlements...`);
+
+      // 2. Revert debt payments for each driver
+      for (const settlement of settlementsToDelete) {
+        if (settlement.debt_payment && settlement.debt_payment > 0) {
+          console.log(`💰 Reverting debt payment for driver ${settlement.driver_id}: +${settlement.debt_payment}`);
+          await supabase.rpc('increment_driver_debt', {
+            p_driver_id: settlement.driver_id,
+            p_amount: settlement.debt_payment
+          });
+        }
+      }
+
+      // 3. Delete settlements from database
+      const settlementIds = settlementsToDelete.map(s => s.id);
+      const { error: deleteError } = await supabase
+        .from('settlements')
+        .delete()
+        .in('id', settlementIds);
+
+      if (deleteError) throw deleteError;
+
+      toast.success(`✅ Usunięto ${settlementsToDelete.length} rozliczeń`);
+      setDeleteDialogOpen(false);
+      setDeleteCityId('all');
+      
+      // Refresh settlements list
+      fetchSettlements();
+    } catch (error: any) {
+      console.error('Error deleting settlements:', error);
+      toast.error('Błąd usuwania rozliczeń: ' + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   useEffect(() => {
     if (fleetId) {
       fetchLatestSettlement();
@@ -1238,6 +1337,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <CreditCard className="h-4 w-4" />
                   Generuj przelew
                 </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Usuń rozliczenie
+                </Button>
               </div>
             </div>
           </div>
@@ -1278,6 +1386,62 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Settlement Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Usuń rozliczenie</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Czy na pewno chcesz usunąć wszystkie rozliczenia dla okresu{' '}
+                  <strong>{currentWeek?.label}</strong>?
+                </p>
+                <p className="text-destructive font-medium">
+                  Ta operacja jest nieodwracalna! Usunięte zostaną dane rozliczeń z kont kierowców.
+                  Płatności długów zostaną cofnięte.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4">
+              <Label htmlFor="deleteCity" className="text-sm font-medium">
+                Miasto (opcjonalnie)
+              </Label>
+              <Select value={deleteCityId} onValueChange={setDeleteCityId}>
+                <SelectTrigger id="deleteCity" className="mt-2">
+                  <SelectValue placeholder="Wybierz miasto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie miasta</SelectItem>
+                  {cities.map(city => (
+                    <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteSettlements} 
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Usuwanie...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Usuń rozliczenia
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       <CardContent>
         {(() => {
           // Filter settlements based on search and hide zero

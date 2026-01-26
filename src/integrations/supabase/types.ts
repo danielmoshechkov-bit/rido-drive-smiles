@@ -9308,6 +9308,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_driver_debt: {
+        Args: { p_amount: number; p_driver_id: string }
+        Returns: undefined
+      }
       is_accounting_admin_for_entity: {
         Args: { p_entity_id: string }
         Returns: boolean
