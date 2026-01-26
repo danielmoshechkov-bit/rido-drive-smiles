@@ -309,21 +309,21 @@ export default function ClientPortal() {
   };
 
   const fetchUserInvoices = async (userId: string) => {
-    // Fetch entities first to get their IDs
-    const { data: entities } = await supabase
-      .from('entities')
-      .select('id')
-      .eq('owner_user_id', userId);
+    // Fetch from user_invoices table (user's personal invoices)
+    const { data: invoicesData, error } = await supabase
+      .from('user_invoices')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
     
-    if (entities && entities.length > 0) {
-      const entityIds = entities.map(e => e.id);
-      const { data: invoicesData } = await supabase
-        .from('invoices')
-        .select('*')
-        .in('entity_id', entityIds)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (invoicesData) setInvoices(invoicesData);
+    if (error) {
+      console.error('Error fetching user invoices:', error);
+    }
+    
+    if (invoicesData) {
+      console.log('User invoices fetched:', invoicesData.length);
+      setInvoices(invoicesData);
     }
   };
 
@@ -866,7 +866,7 @@ export default function ClientPortal() {
             <div className="space-y-6">
               {accountingSubTab === 'przeglad' && (
                 <>
-                  {/* Stats Cards */}
+                  {/* Stats Cards - using user_invoices fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
                       <CardContent className="p-6">
@@ -875,7 +875,7 @@ export default function ClientPortal() {
                             <p className="text-sm text-muted-foreground">Faktury (miesiąc)</p>
                             <p className="text-3xl font-bold">{invoices.length}</p>
                             <p className="text-sm text-muted-foreground">
-                              {invoices.filter(i => i.status === 'paid').length} opłaconych
+                              {invoices.filter(i => i.is_paid === true).length} opłaconych
                             </p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
@@ -889,7 +889,7 @@ export default function ClientPortal() {
                           <div>
                             <p className="text-sm text-muted-foreground">Przychód brutto</p>
                             <p className="text-3xl font-bold">
-                              {invoices.reduce((sum, i) => sum + Number(i.total_gross || 0), 0).toLocaleString('pl-PL')} zł
+                              {invoices.reduce((sum, i) => sum + Number(i.gross_total || 0), 0).toLocaleString('pl-PL')} zł
                             </p>
                             <p className="text-sm text-muted-foreground">Suma faktur</p>
                           </div>
@@ -904,9 +904,9 @@ export default function ClientPortal() {
                           <div>
                             <p className="text-sm text-muted-foreground">Do zapłaty</p>
                             <p className="text-3xl font-bold text-destructive">
-                              {invoices.filter(i => i.status !== 'paid').length}
+                              {invoices.filter(i => i.is_paid !== true).length}
                             </p>
-                            <p className="text-sm text-muted-foreground">Zaległe faktury</p>
+                            <p className="text-sm text-muted-foreground">Nieopłacone faktury</p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         </div>
@@ -952,24 +952,66 @@ export default function ClientPortal() {
                 </div>
               </div>
 
-                  {/* Recent Invoices */}
+                  {/* Recent Invoices - showing actual user invoices */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Ostatnie faktury</CardTitle>
                       <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-12 text-muted-foreground">
-                        <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Brak faktur</p>
-                        <p className="text-sm mt-1">
-                          Wystaw pierwszą fakturę w programie
-                        </p>
-                        <Button className="mt-4" onClick={handleNewInvoice}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Wystaw fakturę
-                        </Button>
-                      </div>
+                      {invoices.length > 0 ? (
+                        <div className="space-y-3">
+                          {invoices.slice(0, 5).map((invoice) => (
+                            <div 
+                              key={invoice.id}
+                              className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                  <FileText className="h-4 w-4 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{invoice.invoice_number || 'Faktura'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {invoice.buyer_name && <span className="mr-2">{invoice.buyer_name}</span>}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <p className="font-semibold text-sm">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
+                                <Badge 
+                                  variant={invoice.is_paid === true ? 'default' : 'secondary'}
+                                  className={invoice.is_paid === true ? 'bg-green-500/10 text-green-600 text-xs' : 'bg-yellow-500/10 text-yellow-600 text-xs'}
+                                >
+                                  {invoice.is_paid === true ? 'Opłacona' : 'Nieopłacona'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                          {invoices.length > 5 && (
+                            <Button 
+                              variant="ghost" 
+                              className="w-full text-sm"
+                              onClick={() => setAccountingSubTab('faktury')}
+                            >
+                              Zobacz wszystkie ({invoices.length})
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Brak faktur</p>
+                          <p className="text-sm mt-1">
+                            Wystaw pierwszą fakturę w programie
+                          </p>
+                          <Button className="mt-4" onClick={handleNewInvoice}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Wystaw fakturę
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </>
@@ -995,7 +1037,7 @@ export default function ClientPortal() {
                         {invoices.map((invoice) => (
                           <div 
                             key={invoice.id}
-                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
                           >
                             <div className="flex items-center gap-4">
                               <div className="p-2 rounded-lg bg-primary/10">
@@ -1004,14 +1046,18 @@ export default function ClientPortal() {
                               <div>
                                 <p className="font-semibold">{invoice.invoice_number || 'Faktura'}</p>
                                 <p className="text-sm text-muted-foreground">
+                                  {invoice.buyer_name && <span className="mr-2">{invoice.buyer_name}</span>}
                                   {new Date(invoice.created_at).toLocaleDateString('pl-PL')}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
-                              <p className="font-semibold">{Number(invoice.total_gross || 0).toLocaleString('pl-PL')} zł</p>
-                              <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
-                                {invoice.status === 'paid' ? 'Opłacona' : invoice.status === 'sent' ? 'Wysłana' : 'Szkic'}
+                              <p className="font-semibold">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
+                              <Badge 
+                                variant={invoice.is_paid === true ? 'default' : 'secondary'}
+                                className={invoice.is_paid === true ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}
+                              >
+                                {invoice.is_paid === true ? 'Opłacona' : 'Nieopłacona'}
                               </Badge>
                             </div>
                           </div>
