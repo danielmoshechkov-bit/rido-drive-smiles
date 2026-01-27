@@ -32,9 +32,11 @@ import {
   Loader2,
   Lock,
   CreditCard,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AIProManagementPanel } from '@/components/admin/AIProManagementPanel';
 
 interface Entity {
   id: string;
@@ -282,6 +284,10 @@ export default function AccountingDashboard() {
             <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Ustawienia</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-pro" className="gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-primary">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">AI PRO</span>
             </TabsTrigger>
           </TabsList>
 
@@ -626,6 +632,11 @@ export default function AccountingDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* AI PRO Management Tab */}
+          <TabsContent value="ai-pro" className="space-y-4">
+            <AIProManagementPanel />
           </TabsContent>
         </Tabs>
         

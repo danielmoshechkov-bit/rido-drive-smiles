@@ -9047,6 +9047,7 @@ export type Database = {
         Row: {
           gross_amount: number | null
           id: string
+          inventory_product_id: string | null
           invoice_id: string
           name: string
           net_amount: number | null
@@ -9060,6 +9061,7 @@ export type Database = {
         Insert: {
           gross_amount?: number | null
           id?: string
+          inventory_product_id?: string | null
           invoice_id: string
           name: string
           net_amount?: number | null
@@ -9073,6 +9075,7 @@ export type Database = {
         Update: {
           gross_amount?: number | null
           id?: string
+          inventory_product_id?: string | null
           invoice_id?: string
           name?: string
           net_amount?: number | null
@@ -9084,6 +9087,13 @@ export type Database = {
           vat_rate?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_invoice_items_inventory_product_id_fkey"
+            columns: ["inventory_product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
