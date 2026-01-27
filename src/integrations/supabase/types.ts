@@ -516,6 +516,50 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_jobs: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          input_snapshot: Json | null
+          job_type: string
+          output_snapshot: Json | null
+          provider: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          job_type: string
+          output_snapshot?: Json | null
+          provider?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          job_type?: string
+          output_snapshot?: Json | null
+          provider?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_jobs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_knowledge_base: {
         Row: {
           answer: string
@@ -620,6 +664,116 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      ai_pro_exemptions: {
+        Row: {
+          created_at: string | null
+          created_by_user_id: string | null
+          email: string
+          id: string
+          note: string | null
+          scope: Json | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by_user_id?: string | null
+          email: string
+          id?: string
+          note?: string | null
+          scope?: Json | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by_user_id?: string | null
+          email?: string
+          id?: string
+          note?: string | null
+          scope?: Json | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      ai_pro_pricing_config: {
+        Row: {
+          billing_mode: string | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          price_pln_monthly: number | null
+          show_paywall: boolean | null
+          trial_days: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          billing_mode?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          price_pln_monthly?: number | null
+          show_paywall?: boolean | null
+          trial_days?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          billing_mode?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          price_pln_monthly?: number | null
+          show_paywall?: boolean | null
+          trial_days?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_pro_subscriptions: {
+        Row: {
+          activated_at: string | null
+          created_at: string | null
+          disabled_at: string | null
+          entity_id: string | null
+          id: string
+          price_snapshot: Json | null
+          status: string
+          trial_ends_at: string | null
+          trial_started_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string | null
+          disabled_at?: string | null
+          entity_id?: string | null
+          id?: string
+          price_snapshot?: Json | null
+          status?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string | null
+          disabled_at?: string | null
+          entity_id?: string | null
+          id?: string
+          price_snapshot?: Json | null
+          status?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_pro_subscriptions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_query_costs: {
         Row: {
@@ -8958,6 +9112,7 @@ export type Database = {
           net_total: number | null
           notes: string | null
           paid_amount: number | null
+          paid_at: string | null
           payment_method: string | null
           pdf_url: string | null
           sale_date: string | null
@@ -8983,6 +9138,7 @@ export type Database = {
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null
+          paid_at?: string | null
           payment_method?: string | null
           pdf_url?: string | null
           sale_date?: string | null
@@ -9008,6 +9164,7 @@ export type Database = {
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null
+          paid_at?: string | null
           payment_method?: string | null
           pdf_url?: string | null
           sale_date?: string | null
@@ -9819,6 +9976,10 @@ export type Database = {
           total_phrases: number
           total_size_bytes: number
         }[]
+      }
+      has_ai_pro_access: {
+        Args: { p_entity_id?: string; p_user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {

@@ -1,0 +1,469 @@
+import { useState } from 'react';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { formatIBAN } from '@/utils/formatters';
+import { 
+  ChevronDown, 
+  ChevronRight,
+  CheckCircle, 
+  Download, 
+  Mail, 
+  Clock, 
+  Edit, 
+  Trash2,
+  FileText,
+  Calendar,
+  Loader2,
+  TrendingUp
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface UserInvoice {
+  id: string;
+  user_id?: string;
+  company_id?: string;
+  invoice_number?: string;
+  invoice_type?: string;
+  buyer_name?: string;
+  buyer_nip?: string;
+  buyer_address?: string;
+  issue_date?: string;
+  issue_place?: string;
+  sale_date?: string;
+  due_date?: string;
+  payment_method?: string;
+  net_total?: number;
+  vat_total?: number;
+  gross_total?: number;
+  is_paid?: boolean;
+  paid_at?: string;
+  paid_amount?: number;
+  currency?: string;
+  notes?: string;
+  created_at: string;
+}
+
+interface InvoiceExpandableRowProps {
+  invoice: UserInvoice;
+  onUpdate: () => void;
+  showMarginInfo?: boolean;
+}
+
+export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false }: InvoiceExpandableRowProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    try {
+      return format(new Date(dateStr), 'd MMM yyyy', { locale: pl });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
+
+  const handleMarkAsPaid = async () => {
+    setIsUpdating(true);
+    try {
+      const newIsPaid = !invoice.is_paid;
+      const { error } = await supabase
+        .from('user_invoices')
+        .update({ 
+          is_paid: newIsPaid,
+          paid_at: newIsPaid ? new Date().toISOString() : null,
+          paid_amount: newIsPaid ? invoice.gross_total : 0
+        })
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+
+      toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
+      onUpdate();
+    } catch (err: any) {
+      console.error('Error updating invoice:', err);
+      toast.error('Błąd aktualizacji statusu: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      // First delete invoice items
+      await supabase
+        .from('user_invoice_items')
+        .delete()
+        .eq('invoice_id', invoice.id);
+
+      // Then delete the invoice
+      const { error } = await supabase
+        .from('user_invoices')
+        .delete()
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+
+      toast.success('Faktura została usunięta');
+      setShowDeleteDialog(false);
+      onUpdate();
+    } catch (err: any) {
+      console.error('Error deleting invoice:', err);
+      toast.error('Błąd usuwania faktury: ' + (err.message || ''));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const { data: items } = await supabase
+        .from('user_invoice_items')
+        .select('*')
+        .eq('invoice_id', invoice.id);
+
+      let companyData: any = null;
+      if (invoice.company_id) {
+        const { data: company } = await supabase
+          .from('user_invoice_companies')
+          .select('*')
+          .eq('id', invoice.company_id)
+          .maybeSingle();
+        companyData = company;
+      }
+
+      const invoiceData = {
+        invoice_number: invoice.invoice_number || 'Faktura',
+        type: invoice.invoice_type || 'invoice',
+        issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
+        sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
+        due_date: invoice.due_date || new Date().toISOString().split('T')[0],
+        issue_place: invoice.issue_place || '',
+        payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
+        notes: invoice.notes || '',
+        currency: invoice.currency || 'PLN',
+        paid_amount: invoice.paid_amount || 0,
+        is_fully_paid: invoice.is_paid || false,
+        items: (items || []).map((item: any) => ({
+          name: item.name || '',
+          pkwiu: item.pkwiu || '',
+          quantity: item.quantity || 1,
+          unit: item.unit || 'szt.',
+          unit_net_price: item.unit_net_price || 0,
+          vat_rate: item.vat_rate || '23',
+          net_amount: item.net_amount || 0,
+          vat_amount: item.vat_amount || 0,
+          gross_amount: item.gross_amount || 0,
+        })),
+        seller: {
+          name: companyData?.name || '',
+          nip: companyData?.nip || '',
+          address_street: companyData?.address_street || '',
+          address_building_number: companyData?.address_building_number || '',
+          address_apartment_number: companyData?.address_apartment_number || '',
+          address_city: companyData?.address_city || '',
+          address_postal_code: companyData?.address_postal_code || '',
+          bank_name: companyData?.bank_name || '',
+          bank_account: formatIBAN(companyData?.bank_account),
+          email: companyData?.email || '',
+          phone: companyData?.phone || '',
+          logo_url: companyData?.logo_url || '',
+        },
+        buyer: {
+          name: invoice.buyer_name || '',
+          nip: invoice.buyer_nip || '',
+          address_street: invoice.buyer_address || '',
+        },
+      };
+
+      const html = generateInvoiceHtml(invoiceData);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 300);
+      }
+
+      toast.success('PDF gotowy do druku');
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      toast.error('Błąd generowania PDF');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSendEmail = () => {
+    // In real implementation, this would open a dialog to input email
+    toast.info('Funkcja wysyłania email będzie dostępna wkrótce');
+  };
+
+  const handleSetReminder = () => {
+    toast.info('Przypomnienie zostanie ustawione na 3 dni przed terminem');
+    // TODO: Implement reminder system
+  };
+
+  const handleEdit = () => {
+    // In real implementation, this would open edit form
+    toast.info('Funkcja edycji będzie dostępna wkrótce');
+  };
+
+  return (
+    <>
+      <div className="border rounded-lg bg-card overflow-hidden">
+        {/* Main row - always visible */}
+        <div 
+          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{invoice.invoice_number || 'Faktura'}</p>
+                <p className="text-xs text-muted-foreground">{invoice.buyer_name || 'Brak nabywcy'}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs text-muted-foreground">
+                  Wystawiono: {formatDate(invoice.issue_date)} • Termin: {formatDate(invoice.due_date)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Netto: {Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł • VAT: {Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł
+                </p>
+              </div>
+              
+              <div className="text-right">
+                <p className="font-bold text-lg">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
+              </div>
+              
+              <Badge 
+                className={`cursor-pointer transition-colors min-w-[100px] justify-center ${
+                  invoice.is_paid 
+                    ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20' 
+                    : isOverdue 
+                      ? 'bg-red-500/10 text-red-600 hover:bg-red-500/20' 
+                      : 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkAsPaid();
+                }}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  invoice.is_paid ? 'Opłacona ✓' : isOverdue ? 'Po terminie!' : 'Nieopłacona'
+                )}
+              </Badge>
+              
+              {isExpanded ? (
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Expanded details */}
+        {isExpanded && (
+          <div className="border-t bg-muted/30 p-4 space-y-4">
+            {/* Details grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Data wystawienia
+                </p>
+                <p className="font-medium">{formatDate(invoice.issue_date)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Data sprzedaży
+                </p>
+                <p className="font-medium">{formatDate(invoice.sale_date)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Termin płatności
+                </p>
+                <p className={`font-medium ${isOverdue ? 'text-destructive' : ''}`}>
+                  {formatDate(invoice.due_date)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Waluta</p>
+                <p className="font-medium">{invoice.currency || 'PLN'}</p>
+              </div>
+            </div>
+
+            {/* Buyer info */}
+            <div className="p-3 bg-background rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Nabywca</p>
+              <p className="font-medium">{invoice.buyer_name || '—'}</p>
+              {invoice.buyer_nip && (
+                <p className="text-xs text-muted-foreground">NIP: {invoice.buyer_nip}</p>
+              )}
+              {invoice.buyer_address && (
+                <p className="text-xs text-muted-foreground">{invoice.buyer_address}</p>
+              )}
+            </div>
+
+            {/* Margin info (if inventory enabled) */}
+            {showMarginInfo && (
+              <div className="p-3 bg-accent/50 rounded-lg border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">Szacunkowa marża</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Przychód netto</p>
+                    <p className="font-medium">{Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Koszt (szac.)</p>
+                    <p className="font-medium text-muted-foreground">—</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Zysk brutto</p>
+                    <p className="font-medium text-primary">—</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  * Włącz moduł magazynowy, aby śledzić rzeczywistą marżę
+                </p>
+              </div>
+            )}
+
+            {/* Amounts summary */}
+            <div className="flex justify-end">
+              <div className="space-y-1 text-sm w-48">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Netto:</span>
+                  <span>{Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">VAT:</span>
+                  <span>{Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł</span>
+                </div>
+                <div className="flex justify-between font-bold pt-1 border-t">
+                  <span>Brutto:</span>
+                  <span>{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              <Button 
+                size="sm" 
+                variant={invoice.is_paid ? 'outline' : 'default'}
+                onClick={handleMarkAsPaid}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
+              </Button>
+              
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+                {isGeneratingPdf ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" />
+                )}
+                PDF
+              </Button>
+              
+              <Button size="sm" variant="outline" onClick={handleSendEmail}>
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </Button>
+              
+              <Button size="sm" variant="outline" onClick={handleSetReminder}>
+                <Clock className="h-4 w-4 mr-1" />
+                Przypomnienie
+              </Button>
+              
+              <Button size="sm" variant="outline" onClick={handleEdit}>
+                <Edit className="h-4 w-4 mr-1" />
+                Edytuj
+              </Button>
+              
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Usuń
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Czy na pewno chcesz usunąć tę fakturę?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Faktura {invoice.invoice_number} zostanie trwale usunięta. Tej operacji nie można cofnąć.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Usuń fakturę
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
