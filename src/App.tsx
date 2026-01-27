@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { RidoAssistantWidget } from "@/components/ai/RidoAssistantWidget";
+import { useUISettings } from "@/hooks/useUISettings";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -55,6 +56,15 @@ import ClientPortal from "./pages/ClientPortal";
 
 const queryClient = new QueryClient();
 
+/**
+ * UISettingsLoader component - loads UI settings and applies them
+ */
+function UISettingsLoader({ children }: { children: React.ReactNode }) {
+  // This hook loads settings from DB and applies CSS variable
+  useUISettings();
+  return <>{children}</>;
+}
+
 /** 
  * Main App component with routes
  * @version 2.0.0
@@ -62,10 +72,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <CompareProvider>
+      <UISettingsLoader>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <CompareProvider>
           <Routes>
             <Route path="/" element={<EasyHub />} />
             <Route path="/auth" element={<Auth />} />
@@ -122,6 +133,7 @@ const App = () => (
           <RidoAssistantWidget />
         </CompareProvider>
       </BrowserRouter>
+      </UISettingsLoader>
     </TooltipProvider>
   </QueryClientProvider>
 );
