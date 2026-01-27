@@ -3531,6 +3531,249 @@ export type Database = {
           },
         ]
       }
+      inventory_batches: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string
+          purchase_document_id: string | null
+          purchase_item_id: string | null
+          qty_in: number
+          qty_remaining: number
+          received_at: string | null
+          unit_cost_net: number | null
+          vat_rate: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id: string
+          purchase_document_id?: string | null
+          purchase_item_id?: string | null
+          qty_in: number
+          qty_remaining: number
+          received_at?: string | null
+          unit_cost_net?: number | null
+          vat_rate?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          purchase_document_id?: string | null
+          purchase_item_id?: string | null
+          qty_in?: number
+          qty_remaining?: number
+          received_at?: string | null
+          unit_cost_net?: number | null
+          vat_rate?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_batches_purchase_document_id_fkey"
+            columns: ["purchase_document_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_batches_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_document_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          batch_id: string | null
+          created_at: string | null
+          created_by: string | null
+          direction: string
+          id: string
+          note: string | null
+          product_id: string
+          qty: number
+          source_id: string | null
+          source_type: string | null
+          unit_cost_net: number | null
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction: string
+          id?: string
+          note?: string | null
+          product_id: string
+          qty: number
+          source_id?: string | null
+          source_type?: string | null
+          unit_cost_net?: number | null
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          direction?: string
+          id?: string
+          note?: string | null
+          product_id?: string
+          qty?: number
+          source_id?: string | null
+          source_type?: string | null
+          unit_cost_net?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_product_aliases: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          normalized_label: string | null
+          product_id: string
+          source_label: string
+          supplier_name: string | null
+          supplier_nip: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          normalized_label?: string | null
+          product_id: string
+          source_label: string
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          normalized_label?: string | null
+          product_id?: string
+          source_label?: string
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_product_aliases_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_aliases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_products: {
+        Row: {
+          attributes: Json | null
+          barcode: string | null
+          category: string | null
+          created_at: string | null
+          currency: string | null
+          default_sale_price_gross: number | null
+          default_sale_price_net: number | null
+          entity_id: string | null
+          id: string
+          is_active: boolean | null
+          name_sales: string
+          notes: string | null
+          sku: string | null
+          unit: string | null
+          updated_at: string | null
+          user_id: string | null
+          vat_rate: string | null
+        }
+        Insert: {
+          attributes?: Json | null
+          barcode?: string | null
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          default_sale_price_gross?: number | null
+          default_sale_price_net?: number | null
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          name_sales: string
+          notes?: string | null
+          sku?: string | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vat_rate?: string | null
+        }
+        Update: {
+          attributes?: Json | null
+          barcode?: string | null
+          category?: string | null
+          created_at?: string | null
+          currency?: string | null
+          default_sale_price_gross?: number | null
+          default_sale_price_net?: number | null
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          name_sales?: string
+          notes?: string | null
+          sku?: string | null
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vat_rate?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_products_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string | null
@@ -5708,6 +5951,155 @@ export type Database = {
           },
         ]
       }
+      purchase_document_items: {
+        Row: {
+          created_at: string | null
+          gross_total: number | null
+          id: string
+          is_processed: boolean | null
+          mapped_product_id: string | null
+          net_total: number | null
+          purchase_document_id: string
+          qty: number | null
+          raw_name_from_invoice: string | null
+          remember_mapping: boolean | null
+          unit: string | null
+          unit_net: number | null
+          vat_rate: string | null
+          vat_total: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          gross_total?: number | null
+          id?: string
+          is_processed?: boolean | null
+          mapped_product_id?: string | null
+          net_total?: number | null
+          purchase_document_id: string
+          qty?: number | null
+          raw_name_from_invoice?: string | null
+          remember_mapping?: boolean | null
+          unit?: string | null
+          unit_net?: number | null
+          vat_rate?: string | null
+          vat_total?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          gross_total?: number | null
+          id?: string
+          is_processed?: boolean | null
+          mapped_product_id?: string | null
+          net_total?: number | null
+          purchase_document_id?: string
+          qty?: number | null
+          raw_name_from_invoice?: string | null
+          remember_mapping?: boolean | null
+          unit?: string | null
+          unit_net?: number | null
+          vat_rate?: string | null
+          vat_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_document_items_mapped_product_id_fkey"
+            columns: ["mapped_product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_document_items_purchase_document_id_fkey"
+            columns: ["purchase_document_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_documents: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_version: number | null
+          created_at: string | null
+          document_date: string | null
+          document_number: string | null
+          entity_id: string | null
+          file_name: string | null
+          file_url: string | null
+          gross_total: number | null
+          id: string
+          net_total: number | null
+          notes: string | null
+          ocr_processed_at: string | null
+          ocr_raw_json: Json | null
+          status: string | null
+          supplier_name: string | null
+          supplier_nip: string | null
+          supplier_snapshot: Json | null
+          updated_at: string | null
+          user_id: string
+          vat_total: number | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_version?: number | null
+          created_at?: string | null
+          document_date?: string | null
+          document_number?: string | null
+          entity_id?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          gross_total?: number | null
+          id?: string
+          net_total?: number | null
+          notes?: string | null
+          ocr_processed_at?: string | null
+          ocr_raw_json?: Json | null
+          status?: string | null
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          supplier_snapshot?: Json | null
+          updated_at?: string | null
+          user_id: string
+          vat_total?: number | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_version?: number | null
+          created_at?: string | null
+          document_date?: string | null
+          document_number?: string | null
+          entity_id?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          gross_total?: number | null
+          id?: string
+          net_total?: number | null
+          notes?: string | null
+          ocr_processed_at?: string | null
+          ocr_raw_json?: Json | null
+          status?: string | null
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          supplier_snapshot?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          vat_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_documents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       real_estate_agents: {
         Row: {
           active_listings_count: number | null
@@ -7855,6 +8247,107 @@ export type Database = {
         }
         Relationships: []
       }
+      stocktaking_items: {
+        Row: {
+          applied: boolean | null
+          applied_at: string | null
+          counted_qty: number | null
+          created_at: string | null
+          diff_qty: number | null
+          id: string
+          notes: string | null
+          product_id: string
+          stocktaking_id: string
+          system_qty: number | null
+        }
+        Insert: {
+          applied?: boolean | null
+          applied_at?: string | null
+          counted_qty?: number | null
+          created_at?: string | null
+          diff_qty?: number | null
+          id?: string
+          notes?: string | null
+          product_id: string
+          stocktaking_id: string
+          system_qty?: number | null
+        }
+        Update: {
+          applied?: boolean | null
+          applied_at?: string | null
+          counted_qty?: number | null
+          created_at?: string | null
+          diff_qty?: number | null
+          id?: string
+          notes?: string | null
+          product_id?: string
+          stocktaking_id?: string
+          system_qty?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktaking_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktaking_items_stocktaking_id_fkey"
+            columns: ["stocktaking_id"]
+            isOneToOne: false
+            referencedRelation: "stocktakings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktakings: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          name: string | null
+          notes: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktakings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_alerts: {
         Row: {
           category: string
@@ -9312,6 +9805,8 @@ export type Database = {
         Args: { p_fleet_id: string; p_month: number; p_year: number }
         Returns: string
       }
+      get_product_avg_cost: { Args: { p_product_id: string }; Returns: number }
+      get_product_stock: { Args: { p_product_id: string }; Returns: number }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       get_user_marketplace_profile_id: {
         Args: { p_user_id: string }
