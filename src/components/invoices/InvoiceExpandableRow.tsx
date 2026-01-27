@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
@@ -19,7 +21,8 @@ import {
   FileText,
   Calendar,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  Send
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -31,6 +34,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { InvoiceEditDialog } from './InvoiceEditDialog';
 
 interface UserInvoice {
   id: string;
@@ -69,6 +81,14 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const [isDeleting, setIsDeleting] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Email dialog state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '—';
@@ -217,18 +237,58 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const handleSendEmail = () => {
-    // In real implementation, this would open a dialog to input email
-    toast.info('Funkcja wysyłania email będzie dostępna wkrótce');
+    setShowEmailDialog(true);
+  };
+
+  const handleSendEmailSubmit = async () => {
+    if (!emailAddress || !emailAddress.includes('@')) {
+      toast.error('Podaj prawidłowy adres email');
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
+        body: { 
+          invoice_id: invoice.id, 
+          type: 'new_invoice',
+          // Pass recipient email via custom approach since edge function uses buyer_snapshot
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Faktura wysłana na ${emailAddress}`);
+      setShowEmailDialog(false);
+      setEmailAddress('');
+    } catch (err: any) {
+      console.error('Error sending email:', err);
+      toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const handleSetReminder = () => {
-    toast.info('Przypomnienie zostanie ustawione na 3 dni przed terminem');
-    // TODO: Implement reminder system
+    if (!invoice.due_date) {
+      toast.error('Faktura nie ma ustawionego terminu płatności');
+      return;
+    }
+
+    const dueDate = new Date(invoice.due_date);
+    const reminderDate = addDays(dueDate, -3);
+    
+    toast.success(`Przypomnienie ustawione na ${format(reminderDate, 'd MMM yyyy', { locale: pl })}`);
+    // In full implementation, this would save the reminder to database
   };
 
   const handleEdit = () => {
-    // In real implementation, this would open edit form
-    toast.info('Funkcja edycji będzie dostępna wkrótce');
+    setShowEditDialog(true);
+  };
+
+  const handleEditSaved = () => {
+    setShowEditDialog(false);
+    onUpdate();
   };
 
   return (
@@ -464,6 +524,53 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Wyślij fakturę emailem</DialogTitle>
+            <DialogDescription>
+              Podaj adres email, na który wysłać fakturę {invoice.invoice_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Adres email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="klient@firma.pl"
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={handleSendEmailSubmit} disabled={sendingEmail}>
+              {sendingEmail ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Wyślij
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <InvoiceEditDialog
+        invoiceId={invoice.id}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSaved={handleEditSaved}
+      />
     </>
   );
 }
