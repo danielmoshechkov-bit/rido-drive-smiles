@@ -381,18 +381,18 @@ async function process3PlatformCsvs(
     // Przykład: (422.70 - 422.70/1.23) / 2 = (422.70 - 343.66) / 2 = 79.04 / 2 = 39.52 zł
     const fuel_vat_refund = fuel > 0 ? (fuel - fuel / 1.23) / 2 : 0;
     
-    // Suma gotówki do zwrotu (kierowca odebrał gotówkę od pasażerów)
-    const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
-    
     // POPRAWIONA FORMUŁA NET_AMOUNT:
-    // = suma net z platform - gotówka do zwrotu + VAT refund - paliwo
-    // Uwaga: rental_fee jest aplikowana osobno przy wypłacie
+    // Gotówka jest już odjęta wewnątrz uber_net, bolt_net, freenow_net!
+    // Więc NIE ODEJMUJEMY jej ponownie tutaj
+    // Formuła: suma net z platform + VAT refund - paliwo
     const calculated_net = (data.uber_net || 0) + (data.bolt_net || 0) + (data.freenow_net || 0) 
-                           - total_cash 
                            + fuel_vat_refund 
                            - fuel;
     
-    console.log(`💰 Driver ${driverId}: uber_net=${data.uber_net?.toFixed(2)}, bolt_net=${data.bolt_net?.toFixed(2)}, freenow_net=${data.freenow_net?.toFixed(2)}, total_cash=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, net_amount=${calculated_net.toFixed(2)}`);
+    // Suma gotówki do raportowania (ale NIE do odejmowania)
+    const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
+    
+    console.log(`💰 Driver ${driverId}: uber_net=${data.uber_net?.toFixed(2)}, bolt_net=${data.bolt_net?.toFixed(2)}, freenow_net=${data.freenow_net?.toFixed(2)}, total_cash(info)=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, WYPŁATA=${calculated_net.toFixed(2)}`);
     
     settlements.push({
       city_id: meta.city_id,
@@ -459,16 +459,41 @@ async function processRidoTemplate(
   const fullNameIdx = headers.findIndex(h => h.includes('imie nazwisko'));
   const getRidoIdIdx = headers.findIndex(h => h.includes('getrido id'));
 
-  // Amount columns (H, I, J, K, M, N, O, P, U)
-  const uberPayoutDIdx = headers.findIndex(h => h === 'h' || parsedRows[0][7]); // Column H
-  const uberCashFIdx = headers.findIndex(h => h === 'i' || parsedRows[0][8]); // Column I
-  const boltProjectedDIdx = headers.findIndex(h => h === 'j' || parsedRows[0][9]); // Column J
-  const boltPayoutSIdx = headers.findIndex(h => h === 'k' || parsedRows[0][10]); // Column K
-  const freenowCashFIdx = headers.findIndex(h => h === 'm' || parsedRows[0][12]); // Column M
-  const freenowBaseSIdx = headers.findIndex(h => h === 'n' || parsedRows[0][13]); // Column N
-  const freenowCommissionTIdx = headers.findIndex(h => h === 'o' || parsedRows[0][14]); // Column O
-  const fuelIdx = headers.findIndex(h => h === 'p' || parsedRows[0][15]); // Column P
-  const fuelVATRefundIdx = headers.findIndex(h => h === 'u' || parsedRows[0][20]); // Column U
+  // Kolumny wg screenshota z arkusza RIDO:
+  // E = Imię i Nazwisko
+  // F = D UBER Wypłacono ci (kolumna 5, index 5)
+  // G = F UBER Wypłacono ci Gotówka (kolumna 6, index 6)
+  // H = D BOLT Zarobki brutto (kolumna 7, index 7)
+  // I = G BOLT Gotówka na stanie (kolumna 8, index 8)
+  // J = S BOLT Projected payout (kolumna 9, index 9)
+  // K = F FreeNow Płatności gotówką/karta (kolumna 10, index 10)
+  // L = S FreeNow Zarobki przed odliczeniem (kolumna 11, index 11)
+  // M = T FreeNow Prowizja (kolumna 12, index 12)
+  // N = Wypłata (kolumna 13)
+  // O = Podatek (kolumna 14)
+  // P = Paliwo (kolumna 15)
+  // U = VAT zwrot (kolumna 20)
+  
+  const uberPayoutDIdx = headers.findIndex(h => h.includes('d uber') || h.includes('uber wypłac')) !== -1 
+    ? headers.findIndex(h => h.includes('d uber') || h.includes('uber wypłac')) : 5; // Kolumna F (index 5)
+  const uberCashFIdx = headers.findIndex(h => h.includes('f uber') || h.includes('gotówka') && h.includes('uber')) !== -1
+    ? headers.findIndex(h => h.includes('f uber') || (h.includes('gotówka') && h.includes('uber'))) : 6; // Kolumna G (index 6)
+  const boltProjectedDIdx = headers.findIndex(h => h.includes('d bolt') || h.includes('brutto')) !== -1
+    ? headers.findIndex(h => h.includes('d bolt') || h.includes('brutto')) : 7; // Kolumna H (index 7)
+  const boltCashIdx = headers.findIndex(h => h.includes('g bolt') || h.includes('gotówka na stanie')) !== -1
+    ? headers.findIndex(h => h.includes('g bolt') || h.includes('gotówka na stanie')) : 8; // Kolumna I (index 8) - NOWE!
+  const boltPayoutSIdx = headers.findIndex(h => h.includes('s bolt') || h.includes('projected') || h.includes('payout')) !== -1
+    ? headers.findIndex(h => h.includes('s bolt') || h.includes('projected') || h.includes('payout')) : 9; // Kolumna J (index 9)
+  const freenowCashFIdx = headers.findIndex(h => h.includes('f freenow') || h.includes('freenow') && h.includes('gotówka')) !== -1
+    ? headers.findIndex(h => h.includes('f freenow') || (h.includes('freenow') && h.includes('gotówka'))) : 10; // Kolumna K (index 10)
+  const freenowBaseSIdx = headers.findIndex(h => h.includes('s freenow') || h.includes('zarobki przed')) !== -1
+    ? headers.findIndex(h => h.includes('s freenow') || h.includes('zarobki przed')) : 11; // Kolumna L (index 11)
+  const freenowCommissionTIdx = headers.findIndex(h => h.includes('t freenow') || h.includes('prowizja')) !== -1
+    ? headers.findIndex(h => h.includes('t freenow') || h.includes('prowizja')) : 12; // Kolumna M (index 12)
+  const fuelIdx = headers.findIndex(h => h.includes('paliwo')) !== -1
+    ? headers.findIndex(h => h.includes('paliwo')) : 15; // Kolumna P (index 15)
+  const fuelVATRefundIdx = headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) !== -1
+    ? headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) : 20; // Kolumna U (index 20)
 
   // Use actual column letters as fallback
   const getColValue = (row: string[], idx: number, fallbackIdx: number) => 
@@ -514,32 +539,37 @@ async function processRidoTemplate(
       getRidoId: getColValue(row, getRidoIdIdx, 23).trim() || '',
     };
 
-    // Extract amounts from columns H, I, J, K, M, N, O, P, U
-    const uber_payout_d = parsePLNumber(getColValue(row, uberPayoutDIdx, 7));
-    const uber_cash_f = parsePLNumber(getColValue(row, uberCashFIdx, 8));
-    const bolt_projected_d = parsePLNumber(getColValue(row, boltProjectedDIdx, 9));
-    const bolt_payout_s = parsePLNumber(getColValue(row, boltPayoutSIdx, 10));
-    const freenow_cash_f = parsePLNumber(getColValue(row, freenowCashFIdx, 12));
-    const freenow_base_s = parsePLNumber(getColValue(row, freenowBaseSIdx, 13));
-    const freenow_commission_t = parsePLNumber(getColValue(row, freenowCommissionTIdx, 14));
-    const fuel = parsePLNumber(getColValue(row, fuelIdx, 15));
-    const fuelVATRefund = parsePLNumber(getColValue(row, fuelVATRefundIdx, 20));
+    // Extract amounts from proper columns
+    const uber_payout_d = parsePLNumber(row[uberPayoutDIdx] || row[5] || '0');
+    const uber_cash_f = parsePLNumber(row[uberCashFIdx] || row[6] || '0');
+    const bolt_projected_d = parsePLNumber(row[boltProjectedDIdx] || row[7] || '0');
+    const bolt_cash = parsePLNumber(row[boltCashIdx] || row[8] || '0'); // POPRAWIONE: czytaj gotówkę Bolt z kolumny I
+    const bolt_payout_s = parsePLNumber(row[boltPayoutSIdx] || row[9] || '0');
+    const freenow_cash_f = parsePLNumber(row[freenowCashFIdx] || row[10] || '0');
+    const freenow_base_s = parsePLNumber(row[freenowBaseSIdx] || row[11] || '0');
+    const freenow_commission_t = parsePLNumber(row[freenowCommissionTIdx] || row[12] || '0');
+    const fuel = parsePLNumber(row[fuelIdx] || row[15] || '0');
+    const fuelVATRefund = parsePLNumber(row[fuelVATRefundIdx] || row[20] || '0');
 
-    // Calculate 8% tax and net amounts
-    // UBER: base = D + F (payout + cash), tax = 8% od base, net = D - tax - cash
+    // ============= POPRAWIONE FORMUŁY KALKULACJI =============
+    
+    // UBER: base = D + F (payout + cash), tax = 8% od base, net = D - tax
+    // Gotówka (F) jest dodana do base do podatku, ale kierowca ją oddaje więc nie wpływa na net
     const uber_base = uber_payout_d + uber_cash_f;
     const uber_tax_8 = uber_base * 0.08;
-    const uber_net = uber_payout_d - uber_tax_8 - uber_cash_f;  // POPRAWIONE: odejmij gotówkę
+    const uber_net = uber_payout_d - uber_tax_8; // D - podatek (gotówka jest osobno)
 
-    // BOLT: base = D (projected), tax = 8% od D, net = S - tax - cash
-    // Gotówka Bolt jest pobierana z osobnej kolumny (G)
-    const bolt_cash = 0;  // W template Bolt gotówka jest w amounts z platform CSV
+    // BOLT: Prowizja Bolt = D - G - S (brutto - gotówka - payout)
+    // Tax = 8% od D, net = S - tax
+    const bolt_commission = bolt_projected_d - bolt_cash - bolt_payout_s;
     const bolt_tax_8 = bolt_projected_d * 0.08;
-    const bolt_net = bolt_payout_s - bolt_tax_8 - bolt_cash;  // POPRAWIONE: odejmij gotówkę
+    const bolt_net = bolt_payout_s - bolt_tax_8; // S - podatek (gotówka jest osobno)
 
-    // FREENOW: net = S - tax - commission - cash (to było OK)
+    // FREENOW: net = S - tax - prowizja (gotówka jest osobno)
     const freenow_tax_8 = freenow_base_s * 0.08;
-    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
+    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t; // S - podatek - prowizja
+    
+    console.log(`📊 RIDO Template wiersz ${i}: Uber(D=${uber_payout_d}, F=${uber_cash_f}, net=${uber_net.toFixed(2)}) | Bolt(D=${bolt_projected_d}, G=${bolt_cash}, S=${bolt_payout_s}, prow=${bolt_commission.toFixed(2)}, net=${bolt_net.toFixed(2)}) | FreeNow(S=${freenow_base_s}, T=${freenow_commission_t}, F=${freenow_cash_f}, net=${freenow_net.toFixed(2)})`);
 
     const beforeSize = existingDriversMap.size;
     const driverId = await findOrCreateDriver(
@@ -566,7 +596,7 @@ async function processRidoTemplate(
       week_start: meta.period_from,
       week_end: meta.period_to,
       total_earnings: uber_base + bolt_projected_d + freenow_base_s,
-      commission_amount: freenow_commission_t,
+      commission_amount: freenow_commission_t + bolt_commission, // Suma prowizji wszystkich platform
       net_amount: uber_net + bolt_net + freenow_net + fuelVATRefund - fuel,
       amounts: {
         uber_payout_d,
@@ -576,6 +606,8 @@ async function processRidoTemplate(
         uber_net,
         bolt_projected_d,
         bolt_payout_s,
+        bolt_cash,       // DODANE: gotówka Bolt
+        bolt_commission, // DODANE: prowizja Bolt (D - G - S)
         bolt_tax_8,
         bolt_net,
         freenow_base_s,
@@ -636,8 +668,8 @@ async function parseUberCsv(
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
     const uber_tax_8 = uber_base * 0.08;
-    // POPRAWIONE: uber_net = D - podatek - gotówka (kierowca musi oddać gotówkę)
-    const uber_net = uber_payout_d - uber_tax_8 - uber_cash_f;
+    // POPRAWIONE: uber_net = D - podatek (gotówka jest oddzielana osobno, nie wpływa na wypłatę net)
+    const uber_net = uber_payout_d - uber_tax_8;
 
     let platformId = row[driverIdIdx]?.trim();
     const driverName = row[driverNameIdx]?.trim() || '';
@@ -784,11 +816,11 @@ async function parseBoltCsv(
     // Podatek 8% od zarobków brutto (D)
     const bolt_tax_8 = bolt_projected_d * 0.08;
     
-    // POPRAWIONE: Wypłata netto Bolt = S (projected payout) - podatek 8% - gotówka
-    // Kierowca musi oddać gotówkę którą zebrał od pasażerów
-    const bolt_net = bolt_payout_s - bolt_tax_8 - bolt_cash;
+    // POPRAWIONE: Wypłata netto Bolt = S (projected payout) - podatek 8%
+    // Gotówka jest oddzielana osobno, nie wpływa na wypłatę net
+    const bolt_net = bolt_payout_s - bolt_tax_8;
     
-    console.log(`📊 BOLT wiersz ${i}: D(brutto)=${bolt_projected_d}, S(payout)=${bolt_payout_s}, G(gotówka)=${bolt_cash}, prowizja=${bolt_commission}, podatek=${bolt_tax_8.toFixed(2)}, net=${bolt_net.toFixed(2)}`);
+    console.log(`📊 BOLT wiersz ${i}: D(brutto)=${bolt_projected_d}, S(payout)=${bolt_payout_s}, G(gotówka)=${bolt_cash}, prowizja=${bolt_commission.toFixed(2)}, podatek=${bolt_tax_8.toFixed(2)}, net=${bolt_net.toFixed(2)}`);
 
     // WAŻNE: Pobierz imię i nazwisko z kolumny "kierowca" (indeks 0 zazwyczaj)
     const driverName = (driverNameIdx >= 0 ? row[driverNameIdx] : row[0])?.trim() || '';
@@ -911,7 +943,8 @@ async function parseFreenowCsv(
     const freenow_commission_t = parsePLNumber(row[commissionIdx] || '0');
     const freenow_cash_f = parsePLNumber(row[cashIdx] || '0');
     const freenow_tax_8 = freenow_base_s * 0.08;
-    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t - freenow_cash_f;
+    // POPRAWIONE: freenow_net = S - podatek - prowizja (gotówka jest oddzielana osobno)
+    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t;
 
     // FREENOW: kolumna 0 = id kierowcy (np. "5389DB"), kolumna 1 = kierowca (imię nazwisko)
     const platformId = driverIdIdx >= 0 ? row[driverIdIdx]?.trim() : '';
