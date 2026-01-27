@@ -10,12 +10,14 @@ import { EmailSettings } from './EmailSettings';
 import { FeatureTogglesManagement } from './FeatureTogglesManagement';
 import { AISettingsPanel } from './ai/AISettingsPanel';
 import { PaidServicesPanel } from './admin/PaidServicesPanel';
+import { UISettingsPanel } from './admin/UISettingsPanel';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
 
   const subTabs = [
     { value: "system", label: "Ustawienia systemu", visible: true },
+    { value: "ui-settings", label: "Wygląd", visible: true },
     { value: "features", label: "Funkcje", visible: true },
     { value: "ai", label: "Ustawienia AI", visible: true },
     { value: "paid-services", label: "Płatne usługi", visible: true },
@@ -37,6 +39,7 @@ export function AdminSettingsView() {
       />
 
       {activeSubTab === "system" && <RidoSettings />}
+      {activeSubTab === "ui-settings" && <UISettingsPanel />}
       {activeSubTab === "features" && <FeatureTogglesManagement />}
       {activeSubTab === "ai" && <AISettingsPanel />}
       {activeSubTab === "paid-services" && <PaidServicesPanel />}
