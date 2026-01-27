@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Search, Upload, FileText } from 'lucide-react';
+import { Loader2, Search, Upload, FileText, Check, X, Plus, AlertTriangle, Package } from 'lucide-react';
+import { DatePickerButton } from './DatePickerButton';
 
 const COST_CATEGORIES = [
   { value: 'fuel', label: 'Paliwo' },
@@ -22,6 +25,21 @@ const COST_CATEGORIES = [
   { value: 'other', label: 'Inne' },
 ];
 
+const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
+
+interface ExtractedItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  netPrice: number;
+  vatRate: string;
+  netAmount: number;
+  vatAmount: number;
+  grossAmount: number;
+  addToInventory: boolean;
+  inventoryProductId?: string;
+}
+
 interface CostInvoiceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,19 +47,144 @@ interface CostInvoiceModalProps {
   onCreated?: () => void;
 }
 
+type Step = 'upload' | 'confirm' | 'saved';
+
 export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: CostInvoiceModalProps) {
+  const [step, setStep] = useState<Step>('upload');
+  const [uploading, setUploading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  
+  // Extracted data
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [supplierNip, setSupplierNip] = useState('');
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [supplierAddress, setSupplierAddress] = useState('');
+  const [issueDate, setIssueDate] = useState('');
+  const [saleDate, setSaleDate] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [totalNet, setTotalNet] = useState('');
-  const [totalVat, setTotalVat] = useState('');
-  const [totalGross, setTotalGross] = useState('');
-  const [costCategory, setCostCategory] = useState('other');
+  const [paymentAccount, setPaymentAccount] = useState('');
+  const [paymentBank, setPaymentBank] = useState('');
+  const [items, setItems] = useState<ExtractedItem[]>([]);
   const [notes, setNotes] = useState('');
+  const [costCategory, setCostCategory] = useState('other');
+  
   const [saving, setSaving] = useState(false);
   const [searchingNip, setSearchingNip] = useState(false);
+  const [fileUrl, setFileUrl] = useState('');
+
+  const resetForm = () => {
+    setStep('upload');
+    setInvoiceNumber('');
+    setSupplierName('');
+    setSupplierNip('');
+    setSupplierAddress('');
+    setIssueDate('');
+    setSaleDate('');
+    setDueDate('');
+    setPaymentAccount('');
+    setPaymentBank('');
+    setItems([]);
+    setNotes('');
+    setCostCategory('other');
+    setFileUrl('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      // Upload to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${entityId}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(fileName);
+
+      setFileUrl(publicUrl);
+
+      // Extract data using AI
+      setExtracting(true);
+      const { data: extractedData, error: extractError } = await supabase.functions.invoke('extract-invoice-data', {
+        body: { 
+          fileUrl: publicUrl,
+          fileType: file.type 
+        }
+      });
+
+      if (extractError) {
+        console.error('Extraction error:', extractError);
+        toast.error('Błąd ekstrakcji danych. Wprowadź ręcznie.');
+        setStep('confirm');
+        return;
+      }
+
+      if (extractedData?.success && extractedData?.data) {
+        const d = extractedData.data;
+        setInvoiceNumber(d.invoiceNumber || '');
+        setSupplierName(d.supplierName || '');
+        setSupplierNip(d.supplierNip || '');
+        setSupplierAddress(d.supplierAddress || '');
+        setIssueDate(d.issueDate || new Date().toISOString().split('T')[0]);
+        setSaleDate(d.saleDate || d.issueDate || '');
+        setDueDate(d.dueDate || '');
+        setPaymentAccount(d.paymentAccount || '');
+        setPaymentBank(d.paymentBank || '');
+        setNotes(d.notes || '');
+
+        // Map items
+        if (d.items && Array.isArray(d.items)) {
+          setItems(d.items.map((item: any) => ({
+            name: item.name || '',
+            quantity: item.quantity || 1,
+            unit: item.unit || 'szt.',
+            netPrice: item.netPrice || 0,
+            vatRate: item.vatRate || '23',
+            netAmount: item.netAmount || 0,
+            vatAmount: item.vatAmount || 0,
+            grossAmount: item.grossAmount || 0,
+            addToInventory: false,
+            inventoryProductId: undefined
+          })));
+        } else {
+          setItems([createEmptyItem()]);
+        }
+
+        toast.success('Dane wyekstraktowane! Sprawdź i potwierdź.');
+      } else {
+        setItems([createEmptyItem()]);
+        toast.info('Nie udało się wyekstraktować danych. Wprowadź ręcznie.');
+      }
+
+      setStep('confirm');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('Błąd przesyłania pliku');
+    } finally {
+      setUploading(false);
+      setExtracting(false);
+    }
+  };
+
+  const createEmptyItem = (): ExtractedItem => ({
+    name: '',
+    quantity: 1,
+    unit: 'szt.',
+    netPrice: 0,
+    vatRate: '23',
+    netAmount: 0,
+    vatAmount: 0,
+    grossAmount: 0,
+    addToInventory: false
+  });
 
   const searchGUS = async () => {
     if (!supplierNip || supplierNip.length !== 10) {
@@ -59,6 +202,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
 
       if (data?.success && data?.data) {
         setSupplierName(data.data.name);
+        setSupplierAddress(data.data.address || '');
         toast.success('Dane pobrane z GUS');
       } else {
         toast.error(data?.error || 'Nie znaleziono firmy');
@@ -71,11 +215,32 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
     }
   };
 
-  const calculateGross = () => {
-    const net = parseFloat(totalNet) || 0;
-    const vat = parseFloat(totalVat) || 0;
-    setTotalGross((net + vat).toFixed(2));
+  const updateItem = (index: number, field: keyof ExtractedItem, value: any) => {
+    setItems(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      
+      // Recalculate amounts
+      const rate = parseFloat(updated[index].vatRate) || 0;
+      updated[index].netAmount = updated[index].quantity * updated[index].netPrice;
+      updated[index].vatAmount = updated[index].netAmount * (rate / 100);
+      updated[index].grossAmount = updated[index].netAmount + updated[index].vatAmount;
+      
+      return updated;
+    });
   };
+
+  const addItem = () => setItems(prev => [...prev, createEmptyItem()]);
+  
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const totalNet = items.reduce((sum, item) => sum + item.netAmount, 0);
+  const totalVat = items.reduce((sum, item) => sum + item.vatAmount, 0);
+  const totalGross = items.reduce((sum, item) => sum + item.grossAmount, 0);
 
   const handleSave = async () => {
     if (!supplierName) {
@@ -83,13 +248,16 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
       return;
     }
 
-    if (!totalGross || parseFloat(totalGross) <= 0) {
+    if (totalGross <= 0) {
       toast.error('Podaj kwotę faktury');
       return;
     }
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Brak autoryzacji');
+
       // Generate invoice number for costs
       const now = new Date();
       const year = now.getFullYear();
@@ -97,183 +265,451 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
       const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
       const costInvoiceNumber = invoiceNumber || `KOSZT/${year}/${month}/${randomNum}`;
 
-      const { error } = await supabase
-        .from('invoices')
+      // Save to user_invoices (cost type)
+      const { data: savedInvoice, error: invoiceError } = await supabase
+        .from('user_invoices')
         .insert({
-          entity_id: entityId,
+          user_id: user.id,
+          company_id: entityId,
           invoice_number: costInvoiceNumber,
-          type: 'cost',
-          issue_date: issueDate,
+          invoice_type: 'cost',
+          buyer_name: supplierName,
+          buyer_nip: supplierNip || null,
+          buyer_address: supplierAddress || null,
+          issue_date: issueDate || new Date().toISOString().split('T')[0],
+          sale_date: saleDate || null,
           due_date: dueDate || null,
-          net_amount: parseFloat(totalNet) || 0,
-          vat_amount: parseFloat(totalVat) || 0,
-          gross_amount: parseFloat(totalGross) || 0,
+          payment_method: 'transfer',
+          net_total: totalNet,
+          vat_total: totalVat,
+          gross_total: totalGross,
           notes,
-          status: 'pending',
-          buyer_snapshot: {
-            name: supplierName,
-            nip: supplierNip || null,
-            cost_category: costCategory
-          }
-        });
+          is_paid: false,
+          currency: 'PLN'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (invoiceError) throw invoiceError;
 
-      toast.success('Faktura kosztowa dodana');
+      // Save invoice items
+      const itemsToSave = items.map((item, idx) => ({
+        invoice_id: savedInvoice.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_net_price: item.netPrice,
+        vat_rate: item.vatRate,
+        net_amount: item.netAmount,
+        vat_amount: item.vatAmount,
+        gross_amount: item.grossAmount,
+        sort_order: idx
+      }));
+
+      await supabase.from('user_invoice_items').insert(itemsToSave);
+
+      // Handle inventory items
+      const inventoryItems = items.filter(item => item.addToInventory);
+      for (const item of inventoryItems) {
+        // Create inventory batch for this item
+        // This links purchase to inventory for FIFO tracking
+        if (item.inventoryProductId) {
+          await supabase.from('inventory_batches').insert({
+            product_id: item.inventoryProductId,
+            purchase_document_id: savedInvoice.id,
+            qty_in: item.quantity,
+            qty_remaining: item.quantity,
+            unit_cost_net: item.netPrice,
+            vat_rate: item.vatRate,
+            received_at: new Date().toISOString()
+          });
+        }
+      }
+
+      // Save supplier alias for future auto-matching
+      if (supplierNip && supplierName) {
+        try {
+          await supabase.from('inventory_product_aliases').upsert({
+            entity_id: entityId,
+            source_label: supplierName,
+            supplier_nip: supplierNip,
+            product_id: items[0]?.inventoryProductId || null
+          }, {
+            onConflict: 'entity_id,source_label'
+          });
+        } catch (e) {
+          // Ignore if table doesn't exist or constraint error
+          console.log('Alias save skipped:', e);
+        }
+      }
+
+      toast.success('Faktura kosztowa zapisana');
+      resetForm();
       onOpenChange(false);
       onCreated?.();
-
-      // Reset form
-      setInvoiceNumber('');
-      setSupplierName('');
-      setSupplierNip('');
-      setTotalNet('');
-      setTotalVat('');
-      setTotalGross('');
-      setCostCategory('other');
-      setNotes('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save error:', err);
-      toast.error('Błąd zapisu faktury');
+      toast.error('Błąd zapisu faktury: ' + (err.message || ''));
     } finally {
       setSaving(false);
     }
   };
 
+  const handleManualEntry = () => {
+    setIssueDate(new Date().toISOString().split('T')[0]);
+    setItems([createEmptyItem()]);
+    setStep('confirm');
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) resetForm();
+      onOpenChange(isOpen);
+    }}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Dodaj fakturę kosztową
+            {step === 'upload' ? 'Dodaj fakturę kosztową' : 'Sprawdź dane faktury'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Supplier NIP + search */}
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Label>NIP dostawcy</Label>
-              <Input
-                placeholder="Wpisz NIP..."
-                value={supplierNip}
-                onChange={(e) => setSupplierNip(e.target.value.replace(/\D/g, ''))}
-                maxLength={10}
-              />
+        {/* STEP 1: Upload */}
+        {step === 'upload' && (
+          <div className="space-y-6 py-8">
+            <div className="border-2 border-dashed rounded-lg p-12 text-center">
+              {uploading || extracting ? (
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <p className="text-muted-foreground">
+                    {extracting ? 'Analizuję fakturę...' : 'Przesyłam plik...'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="font-semibold mb-2">Przeciągnij fakturę lub kliknij</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Obsługujemy PDF, JPG, PNG. System automatycznie odczyta dane.
+                  </p>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="cost-invoice-upload"
+                  />
+                  <label htmlFor="cost-invoice-upload">
+                    <Button asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Wybierz plik
+                      </span>
+                    </Button>
+                  </label>
+                </>
+              )}
             </div>
-            <div className="flex items-end">
-              <Button variant="outline" onClick={searchGUS} disabled={searchingNip}>
-                {searchingNip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+
+            <div className="text-center">
+              <Button variant="ghost" onClick={handleManualEntry}>
+                Lub wprowadź dane ręcznie →
               </Button>
             </div>
           </div>
+        )}
 
-          <div>
-            <Label>Nazwa dostawcy *</Label>
-            <Input
-              placeholder="Nazwa firmy..."
-              value={supplierName}
-              onChange={(e) => setSupplierName(e.target.value)}
-            />
-          </div>
+        {/* STEP 2: Confirm extracted data */}
+        {step === 'confirm' && (
+          <div className="space-y-6">
+            {/* Alert if OCR was used */}
+            <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+              <p className="text-yellow-700">
+                Dane zostały odczytane automatycznie. <strong>Sprawdź poprawność</strong> przed zapisaniem.
+                Kliknij pole, aby edytować.
+              </p>
+            </div>
 
-          <div>
-            <Label>Numer faktury</Label>
-            <Input
-              placeholder="FV/2026/01/001"
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-            />
-          </div>
+            {/* Supplier Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                <h3 className="font-semibold flex items-center gap-2">
+                  Sprzedawca
+                  {supplierNip && <Badge variant="outline">{supplierNip}</Badge>}
+                </h3>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label>NIP</Label>
+                    <Input
+                      placeholder="NIP dostawcy"
+                      value={supplierNip}
+                      onChange={(e) => setSupplierNip(e.target.value.replace(/\D/g, ''))}
+                      maxLength={10}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button variant="outline" size="icon" onClick={searchGUS} disabled={searchingNip}>
+                      {searchingNip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Data wystawienia</Label>
-              <Input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Termin płatności</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
-          </div>
+                <div>
+                  <Label>Nazwa firmy</Label>
+                  <Input
+                    value={supplierName}
+                    onChange={(e) => setSupplierName(e.target.value)}
+                    placeholder="Nazwa dostawcy"
+                  />
+                </div>
 
-          {/* Amounts */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Netto</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={totalNet}
-                onChange={(e) => {
-                  setTotalNet(e.target.value);
-                  setTimeout(calculateGross, 100);
-                }}
-              />
-            </div>
-            <div>
-              <Label>VAT</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={totalVat}
-                onChange={(e) => {
-                  setTotalVat(e.target.value);
-                  setTimeout(calculateGross, 100);
-                }}
-              />
-            </div>
-            <div>
-              <Label>Brutto *</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={totalGross}
-                onChange={(e) => setTotalGross(e.target.value)}
-              />
-            </div>
-          </div>
+                <div>
+                  <Label>Adres</Label>
+                  <Input
+                    value={supplierAddress}
+                    onChange={(e) => setSupplierAddress(e.target.value)}
+                    placeholder="Adres dostawcy"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <Label>Kategoria kosztu</Label>
-            <Select value={costCategory} onValueChange={setCostCategory}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {COST_CATEGORIES.map(cat => (
-                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                <h3 className="font-semibold">Dane faktury</h3>
+
+                <div>
+                  <Label>Numer faktury</Label>
+                  <Input
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="FV/2026/01/001"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Data wystawienia</Label>
+                    <DatePickerButton
+                      label=""
+                      value={issueDate}
+                      onChange={setIssueDate}
+                    />
+                  </div>
+                  <div>
+                    <Label>Data sprzedaży</Label>
+                    <DatePickerButton
+                      label=""
+                      value={saleDate}
+                      onChange={setSaleDate}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Termin płatności</Label>
+                  <DatePickerButton
+                    label=""
+                    value={dueDate}
+                    onChange={setDueDate}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Nr konta bankowego</Label>
+                <Input
+                  value={paymentAccount}
+                  onChange={(e) => setPaymentAccount(e.target.value)}
+                  placeholder="XX XXXX XXXX XXXX XXXX XXXX XXXX"
+                />
+              </div>
+              <div>
+                <Label>Bank</Label>
+                <Input
+                  value={paymentBank}
+                  onChange={(e) => setPaymentBank(e.target.value)}
+                  placeholder="Nazwa banku"
+                />
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Pozycje faktury</h3>
+                <Button size="sm" variant="outline" onClick={addItem}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Dodaj pozycję
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {items.map((item, index) => (
+                  <div key={index} className="p-3 bg-muted/30 border rounded-lg space-y-3">
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-4">
+                        <Label className="text-xs">Nazwa</Label>
+                        <Input
+                          value={item.name}
+                          onChange={(e) => updateItem(index, 'name', e.target.value)}
+                          placeholder="Nazwa produktu/usługi"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <Label className="text-xs">Ilość</Label>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          min={0}
+                          step={0.01}
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <Label className="text-xs">Jedn.</Label>
+                        <Input
+                          value={item.unit}
+                          onChange={(e) => updateItem(index, 'unit', e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs">Cena netto</Label>
+                        <Input
+                          type="number"
+                          value={item.netPrice}
+                          onChange={(e) => updateItem(index, 'netPrice', parseFloat(e.target.value) || 0)}
+                          min={0}
+                          step={0.01}
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <Label className="text-xs">VAT</Label>
+                        <Select
+                          value={item.vatRate}
+                          onValueChange={(v) => updateItem(index, 'vatRate', v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VAT_RATES.map(rate => (
+                              <SelectItem key={rate} value={rate}>
+                                {rate === 'zw' ? 'zw' : rate === 'np' ? 'np' : `${rate}%`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs">Brutto</Label>
+                        <div className="h-10 flex items-center px-3 bg-background border rounded-md text-sm font-medium">
+                          {item.grossAmount.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                        </div>
+                      </div>
+                      <div className="col-span-1 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(index)}
+                          disabled={items.length === 1}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Add to inventory checkbox */}
+                    <div className="flex items-center gap-2 pt-2 border-t">
+                      <Checkbox
+                        id={`inventory-${index}`}
+                        checked={item.addToInventory}
+                        onCheckedChange={(checked) => updateItem(index, 'addToInventory', !!checked)}
+                      />
+                      <label htmlFor={`inventory-${index}`} className="text-sm flex items-center gap-1 cursor-pointer">
+                        <Package className="h-3 w-3" />
+                        Dodaj do magazynu
+                      </label>
+                      {item.addToInventory && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Przypisz do produktu
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
 
-          <div>
-            <Label>Uwagi</Label>
-            <Textarea
-              placeholder="Dodatkowe informacje..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
+              {/* Totals */}
+              <div className="flex justify-between items-start pt-4">
+                <div>
+                  <Label>Kategoria kosztu</Label>
+                  <Select value={costCategory} onValueChange={setCostCategory}>
+                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COST_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1 text-sm w-56 p-4 bg-primary/5 rounded-lg">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Netto:</span>
+                    <span>{totalNet.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">VAT:</span>
+                    <span>{totalVat.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                    <span>Brutto:</span>
+                    <span>{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label>Uwagi</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Dodatkowe informacje..."
+                rows={2}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Anuluj
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Zapisz
-          </Button>
+          {step === 'confirm' && (
+            <>
+              <Button variant="outline" onClick={() => setStep('upload')}>
+                Wróć
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                Akceptuj i zapisz
+              </Button>
+            </>
+          )}
+          {step === 'upload' && (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Anuluj
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

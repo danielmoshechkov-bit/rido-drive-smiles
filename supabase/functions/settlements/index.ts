@@ -382,15 +382,14 @@ async function process3PlatformCsvs(
     const fuel_vat_refund = fuel > 0 ? (fuel - fuel / 1.23) / 2 : 0;
     
     // POPRAWIONA FORMUŁA NET_AMOUNT:
-    // Gotówka jest już odjęta wewnątrz uber_net, bolt_net, freenow_net!
-    // Więc NIE ODEJMUJEMY jej ponownie tutaj
-    // Formuła: suma net z platform + VAT refund - paliwo
+    // Gotówka MUSI być odjęta RAZ - kierowca ją pobrał i musi oddać firmie
+    // Formuła: suma net z platform + VAT refund - paliwo - gotówka
+    const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
+    
     const calculated_net = (data.uber_net || 0) + (data.bolt_net || 0) + (data.freenow_net || 0) 
                            + fuel_vat_refund 
-                           - fuel;
-    
-    // Suma gotówki do raportowania (ale NIE do odejmowania)
-    const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
+                           - fuel
+                           - total_cash; // GOTÓWKA ODJĘTA RAZ!
     
     console.log(`💰 Driver ${driverId}: uber_net=${data.uber_net?.toFixed(2)}, bolt_net=${data.bolt_net?.toFixed(2)}, freenow_net=${data.freenow_net?.toFixed(2)}, total_cash(info)=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, WYPŁATA=${calculated_net.toFixed(2)}`);
     
@@ -597,7 +596,8 @@ async function processRidoTemplate(
       week_end: meta.period_to,
       total_earnings: uber_base + bolt_projected_d + freenow_base_s,
       commission_amount: freenow_commission_t + bolt_commission, // Suma prowizji wszystkich platform
-      net_amount: uber_net + bolt_net + freenow_net + fuelVATRefund - fuel,
+      // POPRAWIONE: gotówka musi być odjęta RAZ (kierowca ją pobrał i musi oddać)
+      net_amount: uber_net + bolt_net + freenow_net + fuelVATRefund - fuel - (uber_cash_f + bolt_cash + freenow_cash_f),
       amounts: {
         uber_payout_d,
         uber_cash_f,
