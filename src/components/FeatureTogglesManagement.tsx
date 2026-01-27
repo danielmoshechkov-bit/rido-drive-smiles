@@ -20,6 +20,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   registration: "Rejestracja",
   general: "Ogólne",
   accounting: "Moduł Księgowy",
+  inventory: "Moduł Magazynowy",
 };
 
 export function FeatureTogglesManagement() {

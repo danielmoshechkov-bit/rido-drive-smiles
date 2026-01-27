@@ -20,6 +20,7 @@ import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
+import { InventoryModuleView } from '@/components/inventory';
 import { 
   Car,
   Home,
@@ -76,15 +77,14 @@ interface Purchase {
   type: 'vehicle' | 'property' | 'service';
 }
 
-// Accounting sub-tabs
+// Accounting sub-tabs - Stan magazynowy added after Płatności
 const accountingSubTabs = [
   { id: 'przeglad', label: 'Przegląd', icon: BarChart3 },
   { id: 'faktury', label: 'Faktury', icon: FileText },
   { id: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet },
   { id: 'platnosci', label: 'Płatności', icon: CreditCard },
+  { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
   { id: 'cykliczne', label: 'Cykliczne', icon: Clock },
-  { id: 'firmy', label: 'Firmy', icon: Building2 },
-  { id: 'raporty', label: 'Raporty', icon: BarChart3 },
 ];
 
 export default function ClientPortal() {
@@ -388,10 +388,14 @@ export default function ClientPortal() {
 
   const totalListings = vehicleListings.length + propertyListings.length;
 
+  // Księgowość visible only if user has at least one company (entity)
+  const hasCompanySetup = userEntities.length > 0;
+
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
-    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
+    // Only show Księgowość if user has activated their company
+    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ulubione', label: 'Ulubione', icon: Heart },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
@@ -1216,7 +1220,11 @@ export default function ClientPortal() {
                 </Card>
               )}
 
-              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && (
+              {accountingSubTab === 'magazyn' && (
+                <InventoryModuleView entityId={userEntities[0]?.id} />
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
