@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AddListingModal } from '@/components/AddListingModal';
 
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
+import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
@@ -116,6 +117,7 @@ export default function ClientPortal() {
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
+  const [showCostInvoice, setShowCostInvoice] = useState(false);
   
   // Search modal
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -932,7 +934,7 @@ export default function ClientPortal() {
                       <Plus className="h-4 w-4 mr-2" />
                       Wystaw fakturę
                     </Button>
-                    <Button variant="outline" className="h-auto py-3">
+                    <Button variant="outline" className="h-auto py-3" onClick={() => setShowCostInvoice(true)}>
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       Dodaj fakturę kosztową
                     </Button>
@@ -1478,6 +1480,14 @@ export default function ClientPortal() {
             fetchUserInvoices(user.id);
           }
         }}
+      />
+
+      {/* Cost Invoice Modal */}
+      <CostInvoiceModal
+        open={showCostInvoice}
+        onOpenChange={setShowCostInvoice}
+        entityId={userEntities[0]?.id || ''}
+        onCreated={() => user && fetchUserInvoices(user.id)}
       />
     </div>
   );

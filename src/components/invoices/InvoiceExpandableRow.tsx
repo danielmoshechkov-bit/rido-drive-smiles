@@ -322,7 +322,21 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
               
               <div className="text-right">
                 <p className="font-bold text-lg">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</p>
+                <p className="text-[10px] text-orange-500 font-semibold">PAMIĘTAJ</p>
               </div>
+              
+              {/* Krzyzyk usuwania */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteDialog(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
               
               <Badge 
                 className={`cursor-pointer transition-colors min-w-[100px] justify-center ${
