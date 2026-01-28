@@ -395,8 +395,8 @@ export default function ClientPortal() {
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
-    // Only show Księgowość if user has activated their company
-    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
+    // Księgowość - ZAWSZE widoczna (użytkownik może założyć firmę)
+    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ulubione', label: 'Ulubione', icon: Heart },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },

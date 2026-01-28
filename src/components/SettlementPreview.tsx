@@ -29,8 +29,8 @@ interface DriverSettlement {
   // Bolt
   bolt_projected_d: number;
   bolt_payout_s: number;
-  bolt_cash: number;       // DODANE
-  bolt_commission: number; // DODANE
+  bolt_cash: number;       
+  bolt_commission: number; 
   bolt_tax_8: number;
   bolt_net: number;
   // FreeNow
@@ -40,7 +40,10 @@ interface DriverSettlement {
   freenow_tax_8: number;
   freenow_net: number;
   // Totals
-  total_cash: number;      // DODANE: suma gotówki wszystkich platform
+  total_base: number;       // Suma przychodów brutto
+  total_cash: number;       // Suma gotówki wszystkich platform
+  total_tax: number;        // Suma podatków
+  total_commission: number; // Suma prowizji
   // Other
   fuel: number;
   fuel_vat_refund: number;
@@ -114,11 +117,27 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
         
         // Prowizja Bolt
         const bolt_commission = amounts.bolt_commission || 0;
+        
+        // Suma podatków wszystkich platform
+        const uber_tax_8 = amounts.uber_tax_8 || 0;
+        const bolt_tax_8 = amounts.bolt_tax_8 || 0;
+        const freenow_tax_8 = amounts.freenow_tax_8 || 0;
+        const total_tax = uber_tax_8 + bolt_tax_8 + freenow_tax_8;
+        
+        // Suma prowizji wszystkich platform
+        const freenow_commission_t = amounts.freenow_commission_t || 0;
+        const total_commission = bolt_commission + freenow_commission_t;
+        
+        // Suma przychodów brutto wszystkich platform
+        const uber_base_amount = amounts.uber_base || 0;
+        const bolt_projected_d = amounts.bolt_projected_d || 0;
+        const freenow_base_s = amounts.freenow_base_s || 0;
+        const total_base = uber_base_amount + bolt_projected_d + freenow_base_s;
 
         // POPRAWIONA FORMUŁA WYPŁATY:
-        // Suma net z platform + zwrot VAT - paliwo - opłata planu - wynajem
-        // Gotówka NIE jest odejmowana tutaj - jest osobno zwracana przez kierowcę
-        const payout = uber_net + bolt_net + freenow_net + fuel_vat_refund - fuel - plan_fee - rental_fee;
+        // Przychód brutto - gotówka (RAZ!) - podatek 8% - prowizje - paliwo + zwrot VAT - opłata - wynajem
+        // Wzór: total_base - total_cash - total_tax - total_commission - fuel + fuel_vat_refund - plan_fee - rental_fee
+        const payout = total_base - total_cash - total_tax - total_commission - fuel + fuel_vat_refund - plan_fee - rental_fee;
 
         return {
           id: item.id,
@@ -127,21 +146,24 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
           getrido_id: item.drivers?.getrido_id || '',
           uber_payout_d: amounts.uber_payout_d || 0,
           uber_cash_f,
-          uber_base: amounts.uber_base || 0,
-          uber_tax_8: amounts.uber_tax_8 || 0,
+          uber_base: uber_base_amount,
+          uber_tax_8,
           uber_net,
-          bolt_projected_d: amounts.bolt_projected_d || 0,
+          bolt_projected_d,
           bolt_payout_s: amounts.bolt_payout_s || 0,
           bolt_cash,
           bolt_commission,
-          bolt_tax_8: amounts.bolt_tax_8 || 0,
+          bolt_tax_8,
           bolt_net,
-          freenow_base_s: amounts.freenow_base_s || 0,
-          freenow_commission_t: amounts.freenow_commission_t || 0,
+          freenow_base_s,
+          freenow_commission_t,
           freenow_cash_f,
-          freenow_tax_8: amounts.freenow_tax_8 || 0,
+          freenow_tax_8,
           freenow_net,
+          total_base,
           total_cash,
+          total_tax,
+          total_commission,
           fuel,
           fuel_vat_refund,
           rental_fee,
@@ -208,7 +230,10 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
     freenow_base_s: filteredSettlements.reduce((sum, s) => sum + s.freenow_base_s, 0),
     freenow_tax_8: filteredSettlements.reduce((sum, s) => sum + s.freenow_tax_8, 0),
     freenow_net: filteredSettlements.reduce((sum, s) => sum + s.freenow_net, 0),
+    total_base: filteredSettlements.reduce((sum, s) => sum + s.total_base, 0),
     total_cash: filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0),
+    total_tax: filteredSettlements.reduce((sum, s) => sum + s.total_tax, 0),
+    total_commission: filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0),
     fuel: filteredSettlements.reduce((sum, s) => sum + s.fuel, 0),
     fuel_vat_refund: filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0),
     payout: filteredSettlements.reduce((sum, s) => sum + s.payout, 0)
@@ -251,79 +276,66 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-bold sticky left-0 bg-muted/50 z-10">Kierowca</TableHead>
-                <TableHead className="font-bold">ID</TableHead>
-                <TableHead colSpan={3} className="text-center font-bold bg-accent/30">Uber</TableHead>
-                <TableHead colSpan={4} className="text-center font-bold bg-primary/10">Bolt</TableHead>
-                <TableHead colSpan={3} className="text-center font-bold bg-destructive/10">FreeNow</TableHead>
-                <TableHead colSpan={2} className="text-center font-bold bg-secondary/50">Paliwo</TableHead>
-                <TableHead colSpan={2} className="text-center font-bold bg-muted">Opłaty</TableHead>
+                <TableHead className="font-bold">Uber</TableHead>
+                <TableHead className="font-bold">Uber got.</TableHead>
+                <TableHead className="font-bold">Bolt</TableHead>
+                <TableHead className="font-bold">Bolt got.</TableHead>
+                <TableHead className="font-bold">Bolt prow.</TableHead>
+                <TableHead className="font-bold">FreeNow</TableHead>
+                <TableHead className="font-bold">FN got.</TableHead>
+                <TableHead className="font-bold">FN prow.</TableHead>
+                <TableHead className="font-bold text-destructive">Razem got.</TableHead>
+                <TableHead className="font-bold text-destructive">Razem prow.</TableHead>
+                <TableHead className="font-bold text-destructive">Paliwo</TableHead>
+                <TableHead className="font-bold text-destructive">VAT</TableHead>
+                <TableHead className="font-bold text-primary">VAT zwrot</TableHead>
+                <TableHead className="font-bold text-destructive">Opłata</TableHead>
+                <TableHead className="font-bold text-destructive">Wynajem</TableHead>
                 <TableHead className="font-bold bg-primary/20 sticky right-0 z-10">WYPŁATA</TableHead>
-              </TableRow>
-              <TableRow className="text-xs">
-                <TableHead className="sticky left-0 bg-background z-10"></TableHead>
-                <TableHead></TableHead>
-                <TableHead>D+F</TableHead>
-                <TableHead>-8%</TableHead>
-                <TableHead>Netto</TableHead>
-                <TableHead>D</TableHead>
-                <TableHead>G</TableHead>
-                <TableHead>-8%</TableHead>
-                <TableHead>Netto</TableHead>
-                <TableHead>S</TableHead>
-                <TableHead>-8%</TableHead>
-                <TableHead>Netto</TableHead>
-                <TableHead>Koszt</TableHead>
-                <TableHead>+VAT</TableHead>
-                <TableHead>Wyn.</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead className="sticky right-0 bg-background z-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSettlements.map((settlement) => (
                 <TableRow key={settlement.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium sticky left-0 bg-background z-10">{settlement.driver_name}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{settlement.getrido_id}</TableCell>
                   <TableCell>{settlement.uber_base.toFixed(2)}</TableCell>
-                  <TableCell className="text-destructive">-{settlement.uber_tax_8.toFixed(2)}</TableCell>
-                  <TableCell className="font-semibold">{settlement.uber_net.toFixed(2)}</TableCell>
-                  <TableCell>{settlement.bolt_projected_d.toFixed(2)}</TableCell>
-                  <TableCell>{settlement.bolt_cash.toFixed(2)}</TableCell>
-                  <TableCell className="text-destructive">-{settlement.bolt_tax_8.toFixed(2)}</TableCell>
-                  <TableCell className="font-semibold">{settlement.bolt_net.toFixed(2)}</TableCell>
-                  <TableCell>{settlement.freenow_base_s.toFixed(2)}</TableCell>
-                  <TableCell className="text-destructive">-{settlement.freenow_tax_8.toFixed(2)}</TableCell>
-                  <TableCell className="font-semibold">{settlement.freenow_net.toFixed(2)}</TableCell>
-                  <TableCell className="text-destructive">-{settlement.fuel.toFixed(2)}</TableCell>
+                  <TableCell className="text-destructive">{settlement.uber_cash_f > 0 ? `-${settlement.uber_cash_f.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell>{settlement.bolt_projected_d > 0 ? settlement.bolt_projected_d.toFixed(2) : '-'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.bolt_cash > 0 ? `-${settlement.bolt_cash.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.bolt_commission !== 0 ? `-${settlement.bolt_commission.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell>{settlement.freenow_base_s > 0 ? settlement.freenow_base_s.toFixed(2) : '-'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.freenow_cash_f > 0 ? `-${settlement.freenow_cash_f.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.freenow_commission_t !== 0 ? `-${settlement.freenow_commission_t.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell className="text-destructive font-semibold">{settlement.total_cash > 0 ? `-${settlement.total_cash.toFixed(2)}` : '0,00'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.total_commission !== 0 ? `-${settlement.total_commission.toFixed(2)}` : '0,00'}</TableCell>
+                  <TableCell className="text-destructive">{settlement.fuel > 0 ? `-${settlement.fuel.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell className="text-destructive">-{settlement.total_tax.toFixed(2)}</TableCell>
                   <TableCell className="text-primary">+{settlement.fuel_vat_refund.toFixed(2)}</TableCell>
-                  <TableCell className="text-destructive">-{settlement.rental_fee.toFixed(2)}</TableCell>
                   <TableCell className="text-destructive">-{settlement.plan_fee.toFixed(2)}</TableCell>
+                  <TableCell className="text-destructive">{settlement.rental_fee > 0 ? `-${settlement.rental_fee.toFixed(2)}` : '0,00'}</TableCell>
                   <TableCell className="font-bold text-lg bg-primary/20 sticky right-0 z-10">
                     {settlement.payout.toFixed(2)} zł
                   </TableCell>
                 </TableRow>
               ))}
               <TableRow className="font-bold bg-muted">
-                <TableCell className="sticky left-0 bg-muted z-10">SUMA</TableCell>
-                <TableCell></TableCell>
+                <TableCell className="sticky left-0 bg-muted z-10">RAZEM ({filteredSettlements.length})</TableCell>
                 <TableCell>{totals.uber_base.toFixed(2)}</TableCell>
-                <TableCell className="text-red-600">-{totals.uber_tax_8.toFixed(2)}</TableCell>
-                <TableCell>-</TableCell>
-                <TableCell>{totals.uber_net.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.total_cash.toFixed(2)}</TableCell>
                 <TableCell>{totals.bolt_projected_d.toFixed(2)}</TableCell>
-                <TableCell className="text-red-600">-{totals.bolt_tax_8.toFixed(2)}</TableCell>
-                <TableCell>-</TableCell>
-                <TableCell>{totals.bolt_net.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.bolt_cash.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.bolt_commission.toFixed(2)}</TableCell>
                 <TableCell>{totals.freenow_base_s.toFixed(2)}</TableCell>
                 <TableCell>-</TableCell>
                 <TableCell>-</TableCell>
-                <TableCell className="text-red-600">-{totals.freenow_tax_8.toFixed(2)}</TableCell>
-                <TableCell>{totals.freenow_net.toFixed(2)}</TableCell>
-                <TableCell className="text-red-600">-{totals.fuel.toFixed(2)}</TableCell>
-                <TableCell className="text-green-600">+{totals.fuel_vat_refund.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive font-semibold">-{totals.total_cash.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.total_commission.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.fuel.toFixed(2)}</TableCell>
+                <TableCell className="text-destructive">-{totals.total_tax.toFixed(2)}</TableCell>
+                <TableCell className="text-primary">+{totals.fuel_vat_refund.toFixed(2)}</TableCell>
                 <TableCell>-</TableCell>
                 <TableCell>-</TableCell>
-                <TableCell className="text-2xl bg-yellow-500/30 sticky right-0 z-10">
+                <TableCell className="text-2xl bg-accent/50 sticky right-0 z-10">
                   {totals.payout.toFixed(2)} zł
                 </TableCell>
               </TableRow>
