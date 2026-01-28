@@ -153,14 +153,14 @@ Deno.serve(async (req) => {
       matchedDriversCount = result.matchedDrivers;
     }
 
-    // ========== BATCH UPSERT SETTLEMENTS (ignore duplicates) ==========
+    // ========== BATCH UPSERT SETTLEMENTS (update existing) ==========
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
       const { data: insertedSettlements, error } = await supabase
         .from('settlements')
         .upsert(settlementsToInsert, { 
           onConflict: 'raw_row_id',
-          ignoreDuplicates: true 
+          ignoreDuplicates: false  // POPRAWIONE: nadpisuj stare dane!
         })
         .select('id, driver_id, period_from, period_to');
       if (error) {
@@ -552,19 +552,19 @@ async function processRidoTemplate(
 
     // ============= POPRAWIONE FORMUŁY KALKULACJI =============
     
-    // UBER: base = D + F (payout + cash), tax = 8% od base, net = D - tax
-    // Gotówka (F) jest dodana do base do podatku, ale kierowca ją oddaje więc nie wpływa na net
+    // UBER: base = D + F (tylko do wyświetlenia), tax = 8% od D (NIE od D+F!)
+    // Gotówka (F) NIE jest podstawą podatku - jest osobno oddawana przez kierowcę
     const uber_base = uber_payout_d + uber_cash_f;
-    const uber_tax_8 = uber_base * 0.08;
-    const uber_net = uber_payout_d - uber_tax_8; // D - podatek (gotówka jest osobno)
+    const uber_tax_8 = uber_payout_d * 0.08; // POPRAWIONE: podatek tylko od D!
+    const uber_net = uber_payout_d - uber_tax_8; // D - podatek
 
     // BOLT: Prowizja Bolt = D - G - S (brutto - gotówka - payout)
     // Tax = 8% od D, net = S - tax
     const bolt_commission = bolt_projected_d - bolt_cash - bolt_payout_s;
     const bolt_tax_8 = bolt_projected_d * 0.08;
-    const bolt_net = bolt_payout_s - bolt_tax_8; // S - podatek (gotówka jest osobno)
+    const bolt_net = bolt_payout_s - bolt_tax_8; // S - podatek
 
-    // FREENOW: net = S - tax - prowizja (gotówka jest osobno)
+    // FREENOW: net = S - tax - prowizja
     const freenow_tax_8 = freenow_base_s * 0.08;
     const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t; // S - podatek - prowizja
     
@@ -619,7 +619,7 @@ async function processRidoTemplate(
         fuelVATRefund
       },
       source: 'rido_template',
-      raw_row_id: `main_${meta.period_from}_row${i}`
+      raw_row_id: `rido_${meta.period_from}_${driverId}` // POPRAWIONE: używaj driver_id dla unikalności
     });
   }
 
@@ -667,8 +667,8 @@ async function parseUberCsv(
     // Math.abs because cash in Uber CSV has minus sign (e.g. "-100" means 100 cash)
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
-    const uber_tax_8 = uber_base * 0.08;
-    // POPRAWIONE: uber_net = D - podatek (gotówka jest oddzielana osobno, nie wpływa na wypłatę net)
+    // POPRAWIONE: podatek tylko od D, NIE od D+F!
+    const uber_tax_8 = uber_payout_d * 0.08;
     const uber_net = uber_payout_d - uber_tax_8;
 
     let platformId = row[driverIdIdx]?.trim();
