@@ -187,8 +187,8 @@ export function AccountSwitcherPanel({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-4">
-            {/* Add marketplace account */}
-            {!isMarketplaceAccount && isMarketplaceEnabled && (
+            {/* Add marketplace account - always show (marketplace is open) */}
+            {!isMarketplaceAccount && (
               <Button 
                 variant="outline" 
                 className="w-full justify-start h-auto py-3"
@@ -260,7 +260,7 @@ export function AccountSwitcherPanel({
             {/* Show "all accounts" message only when truly all account types are present */}
             {(isDriverAccount || hideDriverForFleet) && 
              isFleetAccount && 
-             (isMarketplaceAccount || !isMarketplaceEnabled) &&
+             isMarketplaceAccount &&
              isRealEstateAccount && (
               <p className="text-center text-muted-foreground py-4">
                 Masz już wszystkie dostępne typy kont

@@ -552,11 +552,12 @@ async function processRidoTemplate(
 
     // ============= POPRAWIONE FORMUŁY KALKULACJI =============
     
-    // UBER: base = D + F (tylko do wyświetlenia), tax = 8% od D (NIE od D+F!)
-    // Gotówka (F) NIE jest podstawą podatku - jest osobno oddawana przez kierowcę
+    // UBER: base = D + F (podstawa opodatkowania = przychód + gotówka)
+    // PODATEK 8% liczy się od CAŁEJ PODSTAWY (D+F) - to jest przychód kierowcy!
+    // Net = D (co dostaje z Uber) - podatek 8% od (D+F)
     const uber_base = uber_payout_d + uber_cash_f;
-    const uber_tax_8 = uber_payout_d * 0.08; // POPRAWIONE: podatek tylko od D!
-    const uber_net = uber_payout_d - uber_tax_8; // D - podatek
+    const uber_tax_8 = uber_base * 0.08; // POPRAWIONE: podatek od D+F (całej podstawy)!
+    const uber_net = uber_payout_d - uber_tax_8; // D - podatek (gotówka zwracana osobno)
 
     // BOLT: Prowizja Bolt = D - G - S (brutto - gotówka - payout)
     // Tax = 8% od D, net = S - tax
@@ -667,8 +668,8 @@ async function parseUberCsv(
     // Math.abs because cash in Uber CSV has minus sign (e.g. "-100" means 100 cash)
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
-    // POPRAWIONE: podatek tylko od D, NIE od D+F!
-    const uber_tax_8 = uber_payout_d * 0.08;
+    // POPRAWIONE: podatek od D+F (całej podstawy opodatkowania)!
+    const uber_tax_8 = uber_base * 0.08;
     const uber_net = uber_payout_d - uber_tax_8;
 
     let platformId = row[driverIdIdx]?.trim();
