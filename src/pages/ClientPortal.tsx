@@ -207,9 +207,8 @@ export default function ClientPortal() {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .in('role', ['fleet_settlement', 'fleet_rental'])
-      .maybeSingle();
-    setIsFleetAccount(!!data);
+      .in('role', ['fleet_settlement', 'fleet_rental']);
+    setIsFleetAccount(!!data && data.length > 0);
   };
 
   const checkMarketplaceAccount = async (userId: string) => {
