@@ -4471,6 +4471,51 @@ export type Database = {
           },
         ]
       }
+      listing_promotions: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          listing_id: string
+          listing_type: string
+          payment_status: string | null
+          placement: string
+          price_paid: number
+          starts_at: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          listing_id: string
+          listing_type: string
+          payment_status?: string | null
+          placement: string
+          price_paid: number
+          starts_at?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          listing_id?: string
+          listing_type?: string
+          payment_status?: string | null
+          placement?: string
+          price_paid?: number
+          starts_at?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       location_integrations: {
         Row: {
           api_key_secret_name: string | null
@@ -6056,6 +6101,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      promotion_pricing: {
+        Row: {
+          created_at: string | null
+          duration_days: number
+          id: string
+          is_active: boolean | null
+          listing_type: string
+          placement: string
+          price_pln: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean | null
+          listing_type: string
+          placement: string
+          price_pln: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean | null
+          listing_type?: string
+          placement?: string
+          price_pln?: number
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       provider_reminder_confirmations: {
         Row: {

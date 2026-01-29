@@ -65,11 +65,15 @@ interface Listing {
 
 interface FeaturedListingsProps {
   className?: string;
+  /** If provided, locks the view to this category and hides tabs */
+  fixedCategory?: 'vehicles' | 'properties' | 'services';
+  /** If true, hides the "Zobacz więcej" button */
+  hideViewMore?: boolean;
 }
 
-export function FeaturedListings({ className }: FeaturedListingsProps) {
+export function FeaturedListings({ className, fixedCategory, hideViewMore }: FeaturedListingsProps) {
   const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState<ListingCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<ListingCategory>(fixedCategory || 'all');
   const [transactionType, setTransactionType] = useState<TransactionType>('sprzedaz');
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [vehicleListings, setVehicleListings] = useState<Listing[]>([]);
@@ -359,54 +363,56 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
 
   return (
     <section className={cn("container mx-auto px-4 py-6", className)}>
-      {/* Category Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <TabsPill value={activeCategory} onValueChange={(v) => setActiveCategory(v as ListingCategory)}>
-          <TabsTrigger value="all" className="gap-2">
-            Wszystko
-          </TabsTrigger>
-          <TabsTrigger value="vehicles" className="gap-2">
-            <Car className="h-4 w-4" />
-            Pojazdy
-          </TabsTrigger>
-          <TabsTrigger value="properties" className="gap-2">
-            <Home className="h-4 w-4" />
-            Nieruchomości
-          </TabsTrigger>
-          <TabsTrigger value="services" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            Usługi
-          </TabsTrigger>
-        </TabsPill>
+      {/* Category Tabs - hide when fixedCategory is set */}
+      {!fixedCategory && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <TabsPill value={activeCategory} onValueChange={(v) => setActiveCategory(v as ListingCategory)}>
+            <TabsTrigger value="all" className="gap-2">
+              Wszystko
+            </TabsTrigger>
+            <TabsTrigger value="vehicles" className="gap-2">
+              <Car className="h-4 w-4" />
+              Pojazdy
+            </TabsTrigger>
+            <TabsTrigger value="properties" className="gap-2">
+              <Home className="h-4 w-4" />
+              Nieruchomości
+            </TabsTrigger>
+            <TabsTrigger value="services" className="gap-2">
+              <Wrench className="h-4 w-4" />
+              Usługi
+            </TabsTrigger>
+          </TabsPill>
 
-        {/* View mode toggle */}
-        <div className="hidden md:flex items-center gap-1 bg-muted rounded-lg p-1">
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'compact' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setViewMode('compact')}
-          >
-            <LayoutList className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
+          {/* View mode toggle */}
+          <div className="hidden md:flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'compact' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('compact')}
+            >
+              <LayoutList className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Transaction Type Filter - only for vehicles and properties */}
       {showTransactionFilter && (
@@ -443,14 +449,16 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             Proponowane oferty
           </h2>
         </div>
-        <Button 
-          variant="link" 
-          className="text-primary gap-1 p-0"
-          onClick={handleSeeMore}
-        >
-          Zobacz więcej
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        {!hideViewMore && (
+          <Button 
+            variant="link" 
+            className="text-primary gap-1 p-0"
+            onClick={handleSeeMore}
+          >
+            Zobacz więcej
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Listings Grid */}
@@ -472,12 +480,14 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       </div>
 
       {/* See more button on mobile */}
-      <div className="mt-6 text-center md:hidden">
-        <Button onClick={handleSeeMore} className="w-full max-w-xs">
-          Zobacz wszystkie ogłoszenia
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
+      {!hideViewMore && (
+        <div className="mt-6 text-center md:hidden">
+          <Button onClick={handleSeeMore} className="w-full max-w-xs">
+            Zobacz wszystkie ogłoszenia
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      )}
 
       {/* Category Selection Modal - styled like AddListingModal */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
