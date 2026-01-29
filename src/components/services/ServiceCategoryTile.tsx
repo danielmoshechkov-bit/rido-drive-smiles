@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, ArrowRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Image imports
 import tileCleaning from "@/assets/tile-cleaning.jpg";
@@ -46,27 +47,26 @@ export function ServiceCategoryTile({
 }: ServiceCategoryTileProps) {
   const imageUrl = categoryImages[slug] || tileCleaning;
 
+  // Same style as EasyHub MarketplaceTileCard
   return (
-    <button
-      onClick={onClick}
+    <Card 
       className={cn(
-        "relative overflow-hidden rounded-2xl aspect-[4/3] group",
-        "transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl",
-        "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        "group relative overflow-hidden cursor-pointer transition-all duration-300",
+        "hover:shadow-xl hover:scale-[1.03] hover:-translate-y-1",
+        "border-0 shadow-md"
       )}
+      onClick={onClick}
     >
-      {/* Background Image */}
-      <img
-        src={imageUrl}
-        alt={name}
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-      />
+      {/* Background image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+        style={{ backgroundImage: `url(${imageUrl})` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+      </div>
       
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
-      
-      {/* Content - unified style without icons, matching EasyHub tiles */}
-      <div className="absolute inset-0 flex flex-col justify-end p-3 md:p-4 text-left">
+      {/* Content - same height as EasyHub tiles */}
+      <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
         <h3 className="font-bold text-sm md:text-base text-white leading-tight">
           {name}
         </h3>
@@ -76,18 +76,16 @@ export function ServiceCategoryTile({
             {description}
           </p>
         )}
-      </div>
-      
-      {/* Hover arrow - same as EasyHub tiles */}
-      <div className={cn(
-        "absolute top-2 right-2 p-1.5 rounded-full transition-all duration-300",
-        "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0",
-        "bg-white/20 backdrop-blur-sm"
-      )}>
-        <svg className="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </div>
-    </button>
+        
+        {/* Hover arrow - same as EasyHub tiles */}
+        <div className={cn(
+          "absolute top-2 right-2 p-1.5 rounded-full transition-all duration-300",
+          "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0",
+          "bg-white/20 backdrop-blur-sm"
+        )}>
+          <ArrowRight className="h-3 w-3 text-white" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
