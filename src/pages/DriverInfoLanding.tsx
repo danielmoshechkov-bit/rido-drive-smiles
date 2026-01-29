@@ -309,11 +309,13 @@ export default function DriverInfoLanding() {
           <Button 
             variant="outline" 
             size="lg"
-            onClick={() => navigate('/fleet-info')}
+            asChild
             className="gap-2"
           >
-            Dowiedz się więcej o GetRido dla flot
-            <ChevronRight className="h-4 w-4" />
+            <a href="/fleet-info">
+              Portal flotowy - rozliczaj kierowców i zarządzaj flotą
+              <ChevronRight className="h-4 w-4" />
+            </a>
           </Button>
         </div>
       </section>
