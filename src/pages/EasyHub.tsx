@@ -538,9 +538,25 @@ export default function EasyHub() {
         </div>
       </section>
 
-      {/* Featured Listings Section - only on main view */}
+      {/* Featured Listings Section - on main view (all categories) */}
       {activeCategory === 'main' && (
         <FeaturedListings className="py-8 md:py-12 bg-muted/30" />
+      )}
+
+      {/* Featured Listings Section - on Motoryzacja (vehicles only) */}
+      {activeCategory === 'motoryzacja' && (
+        <FeaturedListings 
+          className="py-8 md:py-12 bg-muted/30" 
+          fixedCategory="vehicles"
+        />
+      )}
+
+      {/* Featured Listings Section - on Nieruchomości (properties only) */}
+      {activeCategory === 'nieruchomosci' && (
+        <FeaturedListings 
+          className="py-8 md:py-12 bg-muted/30" 
+          fixedCategory="properties"
+        />
       )}
 
       {/* Mascot Section - only on main view */}
