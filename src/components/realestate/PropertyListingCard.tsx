@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface PropertyListingCardProps {
   listing: {
@@ -90,6 +91,7 @@ export function PropertyListingCard({
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const photos = listing.photos?.length > 0 
@@ -143,6 +145,12 @@ export function PropertyListingCard({
     navigate(`/nieruchomosci/ogloszenie/${listing.id}`);
   };
 
+  // Handle clicking on the photo area - open lightbox
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowLightbox(true);
+  };
+
   // List variant layout
   if (isList) {
     return (
@@ -155,8 +163,11 @@ export function PropertyListingCard({
           onClick={handleCardClick}
         >
           <div className="flex flex-col sm:flex-row">
-            {/* Photo - Left side */}
-            <div className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48">
+            {/* Photo - Left side - clicking opens lightbox */}
+            <div 
+              className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48"
+              onClick={handlePhotoClick}
+            >
               <img
                 src={getPhotoSrc(currentPhoto)}
                 alt={listing.title}
@@ -365,11 +376,14 @@ export function PropertyListingCard({
         )}
         onClick={handleCardClick}
       >
-        {/* Photo Gallery */}
-        <div className={cn(
-          "relative bg-muted overflow-hidden",
-          compact ? "aspect-[3/2]" : "aspect-[4/3]"
-        )}>
+        {/* Photo Gallery - clicking opens lightbox */}
+        <div 
+          className={cn(
+            "relative bg-muted overflow-hidden",
+            compact ? "aspect-[3/2]" : "aspect-[4/3]"
+          )}
+          onClick={handlePhotoClick}
+        >
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
@@ -680,6 +694,15 @@ export function PropertyListingCard({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={photos}
+        initialIndex={currentPhoto}
+        open={showLightbox}
+        onOpenChange={setShowLightbox}
+        alt={listing.title}
+      />
     </>
   );
 }
