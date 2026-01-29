@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface ServiceInfo {
+  name: string;
+  price: number;
+}
+
 interface Listing {
   id: string;
   title: string;
@@ -36,6 +41,7 @@ interface Listing {
   rating_avg?: number;
   rating_count?: number;
   price_from?: number;
+  featured_services?: ServiceInfo[];
 }
 
 interface FeaturedListingCardProps {
@@ -122,7 +128,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
             {listing.category === 'service' && 'Usługa'}
           </Badge>
 
-          {/* Transaction type badge */}
+          {/* Transaction type badge for vehicles/properties */}
           {listing.transaction_type && (listing.category === 'vehicle' || listing.category === 'property') && (
             <Badge 
               className={cn(
@@ -133,6 +139,17 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
             >
               {listing.transaction_type === 'sale' ? 'Na sprzedaż' : 'Na wynajem'}
             </Badge>
+          )}
+
+          {/* Rating badge for services - bottom left on image */}
+          {listing.category === 'service' && listing.rating_avg !== undefined && listing.rating_avg > 0 && (
+            <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 text-white px-2 py-1 rounded-md text-xs">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              <span className="font-medium">{listing.rating_avg.toFixed(1)}</span>
+              {listing.rating_count > 0 && (
+                <span className="text-white/80">({listing.rating_count})</span>
+              )}
+            </div>
           )}
 
           {/* Navigation arrows for gallery - only show if multiple photos */}
@@ -243,21 +260,31 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
             </div>
           )}
 
-          {/* Service rating */}
-          {listing.category === 'service' && listing.rating_avg !== undefined && listing.rating_avg > 0 && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
-              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              <span className="font-medium">{listing.rating_avg.toFixed(1)}</span>
-              {listing.rating_count > 0 && (
-                <span>({listing.rating_count})</span>
-              )}
+          {/* Service info - show featured services with prices */}
+          {listing.category === 'service' && (
+            <div className="space-y-1 mb-1">
+              {/* Location */}
               {listing.city && (
-                <>
-                  <span className="mx-1">•</span>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <MapPin className="h-3 w-3" />
                   {listing.city}
-                </>
+                </div>
               )}
+              
+              {/* Featured services with prices */}
+              {listing.featured_services && listing.featured_services.length > 0 ? (
+                <div className="space-y-0.5">
+                  {listing.featured_services.slice(0, 2).map((service, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground truncate max-w-[70%]">{service.name}</span>
+                      <span className="font-medium text-primary">{service.price} zł</span>
+                    </div>
+                  ))}
+                  {listing.featured_services.length > 2 && (
+                    <span className="text-[9px] text-muted-foreground">+{listing.featured_services.length - 2} więcej usług</span>
+                  )}
+                </div>
+              ) : null}
             </div>
           )}
 

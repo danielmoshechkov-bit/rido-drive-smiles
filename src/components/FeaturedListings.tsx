@@ -61,6 +61,11 @@ const serviceCategoryImages: Record<string, string> = {
 
 type ListingCategory = 'all' | 'vehicles' | 'properties' | 'services';
 
+interface ServiceInfo {
+  name: string;
+  price: number;
+}
+
 interface Listing {
   id: string;
   title: string;
@@ -81,6 +86,7 @@ interface Listing {
   rating_avg?: number;
   rating_count?: number;
   price_from?: number;
+  featured_services?: ServiceInfo[];
 }
 
 interface FeaturedListingsProps {
@@ -133,10 +139,10 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Fetch 12 service providers for category view with category_id for image fallback
+      // Fetch 12 service providers for category view with category_id for image fallback and services
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, services(price_from)')
+        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, services(id, name, price, is_featured)')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
@@ -182,10 +188,28 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
       const servicesData: Listing[] = [];
       if (services) {
         services.forEach((s: any) => {
+          // Get services list
+          const servicesList = s.services || [];
+          
+          // Get featured services first, then regular ones by lowest price
+          const featuredServices = servicesList
+            .filter((svc: any) => svc.is_featured)
+            .slice(0, 3)
+            .map((svc: any) => ({ name: svc.name, price: svc.price || 0 }));
+          
+          // If no featured, get top 3 by lowest price
+          const displayServices = featuredServices.length > 0 
+            ? featuredServices 
+            : servicesList
+                .filter((svc: any) => svc.price && svc.price > 0)
+                .sort((a: any, b: any) => (a.price || 0) - (b.price || 0))
+                .slice(0, 3)
+                .map((svc: any) => ({ name: svc.name, price: svc.price }));
+          
           // Get lowest price from services
-          const minPrice = s.services?.reduce((min: number, svc: any) => {
-            return svc.price_from && svc.price_from < min ? svc.price_from : min;
-          }, Infinity) || 0;
+          const minPrice = servicesList.reduce((min: number, svc: any) => {
+            return svc.price && svc.price < min ? svc.price : min;
+          }, Infinity);
           
           // Use cover_image, logo, or category fallback image
           const categoryImage = s.category_id ? serviceCategoryImages[s.category_id] : null;
@@ -200,7 +224,8 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             category: 'service',
             rating_avg: s.rating_avg || 0,
             rating_count: s.rating_count || 0,
-            price_from: minPrice === Infinity ? 0 : minPrice
+            price_from: minPrice === Infinity ? 0 : minPrice,
+            featured_services: displayServices
           });
         });
       }
