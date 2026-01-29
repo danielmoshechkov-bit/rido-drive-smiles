@@ -29,6 +29,36 @@ import tileCars from "@/assets/tile-cars.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileHandyman from "@/assets/tile-handyman.jpg";
 
+// Import service category cover images for fallback
+import warsztatCover from "@/assets/services/warsztat-cover.jpg";
+import detailingCover from "@/assets/services/detailing-cover.jpg";
+import sprzatanieCover from "@/assets/services/sprzatanie-cover.jpg";
+import zlotaRaczkaCover from "@/assets/services/zlota-raczka-cover.jpg";
+import hydraulikCover from "@/assets/services/hydraulik-cover.jpg";
+import elektrykCover from "@/assets/services/elektryk-cover.jpg";
+import ogrodnikCover from "@/assets/services/ogrodnik-cover.jpg";
+import przeprowadzkiCover from "@/assets/services/przeprowadzki-cover.jpg";
+import ppfCover from "@/assets/services/ppf-cover.jpg";
+import projektanciCover from "@/assets/services/projektanci-cover.jpg";
+import remontyCover from "@/assets/services/remonty-cover.jpg";
+import budowlankaCover from "@/assets/services/budowlanka-cover.jpg";
+
+// Service category image mapping
+const serviceCategoryImages: Record<string, string> = {
+  '290bfdce-dac0-48d4-a950-1998e43fea5b': warsztatCover,      // Warsztaty
+  'a77413e6-020a-4857-b419-d858c4e0c97d': detailingCover,     // Detailing
+  'f0c9cb8b-2417-428a-a8e4-155723dda76d': sprzatanieCover,    // Sprzątanie
+  '5ee501b0-0c91-4d35-8a10-5e91bbabaaae': zlotaRaczkaCover,   // Złota rączka
+  '2a8804aa-f8db-4210-a840-0ef9799c1aed': hydraulikCover,     // Hydraulik
+  'c31149db-3160-4680-9d15-0471065ff3c6': elektrykCover,      // Elektryk
+  'f6a90d92-aff7-4b38-9159-8554f05d4e67': ogrodnikCover,      // Ogrodnik
+  'd8aeaf01-993b-43e2-9caf-267b81298fbf': przeprowadzkiCover, // Przeprowadzki
+  'ad442d6d-0908-4a1c-a6e9-1cf4cb7cf0da': ppfCover,           // PPF
+  '166b19d9-0364-4807-8da3-1b95868f1cba': projektanciCover,   // Projektanci
+  '7a4cf1f1-2a42-451d-ae29-3da8de5cfa67': remontyCover,       // Remonty
+  '5991f591-30d0-44e1-84b2-c4a31cf55b8b': budowlankaCover,    // Budowlanka
+};
+
 type ListingCategory = 'all' | 'vehicles' | 'properties' | 'services';
 
 interface Listing {
@@ -103,10 +133,10 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
-      // Fetch 12 service providers for category view
+      // Fetch 12 service providers for category view with category_id for image fallback
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, company_name, logo_url, company_city, status, rating_avg, rating_count, services(price_from)')
+        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, services(price_from)')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
@@ -148,7 +178,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         });
       }
 
-      // Process services
+      // Process services - use category cover image as fallback
       const servicesData: Listing[] = [];
       if (services) {
         services.forEach((s: any) => {
@@ -157,11 +187,15 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             return svc.price_from && svc.price_from < min ? svc.price_from : min;
           }, Infinity) || 0;
           
+          // Use cover_image, logo, or category fallback image
+          const categoryImage = s.category_id ? serviceCategoryImages[s.category_id] : null;
+          const servicePhoto = s.cover_image_url || s.logo_url || categoryImage || tileHandyman;
+          
           servicesData.push({
             id: s.id,
             title: s.company_name || 'Usługa',
             price: 0,
-            photos: s.logo_url ? [s.logo_url] : [],
+            photos: [servicePhoto],
             city: s.company_city,
             category: 'service',
             rating_avg: s.rating_avg || 0,
