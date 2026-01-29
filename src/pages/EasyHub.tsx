@@ -355,6 +355,17 @@ export default function EasyHub() {
       return;
     }
     
+    // Portal kierowcy - route based on auth status
+    if (tile.id === 'portal-kierowcy') {
+      if (user) {
+        navigate('/driver');
+      } else {
+        // For non-logged users, go to driver info landing page
+        navigate('/kierowca-info');
+      }
+      return;
+    }
+    
     // Direct link
     if (tile.link) {
       navigate(tile.link);
