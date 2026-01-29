@@ -209,23 +209,30 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
               <Heart className="h-4 w-4 text-muted-foreground hover:text-red-500" />
             </button>
 
-            {/* Category badge */}
-            <Badge 
-              className={cn(
-                "absolute top-2 left-2 text-[10px] gap-1",
-                listing.category === 'vehicle' && "bg-blue-500/90 hover:bg-blue-500",
-                listing.category === 'property' && "bg-emerald-500/90 hover:bg-emerald-500",
-                listing.category === 'service' && "bg-purple-500/90 hover:bg-purple-500"
-              )}
-            >
-              {getCategoryIcon(listing.category)}
-              {getCategoryLabel(listing.category)}
-            </Badge>
+            {/* Category badge - only show in mixed "Wszystko" view */}
+            {showTransactionBadge && (
+              <Badge 
+                className={cn(
+                  "absolute top-2 left-2 text-[10px] gap-1",
+                  listing.category === 'vehicle' && "bg-blue-500/90 hover:bg-blue-500",
+                  listing.category === 'property' && "bg-emerald-500/90 hover:bg-emerald-500",
+                  listing.category === 'service' && "bg-purple-500/90 hover:bg-purple-500"
+                )}
+              >
+                {getCategoryIcon(listing.category)}
+                {getCategoryLabel(listing.category)}
+              </Badge>
+            )}
 
             {/* Transaction type badge - only show when showTransactionBadge is true (mixed "Wszystko" view) */}
             {showTransactionBadge && getTransactionLabel(listing.transaction_type) && (listing.category === 'vehicle' || listing.category === 'property') && (
               <Badge 
-                className="absolute bottom-2 right-2 text-[10px] bg-primary/90 hover:bg-primary"
+                className={cn(
+                  "absolute bottom-2 right-2 text-[10px]",
+                  listing.transaction_type === 'sprzedaz' || listing.transaction_type === 'sale'
+                    ? "bg-emerald-500/90 hover:bg-emerald-500"
+                    : "bg-blue-500/90 hover:bg-blue-500"
+                )}
               >
                 {getTransactionLabel(listing.transaction_type)}
               </Badge>
