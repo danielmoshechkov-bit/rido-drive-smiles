@@ -10,10 +10,11 @@ import { UserRolesManager } from '@/components/UserRolesManager';
 import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
 import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
+import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator } from 'lucide-react';
+import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ export default function AdminPortal() {
     { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
     { value: 'accounting', label: 'Moduł księgowy', visible: true },
     { value: 'features', label: 'Funkcje portalu', visible: true },
+    { value: 'portals', label: 'Portale', visible: true },
     { value: 'branding', label: 'Wygląd', visible: true },
     { value: 'users', label: 'Użytkownicy systemu', visible: true },
   ];
@@ -192,6 +194,26 @@ export default function AdminPortal() {
                 </CardHeader>
                 <CardContent>
                   <FeatureTogglesManagement />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Portals Tab */}
+          {activeSubTab === 'portals' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <LayoutGrid className="h-5 w-5" />
+                    Zarządzanie portalami
+                  </CardTitle>
+                  <CardDescription>
+                    Konfiguracja kafelków i kategorii na stronach portali (Motoryzacja, Nieruchomości, Usługi)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PortalCategoriesManager />
                 </CardContent>
               </Card>
             </div>
