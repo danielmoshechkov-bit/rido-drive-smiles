@@ -381,10 +381,11 @@ export function VehicleResultsMapModal({
           </div>
         </DialogHeader>
 
-        {/* Filter Bar */}
+        {/* Filter Bar - improved layout with full labels */}
         <div className="px-2 sm:px-4 py-2 border-b bg-muted/50 shrink-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="relative">
+            {/* City search */}
+            <div className="relative flex-shrink-0">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Miasto..."
@@ -394,54 +395,54 @@ export function VehicleResultsMapModal({
               />
             </div>
             
-            <div className="h-6 w-px bg-border hidden sm:block" />
-            
-            <label className="flex items-center gap-1.5 cursor-pointer">
+            {/* Transaction type checkboxes */}
+            <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
               <Checkbox 
                 checked={showSale} 
                 onCheckedChange={(checked) => setShowSale(!!checked)}
               />
               <div className="flex items-center gap-1">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-xs">Sprzedaż</span>
+                <span className="text-xs whitespace-nowrap">Sprzedaż</span>
               </div>
             </label>
             
-            <label className="flex items-center gap-1.5 cursor-pointer">
+            <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
               <Checkbox 
                 checked={showRent} 
                 onCheckedChange={(checked) => setShowRent(!!checked)}
               />
               <div className="flex items-center gap-1">
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-xs">Wynajem</span>
+                <span className="text-xs whitespace-nowrap">Wynajem</span>
               </div>
             </label>
             
-            <div className="h-6 w-px bg-border hidden sm:block" />
-            
-            <div className="flex items-center gap-1">
+            {/* Price and Year filters with labels */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">Cena do:</span>
               <Input
                 type="number"
                 placeholder="Cena do"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
-                className="h-8 w-24 sm:w-28 text-xs"
+                className="h-8 w-20 sm:w-24 text-xs"
               />
               <span className="text-xs text-muted-foreground">zł</span>
             </div>
             
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">Rocznik od:</span>
               <Input
                 type="number"
-                placeholder="Rocznik od"
+                placeholder="Rocznik"
                 value={minYear}
                 onChange={(e) => setMinYear(e.target.value)}
-                className="h-8 w-20 sm:w-24 text-xs"
+                className="h-8 w-20 text-xs"
               />
             </div>
             
-            <Badge variant="secondary" className="text-xs ml-auto">
+            <Badge variant="secondary" className="text-xs ml-auto flex-shrink-0">
               {filteredListings.length} z {listingsWithCoords.length}
             </Badge>
           </div>
