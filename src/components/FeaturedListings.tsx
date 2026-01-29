@@ -436,34 +436,6 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         </div>
       )}
 
-      {/* Transaction Type Filter - only for vehicles and properties */}
-      {showTransactionFilter && (
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setTransactionType('sprzedaz')}
-            className={cn(
-              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
-              transactionType === 'sprzedaz'
-                ? "bg-emerald-500 border-emerald-500 text-white shadow-md"
-                : "bg-background border-emerald-500 hover:opacity-80"
-            )}
-          >
-            Na sprzedaż
-          </button>
-          <button
-            onClick={() => setTransactionType('wynajem')}
-            className={cn(
-              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
-              transactionType === 'wynajem'
-                ? "bg-blue-500 border-blue-500 text-white shadow-md"
-                : "bg-background border-blue-500 hover:opacity-80"
-            )}
-          >
-            Wynajem
-          </button>
-        </div>
-      )}
-
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
