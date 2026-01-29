@@ -295,6 +295,9 @@ export default function EasyHub() {
       setActiveCategory('motoryzacja');
     } else if (kategoria === 'nieruchomosci') {
       setActiveCategory('nieruchomosci');
+    } else {
+      // Reset to main view when no category parameter
+      setActiveCategory('main');
     }
   }, [searchParams]);
 

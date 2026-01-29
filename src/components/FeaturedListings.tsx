@@ -118,20 +118,20 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       // 2. Sort by user's location proximity (using city or coordinates)
       // 3. Fill remaining slots with random free listings
       
-      // Fetch vehicles - mix of sale and rent types (6 each for balanced display)
+      // Fetch vehicles - get all active listings for rotation (limit 24 to fill 3 rows)
       const [vehiclesSaleRes, vehiclesRentRes] = await Promise.all([
         (supabase as any)
           .from('vehicle_listings')
           .select('id, title, price, photos, city, transaction_type, year, fuel_type, power, odometer')
           .eq('status', 'active')
           .eq('transaction_type', 'sprzedaz')
-          .limit(6),
+          .limit(24),
         (supabase as any)
           .from('vehicle_listings')
           .select('id, title, price, photos, city, transaction_type, year, fuel_type, power, odometer')
           .eq('status', 'active')
           .in('transaction_type', ['wynajem', 'wynajem-krotkoterminowy'])
-          .limit(6)
+          .limit(24)
       ]);
       
       const vehicles = [
@@ -139,20 +139,20 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         ...(vehiclesRentRes.data || [])
       ];
 
-      // Fetch properties - mix of sale and rent types (6 each for balanced display)
+      // Fetch properties - get all active listings for rotation (limit 24 to fill 3 rows)
       const [propertiesSaleRes, propertiesRentRes] = await Promise.all([
         (supabase as any)
           .from('real_estate_listings')
           .select('id, title, price, photos, city, transaction_type, area, rooms')
           .eq('status', 'active')
           .eq('transaction_type', 'sprzedaz')
-          .limit(6),
+          .limit(24),
         (supabase as any)
           .from('real_estate_listings')
           .select('id, title, price, photos, city, transaction_type, area, rooms')
           .eq('status', 'active')
           .eq('transaction_type', 'wynajem')
-          .limit(6)
+          .limit(24)
       ]);
       
       const properties = [
