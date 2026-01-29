@@ -1,13 +1,27 @@
-import { Link } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface UniversalHomeButtonProps {
   className?: string;
 }
 
 export function UniversalHomeButton({ className }: UniversalHomeButtonProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // If we're already on home, force a refresh to reset any state
+    if (location.pathname === '/') {
+      window.location.href = '/';
+    } else {
+      navigate('/');
+    }
+  };
+
   return (
-    <Link 
-      to="/" 
+    <button 
+      onClick={handleClick}
       className={`flex items-center gap-2 hover:opacity-80 transition-opacity ${className || ''}`}
     >
       <img 
@@ -18,6 +32,6 @@ export function UniversalHomeButton({ className }: UniversalHomeButtonProps) {
       <span className="text-sm font-medium text-foreground">
         Strona główna
       </span>
-    </Link>
+    </button>
   );
 }
