@@ -7,6 +7,30 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
  * Default fallback: #6C3CF0 (RIDO purple)
  */
 export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
+  // Helper to check if a child is a TabsTrigger
+  const isTabsTrigger = (child: React.ReactNode): boolean => {
+    if (!React.isValidElement(child)) return false;
+    const type = child.type as any;
+    // Check for various displayName patterns
+    const displayName = type?.displayName || type?.name || '';
+    return displayName.includes('Trigger');
+  };
+
+  // Flatten children (handles React.Fragment from conditional rendering)
+  const flattenChildren = (children: React.ReactNode): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    React.Children.forEach(children, (child) => {
+      if (React.isValidElement(child) && child.type === React.Fragment) {
+        result.push(...flattenChildren(child.props.children));
+      } else if (child) {
+        result.push(child);
+      }
+    });
+    return result;
+  };
+
+  const flatChildren = flattenChildren(props.children);
+
   return (
     <Tabs {...props}>
       <div 
@@ -21,9 +45,10 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
           "
           style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
         >
-          {React.Children.map(props.children as React.ReactNode, (child) => {
-            if (React.isValidElement(child) && (child.type as React.ComponentType)?.displayName === "TabsTrigger") {
+          {flatChildren.map((child, idx) => {
+            if (isTabsTrigger(child)) {
               return React.cloneElement(child as React.ReactElement<{ className?: string }>, {
+                key: idx,
                 className:
                   "px-5 h-10 flex items-center rounded-full text-sm whitespace-nowrap transition text-white " +
                   "data-[state=active]:bg-white data-[state=active]:text-[var(--nav-bar-color,#6C3CF0)] data-[state=active]:font-semibold " +
@@ -36,8 +61,8 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
       </div>
 
       {/* Tab contents */}
-      {React.Children.toArray(props.children).filter(
-        (c) => React.isValidElement(c) && (c.type as React.ComponentType)?.displayName === "TabsContent"
+      {flatChildren.filter(
+        (c) => React.isValidElement(c) && ((c.type as any)?.displayName?.includes('Content') || (c.type as any)?.name?.includes('Content'))
       )}
     </Tabs>
   );
