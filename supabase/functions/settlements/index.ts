@@ -181,7 +181,27 @@ Deno.serve(async (req) => {
             
             if (fullSettlement) {
               const amounts = fullSettlement.amounts || {};
-              const calculatedPayout = (amounts.uber_net || 0) + (amounts.bolt_net || 0) + (amounts.freenow_net || 0);
+              
+              // Calculate total base and cash
+              const totalBase = (amounts.uber_base || 0) + (amounts.bolt_projected_d || 0) + (amounts.freenow_base_s || 0);
+              const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
+              const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
+              
+              // VAT 8% on base
+              const vat8 = totalBase * 0.08;
+              
+              // Fuel and refund from amounts
+              const fuel = amounts.fuel || 0;
+              const fuelVatRefund = amounts.fuel_vat_refund || 0;
+              
+              // Service fee (50 PLN default - will be overridden by frontend if fleet has custom fee)
+              const serviceFee = 50;
+              
+              // Final payout = Base - Commission - VAT - Service Fee - Cash - Fuel + Fuel VAT Refund
+              // Cash is subtracted because driver already collected it
+              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
+              
+              console.log(`📊 Driver ${driverId}: base=${totalBase}, cash=${totalCash}, vat=${vat8}, service=${serviceFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
               
               try {
                 const debtResponse = await fetch(`${supabaseUrl}/functions/v1/update-driver-debt`, {
