@@ -34,7 +34,7 @@ interface ServiceCategoryTileProps {
   slug: string;
   name: string;
   description?: string;
-  icon?: LucideIcon;
+  icon?: LucideIcon; // Keep for compatibility but won't display
   onClick: () => void;
 }
 
@@ -42,7 +42,6 @@ export function ServiceCategoryTile({
   slug, 
   name, 
   description, 
-  icon: Icon,
   onClick 
 }: ServiceCategoryTileProps) {
   const imageUrl = categoryImages[slug] || tileCleaning;
@@ -64,30 +63,31 @@ export function ServiceCategoryTile({
       />
       
       {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
       
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-4 text-left">
-        <div className="flex items-center gap-2 mb-1">
-          {Icon && (
-            <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-              <Icon className="h-5 w-5 text-white" />
-            </div>
-          )}
-          <h3 className="text-xl font-bold text-white drop-shadow-lg">
-            {name}
-          </h3>
-        </div>
+      {/* Content - unified style without icons, matching EasyHub tiles */}
+      <div className="absolute inset-0 flex flex-col justify-end p-3 md:p-4 text-left">
+        <h3 className="font-bold text-sm md:text-base text-white leading-tight">
+          {name}
+        </h3>
         
         {description && (
-          <p className="text-sm text-white/80 line-clamp-2">
+          <p className="text-[10px] md:text-xs text-white/80 mt-0.5 line-clamp-2">
             {description}
           </p>
         )}
       </div>
       
-      {/* Hover effect border */}
-      <div className="absolute inset-0 border-2 border-transparent group-hover:border-white/30 rounded-2xl transition-all duration-300" />
+      {/* Hover arrow - same as EasyHub tiles */}
+      <div className={cn(
+        "absolute top-2 right-2 p-1.5 rounded-full transition-all duration-300",
+        "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0",
+        "bg-white/20 backdrop-blur-sm"
+      )}>
+        <svg className="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </div>
     </button>
   );
 }
