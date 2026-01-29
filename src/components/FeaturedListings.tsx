@@ -466,6 +466,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
             listing={listing}
             viewMode={viewMode}
             onClick={() => handleListingClick(listing)}
+            showTransactionBadge={activeCategory === 'all'}
           />
         ))}
       </div>

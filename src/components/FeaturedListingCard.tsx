@@ -57,9 +57,10 @@ interface FeaturedListingCardProps {
   listing: Listing;
   viewMode: 'grid' | 'compact' | 'list';
   onClick: () => void;
+  showTransactionBadge?: boolean; // Only show for mixed "Wszystko" view
 }
 
-export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedListingCardProps) {
+export function FeaturedListingCard({ listing, viewMode, onClick, showTransactionBadge = false }: FeaturedListingCardProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showQuickView, setShowQuickView] = useState(false);
   const photos = listing.photos || [];
@@ -128,8 +129,12 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
       if (listing.fuel_type) items.push({ icon: <Fuel className="h-3 w-3" />, text: listing.fuel_type });
       if (listing.power) items.push({ icon: <Zap className="h-3 w-3" />, text: `${listing.power} KM` });
       if (listing.odometer) {
-        const km = listing.odometer > 1000 ? `${Math.round(listing.odometer / 1000)} tys.` : listing.odometer;
-        items.push({ icon: <Gauge className="h-3 w-3" />, text: `${km} km` });
+        // Show full number with thousands separator
+        items.push({ icon: <Gauge className="h-3 w-3" />, text: `${listing.odometer.toLocaleString('pl-PL')} km` });
+      }
+      // Add city at the end for vehicles
+      if (listing.city) {
+        items.push({ icon: <MapPin className="h-3 w-3" />, text: listing.city });
       }
     }
     
@@ -139,9 +144,13 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
         const roomWord = listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi';
         items.push({ icon: <BedDouble className="h-3 w-3" />, text: `${listing.rooms} ${roomWord}` });
       }
+      if (listing.city) {
+        items.push({ icon: <MapPin className="h-3 w-3" />, text: listing.city });
+      }
     }
     
-    if (listing.city) {
+    // For services, only show city
+    if (listing.category === 'service' && listing.city) {
       items.push({ icon: <MapPin className="h-3 w-3" />, text: listing.city });
     }
     
@@ -203,8 +212,8 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
               {getCategoryLabel(listing.category)}
             </Badge>
 
-            {/* Transaction type badge for vehicles/properties */}
-            {getTransactionLabel(listing.transaction_type) && (listing.category === 'vehicle' || listing.category === 'property') && (
+            {/* Transaction type badge - only show when showTransactionBadge is true (mixed "Wszystko" view) */}
+            {showTransactionBadge && getTransactionLabel(listing.transaction_type) && (listing.category === 'vehicle' || listing.category === 'property') && (
               <Badge 
                 className="absolute bottom-2 right-2 text-[10px] bg-primary/90 hover:bg-primary"
               >
@@ -278,7 +287,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
               ))}
             </div>
 
-            {/* Service-specific: Featured services list - fixed height */}
+            {/* Service-specific: Featured services list - fixed height, no description, no "+X więcej" */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
               <div className="space-y-0.5 min-h-[40px]">
                 {listing.featured_services.slice(0, 2).map((service, idx) => (
@@ -287,9 +296,6 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
                     <span className="font-medium text-primary">{service.price} zł</span>
                   </div>
                 ))}
-                {listing.featured_services.length > 2 && (
-                  <span className="text-[9px] text-muted-foreground">+{listing.featured_services.length - 2} więcej usług</span>
-                )}
               </div>
             )}
 
