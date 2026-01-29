@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, Search, X, Plus } from 'lucide-react';
 import { useDropdownState } from '@/hooks/useGlobalDropdown';
 
 interface UniversalSelectorItem {
@@ -21,9 +21,12 @@ interface UniversalSelectorProps {
   noResultsText?: string;
   showSearch?: boolean;
   showAdd?: boolean;
+  showAddNew?: boolean;
+  addNewButtonText?: string;
   allowClear?: boolean;
   onSelect: (item: UniversalSelectorItem | null) => void;
   onAdd?: (name: string) => void;
+  onAddNew?: () => void;
   className?: string;
   disabled?: boolean;
 }
@@ -39,9 +42,12 @@ export function UniversalSelector({
   noResultsText = "Brak wyników",
   showSearch = true,
   showAdd = false,
+  showAddNew = false,
+  addNewButtonText = "Dodaj nowego",
   allowClear = false,
   onSelect,
   onAdd,
+  onAddNew,
   className = "",
   disabled = false
 }: UniversalSelectorProps) {
@@ -130,11 +136,36 @@ export function UniversalSelector({
             </div>
           )}
 
+          {/* Add New Button - at top of list */}
+          {showAddNew && onAddNew && (
+            <button
+              onClick={() => {
+                onAddNew();
+                close();
+              }}
+              className="w-full px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 cursor-pointer transition-colors text-sm text-primary font-medium flex items-center gap-2 mb-2"
+            >
+              <Plus className="h-4 w-4" />
+              {addNewButtonText}
+            </button>
+          )}
+
           {/* Items List */}
           <div className="space-y-1 mb-3 max-h-64 overflow-y-auto">
             {filteredItems.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                 {noResultsText}
+                {showAddNew && onAddNew && (
+                  <button
+                    onClick={() => {
+                      onAddNew();
+                      close();
+                    }}
+                    className="block w-full mt-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer transition-colors text-sm font-medium"
+                  >
+                    + {addNewButtonText}
+                  </button>
+                )}
               </div>
             ) : (
               filteredItems.map(item => (

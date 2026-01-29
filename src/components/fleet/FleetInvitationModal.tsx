@@ -353,25 +353,45 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
             <p className="text-xs text-muted-foreground">Numer konta do przelewów wypłat dla kierowcy</p>
           </div>
 
-          {/* Search Button */}
-          <Button 
-            onClick={searchDrivers} 
-            disabled={searching}
-            className="w-full"
-            size="lg"
-          >
-            {searching ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Szukam...
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4 mr-2" />
-                Szukaj
-              </>
-            )}
-          </Button>
+          {/* Search and Add Buttons */}
+          <div className="flex gap-2">
+            <Button 
+              onClick={searchDrivers} 
+              disabled={searching}
+              className="flex-1"
+              size="lg"
+            >
+              {searching ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Szukam...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Szukaj
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={addNewDriver} 
+              disabled={addingDriver || !firstName.trim() || !lastName.trim()}
+              variant="default"
+              size="lg"
+            >
+              {addingDriver ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Dodaję...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Dodaj
+                </>
+              )}
+            </Button>
+          </div>
 
           {/* Found Drivers List */}
           {searchPerformed && (
