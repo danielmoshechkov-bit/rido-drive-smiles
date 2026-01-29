@@ -1,111 +1,147 @@
 
-# Plan naprawy usług i ujednolicenia kafelków
+# Plan wdrożenia pozostałych funkcji i naprawy problemów
 
-## Problemy zidentyfikowane
+## Faza 1: Dodanie wielu zdjęć do usług (minimum 3 na kategorię)
 
-1. **Błąd 404 przy klikaniu w usługę** - Link w `FeaturedListings.tsx` generuje `/uslugi/wykonawca/${id}`, ale route w `App.tsx` to `/uslugi/uslugodawca/:providerId`
+**Problem:** Obecnie każda kategoria usług ma tylko 1 zdjęcie (cover). Na karcie usługi w galerii wyświetla się tylko 1 obraz, a powinno być 3 różne.
 
-2. **Różne rozmiary kafelków kategorii usług** - Kafelki na stronie `/uslugi` mają aspect ratio `16/10`, podczas gdy kafelki na stronie głównej (EasyHub) mają większy rozmiar (`h-32` lub podobny)
+**Rozwiązanie:**
 
-3. **Brak przełącznika widoków w usługach** - Na stronie usługodawców (`/uslugi?kategoria=xyz`) nie ma przełącznika grid/compact/list jak w giełdzie aut i nieruchomościach
+### Zadanie 1.1: Rozbudowa mapowania zdjęć w `serviceCategoryImages.ts`
+Dodanie minimum 3 zdjęć na kategorię:
+
+```typescript
+export const serviceCategoryGallery: Record<string, string[]> = {
+  'warsztaty': [warsztatCover, warsztatPhoto2, warsztatPhoto3],
+  'detailing': [detailingCover, detailingPhoto2, detailingPhoto3],
+  'sprzatanie': [sprzatanieCover, sprzataniePhoto2, sprzataniePhoto3],
+  // ... dla wszystkich 12 kategorii
+};
+```
+
+### Zadanie 1.2: Aktualizacja `FeaturedListings.tsx`
+Zmiana logiki pobierania zdjęć dla usług:
+- Z: `photos: [servicePhoto]` (1 zdjęcie)
+- Na: `photos: categoryGallery[categorySlug] || [servicePhoto]` (3 zdjęcia)
+
+### Zadanie 1.3: Aktualizacja `ServiceListingCard.tsx`
+Zapewnienie, że galeria wyświetla wszystkie zdjęcia z fallbackiem na kategorie.
 
 ---
 
-## Rozwiązanie
+## Faza 2: Naprawa Featured Listings - mix transakcji
 
-### Zadanie 1: Naprawa linku usług (404)
-**Plik**: `src/components/FeaturedListings.tsx`
+**Problem:** Na stronie głównej nieruchomości i pojazdy pokazują tylko jeden typ transakcji (wynajem), a powinien być mix sprzedaży i wynajmu.
 
-Zmiana w funkcji `handleListingClick`:
-- Z: `navigate('/uslugi/wykonawca/${listing.id}')`
-- Na: `navigate('/uslugi/uslugodawca/${listing.id}')`
+**Rozwiązanie:** 
 
-### Zadanie 2: Ujednolicenie rozmiaru kafelków kategorii usług
-**Plik**: `src/components/services/ServiceCategoryTile.tsx`
+### Zadanie 2.1: Modyfikacja zapytań w `FeaturedListings.tsx`
+Zapytania o pojazdy i nieruchomości nie filtrują po `transaction_type`, więc dane powinny być zmixowane. Trzeba upewnić się, że sortowanie losowe (`sort(() => Math.random() - 0.5)`) działa poprawnie dla obu typów.
 
-Zmiana aspect ratio z `aspect-[16/10]` na `aspect-[4/3]` (lub podobny większy format) aby dopasować do stylu strony głównej
+Dodać walidację:
+```typescript
+// Pobrać po równo sprzedaż i wynajem
+const { data: vehiclesSale } = await supabase
+  .from('vehicle_listings')
+  .eq('transaction_type', 'sale')
+  .limit(6);
+  
+const { data: vehiclesRent } = await supabase
+  .from('vehicle_listings')
+  .eq('transaction_type', 'rent')
+  .limit(6);
+  
+const vehiclesData = [...(vehiclesSale || []), ...(vehiclesRent || [])]
+  .sort(() => Math.random() - 0.5);
+```
 
-### Zadanie 3: Dodanie przełącznika widoków do usług
-**Plik**: `src/pages/ServicesMarketplace.tsx`
+---
 
-Dodanie:
-1. Stan `viewMode` typu `'grid' | 'compact' | 'list'`
-2. Przyciski przełączników (Grid3X3, LayoutList, List) w sekcji nagłówka wyników
-3. Logika siatki CSS zależna od `viewMode`
-4. Przekazanie `viewMode` do `ServiceListingCard`
+## Faza 3: Poprawa filtrów na mapie (VehicleResultsMapModal)
 
-**Plik**: `src/components/services/ServiceListingCard.tsx`
+**Problem:** Brak drugiego pola (metry/rocznik) - ucięta etykieta
 
-Dodanie propsa `viewMode` i wariantów wyświetlania:
-- `grid` - obecny układ karty
-- `compact` - 2 kolumny, mniejsze zdjęcia
-- `list` - 1 kolumna, zdjęcie po lewej, opis po prawej
+**Status:** ✅ Już naprawione - widzę w kodzie że są pełne etykiety "Cena do:" i "Rocznik od:" z `hidden sm:inline`
+
+---
+
+## Faza 4: Typ transakcji w mobilnym widoku (TransactionTypeChips)
+
+**Status:** ✅ Już naprawione - zwijana lista z przyciskiem "Więcej" ze strzałką jest zaimplementowana
+
+---
+
+## Faza 5: Kategorie nieruchomości w filtrach aut
+
+**Status:** ✅ Już naprawione - `REAL_ESTATE_TYPE_SLUGS` filtruje kategorie nieruchomości
+
+---
+
+## Faza 6: Przycisk "Szukaj" na mobile
+
+**Problem:** Przycisk "Szukaj" na stronie głównej wymaga przewijania na telefonie
+
+**Rozwiązanie:** Przeniesienie przycisku nad kafelki kategorii lub sticky na dole ekranu
+
+---
+
+## Faza 7: Połączenie funkcji mapy (narysuj obszar + pokaż wyniki)
+
+**Problem:** Osobne przyciski "Narysuj na mapie" i "Pokaż na mapie" - powinny być połączone
+
+**Rozwiązanie:** Zunifikowany modal mapy z oboma funkcjami
+
+---
+
+## Podsumowanie zmian do wdrożenia
+
+| Plik | Zmiana | Priorytet |
+|------|--------|-----------|
+| `src/components/services/serviceCategoryImages.ts` | Dodanie 3 zdjęć na kategorię | WYSOKI |
+| `src/components/FeaturedListings.tsx` | Galeria wielu zdjęć dla usług + mix sprzedaż/wynajem | WYSOKI |
+| `src/components/services/ServiceListingCard.tsx` | Obsługa galerii wielu zdjęć | WYSOKI |
+| Strona główna EasyHub | Przycisk Szukaj wyżej na mobile | ŚREDNI |
+| Komponenty mapowe | Połączenie rysowania i wyników | NISKI (wymaga dużej refaktoryzacji) |
 
 ---
 
 ## Szczegóły techniczne
 
-### FeaturedListings.tsx - linia ~271
+### Nowe zdjęcia dla kategorii usług (3 na każdą)
+Każda kategoria potrzebuje 3 różnych zdjęć:
+
+1. **Warsztaty**: mechanik przy aucie, podnośnik, narzędzia
+2. **Detailing**: polerowanie, ceramika, wnętrze auta
+3. **Sprzątanie**: sprzątanie biura, odkurzanie, mycie okien
+4. **Złota rączka**: montaż mebli, naprawa drzwi, wiercenie
+5. **Hydraulik**: naprawa rury, montaż baterii, kanalizacja
+6. **Elektryk**: gniazdko, rozdzielnia, okablowanie
+7. **Ogrodnik**: koszenie trawy, przycinanie żywopłotu, sadzenie
+8. **Przeprowadzki**: pakowanie, transport, wnoszenie
+9. **PPF**: naklejanie folii, auto w folii, efekt końcowy
+10. **Projektanci**: wizualizacja 3D, szkice, gotowe wnętrze
+11. **Remonty**: malowanie, kafelkowanie, gładzie
+12. **Budowlanka**: koparka, murowanie, strop
+
+### Struktura galerii kategorii
 ```typescript
-// PRZED
-navigate(`/uslugi/wykonawca/${listing.id}`);
+// serviceCategoryImages.ts
+export const serviceCategoryGallery: Record<string, string[]> = {
+  'warsztaty': [
+    warsztatCover,    // Mechanik naprawiający silnik
+    warsztatPhoto2,   // Auto na podnośniku
+    warsztatPhoto3    // Narzędzia w warsztacie
+  ],
+  'detailing': [
+    detailingCover,   // Polerowanie lakieru
+    detailingPhoto2,  // Czyszczenie wnętrza
+    detailingPhoto3   // Auto po detailingu
+  ],
+  // ... pozostałe kategorie
+};
 
-// PO
-navigate(`/uslugi/uslugodawca/${listing.id}`);
+export function getServiceGallery(categorySlug?: string): string[] {
+  if (!categorySlug) return [warsztatCover];
+  return serviceCategoryGallery[categorySlug] || [warsztatCover];
+}
 ```
-
-### ServiceCategoryTile.tsx - linia ~52-54
-```typescript
-// PRZED
-className={cn(
-  "relative overflow-hidden rounded-2xl aspect-[16/10] group",
-  ...
-)}
-
-// PO - większy aspect ratio jak na stronie głównej
-className={cn(
-  "relative overflow-hidden rounded-2xl aspect-[4/3] group",
-  ...
-)}
-```
-
-### ServicesMarketplace.tsx - dodanie widoków
-```typescript
-// Nowy stan
-const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
-
-// Przyciski widoku (przy "Znaleziono X usługodawców")
-<div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
-    <Grid3X3 className="h-4 w-4" />
-  </Button>
-  <Button variant={viewMode === 'compact' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('compact')}>
-    <LayoutList className="h-4 w-4" />
-  </Button>
-  <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
-    <List className="h-4 w-4" />
-  </Button>
-</div>
-
-// Siatka wyników z dynamicznym layoutem
-<div className={cn(
-  "grid gap-4",
-  viewMode === 'grid' && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-  viewMode === 'compact' && "grid-cols-1 md:grid-cols-2",
-  viewMode === 'list' && "grid-cols-1"
-)}>
-```
-
-### ServiceListingCard.tsx - wariant list
-Dodanie propsa `viewMode` i layoutu horyzontalnego dla widoku listy (flex-row zamiast flex-col, zdjęcie po lewej ~1/3 szerokości)
-
----
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|------|--------|
-| `FeaturedListings.tsx` | Poprawka URL `/uslugi/wykonawca/` -> `/uslugi/uslugodawca/` |
-| `ServiceCategoryTile.tsx` | Zmiana aspect ratio na większy format |
-| `ServicesMarketplace.tsx` | Dodanie stanu `viewMode` + przyciski przełączania widoku |
-| `ServiceListingCard.tsx` | Dodanie propsa `viewMode` z wariantami grid/compact/list |
