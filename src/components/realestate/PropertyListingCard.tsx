@@ -371,7 +371,7 @@ export function PropertyListingCard({
     <>
       <Card 
         className={cn(
-          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer h-full flex flex-col",
           isSelectedForCompare && "ring-2 ring-primary"
         )}
         onClick={handleCardClick}
@@ -482,7 +482,7 @@ export function PropertyListingCard({
         </div>
 
         {/* Content */}
-        <div className={cn("p-4 flex flex-col", compact && "p-2")}>
+        <div className={cn("p-4 flex flex-col flex-1", compact && "p-2")}>
           {/* Title - Allow 2 lines */}
           <h3 className={cn(
             "font-semibold leading-tight",

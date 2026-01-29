@@ -63,10 +63,10 @@ export function ImageLightbox({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 bg-black/95 border-0 overflow-hidden"
+        className="max-w-[95vw] w-[95vw] h-[90vh] p-0 bg-black/95 border-0 overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
+        {/* Close button - fixed position */}
         <button
           onClick={() => onOpenChange(false)}
           className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/70 hover:bg-black text-white transition-colors"
@@ -74,26 +74,27 @@ export function ImageLightbox({
           <X className="h-6 w-6" />
         </button>
 
-        {/* Main image container */}
-        <div className="relative flex items-center justify-center min-h-[50vh] max-h-[80vh]">
+        {/* Main image container - takes remaining space, fixed layout */}
+        <div className="flex-1 relative flex items-center justify-center min-h-0 px-16">
+          {/* Image with object-contain to fit within fixed container */}
           <img
             src={images[currentIndex]}
             alt={`${alt} ${currentIndex + 1}`}
-            className="max-w-full max-h-[80vh] object-contain"
+            className="max-w-full max-h-full object-contain"
           />
 
-          {/* Navigation arrows */}
+          {/* Navigation arrows - fixed position relative to container edges */}
           {images.length > 1 && (
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors"
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
               >
                 <ChevronLeft className="h-8 w-8" />
               </button>
               <button
                 onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
               >
                 <ChevronRight className="h-8 w-8" />
               </button>
@@ -101,15 +102,15 @@ export function ImageLightbox({
           )}
         </div>
 
-        {/* Thumbnails + Counter */}
-        {images.length > 1 && (
-          <div className="bg-black/80 p-4">
-            {/* Counter */}
-            <div className="text-center text-white mb-3 font-medium">
-              {currentIndex + 1} / {images.length}
-            </div>
-            
-            {/* Thumbnails */}
+        {/* Bottom section - fixed height, always visible */}
+        <div className="flex-shrink-0 bg-black/80 p-4">
+          {/* Counter */}
+          <div className="text-center text-white mb-3 font-medium">
+            {currentIndex + 1} / {images.length}
+          </div>
+          
+          {/* Thumbnails - always visible */}
+          {images.length > 1 && (
             <div className="flex justify-center gap-2 overflow-x-auto pb-2">
               {images.map((img, idx) => (
                 <button
@@ -133,8 +134,8 @@ export function ImageLightbox({
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
