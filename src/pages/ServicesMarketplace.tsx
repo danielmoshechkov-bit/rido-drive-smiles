@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat } from 'lucide-react';
+import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat, Grid3X3, LayoutList, List } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ServiceCategoryTile, categoryImages } from '@/components/services/ServiceCategoryTile';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
@@ -80,6 +81,7 @@ export default function ServicesMarketplace() {
   const [cityFilter, setCityFilter] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<ServiceProvider | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
   const selectedCategorySlug = searchParams.get('kategoria');
 
@@ -383,23 +385,58 @@ export default function ServicesMarketplace() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <p className="text-muted-foreground">
                 Znaleziono <strong>{filteredProviders.length}</strong> usługodawców
               </p>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                Sortowane wg oceny
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  Sortowane wg oceny
+                </div>
+                {/* View mode toggle */}
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setViewMode('compact')}
+                  >
+                    <LayoutList className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className={cn(
+              "grid gap-4",
+              viewMode === 'grid' && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+              viewMode === 'compact' && "grid-cols-1 md:grid-cols-2",
+              viewMode === 'list' && "grid-cols-1"
+            )}>
               {filteredProviders.map(provider => (
                 <ServiceListingCard
                   key={provider.id}
                   provider={provider}
                   onClick={() => handleProviderClick(provider)}
                   isLoggedIn={!!user}
+                  viewMode={viewMode}
                 />
               ))}
             </div>

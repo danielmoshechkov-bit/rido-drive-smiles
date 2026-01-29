@@ -268,7 +268,7 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     } else if (listing.category === 'property') {
       navigate(`/nieruchomosci/ogloszenie/${listing.id}`);
     } else if (listing.category === 'service') {
-      navigate(`/uslugi/wykonawca/${listing.id}`);
+      navigate(`/uslugi/uslugodawca/${listing.id}`);
     }
   };
 
