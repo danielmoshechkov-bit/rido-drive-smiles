@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Loader2, CheckCircle2 } from "lucide-react";
+import { Search, Loader2, CheckCircle2, UserPlus } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -44,6 +44,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
   const [uberId, setUberId] = useState("");
   const [boltId, setBoltId] = useState("");
   const [freenowId, setFreenowId] = useState("");
+  const [iban, setIban] = useState("");
   
   // Search results
   const [foundDrivers, setFoundDrivers] = useState<Driver[]>([]);
@@ -52,6 +53,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchPerformed, setSearchPerformed] = useState(false);
+  const [addingDriver, setAddingDriver] = useState(false);
 
   const searchDrivers = async () => {
     // Validate required fields
@@ -108,6 +110,90 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     }
   };
 
+  const addNewDriver = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Imię i nazwisko są wymagane");
+      return;
+    }
+
+    setAddingDriver(true);
+    try {
+      // Get default city - fleets don't have city_id, so we get the first available city
+      const { data: cities } = await supabase
+        .from('cities')
+        .select('id')
+        .limit(1)
+        .single();
+      
+      let cityId = cities?.id;
+      
+      if (!cityId) {
+        // Fallback: check if there are drivers with city in this fleet
+        const { data: existingDriver } = await supabase
+          .from('drivers')
+          .select('city_id')
+          .eq('fleet_id', fleetId)
+          .not('city_id', 'is', null)
+          .limit(1)
+          .single();
+        cityId = existingDriver?.city_id || null;
+      }
+
+      if (!cityId) {
+        toast.error("Brak skonfigurowanego miasta w systemie");
+        setAddingDriver(false);
+        return;
+      }
+
+      // Create driver
+      const { data: newDriver, error: driverError } = await supabase
+        .from('drivers')
+        .insert({
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          getrido_id: getridoId.trim() || null,
+          iban: iban.trim() || null,
+          fleet_id: fleetId,
+          city_id: cityId,
+        })
+        .select('id')
+        .single();
+
+      if (driverError) throw driverError;
+
+      // Add platform IDs
+      const platformIds: { driver_id: string; platform: string; platform_id: string }[] = [];
+      if (uberId.trim()) platformIds.push({ driver_id: newDriver.id, platform: 'uber', platform_id: uberId.trim() });
+      if (boltId.trim()) platformIds.push({ driver_id: newDriver.id, platform: 'bolt', platform_id: boltId.trim() });
+      if (freenowId.trim()) platformIds.push({ driver_id: newDriver.id, platform: 'freenow', platform_id: freenowId.trim() });
+
+      if (platformIds.length > 0) {
+        await supabase.from('driver_platform_ids').insert(platformIds);
+      }
+
+      // Create fleet relation
+      await supabase
+        .from('driver_fleet_relations')
+        .insert({
+          driver_id: newDriver.id,
+          fleet_id: fleetId,
+          relation_type: 'both',
+          is_active: true,
+        });
+
+      toast.success(`Dodano kierowcę: ${firstName} ${lastName}`);
+      handleClose();
+      onSuccess();
+    } catch (error: any) {
+      console.error("Error adding driver:", error);
+      toast.error("Błąd podczas dodawania kierowcy: " + error.message);
+    } finally {
+      setAddingDriver(false);
+    }
+  };
+
   const sendInvitation = async () => {
     if (!selectedDriver) {
       toast.error("Wybierz kierowcę");
@@ -146,6 +232,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     setUberId("");
     setBoltId("");
     setFreenowId("");
+    setIban("");
     setFoundDrivers([]);
     setSelectedDriver(null);
     setSelectedVehicleId("");
@@ -155,12 +242,12 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Zaproś kierowcę do floty</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-y-auto flex-1 pr-2">
           {/* Personal + Contact Data - 2x2 grid */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -253,6 +340,19 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
             </div>
           </div>
 
+          {/* Bank Account (IBAN) */}
+          <div className="space-y-2">
+            <Label htmlFor="iban">Numer konta bankowego (IBAN)</Label>
+            <Input
+              id="iban"
+              placeholder="PL00 0000 0000 0000 0000 0000 0000"
+              value={iban}
+              onChange={(e) => setIban(e.target.value)}
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">Numer konta do przelewów wypłat dla kierowcy</p>
+          </div>
+
           {/* Search Button */}
           <Button 
             onClick={searchDrivers} 
@@ -319,9 +419,28 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
                   </div>
                 </>
               ) : (
-                <div className="text-center py-6 text-muted-foreground border rounded-lg">
-                  <p>Nie znaleziono kierowców pasujących do kryteriów</p>
-                  <p className="text-sm mt-2">Sprawdź dane i spróbuj ponownie</p>
+                <div className="text-center py-6 text-muted-foreground border rounded-lg space-y-4">
+                  <div>
+                    <p>Nie znaleziono kierowców pasujących do kryteriów</p>
+                    <p className="text-sm mt-2">Sprawdź dane i spróbuj ponownie lub dodaj nowego kierowcę</p>
+                  </div>
+                  <Button 
+                    onClick={addNewDriver} 
+                    disabled={addingDriver || !firstName.trim() || !lastName.trim()}
+                    variant="default"
+                  >
+                    {addingDriver ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Dodawanie...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Dodaj nowego kierowcę
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </div>
@@ -350,7 +469,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
           )}
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
+        <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={handleClose}>
             Anuluj
           </Button>
