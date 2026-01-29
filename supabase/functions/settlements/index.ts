@@ -57,7 +57,6 @@ Deno.serve(async (req) => {
       const contentType = req.headers.get('content-type');
       console.log('📨 Content-Type:', contentType);
       console.log('📨 Request method:', req.method);
-      console.log('📨 Request headers:', Object.fromEntries(req.headers.entries()));
       
       const rawBody = await req.text();
       console.log('📨 Raw body length:', rawBody.length);
@@ -86,12 +85,10 @@ Deno.serve(async (req) => {
     const { period_from, period_to, city_id, main_csv, uber_csv, bolt_csv, freenow_csv } = body;
     const fleet_id = (body as any).fleet_id;
 
-    // Accept either city_id or fleet_id
     if (!period_from || !period_to || (!city_id && !fleet_id)) {
       throw new Error('Missing required fields: period_from, period_to, and either city_id or fleet_id');
     }
 
-    // If fleet_id provided, get city_id from drivers in that fleet
     let effectiveCityId = city_id;
     if (fleet_id && !city_id) {
       const { data: fleetDriver } = await supabase
@@ -105,7 +102,6 @@ Deno.serve(async (req) => {
         effectiveCityId = fleetDriver.city_id;
         console.log('📍 Using city_id from fleet:', effectiveCityId);
       } else {
-        // Get a default city if no drivers in fleet yet
         const { data: defaultCity } = await supabase
           .from('cities')
           .select('id')
@@ -116,7 +112,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Determine import mode
     const has3Csvs = uber_csv || bolt_csv || freenow_csv;
     const hasMainCsv = !!main_csv;
 
@@ -130,7 +125,6 @@ Deno.serve(async (req) => {
     let newDriversCount = 0;
     let matchedDriversCount = 0;
 
-    // ========== MODE 1: 3 PLATFORM CSVs ==========
     if (has3Csvs) {
       const result = await process3PlatformCsvs(
         supabase,
@@ -140,9 +134,7 @@ Deno.serve(async (req) => {
       settlementsToInsert = result.settlements;
       newDriversCount = result.newDrivers;
       matchedDriversCount = result.matchedDrivers;
-    }
-    // ========== MODE 2: 1 RIDO TEMPLATE ==========
-    else if (hasMainCsv) {
+    } else if (hasMainCsv) {
       const result = await processRidoTemplate(
         supabase,
         main_csv,
@@ -153,14 +145,13 @@ Deno.serve(async (req) => {
       matchedDriversCount = result.matchedDrivers;
     }
 
-    // ========== BATCH UPSERT SETTLEMENTS (update existing) ==========
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
       const { data: insertedSettlements, error } = await supabase
         .from('settlements')
         .upsert(settlementsToInsert, { 
           onConflict: 'raw_row_id',
-          ignoreDuplicates: false  // POPRAWIONE: nadpisuj stare dane!
+          ignoreDuplicates: false
         })
         .select('id, driver_id, period_from, period_to');
       if (error) {
@@ -169,11 +160,9 @@ Deno.serve(async (req) => {
       }
       console.log('✅ Rozliczenia zapisane');
       
-      // ========== UPDATE DRIVER DEBTS ==========
       if (insertedSettlements && insertedSettlements.length > 0) {
         console.log('💳 Aktualizuję zadłużenia kierowców...');
         
-        // Grupuj settlements według kierowcy
         const settlementsByDriver = new Map<string, any[]>();
         for (const settlement of insertedSettlements) {
           if (!settlementsByDriver.has(settlement.driver_id)) {
@@ -182,10 +171,8 @@ Deno.serve(async (req) => {
           settlementsByDriver.get(settlement.driver_id)!.push(settlement);
         }
         
-        // Dla każdego kierowcy, zaktualizuj dług
         for (const [driverId, driverSettlements] of settlementsByDriver.entries()) {
           for (const settlement of driverSettlements) {
-            // Pobierz pełne dane settlement aby obliczyć payout
             const { data: fullSettlement } = await supabase
               .from('settlements')
               .select('*')
@@ -193,7 +180,6 @@ Deno.serve(async (req) => {
               .single();
             
             if (fullSettlement) {
-              // Oblicz calculated_payout używając poprawnych nazw pól snake_case
               const amounts = fullSettlement.amounts || {};
               const calculatedPayout = (amounts.uber_net || 0) + (amounts.bolt_net || 0) + (amounts.freenow_net || 0);
               
@@ -227,7 +213,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ========== KROK 7: UTWÓRZ SETTLEMENT PERIOD ==========
     const { data: settlementPeriod, error: periodError } = await supabase
       .from('settlement_periods')
       .insert({
@@ -284,7 +269,6 @@ async function process3PlatformCsvs(
   const driverDataMap = new Map<string, PlatformData>();
   const existingDriversMap = new Map<string, any>();
 
-  // Load existing drivers - filter by fleet_id if provided, otherwise by city_id
   let driversQuery = supabase
     .from('drivers')
     .select('id, email, phone, getrido_id, first_name, last_name, driver_platform_ids(platform, platform_id)');
@@ -310,7 +294,6 @@ async function process3PlatformCsvs(
   let newDrivers = 0;
   let matchedDrivers = 0;
 
-  // Process each platform CSV
   if (csvFiles.uber_csv) {
     const result = await parseUberCsv(csvFiles.uber_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
     newDrivers += result.newDrivers;
@@ -329,17 +312,15 @@ async function process3PlatformCsvs(
     matchedDrivers += result.matchedDrivers;
   }
 
-  // ========== FETCH FUEL DATA ==========
+  // Fetch fuel data
   const driverIds = Array.from(driverDataMap.keys());
   console.log('⛽ Pobieranie danych paliwowych dla', driverIds.length, 'kierowców...');
   
-  // Pobierz numery kart paliwowych
   const { data: driversWithFuel } = await supabase
     .from('drivers')
     .select('id, fuel_card_number')
     .in('id', driverIds);
   
-  // Mapa: driver_id -> fuel_card_number (bez zer wiodących)
   const fuelCardMap = new Map<string, string>();
   driversWithFuel?.forEach((d: any) => {
     if (d.fuel_card_number) {
@@ -348,16 +329,14 @@ async function process3PlatformCsvs(
   });
   console.log('⛽ Znaleziono karty paliwowe dla', fuelCardMap.size, 'kierowców');
   
-  // Pobierz transakcje paliwowe dla okresu
   const { data: fuelTransactions } = await supabase
     .from('fuel_transactions')
     .select('card_number, total_amount')
     .gte('transaction_date', meta.period_from)
     .lte('transaction_date', meta.period_to);
   
-  console.log('⛽ Znaleziono', fuelTransactions?.length || 0, 'transakcji paliwowych w okresie', meta.period_from, '-', meta.period_to);
+  console.log('⛽ Znaleziono', fuelTransactions?.length || 0, 'transakcji paliwowych w okresie');
   
-  // Suma paliwa per kierowca
   const fuelByDriver = new Map<string, number>();
   for (const [driverId, cardNumber] of fuelCardMap) {
     let total = 0;
@@ -373,25 +352,23 @@ async function process3PlatformCsvs(
     }
   }
 
-  // Combine data and create settlements
+  // Create settlements
   const settlements: any[] = [];
   for (const [driverId, data] of driverDataMap.entries()) {
     const fuel = fuelByDriver.get(driverId) || 0;
-    // Prawidłowy wzór: (brutto - brutto/1.23) / 2 = 50% VAT refund
-    // Przykład: (422.70 - 422.70/1.23) / 2 = (422.70 - 343.66) / 2 = 79.04 / 2 = 39.52 zł
     const fuel_vat_refund = fuel > 0 ? (fuel - fuel / 1.23) / 2 : 0;
     
-    // POPRAWIONA FORMUŁA NET_AMOUNT:
-    // Gotówka MUSI być odjęta RAZ - kierowca ją pobrał i musi oddać firmie
-    // Formuła: suma net z platform + VAT refund - paliwo - gotówka
+    // Sumy
     const total_cash = (data.uber_cash_f || 0) + (data.bolt_cash || 0) + (data.freenow_cash_f || 0);
+    const total_tax = (data.uber_tax_8 || 0) + (data.bolt_tax_8 || 0) + (data.freenow_tax_8 || 0);
+    const total_commission = (data.bolt_commission || 0) + (data.freenow_commission_t || 0);
+    const total_base = (data.uber_base || 0) + (data.bolt_projected_d || 0) + (data.freenow_base_s || 0);
     
-    const calculated_net = (data.uber_net || 0) + (data.bolt_net || 0) + (data.freenow_net || 0) 
-                           + fuel_vat_refund 
-                           - fuel
-                           - total_cash; // GOTÓWKA ODJĘTA RAZ!
+    // POPRAWIONA FORMUŁA:
+    // Wypłata = Suma bazowa - podatek - prowizja - gotówka - paliwo + VAT_zwrot
+    const calculated_net = total_base - total_tax - total_commission - total_cash - fuel + fuel_vat_refund;
     
-    console.log(`💰 Driver ${driverId}: uber_net=${data.uber_net?.toFixed(2)}, bolt_net=${data.bolt_net?.toFixed(2)}, freenow_net=${data.freenow_net?.toFixed(2)}, total_cash(info)=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, WYPŁATA=${calculated_net.toFixed(2)}`);
+    console.log(`💰 Driver ${driverId}: base=${total_base.toFixed(2)}, tax=${total_tax.toFixed(2)}, comm=${total_commission.toFixed(2)}, cash=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat_refund=${fuel_vat_refund.toFixed(2)}, WYPŁATA=${calculated_net.toFixed(2)}`);
     
     settlements.push({
       city_id: meta.city_id,
@@ -401,8 +378,8 @@ async function process3PlatformCsvs(
       period_to: meta.period_to,
       week_start: meta.period_from,
       week_end: meta.period_to,
-      total_earnings: data.uber_base + data.bolt_projected_d + data.freenow_base_s,
-      commission_amount: data.freenow_commission_t + (data.bolt_commission || 0),
+      total_earnings: total_base,
+      commission_amount: total_commission,
       net_amount: calculated_net,
       amounts: {
         uber_payout_d: data.uber_payout_d || 0,
@@ -410,7 +387,6 @@ async function process3PlatformCsvs(
         uber_base: data.uber_base || 0,
         uber_tax_8: data.uber_tax_8 || 0,
         uber_net: data.uber_net || 0,
-        uber_commission: data.uber_commission || 0,
         bolt_projected_d: data.bolt_projected_d || 0,
         bolt_payout_s: data.bolt_payout_s || 0,
         bolt_cash: data.bolt_cash || 0,
@@ -423,7 +399,10 @@ async function process3PlatformCsvs(
         freenow_tax_8: data.freenow_tax_8 || 0,
         freenow_net: data.freenow_net || 0,
         fuel: fuel,
-        fuel_vat_refund: fuel_vat_refund
+        fuel_vat_refund: fuel_vat_refund,
+        total_cash: total_cash,
+        total_tax: total_tax,
+        total_commission: total_commission
       },
       source: '3_platform_csvs',
       raw_row_id: `combined_${meta.period_from}_${driverId}`
@@ -451,7 +430,6 @@ async function processRidoTemplate(
 
   const headers = parsedRows[0].map(h => h.toLowerCase().trim());
   
-  // Column indexes
   const emailIdx = headers.findIndex(h => h.includes('adres mailowy'));
   const uberIdIdx = headers.findIndex(h => h.includes('id uber'));
   const phoneIdx = headers.findIndex(h => h.includes('nr tel'));
@@ -459,46 +437,32 @@ async function processRidoTemplate(
   const getRidoIdIdx = headers.findIndex(h => h.includes('getrido id'));
 
   // Kolumny wg screenshota z arkusza RIDO:
-  // E = Imię i Nazwisko
-  // F = D UBER Wypłacono ci (kolumna 5, index 5)
-  // G = F UBER Wypłacono ci Gotówka (kolumna 6, index 6)
-  // H = D BOLT Zarobki brutto (kolumna 7, index 7)
-  // I = G BOLT Gotówka na stanie (kolumna 8, index 8)
-  // J = S BOLT Projected payout (kolumna 9, index 9)
-  // K = F FreeNow Płatności gotówką/karta (kolumna 10, index 10)
-  // L = S FreeNow Zarobki przed odliczeniem (kolumna 11, index 11)
-  // M = T FreeNow Prowizja (kolumna 12, index 12)
-  // N = Wypłata (kolumna 13)
-  // O = Podatek (kolumna 14)
-  // P = Paliwo (kolumna 15)
-  // U = VAT zwrot (kolumna 20)
-  
-  const uberPayoutDIdx = headers.findIndex(h => h.includes('d uber') || h.includes('uber wypłac')) !== -1 
-    ? headers.findIndex(h => h.includes('d uber') || h.includes('uber wypłac')) : 5; // Kolumna F (index 5)
-  const uberCashFIdx = headers.findIndex(h => h.includes('f uber') || h.includes('gotówka') && h.includes('uber')) !== -1
-    ? headers.findIndex(h => h.includes('f uber') || (h.includes('gotówka') && h.includes('uber'))) : 6; // Kolumna G (index 6)
-  const boltProjectedDIdx = headers.findIndex(h => h.includes('d bolt') || h.includes('brutto')) !== -1
-    ? headers.findIndex(h => h.includes('d bolt') || h.includes('brutto')) : 7; // Kolumna H (index 7)
-  const boltCashIdx = headers.findIndex(h => h.includes('g bolt') || h.includes('gotówka na stanie')) !== -1
-    ? headers.findIndex(h => h.includes('g bolt') || h.includes('gotówka na stanie')) : 8; // Kolumna I (index 8) - NOWE!
-  const boltPayoutSIdx = headers.findIndex(h => h.includes('s bolt') || h.includes('projected') || h.includes('payout')) !== -1
-    ? headers.findIndex(h => h.includes('s bolt') || h.includes('projected') || h.includes('payout')) : 9; // Kolumna J (index 9)
-  const freenowCashFIdx = headers.findIndex(h => h.includes('f freenow') || h.includes('freenow') && h.includes('gotówka')) !== -1
-    ? headers.findIndex(h => h.includes('f freenow') || (h.includes('freenow') && h.includes('gotówka'))) : 10; // Kolumna K (index 10)
-  const freenowBaseSIdx = headers.findIndex(h => h.includes('s freenow') || h.includes('zarobki przed')) !== -1
-    ? headers.findIndex(h => h.includes('s freenow') || h.includes('zarobki przed')) : 11; // Kolumna L (index 11)
-  const freenowCommissionTIdx = headers.findIndex(h => h.includes('t freenow') || h.includes('prowizja')) !== -1
-    ? headers.findIndex(h => h.includes('t freenow') || h.includes('prowizja')) : 12; // Kolumna M (index 12)
-  const fuelIdx = headers.findIndex(h => h.includes('paliwo')) !== -1
-    ? headers.findIndex(h => h.includes('paliwo')) : 15; // Kolumna P (index 15)
-  const fuelVATRefundIdx = headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) !== -1
-    ? headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) : 20; // Kolumna U (index 20)
+  // E = Imię i Nazwisko (index 4)
+  // F = D UBER Wypłacono ci (index 5)
+  // G = F UBER Gotówka (index 6)
+  // H = D BOLT Zarobki brutto (index 7)
+  // I = G BOLT Gotówka (index 8)
+  // J = S BOLT Projected payout (index 9)
+  // K = F FreeNow Gotówka (index 10)
+  // L = S FreeNow Zarobki (index 11)
+  // M = T FreeNow Prowizja (index 12)
+  // P = Paliwo (index 15)
+  // U = VAT zwrot (index 20)
 
-  // Use actual column letters as fallback
-  const getColValue = (row: string[], idx: number, fallbackIdx: number) => 
-    (idx >= 0 ? row[idx] : row[fallbackIdx]) || '';
+  const uberPayoutDIdx = headers.findIndex(h => h.includes('d uber wyplacono')) || 5;
+  const uberCashFIdx = headers.findIndex(h => h.includes('f uber') && h.includes('gotow')) || 6;
+  const boltProjectedDIdx = headers.findIndex(h => h.includes('d bolt')) || 7;
+  const boltCashIdx = headers.findIndex(h => h.includes('g bolt') && h.includes('gotow')) || 8;
+  const boltPayoutSIdx = headers.findIndex(h => h.includes('s bolt')) || 9;
+  const freenowCashFIdx = headers.findIndex(h => h.includes('f freenow') || (h.includes('freenow') && h.includes('gotow'))) || 10;
+  const freenowBaseSIdx = headers.findIndex(h => h.includes('s freenow') && h.includes('zarobki')) || 11;
+  const freenowCommissionTIdx = headers.findIndex(h => h.includes('t freenow') && h.includes('prowizj')) || 12;
+  const fuelIdx = headers.findIndex(h => h === 'paliwo' || h.includes('paliwo')) || 15;
+  const fuelVATRefundIdx = headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) || 20;
 
-  // Load existing drivers - filter by fleet_id if provided, otherwise by city_id
+  console.log('📊 RIDO Indexes:', { uberPayoutDIdx, uberCashFIdx, boltProjectedDIdx, boltCashIdx, boltPayoutSIdx, freenowCashFIdx, freenowBaseSIdx, freenowCommissionTIdx, fuelIdx, fuelVATRefundIdx });
+
+  // Load existing drivers
   const existingDriversMap = new Map<string, any>();
   let driversQuery = supabase
     .from('drivers')
@@ -534,42 +498,48 @@ async function processRidoTemplate(
       email: row[emailIdx] || '',
       uberId: row[uberIdIdx]?.trim() || '',
       phone: row[phoneIdx]?.trim() || '',
-      fullName: getColValue(row, fullNameIdx, 5).trim() || 'Nieznany Kierowca',
+      fullName: getColValue(row, fullNameIdx, 4).trim() || 'Nieznany Kierowca',
       getRidoId: getColValue(row, getRidoIdIdx, 23).trim() || '',
     };
 
-    // Extract amounts from proper columns
+    // Parsowanie wartości z CSV
     const uber_payout_d = parsePLNumber(row[uberPayoutDIdx] || row[5] || '0');
-    const uber_cash_f = parsePLNumber(row[uberCashFIdx] || row[6] || '0');
+    const uber_cash_f = Math.abs(parsePLNumber(row[uberCashFIdx] || row[6] || '0')); // Wartość bezwzględna!
     const bolt_projected_d = parsePLNumber(row[boltProjectedDIdx] || row[7] || '0');
-    const bolt_cash = parsePLNumber(row[boltCashIdx] || row[8] || '0'); // POPRAWIONE: czytaj gotówkę Bolt z kolumny I
+    const bolt_cash = Math.abs(parsePLNumber(row[boltCashIdx] || row[8] || '0'));
     const bolt_payout_s = parsePLNumber(row[boltPayoutSIdx] || row[9] || '0');
-    const freenow_cash_f = parsePLNumber(row[freenowCashFIdx] || row[10] || '0');
+    const freenow_cash_f = Math.abs(parsePLNumber(row[freenowCashFIdx] || row[10] || '0'));
     const freenow_base_s = parsePLNumber(row[freenowBaseSIdx] || row[11] || '0');
     const freenow_commission_t = parsePLNumber(row[freenowCommissionTIdx] || row[12] || '0');
     const fuel = parsePLNumber(row[fuelIdx] || row[15] || '0');
     const fuelVATRefund = parsePLNumber(row[fuelVATRefundIdx] || row[20] || '0');
 
-    // ============= POPRAWIONE FORMUŁY KALKULACJI =============
-    
-    // UBER: base = D + F (podstawa opodatkowania = przychód + gotówka)
-    // PODATEK 8% liczy się od CAŁEJ PODSTAWY (D+F) - to jest przychód kierowcy!
-    // Net = D (co dostaje z Uber) - podatek 8% od (D+F)
+    // ============= POPRAWIONA FORMUŁA KALKULACJI =============
+    // UBER: base = D + |F| (podstawa opodatkowania = wypłata + gotówka)
+    // Podatek 8% = 8% od CAŁEJ PODSTAWY (D + F)
+    // Gotówka = kierowca ją pobrał od klientów, musi oddać firmie
     const uber_base = uber_payout_d + uber_cash_f;
-    const uber_tax_8 = uber_base * 0.08; // POPRAWIONE: podatek od D+F (całej podstawy)!
-    const uber_net = uber_payout_d - uber_tax_8; // D - podatek (gotówka zwracana osobno)
+    const uber_tax_8 = uber_base * 0.08;
 
-    // BOLT: Prowizja Bolt = D - G - S (brutto - gotówka - payout)
-    // Tax = 8% od D, net = S - tax
-    const bolt_commission = bolt_projected_d - bolt_cash - bolt_payout_s;
+    // BOLT: D=brutto, G=gotówka, S=payout
+    // Prowizja Bolt = D - G - S
+    const bolt_commission = bolt_projected_d > 0 ? (bolt_projected_d - bolt_cash - bolt_payout_s) : 0;
     const bolt_tax_8 = bolt_projected_d * 0.08;
-    const bolt_net = bolt_payout_s - bolt_tax_8; // S - podatek
 
-    // FREENOW: net = S - tax - prowizja
+    // FREENOW: S=zarobki, T=prowizja, F=gotówka
     const freenow_tax_8 = freenow_base_s * 0.08;
-    const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t; // S - podatek - prowizja
     
-    console.log(`📊 RIDO Template wiersz ${i}: Uber(D=${uber_payout_d}, F=${uber_cash_f}, net=${uber_net.toFixed(2)}) | Bolt(D=${bolt_projected_d}, G=${bolt_cash}, S=${bolt_payout_s}, prow=${bolt_commission.toFixed(2)}, net=${bolt_net.toFixed(2)}) | FreeNow(S=${freenow_base_s}, T=${freenow_commission_t}, F=${freenow_cash_f}, net=${freenow_net.toFixed(2)})`);
+    // SUMY
+    const total_base = uber_base + bolt_projected_d + freenow_base_s;
+    const total_cash = uber_cash_f + bolt_cash + freenow_cash_f;
+    const total_tax = uber_tax_8 + bolt_tax_8 + freenow_tax_8;
+    const total_commission = bolt_commission + freenow_commission_t;
+
+    // ============= KOŃCOWA FORMUŁA WYPŁATY =============
+    // Wypłata = Suma bazowa - podatek - prowizja - gotówka - paliwo + VAT_zwrot
+    const net_amount = total_base - total_tax - total_commission - total_cash - fuel + fuelVATRefund;
+    
+    console.log(`📊 RIDO Wiersz ${i} [${rowData.fullName}]: base=${total_base.toFixed(2)}, tax=${total_tax.toFixed(2)}, comm=${total_commission.toFixed(2)}, cash=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat=${fuelVATRefund.toFixed(2)} => WYPŁATA=${net_amount.toFixed(2)}`);
 
     const beforeSize = existingDriversMap.size;
     const driverId = await findOrCreateDriver(
@@ -595,32 +565,34 @@ async function processRidoTemplate(
       period_to: meta.period_to,
       week_start: meta.period_from,
       week_end: meta.period_to,
-      total_earnings: uber_base + bolt_projected_d + freenow_base_s,
-      commission_amount: freenow_commission_t + bolt_commission, // Suma prowizji wszystkich platform
-      // POPRAWIONE: gotówka musi być odjęta RAZ (kierowca ją pobrał i musi oddać)
-      net_amount: uber_net + bolt_net + freenow_net + fuelVATRefund - fuel - (uber_cash_f + bolt_cash + freenow_cash_f),
+      total_earnings: total_base,
+      commission_amount: total_commission,
+      net_amount: net_amount,
       amounts: {
         uber_payout_d,
         uber_cash_f,
         uber_base,
         uber_tax_8,
-        uber_net,
+        uber_net: uber_base - uber_tax_8, // Dla kompatybilności
         bolt_projected_d,
         bolt_payout_s,
-        bolt_cash,       // DODANE: gotówka Bolt
-        bolt_commission, // DODANE: prowizja Bolt (D - G - S)
+        bolt_cash,
+        bolt_commission,
         bolt_tax_8,
-        bolt_net,
+        bolt_net: bolt_projected_d - bolt_tax_8 - bolt_commission, // Dla kompatybilności
         freenow_base_s,
         freenow_commission_t,
         freenow_cash_f,
         freenow_tax_8,
-        freenow_net,
+        freenow_net: freenow_base_s - freenow_tax_8 - freenow_commission_t, // Dla kompatybilności
         fuel,
-        fuelVATRefund
+        fuelVATRefund,
+        total_cash,
+        total_tax,
+        total_commission
       },
       source: 'rido_template',
-      raw_row_id: `rido_${meta.period_from}_${driverId}` // POPRAWIONE: używaj driver_id dla unikalności
+      raw_row_id: `rido_${meta.period_from}_${driverId}`
     });
   }
 
@@ -643,10 +615,8 @@ async function parseUberCsv(
   const headers = rows[0].map(h => h.toLowerCase().trim());
   console.log('📊 UBER CSV - nagłówki:', JSON.stringify(headers));
   
-  // More flexible header matching
   const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout') || h.includes('wyplata') || h.includes('wypłata'));
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('gotowka') || h.includes('cash'));
-  // NAPRAWIONE: Uber CSV ma kolumnę "identyfikator uuid kierowcy" - dopasowujemy przez 'uuid' lub 'identyfikator kierowc'
   const driverIdIdx = headers.findIndex(h => 
     h.includes('uuid') || 
     h.includes('identyfikator kierowc') ||
@@ -655,7 +625,7 @@ async function parseUberCsv(
   );
   const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko'));
 
-  console.log('📊 UBER CSV - indeksy kolumn:', { payoutIdx, cashIdx, driverIdIdx, driverNameIdx });
+  console.log('📊 UBER CSV - indeksy:', { payoutIdx, cashIdx, driverIdIdx, driverNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -665,17 +635,14 @@ async function parseUberCsv(
     if (row.every(cell => !cell?.trim())) continue;
 
     const uber_payout_d = parsePLNumber(row[payoutIdx] || '0');
-    // Math.abs because cash in Uber CSV has minus sign (e.g. "-100" means 100 cash)
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
-    // POPRAWIONE: podatek od D+F (całej podstawy opodatkowania)!
     const uber_tax_8 = uber_base * 0.08;
-    const uber_net = uber_payout_d - uber_tax_8;
+    const uber_net = uber_base - uber_tax_8;
 
     let platformId = row[driverIdIdx]?.trim();
     const driverName = row[driverNameIdx]?.trim() || '';
     
-    // Clean platformId if it looks like full row data
     if (platformId && platformId.includes(',') && platformId.length > 20) {
       const parts = platformId.split(',');
       platformId = parts[0]?.trim();
@@ -685,63 +652,63 @@ async function parseUberCsv(
 
     let driverId: string | null = null;
 
-    // Try to match by platform ID
     if (platformId && existingDriversMap.has(`uber:${platformId}`)) {
       driverId = existingDriversMap.get(`uber:${platformId}`).id;
       matchedDrivers++;
-    } 
-    // Try to match by driver name
-    else if (driverName) {
+    } else if (driverName) {
       const nameParts = driverName.split(' ');
       const firstName = nameParts[0]?.toLowerCase() || '';
       const lastName = nameParts.slice(1).join(' ').toLowerCase() || '';
       
       for (const [key, driver] of existingDriversMap.entries()) {
         if (key.startsWith('phone:') || key.startsWith('getrido:')) {
-          const driverFirstName = (driver.first_name || '').toLowerCase();
-          const driverLastName = (driver.last_name || '').toLowerCase();
-          
-          if (driverFirstName === firstName && driverLastName === lastName) {
+          const dFirst = driver.first_name?.toLowerCase() || '';
+          const dLast = driver.last_name?.toLowerCase() || '';
+          if ((firstName && dFirst.includes(firstName)) || (lastName && dLast.includes(lastName))) {
             driverId = driver.id;
             matchedDrivers++;
-            
-            if (platformId) {
-              await supabase
-                .from('driver_platform_ids')
-                .upsert({
-                  driver_id: driverId,
-                  platform: 'uber',
-                  platform_id: platformId
-                }, { onConflict: 'driver_id,platform' });
-              existingDriversMap.set(`uber:${platformId}`, driver);
-            }
             break;
           }
         }
       }
     }
-    
-    // If still no match, log warning instead of creating new driver
+
     if (!driverId) {
-      console.warn(`⚠️ UBER: Nie znaleziono kierowcy dla platformId=${platformId}, name=${driverName}. Pomijam wiersz.`);
-      continue;
+      const nameParts = driverName.split(' ');
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          first_name: nameParts[0] || 'Uber',
+          last_name: nameParts.slice(1).join(' ') || 'Driver',
+          city_id: city_id,
+          status: 'active'
+        })
+        .select('id')
+        .single();
+      
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        newDrivers++;
+        
+        if (platformId) {
+          await supabase.from('driver_platform_ids').insert({
+            driver_id: driverId,
+            platform: 'uber',
+            platform_id: platformId
+          });
+          existingDriversMap.set(`uber:${platformId}`, { id: driverId, first_name: nameParts[0], last_name: nameParts.slice(1).join(' ') });
+        }
+      }
     }
 
     if (driverId) {
-      if (!driverDataMap.has(driverId)) {
-        driverDataMap.set(driverId, {
-          driverId,
-          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
-          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
-        });
-      }
-      const data = driverDataMap.get(driverId)!;
-      data.uber_payout_d = uber_payout_d;
-      data.uber_cash_f = uber_cash_f;
-      data.uber_base = uber_base;
-      data.uber_tax_8 = uber_tax_8;
-      data.uber_net = uber_net;
+      const existing = driverDataMap.get(driverId) || createEmptyPlatformData(driverId);
+      existing.uber_payout_d = uber_payout_d;
+      existing.uber_cash_f = uber_cash_f;
+      existing.uber_base = uber_base;
+      existing.uber_tax_8 = uber_tax_8;
+      existing.uber_net = uber_net;
+      driverDataMap.set(driverId, existing);
     }
   }
 
@@ -761,42 +728,12 @@ async function parseBoltCsv(
 
   console.log('📊 BOLT CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
-  console.log('📊 BOLT CSV - nagłówki:', JSON.stringify(headers));
   
-  // BOLT: kolumna "kierowca" to IMIĘ I NAZWISKO, nie ID!
-  // Kolumna "identyfikator kierowcy" to platform ID
-  // D Bolt = Zarobki brutto (ogółem) - podstawa do podatku
-  const projectedIdx = headers.findIndex(h => h.includes('zarobki brutto (ogółem)') || h.includes('brutto') || h.includes('projected'));
-  
-  // S Bolt = Projected payout - właściwa wypłata kierowcy (WAŻNE: NIE "zarobki netto"!)
-  // "Projected payout" to kolumna z rzeczywistą wypłatą, "zarobki netto" to inna wartość!
-  const payoutIdx = headers.findIndex(h => 
-    h.includes('projected payout') || 
-    h.includes('przewidywana wypłata') || 
-    h.includes('payout')
-  );
-  
-  // G Bolt = Gotówka na stanie (pobrana gotówka)
-  const cashIdx = headers.findIndex(h => h.includes('gotówka na stanie') || h.includes('pobrana gotówka') || h.includes('gotówka') || h.includes('cash'));
-  
-  // Prowizja Bolt - parsuj bezpośrednio z CSV jeśli dostępna
-  const commissionIdx = headers.findIndex(h => (h.includes('prowizja') && h.includes('zł')) || h === 'prowizja|zł' || h === 'prowizja');
-  
-  console.log('📊 BOLT CSV - szukanie kolumn:', {
-    'brutto (D)': projectedIdx >= 0 ? headers[projectedIdx] : 'NIE ZNALEZIONO',
-    'payout (S)': payoutIdx >= 0 ? headers[payoutIdx] : 'NIE ZNALEZIONO', 
-    'gotówka (G)': cashIdx >= 0 ? headers[cashIdx] : 'NIE ZNALEZIONO',
-    'prowizja': commissionIdx >= 0 ? headers[commissionIdx] : 'NIE ZNALEZIONO'
-  });
-  
-  // WAŻNE: "kierowca" to nazwa, NIE ID!
-  const driverNameIdx = headers.findIndex(h => h === 'kierowca' || h.includes('imię') || h.includes('name'));
-  // ID kierowcy to osobna kolumna
-  const driverIdIdx = headers.findIndex(h => h.includes('identyfikator kierowcy') || h.includes('driver id') || h.includes('id kierowcy'));
-  const phoneIdx = headers.findIndex(h => h.includes('numer telefonu') || h.includes('telefon') || h.includes('phone'));
-  const emailIdx = headers.findIndex(h => h.includes('adres e-mail') || h.includes('e-mail') || h.includes('email'));
-
-  console.log('📊 BOLT CSV - indeksy kolumn:', { projectedIdx, payoutIdx, cashIdx, commissionIdx, driverNameIdx, driverIdIdx, phoneIdx, emailIdx });
+  const projectedIdx = headers.findIndex(h => h.includes('brutto') || h.includes('gross') || h.includes('total'));
+  const payoutIdx = headers.findIndex(h => h.includes('payout') || h.includes('wypłat') || h.includes('projected'));
+  const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
+  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('kierowca'));
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -807,99 +744,68 @@ async function parseBoltCsv(
 
     const bolt_projected_d = parsePLNumber(row[projectedIdx] || '0');
     const bolt_payout_s = parsePLNumber(row[payoutIdx] || '0');
-    const bolt_cash = parsePLNumber(row[cashIdx] || '0');
-    // Prowizja Bolt: D - G - S (zarobki brutto - gotówka na stanie - projected payout)
-    // Jeśli prowizja jest w CSV, użyj jej, inaczej oblicz
-    const bolt_commission = commissionIdx >= 0 
-      ? parsePLNumber(row[commissionIdx] || '0') 
-      : (bolt_projected_d - bolt_cash - bolt_payout_s);
-    
-    // Podatek 8% od zarobków brutto (D)
+    const bolt_cash = Math.abs(parsePLNumber(row[cashIdx] || '0'));
+    const bolt_commission = bolt_projected_d > 0 ? (bolt_projected_d - bolt_cash - bolt_payout_s) : 0;
     const bolt_tax_8 = bolt_projected_d * 0.08;
-    
-    // POPRAWIONE: Wypłata netto Bolt = S (projected payout) - podatek 8%
-    // Gotówka jest oddzielana osobno, nie wpływa na wypłatę net
-    const bolt_net = bolt_payout_s - bolt_tax_8;
-    
-    console.log(`📊 BOLT wiersz ${i}: D(brutto)=${bolt_projected_d}, S(payout)=${bolt_payout_s}, G(gotówka)=${bolt_cash}, prowizja=${bolt_commission.toFixed(2)}, podatek=${bolt_tax_8.toFixed(2)}, net=${bolt_net.toFixed(2)}`);
+    const bolt_net = bolt_projected_d - bolt_tax_8 - bolt_commission;
 
-    // WAŻNE: Pobierz imię i nazwisko z kolumny "kierowca" (indeks 0 zazwyczaj)
-    const driverName = (driverNameIdx >= 0 ? row[driverNameIdx] : row[0])?.trim() || '';
-    // ID kierowcy to osobna kolumna (np. indeks 21)
-    const platformId = driverIdIdx >= 0 ? row[driverIdIdx]?.trim() : '';
-    const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() : '';
-    const email = emailIdx >= 0 ? row[emailIdx]?.trim() : '';
+    const platformId = row[driverIdIdx]?.trim();
+    const driverName = row[driverNameIdx]?.trim() || '';
     
-    if (!driverName) continue;
+    if (!platformId && !driverName) continue;
 
     let driverId: string | null = null;
 
-    // 1. Najpierw spróbuj po platform ID (identyfikator kierowcy)
     if (platformId && existingDriversMap.has(`bolt:${platformId}`)) {
       driverId = existingDriversMap.get(`bolt:${platformId}`).id;
       matchedDrivers++;
-      console.log(`✅ BOLT: Znaleziono kierowcę ${driverName} po platformId=${platformId}`);
-    }
-    // 2. Spróbuj po telefonie
-    else if (phone && existingDriversMap.has(`phone:${phone}`)) {
-      driverId = existingDriversMap.get(`phone:${phone}`).id;
-      matchedDrivers++;
-      console.log(`✅ BOLT: Znaleziono kierowcę ${driverName} po telefonie=${phone}`);
-    }
-    // 3. Spróbuj po imieniu i nazwisku
-    else if (driverName) {
-      const nameParts = driverName.split(' ');
-      const firstName = nameParts[0]?.toLowerCase().trim() || '';
-      const lastName = nameParts.slice(1).join(' ').toLowerCase().trim() || '';
-      
+    } else if (driverName) {
       for (const [key, driver] of existingDriversMap.entries()) {
-        const driverFirstName = (driver.first_name || '').toLowerCase().trim();
-        const driverLastName = (driver.last_name || '').toLowerCase().trim();
-        
-        // Sprawdź dopasowanie imienia i nazwiska
-        if (driverFirstName === firstName && driverLastName === lastName) {
+        const fullName = `${driver.first_name || ''} ${driver.last_name || ''}`.toLowerCase();
+        if (fullName.includes(driverName.toLowerCase()) || driverName.toLowerCase().includes(fullName)) {
           driverId = driver.id;
           matchedDrivers++;
-          console.log(`✅ BOLT: Znaleziono kierowcę po nazwie: ${driverName} -> ${driver.first_name} ${driver.last_name}`);
-          
-          // Zapisz platformId jeśli jest
-          if (platformId) {
-            await supabase
-              .from('driver_platform_ids')
-              .upsert({
-                driver_id: driverId,
-                platform: 'bolt',
-                platform_id: platformId
-              }, { onConflict: 'driver_id,platform' });
-            existingDriversMap.set(`bolt:${platformId}`, driver);
-          }
           break;
         }
       }
     }
-    
-    // Jeśli nadal brak dopasowania, loguj ostrzeżenie
+
     if (!driverId) {
-      console.warn(`⚠️ BOLT: Nie znaleziono kierowcy dla name="${driverName}", platformId="${platformId}", phone="${phone}". Pomijam wiersz.`);
-      continue;
+      const nameParts = driverName.split(' ');
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          first_name: nameParts[0] || 'Bolt',
+          last_name: nameParts.slice(1).join(' ') || 'Driver',
+          city_id: city_id,
+          status: 'active'
+        })
+        .select('id')
+        .single();
+      
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        newDrivers++;
+        
+        if (platformId) {
+          await supabase.from('driver_platform_ids').insert({
+            driver_id: driverId,
+            platform: 'bolt',
+            platform_id: platformId
+          });
+        }
+      }
     }
 
     if (driverId) {
-      if (!driverDataMap.has(driverId)) {
-        driverDataMap.set(driverId, {
-          driverId,
-          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
-          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
-        });
-      }
-      const data = driverDataMap.get(driverId)!;
-      data.bolt_projected_d = bolt_projected_d;
-      data.bolt_payout_s = bolt_payout_s;
-      data.bolt_cash = bolt_cash;
-      data.bolt_commission = bolt_commission;
-      data.bolt_tax_8 = bolt_tax_8;
-      data.bolt_net = bolt_net;
+      const existing = driverDataMap.get(driverId) || createEmptyPlatformData(driverId);
+      existing.bolt_projected_d = bolt_projected_d;
+      existing.bolt_payout_s = bolt_payout_s;
+      existing.bolt_cash = bolt_cash;
+      existing.bolt_commission = bolt_commission;
+      existing.bolt_tax_8 = bolt_tax_8;
+      existing.bolt_net = bolt_net;
+      driverDataMap.set(driverId, existing);
     }
   }
 
@@ -919,19 +825,12 @@ async function parseFreenowCsv(
 
   console.log('📊 FREENOW CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
-  console.log('📊 FREENOW CSV - nagłówki:', JSON.stringify(headers));
   
-  // FREENOW: kolumna "kierowca" to IMIĘ I NAZWISKO, "id kierowcy" to platform ID
-  const baseIdx = headers.findIndex(h => h.includes('zarobki przed odliczeniem prowizji') || h.includes('revenue') || h.includes('brutto'));
-  const commissionIdx = headers.findIndex(h => h === 'prowizja' || h.includes('commission'));
-  const cashIdx = headers.findIndex(h => h.includes('płatności gotówką') || h.includes('gotówka') || h.includes('cash'));
-  
-  // WAŻNE: "id kierowcy" to kolumna 0, "kierowca" to kolumna 1 (imię i nazwisko)
-  const driverIdIdx = headers.findIndex(h => h === 'id kierowcy' || h.includes('driver id'));
-  const driverNameIdx = headers.findIndex(h => h === 'kierowca' || h.includes('imię') || h.includes('name'));
-  const plateIdx = headers.findIndex(h => h.includes('plate') || h.includes('rejestracja') || h.includes('tablica'));
-
-  console.log('📊 FREENOW CSV - indeksy kolumn:', { baseIdx, commissionIdx, cashIdx, driverIdIdx, driverNameIdx, plateIdx });
+  const baseIdx = headers.findIndex(h => h.includes('zarobki') || h.includes('earnings') || h.includes('base'));
+  const commissionIdx = headers.findIndex(h => h.includes('prowizj') || h.includes('commission'));
+  const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
+  const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
+  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('kierowca'));
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -942,502 +841,224 @@ async function parseFreenowCsv(
 
     const freenow_base_s = parsePLNumber(row[baseIdx] || '0');
     const freenow_commission_t = parsePLNumber(row[commissionIdx] || '0');
-    const freenow_cash_f = parsePLNumber(row[cashIdx] || '0');
+    const freenow_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const freenow_tax_8 = freenow_base_s * 0.08;
-    // POPRAWIONE: freenow_net = S - podatek - prowizja (gotówka jest oddzielana osobno)
     const freenow_net = freenow_base_s - freenow_tax_8 - freenow_commission_t;
 
-    // FREENOW: kolumna 0 = id kierowcy (np. "5389DB"), kolumna 1 = kierowca (imię nazwisko)
-    const platformId = driverIdIdx >= 0 ? row[driverIdIdx]?.trim() : '';
-    const driverName = driverNameIdx >= 0 ? row[driverNameIdx]?.trim() : '';
-    const plateNumber = plateIdx >= 0 ? row[plateIdx]?.trim() : '';
+    const platformId = row[driverIdIdx]?.trim();
+    const driverName = row[driverNameIdx]?.trim() || '';
     
-    if (!driverName) continue;
+    if (!platformId && !driverName) continue;
 
     let driverId: string | null = null;
 
-    // 1. Najpierw spróbuj po platform ID
     if (platformId && existingDriversMap.has(`freenow:${platformId}`)) {
       driverId = existingDriversMap.get(`freenow:${platformId}`).id;
       matchedDrivers++;
-      console.log(`✅ FREENOW: Znaleziono kierowcę ${driverName} po platformId=${platformId}`);
-    } 
-    // 2. Spróbuj po imieniu i nazwisku
-    else if (driverName) {
-      const nameParts = driverName.split(' ');
-      const firstName = nameParts[0]?.toLowerCase().trim() || '';
-      const lastName = nameParts.slice(1).join(' ').toLowerCase().trim() || '';
-      
+    } else if (driverName) {
       for (const [key, driver] of existingDriversMap.entries()) {
-        const driverFirstName = (driver.first_name || '').toLowerCase().trim();
-        const driverLastName = (driver.last_name || '').toLowerCase().trim();
-        
-        if (driverFirstName === firstName && driverLastName === lastName) {
+        const fullName = `${driver.first_name || ''} ${driver.last_name || ''}`.toLowerCase();
+        if (fullName.includes(driverName.toLowerCase()) || driverName.toLowerCase().includes(fullName)) {
           driverId = driver.id;
           matchedDrivers++;
-          console.log(`✅ FREENOW: Znaleziono kierowcę po nazwie: ${driverName} -> ${driver.first_name} ${driver.last_name}`);
-          
-          // Zapisz platform ID
-          if (platformId) {
-            await supabase
-              .from('driver_platform_ids')
-              .upsert({
-                driver_id: driverId,
-                platform: 'freenow',
-                platform_id: platformId
-              }, { onConflict: 'driver_id,platform' });
-            existingDriversMap.set(`freenow:${platformId}`, driver);
-          }
           break;
         }
       }
     }
-    
-    // Jeśli brak dopasowania, loguj ostrzeżenie
+
     if (!driverId) {
-      console.warn(`⚠️ FREENOW: Nie znaleziono kierowcy dla name="${driverName}", platformId="${platformId}". Pomijam wiersz.`);
-      continue;
+      const nameParts = driverName.split(' ');
+      const { data: newDriver, error } = await supabase
+        .from('drivers')
+        .insert({
+          first_name: nameParts[0] || 'FreeNow',
+          last_name: nameParts.slice(1).join(' ') || 'Driver',
+          city_id: city_id,
+          status: 'active'
+        })
+        .select('id')
+        .single();
+      
+      if (!error && newDriver) {
+        driverId = newDriver.id;
+        newDrivers++;
+        
+        if (platformId) {
+          await supabase.from('driver_platform_ids').insert({
+            driver_id: driverId,
+            platform: 'freenow',
+            platform_id: platformId
+          });
+        }
+      }
     }
 
     if (driverId) {
-      if (!driverDataMap.has(driverId)) {
-        driverDataMap.set(driverId, {
-          driverId,
-          uber_payout_d: 0, uber_cash_f: 0, uber_base: 0, uber_tax_8: 0, uber_net: 0,
-          bolt_projected_d: 0, bolt_payout_s: 0, bolt_cash: 0, bolt_commission: 0, bolt_tax_8: 0, bolt_net: 0,
-          freenow_base_s: 0, freenow_commission_t: 0, freenow_cash_f: 0, freenow_tax_8: 0, freenow_net: 0
-        });
-      }
-      const data = driverDataMap.get(driverId)!;
-      data.freenow_base_s = freenow_base_s;
-      data.freenow_commission_t = freenow_commission_t;
-      data.freenow_cash_f = freenow_cash_f;
-      data.freenow_tax_8 = freenow_tax_8;
-      data.freenow_net = freenow_net;
+      const existing = driverDataMap.get(driverId) || createEmptyPlatformData(driverId);
+      existing.freenow_base_s = freenow_base_s;
+      existing.freenow_commission_t = freenow_commission_t;
+      existing.freenow_cash_f = freenow_cash_f;
+      existing.freenow_tax_8 = freenow_tax_8;
+      existing.freenow_net = freenow_net;
+      driverDataMap.set(driverId, existing);
     }
   }
 
   return { newDrivers, matchedDrivers };
 }
 
-// ========== HELPER: PARSOWANIE CSV ==========
-function parseCSV(csvText: string): string[][] {
-  const lines = csvText.trim().split('\n').filter(line => {
-    const trimmed = line.trim();
-    return trimmed.length > 0 && !trimmed.match(/^[;,\s]*$/);
-  });
-  
-  if (lines.length === 0) return [];
-  
-  // Wykryj separator: sprawdź czy więcej średników czy przecinków w pierwszej linii
-  const firstLine = lines[0];
-  const semicolonCount = (firstLine.match(/;/g) || []).length;
-  const commaCount = (firstLine.match(/,/g) || []).length;
-  const separator = semicolonCount >= commaCount ? ';' : ',';
-  
-  console.log(`📝 CSV separator wykryty: '${separator}' (średniki: ${semicolonCount}, przecinki: ${commaCount})`);
-  
-  const result = lines.map(line => parseCSVLine(line, separator));
-  
-  if (result.length > 0) {
-    console.log(`📊 CSV: ${result.length} wierszy, ${result[0].length} kolumn w nagłówku`);
-    console.log(`📊 Nagłówki: ${result[0].slice(0, 10).join(' | ')}${result[0].length > 10 ? '...' : ''}`);
-  }
-  
-  return result;
+// ========== HELPER FUNCTIONS ==========
+function createEmptyPlatformData(driverId: string): PlatformData {
+  return {
+    driverId,
+    uber_payout_d: 0,
+    uber_cash_f: 0,
+    uber_base: 0,
+    uber_tax_8: 0,
+    uber_net: 0,
+    bolt_projected_d: 0,
+    bolt_payout_s: 0,
+    bolt_cash: 0,
+    bolt_commission: 0,
+    bolt_tax_8: 0,
+    bolt_net: 0,
+    freenow_base_s: 0,
+    freenow_commission_t: 0,
+    freenow_cash_f: 0,
+    freenow_tax_8: 0,
+    freenow_net: 0,
+  };
 }
 
-// ========== HELPER: PARSOWANIE LINII CSV Z OBSŁUGĄ CUDZYSŁOWÓW ==========
-function parseCSVLine(line: string, separator: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
+function parseCSV(text: string): string[][] {
+  const lines = text.split(/\r?\n/);
+  const result: string[][] = [];
   
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const nextChar = line[i + 1];
+  for (const line of lines) {
+    if (!line.trim()) continue;
     
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        i++; // Skip escaped quote
+    const row: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if ((char === ',' || char === ';') && !inQuotes) {
+        row.push(current.trim());
+        current = '';
       } else {
-        inQuotes = !inQuotes;
+        current += char;
       }
-    } else if (char === separator && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
     }
+    row.push(current.trim());
+    result.push(row);
   }
   
-  result.push(current.trim());
   return result;
 }
 
-// ========== HELPER: PARSOWANIE LICZB (polski format) ==========
 function parsePLNumber(value: string): number {
   if (!value || value.trim() === '') return 0;
-  // Usuń spacje, zamień przecinek na kropkę
-  return parseFloat(value.replace(/\s/g, '').replace(',', '.')) || 0;
-}
-
-// ========== HELPER: WALIDACJA GETRIDO ID ==========
-function isValidGetRidoId(
-  value: string | null | undefined,
-  uber_id?: string | null,
-  bolt_id?: string | null,
-  freenow_id?: string | null
-): boolean {
-  if (!value || value.trim().length < 3) return false;
   
-  const trimmed = value.trim();
+  let cleaned = value.replace(/[^\d,.\-]/g, '');
   
-  // Nie jest UUID (zawiera myślniki i jest 36 znaków)
-  if (trimmed.includes('-') && trimmed.length === 36) return false;
-  
-  // Nie jest tylko cyframi
-  if (/^\d+$/.test(trimmed)) return false;
-  
-  // Nie jest emailem
-  if (trimmed.includes('@')) return false;
-  
-  // Nie jest Uber UUID pattern
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
-  
-  // Reject if identical to any platform ID from the same row
-  if (uber_id && trimmed === uber_id) return false;
-  if (bolt_id && trimmed === bolt_id) return false;
-  if (freenow_id && trimmed === freenow_id) return false;
-  
-  return true;
-}
-
-// ========== HELPER: EKSTRAKCJA GETRIDO ID Z WIERSZA ==========
-function extractGetRidoFromRow(
-  headers: string[], 
-  row: string[], 
-  getRidoIdIdx: number,
-  uber_id?: string | null,
-  bolt_id?: string | null,
-  freenow_id?: string | null
-): string {
-  // 1) Bezpośrednio z nazwy kolumny, jeśli istnieje
-  let candidate = (getRidoIdIdx >= 0 ? row[getRidoIdIdx] : '')?.trim() || '';
-  if (isValidGetRidoId(candidate, uber_id, bolt_id, freenow_id)) {
-    console.log(`🆔 GetRido z kolumny nazwanej (idx ${getRidoIdIdx}): ${candidate}`);
-    return candidate;
-  }
-
-  // 2) Hard fallback: TYLKO kolumna X (index 23)
-  if (row.length > 23) {
-    const v = row[23]?.trim();
-    if (isValidGetRidoId(v, uber_id, bolt_id, freenow_id)) {
-      console.log(`🆔 GetRido z kolumny X (idx 23): ${v}`);
-      return v;
+  // Handle Polish format (1 234,56)
+  if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    if (parts.length === 2 && parts[1].length <= 2) {
+      cleaned = parts[0].replace(/\./g, '') + '.' + parts[1];
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
     }
   }
+  
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
 
-  // NO more risky scans - we only use X or named column
+function getColValue(row: string[], idx: number, fallbackIdx: number): string {
+  if (idx >= 0 && row[idx]) return row[idx];
+  if (fallbackIdx >= 0 && row[fallbackIdx]) return row[fallbackIdx];
   return '';
 }
-// ========== HELPER: ZNAJDŹ LUB UTWÓRZ KIEROWCĘ ==========
+
 async function findOrCreateDriver(
   supabase: any,
-  rowData: any,
+  rowData: { email: string; uberId: string; phone: string; fullName: string; getRidoId: string },
   city_id: string,
   existingDriversMap: Map<string, any>,
   headers: string[],
   row: string[],
   getRidoIdIdx: number
 ): Promise<string | null> {
-  
-  const uberId = rowData.uberId;
-  const freenowId = rowData.freenowId;
-  const phone = rowData.phone;
-  const fullName = rowData.fullName;
-  
-  // Use extractGetRidoFromRow to get GetRido ID reliably with platform IDs for validation
-  const uber_id_val = rowData.uber_id || null;
-  const freenow_id_val = rowData.freenowId || null;
-  const bolt_id_val = null; // Not in main CSV
-  
-  const extractedGetRidoId = extractGetRidoFromRow(headers, row, getRidoIdIdx, uber_id_val, bolt_id_val, freenow_id_val);
-  const getRidoId = extractedGetRidoId;
-  
-  // Waliduj GetRido ID
-  const validGetRidoId = isValidGetRidoId(getRidoId, uber_id_val, bolt_id_val, freenow_id_val) ? getRidoId : null;
-  
-  // PRIORYTET MATCHOWANIA (od najbardziej stabilnego):
-  // 1. GetRido ID (jeśli jest poprawne)
-  if (validGetRidoId && existingDriversMap.has(`getrido:${validGetRidoId}`)) {
-    const existingDriver = existingDriversMap.get(`getrido:${validGetRidoId}`);
-    console.log(`✅ Matched by GetRido ID: ${fullName} (${validGetRidoId})`);
-    
-    // Aktualizuj imię i nazwisko jeśli się zmieniły
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0] || 'Nieznane';
-    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-    
-    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
-      console.log(`🔄 Aktualizuję imię/nazwisko dla ${validGetRidoId}: ${existingDriver.first_name} ${existingDriver.last_name} → ${firstName} ${lastName}`);
-      await supabase
-        .from('drivers')
-        .update({ 
-          first_name: firstName, 
-          last_name: lastName 
-        })
-        .eq('id', existingDriver.id);
-    }
-    
-    return existingDriver.id;
-  }
-  
-  // 2. Telefon (bardzo stabilny identyfikator)
-  if (phone && existingDriversMap.has(`phone:${phone}`)) {
-    const existingDriver = existingDriversMap.get(`phone:${phone}`);
-    console.log(`✅ Matched by phone: ${fullName}`);
-    
-    // Aktualizuj GetRido ID jeśli jest poprawne i różne
-    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
-      console.log(`🔄 Aktualizuję GetRido ID dla ${phone}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
-      await supabase
-        .from('drivers')
-        .update({ getrido_id: validGetRidoId })
-        .eq('id', existingDriver.id);
-      
-      // Aktualizuj mapę
-      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
-    }
+  // Try to match by various identifiers
+  const lookupKeys = [
+    rowData.getRidoId ? `getrido:${rowData.getRidoId}` : null,
+    rowData.phone ? `phone:${rowData.phone}` : null,
+    rowData.uberId ? `uber:${rowData.uberId}` : null,
+  ].filter(Boolean) as string[];
 
-    // Aktualizuj imię/nazwisko jeśli się zmieniły
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0] || 'Nieznane';
-    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
-      await supabase
-        .from('drivers')
-        .update({ first_name: firstName, last_name: lastName })
-        .eq('id', existingDriver.id);
+  for (const key of lookupKeys) {
+    if (existingDriversMap.has(key)) {
+      return existingDriversMap.get(key).id;
     }
-    
-    return existingDriver.id;
   }
-  
-  // 3. FreeNow ID
-  if (freenowId && existingDriversMap.has(`freenow:${freenowId}`)) {
-    const existingDriver = existingDriversMap.get(`freenow:${freenowId}`);
-    console.log(`✅ Matched by FreeNow ID: ${fullName}`);
-    
-    // Aktualizuj GetRido ID jeśli jest poprawne i różne
-    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
-      console.log(`🔄 Aktualizuję GetRido ID dla FreeNow ${freenowId}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
-      await supabase
-        .from('drivers')
-        .update({ getrido_id: validGetRidoId })
-        .eq('id', existingDriver.id);
-      
-      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
-    }
 
-    // Aktualizuj imię/nazwisko jeśli się zmieniły
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0] || 'Nieznane';
-    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
-      await supabase
-        .from('drivers')
-        .update({ first_name: firstName, last_name: lastName })
-        .eq('id', existingDriver.id);
-    }
-    
-    return existingDriver.id;
-  }
+  // Try name matching
+  const nameParts = rowData.fullName.split(' ');
+  const firstName = nameParts[0]?.toLowerCase() || '';
+  const lastName = nameParts.slice(1).join(' ').toLowerCase() || '';
   
-  // 4. Email (jeśli jest prawdziwy email)
-  const emailForMatch = rowData.email?.trim();
-  if (emailForMatch && emailForMatch.includes('@') && !emailForMatch.includes('@rido.internal')) {
-    const emailMatch = Array.from(existingDriversMap.values()).find(
-      (driver: any) => driver.email === emailForMatch
-    );
-    if (emailMatch) {
-      console.log(`✅ Matched by email: ${fullName}`);
-      
-      // Aktualizuj GetRido ID jeśli jest poprawne i różne
-      if (validGetRidoId && emailMatch.getrido_id !== validGetRidoId) {
-        console.log(`🔄 Aktualizuję GetRido ID dla email ${emailForMatch}: ${emailMatch.getrido_id} → ${validGetRidoId}`);
-        await supabase
-          .from('drivers')
-          .update({ getrido_id: validGetRidoId })
-          .eq('id', emailMatch.id);
-        
-        existingDriversMap.set(`getrido:${validGetRidoId}`, emailMatch);
-      }
+  for (const [key, driver] of existingDriversMap.entries()) {
+    const dFirst = driver.first_name?.toLowerCase() || '';
+    const dLast = driver.last_name?.toLowerCase() || '';
+    
+    if (firstName && lastName && 
+        (dFirst.includes(firstName) || firstName.includes(dFirst)) &&
+        (dLast.includes(lastName) || lastName.includes(dLast))) {
+      return driver.id;
+    }
+  }
 
-      // Aktualizuj imię/nazwisko jeśli się zmieniły
-      const nameParts = fullName.split(' ');
-      const firstName = nameParts[0] || 'Nieznane';
-      const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-      if (emailMatch.first_name !== firstName || emailMatch.last_name !== lastName) {
-        await supabase
-          .from('drivers')
-          .update({ first_name: firstName, last_name: lastName })
-          .eq('id', emailMatch.id);
-      }
-      
-      return emailMatch.id;
-    }
-  }
-  
-  // 5. Uber ID (najmniej stabilny - może być UUID)
-  if (uberId && existingDriversMap.has(`uber:${uberId}`)) {
-    const existingDriver = existingDriversMap.get(`uber:${uberId}`);
-    console.log(`✅ Matched by Uber ID: ${fullName}`);
-    
-    // Aktualizuj GetRido ID jeśli jest poprawne i różne
-    if (validGetRidoId && existingDriver.getrido_id !== validGetRidoId) {
-      console.log(`🔄 Aktualizuję GetRido ID dla Uber ${uberId}: ${existingDriver.getrido_id} → ${validGetRidoId}`);
-      await supabase
-        .from('drivers')
-        .update({ getrido_id: validGetRidoId })
-        .eq('id', existingDriver.id);
-      
-      existingDriversMap.set(`getrido:${validGetRidoId}`, existingDriver);
-    }
-
-    // Aktualizuj imię/nazwisko jeśli się zmieniły
-    const nameParts = fullName.split(' ');
-    const firstName = nameParts[0] || 'Nieznane';
-    const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-    if (existingDriver.first_name !== firstName || existingDriver.last_name !== lastName) {
-      await supabase
-        .from('drivers')
-        .update({ first_name: firstName, last_name: lastName })
-        .eq('id', existingDriver.id);
-    }
-    
-    return existingDriver.id;
-  }
-  
-  // ========== TWORZENIE NOWEGO KIEROWCY ==========
-  console.log(`➕ Tworzę: ${fullName} (GetRido: ${validGetRidoId || 'brak'}, Uber: ${uberId})`);
-  
-  // Podziel imię i nazwisko z kolumny F
-  const nameParts = fullName.split(' ');
-  const firstName = nameParts[0] || 'Nieznane';
-  const lastName = nameParts.slice(1).join(' ') || 'Nazwisko';
-  
-  // ✅ Email w drivers = prawdziwy email z CSV (jeśli istnieje) LUB null
-  const csvEmail = rowData.email?.trim();
-  const hasRealEmail = csvEmail && csvEmail.includes('@') && !csvEmail.includes('@rido.internal');
-  
-  // ✅ Login email: jeśli ma prawdziwy email, użyj go, w przeciwnym razie internal
-  const loginEmail = hasRealEmail
-    ? csvEmail
-    : uberId
-      ? `uber_${uberId}@rido.internal`
-      : phone
-        ? `tel_${phone.replace(/[^0-9]/g, '')}@rido.internal`
-        : freenowId
-          ? `freenow_${freenowId}@rido.internal`
-          : `driver_${Date.now()}@rido.internal`;
-  
-  // Hasło: Test12345! dla wszystkich
-  const password = 'Test12345!';
-  
-  // Utwórz użytkownika w Supabase Auth
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email: loginEmail,
-    password: password,
-    email_confirm: true, // ✅ Nie wysyłaj maili potwierdzających
-    user_metadata: {
-      first_name: firstName,
-      last_name: lastName,
-      phone: phone || '',
-      real_email: hasRealEmail ? csvEmail : ''
-    }
-  });
-  
-  if (authError || !authUser.user) {
-    console.error('❌ Błąd Auth:', authError);
-    return null;
-  }
-  
-  // Wstaw do tabeli drivers
-  // ✅ ZMIANA: email = prawdziwy email z CSV LUB null (nie wpisuj Uber ID!)
-  const { data: newDriver, error: driverError } = await supabase
+  // Create new driver
+  const { data: newDriver, error } = await supabase
     .from('drivers')
     .insert({
-      id: authUser.user.id,
-      city_id,
-      first_name: firstName,
-      last_name: lastName,
-      email: hasRealEmail ? csvEmail : null, // ✅ null jeśli brak emaila w CSV
-      phone: phone || null,
-      fuel_card_number: rowData.fuelCard || null,
-      getrido_id: validGetRidoId || null, // ✅ Zapisz GetRido ID
-      user_role: 'kierowca'
+      first_name: nameParts[0] || 'Nieznany',
+      last_name: nameParts.slice(1).join(' ') || 'Kierowca',
+      email: rowData.email || null,
+      phone: rowData.phone || null,
+      getrido_id: rowData.getRidoId || null,
+      city_id: city_id,
+      status: 'active'
     })
-    .select()
+    .select('id, first_name, last_name')
     .single();
-  
-  if (driverError) {
-    console.error('❌ Błąd drivers:', driverError);
+
+  if (error || !newDriver) {
+    console.error('Error creating driver:', error);
     return null;
   }
-  
-  // ✅ NOWE: Utwórz wpis w driver_app_users aby kierowca mógł się zalogować
-  const { error: appUserError } = await supabase
-    .from('driver_app_users')
-    .insert({
-      user_id: authUser.user.id,
+
+  // Add to map for future lookups
+  if (rowData.phone) existingDriversMap.set(`phone:${rowData.phone}`, newDriver);
+  if (rowData.getRidoId) existingDriversMap.set(`getrido:${rowData.getRidoId}`, newDriver);
+  if (rowData.uberId) {
+    existingDriversMap.set(`uber:${rowData.uberId}`, newDriver);
+    await supabase.from('driver_platform_ids').insert({
       driver_id: newDriver.id,
-      city_id: city_id,
-      phone: phone || null
-    });
-  
-  if (appUserError) {
-    console.error('⚠️ Błąd driver_app_users (nie krytyczny):', appUserError);
-  } else {
-    console.log('✅ Utworzono wpis w driver_app_users');
-  }
-  
-  // Wstaw platform IDs
-  const platformIds = [];
-  if (uberId) {
-    platformIds.push({ 
-      driver_id: newDriver.id, 
-      platform: 'uber', 
-      platform_id: uberId 
+      platform: 'uber',
+      platform_id: rowData.uberId
     });
   }
-  if (freenowId) {
-    platformIds.push({ 
-      driver_id: newDriver.id, 
-      platform: 'freenow', 
-      platform_id: freenowId 
-    });
-  }
-  if (phone) {
-    platformIds.push({ 
-      driver_id: newDriver.id, 
-      platform: 'bolt', 
-      platform_id: phone 
-    });
-  }
-  
-  if (platformIds.length > 0) {
-    await supabase.from('driver_platform_ids').insert(platformIds);
-  }
-  
-  // Dodaj do mapy
-  existingDriversMap.set(`uber:${uberId}`, newDriver);
-  if (freenowId) existingDriversMap.set(`freenow:${freenowId}`, newDriver);
-  if (phone) existingDriversMap.set(`phone:${phone}`, newDriver);
-  if (validGetRidoId) existingDriversMap.set(`getrido:${validGetRidoId}`, newDriver);
-  
-  console.log(`✅ Utworzono: ${fullName} (GetRido ID: ${validGetRidoId || 'brak'})`);
-  
+
   return newDriver.id;
 }
