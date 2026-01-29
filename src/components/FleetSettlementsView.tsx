@@ -784,18 +784,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_fuel_vat_refund = (total_fuel - total_fuel / 1.23) / 2;
         }
 
-        const tax = driverSettlements.reduce((sum, s) => {
-          const amounts = s.amounts as any || {};
-          // Stary format: tax (pole zbiorowe) lub osobne *Tax8
-          const taxTotal = parseFloat(amounts.tax || '0');
-          if (taxTotal > 0) return sum + taxTotal;
-          
-          // Fallback: oblicz z poszczególnych platform (nowy format)
-          const uberTax = parseFloat(amounts.uberTax8 || amounts.uber_tax_8 || '0');
-          const boltTax = parseFloat(amounts.boltTax8 || amounts.bolt_tax_8 || '0');
-          const freenowTax = parseFloat(amounts.freenowTax8 || amounts.freenow_tax_8 || '0');
-          return sum + uberTax + boltTax + freenowTax;
-        }, 0);
+        // Tax is now calculated as vat_amount below with B2B support
+        // The 'tax' field from edge function is no longer used to avoid double taxation
 
         // Pobierz service_fee - PRIORYTET: opłata flotowa, potem plan kierowcy
         const driverAppUser = (driver as any).driver_app_users;
@@ -887,6 +877,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
 
         // Calculate VAT amount from fleet settings
+        // Tax is already calculated in edge function but we need to handle B2B drivers here
         // B2B drivers with vat_payer=true don't pay VAT - they handle it themselves
         // B2B drivers with vat_payer=false get 8% VAT deducted (like regular drivers)
         const driverInfo = driver as any;
@@ -895,6 +886,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const isB2BDriver = driverInfo.payment_method === 'b2b';
         const isB2BVatPayer = isB2BDriver && b2bProfile?.vat_payer === true;
         const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+        // IMPORTANT: Use vat_amount instead of 'tax' from edge function to support B2B
+        // The 'tax' from edge function is a duplicate - we calculate VAT here with B2B logic
         const vat_amount = total_base * (effectiveVatRate / 100);
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
@@ -935,9 +928,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_additional_fees = additional_fees.reduce((sum, f) => sum + f.amount, 0);
 
-        // FIXED: Subtract cash, fuel, add VAT refund (matching driver panel formula)
+        // FIXED: Use vat_amount INSTEAD of tax (they are the same 8% tax, just calculated differently)
+        // tax = from edge function (doesn't handle B2B)
+        // vat_amount = calculated here with B2B logic
         // service_fee już zawiera fleetBaseFee gdy > 0, więc NIE dodawaj fleetBaseFee osobno
-        const payout = total_base - total_commission - tax - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+        const payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
 
         return {
           driver_id: driver.id,
@@ -954,14 +949,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_base,
           total_commission,
           total_cash,
-          tax_8_percent: tax,
-          vat_amount,
+          tax_8_percent: vat_amount, // Use vat_amount (calculated with B2B logic) instead of tax from edge function
+          vat_amount: 0, // Set to 0 since we're using tax_8_percent for the actual VAT
           service_fee,
           additional_fees,
           rental,
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
-          net_without_commission: total_base - total_commission - tax,
+          net_without_commission: total_base - total_commission - vat_amount,
           final_payout: payout,
         };
       });
