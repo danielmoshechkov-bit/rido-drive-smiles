@@ -258,18 +258,18 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
             )}
           </div>
 
-          {/* Content - flex grow to fill space */}
+          {/* Content - fixed height container for consistent layout */}
           <CardContent className={cn(
-            "p-3 flex flex-col flex-1",
-            viewMode === 'list' && "justify-center"
+            "p-3 flex flex-col",
+            viewMode === 'list' ? "justify-center" : "h-[140px]"
           )}>
-            {/* Title */}
-            <h3 className="font-semibold text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+            {/* Title - max 2 lines */}
+            <h3 className="font-semibold text-sm line-clamp-2 mb-1.5 group-hover:text-primary transition-colors leading-tight">
               {listing.title}
             </h3>
 
-            {/* Info items - consistent for all categories */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1 min-h-[32px]">
+            {/* Info items - consistent for all categories, fixed height area */}
+            <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground min-h-[36px]">
               {infoItems.slice(0, 4).map((item, idx) => (
                 <span key={idx} className="flex items-center gap-0.5">
                   {item.icon}
@@ -278,9 +278,9 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
               ))}
             </div>
 
-            {/* Service-specific: Featured services list */}
+            {/* Service-specific: Featured services list - fixed height */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
-              <div className="space-y-0.5 mb-1">
+              <div className="space-y-0.5 min-h-[40px]">
                 {listing.featured_services.slice(0, 2).map((service, idx) => (
                   <div key={idx} className="flex items-center justify-between text-[10px]">
                     <span className="text-muted-foreground truncate max-w-[70%]">{service.name}</span>
@@ -293,11 +293,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick }: FeaturedList
               </div>
             )}
 
-            {/* Spacer to push price to bottom */}
-            <div className="flex-1 min-h-1" />
+            {/* Spacer to push price to absolute bottom */}
+            <div className="flex-1" />
 
-            {/* Bottom row: Price (left) + Quick view button (right) */}
-            <div className="flex items-center justify-between pt-1 border-t border-border/50 mt-1">
+            {/* Bottom row: Price (left) + Quick view button (right) - ALWAYS at bottom */}
+            <div className="flex items-center justify-between pt-1.5 border-t border-border/50 mt-auto">
               <span className={cn(
                 "text-sm font-bold",
                 listing.category === 'service' && (!listing.price_from || listing.price_from === 0) 
