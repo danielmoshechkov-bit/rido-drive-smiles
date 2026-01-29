@@ -31,6 +31,11 @@ export function AddFleetDriverModal({
     last_name: '',
     email: '',
     phone: '',
+    getrido_id: '',
+    uber_id: '',
+    bolt_id: '',
+    freenow_id: '',
+    iban: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +60,8 @@ export function AddFleetDriverModal({
           last_name: formData.last_name.trim(),
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
+          getrido_id: formData.getrido_id.trim() || null,
+          iban: formData.iban.trim() || null,
           fleet_id: fleetId,
           city_id: null, // Will be set later if needed
         })
@@ -62,6 +69,16 @@ export function AddFleetDriverModal({
         .single();
 
       if (driverError) throw driverError;
+
+      // Add platform IDs
+      const platformIds: { driver_id: string; platform: string; platform_id: string }[] = [];
+      if (formData.uber_id.trim()) platformIds.push({ driver_id: driver.id, platform: 'uber', platform_id: formData.uber_id.trim() });
+      if (formData.bolt_id.trim()) platformIds.push({ driver_id: driver.id, platform: 'bolt', platform_id: formData.bolt_id.trim() });
+      if (formData.freenow_id.trim()) platformIds.push({ driver_id: driver.id, platform: 'freenow', platform_id: formData.freenow_id.trim() });
+
+      if (platformIds.length > 0) {
+        await supabase.from('driver_platform_ids').insert(platformIds);
+      }
 
       // Create fleet relation
       await supabase
@@ -98,13 +115,18 @@ export function AddFleetDriverModal({
       last_name: '',
       email: '',
       phone: '',
+      getrido_id: '',
+      uber_id: '',
+      bolt_id: '',
+      freenow_id: '',
+      iban: '',
     });
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
@@ -112,7 +134,7 @@ export function AddFleetDriverModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">Imię *</Label>
@@ -156,6 +178,46 @@ export function AddFleetDriverModal({
               onChange={e => setFormData({ ...formData, phone: e.target.value })}
               placeholder="+48 123 456 789"
             />
+          </div>
+
+          {/* Platform IDs */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Identyfikatory platform (opcjonalne)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="GetRido ID"
+                value={formData.getrido_id}
+                onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
+              />
+              <Input
+                placeholder="Uber ID"
+                value={formData.uber_id}
+                onChange={e => setFormData({ ...formData, uber_id: e.target.value })}
+              />
+              <Input
+                placeholder="Bolt ID"
+                value={formData.bolt_id}
+                onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
+              />
+              <Input
+                placeholder="FreeNow ID"
+                value={formData.freenow_id}
+                onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* IBAN */}
+          <div className="space-y-2">
+            <Label htmlFor="iban">Numer konta (IBAN)</Label>
+            <Input
+              id="iban"
+              value={formData.iban}
+              onChange={e => setFormData({ ...formData, iban: e.target.value })}
+              placeholder="PL00 0000 0000 0000 0000 0000 0000"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">Konto do wypłat dla kierowcy</p>
           </div>
 
           <div className="flex gap-3 pt-2">

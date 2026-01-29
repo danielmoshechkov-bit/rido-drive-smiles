@@ -27,6 +27,7 @@ import { DriverVehiclesTab } from "./DriverVehiclesTab";
 import { CarBrandsManagement } from "./CarBrandsManagement";
 import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { AddFleetDriverModal } from "./fleet/AddFleetDriverModal";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -71,6 +72,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [activeTab, setActiveTab] = useState("vehicles");
   const [listingVehicle, setListingVehicle] = useState<Vehicle | null>(null);
   const [listedVehicleIds, setListedVehicleIds] = useState<Set<string>>(new Set());
+  const [showAddDriverModal, setShowAddDriverModal] = useState(false);
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
   const { isMarketplaceEnabled } = useFeatureToggles();
 
@@ -529,6 +531,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                          noResultsText="Brak kierowców"
                                          showSearch={true}
                                          showAdd={false}
+                                         showAddNew={userType === 'fleet' && !!fleetId}
+                                         addNewButtonText="Dodaj kierowcę"
                                          allowClear={true}
                                          onSelect={async (item) => {
                                            if (item) {
@@ -537,6 +541,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                              await removeDriverAssignment(vehicle.id);
                                            }
                                          }}
+                                         onAddNew={() => setShowAddDriverModal(true)}
                                          className="inline-block"
                                        />
                                     </div>
@@ -683,6 +688,19 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           onSuccess={() => {
             loadListedVehicles();
             setListingVehicle(null);
+          }}
+        />
+      )}
+
+      {/* Add Driver Modal */}
+      {fleetId && (
+        <AddFleetDriverModal
+          isOpen={showAddDriverModal}
+          onClose={() => setShowAddDriverModal(false)}
+          fleetId={fleetId}
+          onSuccess={() => {
+            loadDrivers();
+            setShowAddDriverModal(false);
           }}
         />
       )}
