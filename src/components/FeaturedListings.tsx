@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -17,23 +16,13 @@ import {
   Car,
   Home, 
   Wrench, 
-  Heart, 
-  ChevronLeft, 
-  ChevronRight,
   ArrowRight,
   Grid3X3,
   LayoutList,
   List,
-  Star,
-  Calendar,
-  Fuel,
-  Gauge,
-  MapPin,
-  Maximize,
-  BedDouble,
-  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FeaturedListingCard } from "@/components/FeaturedListingCard";
 
 // Import tile images for category modal
 import tileCars from "@/assets/tile-cars.jpg";
@@ -348,201 +337,12 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
         viewMode === 'list' && "grid-cols-1"
       )}>
         {displayListings.slice(0, 12).map((listing) => (
-          <Card 
+          <FeaturedListingCard
             key={`${listing.category}-${listing.id}`}
-            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 border-0 shadow-sm"
+            listing={listing}
+            viewMode={viewMode}
             onClick={() => handleListingClick(listing)}
-          >
-            <div className={cn(
-              "relative",
-              viewMode === 'list' ? "flex" : ""
-            )}>
-              {/* Image */}
-              <div className={cn(
-                "relative overflow-hidden bg-muted",
-                viewMode === 'grid' && "aspect-[4/3]",
-                viewMode === 'compact' && "aspect-video",
-                viewMode === 'list' && "w-48 h-32 shrink-0"
-              )}>
-                {listing.photos?.[0] ? (
-                  <img 
-                    src={listing.photos[0]} 
-                    alt={listing.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    {getCategoryIcon(listing.category)}
-                  </div>
-                )}
-                
-                {/* Favorite button */}
-                <button 
-                  className="absolute top-2 right-2 p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-all opacity-0 group-hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // TODO: Add to favorites
-                  }}
-                >
-                  <Heart className="h-4 w-4 text-muted-foreground hover:text-red-500" />
-                </button>
-
-                {/* Category badge */}
-                <Badge 
-                  className={cn(
-                    "absolute top-2 left-2 text-[10px] gap-1",
-                    listing.category === 'vehicle' && "bg-blue-500/90 hover:bg-blue-500",
-                    listing.category === 'property' && "bg-emerald-500/90 hover:bg-emerald-500",
-                    listing.category === 'service' && "bg-purple-500/90 hover:bg-purple-500"
-                  )}
-                >
-                  {getCategoryIcon(listing.category)}
-                  {listing.category === 'vehicle' && 'Auto'}
-                  {listing.category === 'property' && 'Nieruchomość'}
-                  {listing.category === 'service' && 'Usługa'}
-                </Badge>
-
-                {/* Transaction type badge */}
-                {listing.transaction_type && (listing.category === 'vehicle' || listing.category === 'property') && (
-                  <Badge 
-                    className={cn(
-                      "absolute bottom-2 right-2 text-[10px]",
-                      listing.transaction_type === 'sale' && "bg-emerald-500/90 hover:bg-emerald-500",
-                      listing.transaction_type === 'rent' && "bg-blue-500/90 hover:bg-blue-500"
-                    )}
-                  >
-                    {listing.transaction_type === 'sale' ? 'Na sprzedaż' : 'Na wynajem'}
-                  </Badge>
-                )}
-
-                {/* Navigation arrows for gallery */}
-                <button 
-                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <CardContent className={cn(
-                "p-3",
-                viewMode === 'list' && "flex-1 flex flex-col justify-center"
-              )}>
-                <h3 className="font-semibold text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">
-                  {listing.title}
-                </h3>
-
-                {/* Vehicle specs row */}
-                {listing.category === 'vehicle' && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
-                    {listing.year && (
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="h-3 w-3" />
-                        {listing.year}
-                      </span>
-                    )}
-                    {listing.fuel_type && (
-                      <span className="flex items-center gap-0.5">
-                        <Fuel className="h-3 w-3" />
-                        {listing.fuel_type}
-                      </span>
-                    )}
-                    {listing.power && (
-                      <span className="flex items-center gap-0.5">
-                        <Zap className="h-3 w-3" />
-                        {listing.power} KM
-                      </span>
-                    )}
-                  </div>
-                )}
-                {listing.category === 'vehicle' && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
-                    {listing.odometer && (
-                      <span className="flex items-center gap-0.5">
-                        <Gauge className="h-3 w-3" />
-                        {listing.odometer > 1000 ? `${Math.round(listing.odometer / 1000)} tys.` : listing.odometer} km
-                      </span>
-                    )}
-                    {listing.city && (
-                      <span className="flex items-center gap-0.5">
-                        <MapPin className="h-3 w-3" />
-                        {listing.city}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Property specs row */}
-                {listing.category === 'property' && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
-                    {listing.area && (
-                      <span className="flex items-center gap-0.5">
-                        <Maximize className="h-3 w-3" />
-                        {listing.area} m²
-                      </span>
-                    )}
-                    {listing.rooms && (
-                      <span className="flex items-center gap-0.5">
-                        <BedDouble className="h-3 w-3" />
-                        {listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}
-                      </span>
-                    )}
-                    {listing.city && (
-                      <span className="flex items-center gap-0.5">
-                        <MapPin className="h-3 w-3" />
-                        {listing.city}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Service location */}
-                {listing.category === 'service' && listing.city && (
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {listing.city}
-                  </p>
-                )}
-                
-                {/* Service-specific: Rating and reviews */}
-                {listing.category === 'service' && listing.rating_count !== undefined && listing.rating_count > 0 && (
-                  <div className="flex items-center gap-1 mb-1">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <span className="text-xs font-medium">{(listing.rating_avg || 0).toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground">({listing.rating_count} opinii)</span>
-                  </div>
-                )}
-                
-                {/* Price display */}
-                <p className="font-bold text-primary">
-                  {listing.category === 'service' ? (
-                    listing.price_from && listing.price_from > 0 ? (
-                      <>
-                        od {listing.price_from.toLocaleString('pl-PL')} 
-                        <span className="text-xs font-normal text-muted-foreground ml-1">PLN</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Zapytaj o cenę</span>
-                    )
-                  ) : listing.price > 0 ? (
-                    <>
-                      {listing.price.toLocaleString('pl-PL')} 
-                      <span className="text-xs font-normal text-muted-foreground ml-1">PLN</span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">Zapytaj o cenę</span>
-                  )}
-                </p>
-              </CardContent>
-            </div>
-          </Card>
+          />
         ))}
       </div>
 

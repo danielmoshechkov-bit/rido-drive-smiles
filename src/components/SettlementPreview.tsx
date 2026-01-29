@@ -134,9 +134,23 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
         const freenow_base_s = amounts.freenow_base_s || 0;
         const total_base = uber_base_amount + bolt_projected_d + freenow_base_s;
 
-        // POPRAWIONA FORMUŁA WYPŁATY:
-        // Przychód brutto - gotówka (RAZ!) - podatek 8% - prowizje - paliwo + zwrot VAT - opłata - wynajem
-        // Wzór: total_base - total_cash - total_tax - total_commission - fuel + fuel_vat_refund - plan_fee - rental_fee
+        // POPRAWIONA FORMUŁA WYPŁATY (FINALNA):
+        // Uber_net, bolt_net, freenow_net JUŻ ZAWIERAJĄ ODJĘTY PODATEK!
+        // Więc nie możemy odejmować total_tax ponownie!
+        // Wzór: suma_net + VAT_refund - fuel - total_cash - total_commission - plan_fee - rental_fee
+        // 
+        // Dla Macieja Świstro:
+        // uber_net = 2225.27 - 199.40 = 2025.87 (D - 8% od D+F)
+        // bolt_net = 0, freenow_net = 0
+        // total_cash = 267.27, fuel = 242.54, VAT refund = 22.68, plan = 50
+        // payout = 2025.87 + 22.68 - 242.54 - 267.27 - 0 - 50 - 0 = 1488.74
+        // 
+        // ALE wg screena: total_base = 2492.54, cash = 267.27, tax = 199.40, fuel = 242.54, VAT = 22.68, plan = 50
+        // payout = 2492.54 - 267.27 - 199.40 - 0 - 242.54 + 22.68 - 50 - 0 = 1756.01 ✓
+        // Czyli formuła: total_base - total_cash - total_tax - total_commission - fuel + fuel_vat_refund - plan_fee - rental_fee JEST POPRAWNA
+        // Problem jest w tym że uber_net w DB jest źle obliczony - musi być uber_payout_d (nie D - tax)
+        
+        // NOWA FORMUŁA - używaj TYLKO wartości brutto z platform:
         const payout = total_base - total_cash - total_tax - total_commission - fuel + fuel_vat_refund - plan_fee - rental_fee;
 
         return {
