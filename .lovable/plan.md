@@ -1,47 +1,60 @@
 
-# Plan: Responsywny modal dodawania pojazdu
+# Plan: Edycja daty wynajmu pojazdu dla użytkowników flotowych
 
 ## Problem
-Modal "Dodaj pojazd" jest za wysoki dla mniejszych ekranów - przycisk "Zapisz pojazd" jest ucięty i niewidoczny (widać to na zrzucie ekranu gdzie okno kończy się na checkboxie AC).
+Na screenshocie widać że użytkownik widzi datę "od: 29.01.2026", ale nie może jej edytować. Jeśli auto zostało wynajęte wcześniej, a dane były wprowadzane później - system oblicza wynajem niepoprawnie.
 
-## Rozwiązanie
-Dodać ograniczenie wysokości i scrollowanie do modala, a footer z przyciskami zostawić na stałe widoczny na dole.
+## Analiza kodu
+
+Komponent `VehicleRentBlock.tsx` (linia 74) zawiera warunek:
+```tsx
+{userRole === "admin" && onAssignedAtChange ? (
+  // kalendarz do edycji
+) : (
+  // tylko odczyt
+)}
+```
+
+Ten warunek blokuje możliwość edycji daty dla użytkowników typu `fleet`. Rozwiązanie polega na zmianie warunku, aby również użytkownicy flotowi mogli edytować datę wynajmu swoich pojazdów.
 
 ## Zmiany techniczne
 
-### Plik: `src/components/AddVehicleModal.tsx`
+### Plik: `src/components/ui/VehicleRentBlock.tsx`
 
-1. **Dodać max-height i overflow do DialogContent**:
-   - Ograniczyć wysokość modala do `max-h-[90vh]` (90% wysokości ekranu)
-   - Struktura flex z `flex-col`
+**Zmiana warunku na linii 74:**
+```tsx
+// BYŁO:
+{userRole === "admin" && onAssignedAtChange ? (
 
-2. **Scrollowalna treść formularza**:
-   - Opakować grid z polami w div z `overflow-y-auto flex-1`
-   - Dodać padding na dole (`pb-4`) żeby był odstęp od footera
+// BĘDZIE:
+{onAssignedAtChange ? (
+```
 
-3. **Sticky footer z przyciskami**:
-   - `DialogFooter` zostaje poza obszarem scrollowania
-   - Dodać `border-t pt-4` dla wizualnego oddzielenia
-   - Usunąć `mt-4` z footera (border-t daje wystarczający odstęp)
+To pozwoli edytować datę każdemu, kto ma przekazaną funkcję `onAssignedAtChange`, niezależnie od roli użytkownika.
 
-### Struktura po zmianach:
+### Struktura logiki
+
 ```text
-+---------------------------+
-| DialogHeader              |
-+---------------------------+
-| Scrollowalna część        |
-| - Nr rej, VIN             |
-| - Marka, Model            |  <-- overflow-y-auto
-| - Rok, Kolor              |
-| - ...ubezpieczenia        |
-+---------------------------+
-| DialogFooter (sticky)     |
-| [Anuluj] [Zapisz pojazd]  |
-+---------------------------+
++--------------------------------+
+| Pole "Wynajem: zł/tydz."       |
++--------------------------------+
+| [600]  od: [📅 29.01.2026]     |  <-- kliknięcie w datę otwiera kalendarz
++--------------------------------+
+         ↓
++--------------------------------+
+|        KALENDARZ               |
+|   < styczeń 2026 >             |
+|   [ wybierz dzień ]            |
++--------------------------------+
+         ↓
++--------------------------------+
+| Zapisuje do bazy:              |
+| driver_vehicle_assignments     |
+|   → assigned_at = nowa_data    |
++--------------------------------+
 ```
 
 ## Efekt
-- Modal zawsze mieści się w widocznym obszarze ekranu
-- Użytkownik zawsze widzi przycisk "Zapisz pojazd"
-- Formularz jest scrollowalny jeśli nie mieści się w całości
-- Działa poprawnie na wszystkich rozdzielczościach (desktop, laptop, tablet)
+- Użytkownicy typu `fleet` będą mogli kliknąć na datę i wybrać prawidłową datę rozpoczęcia wynajmu
+- System rozliczeń będzie obliczał opłatę zgodnie z faktyczną datą wynajmu (nie datą wprowadzenia danych)
+- Zachowana jest pełna kompatybilność z adminami
