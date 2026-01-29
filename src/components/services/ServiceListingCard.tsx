@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
-import { getServiceCoverImage } from "./serviceCategoryImages";
+import { getServiceCoverImage, getServiceGallery } from "./serviceCategoryImages";
 
 interface Service {
   id: string;
@@ -54,18 +54,30 @@ export function ServiceListingCard({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Get photos - use cover_image_url, category image, or logo_url
-  const categoryImage = getServiceCoverImage(provider.category?.slug);
-  const photos = [
-    provider.cover_image_url || categoryImage,
-    provider.logo_url
-  ].filter(Boolean) as string[];
+  // Get photos - use cover_image_url, logo_url, or category gallery (3 images)
+  const categorySlug = provider.category?.slug;
+  const categoryGallery = getServiceGallery(categorySlug);
   
-  const displayPhotos = photos.length > 0 ? photos : [categoryImage];
+  // Build photos array with provider's images first, then category gallery
+  let photos: string[] = [];
+  if (provider.cover_image_url) photos.push(provider.cover_image_url);
+  if (provider.logo_url && !photos.includes(provider.logo_url)) photos.push(provider.logo_url);
+  
+  // Fill remaining slots with category gallery images (up to 3 total)
+  for (const img of categoryGallery) {
+    if (!photos.includes(img) && photos.length < 3) {
+      photos.push(img);
+    }
+  }
+  
+  // Fallback if still empty
+  if (photos.length === 0) photos = categoryGallery;
+  
+  const displayPhotos = photos;
 
   const getPhotoSrc = (index: number) => {
-    if (imageError) return categoryImage;
-    return displayPhotos[index] || categoryImage;
+    if (imageError) return categoryGallery[0];
+    return displayPhotos[index] || categoryGallery[0];
   };
 
   const nextPhoto = (e: React.MouseEvent) => {
