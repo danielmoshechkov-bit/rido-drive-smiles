@@ -27,6 +27,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface ServiceInfo {
   name: string;
@@ -63,6 +64,7 @@ interface FeaturedListingCardProps {
 export function FeaturedListingCard({ listing, viewMode, onClick, showTransactionBadge = false }: FeaturedListingCardProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showQuickView, setShowQuickView] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const photos = listing.photos || [];
   const hasMultiplePhotos = photos.length > 1;
 
@@ -79,6 +81,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
   const handleQuickView = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowQuickView(true);
+  };
+
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowLightbox(true);
   };
 
   const getCategoryIcon = (category: string) => {
@@ -169,13 +176,16 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           "relative",
           viewMode === 'list' ? "flex" : ""
         )}>
-          {/* Image */}
-          <div className={cn(
-            "relative overflow-hidden bg-muted",
-            viewMode === 'grid' && "aspect-[4/3]",
-            viewMode === 'compact' && "aspect-video",
-            viewMode === 'list' && "w-48 h-32 shrink-0"
-          )}>
+          {/* Image - clickable for lightbox */}
+          <div 
+            className={cn(
+              "relative overflow-hidden bg-muted cursor-zoom-in",
+              viewMode === 'grid' && "aspect-[4/3]",
+              viewMode === 'compact' && "aspect-video",
+              viewMode === 'list' && "w-48 h-32 shrink-0"
+            )}
+            onClick={handlePhotoClick}
+          >
             {photos[currentPhotoIndex] ? (
               <img 
                 src={photos[currentPhotoIndex]} 
@@ -279,7 +289,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
             {/* Info items - consistent for all categories, fixed height area */}
             <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground min-h-[36px]">
-              {infoItems.slice(0, 4).map((item, idx) => (
+              {infoItems.slice(0, 5).map((item, idx) => (
                 <span key={idx} className="flex items-center gap-0.5">
                   {item.icon}
                   {item.text}
@@ -465,6 +475,15 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={photos}
+        initialIndex={currentPhotoIndex}
+        open={showLightbox}
+        onOpenChange={setShowLightbox}
+        alt={listing.title}
+      />
     </>
   );
 }
