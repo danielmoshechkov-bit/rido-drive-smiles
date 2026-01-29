@@ -37,6 +37,7 @@ interface ServiceListingCardProps {
   onFavorite?: () => void;
   isLoggedIn?: boolean;
   isFavorited?: boolean;
+  viewMode?: 'grid' | 'compact' | 'list';
 }
 
 export function ServiceListingCard({ 
@@ -44,7 +45,8 @@ export function ServiceListingCard({
   onClick, 
   onFavorite,
   isLoggedIn = false,
-  isFavorited = false
+  isFavorited = false,
+  viewMode = 'grid'
 }: ServiceListingCardProps) {
   const navigate = useNavigate();
   const [currentPhoto, setCurrentPhoto] = useState(0);
@@ -101,11 +103,17 @@ export function ServiceListingCard({
   return (
     <>
       <Card 
-        className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer"
+        className={cn(
+          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+          viewMode === 'list' && "flex flex-row"
+        )}
         onClick={handleCardClick}
       >
         {/* Photo Gallery */}
-        <div className="relative bg-muted overflow-hidden aspect-[4/3]">
+        <div className={cn(
+          "relative bg-muted overflow-hidden",
+          viewMode === 'list' ? "w-1/3 min-w-[200px] aspect-auto h-auto" : "aspect-[4/3]"
+        )}>
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={provider.company_name}
@@ -167,7 +175,10 @@ export function ServiceListingCard({
         </div>
 
         {/* Content */}
-        <div className="p-4 flex flex-col">
+        <div className={cn(
+          "p-4 flex flex-col",
+          viewMode === 'list' && "flex-1"
+        )}>
           {/* Company Name */}
           <h3 className="font-semibold text-lg line-clamp-1 h-7 flex items-center">
             {provider.company_name}
