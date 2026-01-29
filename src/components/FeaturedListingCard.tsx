@@ -52,6 +52,8 @@ interface Listing {
   rating_count?: number;
   price_from?: number;
   featured_services?: ServiceInfo[];
+  category_slug?: string;
+  description?: string;
 }
 
 interface FeaturedListingCardProps {
@@ -290,26 +292,36 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             viewMode === 'list' ? "justify-center" : "h-[140px]"
           )}>
             {/* Title - max 2 lines */}
-            <h3 className="font-semibold text-sm line-clamp-2 mb-1.5 group-hover:text-primary transition-colors leading-tight">
+            <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors leading-tight">
               {listing.title}
             </h3>
 
-            {/* Info items - consistent for all categories, fixed height area */}
-            <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground min-h-[36px]">
-              {infoItems.slice(0, 5).map((item, idx) => (
-                <span key={idx} className="flex items-center gap-0.5">
-                  {item.icon}
-                  {item.text}
-                </span>
-              ))}
-            </div>
+            {/* City - directly under title with minimal gap for services */}
+            {listing.category === 'service' && listing.city && (
+              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground mt-0.5">
+                <MapPin className="h-3 w-3" />
+                {listing.city}
+              </div>
+            )}
 
-            {/* Service-specific: Featured services list - fixed height, no description, no "+X więcej" */}
+            {/* Info items - for vehicles and properties only */}
+            {listing.category !== 'service' && (
+              <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground min-h-[36px] mt-1">
+                {infoItems.slice(0, 5).map((item, idx) => (
+                  <span key={idx} className="flex items-center gap-0.5">
+                    {item.icon}
+                    {item.text}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Service-specific: Featured services list with prices */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
-              <div className="space-y-0.5 min-h-[40px]">
+              <div className="space-y-0 mt-1">
                 {listing.featured_services.slice(0, 2).map((service, idx) => (
                   <div key={idx} className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground truncate max-w-[70%]">{service.name}</span>
+                    <span className="text-muted-foreground truncate max-w-[65%]">{service.name}</span>
                     <span className="font-medium text-primary">{service.price} zł</span>
                   </div>
                 ))}

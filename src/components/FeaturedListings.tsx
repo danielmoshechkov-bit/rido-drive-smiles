@@ -35,6 +35,10 @@ import { getServiceGalleryByCategoryId } from "@/components/services/serviceCate
 type ListingCategory = 'all' | 'vehicles' | 'properties' | 'services';
 type TransactionType = 'sprzedaz' | 'wynajem' | null;
 
+// Service category slugs mapped to contexts
+const MOTORYZACJA_SERVICES = ['warsztat', 'detailing', 'ppf'];
+const NIERUCHOMOSCI_SERVICES = ['remonty', 'budowlanka', 'projektanci', 'elektryk', 'hydraulik', 'sprzatanie', 'zlota-raczka', 'przeprowadzki', 'ogrodnik'];
+
 interface ServiceInfo {
   name: string;
   price: number;
@@ -61,6 +65,8 @@ interface Listing {
   rating_count?: number;
   price_from?: number;
   featured_services?: ServiceInfo[];
+  category_slug?: string; // For service filtering by context
+  description?: string; // Service description
 }
 
 interface FeaturedListingsProps {
@@ -157,7 +163,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       // Fetch 12 service providers for category view with category_id for image fallback and services
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, services(id, name, price, is_featured)')
+        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, description, category:service_categories(id, name, slug), services(id, name, price, is_featured)')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
@@ -256,7 +262,9 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
             rating_avg: s.rating_avg || 0,
             rating_count: s.rating_count || 0,
             price_from: minPrice === Infinity ? 0 : minPrice,
-            featured_services: displayServices
+            featured_services: displayServices,
+            category_slug: s.category?.slug || '',
+            description: s.description || ''
           });
         });
       }
@@ -288,7 +296,14 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
     switch (activeCategory) {
       case 'vehicles': listings = vehicleListings; break;
       case 'properties': listings = propertyListings; break;
-      case 'services': return serviceListings; // No transaction filter for services
+      case 'services': 
+        // Filter services based on category context
+        if (categoryContext === 'motoryzacja') {
+          return serviceListings.filter(s => MOTORYZACJA_SERVICES.includes(s.category_slug || ''));
+        } else if (categoryContext === 'nieruchomosci') {
+          return serviceListings.filter(s => NIERUCHOMOSCI_SERVICES.includes(s.category_slug || ''));
+        }
+        return serviceListings; // No filter for general view
       default: return allListings; // No transaction filter for "all"
     }
     
