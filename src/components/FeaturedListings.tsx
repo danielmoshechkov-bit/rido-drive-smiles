@@ -33,6 +33,7 @@ import tileHandyman from "@/assets/tile-handyman.jpg";
 import { getServiceGalleryByCategoryId } from "@/components/services/serviceCategoryImages";
 
 type ListingCategory = 'all' | 'vehicles' | 'properties' | 'services';
+type TransactionType = 'sprzedaz' | 'wynajem' | null;
 
 interface ServiceInfo {
   name: string;
@@ -69,6 +70,7 @@ interface FeaturedListingsProps {
 export function FeaturedListings({ className }: FeaturedListingsProps) {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<ListingCategory>('all');
+  const [transactionType, setTransactionType] = useState<TransactionType>('sprzedaz');
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [vehicleListings, setVehicleListings] = useState<Listing[]>([]);
   const [propertyListings, setPropertyListings] = useState<Listing[]>([]);
@@ -267,17 +269,35 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
     }
   };
 
-  // Get listings based on active category
+  // Get listings based on active category and transaction type filter
   const getDisplayListings = (): Listing[] => {
+    let listings: Listing[];
+    
     switch (activeCategory) {
-      case 'vehicles': return vehicleListings;
-      case 'properties': return propertyListings;
-      case 'services': return serviceListings;
-      default: return allListings;
+      case 'vehicles': listings = vehicleListings; break;
+      case 'properties': listings = propertyListings; break;
+      case 'services': return serviceListings; // No transaction filter for services
+      default: return allListings; // No transaction filter for "all"
     }
+    
+    // Apply transaction type filter for vehicles and properties
+    if (transactionType) {
+      return listings.filter(l => {
+        if (transactionType === 'sprzedaz') {
+          return l.transaction_type === 'sprzedaz' || l.transaction_type === 'sale';
+        } else {
+          return l.transaction_type?.includes('wynajem') || l.transaction_type === 'rent';
+        }
+      });
+    }
+    
+    return listings;
   };
 
   const displayListings = getDisplayListings();
+  
+  // Check if transaction type chips should be visible
+  const showTransactionFilter = activeCategory === 'vehicles' || activeCategory === 'properties';
 
   const handleListingClick = (listing: Listing) => {
     if (listing.category === 'vehicle') {
@@ -387,6 +407,62 @@ export function FeaturedListings({ className }: FeaturedListingsProps) {
           </Button>
         </div>
       </div>
+      
+      {/* Transaction Type Filter - only for vehicles and properties */}
+      {showTransactionFilter && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setTransactionType('sprzedaz')}
+            className={cn(
+              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
+              transactionType === 'sprzedaz'
+                ? "bg-emerald-500 border-emerald-500 text-white shadow-md"
+                : "bg-background border-emerald-500 hover:opacity-80"
+            )}
+          >
+            Na sprzedaż
+          </button>
+          <button
+            onClick={() => setTransactionType('wynajem')}
+            className={cn(
+              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
+              transactionType === 'wynajem'
+                ? "bg-blue-500 border-blue-500 text-white shadow-md"
+                : "bg-background border-blue-500 hover:opacity-80"
+            )}
+          >
+            Wynajem
+          </button>
+        </div>
+      )}
+
+      {/* Transaction Type Filter - only for vehicles and properties */}
+      {showTransactionFilter && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setTransactionType('sprzedaz')}
+            className={cn(
+              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
+              transactionType === 'sprzedaz'
+                ? "bg-emerald-500 border-emerald-500 text-white shadow-md"
+                : "bg-background border-emerald-500 hover:opacity-80"
+            )}
+          >
+            Na sprzedaż
+          </button>
+          <button
+            onClick={() => setTransactionType('wynajem')}
+            className={cn(
+              "px-4 py-1.5 rounded-full border-2 transition-all text-sm font-medium",
+              transactionType === 'wynajem'
+                ? "bg-blue-500 border-blue-500 text-white shadow-md"
+                : "bg-background border-blue-500 hover:opacity-80"
+            )}
+          >
+            Wynajem
+          </button>
+        </div>
+      )}
 
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
