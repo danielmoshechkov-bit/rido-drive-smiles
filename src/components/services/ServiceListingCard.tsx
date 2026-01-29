@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
 import { getServiceCoverImage, getServiceGallery } from "./serviceCategoryImages";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface Service {
   id: string;
@@ -52,6 +53,7 @@ export function ServiceListingCard({
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   // Get photos - use cover_image_url, logo_url, or category gallery (3 images)
@@ -112,6 +114,12 @@ export function ServiceListingCard({
     navigate(`/uslugi/uslugodawca/${provider.id}`);
   };
 
+  // Handle clicking on the photo area - open lightbox
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowLightbox(true);
+  };
+
   return (
     <>
       <Card 
@@ -121,11 +129,14 @@ export function ServiceListingCard({
         )}
         onClick={handleCardClick}
       >
-        {/* Photo Gallery */}
-        <div className={cn(
-          "relative bg-muted overflow-hidden",
-          viewMode === 'list' ? "w-1/3 min-w-[200px] aspect-auto h-auto" : "aspect-[4/3]"
-        )}>
+        {/* Photo Gallery - clicking opens lightbox */}
+        <div 
+          className={cn(
+            "relative bg-muted overflow-hidden",
+            viewMode === 'list' ? "w-1/3 min-w-[200px] aspect-auto h-auto" : "aspect-[4/3]"
+          )}
+          onClick={handlePhotoClick}
+        >
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={provider.company_name}
@@ -315,6 +326,15 @@ export function ServiceListingCard({
           setShowLoginDialog(false);
           setShowContact(true);
         }}
+      />
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={displayPhotos}
+        initialIndex={currentPhoto}
+        open={showLightbox}
+        onOpenChange={setShowLightbox}
+        alt={provider.company_name}
       />
     </>
   );

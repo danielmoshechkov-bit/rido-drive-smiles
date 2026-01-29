@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface VehicleListingCardProps {
   listing: {
@@ -91,6 +92,7 @@ export function VehicleListingCard({
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const photos = listing.photos?.length > 0 
@@ -138,6 +140,12 @@ export function VehicleListingCard({
     navigate(`/gielda/ogloszenie/${listing.id}`);
   };
 
+  // Handle clicking on the photo area - open lightbox
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowLightbox(true);
+  };
+
   return (
     <>
       <Card 
@@ -147,11 +155,14 @@ export function VehicleListingCard({
         )}
         onClick={handleCardClick}
       >
-        {/* Photo Gallery */}
-        <div className={cn(
-          "relative bg-muted overflow-hidden",
-          compact ? "aspect-[3/2]" : "aspect-[4/3]"
-        )}>
+        {/* Photo Gallery - clicking opens lightbox */}
+        <div 
+          className={cn(
+            "relative bg-muted overflow-hidden",
+            compact ? "aspect-[3/2]" : "aspect-[4/3]"
+          )}
+          onClick={handlePhotoClick}
+        >
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
@@ -446,6 +457,15 @@ export function VehicleListingCard({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={photos}
+        initialIndex={currentPhoto}
+        open={showLightbox}
+        onOpenChange={setShowLightbox}
+        alt={listing.title}
+      />
     </>
   );
 }
