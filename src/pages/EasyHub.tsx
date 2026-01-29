@@ -349,8 +349,8 @@ export default function EasyHub() {
       if (user) {
         navigate('/klient?tab=ksiegowosc');
       } else {
-        // For non-logged users, show the modal
-        setShowAccountingModal(true);
+        // For non-logged users, go to info landing page
+        navigate('/ksiegowosc-info');
       }
       return;
     }
@@ -543,19 +543,19 @@ export default function EasyHub() {
         <FeaturedListings className="py-8 md:py-12 bg-muted/30" />
       )}
 
-      {/* Featured Listings Section - on Motoryzacja (vehicles only) */}
+      {/* Featured Listings Section - on Motoryzacja (vehicles + services tabs) */}
       {activeCategory === 'motoryzacja' && (
         <FeaturedListings 
           className="py-8 md:py-12 bg-muted/30" 
-          fixedCategory="vehicles"
+          categoryContext="motoryzacja"
         />
       )}
 
-      {/* Featured Listings Section - on Nieruchomości (properties only) */}
+      {/* Featured Listings Section - on Nieruchomości (properties + services tabs) */}
       {activeCategory === 'nieruchomosci' && (
         <FeaturedListings 
           className="py-8 md:py-12 bg-muted/30" 
-          fixedCategory="properties"
+          categoryContext="nieruchomosci"
         />
       )}
 

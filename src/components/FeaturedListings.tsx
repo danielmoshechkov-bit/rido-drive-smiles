@@ -65,15 +65,23 @@ interface Listing {
 
 interface FeaturedListingsProps {
   className?: string;
-  /** If provided, locks the view to this category and hides tabs */
-  fixedCategory?: 'vehicles' | 'properties' | 'services';
+  /** If provided, shows simplified tabs for this category context (vehicles+services or properties+services) */
+  categoryContext?: 'motoryzacja' | 'nieruchomosci';
   /** If true, hides the "Zobacz więcej" button */
   hideViewMore?: boolean;
 }
 
-export function FeaturedListings({ className, fixedCategory, hideViewMore }: FeaturedListingsProps) {
+export function FeaturedListings({ className, categoryContext, hideViewMore }: FeaturedListingsProps) {
   const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState<ListingCategory>(fixedCategory || 'all');
+  
+  // Determine initial category based on context
+  const getInitialCategory = (): ListingCategory => {
+    if (categoryContext === 'motoryzacja') return 'vehicles';
+    if (categoryContext === 'nieruchomosci') return 'properties';
+    return 'all';
+  };
+  
+  const [activeCategory, setActiveCategory] = useState<ListingCategory>(getInitialCategory());
   const [transactionType, setTransactionType] = useState<TransactionType>('sprzedaz');
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [vehicleListings, setVehicleListings] = useState<Listing[]>([]);
@@ -363,8 +371,8 @@ export function FeaturedListings({ className, fixedCategory, hideViewMore }: Fea
 
   return (
     <section className={cn("container mx-auto px-4 py-6", className)}>
-      {/* Category Tabs - hide when fixedCategory is set */}
-      {!fixedCategory && (
+      {/* Category Tabs - different based on context */}
+      {!categoryContext && (
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <TabsPill value={activeCategory} onValueChange={(v) => setActiveCategory(v as ListingCategory)}>
             <TabsTrigger value="all" className="gap-2">
@@ -382,6 +390,69 @@ export function FeaturedListings({ className, fixedCategory, hideViewMore }: Fea
               <Wrench className="h-4 w-4" />
               Usługi
             </TabsTrigger>
+          </TabsPill>
+
+          {/* View mode toggle */}
+          <div className="hidden md:flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'compact' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('compact')}
+            >
+              <LayoutList className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Simplified tabs for category context (Motoryzacja or Nieruchomości) */}
+      {categoryContext && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <TabsPill 
+            value={activeCategory} 
+            onValueChange={(v) => setActiveCategory(v as ListingCategory)}
+          >
+            {categoryContext === 'motoryzacja' && (
+              <>
+                <TabsTrigger value="vehicles" className="gap-2">
+                  <Car className="h-4 w-4" />
+                  Pojazdy
+                </TabsTrigger>
+                <TabsTrigger value="services" className="gap-2">
+                  <Wrench className="h-4 w-4" />
+                  Usługi
+                </TabsTrigger>
+              </>
+            )}
+            {categoryContext === 'nieruchomosci' && (
+              <>
+                <TabsTrigger value="properties" className="gap-2">
+                  <Home className="h-4 w-4" />
+                  Nieruchomości
+                </TabsTrigger>
+                <TabsTrigger value="services" className="gap-2">
+                  <Wrench className="h-4 w-4" />
+                  Usługi
+                </TabsTrigger>
+              </>
+            )}
           </TabsPill>
 
           {/* View mode toggle */}
