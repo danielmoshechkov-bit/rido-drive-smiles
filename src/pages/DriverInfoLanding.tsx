@@ -50,14 +50,14 @@ export default function DriverInfoLanding() {
   const features = [
     {
       icon: Calculator,
-      title: "Rozliczenia na żywo",
-      description: "Zobacz swoje zarobki z Uber, Bolt i FreeNow w czasie rzeczywistym. Pełna przejrzystość bez czekania na koniec tygodnia.",
+      title: "Dokładne rozliczenia tygodniowe",
+      description: "Zobacz swoje zarobki z Uber, Bolt i FreeNow. Szczegółowe rozliczenia co tydzień z pełną przejrzystością.",
       free: true
     },
     {
       icon: Clock,
       title: "Szybkie rozliczenia co tydzień",
-      description: "Dokładne rozliczenia gotowe każdego tygodnia. Wiesz ile zarobisz zanim dostaniesz przelew.",
+      description: "Rozliczenia gotowe każdego tygodnia. Wiesz ile zarobisz zanim dostaniesz przelew.",
       free: true
     },
     {
@@ -101,7 +101,7 @@ export default function DriverInfoLanding() {
 
   const benefits = [
     { icon: Check, text: "100% za darmo" },
-    { icon: Zap, text: "Błyskawiczne rozliczenia" },
+    { icon: Zap, text: "Szybkie rozliczenia" },
     { icon: Shield, text: "Bezpieczne dane" },
     { icon: Smartphone, text: "Dostęp z telefonu 24/7" },
     { icon: FileCheck, text: "Automatyczne faktury" },
@@ -139,10 +139,8 @@ export default function DriverInfoLanding() {
             100% Darmowy Portal Kierowcy
           </Badge>
           
-          <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary via-purple-600 to-primary bg-clip-text text-transparent">
-            Twoje rozliczenia
-            <br />
-            z Uber, Bolt i FreeNow
+      <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary via-purple-600 to-primary bg-clip-text text-transparent">
+            Twoje rozliczenia z Uber, Bolt i FreeNow
           </h1>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-6 max-w-2xl mx-auto">
@@ -174,9 +172,9 @@ export default function DriverInfoLanding() {
       </section>
 
       {/* Features Grid */}
-      <section className="container mx-auto px-4 py-12">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold mb-3">
+      <section className="container mx-auto px-4 py-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2">
             Co zyskujesz jako kierowca?
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
@@ -184,7 +182,7 @@ export default function DriverInfoLanding() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {features.map((feature, idx) => (
             <Card 
               key={idx} 
@@ -345,12 +343,12 @@ export default function DriverInfoLanding() {
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-12 pb-20">
-        <Card className="bg-gradient-to-r from-primary to-purple-600 text-white border-0">
+        <Card className="bg-gradient-to-r from-primary to-purple-600 border-0">
           <CardContent className="p-8 md:p-12 text-center">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white drop-shadow-md">
               Dołącz do tysięcy kierowców!
             </h2>
-            <p className="text-white/80 mb-8 max-w-xl mx-auto">
+            <p className="text-white/90 mb-8 max-w-xl mx-auto drop-shadow-sm">
               Zapytaj swojego partnera flotowego czy korzysta z GetRido. 
               Jeśli nie - powiedz mu o nas. Dla Was obu jest to całkowicie darmowe!
             </p>
