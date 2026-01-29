@@ -1,319 +1,111 @@
 
-# Plan: Implementacja brakujących funkcji
+# Plan naprawy usług i ujednolicenia kafelków
 
-## Przegląd brakujących elementów
+## Problemy zidentyfikowane
 
-Na podstawie analizy kodu zidentyfikowałem następujące niedokończone funkcjonalności:
+1. **Błąd 404 przy klikaniu w usługę** - Link w `FeaturedListings.tsx` generuje `/uslugi/wykonawca/${id}`, ale route w `App.tsx` to `/uslugi/uslugodawca/:providerId`
 
-### 1. Email & Przypomnienia (InvoiceExpandableRow.tsx)
-**Stan:** Placeholdery `toast.info('Funkcja będzie dostępna wkrótce')`
-**Dotyczy:** linie 219-227 i 412-420
+2. **Różne rozmiary kafelków kategorii usług** - Kafelki na stronie `/uslugi` mają aspect ratio `16/10`, podczas gdy kafelki na stronie głównej (EasyHub) mają większy rozmiar (`h-32` lub podobny)
 
-### 2. Edycja faktury
-**Stan:** Przycisk "Edytuj" pokazuje toast zamiast otwierać formularz edycji
-**Dotyczy:** linia 229-232
-
-### 3. Panel zarządzania AI PRO dla accounting_admin
-**Stan:** Brak komponentu AIProManagement w AccountingDashboard
-**Dotyczy:** Nowy komponent do utworzenia
-
-### 4. Integracja Inventory-Sales (typeahead + marża)
-**Stan:** SimpleFreeInvoice nie pobiera produktów z magazynu
-**Dotyczy:** Brak integracji z inventory_products
+3. **Brak przełącznika widoków w usługach** - Na stronie usługodawców (`/uslugi?kategoria=xyz`) nie ma przełącznika grid/compact/list jak w giełdzie aut i nieruchomościach
 
 ---
 
 ## Rozwiązanie
 
-### Krok 1: Email i przypomnienia
+### Zadanie 1: Naprawa linku usług (404)
+**Plik**: `src/components/FeaturedListings.tsx`
 
-**Plik:** `src/components/invoices/InvoiceExpandableRow.tsx`
+Zmiana w funkcji `handleListingClick`:
+- Z: `navigate('/uslugi/wykonawca/${listing.id}')`
+- Na: `navigate('/uslugi/uslugodawca/${listing.id}')`
 
-Zmienię funkcje `handleSendEmail` i `handleSetReminder`:
+### Zadanie 2: Ujednolicenie rozmiaru kafelków kategorii usług
+**Plik**: `src/components/services/ServiceCategoryTile.tsx`
 
-```typescript
-// handleSendEmail - otwórz dialog z polem email
-const [showEmailDialog, setShowEmailDialog] = useState(false);
-const [emailAddress, setEmailAddress] = useState('');
-const [sendingEmail, setSendingEmail] = useState(false);
+Zmiana aspect ratio z `aspect-[16/10]` na `aspect-[4/3]` (lub podobny większy format) aby dopasować do stylu strony głównej
 
-const handleSendEmail = async () => {
-  if (!emailAddress) {
-    setShowEmailDialog(true);
-    return;
-  }
-  
-  setSendingEmail(true);
-  // Wywołaj edge function send-invoice-email
-  const { error } = await supabase.functions.invoke('send-invoice-email', {
-    body: { invoiceId: invoice.id, recipientEmail: emailAddress }
-  });
-  
-  if (error) {
-    toast.error('Błąd wysyłania email');
-  } else {
-    toast.success(`Faktura wysłana na ${emailAddress}`);
-    setShowEmailDialog(false);
-  }
-  setSendingEmail(false);
-};
+### Zadanie 3: Dodanie przełącznika widoków do usług
+**Plik**: `src/pages/ServicesMarketplace.tsx`
 
-// handleSetReminder - zapisz reminder w bazie
-const handleSetReminder = async () => {
-  if (!invoice.due_date) {
-    toast.error('Faktura nie ma terminu płatności');
-    return;
-  }
-  
-  // Zapisz reminder 3 dni przed terminem
-  const reminderDate = new Date(invoice.due_date);
-  reminderDate.setDate(reminderDate.getDate() - 3);
-  
-  toast.success(`Przypomnienie ustawione na ${format(reminderDate, 'd MMM yyyy', { locale: pl })}`);
-};
-```
+Dodanie:
+1. Stan `viewMode` typu `'grid' | 'compact' | 'list'`
+2. Przyciski przełączników (Grid3X3, LayoutList, List) w sekcji nagłówka wyników
+3. Logika siatki CSS zależna od `viewMode`
+4. Przekazanie `viewMode` do `ServiceListingCard`
 
-**Nowy Dialog:** Dodam dialog email w komponencie z Input i przyciskiem Wyślij.
+**Plik**: `src/components/services/ServiceListingCard.tsx`
+
+Dodanie propsa `viewMode` i wariantów wyświetlania:
+- `grid` - obecny układ karty
+- `compact` - 2 kolumny, mniejsze zdjęcia
+- `list` - 1 kolumna, zdjęcie po lewej, opis po prawej
 
 ---
 
-### Krok 2: Edycja faktury
+## Szczegóły techniczne
 
-**Pliki:**
-- `src/components/invoices/InvoiceExpandableRow.tsx` 
-- `src/components/invoices/InvoiceEditDialog.tsx` (NOWY)
-
-**Logika:**
-1. Przycisk "Edytuj" otwiera Dialog z formularzem
-2. Formularz ładuje dane faktury z `user_invoices` + `user_invoice_items`
-3. Po zapisaniu aktualizuje rekord i odświeża listę
-
+### FeaturedListings.tsx - linia ~271
 ```typescript
-// InvoiceEditDialog.tsx - nowy komponent
-interface InvoiceEditDialogProps {
-  invoiceId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
-}
+// PRZED
+navigate(`/uslugi/wykonawca/${listing.id}`);
 
-// Ładuje dane faktury i pozwala edytować:
-// - buyer_name, buyer_nip, buyer_address
-// - due_date (przedłużenie terminu)
-// - notes
-// - items (nazwa, ilość, cena, VAT)
+// PO
+navigate(`/uslugi/uslugodawca/${listing.id}`);
 ```
+
+### ServiceCategoryTile.tsx - linia ~52-54
+```typescript
+// PRZED
+className={cn(
+  "relative overflow-hidden rounded-2xl aspect-[16/10] group",
+  ...
+)}
+
+// PO - większy aspect ratio jak na stronie głównej
+className={cn(
+  "relative overflow-hidden rounded-2xl aspect-[4/3] group",
+  ...
+)}
+```
+
+### ServicesMarketplace.tsx - dodanie widoków
+```typescript
+// Nowy stan
+const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
+
+// Przyciski widoku (przy "Znaleziono X usługodawców")
+<div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
+    <Grid3X3 className="h-4 w-4" />
+  </Button>
+  <Button variant={viewMode === 'compact' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('compact')}>
+    <LayoutList className="h-4 w-4" />
+  </Button>
+  <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
+    <List className="h-4 w-4" />
+  </Button>
+</div>
+
+// Siatka wyników z dynamicznym layoutem
+<div className={cn(
+  "grid gap-4",
+  viewMode === 'grid' && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+  viewMode === 'compact' && "grid-cols-1 md:grid-cols-2",
+  viewMode === 'list' && "grid-cols-1"
+)}>
+```
+
+### ServiceListingCard.tsx - wariant list
+Dodanie propsa `viewMode` i layoutu horyzontalnego dla widoku listy (flex-row zamiast flex-col, zdjęcie po lewej ~1/3 szerokości)
 
 ---
 
-### Krok 3: Panel AI PRO w AccountingDashboard
+## Podsumowanie zmian
 
-**Nowy plik:** `src/components/admin/AIProManagementPanel.tsx`
-
-**Funkcjonalność:**
-1. Wyszukiwarka firm (entities) z filtrem
-2. Status AI PRO per firma (disabled/trial/active)
-3. Możliwość ręcznego włączenia/wyłączenia
-4. Zarządzanie exemptions (dodaj email, scope, valid_until)
-5. Logi ai_jobs z filtrami
-
-```typescript
-// Struktura komponentu
-function AIProManagementPanel() {
-  // Tabs: "Subskrypcje" | "Wykluczenia" | "Logi AI"
-  
-  // Tab Subskrypcje:
-  // - Lista firm z dropdownem status
-  // - Przycisk "Aktywuj" / "Dezaktywuj"
-  
-  // Tab Wykluczenia:
-  // - Tabela: email, scope, valid_until, note
-  // - Przycisk "Dodaj wykluczenie" -> Dialog z formularzem
-  
-  // Tab Logi AI:
-  // - Filtr: firma, user, job_type, status
-  // - Lista ai_jobs z paginacją
-}
-```
-
-**Integracja:** Dodanie zakładki w `AccountingDashboard.tsx`:
-
-```typescript
-// W TabsList
-<TabsTrigger value="ai-pro">AI PRO</TabsTrigger>
-
-// W TabsContent
-<TabsContent value="ai-pro">
-  <AIProManagementPanel />
-</TabsContent>
-```
-
----
-
-### Krok 4: Integracja Inventory-Sales
-
-**Plik:** `src/components/invoices/SimpleFreeInvoice.tsx`
-
-**Zmiany:**
-
-1. **Typeahead produktów:**
-```typescript
-// Hook do pobierania produktów
-const { products } = useInventoryProducts(entityId);
-
-// W polu nazwy pozycji - Combobox z wyszukiwarką
-<Popover>
-  <PopoverTrigger asChild>
-    <Input 
-      value={item.name}
-      onChange={(e) => {
-        updateItem(index, 'name', e.target.value);
-        setProductSearch(e.target.value);
-      }}
-      placeholder="Wpisz nazwę produktu..."
-    />
-  </PopoverTrigger>
-  <PopoverContent>
-    {filteredProducts.map(product => (
-      <div onClick={() => selectProduct(index, product)}>
-        {product.name_sales} - {product.default_sale_price_net} zł
-      </div>
-    ))}
-  </PopoverContent>
-</Popover>
-```
-
-2. **Auto-fill po wyborze:**
-```typescript
-const selectProduct = (index: number, product: InventoryProduct) => {
-  updateItem(index, 'name', product.name_sales);
-  updateItem(index, 'unit_net_price', product.default_sale_price_net);
-  updateItem(index, 'vat_rate', product.vat_rate);
-  updateItem(index, 'unit', product.unit);
-  // Zapisz product_id do pozycji (dla marży)
-};
-```
-
-3. **Ostrzeżenie marży:**
-```typescript
-// Po każdej zmianie ceny sprawdź:
-const checkMargin = async (productId: string, salePrice: number) => {
-  const avgCost = await supabase.rpc('get_product_avg_cost', { p_product_id: productId });
-  if (salePrice < avgCost) {
-    toast.warning(`Uwaga: sprzedajesz poniżej kosztu! Koszt: ${avgCost} zł`);
-  }
-};
-```
-
-4. **Marża w InvoiceExpandableRow:**
-```typescript
-// Pobierz koszty produktów z inventory_batches
-const calculateMargin = async () => {
-  const { data: items } = await supabase
-    .from('user_invoice_items')
-    .select('*, inventory_product_id')
-    .eq('invoice_id', invoice.id);
-  
-  let totalCost = 0;
-  for (const item of items) {
-    if (item.inventory_product_id) {
-      const cost = await supabase.rpc('get_product_avg_cost', { p_product_id: item.inventory_product_id });
-      totalCost += cost * item.quantity;
-    }
-  }
-  
-  return {
-    revenue: invoice.net_total,
-    cost: totalCost,
-    profit: invoice.net_total - totalCost,
-    margin: ((invoice.net_total - totalCost) / invoice.net_total) * 100
-  };
-};
-```
-
----
-
-### Krok 5: Edge Function dla emaili
-
-**Nowy plik:** `supabase/functions/send-invoice-email/index.ts`
-
-```typescript
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-serve(async (req) => {
-  const { invoiceId, recipientEmail } = await req.json();
-  
-  // Pobierz dane faktury
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
-  
-  const { data: invoice } = await supabase
-    .from('user_invoices')
-    .select('*, user_invoice_companies(*)')
-    .eq('id', invoiceId)
-    .single();
-  
-  // Wyślij email z PDF załącznikiem
-  await resend.emails.send({
-    from: 'faktury@getrido.pl',
-    to: recipientEmail,
-    subject: `Faktura ${invoice.invoice_number}`,
-    html: `<p>W załączniku faktura ${invoice.invoice_number}...</p>`
-  });
-  
-  return new Response(JSON.stringify({ success: true }));
-});
-```
-
----
-
-### Krok 6: Migracja DB - inventory_product_id w user_invoice_items
-
-```sql
-ALTER TABLE public.user_invoice_items 
-ADD COLUMN IF NOT EXISTS inventory_product_id UUID REFERENCES inventory_products(id);
-```
-
----
-
-## Pliki do utworzenia/modyfikacji
-
-| Plik | Akcja |
-|------|-------|
-| `src/components/invoices/InvoiceExpandableRow.tsx` | Modyfikacja - email dialog, reminder, margin |
-| `src/components/invoices/InvoiceEditDialog.tsx` | NOWY - formularz edycji faktury |
-| `src/components/admin/AIProManagementPanel.tsx` | NOWY - panel zarządzania AI PRO |
-| `src/pages/AccountingDashboard.tsx` | Modyfikacja - dodaj tab AI PRO |
-| `src/components/invoices/SimpleFreeInvoice.tsx` | Modyfikacja - typeahead produktów |
-| `supabase/functions/send-invoice-email/index.ts` | NOWY - wysyłka emaili |
-| `supabase/migrations/xxx.sql` | NOWY - inventory_product_id w items |
-
----
-
-## Kolejność implementacji
-
-1. **Migracja DB** - dodaj kolumnę inventory_product_id
-2. **InvoiceEditDialog** - nowy komponent edycji
-3. **InvoiceExpandableRow** - email, reminder, edycja, marża
-4. **SimpleFreeInvoice** - typeahead produktów z magazynu
-5. **AIProManagementPanel** - panel zarządzania
-6. **AccountingDashboard** - integracja panelu AI PRO
-7. **Edge function** - wysyłka emaili
-
----
-
-## Testy walidacyjne
-
-Po implementacji każdej fazy:
-1. Sprawdzenie czy faktury się ładują poprawnie
-2. Test edycji faktury (zapisanie zmian)
-3. Test wysyłki email (mock lub real)
-4. Test typeahead produktów z magazynu
-5. Test wyświetlania marży
-6. Test panelu AI PRO (dodanie exemption, zmiana statusu)
+| Plik | Zmiana |
+|------|--------|
+| `FeaturedListings.tsx` | Poprawka URL `/uslugi/wykonawca/` -> `/uslugi/uslugodawca/` |
+| `ServiceCategoryTile.tsx` | Zmiana aspect ratio na większy format |
+| `ServicesMarketplace.tsx` | Dodanie stanu `viewMode` + przyciski przełączania widoku |
+| `ServiceListingCard.tsx` | Dodanie propsa `viewMode` z wariantami grid/compact/list |
