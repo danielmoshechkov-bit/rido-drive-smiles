@@ -52,6 +52,40 @@ export function AddFleetDriverModal({
 
     setLoading(true);
     try {
+      // Get city_id from existing fleet driver or from cities table
+      let cityId: string | null = null;
+      
+      // Try to get city from existing driver in this fleet
+      const { data: existingDriver } = await supabase
+        .from('drivers')
+        .select('city_id')
+        .eq('fleet_id', fleetId)
+        .not('city_id', 'is', null)
+        .limit(1)
+        .single();
+      
+      if (existingDriver?.city_id) {
+        cityId = existingDriver.city_id;
+      } else {
+        // Fallback: get first available city
+        const { data: cities } = await supabase
+          .from('cities')
+          .select('id')
+          .limit(1)
+          .single();
+        cityId = cities?.id || null;
+      }
+
+      if (!cityId) {
+        toast({
+          title: 'Błąd',
+          description: 'Brak skonfigurowanego miasta w systemie',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       // Create the driver
       const { data: driver, error: driverError } = await supabase
         .from('drivers')
@@ -63,7 +97,7 @@ export function AddFleetDriverModal({
           getrido_id: formData.getrido_id.trim() || null,
           iban: formData.iban.trim() || null,
           fleet_id: fleetId,
-          city_id: null, // Will be set later if needed
+          city_id: cityId,
         })
         .select('id')
         .single();
@@ -134,26 +168,28 @@ export function AddFleetDriverModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">Imię *</Label>
+              <Label htmlFor="first_name">Imię <span className="text-destructive">*</span></Label>
               <Input
                 id="first_name"
                 value={formData.first_name}
                 onChange={e => setFormData({ ...formData, first_name: e.target.value })}
                 placeholder="Jan"
                 required
+                className="w-full"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">Nazwisko *</Label>
+              <Label htmlFor="last_name">Nazwisko <span className="text-destructive">*</span></Label>
               <Input
                 id="last_name"
                 value={formData.last_name}
                 onChange={e => setFormData({ ...formData, last_name: e.target.value })}
                 placeholder="Kowalski"
                 required
+                className="w-full"
               />
             </div>
           </div>

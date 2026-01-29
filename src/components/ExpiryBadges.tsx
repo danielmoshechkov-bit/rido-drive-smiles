@@ -95,18 +95,29 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
     }
   };
 
+  const handleBadgeClick = (e: React.MouseEvent, kind: "policy" | "insp") => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (kind === "policy") {
+      setPolicyOpen(true);
+    } else {
+      setInspOpen(true);
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       {/* OC Policy */}
       <Popover open={policyOpen} onOpenChange={setPolicyOpen}>
         <PopoverTrigger asChild>
           <Badge 
-            className={`rounded-full cursor-pointer ${colorFor(policyTo)}`}
+            className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(policyTo)}`}
+            onClick={(e) => handleBadgeClick(e, "policy")}
           >
             OC: {formatDisplayDate(policyTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 z-50" align="start" onClick={(e) => e.stopPropagation()}>
           <Calendar
             mode="single"
             selected={policyTo ? new Date(policyTo) : undefined}
@@ -122,12 +133,13 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
       <Popover open={inspOpen} onOpenChange={setInspOpen}>
         <PopoverTrigger asChild>
           <Badge 
-            className={`rounded-full cursor-pointer ${colorFor(inspTo)}`}
+            className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(inspTo)}`}
+            onClick={(e) => handleBadgeClick(e, "insp")}
           >
             Przegląd: {formatDisplayDate(inspTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 z-50" align="start" onClick={(e) => e.stopPropagation()}>
           <Calendar
             mode="single"
             selected={inspTo ? new Date(inspTo) : undefined}
