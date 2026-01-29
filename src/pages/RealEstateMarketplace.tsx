@@ -20,6 +20,7 @@ import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
 import { toast } from "sonner";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -637,6 +638,12 @@ export default function RealEstateMarketplace() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* Portal Categories Grid */}
+      <section className="container mx-auto px-4 py-6">
+        <h2 className="text-lg font-semibold mb-4 text-center">Wybierz kategorię</h2>
+        <PortalCategoryGrid context="nieruchomosci" />
       </section>
 
       {/* Property Type Selector */}

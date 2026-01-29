@@ -12,6 +12,7 @@ import { ServiceProviderDetailModal } from '@/components/services/ServiceProvide
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import LanguageSelector from '@/components/LanguageSelector';
+import { PortalCategoryGrid } from '@/components/portal/PortalCategoryGrid';
 import { User } from '@supabase/supabase-js';
 
 interface ServiceCategory {
