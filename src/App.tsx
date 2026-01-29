@@ -54,6 +54,7 @@ import InsuranceAgentDashboard from "./pages/InsuranceAgentDashboard";
 import InvoiceProgram from "./pages/InvoiceProgram";
 import ClientPortal from "./pages/ClientPortal";
 import AIProPage from "./pages/AIProPage";
+import InvoicingLanding from "./pages/InvoicingLanding";
 const queryClient = new QueryClient();
 
 /**
@@ -102,6 +103,7 @@ const App = () => (
             <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />
             <Route path="/wyniki" element={<UniversalSearchResults />} />
             <Route path="/ksiegowosc" element={<AccountingDashboard />} />
+            <Route path="/ksiegowosc-info" element={<InvoicingLanding />} />
             <Route path="/faktury" element={<InvoiceProgram />} />
             <Route path="/klient" element={<ClientPortal />} />
             <Route path="/ai-pro" element={<AIProPage />} />
