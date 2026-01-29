@@ -131,11 +131,12 @@ export function ServiceListingCard({
             </>
           )}
 
-          {/* Rating Badge */}
+          {/* Rating Badge - bottom left on image */}
           {provider.rating_avg && provider.rating_avg > 0 && (
-            <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-lg flex items-center gap-1 text-sm">
-              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md flex items-center gap-1 text-xs">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
               <span className="font-medium">{provider.rating_avg.toFixed(1)}</span>
+              <span className="text-white/80">({provider.rating_count})</span>
             </div>
           )}
 

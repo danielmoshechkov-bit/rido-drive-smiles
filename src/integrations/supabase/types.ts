@@ -7959,6 +7959,7 @@ export type Database = {
           duration_minutes: number
           id: string
           is_active: boolean | null
+          is_featured: boolean | null
           name: string
           price: number | null
           price_from: number | null
@@ -7974,6 +7975,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean | null
           name: string
           price?: number | null
           price_from?: number | null
@@ -7989,6 +7991,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean | null
           name?: string
           price?: number | null
           price_from?: number | null
