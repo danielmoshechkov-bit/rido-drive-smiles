@@ -71,7 +71,7 @@ export function VehicleRentBlock({
         {assignedAt && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">od:</span>
-            {userRole === "admin" && onAssignedAtChange ? (
+            {onAssignedAtChange ? (
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
