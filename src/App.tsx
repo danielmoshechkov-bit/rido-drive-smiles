@@ -56,6 +56,7 @@ import ClientPortal from "./pages/ClientPortal";
 import AIProPage from "./pages/AIProPage";
 import InvoicingLanding from "./pages/InvoicingLanding";
 import DriverInfoLanding from "./pages/DriverInfoLanding";
+import SalesPortal from "./pages/SalesPortal";
 const queryClient = new QueryClient();
 
 /**
@@ -130,6 +131,7 @@ const App = () => (
             <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route path="/driver" element={<DriverDashboard />} />
             <Route path="/kierowca-info" element={<DriverInfoLanding />} />
+            <Route path="/sprzedaz" element={<SalesPortal />} />
             <Route path="/prawne" element={<LegalPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
