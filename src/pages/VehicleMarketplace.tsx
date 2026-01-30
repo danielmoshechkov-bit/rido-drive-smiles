@@ -478,12 +478,6 @@ export default function VehicleMarketplace() {
         </div>
       </section>
 
-      {/* Portal Categories Grid */}
-      <section className="container mx-auto px-4 py-6">
-        <h2 className="text-lg font-semibold mb-4 text-center">Wybierz kategorię</h2>
-        <PortalCategoryGrid context="motoryzacja" />
-      </section>
-
       {/* Vehicle Type Selector */}
       <section className="container mx-auto px-4 py-4">
         <VehicleTypeSelector 
