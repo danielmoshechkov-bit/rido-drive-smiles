@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X, Store } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X, Store, FileKey } from "lucide-react";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { VehicleInfoTab } from "./VehicleInfoTab";
 import { VehicleServiceTab } from "./VehicleServiceTab";
@@ -28,6 +28,7 @@ import { CarBrandsManagement } from "./CarBrandsManagement";
 import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AddFleetDriverModal } from "./fleet/AddFleetDriverModal";
+import { VehicleRentalWizard } from "./fleet/VehicleRentalWizard";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -73,6 +74,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [listingVehicle, setListingVehicle] = useState<Vehicle | null>(null);
   const [listedVehicleIds, setListedVehicleIds] = useState<Set<string>>(new Set());
   const [showAddDriverModal, setShowAddDriverModal] = useState(false);
+  const [showRentalWizard, setShowRentalWizard] = useState(false);
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
   const { isMarketplaceEnabled } = useFeatureToggles();
 
@@ -416,9 +418,21 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <div></div>
-              <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              {/* Left side - action buttons */}
+              <div className="flex items-center gap-3">
+                <Button onClick={() => setShowAddModal(true)} variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Dodaj pojazd
+                </Button>
+                <Button onClick={() => setShowRentalWizard(true)} className="gap-2">
+                  <FileKey className="h-4 w-4" />
+                  Wynajmij pojazd
+                </Button>
+              </div>
+              
+              {/* Right side - search and filter */}
+              <div className="flex items-center gap-3">
                 <div className="relative w-72">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
@@ -438,10 +452,6 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                   <option value="serwis">Serwis</option>
                   <option value="sprzedane">Sprzedane</option>
                 </select>
-                <Button onClick={() => setShowAddModal(true)} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Dodaj pojazd
-                </Button>
               </div>
             </div>
 
@@ -546,7 +556,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                          className="inline-block"
                                        />
                                     </div>
-                                   <div className="min-w-[200px]">
+                                   <div className="min-w-[200px]" onClick={(e) => e.stopPropagation()}>
                                      <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
                                      <div className="font-semibold">
                                        <ExpiryBadges vehicleId={vehicle.id} />
@@ -702,6 +712,18 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           onSuccess={() => {
             loadDrivers();
             setShowAddDriverModal(false);
+          }}
+        />
+      )}
+
+      {/* Vehicle Rental Wizard */}
+      {fleetId && (
+        <VehicleRentalWizard
+          open={showRentalWizard}
+          onOpenChange={setShowRentalWizard}
+          fleetId={fleetId}
+          onComplete={() => {
+            fetchVehicles();
           }}
         />
       )}
