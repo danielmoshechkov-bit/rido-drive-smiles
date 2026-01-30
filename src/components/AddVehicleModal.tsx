@@ -16,6 +16,7 @@ type Props = {
   fleetId?: string | null;
   fleetName?: string;
   userType?: 'admin' | 'fleet';
+  variant?: 'standard' | 'rental';
 };
 
 const BODY_TYPES = [
@@ -38,8 +39,9 @@ const FUEL_TYPES = [
   { value: "hybryda_gaz", label: "Hybryda + Gaz" },
 ];
 
-export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, fleetName, userType = 'admin' }: Props) {
+export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, fleetName, userType = 'admin', variant = 'standard' }: Props) {
   const isFleetUser = userType === 'fleet' && fleetId;
+  const isRentalVariant = variant === 'rental';
   const [loading, setLoading] = useState(false);
 
   const [plate, setPlate] = useState("");
@@ -60,9 +62,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [acPremium, setAcPremium] = useState<number | "">("");
 
   const handleSave = async () => {
-    if (!plate || !brand || !model || !bodyType || !fuelType) {
-      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
-      return;
+    if (isRentalVariant) {
+      if (!plate || !brand || !model || !fuelType || !year || !color || !weeklyRentalFee) {
+        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj paliwa, rok, kolor i kwotę wynajmu.");
+        return;
+      }
+    } else {
+      if (!plate || !brand || !model || !bodyType || !fuelType) {
+        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
+        return;
+      }
     }
     setLoading(true);
     try {
@@ -167,16 +176,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Rok</Label>
+            <Label>Rok {isRentalVariant && '*'}</Label>
             <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />
           </div>
           <div>
-            <Label>Kolor</Label>
+            <Label>Kolor {isRentalVariant && '*'}</Label>
             <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
           </div>
 
           <div>
-            <Label>Rodzaj nadwozia *</Label>
+            <Label>Rodzaj nadwozia {!isRentalVariant && '*'}</Label>
             <Select value={bodyType} onValueChange={setBodyType}>
               <SelectTrigger>
                 <SelectValue placeholder="Wybierz rodzaj nadwozia" />
@@ -203,7 +212,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Kwota za wynajem (opcjonalnie)</Label>
+            <Label>Kwota za wynajem {isRentalVariant ? '*' : '(opcjonalnie)'}</Label>
             <Input 
               type="number" 
               value={weeklyRentalFee} 

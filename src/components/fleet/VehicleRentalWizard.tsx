@@ -39,6 +39,7 @@ interface Vehicle {
   year: number | null;
   status: string;
   weekly_rental_fee?: number | null;
+  is_rented?: boolean;
 }
 
 interface Driver {
@@ -143,7 +144,21 @@ export function VehicleRentalWizard({
       .order("plate");
     
     if (!error && data) {
-      setVehicles(data);
+      // Check which vehicles are currently rented
+      const supabaseAny = supabase as any;
+      const { data: activeRentals } = await supabaseAny
+        .from("vehicle_rentals")
+        .select("vehicle_id")
+        .in("status", ["draft", "pending_signature", "active"]);
+      
+      const rentedVehicleIds = new Set((activeRentals || []).map((r: any) => r.vehicle_id));
+      
+      const vehiclesWithRentalStatus = data.map(v => ({
+        ...v,
+        is_rented: rentedVehicleIds.has(v.id)
+      }));
+      
+      setVehicles(vehiclesWithRentalStatus);
     }
     setIsLoading(false);
   };
@@ -396,9 +411,15 @@ export function VehicleRentalWizard({
                           key={vehicle.id}
                           className={cn(
                             "cursor-pointer transition-colors hover:bg-accent",
-                            selectedVehicle?.id === vehicle.id && "ring-2 ring-primary bg-primary/5"
+                            selectedVehicle?.id === vehicle.id && "ring-2 ring-primary bg-primary/5",
+                            vehicle.is_rented && "opacity-70"
                           )}
                           onClick={() => {
+                            if (vehicle.is_rented) {
+                              toast.warning("Ten pojazd jest już wynajęty. Wybór spowoduje odłączenie obecnego kierowcy.", {
+                                duration: 4000
+                              });
+                            }
                             setSelectedVehicle(vehicle);
                             if (vehicle.weekly_rental_fee) {
                               setWeeklyFee(vehicle.weekly_rental_fee.toString());
@@ -415,11 +436,18 @@ export function VehicleRentalWizard({
                                 </p>
                               </div>
                             </div>
-                            {vehicle.weekly_rental_fee && (
-                              <Badge variant="secondary">
-                                {vehicle.weekly_rental_fee} zł/tydz.
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {vehicle.is_rented && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Wynajęty
+                                </Badge>
+                              )}
+                              {vehicle.weekly_rental_fee && (
+                                <Badge variant="secondary">
+                                  {vehicle.weekly_rental_fee} zł/tydz.
+                                </Badge>
+                              )}
+                            </div>
                           </CardContent>
                         </Card>
                       ))
@@ -737,8 +765,26 @@ export function VehicleRentalWizard({
         isOpen={showAddVehicle}
         onClose={() => setShowAddVehicle(false)}
         fleetId={fleetId}
-        onSuccess={() => {
-          loadVehicles();
+        variant="rental"
+        onSuccess={async (vehicleId) => {
+          // Reload vehicles list
+          await loadVehicles();
+          
+          // Fetch and auto-select the newly added vehicle
+          const { data: newVehicle } = await supabase
+            .from("vehicles")
+            .select("id, plate, brand, model, year, status, weekly_rental_fee")
+            .eq("id", vehicleId)
+            .single();
+          
+          if (newVehicle) {
+            setSelectedVehicle({ ...newVehicle, is_rented: false });
+            if (newVehicle.weekly_rental_fee) {
+              setWeeklyFee(newVehicle.weekly_rental_fee.toString());
+            }
+            toast.success("Pojazd dodany i wybrany do wynajmu");
+          }
+          
           setShowAddVehicle(false);
         }}
       />
