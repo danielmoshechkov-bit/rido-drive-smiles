@@ -57,13 +57,21 @@ function DatePickerWithNav({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 8);
     setInputValue(val);
-    
-    // Auto-parse when 8 digits entered
-    if (val.length === 8) {
-      const parsed = parse(val, "ddMMyyyy", new Date());
-      if (isValid(parsed)) {
+  };
+
+  const confirmManualInput = () => {
+    if (inputValue.length === 8) {
+      // Parse as DD MM YYYY
+      const day = parseInt(inputValue.slice(0, 2), 10);
+      const monthNum = parseInt(inputValue.slice(2, 4), 10);
+      const yearNum = parseInt(inputValue.slice(4, 8), 10);
+      
+      const parsed = new Date(yearNum, monthNum - 1, day);
+      if (isValid(parsed) && parsed.getDate() === day && monthNum >= 1 && monthNum <= 12) {
         onSelect(parsed);
         onClose();
+      } else {
+        toast.error("Nieprawidłowa data");
       }
     }
   };
@@ -92,13 +100,19 @@ function DatePickerWithNav({
       {/* Manual input */}
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Wpisz datę (ddmmrrrr):</label>
-        <Input
-          value={formatInputDisplay(inputValue)}
-          onChange={handleInputChange}
-          placeholder="dd.mm.rrrr"
-          className="text-center font-mono"
-          maxLength={10}
-        />
+        <div className="flex gap-2">
+          <Input
+            value={formatInputDisplay(inputValue)}
+            onChange={handleInputChange}
+            onKeyDown={(e) => e.key === "Enter" && confirmManualInput()}
+            placeholder="dd.mm.rrrr"
+            className="text-center font-mono flex-1"
+            maxLength={10}
+          />
+          <Button size="sm" onClick={confirmManualInput} disabled={inputValue.length !== 8}>
+            OK
+          </Button>
+        </div>
       </div>
       
       {/* Month/Year selectors */}
