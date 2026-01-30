@@ -166,7 +166,8 @@ function DatePickerWithNav({
         month={month}
         onMonthChange={setMonth}
         locale={pl}
-        className={cn("p-0 pointer-events-auto")}
+        className={cn("p-3 pointer-events-auto")}
+        initialFocus
       />
     </div>
   );
@@ -248,10 +249,13 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
           </Badge>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-auto p-0 z-[100] pointer-events-auto" 
+          className="w-auto p-0 z-[200] pointer-events-auto" 
           align="start" 
+          side="bottom"
+          sideOffset={4}
           onClick={(e) => e.stopPropagation()}
           onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DatePickerWithNav
             selected={policyTo ? new Date(policyTo) : undefined}
@@ -272,10 +276,13 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
           </Badge>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-auto p-0 z-[100] pointer-events-auto" 
+          className="w-auto p-0 z-[200] pointer-events-auto" 
           align="start" 
+          side="bottom"
+          sideOffset={4}
           onClick={(e) => e.stopPropagation()}
           onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DatePickerWithNav
             selected={inspTo ? new Date(inspTo) : undefined}
