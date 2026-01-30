@@ -162,3 +162,6 @@ verify_jwt = false
 
 [functions.send-invoice-email]
 verify_jwt = false
+
+[functions.send-rental-invitation]
+verify_jwt = false
