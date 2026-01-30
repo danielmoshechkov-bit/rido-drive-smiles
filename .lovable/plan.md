@@ -1,91 +1,72 @@
 
-# Plan naprawy 5 zgłoszonych problemów
+# Plan poprawy wizualnej faktury PDF
 
-## Analiza problemow
+## Problem
 
-### Problem 1: Czarne litery na ciemnym tle w podsumowaniu faktury (Foto 1)
-**Lokalizacja:** `src/utils/invoiceHtmlGenerator.ts` linie 376-401
-**Przyczyna:** Wiersze podsumowania VAT maja `color: #333` (ciemnoszary) ktory zlewa sie z ciemnymi tematami.
-**Rozwiazanie:** Zmiana kolorow tekstu w tabeli podsumowania na biale (`#ffffff`) z kontrastowym tlem.
+Faktura PDF generowana przez system ma nieprawidlowe kolory:
+- Naglowek tabeli z pozycjami jest szary zamiast fioletowego
+- Ramka "DO ZAPLATY" nie ma kolorowego tla
+- Podsumowanie faktury jest czarno-biale i nieczytelne
 
-### Problem 2: Przycisk Edytuj nie dziala, panel boczny niewygodny (Foto 2, 3)
-**Lokalizacja:** `src/components/invoices/InvoiceDetailSheet.tsx` linie 359-362
-**Przyczyna:** Przycisk Edytuj jest `disabled` (linia 359).
+## Wzor do osiagniecia (foto 2 - Screenshot_2026-01-25)
 
-Rowniez `InvoiceExpandableRow.tsx` juz ma dzialajacy przycisk Edytuj (linia 496-498) - problem polega na tym ze ten rozwijalny widok nie jest uzywany na wszystkich ekranach.
+Na referencyjnym zdjeciu widac prawidlowy wyglad:
+- Naglowek tabeli pozycji: fioletowe tlo (#7c3aed) z bialym tekstem
+- Ramka "DO ZAPLATY": fioletowe tlo z biala pogrubiona kwota
+- Czytelne podsumowanie VAT
 
-**Rozwiazanie:**
-- Usunac atrybut `disabled` z przycisku Edytuj w `InvoiceDetailSheet.tsx`
-- Dodac import i integracje `InvoiceEditDialog` do `InvoiceDetailSheet.tsx`
+## Przyczyna problemu
 
-### Problem 3: OCR bez AI
-**Odpowiedz:** NIE - podstawowe parsowanie faktur bez AI wymagaloby:
-- Dedykowanego parsera PDF z biblioteka typu pdf.js
-- Algorytmow rozpoznawania struktury (regex dla NIP, IBAN, dat)
-- Mapowania pol specyficznych dla polskich faktur
-- To jest osobny development (kilka dni pracy)
-
-Gemini AI jest jedynym obecnym mechanizmem ekstrakcji. Mozna jednak ulepszyc UX poprzez:
-- Lepszy komunikat o bledzie ("Brak klucza API Gemini - wypelnij dane recznie")
-- Wskazowki jak skonfigurowac Gemini
-
-### Problem 4: OC/Przeglad daty nie reaguja na klikniecie (Foto 4)
-**Lokalizacja:** `src/components/ExpiryBadges.tsx`
-**Przyczyna:** Popover jest osadzony wewnatrz `CollapsibleTrigger` w FleetManagement.tsx co powoduje ze klikniecie propaguje sie do rodzica i rozwija wiersz zamiast otwierac kalendarz.
-
-**Rozwiazanie:** 
-Zmiana implementacji aby popover byl renderowany w portalu z wyzszym z-index i dodatkowo zabezpieczenie przed propagacja eventu poprzez:
-- Dodanie `onPointerDownOutside` z `e.preventDefault()`
-- Uzycie `modal={true}` na Popover  
-- Zmiana struktury Badge z PopoverTrigger na osobny Button
-
-### Problem 5: Szablon umowy najmu z pliku DOC
-**Odpowiedz:** Potrzebuje od Ciebie:
-1. Przeslac plik .doc/.docx z umowa najmu
-2. Uzyjemy narzedzia `document--parse_document` do ekstrakcji tresci
-3. Stworzymy szablon HTML z placeholderami (np. `{{imie}}`, `{{nazwisko}}`, `{{numer_rejestracyjny}}`)
-4. Dodamy generator umow analogiczny do generatora faktur
-
----
+Style inline w HTML sa poprawnie zdefiniowane w kodzie, ale przy eksporcie do PDF (druk przegladarki) niektore style moga byc ignorowane. Problem moze wynikac z:
+1. Brak wymuszenia kolorow w media print (`-webkit-print-color-adjust: exact`)
+2. Style CSS nadpisuja inline styles
+3. Brak `!important` dla krytycznych kolorow
 
 ## Zmiany techniczne
 
-### Plik 1: `src/utils/invoiceHtmlGenerator.ts`
-Zmiana kolorow w tabeli podsumowania faktury na kontrastowe:
-- Linie 376-401: zmiana `color: #333` na dynamiczne kolory z kontrastem
-- Dodanie ciemniejszego tla dla naglowkow tabeli
+### Plik: `src/utils/invoiceHtmlGenerator.ts`
 
-### Plik 2: `src/components/invoices/InvoiceDetailSheet.tsx`
-- Import `InvoiceEditDialog` (linia 1-25)
-- Dodanie stanu `showEditDialog` (linia 57)
-- Usuniecie `disabled` z przycisku Edytuj (linia 359)
-- Dodanie handlera `handleEdit` oraz komponentu `InvoiceEditDialog` (po liniach 365)
+**1. Dodanie wymuszenia druku kolorow (linia 265-270):**
+```css
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
+```
 
-### Plik 3: `src/components/ExpiryBadges.tsx`
-Calkowita przebudowa interakcji z Popover:
-- Zmiana z `asChild` na bezposredni Button jako trigger
-- Dodanie `modal={true}` do Popover
-- Poprawki `onOpenChange` z explicit kontrola stanu
-- Uzycie `onPointerDownCapture` do wstrzymania propagacji
+**2. Wzmocnienie stylow naglowka tabeli (linia 295):**
+```css
+th { 
+  background: #7c3aed !important; 
+  color: white !important; 
+  -webkit-print-color-adjust: exact;
+}
+```
 
----
+**3. Wzmocnienie ramki "DO ZAPLATY" (linia 302):**
+```css
+.totals-row.grand { 
+  background: #7c3aed !important; 
+  color: white !important;
+  font-weight: bold;
+}
+```
 
-## Podsumowanie odpowiedzi na pytania
+**4. Dodanie inline styles z !important dla kluczowych elementow:**
+- Naglowki tabeli `<th>`: explicit `style="background-color: #7c3aed !important; color: #ffffff !important;"`
+- Wiersz DO ZAPLATY: explicit kolorowe tlo
+- Kwoty: pogrubione z wiekszym fontem
 
-| # | Problem | Mozna naprawic? | Uwagi |
-|---|---------|-----------------|-------|
-| 1 | Czarne litery na tle | TAK | Zmiana kolorow w HTML generator |
-| 2 | Edytuj nie dziala | TAK | Odblokowanie przycisku + integracja dialogu |
-| 3 | OCR bez AI | NIE (wymaga osobnego developmentu) | Ulepszenie komunikatu bledu |
-| 4 | Daty OC/Przeglad | TAK | Przebudowa propagacji eventow w ExpiryBadges |
-| 5 | Szablon umowy | WYMAGA PLIKU | Przeslij plik .doc z umowa |
+**5. Ulepszenie podsumowania VAT (linie 374-401):**
+- Dodanie lekkiego fioletowego tla dla naglowka tabeli podsumowania
+- Lepszy kontrast dla wierszy
 
----
+## Podsumowanie zmian
 
-## Weryfikacja dzialania dat (punkt 4) - 4 kroki
+| Element | Obecny wyglad | Docelowy wyglad |
+|---------|---------------|-----------------|
+| Naglowek tabeli pozycji | Szary/bialy | Fioletowy (#7c3aed) z bialym tekstem |
+| Ramka "DO ZAPLATY" | Czarny tekst bez tla | Fioletowe tlo z biala pogrubiona kwota |
+| Kwota do zaplaty | Zwykla czcionka | Pogrubiona, wieksza |
+| Podsumowanie VAT | Czarno-biale | Z kolorowym akcentem |
 
-Po implementacji wykonam:
-1. Test klikniecia w badge OC - sprawdzenie czy otwiera sie kalendarz
-2. Test wyboru dnia w kalendarzu - czy zapisuje date
-3. Test zmiany miesiaca/roku przez selecty
-4. Test wpisania daty recznej (8 cyfr np. 22122026)
+Wszystkie zmiany beda w pliku `src/utils/invoiceHtmlGenerator.ts` - modyfikacja stylów CSS i inline styles dla zapewnienia poprawnego renderowania przy drukowaniu PDF.
