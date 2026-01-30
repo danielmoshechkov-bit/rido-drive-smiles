@@ -1,72 +1,117 @@
 
-# Plan poprawy wizualnej faktury PDF
 
-## Problem
+# Plan naprawy dwóch problemów: Modal "Dodaj pojazd" i selektor daty
 
-Faktura PDF generowana przez system ma nieprawidlowe kolory:
-- Naglowek tabeli z pozycjami jest szary zamiast fioletowego
-- Ramka "DO ZAPLATY" nie ma kolorowego tla
-- Podsumowanie faktury jest czarno-biale i nieczytelne
+## Zidentyfikowane problemy
 
-## Wzor do osiagniecia (foto 2 - Screenshot_2026-01-25)
+### Problem 1: Modal "Dodaj pojazd" nie dopasowuje się do strony
+- Na zrzucie ekranu (foto 1) widać, że modal ma zbyt dużo białego miejsca i nie jest wyśrodkowany poprawnie
+- Modal używa `max-w-2xl` ale może być zbyt szeroki dla niektórych ekranów
+- Brak odpowiedniego stylowania dla responsywności
 
-Na referencyjnym zdjeciu widac prawidlowy wyglad:
-- Naglowek tabeli pozycji: fioletowe tlo (#7c3aed) z bialym tekstem
-- Ramka "DO ZAPLATY": fioletowe tlo z biala pogrubiona kwota
-- Czytelne podsumowanie VAT
+### Problem 2: Wybór daty nie działa poprawnie
+- **Wpisywanie ręczne**: Po wpisaniu np. "01022026" (8 cyfr) wyświetla się błędna data jak "0002-02-01" zamiast "01.02.2026"
+- **Kalendarz**: Gdy użytkownik wybiera rok i miesiąc z dropdown → automatycznie zapisuje datę BEZ możliwości wybrania dnia
+- Problem leży w logice `DatePickerWithNav` w `ExpiryBadges.tsx`:
+  - Linia 62-68: Auto-zapis gdy 8 cyfr → błędne parsowanie
+  - Linia 118, 128: Zmiana roku/miesiąca wywołuje `setMonth` ale nie czeka na wybór dnia
 
-## Przyczyna problemu
+---
 
-Style inline w HTML sa poprawnie zdefiniowane w kodzie, ale przy eksporcie do PDF (druk przegladarki) niektore style moga byc ignorowane. Problem moze wynikac z:
-1. Brak wymuszenia kolorow w media print (`-webkit-print-color-adjust: exact`)
-2. Style CSS nadpisuja inline styles
-3. Brak `!important` dla krytycznych kolorow
+## Szczegóły techniczne napraw
 
-## Zmiany techniczne
+### Naprawa 1: Modal "Dodaj pojazd" (`AddVehicleModal.tsx`)
 
-### Plik: `src/utils/invoiceHtmlGenerator.ts`
+**Zmiany w DialogContent (linia 143):**
+```typescript
+// PRZED:
+<DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
 
-**1. Dodanie wymuszenia druku kolorow (linia 265-270):**
-```css
-@media print {
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-}
+// PO:
+<DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 ```
 
-**2. Wzmocnienie stylow naglowka tabeli (linia 295):**
-```css
-th { 
-  background: #7c3aed !important; 
-  color: white !important; 
-  -webkit-print-color-adjust: exact;
-}
+Dodatkowo upewnić się, że:
+- Modal używa `overflow-hidden` na zewnątrz i `overflow-y-auto` na środku
+- Padding jest odpowiedni dla mobile (`p-4` zamiast domyślnego `p-6`)
+
+---
+
+### Naprawa 2: DatePickerWithNav (`ExpiryBadges.tsx`)
+
+**A) Zmiana logiki inputu ręcznego (linia 57-68):**
+
+Problem: Data jest parsowana błędnie. "01022026" jest interpretowane jako "0002-02-01".
+
+**Naprawa:**
+```typescript
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const val = e.target.value.replace(/\D/g, "").slice(0, 8);
+  setInputValue(val);
+  
+  // Parse only when 8 digits AND user explicitly confirms (e.g., blur or Enter)
+  // Remove auto-parse here - will add explicit button
+};
+
+const confirmManualInput = () => {
+  if (inputValue.length === 8) {
+    // Parse as DD MM YYYY
+    const day = parseInt(inputValue.slice(0, 2), 10);
+    const monthNum = parseInt(inputValue.slice(2, 4), 10);
+    const yearNum = parseInt(inputValue.slice(4, 8), 10);
+    
+    const parsed = new Date(yearNum, monthNum - 1, day);
+    if (isValid(parsed) && parsed.getDate() === day) {
+      onSelect(parsed);
+      onClose();
+    } else {
+      toast.error("Nieprawidłowa data");
+    }
+  }
+};
 ```
 
-**3. Wzmocnienie ramki "DO ZAPLATY" (linia 302):**
-```css
-.totals-row.grand { 
-  background: #7c3aed !important; 
-  color: white !important;
-  font-weight: bold;
-}
+**B) Zmiana logiki kalendarza (dropdown miesiąc/rok):**
+
+Problem: Zmiana miesiąca lub roku z dropdowna od razu zapisuje datę.
+
+**Naprawa:**
+- Dropdown zmienia tylko widok kalendarza (`setMonth`)
+- Zapis następuje TYLKO po kliknięciu konkretnego dnia w kalendarzu
+- Obecny kod już to robi poprawnie w `handleDaySelect`, ale trzeba usunąć przypadkowe auto-zamykanie
+
+**C) Dodać przycisk "Zapisz" dla ręcznego wpisywania:**
+```tsx
+<div className="flex gap-2">
+  <Input
+    value={formatInputDisplay(inputValue)}
+    onChange={handleInputChange}
+    onKeyDown={(e) => e.key === "Enter" && confirmManualInput()}
+    placeholder="dd.mm.rrrr"
+    className="text-center font-mono flex-1"
+    maxLength={10}
+  />
+  <Button size="sm" onClick={confirmManualInput} disabled={inputValue.length !== 8}>
+    OK
+  </Button>
+</div>
 ```
 
-**4. Dodanie inline styles z !important dla kluczowych elementow:**
-- Naglowki tabeli `<th>`: explicit `style="background-color: #7c3aed !important; color: #ffffff !important;"`
-- Wiersz DO ZAPLATY: explicit kolorowe tlo
-- Kwoty: pogrubione z wiekszym fontem
+---
 
-**5. Ulepszenie podsumowania VAT (linie 374-401):**
-- Dodanie lekkiego fioletowego tla dla naglowka tabeli podsumowania
-- Lepszy kontrast dla wierszy
+## Pliki do modyfikacji
 
-## Podsumowanie zmian
+| Plik | Zmiana |
+|------|--------|
+| `src/components/AddVehicleModal.tsx` | Poprawić responsywność modala |
+| `src/components/ExpiryBadges.tsx` | Naprawić logikę DatePickerWithNav |
 
-| Element | Obecny wyglad | Docelowy wyglad |
-|---------|---------------|-----------------|
-| Naglowek tabeli pozycji | Szary/bialy | Fioletowy (#7c3aed) z bialym tekstem |
-| Ramka "DO ZAPLATY" | Czarny tekst bez tla | Fioletowe tlo z biala pogrubiona kwota |
-| Kwota do zaplaty | Zwykla czcionka | Pogrubiona, wieksza |
-| Podsumowanie VAT | Czarno-biale | Z kolorowym akcentem |
+---
 
-Wszystkie zmiany beda w pliku `src/utils/invoiceHtmlGenerator.ts` - modyfikacja stylów CSS i inline styles dla zapewnienia poprawnego renderowania przy drukowaniu PDF.
+## Kryteria akceptacji
+
+1. Modal "Dodaj pojazd" wyświetla się poprawnie na różnych ekranach
+2. Wpisanie "01022026" w polu daty formatuje się jako "01.02.2026" i zapisuje poprawnie
+3. Wybór roku i miesiąca z dropdown NIE zapisuje daty - dopiero kliknięcie dnia
+4. Kalendarz pozwala nawigować po miesiącach/latach bez przypadkowego zapisu
+
