@@ -19,7 +19,7 @@ import { AddListingModal } from '@/components/AddListingModal';
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
-import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet';
+import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { 
@@ -115,8 +115,6 @@ export default function ClientPortal() {
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
-  const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showCostInvoice, setShowCostInvoice] = useState(false);
   
   // Search modal
@@ -972,100 +970,14 @@ export default function ClientPortal() {
                     </CardHeader>
                     <CardContent>
                       {invoices.length > 0 ? (
-                        <div className="space-y-4 pb-20">
-                          {invoices.slice(0, 5).map((invoice) => {
-                            const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
-                            const statusColor = invoice.is_paid === true 
-                              ? 'bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20' 
-                              : isOverdue 
-                                ? 'bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20' 
-                                : 'bg-yellow-500/10 text-yellow-600 border-yellow-200 hover:bg-yellow-500/20';
-                            
-                            const handleStatusClick = async (e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              const newIsPaid = !invoice.is_paid;
-                              const { error } = await supabase
-                                .from('user_invoices')
-                                .update({ 
-                                  is_paid: newIsPaid,
-                                  paid_at: newIsPaid ? new Date().toISOString() : null,
-                                  paid_amount: newIsPaid ? invoice.gross_total : 0
-                                })
-                                .eq('id', invoice.id);
-                              
-                              if (error) {
-                                toast.error('Błąd aktualizacji statusu');
-                              } else {
-                                toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
-                                fetchUserInvoices(user.id);
-                              }
-                            };
-                            
-                            return (
-                              <div 
-                                key={invoice.id}
-                                className="p-4 rounded-xl border bg-card shadow-sm hover:shadow-md transition-all"
-                              >
-                                {/* Header: Invoice number + clickable status */}
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-primary" />
-                                    <span className="font-semibold text-sm">{invoice.invoice_number || 'Faktura'}</span>
-                                  </div>
-                                  <Badge 
-                                    className={`cursor-pointer transition-colors ${statusColor}`}
-                                    onClick={handleStatusClick}
-                                  >
-                                    {invoice.is_paid === true 
-                                      ? 'Opłacona ✓' 
-                                      : isOverdue 
-                                        ? 'Po terminie!' 
-                                        : 'Nieopłacona'
-                                    }
-                                  </Badge>
-                                </div>
-                                
-                                {/* Buyer + dates */}
-                                <div className="text-sm mb-3">
-                                  <p className="font-medium text-foreground truncate">{invoice.buyer_name || '—'}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Wystawiono: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('pl-PL') : '—'}
-                                    {invoice.due_date && (
-                                      <span className={isOverdue ? 'text-destructive font-medium' : ''}>
-                                        {' '}• Termin: {new Date(invoice.due_date).toLocaleDateString('pl-PL')}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                                
-                                <Separator className="my-3" />
-                                
-                                {/* Amounts + Details button */}
-                                <div className="flex items-center justify-between">
-                                  <div className="text-xs text-muted-foreground space-x-2">
-                                    <span>Netto: {Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</span>
-                                    <span>•</span>
-                                    <span>VAT: {Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-base">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</span>
-                                    <Button 
-                                      size="sm" 
-                                      variant="ghost" 
-                                      className="text-primary hover:text-primary/80"
-                                      onClick={() => {
-                                        setSelectedInvoice(invoice);
-                                        setShowInvoiceDetail(true);
-                                      }}
-                                    >
-                                      Szczegóły
-                                      <ChevronRight className="h-4 w-4 ml-1" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="space-y-3 pb-20">
+                          {invoices.slice(0, 5).map((invoice) => (
+                            <InvoiceExpandableRow
+                              key={invoice.id}
+                              invoice={invoice}
+                              onUpdate={() => user && fetchUserInvoices(user.id)}
+                            />
+                          ))}
                           {invoices.length > 5 && (
                             <Button 
                               variant="ghost" 
@@ -1111,100 +1023,14 @@ export default function ClientPortal() {
                   </CardHeader>
                   <CardContent>
                     {invoices.length > 0 ? (
-                      <div className="space-y-4 pb-20">
-                        {invoices.map((invoice) => {
-                          const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && !invoice.is_paid;
-                          const statusColor = invoice.is_paid === true 
-                            ? 'bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20' 
-                            : isOverdue 
-                              ? 'bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20' 
-                              : 'bg-yellow-500/10 text-yellow-600 border-yellow-200 hover:bg-yellow-500/20';
-                          
-                          const handleStatusClick = async (e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            const newIsPaid = !invoice.is_paid;
-                            const { error } = await supabase
-                              .from('user_invoices')
-                              .update({ 
-                                is_paid: newIsPaid,
-                                paid_at: newIsPaid ? new Date().toISOString() : null,
-                                paid_amount: newIsPaid ? invoice.gross_total : 0
-                              })
-                              .eq('id', invoice.id);
-                            
-                            if (error) {
-                              toast.error('Błąd aktualizacji statusu');
-                            } else {
-                              toast.success(newIsPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
-                              fetchUserInvoices(user.id);
-                            }
-                          };
-                          
-                          return (
-                            <div 
-                              key={invoice.id}
-                              className="p-4 rounded-xl border bg-card shadow-sm hover:shadow-md transition-all"
-                            >
-                              {/* Header: Invoice number + clickable status */}
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <FileText className="h-4 w-4 text-primary" />
-                                  <span className="font-semibold">{invoice.invoice_number || 'Faktura'}</span>
-                                </div>
-                                <Badge 
-                                  className={`cursor-pointer transition-colors ${statusColor}`}
-                                  onClick={handleStatusClick}
-                                >
-                                  {invoice.is_paid === true 
-                                    ? 'Opłacona ✓' 
-                                    : isOverdue 
-                                      ? 'Po terminie!' 
-                                      : 'Nieopłacona'
-                                  }
-                                </Badge>
-                              </div>
-                              
-                              {/* Buyer + dates */}
-                              <div className="text-sm mb-3">
-                                <p className="font-medium text-foreground truncate">{invoice.buyer_name || '—'}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Wystawiono: {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('pl-PL') : '—'}
-                                  {invoice.due_date && (
-                                    <span className={isOverdue ? 'text-destructive font-medium' : ''}>
-                                      {' '}• Termin: {new Date(invoice.due_date).toLocaleDateString('pl-PL')}
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                              
-                              <Separator className="my-3" />
-                              
-                              {/* Amounts + Details button */}
-                              <div className="flex items-center justify-between">
-                                <div className="text-xs text-muted-foreground space-x-2">
-                                  <span>Netto: {Number(invoice.net_total || 0).toLocaleString('pl-PL')} zł</span>
-                                  <span>•</span>
-                                  <span>VAT: {Number(invoice.vat_total || 0).toLocaleString('pl-PL')} zł</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-base">{Number(invoice.gross_total || 0).toLocaleString('pl-PL')} zł</span>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="text-primary hover:text-primary/80"
-                                    onClick={() => {
-                                      setSelectedInvoice(invoice);
-                                      setShowInvoiceDetail(true);
-                                    }}
-                                  >
-                                    Szczegóły
-                                    <ChevronRight className="h-4 w-4 ml-1" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="space-y-3 pb-20">
+                        {invoices.map((invoice) => (
+                          <InvoiceExpandableRow
+                            key={invoice.id}
+                            invoice={invoice}
+                            onUpdate={() => user && fetchUserInvoices(user.id)}
+                          />
+                        ))}
                       </div>
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
@@ -1469,17 +1295,6 @@ export default function ClientPortal() {
         </DialogContent>
       </Dialog>
 
-      {/* Invoice Detail Sheet */}
-      <InvoiceDetailSheet
-        invoice={selectedInvoice}
-        open={showInvoiceDetail}
-        onOpenChange={setShowInvoiceDetail}
-        onUpdate={() => {
-          if (user) {
-            fetchUserInvoices(user.id);
-          }
-        }}
-      />
 
       {/* Cost Invoice Modal */}
       <CostInvoiceModal

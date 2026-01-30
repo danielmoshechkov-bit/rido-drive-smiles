@@ -42,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InvoiceEditDialog } from './InvoiceEditDialog';
+import { SimpleFreeInvoice } from './SimpleFreeInvoice';
 
 interface UserInvoice {
   id: string;
@@ -578,13 +578,16 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <InvoiceEditDialog
-        invoiceId={invoice.id}
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        onSaved={handleEditSaved}
-      />
+      {/* Edit Dialog - Full Invoice Form */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+          <SimpleFreeInvoice 
+            editInvoiceId={invoice.id}
+            onClose={() => setShowEditDialog(false)}
+            onSaved={handleEditSaved}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
