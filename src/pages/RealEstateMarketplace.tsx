@@ -640,11 +640,7 @@ export default function RealEstateMarketplace() {
         </div>
       </section>
 
-      {/* Portal Categories Grid */}
-      <section className="container mx-auto px-4 py-6">
-        <h2 className="text-lg font-semibold mb-4 text-center">Wybierz kategorię</h2>
-        <PortalCategoryGrid context="nieruchomosci" />
-      </section>
+      {/* Property Type Selector - directly visible without category tiles */}
 
       {/* Property Type Selector */}
       <section className="container mx-auto px-4 py-4">
