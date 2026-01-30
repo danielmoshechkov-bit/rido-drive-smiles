@@ -353,12 +353,11 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
             <p className="text-xs text-muted-foreground">Numer konta do przelewów wypłat dla kierowcy</p>
           </div>
 
-          {/* Search and Add Buttons */}
-          <div className="flex gap-2">
+          {/* Search and Add Buttons - equal size */}
+          <div className="grid grid-cols-2 gap-3">
             <Button 
               onClick={searchDrivers} 
               disabled={searching}
-              className="flex-1"
               size="lg"
             >
               {searching ? (

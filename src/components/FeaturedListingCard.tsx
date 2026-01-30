@@ -444,6 +444,16 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
               ))}
             </div>
 
+            {/* Description - show in QuickView modal */}
+            {listing.description && (
+              <div className="space-y-1.5">
+                <h4 className="text-sm font-medium">Opis:</h4>
+                <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">
+                  {listing.description}
+                </p>
+              </div>
+            )}
+
             {/* Rating for services */}
             {listing.category === 'service' && listing.rating_avg !== undefined && listing.rating_avg > 0 && (
               <div className="flex items-center gap-2">

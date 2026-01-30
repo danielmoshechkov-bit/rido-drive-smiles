@@ -1,14 +1,15 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { pl } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
 function colorFor(dateStr?: string | null) {
   if (!dateStr) return "bg-destructive text-destructive-foreground";
@@ -40,6 +41,123 @@ async function getLatestInspectionValidTo(vehicleId: string) {
   return data?.[0]?.valid_to as string | undefined;
 }
 
+// Calendar with month/year navigation
+function DatePickerWithNav({ 
+  selected, 
+  onSelect,
+  onClose
+}: { 
+  selected?: Date; 
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const [month, setMonth] = useState(selected || new Date());
+  const [inputValue, setInputValue] = useState(selected ? format(selected, "ddMMyyyy") : "");
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, "").slice(0, 8);
+    setInputValue(val);
+    
+    // Auto-parse when 8 digits entered
+    if (val.length === 8) {
+      const parsed = parse(val, "ddMMyyyy", new Date());
+      if (isValid(parsed)) {
+        onSelect(parsed);
+        onClose();
+      }
+    }
+  };
+
+  const formatInputDisplay = (val: string) => {
+    if (val.length <= 2) return val;
+    if (val.length <= 4) return `${val.slice(0,2)}.${val.slice(2)}`;
+    return `${val.slice(0,2)}.${val.slice(2,4)}.${val.slice(4)}`;
+  };
+
+  const handleDaySelect = (date: Date | undefined) => {
+    if (date) {
+      onSelect(date);
+      onClose();
+    }
+  };
+
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
+  const months = [
+    "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+    "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"
+  ];
+
+  return (
+    <div className="p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+      {/* Manual input */}
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">Wpisz datę (ddmmrrrr):</label>
+        <Input
+          value={formatInputDisplay(inputValue)}
+          onChange={handleInputChange}
+          placeholder="dd.mm.rrrr"
+          className="text-center font-mono"
+          maxLength={10}
+        />
+      </div>
+      
+      {/* Month/Year selectors */}
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex gap-1">
+          <select
+            value={month.getMonth()}
+            onChange={(e) => setMonth(prev => new Date(prev.getFullYear(), parseInt(e.target.value)))}
+            className="text-sm border rounded px-2 py-1 bg-background"
+          >
+            {months.map((m, i) => (
+              <option key={i} value={i}>{m}</option>
+            ))}
+          </select>
+          
+          <select
+            value={month.getFullYear()}
+            onChange={(e) => setMonth(prev => new Date(parseInt(e.target.value), prev.getMonth()))}
+            className="text-sm border rounded px-2 py-1 bg-background"
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Calendar */}
+      <Calendar
+        mode="single"
+        selected={selected}
+        onSelect={handleDaySelect}
+        month={month}
+        onMonthChange={setMonth}
+        locale={pl}
+        className={cn("p-0 pointer-events-auto")}
+      />
+    </div>
+  );
+}
+
 export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
   const [policyTo, setPolicyTo] = useState<string | undefined>();
   const [inspTo, setInspTo] = useState<string | undefined>();
@@ -55,9 +173,7 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
     load();
   }, [vehicleId]);
 
-  const saveDate = async (kind: "policy" | "insp", date: Date | undefined) => {
-    if (!date) return;
-    
+  const saveDate = async (kind: "policy" | "insp", date: Date) => {
     const value = format(date, "yyyy-MM-dd");
     
     if (kind === "policy") {
@@ -117,14 +233,11 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
             OC: {formatDisplayDate(policyTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-50" align="start" onClick={(e) => e.stopPropagation()}>
-          <Calendar
-            mode="single"
+        <PopoverContent className="w-auto p-0 z-[100]" align="start" onClick={(e) => e.stopPropagation()}>
+          <DatePickerWithNav
             selected={policyTo ? new Date(policyTo) : undefined}
             onSelect={(date) => saveDate("policy", date)}
-            locale={pl}
-            initialFocus
-            className={cn("p-3 pointer-events-auto")}
+            onClose={() => setPolicyOpen(false)}
           />
         </PopoverContent>
       </Popover>
@@ -139,14 +252,11 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
             Przegląd: {formatDisplayDate(inspTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-50" align="start" onClick={(e) => e.stopPropagation()}>
-          <Calendar
-            mode="single"
+        <PopoverContent className="w-auto p-0 z-[100]" align="start" onClick={(e) => e.stopPropagation()}>
+          <DatePickerWithNav
             selected={inspTo ? new Date(inspTo) : undefined}
             onSelect={(date) => saveDate("insp", date)}
-            locale={pl}
-            initialFocus
-            className={cn("p-3 pointer-events-auto")}
+            onClose={() => setInspOpen(false)}
           />
         </PopoverContent>
       </Popover>
