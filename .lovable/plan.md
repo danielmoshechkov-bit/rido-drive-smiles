@@ -1,100 +1,124 @@
 
 
-# Plan naprawy dwóch problemów: Modal "Dodaj pojazd" i selektor daty
+# Plan naprawy modułu "Wynajmij pojazd"
 
 ## Zidentyfikowane problemy
 
-### Problem 1: Modal "Dodaj pojazd" nie dopasowuje się do strony
-- Na zrzucie ekranu (foto 1) widać, że modal ma zbyt dużo białego miejsca i nie jest wyśrodkowany poprawnie
-- Modal używa `max-w-2xl` ale może być zbyt szeroki dla niektórych ekranów
-- Brak odpowiedniego stylowania dla responsywności
+### Problem 1: Nie można wybrać wolnego pojazdu
+Na screenshocie widać, że pojazdy są wyświetlane na liście, ale nie można ich wybrać/kliknąć. To może być związane z brakiem odpowiedniej logiki lub problemem z kliknięciem. Trzeba również dodać informację gdy pojazd jest już wynajęty (zajęty).
 
-### Problem 2: Wybór daty nie działa poprawnie
-- **Wpisywanie ręczne**: Po wpisaniu np. "01022026" (8 cyfr) wyświetla się błędna data jak "0002-02-01" zamiast "01.02.2026"
-- **Kalendarz**: Gdy użytkownik wybiera rok i miesiąc z dropdown → automatycznie zapisuje datę BEZ możliwości wybrania dnia
-- Problem leży w logice `DatePickerWithNav` w `ExpiryBadges.tsx`:
-  - Linia 62-68: Auto-zapis gdy 8 cyfr → błędne parsowanie
-  - Linia 118, 128: Zmiana roku/miesiąca wywołuje `setMonth` ale nie czeka na wybór dnia
+### Problem 2: Modal "Dodaj pojazd" - ramka rozjeżdża się przy wpisywaniu (foto 2)
+Problem dotyczy `CarBrandModelSelector` - dropdown z listą marek pojawia się wewnątrz modalu ale jest obcinany przez `overflow-hidden`. Trzeba dodać odpowiedni `z-index` i pozycjonowanie dropdownów.
+
+### Problem 3: Wymagane pola przy dodawaniu pojazdu w module wynajmu
+Obecne wymagane pola: nr rejestracyjny, marka, model, rodzaj nadwozia, rodzaj paliwa.
+Powinny być wymagane: **marka, model, rodzaj paliwa, rok, kolor, kwota za wynajem**.
+Na końcu formularza brak miejsca na datę OC i przegląd - jest tylko "Ubezpieczenie OC" bez żadnych pól widocznych (prawdopodobnie jest, ale ucięte przez scroll).
+
+### Problem 4: Po dodaniu pojazdu nie można go wybrać i kontynuować
+Callback `onSuccess` w `VehicleRentalWizard` tylko przeładowuje listę pojazdów ale nie wybiera automatycznie nowego pojazdu. Użytkownik widzi "Pojazd zapisany" ale lista się resetuje i nie może iść dalej.
 
 ---
 
 ## Szczegóły techniczne napraw
 
-### Naprawa 1: Modal "Dodaj pojazd" (`AddVehicleModal.tsx`)
+### Naprawa 1: VehicleRentalWizard - wybór pojazdu i wyświetlanie zajętych
 
-**Zmiany w DialogContent (linia 143):**
+**Plik:** `src/components/fleet/VehicleRentalWizard.tsx`
+
+**Zmiany:**
+1. Dodać do zapytania o pojazdy sprawdzenie czy pojazd jest aktualnie wynajęty (sprawdzenie w `vehicle_rentals` lub `driver_vehicle_assignments`)
+2. Oznaczyć zajęte pojazdy badge "Wynajęty" i wyświetlić informację po kliknięciu
+3. Zmienić obsługę kliknięcia:
 ```typescript
-// PRZED:
-<DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-
-// PO:
-<DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+onClick={() => {
+  if (vehicle.is_rented) {
+    toast.warning("Ten pojazd jest już wynajęty. Wybór spowoduje odłączenie obecnego kierowcy.");
+    // Pokaż dialog potwierdzający lub pozwól kontynuować
+  }
+  setSelectedVehicle(vehicle);
+  if (vehicle.weekly_rental_fee) {
+    setWeeklyFee(vehicle.weekly_rental_fee.toString());
+  }
+}}
 ```
 
-Dodatkowo upewnić się, że:
-- Modal używa `overflow-hidden` na zewnątrz i `overflow-y-auto` na środku
-- Padding jest odpowiedni dla mobile (`p-4` zamiast domyślnego `p-6`)
+### Naprawa 2: CarBrandModelSelector - poprawka overflow i z-index
 
----
+**Plik:** `src/components/CarBrandModelSelector.tsx`
 
-### Naprawa 2: DatePickerWithNav (`ExpiryBadges.tsx`)
+**Zmiany:**
+- Zmiana klasy dropdowna z `z-50` na `z-[100]` 
+- Dodanie `position: fixed` zamiast `absolute` dla dropdownów gdy są wewnątrz modalu (lub użycie Radix Portal)
+- Alternatywa: przekształcenie na użycie komponentu `Command` z cmdk (jak w innych selektorach)
 
-**A) Zmiana logiki inputu ręcznego (linia 57-68):**
+### Naprawa 3: AddVehicleModal - zmiana wymaganych pól dla modułu wynajmu
 
-Problem: Data jest parsowana błędnie. "01022026" jest interpretowane jako "0002-02-01".
+**Plik:** `src/components/AddVehicleModal.tsx`
 
-**Naprawa:**
+**Zmiany:**
+1. Dodać props `variant?: 'standard' | 'rental'` 
+2. Gdy `variant="rental"` wymagane pola to:
+   - Marka *
+   - Model *
+   - Rodzaj paliwa *
+   - Rok *
+   - Kolor *
+   - Kwota za wynajem *
+3. Uprościć formularz dla wynajmu - usunąć VIN i nadwozie (opcjonalne)
+4. Upewnić się że pola OC i przegląd są widoczne i opcjonalne
+
+**Zmiana walidacji:**
 ```typescript
-const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const val = e.target.value.replace(/\D/g, "").slice(0, 8);
-  setInputValue(val);
-  
-  // Parse only when 8 digits AND user explicitly confirms (e.g., blur or Enter)
-  // Remove auto-parse here - will add explicit button
-};
-
-const confirmManualInput = () => {
-  if (inputValue.length === 8) {
-    // Parse as DD MM YYYY
-    const day = parseInt(inputValue.slice(0, 2), 10);
-    const monthNum = parseInt(inputValue.slice(2, 4), 10);
-    const yearNum = parseInt(inputValue.slice(4, 8), 10);
-    
-    const parsed = new Date(yearNum, monthNum - 1, day);
-    if (isValid(parsed) && parsed.getDate() === day) {
-      onSelect(parsed);
-      onClose();
-    } else {
-      toast.error("Nieprawidłowa data");
+const handleSave = async () => {
+  if (variant === 'rental') {
+    if (!plate || !brand || !model || !fuelType || !year || !color || !weeklyRentalFee) {
+      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj paliwa, rok, kolor i kwotę wynajmu.");
+      return;
+    }
+  } else {
+    if (!plate || !brand || !model || !bodyType || !fuelType) {
+      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
+      return;
     }
   }
-};
+  // ...reszta logiki
+}
 ```
 
-**B) Zmiana logiki kalendarza (dropdown miesiąc/rok):**
+### Naprawa 4: Automatyczne wybranie pojazdu po dodaniu
 
-Problem: Zmiana miesiąca lub roku z dropdowna od razu zapisuje datę.
+**Plik:** `src/components/fleet/VehicleRentalWizard.tsx`
 
-**Naprawa:**
-- Dropdown zmienia tylko widok kalendarza (`setMonth`)
-- Zapis następuje TYLKO po kliknięciu konkretnego dnia w kalendarzu
-- Obecny kod już to robi poprawnie w `handleDaySelect`, ale trzeba usunąć przypadkowe auto-zamykanie
-
-**C) Dodać przycisk "Zapisz" dla ręcznego wpisywania:**
-```tsx
-<div className="flex gap-2">
-  <Input
-    value={formatInputDisplay(inputValue)}
-    onChange={handleInputChange}
-    onKeyDown={(e) => e.key === "Enter" && confirmManualInput()}
-    placeholder="dd.mm.rrrr"
-    className="text-center font-mono flex-1"
-    maxLength={10}
-  />
-  <Button size="sm" onClick={confirmManualInput} disabled={inputValue.length !== 8}>
-    OK
-  </Button>
-</div>
+**Zmiany w callback AddVehicleModal:**
+```typescript
+<AddVehicleModal
+  isOpen={showAddVehicle}
+  onClose={() => setShowAddVehicle(false)}
+  fleetId={fleetId}
+  variant="rental"
+  onSuccess={async (vehicleId) => {
+    // Przeładuj listę i automatycznie wybierz nowy pojazd
+    await loadVehicles();
+    
+    // Znajdź nowo dodany pojazd
+    const { data: newVehicle } = await supabase
+      .from("vehicles")
+      .select("id, plate, brand, model, year, status, weekly_rental_fee")
+      .eq("id", vehicleId)
+      .single();
+    
+    if (newVehicle) {
+      setSelectedVehicle(newVehicle);
+      if (newVehicle.weekly_rental_fee) {
+        setWeeklyFee(newVehicle.weekly_rental_fee.toString());
+      }
+      toast.success("Pojazd dodany i wybrany do wynajmu");
+    }
+    
+    setShowAddVehicle(false);
+  }}
+/>
 ```
 
 ---
@@ -103,15 +127,18 @@ Problem: Zmiana miesiąca lub roku z dropdowna od razu zapisuje datę.
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/AddVehicleModal.tsx` | Poprawić responsywność modala |
-| `src/components/ExpiryBadges.tsx` | Naprawić logikę DatePickerWithNav |
+| `src/components/fleet/VehicleRentalWizard.tsx` | Automatyczne wybranie pojazdu po dodaniu, obsługa zajętych pojazdów |
+| `src/components/AddVehicleModal.tsx` | Nowy variant "rental" z innymi wymaganymi polami |
+| `src/components/CarBrandModelSelector.tsx` | Poprawka z-index i overflow dropdownów |
 
 ---
 
 ## Kryteria akceptacji
 
-1. Modal "Dodaj pojazd" wyświetla się poprawnie na różnych ekranach
-2. Wpisanie "01022026" w polu daty formatuje się jako "01.02.2026" i zapisuje poprawnie
-3. Wybór roku i miesiąca z dropdown NIE zapisuje daty - dopiero kliknięcie dnia
-4. Kalendarz pozwala nawigować po miesiącach/latach bez przypadkowego zapisu
+1. Wolne pojazdy można normalnie wybrać kliknięciem
+2. Zajęte pojazdy mają oznaczenie "Wynajęty" i wyświetlają ostrzeżenie
+3. Dropdown marek/modeli nie jest obcinany przez modal
+4. Przy dodawaniu pojazdu w module wynajmu wymagane są: marka, model, paliwo, rok, kolor, kwota
+5. Po dodaniu pojazdu jest on automatycznie wybrany i można kontynuować (przycisk "Dalej" aktywny)
+6. Pola OC i przeglądu są widoczne i opcjonalne
 
