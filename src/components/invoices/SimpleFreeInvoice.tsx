@@ -124,9 +124,10 @@ interface ExtendedBuyer extends Omit<InvoiceBuyer, 'address_street'> {
 interface SimpleFreeInvoiceProps {
   onClose?: () => void;
   onSaved?: () => void;
+  editInvoiceId?: string; // If provided, load this invoice for editing
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -309,6 +310,108 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load invoice data for editing
+  useEffect(() => {
+    const loadInvoiceForEdit = async () => {
+      if (!editInvoiceId) return;
+      
+      try {
+        // Load invoice data
+        const { data: invoice, error: invoiceError } = await supabase
+          .from('user_invoices')
+          .select('*')
+          .eq('id', editInvoiceId)
+          .single();
+
+        if (invoiceError) throw invoiceError;
+
+        // Set invoice fields
+        setInvoiceNumber(invoice.invoice_number || '');
+        setInvoiceType(invoice.invoice_type || 'invoice');
+        setIssueDate(invoice.issue_date || today);
+        setSaleDate(invoice.sale_date || today);
+        setDueDate(invoice.due_date || defaultDueDate);
+        setIssuePlace(invoice.issue_place || '');
+        setPaymentMethod((invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card');
+        setNotes(invoice.notes || '');
+        setCurrency((invoice.currency || 'PLN') as Currency);
+        setPaidAmount(invoice.paid_amount || 0);
+        setIsFullyPaid(invoice.is_paid || false);
+        setSavedCompanyId(invoice.company_id || null);
+
+        // Set buyer data
+        setBuyer({
+          name: invoice.buyer_name || '',
+          nip: invoice.buyer_nip || '',
+          address_street: invoice.buyer_address || '',
+          address_building_number: '',
+          address_apartment_number: '',
+          address_city: '',
+          address_postal_code: '',
+          country: 'Polska'
+        });
+
+        // Load invoice items
+        const { data: invoiceItems, error: itemsError } = await supabase
+          .from('user_invoice_items')
+          .select('*')
+          .eq('invoice_id', editInvoiceId)
+          .order('sort_order');
+
+        if (itemsError) throw itemsError;
+
+        if (invoiceItems && invoiceItems.length > 0) {
+          setItems(invoiceItems.map(item => {
+            const netPrice = item.unit_net_price || 0;
+            const vatRateNum = parseFloat(item.vat_rate || '23') || 0;
+            const grossPrice = netPrice * (1 + vatRateNum / 100);
+            return {
+              name: item.name || '',
+              pkwiu: '',
+              quantity: item.quantity || 1,
+              unit: item.unit || 'szt.',
+              unit_net_price: netPrice,
+              unit_gross_price: grossPrice,
+              vat_rate: item.vat_rate || '23',
+              net_amount: item.net_amount || 0,
+              vat_amount: item.vat_amount || 0,
+              gross_amount: item.gross_amount || 0,
+            };
+          }));
+        }
+
+        // Load seller/company data
+        if (invoice.company_id) {
+          const { data: company } = await supabase
+            .from('user_invoice_companies')
+            .select('*')
+            .eq('id', invoice.company_id)
+            .maybeSingle();
+
+          if (company) {
+            setSeller({
+              name: company.name || '',
+              nip: company.nip || '',
+              address_street: company.address_street || '',
+              address_building_number: company.address_building_number || '',
+              address_apartment_number: company.address_apartment_number || '',
+              address_city: company.address_city || '',
+              address_postal_code: company.address_postal_code || '',
+              bank_name: company.bank_name || '',
+              bank_account: company.bank_account || ''
+            });
+            setSellerExpanded(false);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error loading invoice for edit:', err);
+        toast.error('Błąd ładowania faktury do edycji');
+      }
+    };
+
+    loadInvoiceForEdit();
+  }, [editInvoiceId]);
 
   // Auto-fill city based on postal code
   const handlePostalCodeChange = (
@@ -1445,7 +1548,7 @@ export function SimpleFreeInvoice({ onClose, onSaved }: SimpleFreeInvoiceProps =
           ) : (
             <>
               <Receipt className="h-5 w-5" />
-              Wystaw fakturę
+              {editInvoiceId ? 'Zapisz zmiany' : 'Wystaw fakturę'}
             </>
           )}
         </Button>
