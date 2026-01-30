@@ -79,7 +79,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const loadDrivers = async () => {
     let query = supabase
       .from('drivers')
-      .select('id, first_name, last_name, email')
+      .select('id, first_name, last_name')
       .order('first_name');
 
     // Dla flotowych - filtruj po fleet_id, dla adminów - po city_id
@@ -90,9 +90,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     }
 
     const { data } = await query;
+    // Only show first name + last name (no email) to keep selector compact
     const driverItems = (data || []).map(driver => ({
       id: driver.id,
-      name: `${driver.first_name} ${driver.last_name}${driver.email ? ` (${driver.email})` : ''}`
+      name: `${driver.first_name || ''} ${driver.last_name || ''}`.trim()
     }));
     setDrivers(driverItems);
   };

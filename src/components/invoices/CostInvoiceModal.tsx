@@ -11,8 +11,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Search, Upload, FileText, Check, X, Plus, AlertTriangle, Package } from 'lucide-react';
 import { DatePickerButton } from './DatePickerButton';
+import { CostCategorySelector } from './CostCategorySelector';
+import { InventoryProductMapper } from './InventoryProductMapper';
 
-const COST_CATEGORIES = [
+const DEFAULT_COST_CATEGORIES = [
   { value: 'fuel', label: 'Paliwo' },
   { value: 'materials', label: 'Materiały' },
   { value: 'services', label: 'Usługi obce' },
@@ -647,16 +649,12 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
 
               {/* Totals */}
               <div className="flex justify-between items-start pt-4">
-                <div>
+                <div className="space-y-2">
                   <Label>Kategoria kosztu</Label>
-                  <Select value={costCategory} onValueChange={setCostCategory}>
-                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {COST_CATEGORIES.map(cat => (
-                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CostCategorySelector
+                    value={costCategory}
+                    onChange={setCostCategory}
+                  />
                 </div>
 
                 <div className="space-y-1 text-sm w-56 p-4 bg-primary/5 rounded-lg">

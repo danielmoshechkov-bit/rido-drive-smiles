@@ -103,10 +103,10 @@ export function UniversalSelector({
         variant="outline"
         onClick={toggle}
         disabled={disabled}
-        className="group h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2 min-w-[120px] justify-between"
+        className="group h-8 px-3 border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm flex items-center gap-2 min-w-[120px] max-w-[200px] justify-between"
       >
-        <span className="truncate">{displayValue}</span>
-        <div className="flex items-center gap-1">
+        <span className="truncate max-w-[150px]">{displayValue}</span>
+        <div className="flex items-center gap-1 shrink-0">
           {allowClear && currentValue && (
             <div
               onClick={handleClear}
