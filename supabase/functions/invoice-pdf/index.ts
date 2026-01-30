@@ -113,14 +113,14 @@ const generateInvoiceHtml = (invoice: any, entity: any, items: InvoiceItem[]): s
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${invoice.invoice_number}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #333; padding: 20px; }
     .invoice { max-width: 800px; margin: 0 auto; background: white; }
-    .header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #2563eb; }
-    .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+    .header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #7c3aed; }
+    .logo { font-size: 24px; font-weight: bold; color: #7c3aed; }
     .invoice-title { text-align: right; }
     .invoice-title h1 { font-size: 20px; color: #333; margin-bottom: 5px; }
-    .invoice-number { font-size: 16px; font-weight: bold; color: #2563eb; }
+    .invoice-number { font-size: 16px; font-weight: bold; color: #7c3aed; }
     .parties { display: flex; gap: 40px; margin-bottom: 30px; }
     .party { flex: 1; }
     .party-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
@@ -131,16 +131,16 @@ const generateInvoiceHtml = (invoice: any, entity: any, items: InvoiceItem[]): s
     .date-label { font-size: 10px; color: #666; text-transform: uppercase; }
     .date-value { font-size: 13px; font-weight: 600; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th { background: #2563eb; color: white; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 600; }
+    th { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 600; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     th:first-child { border-radius: 6px 0 0 0; }
     th:last-child { border-radius: 0 6px 0 0; }
     .totals { display: flex; justify-content: flex-end; margin-bottom: 20px; }
     .totals-table { width: 300px; }
     .totals-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .totals-row.grand { border-bottom: none; background: #2563eb; color: white; padding: 12px; border-radius: 6px; font-size: 14px; }
+    .totals-row.grand { border-bottom: none; background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .totals-label { font-weight: 500; }
     .totals-value { font-weight: bold; }
-    .amount-words { margin-bottom: 20px; padding: 15px; background: #f0f9ff; border-left: 4px solid #2563eb; border-radius: 4px; }
+    .amount-words { margin-bottom: 20px; padding: 15px; background: #f0f9ff; border-left: 4px solid #7c3aed; border-radius: 4px; }
     .amount-words-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 4px; }
     .amount-words-value { font-style: italic; }
     .payment { margin-bottom: 20px; }
@@ -155,6 +155,9 @@ const generateInvoiceHtml = (invoice: any, entity: any, items: InvoiceItem[]): s
     @media print {
       body { padding: 0; }
       .invoice { max-width: 100%; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      th { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; }
+      .totals-row.grand { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; }
     }
   </style>
 </head>
@@ -210,15 +213,15 @@ const generateInvoiceHtml = (invoice: any, entity: any, items: InvoiceItem[]): s
     <table>
       <thead>
         <tr>
-          <th style="width: 30px;">Lp.</th>
-          <th>Nazwa towaru / usługi</th>
-          <th style="width: 50px;">Jm.</th>
-          <th style="width: 50px;">Ilość</th>
-          <th style="width: 80px;">Cena netto</th>
-          <th style="width: 90px;">Wartość netto</th>
-          <th style="width: 50px;">VAT</th>
-          <th style="width: 80px;">Kwota VAT</th>
-          <th style="width: 100px;">Wartość brutto</th>
+          <th style="width: 30px; background-color: #7c3aed !important; color: #ffffff !important;">Lp.</th>
+          <th style="background-color: #7c3aed !important; color: #ffffff !important;">Nazwa towaru / usługi</th>
+          <th style="width: 50px; background-color: #7c3aed !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 50px; background-color: #7c3aed !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 80px; background-color: #7c3aed !important; color: #ffffff !important;">Cena netto</th>
+          <th style="width: 90px; background-color: #7c3aed !important; color: #ffffff !important;">Wartość netto</th>
+          <th style="width: 50px; background-color: #7c3aed !important; color: #ffffff !important;">VAT</th>
+          <th style="width: 80px; background-color: #7c3aed !important; color: #ffffff !important;">Kwota VAT</th>
+          <th style="width: 100px; background-color: #7c3aed !important; color: #ffffff !important;">Wartość brutto</th>
         </tr>
       </thead>
       <tbody>
@@ -236,9 +239,9 @@ const generateInvoiceHtml = (invoice: any, entity: any, items: InvoiceItem[]): s
           <span class="totals-label">VAT:</span>
           <span class="totals-value">${formatCurrency(invoice.vat_amount)}</span>
         </div>
-        <div class="totals-row grand">
-          <span class="totals-label">DO ZAPŁATY:</span>
-          <span class="totals-value">${formatCurrency(invoice.gross_amount)}</span>
+        <div class="totals-row grand" style="background-color: #7c3aed !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important;">
+          <span class="totals-label" style="color: #ffffff !important;">DO ZAPŁATY:</span>
+          <span class="totals-value" style="color: #ffffff !important; font-size: 16px;">${formatCurrency(invoice.gross_amount)}</span>
         </div>
       </div>
     </div>
