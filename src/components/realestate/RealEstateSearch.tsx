@@ -16,7 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronDown, SlidersHorizontal, X, Map } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, X, Map, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { LocationMapModal } from "./LocationMapModal";
@@ -24,6 +24,7 @@ import { LocationMapModal } from "./LocationMapModal";
 interface RealEstateSearchProps {
   onSearch: (filters: RealEstateFilters) => void;
   onShowMapResults?: () => void;
+  onDrawSearch?: () => void;
   className?: string;
 }
 
@@ -142,7 +143,7 @@ function serializeAreaToParams(area: AreaSelection | null, params: URLSearchPara
   }
 }
 
-export function RealEstateSearch({ onSearch, onShowMapResults, className }: RealEstateSearchProps) {
+export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, className }: RealEstateSearchProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Initialize filters from URL params
@@ -427,9 +428,21 @@ export function RealEstateSearch({ onSearch, onShowMapResults, className }: Real
             </CollapsibleTrigger>
           </Collapsible>
 
-          {onShowMapResults && (
+          {onDrawSearch && (
             <Button
               variant="outline"
+              size="sm"
+              onClick={onDrawSearch}
+              className="gap-2 border-primary text-primary hover:bg-primary/10"
+            >
+              <PenTool className="h-4 w-4" />
+              Zaznacz na mapie
+            </Button>
+          )}
+
+          {onShowMapResults && (
+            <Button
+              variant="default"
               size="sm"
               onClick={onShowMapResults}
               className="gap-2"
