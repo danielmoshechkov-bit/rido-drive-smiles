@@ -24,7 +24,10 @@ import { SalesCallbacksPanel } from "@/components/sales/SalesCallbacksPanel";
 import { SalesSettingsPanel } from "@/components/sales/SalesSettingsPanel";
 import { SalesStatsPanel } from "@/components/sales/SalesStatsPanel";
 import { useMyCallbacks, useSalesCategories } from "@/hooks/useSalesLeads";
-import { MainNavbar } from "@/components/MainNavbar";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { UserDropdown } from "@/components/UserDropdown";
+import LanguageSelector from "@/components/LanguageSelector";
+import { toast } from "sonner";
 
 export default function SalesPortal() {
   const navigate = useNavigate();
@@ -32,6 +35,9 @@ export default function SalesPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSalesUser, setIsSalesUser] = useState(false);
   const [showAddLead, setShowAddLead] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
   
   const tab = searchParams.get("tab") || "leads";
   const categoryFilter = searchParams.get("category") || "";
@@ -52,6 +58,8 @@ export default function SalesPortal() {
         return;
       }
       setIsAuthenticated(true);
+      setUserEmail(user.email || "");
+      setUserName(user.email?.split("@")[0] || "Użytkownik");
       
       // Check if user has sales role
       const { data: roles } = await supabase
@@ -65,10 +73,17 @@ export default function SalesPortal() {
         return;
       }
       setIsSalesUser(true);
+      setUserRole(roles[0].role === "sales_admin" ? "Admin Sprzedaży" : "Przedstawiciel");
     };
     
     checkAccess();
   }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Wylogowano pomyślnie");
+    navigate("/auth");
+  };
 
   if (!isAuthenticated || !isSalesUser) {
     return (
@@ -101,13 +116,30 @@ export default function SalesPortal() {
 
   return (
     <div className="min-h-screen bg-background">
-      <MainNavbar />
+      {/* Header */}
+      <header className="bg-gradient-hero text-primary-foreground p-4 sticky top-0 z-50 shadow-lg">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <UniversalHomeButton />
+            <div>
+              <h1 className="text-xl font-bold">Portal Sprzedaży</h1>
+              <p className="text-sm text-primary-foreground/80">Zarządzaj leadami i kontaktami</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <LanguageSelector />
+            <UserDropdown 
+              userName={userName}
+              userEmail={userEmail}
+              userRole={userRole}
+              onLogout={handleLogout}
+            />
+          </div>
+        </div>
+      </header>
+
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Portal Sprzedaży</h1>
-            <p className="text-muted-foreground">Zarządzaj leadami i kontaktami</p>
-          </div>
           <div className="flex items-center gap-2">
             {pendingCallbacksCount > 0 && (
               <Button 
@@ -115,7 +147,7 @@ export default function SalesPortal() {
                 onClick={() => handleTabChange("callbacks")}
                 className="gap-2"
               >
-                <Bell className="h-4 w-4 text-orange-500" />
+                <Bell className="h-4 w-4 text-destructive" />
                 <span>{pendingCallbacksCount} do oddzwonienia</span>
               </Button>
             )}
