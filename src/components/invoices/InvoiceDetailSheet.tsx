@@ -5,6 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
@@ -56,8 +58,55 @@ interface InvoiceDetailSheetProps {
 export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: InvoiceDetailSheetProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editData, setEditData] = useState({
+    buyer_name: '',
+    buyer_nip: '',
+    buyer_address: '',
+    notes: '',
+  });
 
   if (!invoice) return null;
+
+  const handleStartEdit = () => {
+    setEditData({
+      buyer_name: invoice.buyer_name || '',
+      buyer_nip: invoice.buyer_nip || '',
+      buyer_address: invoice.buyer_address || '',
+      notes: invoice.notes || '',
+    });
+    setIsEditMode(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+  };
+
+  const handleSaveEdit = async () => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('user_invoices')
+        .update({
+          buyer_name: editData.buyer_name,
+          buyer_nip: editData.buyer_nip,
+          buyer_address: editData.buyer_address,
+          notes: editData.notes,
+        })
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+
+      toast.success('Faktura została zaktualizowana');
+      setIsEditMode(false);
+      onUpdate();
+    } catch (err: any) {
+      console.error('Error updating invoice:', err);
+      toast.error('Błąd aktualizacji faktury: ' + (err.message || ''));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '—';
@@ -283,12 +332,46 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
               <Building2 className="h-3 w-3" />
               Nabywca
             </p>
-            <p className="font-medium text-sm">{invoice.buyer_name || '—'}</p>
-            {invoice.buyer_nip && (
-              <p className="text-xs text-muted-foreground">NIP: {invoice.buyer_nip}</p>
-            )}
-            {invoice.buyer_address && (
-              <p className="text-xs text-muted-foreground">{invoice.buyer_address}</p>
+            {isEditMode ? (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="buyer_name" className="text-xs">Nazwa nabywcy</Label>
+                  <Input
+                    id="buyer_name"
+                    value={editData.buyer_name}
+                    onChange={(e) => setEditData(prev => ({ ...prev, buyer_name: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="buyer_nip" className="text-xs">NIP</Label>
+                  <Input
+                    id="buyer_nip"
+                    value={editData.buyer_nip}
+                    onChange={(e) => setEditData(prev => ({ ...prev, buyer_nip: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="buyer_address" className="text-xs">Adres</Label>
+                  <Input
+                    id="buyer_address"
+                    value={editData.buyer_address}
+                    onChange={(e) => setEditData(prev => ({ ...prev, buyer_address: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="font-medium text-sm">{invoice.buyer_name || '—'}</p>
+                {invoice.buyer_nip && (
+                  <p className="text-xs text-muted-foreground">NIP: {invoice.buyer_nip}</p>
+                )}
+                {invoice.buyer_address && (
+                  <p className="text-xs text-muted-foreground">{invoice.buyer_address}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -311,56 +394,99 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
             </div>
           </div>
 
-          {invoice.notes && (
+          {/* Notes */}
+          {isEditMode ? (
             <>
               <Separator />
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Uwagi</p>
-                <p className="text-sm">{invoice.notes}</p>
+                <Label htmlFor="notes" className="text-xs">Uwagi</Label>
+                <Input
+                  id="notes"
+                  value={editData.notes}
+                  onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="h-8 text-sm"
+                />
               </div>
             </>
+          ) : (
+            invoice.notes && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Uwagi</p>
+                  <p className="text-sm">{invoice.notes}</p>
+                </div>
+              </>
+            )
           )}
         </div>
 
         {/* Actions */}
         <div className="space-y-2 pb-6">
-          <Button 
-            className="w-full" 
-            variant={invoice.is_paid ? 'outline' : 'default'}
-            onClick={handleMarkAsPaid}
-            disabled={isUpdating}
-          >
-            {isUpdating ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle className="h-4 w-4 mr-2" />
-            )}
-            {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
-          </Button>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
-              {isGeneratingPdf ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              Pobierz PDF
-            </Button>
-            <Button variant="outline" onClick={handleSendEmail}>
-              <Mail className="h-4 w-4 mr-2" />
-              Wyślij email
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={handleSetReminder}>
-              <Clock className="h-4 w-4 mr-2" />
-              Przypomnienie
-            </Button>
-            <Button variant="outline" disabled>
-              <Edit className="h-4 w-4 mr-2" />
-              Edytuj
-            </Button>
-          </div>
+          {isEditMode ? (
+            <>
+              <Button 
+                className="w-full" 
+                onClick={handleSaveEdit}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Zapisz zmiany
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleCancelEdit}
+                disabled={isUpdating}
+              >
+                Anuluj
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                className="w-full" 
+                variant={invoice.is_paid ? 'outline' : 'default'}
+                onClick={handleMarkAsPaid}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+                  {isGeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Pobierz PDF
+                </Button>
+                <Button variant="outline" onClick={handleSendEmail}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Wyślij email
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={handleSetReminder}>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Przypomnienie
+                </Button>
+                <Button variant="outline" onClick={handleStartEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edytuj
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

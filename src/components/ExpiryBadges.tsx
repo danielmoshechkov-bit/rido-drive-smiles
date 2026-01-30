@@ -224,7 +224,7 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
   return (
     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       {/* OC Policy */}
-      <Popover open={policyOpen} onOpenChange={setPolicyOpen}>
+      <Popover open={policyOpen} onOpenChange={setPolicyOpen} modal>
         <PopoverTrigger asChild>
           <Badge 
             className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(policyTo)}`}
@@ -233,7 +233,12 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
             OC: {formatDisplayDate(policyTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-[100]" align="start" onClick={(e) => e.stopPropagation()}>
+        <PopoverContent 
+          className="w-auto p-0 z-[100] pointer-events-auto" 
+          align="start" 
+          onClick={(e) => e.stopPropagation()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DatePickerWithNav
             selected={policyTo ? new Date(policyTo) : undefined}
             onSelect={(date) => saveDate("policy", date)}
@@ -243,7 +248,7 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
       </Popover>
 
       {/* Inspection */}
-      <Popover open={inspOpen} onOpenChange={setInspOpen}>
+      <Popover open={inspOpen} onOpenChange={setInspOpen} modal>
         <PopoverTrigger asChild>
           <Badge 
             className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(inspTo)}`}
@@ -252,7 +257,12 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
             Przegląd: {formatDisplayDate(inspTo)}
           </Badge>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-[100]" align="start" onClick={(e) => e.stopPropagation()}>
+        <PopoverContent 
+          className="w-auto p-0 z-[100] pointer-events-auto" 
+          align="start" 
+          onClick={(e) => e.stopPropagation()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DatePickerWithNav
             selected={inspTo ? new Date(inspTo) : undefined}
             onSelect={(date) => saveDate("insp", date)}
