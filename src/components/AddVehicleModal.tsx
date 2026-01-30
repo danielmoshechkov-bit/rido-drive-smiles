@@ -140,12 +140,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Dodaj pojazd</DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 pb-4">
+        <div className="overflow-y-auto flex-1 pb-4 pr-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Nr rejestracyjny *</Label>
