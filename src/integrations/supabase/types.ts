@@ -7182,6 +7182,334 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_call_logs: {
+        Row: {
+          call_date: string | null
+          call_status: string
+          callback_date: string | null
+          contact_id: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          lead_id: string
+          notes: string | null
+          outcome: string | null
+          user_id: string
+        }
+        Insert: {
+          call_date?: string | null
+          call_status: string
+          callback_date?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_id: string
+          notes?: string | null
+          outcome?: string | null
+          user_id: string
+        }
+        Update: {
+          call_date?: string | null
+          call_status?: string
+          callback_date?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          outcome?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_call_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "sales_lead_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_daily_stats: {
+        Row: {
+          calls_answered: number | null
+          calls_made: number | null
+          created_at: string | null
+          emails_sent: number | null
+          id: string
+          leads_added: number | null
+          registrations: number | null
+          stat_date: string
+          user_id: string
+        }
+        Insert: {
+          calls_answered?: number | null
+          calls_made?: number | null
+          created_at?: string | null
+          emails_sent?: number | null
+          id?: string
+          leads_added?: number | null
+          registrations?: number | null
+          stat_date?: string
+          user_id: string
+        }
+        Update: {
+          calls_answered?: number | null
+          calls_made?: number | null
+          created_at?: string | null
+          emails_sent?: number | null
+          id?: string
+          leads_added?: number | null
+          registrations?: number | null
+          stat_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sales_invitations: {
+        Row: {
+          clicked_at: string | null
+          contact_id: string | null
+          id: string
+          lead_id: string
+          opened_at: string | null
+          registered_at: string | null
+          reminder_sent_at: string | null
+          sent_at: string | null
+          sent_by: string
+          sent_to_email: string
+          template_type: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          contact_id?: string | null
+          id?: string
+          lead_id: string
+          opened_at?: string | null
+          registered_at?: string | null
+          reminder_sent_at?: string | null
+          sent_at?: string | null
+          sent_by: string
+          sent_to_email: string
+          template_type?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          contact_id?: string | null
+          id?: string
+          lead_id?: string
+          opened_at?: string | null
+          registered_at?: string | null
+          reminder_sent_at?: string | null
+          sent_at?: string | null
+          sent_by?: string
+          sent_to_email?: string
+          template_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invitations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "sales_lead_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invitations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_lead_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      sales_lead_contacts: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_primary: boolean | null
+          lead_id: string
+          notes: string | null
+          phone: string | null
+          position: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_primary?: boolean | null
+          lead_id: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_primary?: boolean | null
+          lead_id?: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_lead_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_leads: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          category_id: string | null
+          city: string | null
+          company_name: string
+          created_at: string | null
+          created_by: string
+          email: string | null
+          id: string
+          nip: string | null
+          notes: string | null
+          phone: string
+          registered_at: string | null
+          registered_user_id: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          category_id?: string | null
+          city?: string | null
+          company_name: string
+          created_at?: string | null
+          created_by: string
+          email?: string | null
+          id?: string
+          nip?: string | null
+          notes?: string | null
+          phone: string
+          registered_at?: string | null
+          registered_user_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          category_id?: string | null
+          city?: string | null
+          company_name?: string
+          created_at?: string | null
+          created_by?: string
+          email?: string | null
+          id?: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string
+          registered_at?: string | null
+          registered_user_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_leads_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "sales_lead_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_user_settings: {
+        Row: {
+          created_at: string | null
+          daily_call_target: number | null
+          is_active: boolean | null
+          phone_extension: string | null
+          updated_at: string | null
+          user_id: string
+          work_email: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_call_target?: number | null
+          is_active?: boolean | null
+          phone_extension?: string | null
+          updated_at?: string | null
+          user_id: string
+          work_email?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_call_target?: number | null
+          is_active?: boolean | null
+          phone_extension?: string | null
+          updated_at?: string | null
+          user_id?: string
+          work_email?: string | null
+        }
+        Relationships: []
+      }
       service_booking_status_history: {
         Row: {
           booking_id: string | null
@@ -10143,6 +10471,8 @@ export type Database = {
       is_driver_user: { Args: never; Returns: boolean }
       is_entity_owner: { Args: { p_entity_id: string }; Returns: boolean }
       is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
+      is_sales_admin: { Args: { p_user_id: string }; Returns: boolean }
+      is_sales_user: { Args: { p_user_id: string }; Returns: boolean }
       link_auth_user_to_driver: {
         Args: { p_driver_id: string; p_user_id: string }
         Returns: undefined
@@ -10186,6 +10516,8 @@ export type Database = {
         | "real_estate_agent"
         | "accounting_admin"
         | "accountant"
+        | "sales_admin"
+        | "sales_rep"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -10324,6 +10656,8 @@ export const Constants = {
         "real_estate_agent",
         "accounting_admin",
         "accountant",
+        "sales_admin",
+        "sales_rep",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
