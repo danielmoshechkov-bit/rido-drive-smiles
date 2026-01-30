@@ -169,7 +169,7 @@ export function CarBrandModelSelector({
         </div>
 
         {showBrandDropdown && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-[200] w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredBrands.length > 0 ? (
               filteredBrands.map((b) => (
                 <button
@@ -228,7 +228,7 @@ export function CarBrandModelSelector({
         </div>
 
         {showModelDropdown && selectedBrandId && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-[200] w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredModels.length > 0 ? (
               filteredModels.map((m) => (
                 <button
