@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, UserPlus } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddFleetDriverModalProps {
   isOpen: boolean;
@@ -31,6 +32,11 @@ export function AddFleetDriverModal({
     last_name: '',
     email: '',
     phone: '',
+    pesel: '',
+    address_street: '',
+    address_city: '',
+    address_postal_code: '',
+    license_number: '',
     getrido_id: '',
     uber_id: '',
     bolt_id: '',
@@ -42,11 +48,7 @@ export function AddFleetDriverModal({
     e.preventDefault();
 
     if (!formData.first_name.trim() || !formData.last_name.trim()) {
-      toast({
-        title: 'Błąd',
-        description: 'Imię i nazwisko są wymagane',
-        variant: 'destructive',
-      });
+      toast.error('Imię i nazwisko są wymagane');
       return;
     }
 
@@ -77,11 +79,7 @@ export function AddFleetDriverModal({
       }
 
       if (!cityId) {
-        toast({
-          title: 'Błąd',
-          description: 'Brak skonfigurowanego miasta w systemie',
-          variant: 'destructive',
-        });
+        toast.error('Brak skonfigurowanego miasta w systemie');
         setLoading(false);
         return;
       }
@@ -94,6 +92,11 @@ export function AddFleetDriverModal({
           last_name: formData.last_name.trim(),
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
+          pesel: formData.pesel.trim() || null,
+          address_street: formData.address_street.trim() || null,
+          address_city: formData.address_city.trim() || null,
+          address_postal_code: formData.address_postal_code.trim() || null,
+          license_number: formData.license_number.trim() || null,
           getrido_id: formData.getrido_id.trim() || null,
           iban: formData.iban.trim() || null,
           fleet_id: fleetId,
@@ -124,20 +127,12 @@ export function AddFleetDriverModal({
           is_active: true,
         });
 
-      toast({
-        title: 'Sukces',
-        description: 'Kierowca został dodany',
-      });
-
+      toast.success('Kierowca został dodany');
       onSuccess(driver.id);
       handleClose();
     } catch (error) {
       console.error('Error adding driver:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się dodać kierowcy',
-        variant: 'destructive',
-      });
+      toast.error('Nie udało się dodać kierowcy');
     } finally {
       setLoading(false);
     }
@@ -149,6 +144,11 @@ export function AddFleetDriverModal({
       last_name: '',
       email: '',
       phone: '',
+      pesel: '',
+      address_street: '',
+      address_city: '',
+      address_postal_code: '',
+      license_number: '',
       getrido_id: '',
       uber_id: '',
       bolt_id: '',
@@ -160,112 +160,175 @@ export function AddFleetDriverModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
             Dodaj kierowcę
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
-          <div className="grid grid-cols-2 gap-4">
+        <ScrollArea className="flex-1 px-6">
+          <form id="add-driver-form" onSubmit={handleSubmit} className="space-y-4 pb-4">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">Imię <span className="text-destructive">*</span></Label>
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={e => setFormData({ ...formData, first_name: e.target.value })}
+                  placeholder="Jan"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Nazwisko <span className="text-destructive">*</span></Label>
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={e => setFormData({ ...formData, last_name: e.target.value })}
+                  placeholder="Kowalski"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Contact */}
             <div className="space-y-2">
-              <Label htmlFor="first_name">Imię <span className="text-destructive">*</span></Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="first_name"
-                value={formData.first_name}
-                onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                placeholder="Jan"
-                required
-                className="w-full"
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                placeholder="jan@example.com"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="last_name">Nazwisko <span className="text-destructive">*</span></Label>
+              <Label htmlFor="phone">Telefon</Label>
               <Input
-                id="last_name"
-                value={formData.last_name}
-                onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                placeholder="Kowalski"
-                required
-                className="w-full"
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+48 123 456 789"
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={e => setFormData({ ...formData, email: e.target.value })}
-              placeholder="jan@example.com"
-            />
-          </div>
+            {/* Personal data for contract */}
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Dane do umowy (opcjonalne)</p>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pesel">PESEL</Label>
+                  <Input
+                    id="pesel"
+                    value={formData.pesel}
+                    onChange={e => setFormData({ ...formData, pesel: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                    placeholder="00000000000"
+                    maxLength={11}
+                    className="font-mono"
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefon</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={e => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+48 123 456 789"
-            />
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="license_number">Numer prawa jazdy</Label>
+                  <Input
+                    id="license_number"
+                    value={formData.license_number}
+                    onChange={e => setFormData({ ...formData, license_number: e.target.value.toUpperCase() })}
+                    placeholder="np. ABC123456"
+                    className="uppercase"
+                  />
+                </div>
 
-          {/* Platform IDs */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Identyfikatory platform (opcjonalne)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="GetRido ID"
-                value={formData.getrido_id}
-                onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
-              />
-              <Input
-                placeholder="Uber ID"
-                value={formData.uber_id}
-                onChange={e => setFormData({ ...formData, uber_id: e.target.value })}
-              />
-              <Input
-                placeholder="Bolt ID"
-                value={formData.bolt_id}
-                onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
-              />
-              <Input
-                placeholder="FreeNow ID"
-                value={formData.freenow_id}
-                onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
-              />
+                <div className="space-y-2">
+                  <Label htmlFor="address_street">Ulica i numer</Label>
+                  <Input
+                    id="address_street"
+                    value={formData.address_street}
+                    onChange={e => setFormData({ ...formData, address_street: e.target.value })}
+                    placeholder="np. ul. Przykładowa 10/5"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address_postal_code">Kod pocztowy</Label>
+                    <Input
+                      id="address_postal_code"
+                      value={formData.address_postal_code}
+                      onChange={e => setFormData({ ...formData, address_postal_code: e.target.value })}
+                      placeholder="00-000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address_city">Miasto</Label>
+                    <Input
+                      id="address_city"
+                      value={formData.address_city}
+                      onChange={e => setFormData({ ...formData, address_city: e.target.value })}
+                      placeholder="Warszawa"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* IBAN */}
-          <div className="space-y-2">
-            <Label htmlFor="iban">Numer konta (IBAN)</Label>
-            <Input
-              id="iban"
-              value={formData.iban}
-              onChange={e => setFormData({ ...formData, iban: e.target.value })}
-              placeholder="PL00 0000 0000 0000 0000 0000 0000"
-              className="font-mono"
-            />
-            <p className="text-xs text-muted-foreground">Konto do wypłat dla kierowcy</p>
-          </div>
+            {/* Platform IDs */}
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Identyfikatory platform (opcjonalne)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="GetRido ID"
+                  value={formData.getrido_id}
+                  onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
+                />
+                <Input
+                  placeholder="Uber ID"
+                  value={formData.uber_id}
+                  onChange={e => setFormData({ ...formData, uber_id: e.target.value })}
+                />
+                <Input
+                  placeholder="Bolt ID"
+                  value={formData.bolt_id}
+                  onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
+                />
+                <Input
+                  placeholder="FreeNow ID"
+                  value={formData.freenow_id}
+                  onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
+                />
+              </div>
+            </div>
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
-              Anuluj
-            </Button>
-            <Button type="submit" disabled={loading} className="flex-1">
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Dodaj
-            </Button>
-          </div>
-        </form>
+            {/* IBAN */}
+            <div className="space-y-2">
+              <Label htmlFor="iban">Numer konta (IBAN)</Label>
+              <Input
+                id="iban"
+                value={formData.iban}
+                onChange={e => setFormData({ ...formData, iban: e.target.value })}
+                placeholder="PL00 0000 0000 0000 0000 0000 0000"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">Konto do wypłat dla kierowcy</p>
+            </div>
+          </form>
+        </ScrollArea>
+
+        <div className="flex gap-3 p-6 pt-4 border-t bg-background">
+          <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
+            Anuluj
+          </Button>
+          <Button type="submit" form="add-driver-form" disabled={loading} className="flex-1">
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Dodaj
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

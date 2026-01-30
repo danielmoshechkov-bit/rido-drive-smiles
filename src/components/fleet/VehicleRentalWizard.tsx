@@ -30,6 +30,8 @@ import {
 import { cn } from "@/lib/utils";
 import { AddVehicleModal } from "@/components/AddVehicleModal";
 import { AddFleetDriverModal } from "./AddFleetDriverModal";
+import { EditDriverDataModal } from "./EditDriverDataModal";
+import { Pencil } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -108,6 +110,7 @@ export function VehicleRentalWizard({
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [driverSearch, setDriverSearch] = useState("");
   const [showAddDriver, setShowAddDriver] = useState(false);
+  const [showEditDriver, setShowEditDriver] = useState(false);
   const [driverMissingFields, setDriverMissingFields] = useState<string[]>([]);
   
   // Step 5: Weekly fee
@@ -406,51 +409,65 @@ export function VehicleRentalWizard({
                         Brak dostępnych pojazdów
                       </p>
                     ) : (
-                      filteredVehicles.map(vehicle => (
-                        <Card 
-                          key={vehicle.id}
-                          className={cn(
-                            "cursor-pointer transition-colors hover:bg-accent",
-                            selectedVehicle?.id === vehicle.id && "ring-2 ring-primary bg-primary/5",
-                            vehicle.is_rented && "opacity-70"
-                          )}
-                          onClick={() => {
-                            if (vehicle.is_rented) {
-                              toast.warning("Ten pojazd jest już wynajęty. Wybór spowoduje odłączenie obecnego kierowcy.", {
-                                duration: 4000
-                              });
-                            }
-                            setSelectedVehicle(vehicle);
-                            if (vehicle.weekly_rental_fee) {
-                              setWeeklyFee(vehicle.weekly_rental_fee.toString());
-                            }
-                          }}
-                        >
-                          <CardContent className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <Car className="h-8 w-8 text-muted-foreground" />
-                              <div>
-                                <p className="font-semibold">{vehicle.plate}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {vehicle.brand} {vehicle.model} {vehicle.year && `(${vehicle.year})`}
-                                </p>
+                      filteredVehicles.map(vehicle => {
+                        const isSelected = selectedVehicle?.id === vehicle.id;
+                        return (
+                          <Card 
+                            key={vehicle.id}
+                            className={cn(
+                              "cursor-pointer transition-all border-2",
+                              isSelected 
+                                ? "ring-2 ring-primary border-primary bg-primary/10 shadow-md" 
+                                : "border-transparent hover:bg-accent hover:border-accent",
+                              vehicle.is_rented && !isSelected && "opacity-70"
+                            )}
+                            onClick={() => {
+                              if (vehicle.is_rented) {
+                                toast.warning("Ten pojazd jest już wynajęty. Wybór spowoduje odłączenie obecnego kierowcy.", {
+                                  duration: 4000
+                                });
+                              }
+                              setSelectedVehicle(vehicle);
+                              if (vehicle.weekly_rental_fee) {
+                                setWeeklyFee(vehicle.weekly_rental_fee.toString());
+                              }
+                            }}
+                          >
+                            <CardContent className="p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "flex items-center justify-center w-10 h-10 rounded-full",
+                                  isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                                )}>
+                                  {isSelected ? (
+                                    <Check className="h-5 w-5" />
+                                  ) : (
+                                    <Car className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className={cn("font-semibold", isSelected && "text-primary")}>{vehicle.plate}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {vehicle.brand} {vehicle.model} {vehicle.year && `(${vehicle.year})`}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {vehicle.is_rented && (
-                                <Badge variant="destructive" className="text-xs">
-                                  Wynajęty
-                                </Badge>
-                              )}
-                              {vehicle.weekly_rental_fee && (
-                                <Badge variant="secondary">
-                                  {vehicle.weekly_rental_fee} zł/tydz.
-                                </Badge>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
+                              <div className="flex items-center gap-2">
+                                {vehicle.is_rented && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Wynajęty
+                                  </Badge>
+                                )}
+                                {vehicle.weekly_rental_fee && (
+                                  <Badge variant="secondary">
+                                    {vehicle.weekly_rental_fee} zł/tydz.
+                                  </Badge>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -600,7 +617,7 @@ export function VehicleRentalWizard({
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-destructive">Brakujące dane kierowcy:</p>
                           <ul className="text-sm text-destructive/80 list-disc ml-4 mt-1">
                             {driverMissingFields.map(field => (
@@ -611,6 +628,15 @@ export function VehicleRentalWizard({
                             Uzupełnij dane kierowcy, aby kontynuować.
                           </p>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => setShowEditDriver(true)}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Uzupełnij dane
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -799,6 +825,21 @@ export function VehicleRentalWizard({
           setShowAddDriver(false);
         }}
       />
+
+      {/* Edit Driver Modal */}
+      {selectedDriver && (
+        <EditDriverDataModal
+          isOpen={showEditDriver}
+          onClose={() => setShowEditDriver(false)}
+          driver={selectedDriver}
+          missingFields={driverMissingFields}
+          onSuccess={(updatedDriver) => {
+            setSelectedDriver(updatedDriver);
+            setDriverMissingFields(validateDriver(updatedDriver));
+            loadDrivers();
+          }}
+        />
+      )}
     </>
   );
 }

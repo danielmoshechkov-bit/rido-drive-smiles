@@ -149,12 +149,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-4 sm:p-6">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-4 sm:p-6 pb-0">
           <DialogTitle>Dodaj pojazd</DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 pb-4 pr-1">
+        <div className="overflow-y-auto flex-1 px-4 sm:px-6 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Nr rejestracyjny *</Label>
@@ -297,7 +297,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
         </div>
 
-        <DialogFooter className="border-t pt-4 shrink-0">
+        <DialogFooter className="border-t p-4 sm:p-6 pt-4 shrink-0 bg-background">
           <Button variant="outline" onClick={onClose}>Anuluj</Button>
           <Button onClick={handleSave} disabled={loading}>{loading ? "Zapisywanie..." : "Zapisz pojazd"}</Button>
         </DialogFooter>
