@@ -261,11 +261,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${safeFileName}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     @page { margin: ${pageMargin}; size: A4; }
     @media print {
       html, body { height: 100%; margin: 0 !important; padding: 0 !important; }
       .invoice { max-width: 100%; page-break-inside: avoid; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      th { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; }
+      .totals-row.grand { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; }
+      .vat-header { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; }
     }
     body { 
       font-family: Arial, sans-serif; 
@@ -292,14 +296,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .party-name { font-size: 10px; font-weight: bold; margin-bottom: 1px; }
     .party-details { font-size: 8px; color: #555; line-height: 1.3; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    th { background: #7c3aed; color: white; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; }
+    th { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     th:first-child { border-radius: 3px 0 0 0; }
     th:last-child { border-radius: 0 3px 0 0; }
     .vat-summary { margin-bottom: 8px; font-size: 8px; }
+    .vat-header { background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
     .totals-table { width: 180px; }
     .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
-    .totals-row.grand { border-bottom: none; background: #7c3aed; color: white; padding: 5px 6px; border-radius: 3px; font-size: 10px; margin-top: 2px; }
+    .totals-row.grand { border-bottom: none; background: #7c3aed !important; background-color: #7c3aed !important; color: white !important; padding: 5px 6px; border-radius: 3px; font-size: 11px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .amount-words { display: flex; gap: 4px; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid #7c3aed; border-radius: 2px; font-size: 8px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
@@ -355,15 +360,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     <table>
       <thead>
         <tr>
-          <th style="width: 22px;">Lp.</th>
-          <th>Nazwa towaru / usługi</th>
-          <th style="width: 32px;">Jm.</th>
-          <th style="width: 35px;">Ilość</th>
-          <th style="width: 60px;">Cena netto</th>
-          <th style="width: 65px;">Wart. netto</th>
-          <th style="width: 35px;">VAT</th>
-          <th style="width: 55px;">Kwota VAT</th>
-          <th style="width: 70px;">Wart. brutto</th>
+          <th style="width: 22px; background-color: #7c3aed !important; color: #ffffff !important;">Lp.</th>
+          <th style="background-color: #7c3aed !important; color: #ffffff !important;">Nazwa towaru / usługi</th>
+          <th style="width: 32px; background-color: #7c3aed !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 35px; background-color: #7c3aed !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 60px; background-color: #7c3aed !important; color: #ffffff !important;">Cena netto</th>
+          <th style="width: 65px; background-color: #7c3aed !important; color: #ffffff !important;">Wart. netto</th>
+          <th style="width: 35px; background-color: #7c3aed !important; color: #ffffff !important;">VAT</th>
+          <th style="width: 55px; background-color: #7c3aed !important; color: #ffffff !important;">Kwota VAT</th>
+          <th style="width: 70px; background-color: #7c3aed !important; color: #ffffff !important;">Wart. brutto</th>
         </tr>
       </thead>
       <tbody>
@@ -375,27 +380,27 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
       <table style="width: 60%; max-width: 350px; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
         <thead>
-          <tr style="background: #f5f5f5;">
-            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Stawka</th>
-            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Netto</th>
-            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">VAT</th>
-            <th style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 600; color: #333; border-bottom: 1px solid #ddd;">Brutto</th>
+          <tr class="vat-header" style="background-color: #7c3aed !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: #7c3aed !important;">Stawka</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: #7c3aed !important;">Netto</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: #7c3aed !important;">VAT</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: #7c3aed !important;">Brutto</th>
           </tr>
         </thead>
         <tbody>
           ${Object.entries(vatSummary).map(([rate, amounts]) => `
-            <tr>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${rate}%</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.gross, currency)}</td>
+            <tr style="background-color: #f8f5ff;">
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
             </tr>
           `).join('')}
-          <tr style="border-top: 1px solid #ddd;">
-            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">Razem:</td>
-            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
-            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
-            <td style="width: 25%; padding: 3px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(grossTotal, currency)}</td>
+          <tr style="border-top: 2px solid #7c3aed; background-color: #ede9fe;">
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #7c3aed;">Razem:</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #7c3aed;">${formatCurrency(grossTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
@@ -411,9 +416,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <span>VAT:</span>
           <span style="font-weight: bold;">${formatCurrency(vatTotal, currency)}</span>
         </div>
-        <div class="totals-row grand">
-          <span>DO ZAPŁATY:</span>
-          <span style="font-weight: bold;">${formatCurrency(grossTotal, currency)}</span>
+        <div class="totals-row grand" style="background-color: #7c3aed !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+          <span style="color: #ffffff !important; font-weight: bold;">DO ZAPŁATY:</span>
+          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(grossTotal, currency)}</span>
         </div>
         ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
