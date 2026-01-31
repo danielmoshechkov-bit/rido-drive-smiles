@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle } from "lucide-react";
+import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle, ShoppingBag, Briefcase } from "lucide-react";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
@@ -18,9 +18,11 @@ interface AccountSwitcherPanelProps {
   isMarketplaceAccount: boolean;
   isRealEstateAccount?: boolean;
   isAdminAccount?: boolean;
-  isClientPortal?: boolean; // New prop - everyone has client portal access
+  isClientPortal?: boolean;
+  isSalesAdmin?: boolean;
+  isSalesRep?: boolean;
   isMarketplaceEnabled: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client';
+  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
 }
@@ -31,7 +33,9 @@ export function AccountSwitcherPanel({
   isMarketplaceAccount,
   isRealEstateAccount = false,
   isAdminAccount = false,
-  isClientPortal = true, // Default to true - everyone has access
+  isClientPortal = true,
+  isSalesAdmin = false,
+  isSalesRep = false,
   isMarketplaceEnabled,
   currentAccountType,
   navigate,
@@ -40,8 +44,9 @@ export function AccountSwitcherPanel({
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
+  const hasSalesAccess = isSalesAdmin || isSalesRep;
 
-  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client') => {
+  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales') => {
     if (type === currentAccountType) return;
     
     switch (type) {
@@ -62,6 +67,9 @@ export function AccountSwitcherPanel({
         break;
       case 'client':
         navigate('/klient');
+        break;
+      case 'sales':
+        navigate('/sprzedaz');
         break;
     }
   };
@@ -92,6 +100,24 @@ export function AccountSwitcherPanel({
               <Globe className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'admin' ? 'text-primary' : 'text-muted-foreground'}`} />
               <p className="font-medium text-sm">Administrator</p>
               {currentAccountType === 'admin' && (
+                <Badge className="mt-2 text-xs">aktywne</Badge>
+              )}
+            </div>
+          )}
+
+          {/* Sales account */}
+          {hasSalesAccess && (
+            <div 
+              className={`border-2 rounded-xl p-4 text-center transition-colors ${
+                currentAccountType === 'sales' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border cursor-pointer hover:bg-muted'
+              }`}
+              onClick={() => handleAccountClick('sales')}
+            >
+              <Briefcase className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'sales' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <p className="font-medium text-sm">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
+              {currentAccountType === 'sales' && (
                 <Badge className="mt-2 text-xs">aktywne</Badge>
               )}
             </div>

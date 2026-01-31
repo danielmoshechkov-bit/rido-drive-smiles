@@ -58,6 +58,8 @@ const DriverDashboard = () => {
   const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
   const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
   const [isAdminAccount, setIsAdminAccount] = useState(false);
+  const [isSalesAdmin, setIsSalesAdmin] = useState(false);
+  const [isSalesRep, setIsSalesRep] = useState(false);
 
   // Check for other account types
   useEffect(() => {
@@ -100,6 +102,17 @@ const DriverDashboard = () => {
         .eq("user_id", session.user.id)
         .in("role", ["real_estate_agent", "real_estate_admin"]);
       setIsRealEstateAccount(!!realEstateRoles && realEstateRoles.length > 0);
+
+      // Check for sales accounts
+      const { data: salesRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["sales_admin", "sales_rep"]);
+      if (salesRoles) {
+        setIsSalesAdmin(salesRoles.some((r: any) => r.role === 'sales_admin'));
+        setIsSalesRep(salesRoles.some((r: any) => r.role === 'sales_rep'));
+      }
     };
     checkAccounts();
   }, []);
@@ -700,6 +713,8 @@ const DriverDashboard = () => {
             isMarketplaceAccount={isMarketplaceAccount}
             isRealEstateAccount={isRealEstateAccount}
             isAdminAccount={isAdminAccount}
+            isSalesAdmin={isSalesAdmin}
+            isSalesRep={isSalesRep}
             isClientPortal={true}
             isMarketplaceEnabled={isMarketplaceEnabled}
             currentAccountType="driver"

@@ -102,6 +102,8 @@ export default function ClientPortal() {
   const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
   const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
   const [isAdminAccount, setIsAdminAccount] = useState(false);
+  const [isSalesAdmin, setIsSalesAdmin] = useState(false);
+  const [isSalesRep, setIsSalesRep] = useState(false);
   
   // User listings
   const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
@@ -182,6 +184,7 @@ export default function ClientPortal() {
       checkMarketplaceAccount(currentUser.id),
       checkRealEstateAccount(currentUser.id),
       checkAdminAccount(currentUser.id),
+      checkSalesAccount(currentUser.id),
       fetchUserListings(currentUser.id),
       fetchUserFavorites(currentUser.id),
       fetchUserEntities(currentUser.id),
@@ -235,6 +238,18 @@ export default function ClientPortal() {
       .eq('role', 'admin')
       .maybeSingle();
     setIsAdminAccount(!!data);
+  };
+
+  const checkSalesAccount = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['sales_admin', 'sales_rep']);
+    if (data) {
+      setIsSalesAdmin(data.some((r: any) => r.role === 'sales_admin'));
+      setIsSalesRep(data.some((r: any) => r.role === 'sales_rep'));
+    }
   };
 
   const fetchUserListings = async (userId: string) => {
@@ -1235,6 +1250,8 @@ export default function ClientPortal() {
               isMarketplaceAccount={isMarketplaceAccount}
               isRealEstateAccount={isRealEstateAccount}
               isAdminAccount={isAdminAccount}
+              isSalesAdmin={isSalesAdmin}
+              isSalesRep={isSalesRep}
               isClientPortal={true}
               isMarketplaceEnabled={true}
               currentAccountType="client"

@@ -331,14 +331,22 @@ export function VehicleRentalWizard({
     resetForm();
   };
 
+  // Allow clicking on completed steps to navigate back
+  const handleStepClick = (stepId: number) => {
+    // Only allow going back to completed steps
+    if (stepId < currentStep) {
+      setCurrentStep(stepId);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-4 border-b">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle className="text-xl">Wynajmij pojazd</DialogTitle>
             
-            {/* Progress steps */}
+            {/* Progress steps - clickable for completed steps */}
             <div className="flex items-center justify-between mt-4">
               {STEPS.map((step, index) => (
                 <div key={step.id} className="flex items-center">
@@ -348,9 +356,10 @@ export function VehicleRentalWizard({
                       currentStep === step.id 
                         ? "bg-primary border-primary text-primary-foreground" 
                         : currentStep > step.id
-                          ? "bg-primary/20 border-primary text-primary"
+                          ? "bg-primary/20 border-primary text-primary cursor-pointer hover:bg-primary/30"
                           : "border-muted-foreground/30 text-muted-foreground"
                     )}
+                    onClick={() => handleStepClick(step.id)}
                   >
                     {currentStep > step.id ? (
                       <Check className="h-5 w-5" />
@@ -358,10 +367,14 @@ export function VehicleRentalWizard({
                       <step.icon className="h-5 w-5" />
                     )}
                   </div>
-                  <span className={cn(
-                    "ml-2 text-sm font-medium hidden sm:inline",
-                    currentStep === step.id ? "text-foreground" : "text-muted-foreground"
-                  )}>
+                  <span 
+                    className={cn(
+                      "ml-2 text-sm font-medium hidden sm:inline",
+                      currentStep === step.id ? "text-foreground" : "text-muted-foreground",
+                      currentStep > step.id && "cursor-pointer hover:text-foreground"
+                    )}
+                    onClick={() => handleStepClick(step.id)}
+                  >
                     {step.title}
                   </span>
                   {index < STEPS.length - 1 && (
@@ -375,7 +388,8 @@ export function VehicleRentalWizard({
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 p-6">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-6">
             {/* Step 1: Vehicle Selection */}
             {currentStep === 1 && (
               <div className="space-y-4">
@@ -772,6 +786,7 @@ export function VehicleRentalWizard({
                 </Card>
               </div>
             )}
+            </div>
           </ScrollArea>
 
           {/* Footer with navigation */}
