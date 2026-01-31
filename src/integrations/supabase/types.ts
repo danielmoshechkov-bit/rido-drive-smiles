@@ -384,6 +384,255 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_agent_calendar_slots: {
+        Row: {
+          booking_notes: string | null
+          call_id: string | null
+          config_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          end_time: string
+          id: string
+          lead_id: string | null
+          reminder_sent: boolean | null
+          slot_date: string
+          start_time: string
+          status: string | null
+        }
+        Insert: {
+          booking_notes?: string | null
+          call_id?: string | null
+          config_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          end_time: string
+          id?: string
+          lead_id?: string | null
+          reminder_sent?: boolean | null
+          slot_date: string
+          start_time: string
+          status?: string | null
+        }
+        Update: {
+          booking_notes?: string | null
+          call_id?: string | null
+          config_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          lead_id?: string | null
+          reminder_sent?: boolean | null
+          slot_date?: string
+          start_time?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_calendar_slots_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_calendar_slots_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_calendar_slots_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_calls: {
+        Row: {
+          ai_summary: string | null
+          booking_slot_id: string | null
+          call_sid: string | null
+          call_status: string | null
+          config_id: string
+          cost_minutes: number | null
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          lead_id: string | null
+          outcome: string | null
+          sentiment: string | null
+          started_at: string | null
+          tokens_used: number | null
+          transcript: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          booking_slot_id?: string | null
+          call_sid?: string | null
+          call_status?: string | null
+          config_id: string
+          cost_minutes?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          sentiment?: string | null
+          started_at?: string | null
+          tokens_used?: number | null
+          transcript?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          booking_slot_id?: string | null
+          call_sid?: string | null
+          call_status?: string | null
+          config_id?: string
+          cost_minutes?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          sentiment?: string | null
+          started_at?: string | null
+          tokens_used?: number | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_calls_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_calls_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_configs: {
+        Row: {
+          booking_rules: Json | null
+          company_description: string | null
+          company_name: string
+          conversation_style: string | null
+          created_at: string | null
+          faq: Json | null
+          id: string
+          is_active: boolean | null
+          max_calls_per_day: number | null
+          max_minutes_per_month: number | null
+          max_retries_per_lead: number | null
+          service_area: string | null
+          services: Json | null
+          updated_at: string | null
+          user_id: string
+          voice_gender: string | null
+          voice_id: string | null
+          working_hours: Json | null
+        }
+        Insert: {
+          booking_rules?: Json | null
+          company_description?: string | null
+          company_name: string
+          conversation_style?: string | null
+          created_at?: string | null
+          faq?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_calls_per_day?: number | null
+          max_minutes_per_month?: number | null
+          max_retries_per_lead?: number | null
+          service_area?: string | null
+          services?: Json | null
+          updated_at?: string | null
+          user_id: string
+          voice_gender?: string | null
+          voice_id?: string | null
+          working_hours?: Json | null
+        }
+        Update: {
+          booking_rules?: Json | null
+          company_description?: string | null
+          company_name?: string
+          conversation_style?: string | null
+          created_at?: string | null
+          faq?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_calls_per_day?: number | null
+          max_minutes_per_month?: number | null
+          max_retries_per_lead?: number | null
+          service_area?: string | null
+          services?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          voice_gender?: string | null
+          voice_id?: string | null
+          working_hours?: Json | null
+        }
+        Relationships: []
+      }
+      ai_agent_usage: {
+        Row: {
+          bookings_count: number | null
+          calls_count: number | null
+          config_id: string
+          created_at: string | null
+          id: string
+          is_limit_reached: boolean | null
+          minutes_used: number | null
+          month: string
+          tokens_used: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bookings_count?: number | null
+          calls_count?: number | null
+          config_id: string
+          created_at?: string | null
+          id?: string
+          is_limit_reached?: boolean | null
+          minutes_used?: number | null
+          month: string
+          tokens_used?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bookings_count?: number | null
+          calls_count?: number | null
+          config_id?: string
+          created_at?: string | null
+          id?: string
+          is_limit_reached?: boolean | null
+          minutes_used?: number | null
+          month?: string
+          tokens_used?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_usage_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversation_sessions: {
         Row: {
           context: Json | null
@@ -7412,6 +7661,10 @@ export type Database = {
       sales_leads: {
         Row: {
           address: string | null
+          ai_call_status: string | null
+          ai_consent: boolean | null
+          ai_last_call_at: string | null
+          ai_preferred_time: string | null
           assigned_to: string | null
           category_id: string | null
           city: string | null
@@ -7432,6 +7685,10 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          ai_call_status?: string | null
+          ai_consent?: boolean | null
+          ai_last_call_at?: string | null
+          ai_preferred_time?: string | null
           assigned_to?: string | null
           category_id?: string | null
           city?: string | null
@@ -7452,6 +7709,10 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          ai_call_status?: string | null
+          ai_consent?: boolean | null
+          ai_last_call_at?: string | null
+          ai_preferred_time?: string | null
           assigned_to?: string | null
           category_id?: string | null
           city?: string | null

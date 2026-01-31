@@ -21,7 +21,8 @@ import {
   Wrench,
   Bell,
   Menu,
-  ChevronDown
+  ChevronDown,
+  Bot
 } from "lucide-react";
 import { SalesLeadsList } from "@/components/sales/SalesLeadsList";
 import { SalesLeadForm } from "@/components/sales/SalesLeadForm";
@@ -29,6 +30,7 @@ import { SalesCallbacksPanel } from "@/components/sales/SalesCallbacksPanel";
 import { SalesSettingsPanel } from "@/components/sales/SalesSettingsPanel";
 import { SalesStatsPanel } from "@/components/sales/SalesStatsPanel";
 import { SalesCalendar } from "@/components/sales/SalesCalendar";
+import { AIAgentDashboard } from "@/components/sales/ai-agent/AIAgentDashboard";
 import { useMyCallbacks, useSalesCategories } from "@/hooks/useSalesLeads";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { UserDropdown } from "@/components/UserDropdown";
@@ -247,6 +249,10 @@ export default function SalesPortal() {
               <Calendar className="h-4 w-4 mr-2" />
               Kalendarz
             </TabsTrigger>
+            <TabsTrigger value="ai-agent">
+              <Bot className="h-4 w-4 mr-2" />
+              AI Agent
+            </TabsTrigger>
             <TabsTrigger value="emails">
               <Mail className="h-4 w-4 mr-2" />
               Zaproszenia
@@ -312,6 +318,16 @@ export default function SalesPortal() {
                   </SheetTrigger>
                   <SheetTrigger asChild>
                     <Button 
+                      variant={tab === 'ai-agent' ? 'default' : 'ghost'} 
+                      className="w-full justify-start rounded-xl"
+                      onClick={() => handleTabChange('ai-agent')}
+                    >
+                      <Bot className="h-4 w-4 mr-2" />
+                      AI Agent
+                    </Button>
+                  </SheetTrigger>
+                  <SheetTrigger asChild>
+                    <Button 
                       variant={tab === 'emails' ? 'default' : 'ghost'} 
                       className="w-full justify-start rounded-xl"
                       onClick={() => handleTabChange('emails')}
@@ -351,6 +367,7 @@ export default function SalesPortal() {
                     {tab === 'leads' && 'Leady'}
                     {tab === 'callbacks' && 'Oddzwoń'}
                     {tab === 'calendar' && 'Kalendarz'}
+                    {tab === 'ai-agent' && 'AI Agent'}
                     {tab === 'emails' && 'Zaproszenia'}
                     {tab === 'stats' && 'Statystyki'}
                     {tab === 'settings' && 'Ustawienia'}
@@ -373,6 +390,11 @@ export default function SalesPortal() {
                   {tab !== 'calendar' && (
                     <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => handleTabChange('calendar')}>
                       <Calendar className="h-3 w-3 mr-2" />Kalendarz
+                    </Button>
+                  )}
+                  {tab !== 'ai-agent' && (
+                    <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => handleTabChange('ai-agent')}>
+                      <Bot className="h-3 w-3 mr-2" />AI Agent
                     </Button>
                   )}
                   {tab !== 'emails' && (
@@ -412,6 +434,12 @@ export default function SalesPortal() {
         {tab === "calendar" && (
           <div className="mt-6">
             <SalesCalendar />
+          </div>
+        )}
+
+        {tab === "ai-agent" && (
+          <div className="mt-6">
+            <AIAgentDashboard />
           </div>
         )}
 
