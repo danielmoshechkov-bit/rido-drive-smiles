@@ -446,13 +446,13 @@ export function VehicleRentalWizard({
                       filteredVehicles.map(vehicle => {
                         const isSelected = selectedVehicle?.id === vehicle.id;
                         return (
-                          <Card 
+                          <div 
                             key={vehicle.id}
                             className={cn(
-                              "cursor-pointer transition-all border-2",
+                              "cursor-pointer transition-all duration-150 rounded-lg border-2 p-3 sm:p-4",
                               isSelected 
-                                ? "ring-2 ring-primary border-primary bg-primary/10 shadow-md" 
-                                : "border-transparent hover:bg-accent hover:border-accent",
+                                ? "border-primary bg-primary/10 shadow-md" 
+                                : "border-transparent bg-card hover:bg-primary/5 hover:border-primary/30",
                               vehicle.is_rented && !isSelected && "opacity-70"
                             )}
                             onClick={() => {
@@ -467,10 +467,10 @@ export function VehicleRentalWizard({
                               }
                             }}
                           >
-                            <CardContent className="p-4 flex items-center justify-between">
-                              <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-3 min-w-0">
                                 <div className={cn(
-                                  "flex items-center justify-center w-10 h-10 rounded-full",
+                                  "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
                                   isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
                                 )}>
                                   {isSelected ? (
@@ -479,27 +479,27 @@ export function VehicleRentalWizard({
                                     <Car className="h-5 w-5 text-muted-foreground" />
                                   )}
                                 </div>
-                                <div>
-                                  <p className={cn("font-semibold", isSelected && "text-primary")}>{vehicle.plate}</p>
-                                  <p className="text-sm text-muted-foreground">
+                                <div className="min-w-0">
+                                  <p className={cn("font-semibold truncate", isSelected && "text-primary")}>{vehicle.plate}</p>
+                                  <p className="text-sm text-muted-foreground truncate">
                                     {vehicle.brand} {vehicle.model} {vehicle.year && `(${vehicle.year})`}
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 {vehicle.is_rented && (
                                   <Badge variant="destructive" className="text-xs">
                                     Wynajęty
                                   </Badge>
                                 )}
                                 {vehicle.weekly_rental_fee && (
-                                  <Badge variant="secondary">
+                                  <Badge variant="secondary" className="whitespace-nowrap">
                                     {vehicle.weekly_rental_fee} zł/tydz.
                                   </Badge>
                                 )}
                               </div>
-                            </CardContent>
-                          </Card>
+                            </div>
+                          </div>
                         );
                       })
                     )}
@@ -684,21 +684,22 @@ export function VehicleRentalWizard({
                   ) : (
                     filteredDrivers.map(driver => {
                       const isSelected = selectedDriver?.id === driver.id;
+                      const hasMissingData = validateDriver(driver).length > 0;
                       return (
-                        <Card 
+                        <div 
                           key={driver.id}
                           className={cn(
-                            "cursor-pointer transition-all border-2",
+                            "cursor-pointer transition-all duration-150 rounded-lg border-2 p-3 sm:p-4",
                             isSelected 
-                              ? "ring-2 ring-primary border-primary bg-primary/10 shadow-md" 
-                              : "border-transparent hover:bg-accent hover:border-accent"
+                              ? "border-primary bg-primary/10 shadow-md" 
+                              : "border-transparent bg-card hover:bg-primary/5 hover:border-primary/30"
                           )}
                           onClick={() => handleSelectDriver(driver)}
                         >
-                          <CardContent className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className={cn(
-                                "flex items-center justify-center w-10 h-10 rounded-full",
+                                "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
                                 isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
                               )}>
                                 {isSelected ? (
@@ -707,22 +708,22 @@ export function VehicleRentalWizard({
                                   <User className="h-5 w-5 text-muted-foreground" />
                                 )}
                               </div>
-                              <div>
-                                <p className={cn("font-semibold", isSelected && "text-primary")}>
+                              <div className="min-w-0">
+                                <p className={cn("font-semibold truncate", isSelected && "text-primary")}>
                                   {driver.first_name} {driver.last_name}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted-foreground truncate">
                                   {driver.email || driver.phone || "Brak kontaktu"}
                                 </p>
                               </div>
                             </div>
-                            {validateDriver(driver).length > 0 && (
-                              <Badge variant="outline" className="text-destructive border-destructive">
+                            {hasMissingData && (
+                              <Badge variant="outline" className="text-destructive border-destructive shrink-0 text-xs">
                                 Niekompletne dane
                               </Badge>
                             )}
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       );
                     })
                   )}
@@ -732,7 +733,7 @@ export function VehicleRentalWizard({
 
             {/* Step 5: Summary */}
             {currentStep === 5 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Stawka tygodniowa (zł)</Label>
                   <Input
@@ -745,10 +746,10 @@ export function VehicleRentalWizard({
                 </div>
 
                 <Card>
-                  <CardContent className="p-4 space-y-4">
+                  <CardContent className="p-4 space-y-3">
                     <h4 className="font-semibold">Podsumowanie</h4>
                     
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
                         <span className="text-muted-foreground">Pojazd:</span>
                         <p className="font-medium">
@@ -780,7 +781,7 @@ export function VehicleRentalWizard({
                         </p>
                       </div>
                       
-                      <div className="col-span-2">
+                      <div className="col-span-1 sm:col-span-2">
                         <span className="text-muted-foreground">Stawka:</span>
                         <p className="font-semibold text-lg text-primary">
                           {weeklyFee ? `${weeklyFee} zł / tydzień` : "—"}
@@ -792,10 +793,8 @@ export function VehicleRentalWizard({
 
                 <Card className="border-primary/50 bg-primary/5">
                   <CardContent className="p-4">
-                    <p className="text-sm">
-                      <strong>Następne kroki po utworzeniu:</strong>
-                    </p>
-                    <ol className="text-sm text-muted-foreground list-decimal ml-4 mt-2 space-y-1">
+                    <p className="text-sm font-medium mb-2">Następne kroki po utworzeniu:</p>
+                    <ol className="text-sm text-muted-foreground list-decimal ml-4 space-y-1">
                       <li>System wygeneruje umowę najmu</li>
                       <li>Wyślij link do portalu klienta z umową do podpisu</li>
                       <li>Klient zapozna się z umową i podpisze</li>
