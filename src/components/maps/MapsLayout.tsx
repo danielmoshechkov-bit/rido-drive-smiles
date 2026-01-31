@@ -1,6 +1,7 @@
 // GetRido Maps - Layout Component (Google Maps Premium UX)
 // Build timestamp: 2026-01-18T16:00:00Z
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 import { useRouting } from './useRouting';
 import { useUserLocation } from './useUserLocation';
 import { useNavigation } from './useNavigation';
@@ -54,9 +55,7 @@ const MapsLayout = () => {
       console.log('[MapsLayout] Rerouting from current GPS position...');
       
       // Show loading toast
-      import('sonner').then(({ toast }) => {
-        toast.loading('Przeliczam trasę...', { id: 'reroute', duration: 5000 });
-      });
+      toast.loading('Przeliczam trasę...', { id: 'reroute', duration: 5000 });
       
       // Calculate new route
       routing.calculateRoute(
@@ -64,13 +63,9 @@ const MapsLayout = () => {
         routing.endCoords,
         routing.endInput
       ).then(() => {
-        import('sonner').then(({ toast }) => {
-          toast.success('Trasa zaktualizowana', { id: 'reroute' });
-        });
+        toast.success('Trasa zaktualizowana', { id: 'reroute' });
       }).catch(() => {
-        import('sonner').then(({ toast }) => {
-          toast.error('Nie udało się przeliczyć trasy', { id: 'reroute' });
-        });
+        toast.error('Nie udało się przeliczyć trasy', { id: 'reroute' });
       });
     }
   }, [gps.location, routing]);
