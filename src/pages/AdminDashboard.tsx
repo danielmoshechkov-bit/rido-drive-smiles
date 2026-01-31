@@ -121,8 +121,9 @@ const AdminDashboard = () => {
     fetchUserEmail();
   }, []);
 
-  const handleLogout = () => {
-    navigate('/');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   const handleSanitizeGetRidoIds = async () => {
