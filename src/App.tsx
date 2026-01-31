@@ -133,6 +133,7 @@ const App = () => (
             <Route path="/driver" element={<DriverDashboard />} />
             <Route path="/kierowca-info" element={<DriverInfoLanding />} />
             <Route path="/sprzedaz" element={<SalesPortal />} />
+            <Route path="/handlowiec" element={<SalesPortal />} />
             <Route path="/prawne" element={<LegalPage />} />
             <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
             {/* Aliases for marketplace add listing */}
