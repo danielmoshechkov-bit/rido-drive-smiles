@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -18,13 +20,15 @@ import {
   AlertCircle,
   ExternalLink,
   Phone,
-  Pencil
+  Pencil,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignaturePad } from "./SignaturePad";
 import { RentalPhotoProtocol } from "./RentalPhotoProtocol";
 import { RentalContractViewer } from "./RentalContractViewer";
 import { EditDriverDataModal } from "./EditDriverDataModal";
+import { generateRentalContractHtml, ContractData } from "@/utils/rentalContractGenerator";
 
 type RentalStatus = "draft" | "sent_to_client" | "client_signed" | "fleet_signed" | "finalized";
 
@@ -79,6 +83,7 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
   const [fleetHasSavedSignature, setFleetHasSavedSignature] = useState(false);
   const [fleetAutoSign, setFleetAutoSign] = useState(true);
   const [invitationMethod, setInvitationMethod] = useState<"email" | "sms" | "both">("email");
+  const [showContractPreview, setShowContractPreview] = useState(false);
   const [showEditDriver, setShowEditDriver] = useState(false);
 
   // Check if contract is locked (after both signatures)
@@ -483,6 +488,15 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
                   Edytuj dane
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowContractPreview(true)}
+                className="gap-1"
+              >
+                <FileText className="h-3 w-3" />
+                Podgląd umowy
+              </Button>
               <Badge variant={currentStep >= 5 ? "default" : "secondary"}>
                 {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
               </Badge>
@@ -733,6 +747,122 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
           onSuccess={handleDriverUpdate}
         />
       )}
+
+      {/* Contract Preview Modal */}
+      <Dialog open={showContractPreview} onOpenChange={setShowContractPreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Podgląd umowy najmu
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[70vh] pr-4">
+            {rental && (
+              <ContractPreview rental={rental} />
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Contract preview component
+function ContractPreview({ rental }: { rental: RentalData }) {
+  const [contractHtml, setContractHtml] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadContract = async () => {
+      try {
+        // Fetch full rental data including fleet info
+        const { data: fullRental } = await (supabase
+          .from("vehicle_rentals") as any)
+          .select(`
+            *,
+            vehicles:vehicle_id (id, plate, brand, model, year, vin),
+            drivers:driver_id (id, first_name, last_name, email, phone, pesel, address_street, address_city, address_postal_code, license_number),
+            fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
+          `)
+          .eq("id", rental.id)
+          .single();
+
+        if (fullRental) {
+          const driver = fullRental.drivers;
+          const vehicle = fullRental.vehicles;
+          const fleet = fullRental.fleets;
+          
+          const driverAddress = [
+            driver?.address_street,
+            driver?.address_postal_code,
+            driver?.address_city
+          ].filter(Boolean).join(', ');
+
+          const fleetAddress = [
+            fleet?.address_street,
+            fleet?.address_city
+          ].filter(Boolean).join(', ');
+
+          const contractData: ContractData = {
+            contractNumber: fullRental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`,
+            createdAt: fullRental.created_at,
+            vehicleBrand: vehicle?.brand || '',
+            vehicleModel: vehicle?.model || '',
+            vehiclePlate: vehicle?.plate || '',
+            vehicleVin: vehicle?.vin || '',
+            vehicleYear: vehicle?.year,
+            driverFirstName: driver?.first_name || '',
+            driverLastName: driver?.last_name || '',
+            driverPesel: driver?.pesel || '',
+            driverAddress,
+            driverPhone: driver?.phone || '',
+            driverEmail: driver?.email || '',
+            driverLicenseNumber: driver?.license_number || '',
+            fleetName: fleet?.name || '',
+            fleetNip: fleet?.nip,
+            fleetAddress,
+            fleetPhone: fleet?.phone,
+            fleetEmail: fleet?.email,
+            rentalType: fullRental.rental_type,
+            rentalStart: fullRental.rental_start,
+            rentalEnd: fullRental.rental_end,
+            isIndefinite: fullRental.is_indefinite,
+            weeklyFee: fullRental.weekly_rental_fee || 0,
+            driverSignatureUrl: fullRental.driver_signature_url,
+            fleetSignatureUrl: fullRental.fleet_signature_url,
+            driverSignedAt: fullRental.driver_signed_at,
+            fleetSignedAt: fullRental.fleet_signed_at,
+          };
+
+          const html = generateRentalContractHtml(contractData)
+            .replace(/<html.*?<body>/gs, '')
+            .replace(/<\/body>.*?<\/html>/gs, '');
+          
+          setContractHtml(html);
+        }
+      } catch (error) {
+        console.error("Error loading contract:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadContract();
+  }, [rental.id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="prose prose-sm max-w-none"
+      dangerouslySetInnerHTML={{ __html: contractHtml }} 
+    />
   );
 }
