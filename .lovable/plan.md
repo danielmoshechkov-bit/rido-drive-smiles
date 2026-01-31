@@ -1,144 +1,86 @@
 
+# Plan naprawy zgłoszonych problemów
 
-# Plan naprawy modułu "Wynajmij pojazd"
+## Podsumowanie problemów
 
-## Zidentyfikowane problemy
+### 1. Wylogowanie nie działa poprawnie
+Niektóre dashboardy (AdminDashboard, AdminRealEstate) mają funkcję `handleLogout` która tylko przekierowuje na stronę główną bez faktycznego wylogowania z Supabase (`supabase.auth.signOut()`).
 
-### Problem 1: Nie można wybrać wolnego pojazdu
-Na screenshocie widać, że pojazdy są wyświetlane na liście, ale nie można ich wybrać/kliknąć. To może być związane z brakiem odpowiedniej logiki lub problemem z kliknięciem. Trzeba również dodać informację gdy pojazd jest już wynajęty (zajęty).
+**Pliki do naprawy:**
+- `src/pages/AdminDashboard.tsx` - linia 124-126
+- `src/pages/AdminRealEstate.tsx` - linia 205-207
 
-### Problem 2: Modal "Dodaj pojazd" - ramka rozjeżdża się przy wpisywaniu (foto 2)
-Problem dotyczy `CarBrandModelSelector` - dropdown z listą marek pojawia się wewnątrz modalu ale jest obcinany przez `overflow-hidden`. Trzeba dodać odpowiedni `z-index` i pozycjonowanie dropdownów.
+### 2. Daniel Madziar nie widoczny w rozliczeniach
+Sprawdziłem bazę danych i znalazłem przyczynę:
+- W bazie są rozliczenia dla 30 kierowców za tydzień 19-25 stycznia
+- Daniel Madziar NIE MA rekordu w tabeli `settlements` za ten tydzień
+- Jego ostatnie rozliczenie jest za tydzień 12-18 stycznia
 
-### Problem 3: Wymagane pola przy dodawaniu pojazdu w module wynajmu
-Obecne wymagane pola: nr rejestracyjny, marka, model, rodzaj nadwozia, rodzaj paliwa.
-Powinny być wymagane: **marka, model, rodzaj paliwa, rok, kolor, kwota za wynajem**.
-Na końcu formularza brak miejsca na datę OC i przegląd - jest tylko "Ubezpieczenie OC" bez żadnych pól widocznych (prawdopodobnie jest, ale ucięte przez scroll).
+**Wniosek:** Dane Daniela Madziar nie zostały zaimportowane z pliku CSV za tydzień 19-25 stycznia. Sprawdź plik CSV - jego dane mogły zostać pominięte podczas importu (np. jego identyfikator/email mógł nie pasować).
 
-### Problem 4: Po dodaniu pojazdu nie można go wybrać i kontynuować
-Callback `onSuccess` w `VehicleRentalWizard` tylko przeładowuje listę pojazdów ale nie wybiera automatycznie nowego pojazdu. Użytkownik widzi "Pojazd zapisany" ale lista się resetuje i nie może iść dalej.
+### 3. Kalendarz dla handlowca - brak implementacji
+Zakładka "Kalendarz" w `SalesPortal.tsx` pokazuje placeholder "w trakcie implementacji". Trzeba stworzyć komponent `SalesCalendar` z funkcjonalnością:
+- Wyświetlanie zaplanowanych połączeń (z tabeli `sales_lead_callbacks`)
+- Możliwość dodawania nowych wydarzeń/spotkań
+- Widok dzień/tydzień/miesiąc
 
----
+**Pliki do utworzenia:**
+- `src/components/sales/SalesCalendar.tsx`
 
-## Szczegóły techniczne napraw
+**Pliki do modyfikacji:**
+- `src/pages/SalesPortal.tsx` - zamień placeholder na komponent kalendarza
 
-### Naprawa 1: VehicleRentalWizard - wybór pojazdu i wyświetlanie zajętych
+### 4. Stylowanie portalu sprzedaży
+Portal sprzedaży (`SalesPortal.tsx`) używa innych stylów niż portal kierowcy:
 
-**Plik:** `src/components/fleet/VehicleRentalWizard.tsx`
+| Element | Portal Sprzedaży (obecnie) | Portal Kierowcy (docelowy) |
+|---------|---------------------------|---------------------------|
+| Tło strony | `bg-background` | `bg-gradient-subtle` |
+| Header | `bg-gradient-hero` | `bg-white border-b shadow-sm` |
+| Kontener | brak stylów | `container mx-auto px-4 py-4` |
 
-**Zmiany:**
-1. Dodać do zapytania o pojazdy sprawdzenie czy pojazd jest aktualnie wynajęty (sprawdzenie w `vehicle_rentals` lub `driver_vehicle_assignments`)
-2. Oznaczyć zajęte pojazdy badge "Wynajęty" i wyświetlić informację po kliknięciu
-3. Zmienić obsługę kliknięcia:
-```typescript
-onClick={() => {
-  if (vehicle.is_rented) {
-    toast.warning("Ten pojazd jest już wynajęty. Wybór spowoduje odłączenie obecnego kierowcy.");
-    // Pokaż dialog potwierdzający lub pozwól kontynuować
-  }
-  setSelectedVehicle(vehicle);
-  if (vehicle.weekly_rental_fee) {
-    setWeeklyFee(vehicle.weekly_rental_fee.toString());
-  }
-}}
-```
+**Plik do modyfikacji:**
+- `src/pages/SalesPortal.tsx` - dostosować style do portalu kierowcy
 
-### Naprawa 2: CarBrandModelSelector - poprawka overflow i z-index
-
-**Plik:** `src/components/CarBrandModelSelector.tsx`
-
-**Zmiany:**
-- Zmiana klasy dropdowna z `z-50` na `z-[100]` 
-- Dodanie `position: fixed` zamiast `absolute` dla dropdownów gdy są wewnątrz modalu (lub użycie Radix Portal)
-- Alternatywa: przekształcenie na użycie komponentu `Command` z cmdk (jak w innych selektorach)
-
-### Naprawa 3: AddVehicleModal - zmiana wymaganych pól dla modułu wynajmu
-
-**Plik:** `src/components/AddVehicleModal.tsx`
-
-**Zmiany:**
-1. Dodać props `variant?: 'standard' | 'rental'` 
-2. Gdy `variant="rental"` wymagane pola to:
-   - Marka *
-   - Model *
-   - Rodzaj paliwa *
-   - Rok *
-   - Kolor *
-   - Kwota za wynajem *
-3. Uprościć formularz dla wynajmu - usunąć VIN i nadwozie (opcjonalne)
-4. Upewnić się że pola OC i przegląd są widoczne i opcjonalne
-
-**Zmiana walidacji:**
-```typescript
-const handleSave = async () => {
-  if (variant === 'rental') {
-    if (!plate || !brand || !model || !fuelType || !year || !color || !weeklyRentalFee) {
-      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj paliwa, rok, kolor i kwotę wynajmu.");
-      return;
-    }
-  } else {
-    if (!plate || !brand || !model || !bodyType || !fuelType) {
-      toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
-      return;
-    }
-  }
-  // ...reszta logiki
-}
-```
-
-### Naprawa 4: Automatyczne wybranie pojazdu po dodaniu
-
-**Plik:** `src/components/fleet/VehicleRentalWizard.tsx`
-
-**Zmiany w callback AddVehicleModal:**
-```typescript
-<AddVehicleModal
-  isOpen={showAddVehicle}
-  onClose={() => setShowAddVehicle(false)}
-  fleetId={fleetId}
-  variant="rental"
-  onSuccess={async (vehicleId) => {
-    // Przeładuj listę i automatycznie wybierz nowy pojazd
-    await loadVehicles();
-    
-    // Znajdź nowo dodany pojazd
-    const { data: newVehicle } = await supabase
-      .from("vehicles")
-      .select("id, plate, brand, model, year, status, weekly_rental_fee")
-      .eq("id", vehicleId)
-      .single();
-    
-    if (newVehicle) {
-      setSelectedVehicle(newVehicle);
-      if (newVehicle.weekly_rental_fee) {
-        setWeeklyFee(newVehicle.weekly_rental_fee.toString());
-      }
-      toast.success("Pojazd dodany i wybrany do wynajmu");
-    }
-    
-    setShowAddVehicle(false);
-  }}
-/>
-```
+### 5. Rozmowa z ChatGPT
+Tak, możesz skopiować rozmowę z ChatGPT! Wklej ją w następnej wiadomości, a przeanalizuję szczegóły nowej funkcji i przygotuję plan implementacji.
 
 ---
 
-## Pliki do modyfikacji
+## Szczegóły techniczne
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/fleet/VehicleRentalWizard.tsx` | Automatyczne wybranie pojazdu po dodaniu, obsługa zajętych pojazdów |
-| `src/components/AddVehicleModal.tsx` | Nowy variant "rental" z innymi wymaganymi polami |
-| `src/components/CarBrandModelSelector.tsx` | Poprawka z-index i overflow dropdownów |
+### Naprawa wylogowania
+
+```typescript
+// AdminDashboard.tsx i AdminRealEstate.tsx
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  navigate('/auth');
+};
+```
+
+### Komponent SalesCalendar
+
+Nowy komponent będzie zawierał:
+- Widok kalendarza miesięcznego z zaznaczonymi dniami z zaplanowanymi połączeniami
+- Listę wydarzeń na wybrany dzień
+- Integrację z `sales_lead_callbacks` - automatyczne ładowanie zaplanowanych oddzwonień
+- Możliwość dodawania notatek/spotkań
+
+### Stylowanie SalesPortal
+
+Zmiana nagłówka i kontenera aby pasowały do stylu Driver Portal:
+- Biały nagłówek z cieniem
+- Przycisk "Motoryzacja" jak w portalu kierowcy
+- TabsPill zamiast standardowych Tabs
 
 ---
 
-## Kryteria akceptacji
+## Lista plików do modyfikacji
 
-1. Wolne pojazdy można normalnie wybrać kliknięciem
-2. Zajęte pojazdy mają oznaczenie "Wynajęty" i wyświetlają ostrzeżenie
-3. Dropdown marek/modeli nie jest obcinany przez modal
-4. Przy dodawaniu pojazdu w module wynajmu wymagane są: marka, model, paliwo, rok, kolor, kwota
-5. Po dodaniu pojazdu jest on automatycznie wybrany i można kontynuować (przycisk "Dalej" aktywny)
-6. Pola OC i przeglądu są widoczne i opcjonalne
+1. `src/pages/AdminDashboard.tsx` - poprawka logout
+2. `src/pages/AdminRealEstate.tsx` - poprawka logout
+3. `src/pages/SalesPortal.tsx` - style + kalendarz
+4. `src/components/sales/SalesCalendar.tsx` - NOWY
 
+## Czy zatwierdzasz ten plan?
