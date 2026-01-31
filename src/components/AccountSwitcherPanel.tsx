@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle, ShoppingBag, Briefcase } from "lucide-react";
+import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle, Briefcase } from "lucide-react";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
@@ -25,6 +25,14 @@ interface AccountSwitcherPanelProps {
   currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
+}
+
+interface AccountOption {
+  type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales';
+  label: string;
+  icon: React.ReactNode;
+  route: string;
+  isEnabled: boolean;
 }
 
 export function AccountSwitcherPanel({
@@ -43,35 +51,68 @@ export function AccountSwitcherPanel({
 }: AccountSwitcherPanelProps) {
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   
-  const showDriverOption = isDriverAccount && !hideDriverForFleet;
   const hasSalesAccess = isSalesAdmin || isSalesRep;
+  const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
-  const handleAccountClick = (type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales') => {
-    if (type === currentAccountType) return;
-    
-    switch (type) {
-      case 'driver':
-        navigate('/driver');
-        break;
-      case 'fleet':
-        navigate('/fleet/dashboard');
-        break;
-      case 'marketplace':
-        navigate('/gielda');
-        break;
-      case 'real_estate':
-        navigate('/nieruchomosci/agent/panel');
-        break;
-      case 'admin':
-        navigate('/admin/dashboard');
-        break;
-      case 'client':
-        navigate('/klient');
-        break;
-      case 'sales':
-        navigate('/sprzedaz');
-        break;
+  // Build list of all available accounts for this user
+  const accounts: AccountOption[] = [
+    {
+      type: 'admin',
+      label: 'Administrator',
+      icon: <Globe className="h-8 w-8" />,
+      route: '/admin/dashboard',
+      isEnabled: isAdminAccount
+    },
+    {
+      type: 'sales',
+      label: isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec',
+      icon: <Briefcase className="h-8 w-8" />,
+      route: '/sprzedaz',
+      isEnabled: hasSalesAccess
+    },
+    {
+      type: 'fleet',
+      label: 'Flota',
+      icon: <Truck className="h-8 w-8" />,
+      route: '/fleet/dashboard',
+      isEnabled: isFleetAccount
+    },
+    {
+      type: 'driver',
+      label: 'Kierowca',
+      icon: <Car className="h-8 w-8" />,
+      route: '/driver',
+      isEnabled: showDriverOption
+    },
+    {
+      type: 'client',
+      label: 'Portal Klienta',
+      icon: <UserCircle className="h-8 w-8" />,
+      route: '/klient',
+      isEnabled: isClientPortal
+    },
+    {
+      type: 'marketplace',
+      label: 'Giełda',
+      icon: <User className="h-8 w-8" />,
+      route: '/gielda',
+      isEnabled: isMarketplaceAccount
+    },
+    {
+      type: 'real_estate',
+      label: 'Nieruchomości',
+      icon: <Home className="h-8 w-8" />,
+      route: '/nieruchomosci/agent/panel',
+      isEnabled: isRealEstateAccount
     }
+  ];
+
+  // Filter to only show enabled accounts
+  const enabledAccounts = accounts.filter(acc => acc.isEnabled);
+
+  const handleAccountClick = (account: AccountOption) => {
+    if (account.type === currentAccountType) return;
+    navigate(account.route);
   };
 
   return (
@@ -87,110 +128,28 @@ export function AccountSwitcherPanel({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Admin account - always show for admins */}
-          {isAdminAccount && currentAccountType !== 'admin' && (
-            <div 
-              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
-              onClick={() => handleAccountClick('admin')}
-            >
-              <Globe className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium text-sm">Administrator</p>
-            </div>
-          )}
-          {currentAccountType === 'admin' && (
-            <div className="border-2 rounded-xl p-4 text-center transition-colors border-primary bg-primary/5">
-              <Globe className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <p className="font-medium text-sm">Administrator</p>
-              <Badge className="mt-2 text-xs">aktywne</Badge>
-            </div>
-          )}
-
-          {/* Sales account - show for users with sales roles */}
-          {hasSalesAccess && currentAccountType !== 'sales' && (
-            <div 
-              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
-              onClick={() => handleAccountClick('sales')}
-            >
-              <Briefcase className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium text-sm">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
-            </div>
-          )}
-          {hasSalesAccess && currentAccountType === 'sales' && (
-            <div className="border-2 rounded-xl p-4 text-center transition-colors border-primary bg-primary/5">
-              <Briefcase className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <p className="font-medium text-sm">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
-              <Badge className="mt-2 text-xs">aktywne</Badge>
-            </div>
-          )}
-
-          {/* Driver account */}
-          {showDriverOption && (
-            <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'driver' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
-              onClick={() => handleAccountClick('driver')}
-            >
-              <Car className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'driver' ? 'text-primary' : 'text-muted-foreground'}`} />
-              <p className="font-medium text-sm">Kierowca</p>
-              {currentAccountType === 'driver' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
-            </div>
-          )}
-
-          {/* Fleet account */}
-          {isFleetAccount && (
-            <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'fleet' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
-              onClick={() => handleAccountClick('fleet')}
-            >
-              <Truck className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'fleet' ? 'text-primary' : 'text-muted-foreground'}`} />
-              <p className="font-medium text-sm">Flota</p>
-              {currentAccountType === 'fleet' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
-            </div>
-          )}
-
-          {/* Client Portal - always available */}
-          {isClientPortal && currentAccountType !== 'client' && (
-            <div 
-              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
-              onClick={() => handleAccountClick('client')}
-            >
-              <UserCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium text-sm">Portal Klienta</p>
-            </div>
-          )}
-
-          {/* Marketplace account */}
-          {isMarketplaceAccount && currentAccountType !== 'marketplace' && (
-            <div 
-              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
-              onClick={() => handleAccountClick('marketplace')}
-            >
-              <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium text-sm">Giełda</p>
-            </div>
-          )}
-
-          {/* Real Estate account */}
-          {isRealEstateAccount && currentAccountType !== 'real_estate' && (
-            <div 
-              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
-              onClick={() => handleAccountClick('real_estate')}
-            >
-              <Home className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium text-sm">Nieruchomości</p>
-            </div>
-          )}
+          {enabledAccounts.map((account) => {
+            const isActive = account.type === currentAccountType;
+            return (
+              <div 
+                key={account.type}
+                className={`border-2 rounded-xl p-4 text-center transition-colors ${
+                  isActive 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border cursor-pointer hover:bg-muted'
+                }`}
+                onClick={() => !isActive && handleAccountClick(account)}
+              >
+                <div className={`mx-auto mb-2 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {account.icon}
+                </div>
+                <p className="font-medium text-sm">{account.label}</p>
+                {isActive && (
+                  <Badge className="mt-2 text-xs">aktywne</Badge>
+                )}
+              </div>
+            );
+          })}
 
           {/* Add account */}
           <div 

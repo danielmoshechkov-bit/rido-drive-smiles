@@ -135,6 +135,9 @@ const App = () => (
             <Route path="/sprzedaz" element={<SalesPortal />} />
             <Route path="/prawne" element={<LegalPage />} />
             <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
+            {/* Aliases for marketplace add listing */}
+            <Route path="/dodaj" element={<AddVehicleListing />} />
+            <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -682,39 +682,40 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : ''
       ].filter(Boolean).join(' ');
 
-      // Save invoice - use the local companyIdToUse variable
-      const { data: savedInvoice, error } = await supabase
-        .from('user_invoices')
-        .insert({
-          user_id: user.id,
-          company_id: companyIdToUse,
-          invoice_number: invoiceData.invoice_number,
-          invoice_type: invoiceData.type,
-          issue_date: invoiceData.issue_date,
-          sale_date: invoiceData.sale_date,
-          due_date: invoiceData.due_date,
-          issue_place: invoiceData.issue_place,
-          payment_method: invoiceData.payment_method,
-          currency: invoiceData.currency,
-          buyer_name: buyer.name,
-          buyer_nip: buyer.nip,
-          buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
-          net_total: netTotal,
-          vat_total: vatTotal,
-          gross_total: grossTotal,
-          paid_amount: paidAmount,
-          is_paid: isFullyPaid,
-          notes: notes
-        })
-        .select()
-        .single();
+      // Check if we're editing an existing invoice
+      if (editInvoiceId) {
+        // UPDATE existing invoice
+        const { error } = await supabase
+          .from('user_invoices')
+          .update({
+            company_id: companyIdToUse,
+            invoice_number: invoiceData.invoice_number,
+            invoice_type: invoiceData.type,
+            issue_date: invoiceData.issue_date,
+            sale_date: invoiceData.sale_date,
+            due_date: invoiceData.due_date,
+            issue_place: invoiceData.issue_place,
+            payment_method: invoiceData.payment_method,
+            currency: invoiceData.currency,
+            buyer_name: buyer.name,
+            buyer_nip: buyer.nip,
+            buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
+            net_total: netTotal,
+            vat_total: vatTotal,
+            gross_total: grossTotal,
+            paid_amount: paidAmount,
+            is_paid: isFullyPaid,
+            notes: notes
+          })
+          .eq('id', editInvoiceId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Save invoice items
-      if (savedInvoice) {
+        // Delete old items and insert new ones
+        await supabase.from('user_invoice_items').delete().eq('invoice_id', editInvoiceId);
+        
         const itemsToInsert = invoiceData.items.map((item, idx) => ({
-          invoice_id: savedInvoice.id,
+          invoice_id: editInvoiceId,
           name: item.name,
           quantity: item.quantity,
           unit: item.unit,
@@ -727,28 +728,77 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         }));
 
         await supabase.from('user_invoice_items').insert(itemsToInsert);
-      }
-
-      // Save contractor if new
-      if (buyer.name) {
-        const { data: existingContractor } = await supabase
-          .from('user_contractors')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('nip', buyer.nip || '')
-          .maybeSingle();
-
-        if (!existingContractor && buyer.nip) {
-          await supabase.from('user_contractors').insert({
+        
+        toast.success('Zmiany zostały zapisane!');
+      } else {
+        // INSERT new invoice
+        const { data: savedInvoice, error } = await supabase
+          .from('user_invoices')
+          .insert({
             user_id: user.id,
-            name: buyer.name,
-            nip: buyer.nip,
-            address_street: buyer.address_street,
-            address_building_number: buyer.address_building_number,
-            address_apartment_number: buyer.address_apartment_number,
-            address_city: buyer.address_city,
-            address_postal_code: buyer.address_postal_code
-          });
+            company_id: companyIdToUse,
+            invoice_number: invoiceData.invoice_number,
+            invoice_type: invoiceData.type,
+            issue_date: invoiceData.issue_date,
+            sale_date: invoiceData.sale_date,
+            due_date: invoiceData.due_date,
+            issue_place: invoiceData.issue_place,
+            payment_method: invoiceData.payment_method,
+            currency: invoiceData.currency,
+            buyer_name: buyer.name,
+            buyer_nip: buyer.nip,
+            buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
+            net_total: netTotal,
+            vat_total: vatTotal,
+            gross_total: grossTotal,
+            paid_amount: paidAmount,
+            is_paid: isFullyPaid,
+            notes: notes
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Save invoice items
+        if (savedInvoice) {
+          const itemsToInsert = invoiceData.items.map((item, idx) => ({
+            invoice_id: savedInvoice.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_net_price: item.unit_net_price,
+            vat_rate: item.vat_rate,
+            net_amount: item.net_amount,
+            vat_amount: item.vat_amount,
+            gross_amount: item.gross_amount,
+            sort_order: idx
+          }));
+
+          await supabase.from('user_invoice_items').insert(itemsToInsert);
+        }
+
+        // Save contractor if new (only for new invoices)
+        if (buyer.name) {
+          const { data: existingContractor } = await supabase
+            .from('user_contractors')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('nip', buyer.nip || '')
+            .maybeSingle();
+
+          if (!existingContractor && buyer.nip) {
+            await supabase.from('user_contractors').insert({
+              user_id: user.id,
+              name: buyer.name,
+              nip: buyer.nip,
+              address_street: buyer.address_street,
+              address_building_number: buyer.address_building_number,
+              address_apartment_number: buyer.address_apartment_number,
+              address_city: buyer.address_city,
+              address_postal_code: buyer.address_postal_code
+            });
+          }
         }
       }
 
