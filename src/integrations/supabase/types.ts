@@ -3995,6 +3995,48 @@ export type Database = {
           },
         ]
       }
+      inventory_categories: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_categories_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_movements: {
         Row: {
           batch_id: string | null
@@ -4116,6 +4158,8 @@ export type Database = {
           category: string | null
           created_at: string | null
           currency: string | null
+          default_purchase_price_gross: number | null
+          default_purchase_price_net: number | null
           default_sale_price_gross: number | null
           default_sale_price_net: number | null
           entity_id: string | null
@@ -4135,6 +4179,8 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           currency?: string | null
+          default_purchase_price_gross?: number | null
+          default_purchase_price_net?: number | null
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
@@ -4154,6 +4200,8 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           currency?: string | null
+          default_purchase_price_gross?: number | null
+          default_purchase_price_net?: number | null
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
@@ -10384,55 +10432,88 @@ export type Database = {
       }
       vehicle_rentals: {
         Row: {
+          contract_number: string | null
           created_at: string | null
           created_by: string | null
           driver_id: string
           driver_reviewed: boolean | null
+          driver_signature_url: string | null
+          driver_signed_at: string | null
           fleet_id: string
           fleet_reviewed: boolean | null
+          fleet_signature_url: string | null
+          fleet_signed_at: string | null
           id: string
           invitation_email: string | null
-          listing_id: string
+          invitation_sent_at: string | null
+          is_indefinite: boolean | null
+          listing_id: string | null
+          portal_access_token: string | null
+          protocol_completed_at: string | null
           rental_end: string | null
           rental_start: string | null
+          rental_type: string | null
           status: string | null
           updated_at: string | null
           vehicle_id: string
-          weekly_price: number
+          weekly_price: number | null
+          weekly_rental_fee: number | null
         }
         Insert: {
+          contract_number?: string | null
           created_at?: string | null
           created_by?: string | null
           driver_id: string
           driver_reviewed?: boolean | null
+          driver_signature_url?: string | null
+          driver_signed_at?: string | null
           fleet_id: string
           fleet_reviewed?: boolean | null
+          fleet_signature_url?: string | null
+          fleet_signed_at?: string | null
           id?: string
           invitation_email?: string | null
-          listing_id: string
+          invitation_sent_at?: string | null
+          is_indefinite?: boolean | null
+          listing_id?: string | null
+          portal_access_token?: string | null
+          protocol_completed_at?: string | null
           rental_end?: string | null
           rental_start?: string | null
+          rental_type?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id: string
-          weekly_price: number
+          weekly_price?: number | null
+          weekly_rental_fee?: number | null
         }
         Update: {
+          contract_number?: string | null
           created_at?: string | null
           created_by?: string | null
           driver_id?: string
           driver_reviewed?: boolean | null
+          driver_signature_url?: string | null
+          driver_signed_at?: string | null
           fleet_id?: string
           fleet_reviewed?: boolean | null
+          fleet_signature_url?: string | null
+          fleet_signed_at?: string | null
           id?: string
           invitation_email?: string | null
-          listing_id?: string
+          invitation_sent_at?: string | null
+          is_indefinite?: boolean | null
+          listing_id?: string | null
+          portal_access_token?: string | null
+          protocol_completed_at?: string | null
           rental_end?: string | null
           rental_start?: string | null
+          rental_type?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id?: string
-          weekly_price?: number
+          weekly_price?: number | null
+          weekly_rental_fee?: number | null
         }
         Relationships: [
           {
