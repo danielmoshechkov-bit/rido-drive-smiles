@@ -72,11 +72,12 @@ export function FleetContractsManagement({ fleetId }: FleetContractsManagementPr
         .select(`
           id, contract_number, status, rental_start, rental_end, is_indefinite, 
           rental_type, weekly_rental_fee, driver_signed_at, fleet_signed_at,
-          protocol_completed_at, invitation_sent_at, created_at,
+          protocol_completed_at, invitation_sent_at, created_at, source,
           vehicle:vehicle_id (plate, brand, model),
           driver:driver_id (first_name, last_name, email, phone)
         `)
         .eq("fleet_id", fleetId)
+        .or("source.is.null,source.eq.fleet") // Only fleet contracts (not marketplace reservations)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

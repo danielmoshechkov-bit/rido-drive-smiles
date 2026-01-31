@@ -2348,6 +2348,50 @@ export type Database = {
           },
         ]
       }
+      contract_signature_logs: {
+        Row: {
+          action_type: string
+          actor_email: string | null
+          actor_type: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          rental_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_email?: string | null
+          actor_type: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          rental_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_email?: string | null
+          actor_type?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          rental_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signature_logs_rental_id_fkey"
+            columns: ["rental_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_rentals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_verification_logs: {
         Row: {
           id: string
@@ -3468,6 +3512,8 @@ export type Database = {
           address_street: string | null
           billing_method: string | null
           city_id: string
+          consent_fleet_reviews: boolean | null
+          consent_fleet_reviews_date: string | null
           correspondence_city: string | null
           correspondence_country: string | null
           correspondence_postal_code: string | null
@@ -3507,6 +3553,8 @@ export type Database = {
           address_street?: string | null
           billing_method?: string | null
           city_id: string
+          consent_fleet_reviews?: boolean | null
+          consent_fleet_reviews_date?: string | null
           correspondence_city?: string | null
           correspondence_country?: string | null
           correspondence_postal_code?: string | null
@@ -3546,6 +3594,8 @@ export type Database = {
           address_street?: string | null
           billing_method?: string | null
           city_id?: string
+          consent_fleet_reviews?: boolean | null
+          consent_fleet_reviews_date?: string | null
           correspondence_city?: string | null
           correspondence_country?: string | null
           correspondence_postal_code?: string | null
@@ -8075,6 +8125,7 @@ export type Database = {
           created_at: string | null
           driver_rating: number | null
           id: string
+          is_fleet_only: boolean | null
           problem_help_rating: number | null
           rental_id: string
           reviewee_id: string
@@ -8091,6 +8142,7 @@ export type Database = {
           created_at?: string | null
           driver_rating?: number | null
           id?: string
+          is_fleet_only?: boolean | null
           problem_help_rating?: number | null
           rental_id: string
           reviewee_id: string
@@ -8107,6 +8159,7 @@ export type Database = {
           created_at?: string | null
           driver_rating?: number | null
           id?: string
+          is_fleet_only?: boolean | null
           problem_help_rating?: number | null
           rental_id?: string
           reviewee_id?: string
@@ -11291,20 +11344,28 @@ export type Database = {
       }
       vehicle_rentals: {
         Row: {
+          contract_locked_at: string | null
           contract_number: string | null
           created_at: string | null
           created_by: string | null
           driver_id: string
           driver_reviewed: boolean | null
+          driver_signature_ip: string | null
           driver_signature_url: string | null
+          driver_signature_user_agent: string | null
           driver_signed_at: string | null
           fleet_id: string
           fleet_reviewed: boolean | null
+          fleet_signature_ip: string | null
           fleet_signature_url: string | null
+          fleet_signature_user_agent: string | null
           fleet_signed_at: string | null
           id: string
           invitation_email: string | null
+          invitation_method: string | null
+          invitation_phone: string | null
           invitation_sent_at: string | null
+          invitation_sms_sent_at: string | null
           is_indefinite: boolean | null
           listing_id: string | null
           portal_access_token: string | null
@@ -11312,6 +11373,7 @@ export type Database = {
           rental_end: string | null
           rental_start: string | null
           rental_type: string | null
+          source: string | null
           status: string | null
           updated_at: string | null
           vehicle_id: string
@@ -11319,20 +11381,28 @@ export type Database = {
           weekly_rental_fee: number | null
         }
         Insert: {
+          contract_locked_at?: string | null
           contract_number?: string | null
           created_at?: string | null
           created_by?: string | null
           driver_id: string
           driver_reviewed?: boolean | null
+          driver_signature_ip?: string | null
           driver_signature_url?: string | null
+          driver_signature_user_agent?: string | null
           driver_signed_at?: string | null
           fleet_id: string
           fleet_reviewed?: boolean | null
+          fleet_signature_ip?: string | null
           fleet_signature_url?: string | null
+          fleet_signature_user_agent?: string | null
           fleet_signed_at?: string | null
           id?: string
           invitation_email?: string | null
+          invitation_method?: string | null
+          invitation_phone?: string | null
           invitation_sent_at?: string | null
+          invitation_sms_sent_at?: string | null
           is_indefinite?: boolean | null
           listing_id?: string | null
           portal_access_token?: string | null
@@ -11340,6 +11410,7 @@ export type Database = {
           rental_end?: string | null
           rental_start?: string | null
           rental_type?: string | null
+          source?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id: string
@@ -11347,20 +11418,28 @@ export type Database = {
           weekly_rental_fee?: number | null
         }
         Update: {
+          contract_locked_at?: string | null
           contract_number?: string | null
           created_at?: string | null
           created_by?: string | null
           driver_id?: string
           driver_reviewed?: boolean | null
+          driver_signature_ip?: string | null
           driver_signature_url?: string | null
+          driver_signature_user_agent?: string | null
           driver_signed_at?: string | null
           fleet_id?: string
           fleet_reviewed?: boolean | null
+          fleet_signature_ip?: string | null
           fleet_signature_url?: string | null
+          fleet_signature_user_agent?: string | null
           fleet_signed_at?: string | null
           id?: string
           invitation_email?: string | null
+          invitation_method?: string | null
+          invitation_phone?: string | null
           invitation_sent_at?: string | null
+          invitation_sms_sent_at?: string | null
           is_indefinite?: boolean | null
           listing_id?: string | null
           portal_access_token?: string | null
@@ -11368,6 +11447,7 @@ export type Database = {
           rental_end?: string | null
           rental_start?: string | null
           rental_type?: string | null
+          source?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id?: string
