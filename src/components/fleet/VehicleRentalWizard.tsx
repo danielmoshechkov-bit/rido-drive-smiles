@@ -331,11 +331,31 @@ export function VehicleRentalWizard({
     resetForm();
   };
 
-  // Allow clicking on completed steps to navigate back
+  // Allow clicking on steps to navigate - back always, forward if steps are valid
   const handleStepClick = (stepId: number) => {
-    // Only allow going back to completed steps
     if (stepId < currentStep) {
+      // Going back - always allowed
       setCurrentStep(stepId);
+    } else if (stepId > currentStep) {
+      // Going forward - check if all intermediate steps pass validation
+      let canNavigate = true;
+      for (let i = currentStep; i < stepId; i++) {
+        let stepValid = false;
+        switch (i) {
+          case 1: stepValid = !!selectedVehicle; break;
+          case 2: stepValid = isIndefinite || (!!rentalStart && !!rentalEnd); break;
+          case 3: stepValid = !!rentalType; break;
+          case 4: stepValid = !!selectedDriver && driverMissingFields.length === 0; break;
+          default: stepValid = true;
+        }
+        if (!stepValid) {
+          canNavigate = false;
+          break;
+        }
+      }
+      if (canNavigate) {
+        setCurrentStep(stepId);
+      }
     }
   };
 
@@ -352,12 +372,12 @@ export function VehicleRentalWizard({
                 <div key={step.id} className="flex items-center">
                   <div 
                     className={cn(
-                      "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors",
+                      "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors cursor-pointer",
                       currentStep === step.id 
                         ? "bg-primary border-primary text-primary-foreground" 
                         : currentStep > step.id
-                          ? "bg-primary/20 border-primary text-primary cursor-pointer hover:bg-primary/30"
-                          : "border-muted-foreground/30 text-muted-foreground"
+                          ? "bg-primary/20 border-primary text-primary hover:bg-primary/30"
+                          : "border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
                     )}
                     onClick={() => handleStepClick(step.id)}
                   >
@@ -369,9 +389,9 @@ export function VehicleRentalWizard({
                   </div>
                   <span 
                     className={cn(
-                      "ml-2 text-sm font-medium hidden sm:inline",
+                      "ml-2 text-sm font-medium hidden sm:inline cursor-pointer",
                       currentStep === step.id ? "text-foreground" : "text-muted-foreground",
-                      currentStep > step.id && "cursor-pointer hover:text-foreground"
+                      "hover:text-foreground"
                     )}
                     onClick={() => handleStepClick(step.id)}
                   >
@@ -808,7 +828,7 @@ export function VehicleRentalWizard({
             ) : (
               <Button onClick={handleComplete} disabled={!canProceed() || isSaving}>
                 {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Utwórz najem
+                Utwórz umowę
               </Button>
             )}
           </div>

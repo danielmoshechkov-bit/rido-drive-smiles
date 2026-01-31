@@ -10130,6 +10130,7 @@ export type Database = {
           fleet_id: string
           fleet_reviewed: boolean | null
           id: string
+          invitation_email: string | null
           listing_id: string
           rental_end: string | null
           rental_start: string | null
@@ -10146,6 +10147,7 @@ export type Database = {
           fleet_id: string
           fleet_reviewed?: boolean | null
           id?: string
+          invitation_email?: string | null
           listing_id: string
           rental_end?: string | null
           rental_start?: string | null
@@ -10162,6 +10164,7 @@ export type Database = {
           fleet_id?: string
           fleet_reviewed?: boolean | null
           id?: string
+          invitation_email?: string | null
           listing_id?: string
           rental_end?: string | null
           rental_start?: string | null

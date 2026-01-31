@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { 
   Search, Plus, MessageSquare, Heart, Settings, LogOut, 
   Car, Building2, User, ChevronRight, Package, Loader2,
-  Truck, Users, Repeat, Home
+  Truck, Users, Repeat, Home, Globe, Briefcase
 } from "lucide-react";
 import {
   Dialog,
@@ -54,6 +54,9 @@ export default function MarketplaceDashboard() {
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
   const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
+  const [isSalesAdmin, setIsSalesAdmin] = useState(false);
+  const [isSalesRep, setIsSalesRep] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showAccountsModal, setShowAccountsModal] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
@@ -107,6 +110,27 @@ export default function MarketplaceDashboard() {
         .eq("user_id", session.user.id)
         .in("role", ["real_estate_agent", "real_estate_admin"]);
       setIsRealEstateAccount(!!realEstateRoles && realEstateRoles.length > 0);
+
+      // Check if user has admin account
+      const isMainAdmin = session.user.email === 'daniel.moshechkov@gmail.com';
+      const { data: adminRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdminAccount(isMainAdmin || !!adminRole);
+
+      // Check for sales accounts
+      const { data: salesRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["sales_admin", "sales_rep"]);
+      if (salesRoles) {
+        setIsSalesAdmin(salesRoles.some((r: any) => r.role === 'sales_admin'));
+        setIsSalesRep(salesRoles.some((r: any) => r.role === 'sales_rep'));
+      }
 
       const { data, error } = await supabase
         .from("marketplace_user_profiles")
@@ -747,6 +771,46 @@ export default function MarketplaceDashboard() {
               </Card>
             )}
             
+            {/* Admin Account */}
+            {isAdminAccount && (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/admin/dashboard");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Globe className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">Administrator</p>
+                    <p className="text-sm text-muted-foreground">Panel administracyjny</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sales Account */}
+            {(isSalesAdmin || isSalesRep) && (
+              <Card 
+                className="cursor-pointer hover:bg-muted/30 transition-colors" 
+                onClick={() => {
+                  setShowAccountsModal(false);
+                  navigate("/sprzedaz");
+                }}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Briefcase className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
+                    <p className="text-sm text-muted-foreground">Portal sprzedażowy</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Fleet Account */}
             {isFleetAccount ? (
               <Card 
