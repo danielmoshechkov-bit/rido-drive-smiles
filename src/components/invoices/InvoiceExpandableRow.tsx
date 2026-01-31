@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
@@ -89,6 +91,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   
   // Edit dialog state
   const [showEditDialog, setShowEditDialog] = useState(false);
+  
+  // Reminder dialog state
+  const [showReminderPopover, setShowReminderPopover] = useState(false);
+  const [reminderDate, setReminderDate] = useState<Date | undefined>(
+    invoice.due_date ? subDays(new Date(invoice.due_date), 3) : undefined
+  );
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '—';
@@ -269,17 +277,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
-  const handleSetReminder = () => {
-    if (!invoice.due_date) {
-      toast.error('Faktura nie ma ustawionego terminu płatności');
+  const handleSetReminder = (selectedDate: Date) => {
+    if (!selectedDate) {
+      toast.error('Wybierz datę przypomnienia');
       return;
     }
-
-    const dueDate = new Date(invoice.due_date);
-    const reminderDate = addDays(dueDate, -3);
     
-    toast.success(`Przypomnienie ustawione na ${format(reminderDate, 'd MMM yyyy', { locale: pl })}`);
-    // In full implementation, this would save the reminder to database
+    // Save reminder - in full implementation save to database
+    toast.success(`Przypomnienie ustawione na ${format(selectedDate, 'd MMM yyyy', { locale: pl })}`);
+    setShowReminderPopover(false);
   };
 
   const handleEdit = () => {
@@ -488,10 +494,44 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 Email
               </Button>
               
-              <Button size="sm" variant="outline" onClick={handleSetReminder}>
-                <Clock className="h-4 w-4 mr-1" />
-                Przypomnienie
-              </Button>
+              <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Clock className="h-4 w-4 mr-1" />
+                    Przypomnienie
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3 border-b">
+                    <p className="text-sm font-medium">Wybierz datę przypomnienia</p>
+                    <p className="text-xs text-muted-foreground">
+                      Termin płatności: {invoice.due_date ? format(new Date(invoice.due_date), 'd MMM yyyy', { locale: pl }) : 'brak'}
+                    </p>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={reminderDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setReminderDate(date);
+                      }
+                    }}
+                    initialFocus
+                  />
+                  <div className="p-3 border-t flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowReminderPopover(false)}>
+                      Anuluj
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={() => reminderDate && handleSetReminder(reminderDate)}
+                      disabled={!reminderDate}
+                    >
+                      Ustaw
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               
               <Button size="sm" variant="outline" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-1" />

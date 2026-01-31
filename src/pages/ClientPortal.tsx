@@ -231,13 +231,18 @@ export default function ClientPortal() {
   };
 
   const checkAdminAccount = async (userId: string) => {
+    // Check if this is the main admin by email
+    const { data: { session } } = await supabase.auth.getSession();
+    const isMainAdmin = session?.user?.email === 'daniel.moshechkov@gmail.com';
+    
+    // Also check for admin role in database
     const { data } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
-    setIsAdminAccount(!!data);
+    setIsAdminAccount(isMainAdmin || !!data);
   };
 
   const checkSalesAccount = async (userId: string) => {
