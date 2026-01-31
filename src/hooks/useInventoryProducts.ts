@@ -12,6 +12,8 @@ export interface InventoryProduct {
   unit: string;
   default_sale_price_net?: number;
   default_sale_price_gross?: number;
+  default_purchase_price_net?: number;
+  default_purchase_price_gross?: number;
   currency: string;
   barcode?: string;
   category?: string;

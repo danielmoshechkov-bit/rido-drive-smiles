@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useInventoryProducts, InventoryProduct } from '@/hooks/useInventoryProducts';
+import { CategorySelector } from './CategorySelector';
 import { 
   Package, 
   Plus, 
@@ -15,7 +16,10 @@ import {
   Edit, 
   Trash2, 
   Loader2,
-  Barcode
+  Barcode,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle
 } from 'lucide-react';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
@@ -39,6 +43,9 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
     vat_rate: '23',
     unit: 'szt.',
     default_sale_price_net: '',
+    default_sale_price_gross: '',
+    default_purchase_price_net: '',
+    default_purchase_price_gross: '',
     barcode: '',
     category: '',
     notes: '',
@@ -58,6 +65,9 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
       vat_rate: '23',
       unit: 'szt.',
       default_sale_price_net: '',
+      default_sale_price_gross: '',
+      default_purchase_price_net: '',
+      default_purchase_price_gross: '',
       barcode: '',
       category: '',
       notes: '',
@@ -73,6 +83,9 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
       vat_rate: product.vat_rate,
       unit: product.unit,
       default_sale_price_net: product.default_sale_price_net?.toString() || '',
+      default_sale_price_gross: product.default_sale_price_gross?.toString() || '',
+      default_purchase_price_net: product.default_purchase_price_net?.toString() || '',
+      default_purchase_price_gross: product.default_purchase_price_gross?.toString() || '',
       barcode: product.barcode || '',
       category: product.category || '',
       notes: product.notes || '',
@@ -83,17 +96,27 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
   const handleSave = async () => {
     if (!formData.name_sales.trim()) return;
 
-    const priceNet = parseFloat(formData.default_sale_price_net) || 0;
+    const saleNet = parseFloat(formData.default_sale_price_net) || 0;
+    const purchaseNet = parseFloat(formData.default_purchase_price_net) || 0;
     const vatRate = parseFloat(formData.vat_rate) || 0;
-    const priceGross = priceNet * (1 + vatRate / 100);
+    
+    // Calculate gross prices
+    const saleGross = formData.default_sale_price_gross 
+      ? parseFloat(formData.default_sale_price_gross) 
+      : saleNet * (1 + vatRate / 100);
+    const purchaseGross = formData.default_purchase_price_gross 
+      ? parseFloat(formData.default_purchase_price_gross) 
+      : purchaseNet * (1 + vatRate / 100);
 
     const productData = {
       name_sales: formData.name_sales,
       sku: formData.sku || null,
       vat_rate: formData.vat_rate,
       unit: formData.unit,
-      default_sale_price_net: priceNet,
-      default_sale_price_gross: priceGross,
+      default_sale_price_net: saleNet || null,
+      default_sale_price_gross: saleGross || null,
+      default_purchase_price_net: purchaseNet || null,
+      default_purchase_price_gross: purchaseGross || null,
       barcode: formData.barcode || null,
       category: formData.category || null,
       notes: formData.notes || null,
@@ -106,6 +129,68 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
     }
 
     setShowDialog(false);
+  };
+
+  // Calculate margin for display
+  const getMargin = (product: InventoryProduct) => {
+    if (!product.default_sale_price_net || !product.default_purchase_price_net) return null;
+    const margin = product.default_sale_price_net - product.default_purchase_price_net;
+    const marginPercent = (margin / product.default_purchase_price_net) * 100;
+    return { value: margin, percent: marginPercent };
+  };
+
+  // Recalculate gross when net or VAT changes
+  const handleNetPriceChange = (field: 'sale' | 'purchase', value: string) => {
+    const netValue = parseFloat(value) || 0;
+    const vatRate = parseFloat(formData.vat_rate) || 0;
+    const grossValue = netValue * (1 + vatRate / 100);
+    
+    if (field === 'sale') {
+      setFormData({
+        ...formData,
+        default_sale_price_net: value,
+        default_sale_price_gross: grossValue ? grossValue.toFixed(2) : ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        default_purchase_price_net: value,
+        default_purchase_price_gross: grossValue ? grossValue.toFixed(2) : ''
+      });
+    }
+  };
+
+  const handleGrossPriceChange = (field: 'sale' | 'purchase', value: string) => {
+    const grossValue = parseFloat(value) || 0;
+    const vatRate = parseFloat(formData.vat_rate) || 0;
+    const netValue = grossValue / (1 + vatRate / 100);
+    
+    if (field === 'sale') {
+      setFormData({
+        ...formData,
+        default_sale_price_gross: value,
+        default_sale_price_net: netValue ? netValue.toFixed(2) : ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        default_purchase_price_gross: value,
+        default_purchase_price_net: netValue ? netValue.toFixed(2) : ''
+      });
+    }
+  };
+
+  const handleVatChange = (newVat: string) => {
+    const vatRate = parseFloat(newVat) || 0;
+    const saleNet = parseFloat(formData.default_sale_price_net) || 0;
+    const purchaseNet = parseFloat(formData.default_purchase_price_net) || 0;
+    
+    setFormData({
+      ...formData,
+      vat_rate: newVat,
+      default_sale_price_gross: saleNet ? (saleNet * (1 + vatRate / 100)).toFixed(2) : '',
+      default_purchase_price_gross: purchaseNet ? (purchaseNet * (1 + vatRate / 100)).toFixed(2) : ''
+    });
   };
 
   const handleDelete = async (product: InventoryProduct) => {
@@ -163,48 +248,81 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredProducts.map((product) => (
-                <div 
-                  key={product.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Package className="h-5 w-5 text-primary" />
+              {filteredProducts.map((product) => {
+                const margin = getMargin(product);
+                return (
+                  <div 
+                    key={product.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Package className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{product.name_sales}</p>
+                          {product.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {product.category}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          {product.sku && <span>SKU: {product.sku}</span>}
+                          {showBarcode && product.barcode && (
+                            <span className="flex items-center gap-1">
+                              <Barcode className="h-3 w-3" />
+                              {product.barcode}
+                            </span>
+                          )}
+                          <span>• {product.unit}</span>
+                          <span>• VAT {product.vat_rate}%</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{product.name_sales}</p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {product.sku && <span>SKU: {product.sku}</span>}
-                        {showBarcode && product.barcode && (
-                          <span className="flex items-center gap-1">
-                            <Barcode className="h-3 w-3" />
-                            {product.barcode}
-                          </span>
+                    <div className="flex items-center gap-4">
+                      {/* Prices and Margin */}
+                      <div className="text-right space-y-0.5">
+                        <div className="flex items-center gap-3">
+                          {product.default_purchase_price_net && (
+                            <div className="text-xs text-muted-foreground">
+                              <span>Zakup: </span>
+                              <span>{product.default_purchase_price_net.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {product.default_sale_price_net?.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                            </p>
+                            <p className="text-xs text-muted-foreground">sprzedaż netto</p>
+                          </div>
+                        </div>
+                        {margin && (
+                          <div className={`flex items-center gap-1 text-xs ${margin.value >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                            {margin.value >= 0 ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : (
+                              <TrendingDown className="h-3 w-3" />
+                            )}
+                            <span>
+                              Marża: {margin.value.toFixed(2)} zł ({margin.percent.toFixed(1)}%)
+                            </span>
+                          </div>
                         )}
-                        <span>• {product.unit}</span>
-                        <span>• VAT {product.vat_rate}%</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(product)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        {product.default_sale_price_net?.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
-                      </p>
-                      <p className="text-xs text-muted-foreground">netto</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(product)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -250,17 +368,15 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Cena netto</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.default_sale_price_net}
-                  onChange={(e) => setFormData({ ...formData, default_sale_price_net: e.target.value })}
-                  placeholder="0.00"
-                />
-              </div>
+            {/* Category Selector */}
+            <CategorySelector
+              value={formData.category}
+              onChange={(v) => setFormData({ ...formData, category: v })}
+              entityId={entityId}
+            />
+
+            {/* VAT and Unit */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Jednostka</Label>
                 <Select 
@@ -278,10 +394,10 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
                 </Select>
               </div>
               <div>
-                <Label>VAT</Label>
+                <Label>Stawka VAT</Label>
                 <Select 
                   value={formData.vat_rate} 
-                  onValueChange={(v) => setFormData({ ...formData, vat_rate: v })}
+                  onValueChange={handleVatChange}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -295,13 +411,87 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
               </div>
             </div>
 
-            <div>
-              <Label>Kategoria</Label>
-              <Input
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="np. Artykuły biurowe"
-              />
+            {/* Purchase Prices */}
+            <div className="border-t pt-4">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wide">Cena zakupu</Label>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                  <Label>Netto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.default_purchase_price_net}
+                    onChange={(e) => handleNetPriceChange('purchase', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Brutto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.default_purchase_price_gross}
+                    onChange={(e) => handleGrossPriceChange('purchase', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sale Prices */}
+            <div className="border-t pt-4">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wide">Cena sprzedaży</Label>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                  <Label>Netto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.default_sale_price_net}
+                    onChange={(e) => handleNetPriceChange('sale', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Brutto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.default_sale_price_gross}
+                    onChange={(e) => handleGrossPriceChange('sale', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              
+              {/* Margin Preview */}
+              {formData.default_purchase_price_net && formData.default_sale_price_net && (
+                <div className="mt-3 p-3 bg-muted rounded-lg">
+                  {(() => {
+                    const purchase = parseFloat(formData.default_purchase_price_net) || 0;
+                    const sale = parseFloat(formData.default_sale_price_net) || 0;
+                    const margin = sale - purchase;
+                    const marginPercent = purchase > 0 ? (margin / purchase) * 100 : 0;
+                    const isNegative = margin < 0;
+                    
+                    return (
+                      <div className={`flex items-center gap-2 text-sm ${isNegative ? 'text-destructive' : 'text-green-600'}`}>
+                        {isNegative ? (
+                          <>
+                            <AlertTriangle className="h-4 w-4" />
+                            <span>Uwaga: sprzedajesz poniżej ceny zakupu!</span>
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp className="h-4 w-4" />
+                            <span>Marża: {margin.toFixed(2)} zł ({marginPercent.toFixed(1)}%)</span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
             <div>

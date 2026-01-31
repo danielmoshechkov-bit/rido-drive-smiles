@@ -840,6 +840,7 @@ export function VehicleRentalWizard({
         isOpen={showAddVehicle}
         onClose={() => setShowAddVehicle(false)}
         fleetId={fleetId}
+        userType="fleet"
         variant="rental"
         onSuccess={async (vehicleId) => {
           // Reload vehicles list
