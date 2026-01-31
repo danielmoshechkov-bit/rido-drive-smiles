@@ -72,6 +72,8 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isSalesAdmin, setIsSalesAdmin] = useState(false);
+  const [isSalesRep, setIsSalesRep] = useState(false);
 
   // PWA install prompt detection
   useEffect(() => {
@@ -146,6 +148,17 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
         .eq('user_id', user.id)
         .maybeSingle();
       setIsMarketplaceAccount(!!marketplaceProfile);
+
+      // Check sales accounts
+      const { data: salesRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['sales_admin', 'sales_rep']);
+      if (salesRoles) {
+        setIsSalesAdmin(salesRoles.some((r: any) => r.role === 'sales_admin'));
+        setIsSalesRep(salesRoles.some((r: any) => r.role === 'sales_rep'));
+      }
     };
     
     checkUserAccounts();
@@ -917,6 +930,8 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               isDriverAccount={isDriverAccount}
               isFleetAccount={true}
               isMarketplaceAccount={isMarketplaceAccount}
+              isSalesAdmin={isSalesAdmin}
+              isSalesRep={isSalesRep}
               isClientPortal={true}
               isMarketplaceEnabled={isMarketplaceEnabled}
               currentAccountType="fleet"

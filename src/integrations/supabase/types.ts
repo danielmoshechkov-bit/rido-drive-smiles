@@ -10124,6 +10124,7 @@ export type Database = {
       vehicle_rentals: {
         Row: {
           created_at: string | null
+          created_by: string | null
           driver_id: string
           driver_reviewed: boolean | null
           fleet_id: string
@@ -10139,6 +10140,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          created_by?: string | null
           driver_id: string
           driver_reviewed?: boolean | null
           fleet_id: string
@@ -10154,6 +10156,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          created_by?: string | null
           driver_id?: string
           driver_reviewed?: boolean | null
           fleet_id?: string

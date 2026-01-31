@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
-export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | null;
+export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | 'sales_admin' | 'sales_rep' | null;
 
 interface UseUserRoleReturn {
   role: UserRole;
@@ -17,6 +17,8 @@ interface UseUserRoleReturn {
   isRealEstateAdmin: boolean;
   isAccountant: boolean;
   isAccountingAdmin: boolean;
+  isSalesAdmin: boolean;
+  isSalesRep: boolean;
   refetch: () => Promise<void>;
   delegatedRole?: {
     fleet_id: string;
@@ -167,6 +169,8 @@ export const useUserRole = (): UseUserRoleReturn => {
   isRealEstateAdmin: role === 'admin' || roles.includes('real_estate_admin' as UserRole),
   isAccountant: role === 'accountant' || roles.includes('accountant' as UserRole),
   isAccountingAdmin: role === 'accounting_admin' || roles.includes('accounting_admin' as UserRole),
+  isSalesAdmin: role === 'sales_admin' || roles.includes('sales_admin' as UserRole),
+  isSalesRep: role === 'sales_rep' || roles.includes('sales_rep' as UserRole),
   refetch: fetchUserRole,
   delegatedRole,
   isDelegatedFleetManager: !!delegatedRole,
