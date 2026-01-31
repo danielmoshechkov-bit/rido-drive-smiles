@@ -31,13 +31,15 @@ export default function RentalClientPortal() {
   const contractRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!rentalId || !accessToken) {
+    if (!rentalId) {
       setStep("error");
       setErrorMessage("Nieprawidłowy link do umowy");
       return;
     }
     validateAccess();
-    logAction("contract_viewed");
+    if (accessToken) {
+      logAction("contract_viewed");
+    }
   }, [rentalId, accessToken]);
 
   const logAction = async (actionType: string, metadata: Record<string, any> = {}) => {
@@ -58,8 +60,8 @@ export default function RentalClientPortal() {
 
   const validateAccess = async () => {
     try {
-      const { data, error } = await (supabase
-        .from("vehicle_rentals") as any)
+      // First try to find rental by ID (for fleet managers opening link)
+      let query = (supabase.from("vehicle_rentals") as any)
         .select(`
           id,
           status,
@@ -69,14 +71,31 @@ export default function RentalClientPortal() {
           vehicle:vehicle_id (brand, model, plate),
           driver:driver_id (first_name, last_name)
         `)
-        .eq("id", rentalId)
-        .eq("portal_access_token", accessToken)
-        .single();
+        .eq("id", rentalId);
+      
+      // If token is provided, validate it
+      if (accessToken) {
+        query = query.eq("portal_access_token", accessToken);
+      }
+      
+      const { data, error } = await query.single();
 
       if (error || !data) {
+        console.error("Rental not found:", error);
         setStep("error");
         setErrorMessage("Link jest nieprawidłowy lub wygasł");
         return;
+      }
+
+      // If no token in URL but rental has token, require it for non-authenticated access
+      if (!accessToken && data.portal_access_token) {
+        // Check if user is authenticated and is fleet manager
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setStep("error");
+          setErrorMessage("Link jest nieprawidłowy lub wygasł");
+          return;
+        }
       }
 
       setRentalData(data);
@@ -193,7 +212,7 @@ export default function RentalClientPortal() {
         )}
 
         {/* Contract Viewer with Checkboxes */}
-        {step === "contract" && rentalId && accessToken && (
+        {step === "contract" && rentalId && (
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-xl font-semibold">Umowa najmu pojazdu</h2>
@@ -212,7 +231,7 @@ export default function RentalClientPortal() {
                 >
                   <RentalContractViewer
                     rentalId={rentalId}
-                    accessToken={accessToken}
+                    accessToken={accessToken || undefined}
                     onSigned={() => {}}
                   />
                 </div>

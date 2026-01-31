@@ -19,7 +19,7 @@ import { generateRentalContractHtml, ContractData } from "@/utils/rentalContract
 
 interface RentalContractViewerProps {
   rentalId: string;
-  accessToken: string;
+  accessToken?: string; // Optional - for driver portal access
   onSigned?: () => void;
 }
 
@@ -44,18 +44,22 @@ export function RentalContractViewer({ rentalId, accessToken, onSigned }: Rental
   const loadRentalData = async () => {
     setLoading(true);
     try {
-      // Fetch rental with token validation
-      const { data: rental, error } = await (supabase
-        .from("vehicle_rentals") as any)
+      // Build query - if token provided, validate it; otherwise rely on RLS
+      let query = (supabase.from("vehicle_rentals") as any)
         .select(`
           *,
           vehicles:vehicle_id (id, plate, brand, model, year, vin),
           drivers:driver_id (id, first_name, last_name, email, phone, pesel, address_street, address_city, address_postal_code, license_number),
           fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
         `)
-        .eq("id", rentalId)
-        .eq("portal_access_token", accessToken)
-        .single();
+        .eq("id", rentalId);
+      
+      // Only add token filter if token is provided
+      if (accessToken) {
+        query = query.eq("portal_access_token", accessToken);
+      }
+      
+      const { data: rental, error } = await query.single();
 
       if (error) throw error;
       if (!rental) throw new Error("Nie znaleziono umowy");
