@@ -425,7 +425,7 @@ export function VehicleRentalWizard({
 
                 <Button 
                   variant="outline" 
-                  className="w-full gap-2"
+                  className="w-full gap-2 border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
                   onClick={() => setShowAddVehicle(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -449,10 +449,10 @@ export function VehicleRentalWizard({
                           <div 
                             key={vehicle.id}
                             className={cn(
-                              "cursor-pointer transition-all duration-150 rounded-lg border-2 p-3 sm:p-4",
+                              "cursor-pointer transition-all duration-150 rounded-lg border p-3 sm:p-4",
                               isSelected 
-                                ? "border-primary bg-primary/10 shadow-md" 
-                                : "border-transparent bg-card hover:bg-primary/5 hover:border-primary/30",
+                                ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20" 
+                                : "border-border bg-card hover:bg-primary/10 hover:border-primary",
                               vehicle.is_rented && !isSelected && "opacity-70"
                             )}
                             onClick={() => {
@@ -639,7 +639,7 @@ export function VehicleRentalWizard({
 
                 <Button 
                   variant="outline" 
-                  className="w-full gap-2"
+                  className="w-full gap-2 border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
                   onClick={() => setShowAddDriver(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -689,10 +689,10 @@ export function VehicleRentalWizard({
                         <div 
                           key={driver.id}
                           className={cn(
-                            "cursor-pointer transition-all duration-150 rounded-lg border-2 p-3 sm:p-4",
+                            "cursor-pointer transition-all duration-150 rounded-lg border p-3 sm:p-4",
                             isSelected 
-                              ? "border-primary bg-primary/10 shadow-md" 
-                              : "border-transparent bg-card hover:bg-primary/5 hover:border-primary/30"
+                              ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20" 
+                              : "border-border bg-card hover:bg-primary/10 hover:border-primary"
                           )}
                           onClick={() => handleSelectDriver(driver)}
                         >
@@ -733,7 +733,7 @@ export function VehicleRentalWizard({
 
             {/* Step 5: Summary */}
             {currentStep === 5 && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <Label>Stawka tygodniowa (zł)</Label>
                   <Input
@@ -746,20 +746,20 @@ export function VehicleRentalWizard({
                 </div>
 
                 <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold">Podsumowanie</h4>
+                  <CardContent className="p-3 space-y-2">
+                    <h4 className="font-semibold text-sm">Podsumowanie</h4>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <span className="text-muted-foreground">Pojazd:</span>
-                        <p className="font-medium">
+                        <p className="font-medium truncate">
                           {selectedVehicle?.plate} - {selectedVehicle?.brand} {selectedVehicle?.model}
                         </p>
                       </div>
                       
                       <div>
                         <span className="text-muted-foreground">Kierowca:</span>
-                        <p className="font-medium">
+                        <p className="font-medium truncate">
                           {selectedDriver?.first_name} {selectedDriver?.last_name}
                         </p>
                       </div>
@@ -768,22 +768,22 @@ export function VehicleRentalWizard({
                         <span className="text-muted-foreground">Okres:</span>
                         <p className="font-medium">
                           {isIndefinite 
-                            ? `Od ${format(rentalStart, "dd.MM.yyyy")} - bezterminowo`
-                            : `${format(rentalStart, "dd.MM.yyyy")} - ${rentalEnd ? format(rentalEnd, "dd.MM.yyyy") : "?"}`
+                            ? `Od ${format(rentalStart, "dd.MM")} - bezterminowo`
+                            : `${format(rentalStart, "dd.MM")} - ${rentalEnd ? format(rentalEnd, "dd.MM") : "?"}`
                           }
                         </p>
                       </div>
                       
                       <div>
                         <span className="text-muted-foreground">Rodzaj:</span>
-                        <p className="font-medium">
+                        <p className="font-medium truncate">
                           {RENTAL_TYPES.find(t => t.value === rentalType)?.label}
                         </p>
                       </div>
                       
-                      <div className="col-span-1 sm:col-span-2">
+                      <div className="col-span-2">
                         <span className="text-muted-foreground">Stawka:</span>
-                        <p className="font-semibold text-lg text-primary">
+                        <p className="font-semibold text-primary">
                           {weeklyFee ? `${weeklyFee} zł / tydzień` : "—"}
                         </p>
                       </div>
@@ -792,9 +792,9 @@ export function VehicleRentalWizard({
                 </Card>
 
                 <Card className="border-primary/50 bg-primary/5">
-                  <CardContent className="p-4">
-                    <p className="text-sm font-medium mb-2">Następne kroki po utworzeniu:</p>
-                    <ol className="text-sm text-muted-foreground list-decimal ml-4 space-y-1">
+                  <CardContent className="p-3">
+                    <p className="text-xs font-medium mb-1">Następne kroki po utworzeniu:</p>
+                    <ol className="text-xs text-muted-foreground list-decimal ml-4 space-y-0.5">
                       <li>System wygeneruje umowę najmu</li>
                       <li>Wyślij link do portalu klienta z umową do podpisu</li>
                       <li>Klient zapozna się z umową i podpisze</li>
