@@ -23,6 +23,7 @@ import { InlineEdit } from "./InlineEdit";
 import { UniversalSelector } from "./UniversalSelector";
 import { VehicleListingModal } from "./fleet/VehicleListingModal";
 import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
+import { FleetActiveRentals } from "./fleet/FleetActiveRentals";
 import { DriverVehiclesTab } from "./DriverVehiclesTab";
 import { CarBrandsManagement } from "./CarBrandsManagement";
 import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
@@ -403,7 +404,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-4' : fleetId ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-4' : fleetId ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <TabsTrigger value="vehicles">Auta</TabsTrigger>
             {userType === 'admin' && (
               <>
@@ -413,7 +414,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
               </>
             )}
             {userType === 'fleet' && fleetId && (
-              <TabsTrigger value="rentals">Rezerwacje z giełdy</TabsTrigger>
+              <>
+                <TabsTrigger value="najem">Najem</TabsTrigger>
+                <TabsTrigger value="rentals">Rezerwacje z giełdy</TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -657,6 +661,12 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           {userType === 'admin' && (
             <TabsContent value="driver-vehicles" className="space-y-6">
               <DriverVehiclesTab />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="najem" className="space-y-6">
+              <FleetActiveRentals fleetId={fleetId} />
             </TabsContent>
           )}
 
