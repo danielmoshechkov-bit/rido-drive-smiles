@@ -22,7 +22,8 @@ import {
   Bell,
   Menu,
   ChevronDown,
-  Bot
+  Bot,
+  ArrowLeftRight
 } from "lucide-react";
 import { SalesLeadsList } from "@/components/sales/SalesLeadsList";
 import { SalesLeadForm } from "@/components/sales/SalesLeadForm";
@@ -34,8 +35,10 @@ import { AIAgentDashboard } from "@/components/sales/ai-agent/AIAgentDashboard";
 import { useMyCallbacks, useSalesCategories } from "@/hooks/useSalesLeads";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { UserDropdown } from "@/components/UserDropdown";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import LanguageSelector from "@/components/LanguageSelector";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function SalesPortal() {
   const navigate = useNavigate();
@@ -45,7 +48,10 @@ export default function SalesPortal() {
   const [showAddLead, setShowAddLead] = useState(false);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState("");
+  const [userSalesRole, setUserSalesRole] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  const { isAdmin, isFleetSettlement, isDriver, isRealEstateAgent } = useUserRole();
   
   const tab = searchParams.get("tab") || "leads";
   const categoryFilter = searchParams.get("category") || "";
@@ -68,6 +74,7 @@ export default function SalesPortal() {
       setIsAuthenticated(true);
       setUserEmail(user.email || "");
       setUserName(user.email?.split("@")[0] || "Użytkownik");
+      setUserId(user.id);
       
       // Check if user has sales role
       const { data: roles } = await supabase
@@ -81,7 +88,8 @@ export default function SalesPortal() {
         return;
       }
       setIsSalesUser(true);
-      setUserRole(roles[0].role === "sales_admin" ? "Admin Sprzedaży" : "Przedstawiciel");
+      const isSalesAdminUser = roles.some(r => r.role === "sales_admin");
+      setUserSalesRole(isSalesAdminUser ? "Admin Sprzedaży" : "Przedstawiciel");
     };
     
     checkAccess();
@@ -153,11 +161,20 @@ export default function SalesPortal() {
                   <span>{pendingCallbacksCount} do oddzwonienia</span>
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTabChange("switch-account")}
+                className="gap-2 rounded-xl"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Przełącz konto
+              </Button>
               <LanguageSelector />
               <UserDropdown 
                 userName={userName}
                 userEmail={userEmail}
-                userRole={userRole}
+                userRole={userSalesRole}
                 onLogout={handleLogout}
               />
             </div>
@@ -183,11 +200,19 @@ export default function SalesPortal() {
                   </Badge>
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleTabChange("switch-account")}
+                className="h-9 w-9"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+              </Button>
               <LanguageSelector />
               <UserDropdown 
                 userName={userName}
                 userEmail={userEmail}
-                userRole={userRole}
+                userRole={userSalesRole}
                 onLogout={handleLogout}
               />
             </div>
@@ -440,6 +465,24 @@ export default function SalesPortal() {
         {tab === "ai-agent" && (
           <div className="mt-6">
             <AIAgentDashboard />
+          </div>
+        )}
+
+        {tab === "switch-account" && (
+          <div className="mt-6">
+            <AccountSwitcherPanel
+              isDriverAccount={isDriver}
+              isFleetAccount={isFleetSettlement}
+              isMarketplaceAccount={false}
+              isRealEstateAccount={isRealEstateAgent}
+              isAdminAccount={isAdmin}
+              isClientPortal={true}
+              isSalesAdmin={userSalesRole === "Admin Sprzedaży"}
+              isSalesRep={userSalesRole === "Przedstawiciel"}
+              isMarketplaceEnabled={true}
+              currentAccountType="sales"
+              navigate={navigate}
+            />
           </div>
         )}
 

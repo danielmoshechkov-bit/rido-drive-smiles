@@ -47,6 +47,7 @@ interface VehicleRental {
   rental_type: string | null;
   created_at: string;
   driver_signed_at: string | null;
+  portal_access_token: string | null;
   vehicle: {
     id: string;
     brand: string;
@@ -84,7 +85,7 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
         .from("vehicle_rentals")
         .select(`
           id, status, weekly_rental_fee, rental_start, rental_end, 
-          is_indefinite, rental_type, created_at, driver_signed_at,
+          is_indefinite, rental_type, created_at, driver_signed_at, portal_access_token,
           vehicle:vehicles!vehicle_id (id, brand, model, plate, year),
           driver:drivers!driver_id (id, first_name, last_name, phone, email)
         `)
@@ -147,7 +148,11 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
   };
 
   const openSigningLink = (rental: VehicleRental) => {
-    const url = `/umowa/${rental.id}`;
+    // Build URL with token for driver access
+    let url = `/umowa/${rental.id}`;
+    if (rental.portal_access_token) {
+      url += `?token=${rental.portal_access_token}`;
+    }
     window.open(url, "_blank");
   };
 

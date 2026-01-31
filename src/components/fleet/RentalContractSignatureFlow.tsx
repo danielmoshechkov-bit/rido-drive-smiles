@@ -458,7 +458,35 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         ))}
       </div>
 
-      {/* Rental Info with Edit Button */}
+      {/* Action Buttons - Always visible */}
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setShowContractPreview(true)}
+              className="gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              Podgląd umowy
+            </Button>
+            {!isContractLocked && (
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDriver(true)}
+                className="gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Edytuj dane
+              </Button>
+            )}
+            <Badge variant="secondary" className="ml-auto">
+              {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Rental Info */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
@@ -475,31 +503,6 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
               {rental.driver.phone && (
                 <p className="text-xs text-muted-foreground">{rental.driver.phone}</p>
               )}
-            </div>
-            <div className="flex items-center gap-2">
-              {!isContractLocked && currentStep < 3 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEditDriver(true)}
-                  className="gap-1"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edytuj dane
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowContractPreview(true)}
-                className="gap-1"
-              >
-                <FileText className="h-3 w-3" />
-                Podgląd umowy
-              </Button>
-              <Badge variant={currentStep >= 5 ? "default" : "secondary"}>
-                {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
-              </Badge>
             </div>
           </div>
           {isContractLocked && (
