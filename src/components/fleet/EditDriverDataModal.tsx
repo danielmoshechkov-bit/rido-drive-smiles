@@ -137,10 +137,25 @@ export function EditDriverDataModal({
     );
   };
 
+  const formatPostalCode = (value: string) => {
+    // Remove non-digits
+    const digits = value.replace(/\D/g, '').slice(0, 5);
+    // Format as XX-XXX
+    if (digits.length > 2) {
+      return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    }
+    return digits;
+  };
+
+  const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPostalCode(e.target.value);
+    setFormData({ ...formData, address_postal_code: formatted });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <UserCog className="h-5 w-5" />
             Uzupełnij dane kierowcy
@@ -150,8 +165,8 @@ export function EditDriverDataModal({
           </p>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6">
-          <form id="edit-driver-form" onSubmit={handleSubmit} className="space-y-4 pb-4">
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+          <form id="edit-driver-form" onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="first_name">
@@ -252,8 +267,9 @@ export function EditDriverDataModal({
                     <Input
                       id="address_postal_code"
                       value={formData.address_postal_code}
-                      onChange={e => setFormData({ ...formData, address_postal_code: e.target.value })}
+                      onChange={handlePostalCodeChange}
                       placeholder="00-000"
+                      maxLength={6}
                     />
                   </div>
                   <div className="space-y-2">
@@ -271,7 +287,7 @@ export function EditDriverDataModal({
           </form>
         </ScrollArea>
 
-        <div className="flex gap-3 p-6 pt-4 border-t bg-background">
+        <div className="flex gap-3 pt-4 border-t shrink-0">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Anuluj
           </Button>
