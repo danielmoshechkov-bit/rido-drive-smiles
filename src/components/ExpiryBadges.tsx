@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, parse, isValid } from "date-fns";
+import { format, isValid } from "date-fns";
 import { pl } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 function colorFor(dateStr?: string | null) {
   if (!dateStr) return "bg-destructive text-destructive-foreground";
@@ -41,19 +39,118 @@ async function getLatestInspectionValidTo(vehicleId: string) {
   return data?.[0]?.valid_to as string | undefined;
 }
 
-// Calendar with month/year navigation
-function DatePickerWithNav({ 
+// Simple Calendar Component
+function SimpleCalendar({ 
   selected, 
   onSelect,
-  onClose
+  month,
+  onMonthChange
 }: { 
   selected?: Date; 
   onSelect: (date: Date) => void;
+  month: Date;
+  onMonthChange: (date: Date) => void;
+}) {
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+  
+  const days = [];
+  for (let i = 0; i < adjustedFirstDay; i++) {
+    days.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(i);
+  }
+
+  const weekDays = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+
+  return (
+    <div className="p-2">
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {weekDays.map(day => (
+          <div key={day} className="text-center text-xs text-muted-foreground font-medium py-1">
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day, index) => {
+          if (day === null) {
+            return <div key={`empty-${index}`} />;
+          }
+          const date = new Date(month.getFullYear(), month.getMonth(), day);
+          const isSelected = selected && 
+            selected.getDate() === day && 
+            selected.getMonth() === month.getMonth() && 
+            selected.getFullYear() === month.getFullYear();
+          const isToday = new Date().toDateString() === date.toDateString();
+          
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelect(date);
+              }}
+              className={cn(
+                "w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors",
+                isSelected && "bg-primary text-primary-foreground",
+                !isSelected && isToday && "bg-accent",
+                !isSelected && !isToday && "hover:bg-muted"
+              )}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Inline Date Picker Modal
+function DatePickerModal({ 
+  isOpen,
+  onClose,
+  selected, 
+  onSelect,
+  title
+}: { 
+  isOpen: boolean;
   onClose: () => void;
+  selected?: Date; 
+  onSelect: (date: Date) => void;
+  title: string;
 }) {
   const [month, setMonth] = useState(selected || new Date());
   const [inputValue, setInputValue] = useState(selected ? format(selected, "ddMMyyyy") : "");
-  
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMonth(selected || new Date());
+      setInputValue(selected ? format(selected, "ddMMyyyy") : "");
+    }
+  }, [isOpen, selected]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 8);
     setInputValue(val);
@@ -61,7 +158,6 @@ function DatePickerWithNav({
 
   const confirmManualInput = () => {
     if (inputValue.length === 8) {
-      // Parse as DD MM YYYY
       const day = parseInt(inputValue.slice(0, 2), 10);
       const monthNum = parseInt(inputValue.slice(2, 4), 10);
       const yearNum = parseInt(inputValue.slice(4, 8), 10);
@@ -82,11 +178,9 @@ function DatePickerWithNav({
     return `${val.slice(0,2)}.${val.slice(2,4)}.${val.slice(4)}`;
   };
 
-  const handleDaySelect = (date: Date | undefined) => {
-    if (date) {
-      onSelect(date);
-      onClose();
-    }
+  const handleDaySelect = (date: Date) => {
+    onSelect(date);
+    onClose();
   };
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
@@ -96,79 +190,128 @@ function DatePickerWithNav({
   ];
 
   return (
-    <div className="p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
-      {/* Manual input */}
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Wpisz datę (ddmmrrrr):</label>
-        <div className="flex gap-2">
-          <Input
-            value={formatInputDisplay(inputValue)}
-            onChange={handleInputChange}
-            onKeyDown={(e) => e.key === "Enter" && confirmManualInput()}
-            placeholder="dd.mm.rrrr"
-            className="text-center font-mono flex-1"
-            maxLength={10}
-          />
-          <Button size="sm" onClick={confirmManualInput} disabled={inputValue.length !== 8}>
-            OK
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50" onClick={(e) => e.stopPropagation()}>
+      <div 
+        ref={modalRef}
+        className="bg-popover border rounded-lg shadow-lg w-[320px]" 
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-3 border-b">
+          <span className="font-medium text-sm">{title}</span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
-      </div>
-      
-      {/* Month/Year selectors */}
-      <div className="flex items-center justify-between gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
         
-        <div className="flex gap-1">
-          <select
-            value={month.getMonth()}
-            onChange={(e) => setMonth(prev => new Date(prev.getFullYear(), parseInt(e.target.value)))}
-            className="text-sm border rounded px-2 py-1 bg-background"
-          >
-            {months.map((m, i) => (
-              <option key={i} value={i}>{m}</option>
-            ))}
-          </select>
+        <div className="p-3 space-y-3">
+          {/* Manual input */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Wpisz datę (ddmmrrrr):</label>
+            <div className="flex gap-2">
+              <Input
+                value={formatInputDisplay(inputValue)}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    confirmManualInput();
+                  }
+                }}
+                placeholder="dd.mm.rrrr"
+                className="text-center font-mono flex-1"
+                maxLength={10}
+                autoFocus
+              />
+              <Button size="sm" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmManualInput();
+              }} disabled={inputValue.length !== 8}>
+                OK
+              </Button>
+            </div>
+          </div>
           
-          <select
-            value={month.getFullYear()}
-            onChange={(e) => setMonth(prev => new Date(parseInt(e.target.value), prev.getMonth()))}
-            className="text-sm border rounded px-2 py-1 bg-background"
-          >
-            {years.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
+          {/* Month/Year selectors */}
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
+              }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <div className="flex gap-1">
+              <select
+                value={month.getMonth()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setMonth(prev => new Date(prev.getFullYear(), parseInt(e.target.value)));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm border rounded px-2 py-1 bg-background"
+              >
+                {months.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              
+              <select
+                value={month.getFullYear()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setMonth(prev => new Date(parseInt(e.target.value), prev.getMonth()));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm border rounded px-2 py-1 bg-background"
+              >
+                {years.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
+              }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Calendar */}
+          <SimpleCalendar
+            selected={selected}
+            onSelect={handleDaySelect}
+            month={month}
+            onMonthChange={setMonth}
+          />
         </div>
-        
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
       </div>
-      
-      {/* Calendar */}
-      <Calendar
-        mode="single"
-        selected={selected}
-        onSelect={handleDaySelect}
-        month={month}
-        onMonthChange={setMonth}
-        locale={pl}
-        className={cn("p-3 pointer-events-auto")}
-        initialFocus
-      />
     </div>
   );
 }
@@ -226,71 +369,48 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
     }
   };
 
-  const handleBadgeClick = (e: React.MouseEvent, kind: "policy" | "insp") => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (kind === "policy") {
-      setPolicyOpen(true);
-    } else {
-      setInspOpen(true);
-    }
-  };
-
   return (
     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       {/* OC Policy */}
-      <Popover open={policyOpen} onOpenChange={setPolicyOpen} modal>
-        <PopoverTrigger asChild>
-          <Badge 
-            className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(policyTo)}`}
-            onClick={(e) => handleBadgeClick(e, "policy")}
-          >
-            OC: {formatDisplayDate(policyTo)}
-          </Badge>
-        </PopoverTrigger>
-        <PopoverContent 
-          className="w-auto p-0 z-[200] pointer-events-auto" 
-          align="start" 
-          side="bottom"
-          sideOffset={4}
-          onClick={(e) => e.stopPropagation()}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DatePickerWithNav
-            selected={policyTo ? new Date(policyTo) : undefined}
-            onSelect={(date) => saveDate("policy", date)}
-            onClose={() => setPolicyOpen(false)}
-          />
-        </PopoverContent>
-      </Popover>
+      <Badge 
+        className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(policyTo)}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setPolicyOpen(true);
+        }}
+      >
+        OC: {formatDisplayDate(policyTo)}
+      </Badge>
 
       {/* Inspection */}
-      <Popover open={inspOpen} onOpenChange={setInspOpen} modal>
-        <PopoverTrigger asChild>
-          <Badge 
-            className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(inspTo)}`}
-            onClick={(e) => handleBadgeClick(e, "insp")}
-          >
-            Przegląd: {formatDisplayDate(inspTo)}
-          </Badge>
-        </PopoverTrigger>
-        <PopoverContent 
-          className="w-auto p-0 z-[200] pointer-events-auto" 
-          align="start" 
-          side="bottom"
-          sideOffset={4}
-          onClick={(e) => e.stopPropagation()}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DatePickerWithNav
-            selected={inspTo ? new Date(inspTo) : undefined}
-            onSelect={(date) => saveDate("insp", date)}
-            onClose={() => setInspOpen(false)}
-          />
-        </PopoverContent>
-      </Popover>
+      <Badge 
+        className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(inspTo)}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setInspOpen(true);
+        }}
+      >
+        Przegląd: {formatDisplayDate(inspTo)}
+      </Badge>
+
+      {/* Date Picker Modals */}
+      <DatePickerModal
+        isOpen={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        selected={policyTo ? new Date(policyTo) : undefined}
+        onSelect={(date) => saveDate("policy", date)}
+        title="Data ważności OC"
+      />
+
+      <DatePickerModal
+        isOpen={inspOpen}
+        onClose={() => setInspOpen(false)}
+        selected={inspTo ? new Date(inspTo) : undefined}
+        onSelect={(date) => saveDate("insp", date)}
+        title="Data ważności przeglądu"
+      />
     </div>
   );
 }

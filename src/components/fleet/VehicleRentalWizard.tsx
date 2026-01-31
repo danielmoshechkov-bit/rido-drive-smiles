@@ -648,35 +648,49 @@ export function VehicleRentalWizard({
                       Brak kierowców
                     </p>
                   ) : (
-                    filteredDrivers.map(driver => (
-                      <Card 
-                        key={driver.id}
-                        className={cn(
-                          "cursor-pointer transition-colors hover:bg-accent",
-                          selectedDriver?.id === driver.id && "ring-2 ring-primary bg-primary/5"
-                        )}
-                        onClick={() => handleSelectDriver(driver)}
-                      >
-                        <CardContent className="p-4 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <User className="h-8 w-8 text-muted-foreground" />
-                            <div>
-                              <p className="font-semibold">
-                                {driver.first_name} {driver.last_name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {driver.email || driver.phone || "Brak kontaktu"}
-                              </p>
-                            </div>
-                          </div>
-                          {validateDriver(driver).length > 0 && (
-                            <Badge variant="outline" className="text-destructive border-destructive">
-                              Niekompletne dane
-                            </Badge>
+                    filteredDrivers.map(driver => {
+                      const isSelected = selectedDriver?.id === driver.id;
+                      return (
+                        <Card 
+                          key={driver.id}
+                          className={cn(
+                            "cursor-pointer transition-all border-2",
+                            isSelected 
+                              ? "ring-2 ring-primary border-primary bg-primary/10 shadow-md" 
+                              : "border-transparent hover:bg-accent hover:border-accent"
                           )}
-                        </CardContent>
-                      </Card>
-                    ))
+                          onClick={() => handleSelectDriver(driver)}
+                        >
+                          <CardContent className="p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className={cn(
+                                "flex items-center justify-center w-10 h-10 rounded-full",
+                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                              )}>
+                                {isSelected ? (
+                                  <Check className="h-5 w-5" />
+                                ) : (
+                                  <User className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <p className={cn("font-semibold", isSelected && "text-primary")}>
+                                  {driver.first_name} {driver.last_name}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {driver.email || driver.phone || "Brak kontaktu"}
+                                </p>
+                              </div>
+                            </div>
+                            {validateDriver(driver).length > 0 && (
+                              <Badge variant="outline" className="text-destructive border-destructive">
+                                Niekompletne dane
+                              </Badge>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                   )}
                 </div>
               </div>
