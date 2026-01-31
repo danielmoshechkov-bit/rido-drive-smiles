@@ -11,17 +11,18 @@ import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegratio
 import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
+import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid } from 'lucide-react';
+import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('api');
+  const [activeSubTab, setActiveSubTab] = useState('ai-assistant');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -45,6 +46,7 @@ export default function AdminPortal() {
   }, [roleLoading, isAdmin, user, loading]);
 
   const subTabs = [
+    { value: 'ai-assistant', label: 'AI Asystent', visible: true },
     { value: 'api', label: 'API i Integracje', visible: true },
     { value: 'voice', label: 'Głos i TTS', visible: true },
     { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
@@ -99,6 +101,11 @@ export default function AdminPortal() {
         />
 
         <div className="mt-6">
+          {/* AI Assistant Tab */}
+          {activeSubTab === 'ai-assistant' && (
+            <AdminAIAssistant />
+          )}
+
           {/* API & Integrations Tab */}
           {activeSubTab === 'api' && (
             <div className="space-y-6">
