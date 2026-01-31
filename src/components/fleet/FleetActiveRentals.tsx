@@ -19,7 +19,9 @@ import {
   Clock,
   AlertCircle,
   Plus,
-  Loader2
+  Loader2,
+  Pencil,
+  ExternalLink
 } from "lucide-react";
 import {
   Dialog,
@@ -36,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RentalPhotoProtocol } from "./RentalPhotoProtocol";
+import { RentalContractSignatureFlow } from "./RentalContractSignatureFlow";
 
 interface VehicleRental {
   id: string;
@@ -73,6 +76,7 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
   const [loading, setLoading] = useState(true);
   const [selectedRental, setSelectedRental] = useState<VehicleRental | null>(null);
   const [showPhotoProtocol, setShowPhotoProtocol] = useState(false);
+  const [showEditFlow, setShowEditFlow] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -342,8 +346,8 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
       )}
 
       {/* Rental Details Dialog */}
-      {selectedRental && !showPhotoProtocol && (
-        <Dialog open={!!selectedRental && !showPhotoProtocol} onOpenChange={() => setSelectedRental(null)}>
+      {selectedRental && !showPhotoProtocol && !showEditFlow && (
+        <Dialog open={!!selectedRental && !showPhotoProtocol && !showEditFlow} onOpenChange={() => setSelectedRental(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -352,6 +356,26 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Action buttons at top */}
+              <div className="flex items-center gap-2 pb-4 border-b">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openSigningLink(selectedRental)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Podgląd umowy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditFlow(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edytuj dane
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-1">Pojazd</h4>
@@ -404,7 +428,7 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
                 )}
                 {selectedRental.status === "pending_signature" && (
                   <Button onClick={() => openSigningLink(selectedRental)}>
-                    <Eye className="h-4 w-4 mr-2" />
+                    <ExternalLink className="h-4 w-4 mr-2" />
                     Otwórz link do podpisu
                   </Button>
                 )}
@@ -422,6 +446,23 @@ export function FleetActiveRentals({ fleetId }: FleetActiveRentalsProps) {
                 )}
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Flow Dialog */}
+      {selectedRental && showEditFlow && (
+        <Dialog open={showEditFlow} onOpenChange={() => setShowEditFlow(false)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <RentalContractSignatureFlow
+              fleetId={fleetId}
+              rentalId={selectedRental.id}
+              onComplete={() => {
+                setShowEditFlow(false);
+                setSelectedRental(null);
+                loadRentals();
+              }}
+            />
           </DialogContent>
         </Dialog>
       )}
