@@ -87,39 +87,39 @@ export function AccountSwitcherPanel({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Admin account */}
-          {isAdminAccount && (
+          {/* Admin account - always show for admins */}
+          {isAdminAccount && currentAccountType !== 'admin' && (
             <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'admin' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
+              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
               onClick={() => handleAccountClick('admin')}
             >
-              <Globe className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'admin' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <Globe className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="font-medium text-sm">Administrator</p>
-              {currentAccountType === 'admin' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
+            </div>
+          )}
+          {currentAccountType === 'admin' && (
+            <div className="border-2 rounded-xl p-4 text-center transition-colors border-primary bg-primary/5">
+              <Globe className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <p className="font-medium text-sm">Administrator</p>
+              <Badge className="mt-2 text-xs">aktywne</Badge>
             </div>
           )}
 
-          {/* Sales account */}
-          {hasSalesAccess && (
+          {/* Sales account - show for users with sales roles */}
+          {hasSalesAccess && currentAccountType !== 'sales' && (
             <div 
-              className={`border-2 rounded-xl p-4 text-center transition-colors ${
-                currentAccountType === 'sales' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border cursor-pointer hover:bg-muted'
-              }`}
+              className="border-2 rounded-xl p-4 text-center transition-colors border-border cursor-pointer hover:bg-muted"
               onClick={() => handleAccountClick('sales')}
             >
-              <Briefcase className={`h-8 w-8 mx-auto mb-2 ${currentAccountType === 'sales' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <Briefcase className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="font-medium text-sm">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
-              {currentAccountType === 'sales' && (
-                <Badge className="mt-2 text-xs">aktywne</Badge>
-              )}
+            </div>
+          )}
+          {hasSalesAccess && currentAccountType === 'sales' && (
+            <div className="border-2 rounded-xl p-4 text-center transition-colors border-primary bg-primary/5">
+              <Briefcase className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <p className="font-medium text-sm">{isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec'}</p>
+              <Badge className="mt-2 text-xs">aktywne</Badge>
             </div>
           )}
 
