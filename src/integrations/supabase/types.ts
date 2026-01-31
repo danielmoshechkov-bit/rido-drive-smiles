@@ -1335,6 +1335,865 @@ export type Database = {
           },
         ]
       }
+      booking_appointments: {
+        Row: {
+          booking_number: string | null
+          calendar_id: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          company_id: string | null
+          completed_at: string | null
+          confirmed_at: string | null
+          consent_email: boolean | null
+          consent_marketing: boolean | null
+          consent_sms: boolean | null
+          consent_snapshot: Json | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          customer_snapshot: Json | null
+          end_at: string
+          event_id: string | null
+          id: string
+          internal_notes: string | null
+          metadata: Json | null
+          notes: string | null
+          payment_status: string | null
+          price_gross: number | null
+          price_net: number | null
+          provider_id: string | null
+          reminder_sent_24h: boolean | null
+          reminder_sent_2h: boolean | null
+          resource_id: string | null
+          service_id: string | null
+          source: string | null
+          start_at: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          booking_number?: string | null
+          calendar_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          consent_email?: boolean | null
+          consent_marketing?: boolean | null
+          consent_sms?: boolean | null
+          consent_snapshot?: Json | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          customer_snapshot?: Json | null
+          end_at: string
+          event_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          payment_status?: string | null
+          price_gross?: number | null
+          price_net?: number | null
+          provider_id?: string | null
+          reminder_sent_24h?: boolean | null
+          reminder_sent_2h?: boolean | null
+          resource_id?: string | null
+          service_id?: string | null
+          source?: string | null
+          start_at: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          booking_number?: string | null
+          calendar_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          consent_email?: boolean | null
+          consent_marketing?: boolean | null
+          consent_sms?: boolean | null
+          consent_snapshot?: Json | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          customer_snapshot?: Json | null
+          end_at?: string
+          event_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          payment_status?: string | null
+          price_gross?: number | null
+          price_net?: number | null
+          provider_id?: string | null
+          reminder_sent_24h?: boolean | null
+          reminder_sent_2h?: boolean | null
+          resource_id?: string | null
+          service_id?: string | null
+          source?: string | null
+          start_at?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_appointments_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_appointments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_appointments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_appointments_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "booking_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_appointments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "booking_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_availability_config: {
+        Row: {
+          allow_same_day_booking: boolean | null
+          auto_confirm: boolean | null
+          buffer_between_bookings_minutes: number | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          max_booking_advance_days: number | null
+          max_bookings_per_day: number | null
+          min_booking_notice_hours: number | null
+          provider_id: string | null
+          resource_id: string | null
+          slot_duration_minutes: number | null
+          slot_increment_minutes: number | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allow_same_day_booking?: boolean | null
+          auto_confirm?: boolean | null
+          buffer_between_bookings_minutes?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          max_booking_advance_days?: number | null
+          max_bookings_per_day?: number | null
+          min_booking_notice_hours?: number | null
+          provider_id?: string | null
+          resource_id?: string | null
+          slot_duration_minutes?: number | null
+          slot_increment_minutes?: number | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allow_same_day_booking?: boolean | null
+          auto_confirm?: boolean | null
+          buffer_between_bookings_minutes?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          max_booking_advance_days?: number | null
+          max_bookings_per_day?: number | null
+          min_booking_notice_hours?: number | null
+          provider_id?: string | null
+          resource_id?: string | null
+          slot_duration_minutes?: number | null
+          slot_increment_minutes?: number | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_availability_config_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_availability_config_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "booking_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_availability_rules: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          day_of_week: number | null
+          end_time: string | null
+          id: string
+          is_available: boolean | null
+          name: string | null
+          provider_id: string | null
+          recurrence_rule: string | null
+          resource_id: string | null
+          rule_type: string
+          specific_date: string | null
+          start_time: string | null
+          updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time?: string | null
+          id?: string
+          is_available?: boolean | null
+          name?: string | null
+          provider_id?: string | null
+          recurrence_rule?: string | null
+          resource_id?: string | null
+          rule_type: string
+          specific_date?: string | null
+          start_time?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time?: string | null
+          id?: string
+          is_available?: boolean | null
+          name?: string | null
+          provider_id?: string | null
+          recurrence_rule?: string | null
+          resource_id?: string | null
+          rule_type?: string
+          specific_date?: string | null
+          start_time?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_availability_rules_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_availability_rules_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "booking_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_notification_jobs: {
+        Row: {
+          appointment_id: string | null
+          body: string | null
+          channel: string
+          company_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          max_retries: number | null
+          notification_type: string
+          provider_id: string | null
+          provider_response: Json | null
+          recipient_email: string | null
+          recipient_phone: string | null
+          recipient_type: string
+          recipient_user_id: string | null
+          retry_count: number | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+          template_data: Json | null
+          template_id: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          body?: string | null
+          channel: string
+          company_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          notification_type: string
+          provider_id?: string | null
+          provider_response?: Json | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          recipient_type: string
+          recipient_user_id?: string | null
+          retry_count?: number | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          template_data?: Json | null
+          template_id?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          body?: string | null
+          channel?: string
+          company_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          notification_type?: string
+          provider_id?: string | null
+          provider_response?: Json | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          recipient_type?: string
+          recipient_user_id?: string | null
+          retry_count?: number | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          template_data?: Json | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_notification_jobs_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_public_links: {
+        Row: {
+          allowed_resources: string[] | null
+          allowed_services: string[] | null
+          booking_count: number | null
+          captcha_enabled: boolean | null
+          company_id: string | null
+          created_at: string | null
+          custom_css: string | null
+          custom_message: string | null
+          id: string
+          is_enabled: boolean | null
+          logo_url: string | null
+          max_bookings_per_day: number | null
+          max_bookings_per_ip_per_day: number | null
+          name: string | null
+          provider_id: string | null
+          require_login: boolean | null
+          slug: string
+          updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
+          view_count: number | null
+        }
+        Insert: {
+          allowed_resources?: string[] | null
+          allowed_services?: string[] | null
+          booking_count?: number | null
+          captcha_enabled?: boolean | null
+          company_id?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          custom_message?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          logo_url?: string | null
+          max_bookings_per_day?: number | null
+          max_bookings_per_ip_per_day?: number | null
+          name?: string | null
+          provider_id?: string | null
+          require_login?: boolean | null
+          slug: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          allowed_resources?: string[] | null
+          allowed_services?: string[] | null
+          booking_count?: number | null
+          captcha_enabled?: boolean | null
+          company_id?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          custom_message?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          logo_url?: string | null
+          max_bookings_per_day?: number | null
+          max_bookings_per_ip_per_day?: number | null
+          name?: string | null
+          provider_id?: string | null
+          require_login?: boolean | null
+          slug?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_public_links_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_resource_services: {
+        Row: {
+          created_at: string | null
+          custom_duration_minutes: number | null
+          custom_price_net: number | null
+          id: string
+          is_active: boolean | null
+          resource_id: string
+          service_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_duration_minutes?: number | null
+          custom_price_net?: number | null
+          id?: string
+          is_active?: boolean | null
+          resource_id: string
+          service_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_duration_minutes?: number | null
+          custom_price_net?: number | null
+          id?: string
+          is_active?: boolean | null
+          resource_id?: string
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_resource_services_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "booking_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_resource_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "booking_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_resources: {
+        Row: {
+          avatar_url: string | null
+          color: string | null
+          company_id: string | null
+          created_at: string | null
+          description: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          name: string
+          phone: string | null
+          provider_id: string | null
+          sort_order: number | null
+          type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name: string
+          phone?: string | null
+          provider_id?: string | null
+          sort_order?: number | null
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name?: string
+          phone?: string | null
+          provider_id?: string | null
+          sort_order?: number | null
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_resources_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_services: {
+        Row: {
+          buffer_after_minutes: number | null
+          buffer_before_minutes: number | null
+          color: string | null
+          company_id: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          duration_minutes: number
+          id: string
+          is_active: boolean | null
+          max_capacity: number | null
+          name: string
+          price_gross: number | null
+          price_net: number | null
+          provider_id: string | null
+          requires_confirmation: boolean | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          buffer_after_minutes?: number | null
+          buffer_before_minutes?: number | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          max_capacity?: number | null
+          name: string
+          price_gross?: number | null
+          price_net?: number | null
+          provider_id?: string | null
+          requires_confirmation?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          buffer_after_minutes?: number | null
+          buffer_before_minutes?: number | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          max_capacity?: number | null
+          name?: string
+          price_gross?: number | null
+          price_net?: number | null
+          provider_id?: string | null
+          requires_confirmation?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_services_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_admin_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      calendar_calendars: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          is_public: boolean | null
+          name: string
+          owner_id: string
+          owner_type: string
+          settings: Json | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          name?: string
+          owner_id: string
+          owner_type: string
+          settings?: Json | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          name?: string
+          owner_id?: string
+          owner_type?: string
+          settings?: Json | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean | null
+          booking_id: string | null
+          calendar_id: string
+          color: string | null
+          created_at: string | null
+          created_by_user_id: string | null
+          description: string | null
+          end_at: string
+          id: string
+          location: string | null
+          location_url: string | null
+          metadata: Json | null
+          recurrence_end_date: string | null
+          recurrence_exception_dates: string[] | null
+          recurrence_rule: string | null
+          reminder_minutes: number[] | null
+          start_at: string
+          status: string | null
+          title: string
+          type: string
+          updated_at: string | null
+          visibility: string | null
+        }
+        Insert: {
+          all_day?: boolean | null
+          booking_id?: string | null
+          calendar_id: string
+          color?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          description?: string | null
+          end_at: string
+          id?: string
+          location?: string | null
+          location_url?: string | null
+          metadata?: Json | null
+          recurrence_end_date?: string | null
+          recurrence_exception_dates?: string[] | null
+          recurrence_rule?: string | null
+          reminder_minutes?: number[] | null
+          start_at: string
+          status?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+          visibility?: string | null
+        }
+        Update: {
+          all_day?: boolean | null
+          booking_id?: string | null
+          calendar_id?: string
+          color?: string | null
+          created_at?: string | null
+          created_by_user_id?: string | null
+          description?: string | null
+          end_at?: string
+          id?: string
+          location?: string | null
+          location_url?: string | null
+          metadata?: Json | null
+          recurrence_end_date?: string | null
+          recurrence_exception_dates?: string[] | null
+          recurrence_rule?: string | null
+          reminder_minutes?: number[] | null
+          start_at?: string
+          status?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          visibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_calendars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_user_settings: {
+        Row: {
+          created_at: string | null
+          default_event_duration_minutes: number | null
+          default_view: string | null
+          id: string
+          notification_email: boolean | null
+          notification_in_app: boolean | null
+          notification_push: boolean | null
+          notification_sms: boolean | null
+          reminder_defaults: number[] | null
+          show_declined: boolean | null
+          show_weekends: boolean | null
+          time_format: string | null
+          timezone: string | null
+          updated_at: string | null
+          user_id: string
+          week_starts_on: number | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_event_duration_minutes?: number | null
+          default_view?: string | null
+          id?: string
+          notification_email?: boolean | null
+          notification_in_app?: boolean | null
+          notification_push?: boolean | null
+          notification_sms?: boolean | null
+          reminder_defaults?: number[] | null
+          show_declined?: boolean | null
+          show_weekends?: boolean | null
+          time_format?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id: string
+          week_starts_on?: number | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_event_duration_minutes?: number | null
+          default_view?: string | null
+          id?: string
+          notification_email?: boolean | null
+          notification_in_app?: boolean | null
+          notification_push?: boolean | null
+          notification_sms?: boolean | null
+          reminder_defaults?: number[] | null
+          show_declined?: boolean | null
+          show_weekends?: boolean | null
+          time_format?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id?: string
+          week_starts_on?: number | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+        }
+        Relationships: []
+      }
       car_brands: {
         Row: {
           created_at: string

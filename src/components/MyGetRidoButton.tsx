@@ -156,7 +156,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           </DropdownMenuItem>
         )}
         {accountTypes.isFleet && (
-          <DropdownMenuItem onClick={() => navigate('/fleet')}>
+          <DropdownMenuItem onClick={() => navigate('/fleet/dashboard')}>
             <Car className="h-4 w-4 mr-2" />
             Zarządzanie Flotą
           </DropdownMenuItem>
