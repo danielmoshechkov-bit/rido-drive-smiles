@@ -48,6 +48,7 @@ export function FleetRentalsManagement({ fleetId }: FleetRentalsManagementProps)
 
   const loadRentals = async () => {
     try {
+      // Only load marketplace reservations (from vehicle listings)
       const { data, error } = await supabase
         .from("vehicle_rentals")
         .select(`
@@ -56,6 +57,7 @@ export function FleetRentalsManagement({ fleetId }: FleetRentalsManagementProps)
           driver:drivers!driver_id (id, first_name, last_name, phone)
         `)
         .eq("fleet_id", fleetId)
+        .eq("source", "marketplace")
         .order("created_at", { ascending: false });
 
       if (error) throw error;

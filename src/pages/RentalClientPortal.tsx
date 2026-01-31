@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, ChevronDown } from "lucide-react";
 import { RentalContractViewer } from "@/components/fleet/RentalContractViewer";
 import { SignaturePad } from "@/components/fleet/SignaturePad";
 import logoSrc from "@/assets/logo.svg";
@@ -19,6 +22,13 @@ export default function RentalClientPortal() {
   const [errorMessage, setErrorMessage] = useState("");
   const [rentalData, setRentalData] = useState<any>(null);
   const [isSigning, setIsSigning] = useState(false);
+  
+  // Contract acceptance state
+  const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
+  const [acceptContract, setAcceptContract] = useState(false);
+  const [acceptOWU, setAcceptOWU] = useState(false);
+  const [acceptRODO, setAcceptRODO] = useState(false);
+  const contractRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!rentalId || !accessToken) {
@@ -27,7 +37,24 @@ export default function RentalClientPortal() {
       return;
     }
     validateAccess();
+    logAction("contract_viewed");
   }, [rentalId, accessToken]);
+
+  const logAction = async (actionType: string, metadata: Record<string, any> = {}) => {
+    if (!rentalId) return;
+    try {
+      await (supabase.from("contract_signature_logs") as any).insert({
+        rental_id: rentalId,
+        action_type: actionType,
+        actor_type: "driver",
+        ip_address: null, // Will be enhanced server-side
+        user_agent: navigator.userAgent,
+        metadata
+      });
+    } catch (error) {
+      console.error("Error logging action:", error);
+    }
+  };
 
   const validateAccess = async () => {
     try {
@@ -38,6 +65,7 @@ export default function RentalClientPortal() {
           status,
           driver_signed_at,
           portal_access_token,
+          contract_locked_at,
           vehicle:vehicle_id (brand, model, plate),
           driver:driver_id (first_name, last_name)
         `)
@@ -66,7 +94,23 @@ export default function RentalClientPortal() {
     }
   };
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const isAtBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+    if (isAtBottom && !hasScrolledToEnd) {
+      setHasScrolledToEnd(true);
+    }
+  };
+
+  const canProceedToSignature = hasScrolledToEnd && acceptContract && acceptOWU && acceptRODO;
+
   const handleContractAccepted = () => {
+    logAction("checkboxes_accepted", {
+      acceptContract,
+      acceptOWU,
+      acceptRODO,
+      scrolledToEnd: hasScrolledToEnd
+    });
     setStep("signature");
   };
 
@@ -75,6 +119,8 @@ export default function RentalClientPortal() {
 
     setIsSigning(true);
     try {
+      await logAction("signature_drawn");
+
       // Upload signature to storage
       const blob = await (await fetch(signatureDataUrl)).blob();
       const fileName = `driver_signatures/${rentalId}/${Date.now()}.png`;
@@ -89,18 +135,21 @@ export default function RentalClientPortal() {
         .from("driver-documents")
         .getPublicUrl(fileName);
 
-      // Update rental with signature
+      // Update rental with signature and legal info
       const { error: updateError } = await (supabase
         .from("vehicle_rentals") as any)
         .update({
           driver_signed_at: new Date().toISOString(),
           driver_signature_url: publicUrl,
+          driver_signature_user_agent: navigator.userAgent,
           status: "client_signed",
         })
         .eq("id", rentalId)
         .eq("portal_access_token", accessToken);
 
       if (updateError) throw updateError;
+
+      await logAction("signature_submitted", { signature_url: publicUrl });
 
       toast.success("Umowa podpisana pomyślnie!");
       setStep("complete");
@@ -143,13 +192,99 @@ export default function RentalClientPortal() {
           </Card>
         )}
 
-        {/* Contract Viewer */}
+        {/* Contract Viewer with Checkboxes */}
         {step === "contract" && rentalId && accessToken && (
-          <RentalContractViewer
-            rentalId={rentalId}
-            accessToken={accessToken}
-            onSigned={handleContractAccepted}
-          />
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Umowa najmu pojazdu</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Przewiń całą umowę do końca, aby odblokować przyciski akceptacji
+              </p>
+            </div>
+
+            {/* Scrollable Contract */}
+            <Card>
+              <CardContent className="p-0">
+                <div 
+                  ref={contractRef}
+                  className="max-h-[400px] overflow-y-auto p-4"
+                  onScroll={handleScroll}
+                >
+                  <RentalContractViewer
+                    rentalId={rentalId}
+                    accessToken={accessToken}
+                    onSigned={() => {}}
+                  />
+                </div>
+                
+                {!hasScrolledToEnd && (
+                  <div className="flex items-center justify-center gap-2 py-3 bg-muted text-sm text-muted-foreground">
+                    <ChevronDown className="h-4 w-4 animate-bounce" />
+                    Przewiń do końca dokumentu
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Acceptance Checkboxes */}
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="acceptContract"
+                    checked={acceptContract}
+                    onCheckedChange={(checked) => setAcceptContract(checked === true)}
+                    disabled={!hasScrolledToEnd}
+                  />
+                  <Label 
+                    htmlFor="acceptContract" 
+                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
+                  >
+                    Zapoznałem się z treścią umowy najmu i akceptuję jej warunki
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="acceptOWU"
+                    checked={acceptOWU}
+                    onCheckedChange={(checked) => setAcceptOWU(checked === true)}
+                    disabled={!hasScrolledToEnd}
+                  />
+                  <Label 
+                    htmlFor="acceptOWU" 
+                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
+                  >
+                    Akceptuję Ogólne Warunki Umowy (OWU) najmu pojazdu
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="acceptRODO"
+                    checked={acceptRODO}
+                    onCheckedChange={(checked) => setAcceptRODO(checked === true)}
+                    disabled={!hasScrolledToEnd}
+                  />
+                  <Label 
+                    htmlFor="acceptRODO" 
+                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
+                  >
+                    Wyrażam zgodę na przetwarzanie danych osobowych zgodnie z klauzulą RODO
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={!canProceedToSignature}
+              onClick={handleContractAccepted}
+            >
+              Przejdź do podpisu
+            </Button>
+          </div>
         )}
 
         {/* Signature */}
@@ -165,6 +300,7 @@ export default function RentalClientPortal() {
             <SignaturePad
               title="Twój podpis"
               onSign={handleSignatureSubmit}
+              onCancel={() => setStep("contract")}
             />
 
             {isSigning && (

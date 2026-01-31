@@ -256,6 +256,8 @@ export function VehicleRentalWizard({
           status: "draft",
           portal_access_token: accessToken,
           invitation_email: selectedDriver.email,
+          invitation_phone: selectedDriver.phone,
+          source: "fleet", // Mark as fleet-created contract (not marketplace reservation)
           created_by: user.id
         })
         .select()

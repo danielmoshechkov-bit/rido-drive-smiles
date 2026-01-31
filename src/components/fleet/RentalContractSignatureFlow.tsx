@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -13,12 +16,15 @@ import {
   Loader2,
   Send,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Phone,
+  Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignaturePad } from "./SignaturePad";
 import { RentalPhotoProtocol } from "./RentalPhotoProtocol";
 import { RentalContractViewer } from "./RentalContractViewer";
+import { EditDriverDataModal } from "./EditDriverDataModal";
 
 type RentalStatus = "draft" | "sent_to_client" | "client_signed" | "fleet_signed" | "finalized";
 
@@ -33,16 +39,28 @@ interface RentalData {
   protocol_completed_at: string | null;
   portal_access_token: string | null;
   invitation_email: string | null;
+  invitation_phone: string | null;
   invitation_sent_at: string | null;
+  invitation_sms_sent_at: string | null;
+  invitation_method: string | null;
+  contract_locked_at: string | null;
   vehicle: {
+    id: string;
     plate: string;
     brand: string;
     model: string;
   };
   driver: {
+    id: string;
     first_name: string;
     last_name: string;
     email: string | null;
+    phone: string | null;
+    pesel: string | null;
+    address_street: string | null;
+    address_city: string | null;
+    address_postal_code: string | null;
+    license_number: string | null;
   };
 }
 
@@ -60,6 +78,11 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
   const [signingAsFleet, setSigningAsFleet] = useState(false);
   const [fleetHasSavedSignature, setFleetHasSavedSignature] = useState(false);
   const [fleetAutoSign, setFleetAutoSign] = useState(true);
+  const [invitationMethod, setInvitationMethod] = useState<"email" | "sms" | "both">("email");
+  const [showEditDriver, setShowEditDriver] = useState(false);
+
+  // Check if contract is locked (after both signatures)
+  const isContractLocked = rental?.contract_locked_at !== null;
 
   useEffect(() => {
     loadRentalData();
@@ -73,14 +96,17 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         .from("vehicle_rentals") as any)
         .select(`
           *,
-          vehicle:vehicle_id (plate, brand, model),
-          driver:driver_id (first_name, last_name, email)
+          vehicle:vehicle_id (id, plate, brand, model),
+          driver:driver_id (id, first_name, last_name, email, phone, pesel, address_street, address_city, address_postal_code, license_number)
         `)
         .eq("id", rentalId)
         .single();
 
       if (error) throw error;
       setRental(data);
+      if (data?.invitation_method) {
+        setInvitationMethod(data.invitation_method);
+      }
     } catch (error) {
       console.error("Error loading rental:", error);
       toast.error("Błąd ładowania danych najmu");
@@ -108,39 +134,93 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
     }
   };
 
+  const logSignatureAction = async (actionType: string, metadata: Record<string, any> = {}) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await (supabase.from("contract_signature_logs") as any).insert({
+        rental_id: rentalId,
+        action_type: actionType,
+        actor_type: "fleet",
+        actor_email: user?.email,
+        ip_address: null, // Will be set by edge function for better accuracy
+        user_agent: navigator.userAgent,
+        metadata
+      });
+    } catch (error) {
+      console.error("Error logging action:", error);
+    }
+  };
+
   const handleSendInvitation = async () => {
-    if (!rental?.invitation_email) {
-      toast.error("Brak adresu e-mail kierowcy");
+    if (!rental) return;
+    
+    const canSendEmail = rental.invitation_email && (invitationMethod === "email" || invitationMethod === "both");
+    const canSendSMS = rental.invitation_phone && (invitationMethod === "sms" || invitationMethod === "both");
+    
+    if (!canSendEmail && !canSendSMS) {
+      toast.error("Brak danych kontaktowych kierowcy");
       return;
     }
 
     setSendingInvitation(true);
     try {
-      // Generate portal link
       const portalLink = `${window.location.origin}/umowa/${rentalId}?token=${rental.portal_access_token}`;
+      let emailSent = false;
+      let smsSent = false;
 
-      // Call edge function to send email
-      const { error } = await supabase.functions.invoke("send-rental-invitation", {
-        body: {
-          rentalId,
-          driverEmail: rental.invitation_email,
-          driverName: `${rental.driver.first_name} ${rental.driver.last_name}`,
-          vehicleInfo: `${rental.vehicle.brand} ${rental.vehicle.model} (${rental.vehicle.plate})`,
-          portalLink,
-        },
-      });
+      // Send email
+      if (canSendEmail) {
+        const { error } = await supabase.functions.invoke("send-rental-invitation", {
+          body: {
+            rentalId,
+            driverEmail: rental.invitation_email,
+            driverName: `${rental.driver.first_name} ${rental.driver.last_name}`,
+            vehicleInfo: `${rental.vehicle.brand} ${rental.vehicle.model} (${rental.vehicle.plate})`,
+            portalLink,
+          },
+        });
+        if (!error) {
+          emailSent = true;
+          await logSignatureAction("email_sent", { email: rental.invitation_email, portalLink });
+        }
+      }
 
-      if (error) throw error;
+      // Send SMS
+      if (canSendSMS) {
+        const { error } = await supabase.functions.invoke("send-sms", {
+          body: {
+            to: rental.invitation_phone,
+            message: `GetRido: Umowa najmu pojazdu ${rental.vehicle.plate} czeka na Twój podpis. Kliknij: ${portalLink}`,
+          },
+        });
+        if (!error) {
+          smsSent = true;
+          await logSignatureAction("sms_sent", { phone: rental.invitation_phone, portalLink });
+        }
+      }
 
       // Update rental status
+      const updateData: Record<string, any> = { 
+        status: "sent_to_client",
+        invitation_method: invitationMethod
+      };
+      if (emailSent) updateData.invitation_sent_at = new Date().toISOString();
+      if (smsSent) updateData.invitation_sms_sent_at = new Date().toISOString();
+
       await (supabase.from("vehicle_rentals") as any)
-        .update({ 
-          status: "sent_to_client",
-          invitation_sent_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq("id", rentalId);
 
-      toast.success("Zaproszenie wysłane do klienta!");
+      const messages = [];
+      if (emailSent) messages.push("e-mail");
+      if (smsSent) messages.push("SMS");
+      
+      if (messages.length > 0) {
+        toast.success(`Zaproszenie wysłane (${messages.join(" i ")})!`);
+      } else {
+        toast.error("Nie udało się wysłać zaproszenia");
+      }
+      
       loadRentalData();
     } catch (error: any) {
       console.error("Error sending invitation:", error);
@@ -176,14 +256,17 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         auto_sign_enabled: true,
       }, { onConflict: "fleet_id" });
 
-      // Sign the rental
+      // Sign the rental with legal logging
       await (supabase.from("vehicle_rentals") as any)
         .update({
           fleet_signed_at: new Date().toISOString(),
           fleet_signature_url: publicUrl,
+          fleet_signature_user_agent: navigator.userAgent,
           status: "fleet_signed",
         })
         .eq("id", rentalId);
+
+      await logSignatureAction("fleet_signed", { signature_url: publicUrl });
 
       toast.success("Umowa podpisana przez flotę!");
       setShowSignaturePad(false);
@@ -221,9 +304,12 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         .update({
           fleet_signed_at: new Date().toISOString(),
           fleet_signature_url: fleetSig.signature_url,
+          fleet_signature_user_agent: navigator.userAgent,
           status: "fleet_signed",
         })
         .eq("id", rentalId);
+
+      await logSignatureAction("fleet_signed", { signature_url: fleetSig.signature_url, auto_sign: true });
 
       toast.success("Umowa podpisana automatycznie!");
       await finalizeContract();
@@ -238,23 +324,58 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
 
   const finalizeContract = async () => {
     try {
-      // Update status to finalized
+      // Lock the contract and update status
       await (supabase.from("vehicle_rentals") as any)
-        .update({ status: "finalized" })
+        .update({ 
+          status: "finalized",
+          contract_locked_at: new Date().toISOString()
+        })
         .eq("id", rentalId);
+
+      await logSignatureAction("contract_locked", {});
 
       // Update vehicle status
       if (rental?.vehicle) {
         await supabase
           .from("vehicles")
           .update({ status: "wynajęty" })
-          .eq("plate", rental.vehicle.plate);
+          .eq("id", rental.vehicle.id);
       }
 
-      // TODO: Generate PDF and send emails
+      // Send confirmation email with signed contract
+      if (rental?.invitation_email) {
+        await supabase.functions.invoke("send-rental-confirmation", {
+          body: {
+            rentalId,
+            driverEmail: rental.invitation_email,
+            driverName: `${rental.driver.first_name} ${rental.driver.last_name}`,
+            vehicleInfo: `${rental.vehicle.brand} ${rental.vehicle.model} (${rental.vehicle.plate})`,
+          },
+        }).catch(err => console.log("Confirmation email error (non-blocking):", err));
+      }
+
       toast.success("Umowa sfinalizowana! Przejdź do protokołu zdjęciowego.");
     } catch (error) {
       console.error("Error finalizing:", error);
+    }
+  };
+
+  const handleDriverUpdate = (updatedDriver: any) => {
+    if (rental) {
+      setRental({
+        ...rental,
+        driver: updatedDriver
+      });
+
+      // Also update invitation email/phone if changed
+      if (updatedDriver.email || updatedDriver.phone) {
+        (supabase.from("vehicle_rentals") as any)
+          .update({
+            invitation_email: updatedDriver.email,
+            invitation_phone: updatedDriver.phone
+          })
+          .eq("id", rentalId);
+      }
     }
   };
 
@@ -332,22 +453,47 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         ))}
       </div>
 
-      {/* Rental Info */}
+      {/* Rental Info with Edit Button */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <p className="font-semibold">
                 {rental.vehicle.brand} {rental.vehicle.model} ({rental.vehicle.plate})
               </p>
               <p className="text-sm text-muted-foreground">
                 Kierowca: {rental.driver.first_name} {rental.driver.last_name}
               </p>
+              {rental.driver.email && (
+                <p className="text-xs text-muted-foreground">{rental.driver.email}</p>
+              )}
+              {rental.driver.phone && (
+                <p className="text-xs text-muted-foreground">{rental.driver.phone}</p>
+              )}
             </div>
-            <Badge variant={currentStep >= 5 ? "default" : "secondary"}>
-              {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {!isContractLocked && currentStep < 3 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditDriver(true)}
+                  className="gap-1"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edytuj dane
+                </Button>
+              )}
+              <Badge variant={currentStep >= 5 ? "default" : "secondary"}>
+                {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
+              </Badge>
+            </div>
           </div>
+          {isContractLocked && (
+            <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Umowa zablokowana - edycja niemożliwa po podpisaniu
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -362,26 +508,79 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Klient otrzyma e-mail z linkiem do portalu, gdzie zapozna się z umową i złoży podpis elektroniczny.
+              Klient otrzyma link do portalu, gdzie zapozna się z umową i złoży podpis elektroniczny.
             </p>
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm">
-                <span className="text-muted-foreground">E-mail:</span>{" "}
-                <span className="font-medium">{rental.invitation_email || "—"}</span>
-              </p>
+            
+            {/* Contact info */}
+            <div className="p-3 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">
+                  {rental.invitation_email || <span className="text-destructive">Brak e-maila</span>}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">
+                  {rental.invitation_phone || <span className="text-destructive">Brak telefonu</span>}
+                </span>
+              </div>
             </div>
-            <Button 
-              className="w-full gap-2" 
-              onClick={handleSendInvitation}
-              disabled={sendingInvitation || !rental.invitation_email}
-            >
-              {sendingInvitation ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Wyślij zaproszenie
-            </Button>
+
+            {/* Method selection */}
+            <div className="space-y-2">
+              <Label>Metoda wysyłki</Label>
+              <RadioGroup value={invitationMethod} onValueChange={(v) => setInvitationMethod(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="email" id="email" disabled={!rental.invitation_email} />
+                  <Label htmlFor="email" className={!rental.invitation_email ? "text-muted-foreground" : ""}>
+                    E-mail
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="sms" id="sms" disabled={!rental.invitation_phone} />
+                  <Label htmlFor="sms" className={!rental.invitation_phone ? "text-muted-foreground" : ""}>
+                    SMS
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem 
+                    value="both" 
+                    id="both" 
+                    disabled={!rental.invitation_email || !rental.invitation_phone} 
+                  />
+                  <Label 
+                    htmlFor="both" 
+                    className={(!rental.invitation_email || !rental.invitation_phone) ? "text-muted-foreground" : ""}
+                  >
+                    E-mail i SMS
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDriver(true)}
+                className="gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Uzupełnij dane
+              </Button>
+              <Button 
+                className="flex-1 gap-2" 
+                onClick={handleSendInvitation}
+                disabled={sendingInvitation || (!rental.invitation_email && !rental.invitation_phone)}
+              >
+                {sendingInvitation ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Wyślij zaproszenie
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -397,7 +596,12 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
             </p>
             {rental.invitation_sent_at && (
               <p className="text-xs text-muted-foreground mt-4">
-                Wysłano: {new Date(rental.invitation_sent_at).toLocaleString("pl-PL")}
+                E-mail wysłano: {new Date(rental.invitation_sent_at).toLocaleString("pl-PL")}
+              </p>
+            )}
+            {rental.invitation_sms_sent_at && (
+              <p className="text-xs text-muted-foreground">
+                SMS wysłano: {new Date(rental.invitation_sms_sent_at).toLocaleString("pl-PL")}
               </p>
             )}
             <Button 
@@ -517,6 +721,17 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Edit Driver Modal */}
+      {rental && showEditDriver && (
+        <EditDriverDataModal
+          isOpen={showEditDriver}
+          onClose={() => setShowEditDriver(false)}
+          driver={rental.driver}
+          missingFields={[]}
+          onSuccess={handleDriverUpdate}
+        />
       )}
     </div>
   );
