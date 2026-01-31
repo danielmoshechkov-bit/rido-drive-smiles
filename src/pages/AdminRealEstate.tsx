@@ -202,8 +202,9 @@ const AdminRealEstate = () => {
     }
   }, [isAdmin]);
 
-  const handleLogout = () => {
-    navigate('/');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   const handleVerifyAgency = async (agencyId: string) => {
