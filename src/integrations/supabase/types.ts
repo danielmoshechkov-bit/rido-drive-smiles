@@ -4166,6 +4166,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           signature_url: string
+          stamp_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -4175,6 +4176,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           signature_url: string
+          stamp_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -4184,6 +4186,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           signature_url?: string
+          stamp_url?: string | null
           updated_at?: string | null
         }
         Relationships: [

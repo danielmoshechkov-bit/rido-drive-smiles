@@ -40,6 +40,7 @@ export interface ContractData {
   // Signatures
   driverSignatureUrl?: string;
   fleetSignatureUrl?: string;
+  fleetStampUrl?: string;
   driverSignedAt?: string;
   fleetSignedAt?: string;
 }
@@ -113,6 +114,7 @@ export function generateRentalContractHtml(data: ContractData): string {
       font-weight: bold; 
       margin-bottom: 10px;
       text-decoration: underline;
+      text-align: center;
     }
     .paragraph { 
       margin-bottom: 12px; 
@@ -356,32 +358,46 @@ export function generateRentalContractHtml(data: ContractData): string {
       </p>
     </div>
 
-    <div class="signatures">
-      <div class="signature">
+    <!-- Signatures - Vertical layout: Wynajmujący first (top), Najemca second (bottom) -->
+    <div style="margin-top: 50px; padding-top: 20px;">
+      <!-- LESSOR/LANDLORD FIRST (Wynajmujący) -->
+      <div style="margin-bottom: 40px; text-align: center;">
+        <div style="display: flex; justify-content: center; gap: 40px; align-items: flex-end;">
+          ${data.fleetStampUrl ? `
+            <div style="text-align: center;">
+              <img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px;" alt="Pieczątka" />
+              <div style="font-size: 9pt; margin-top: 5px;">Pieczątka</div>
+            </div>
+          ` : ''}
+          <div style="text-align: center;">
+            ${data.fleetSignatureUrl 
+              ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
+              : '<div style="height: 60px;"></div>'
+            }
+            <div class="signature-line" style="border-top: 1px solid #000; margin-top: 10px; padding-top: 8px; font-size: 10pt;">
+              Podpis Wynajmującego<br>
+              ${data.fleetName}
+            </div>
+            ${data.fleetSignedAt 
+              ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
+              : ''
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- TENANT SECOND (Najemca) -->
+      <div style="text-align: center;">
         ${data.driverSignatureUrl 
           ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
-          : ''
+          : '<div style="height: 60px;"></div>'
         }
-        <div class="signature-line">
+        <div class="signature-line" style="border-top: 1px solid #000; margin-top: 10px; padding-top: 8px; font-size: 10pt; max-width: 200px; margin-left: auto; margin-right: auto;">
           Podpis Najemcy<br>
           ${data.driverFirstName} ${data.driverLastName}
         </div>
         ${data.driverSignedAt 
           ? `<div class="signature-date">Podpisano: ${format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm")}</div>`
-          : ''
-        }
-      </div>
-      <div class="signature">
-        ${data.fleetSignatureUrl 
-          ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
-          : ''
-        }
-        <div class="signature-line">
-          Podpis Wynajmującego<br>
-          ${data.fleetName}
-        </div>
-        ${data.fleetSignedAt 
-          ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
           : ''
         }
       </div>
