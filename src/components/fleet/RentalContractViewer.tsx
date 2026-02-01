@@ -202,21 +202,23 @@ export function RentalContractViewer({ rentalId, accessToken, onSigned }: Rental
         </Badge>
       </div>
 
-      {/* Contract Content - A4 style document */}
+      {/* Contract Content - A4 style document - responsive */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div 
             ref={scrollRef}
-            className="h-[60vh] overflow-y-auto bg-muted p-4"
+            className="h-[60vh] overflow-y-auto overflow-x-hidden bg-muted p-2 sm:p-4"
             onScroll={handleScroll}
           >
-            {/* A4 document style */}
-            <div className="max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm">
+            {/* A4 document style - responsive */}
+            <div className="w-full max-w-full sm:max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm overflow-hidden">
               <div 
-                className="p-8 prose prose-sm max-w-none"
+                className="p-4 sm:p-8 prose prose-sm max-w-none"
                 style={{ 
                   fontFamily: 'Times New Roman, serif',
-                  lineHeight: '1.6'
+                  lineHeight: '1.6',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word'
                 }}
                 dangerouslySetInnerHTML={{ 
                   __html: generateRentalContractHtml(contractData)
