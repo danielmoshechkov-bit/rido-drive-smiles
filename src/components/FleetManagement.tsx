@@ -392,37 +392,37 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   };
 
   return (
-    <Card className="rounded-lg overflow-x-hidden">
-      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5 shrink-0" />
-            <span className="truncate">Flota - {cityName}</span>
-          </CardTitle>
-          <p className="text-sm text-muted-foreground mt-1 truncate">
-            Zarządzaj flotą w mieście {cityName}
-          </p>
-        </div>
-      </CardHeader>
+    <div className="space-y-4">
+      {/* UniversalSubTabBar POZA Card - jak w Rozliczeniach */}
+      <UniversalSubTabBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={[
+          { value: "vehicles", label: "Auta", visible: true },
+          { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
+          { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
+          { value: "settings", label: "Ustawienia umowy", visible: userType === 'fleet' && !!fleetId },
+          { value: "fleets", label: "Floty", visible: userType === 'admin' },
+          { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
+          { value: "car-brands", label: "Lista aut", visible: userType === 'admin' },
+        ]}
+      />
 
-      <CardContent className="space-y-6 overflow-x-hidden">
-        {/* UniversalSubTabBar styled like Rozliczenia - tabs above content card */}
-        <UniversalSubTabBar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          tabs={[
-            { value: "vehicles", label: "Auta", visible: true },
-            { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
-            { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
-            { value: "settings", label: "Ustawienia umowy", visible: userType === 'fleet' && !!fleetId },
-            { value: "fleets", label: "Floty", visible: userType === 'admin' },
-            { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
-            { value: "car-brands", label: "Lista aut", visible: userType === 'admin' },
-          ]}
-        />
-
-        {/* Content based on active tab */}
-        {activeTab === "vehicles" && (
+      {/* Content based on active tab */}
+      {activeTab === "vehicles" && (
+        <Card className="rounded-lg overflow-x-hidden">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="flex items-center gap-2">
+                <Car className="h-5 w-5 shrink-0" />
+                <span className="truncate">Flota - {cityName}</span>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1 truncate">
+                Zarządzaj flotą w mieście {cityName}
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6 overflow-x-hidden">
 
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
@@ -482,7 +482,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                        <Button
                          variant="ghost"
                          size="sm"
-                         className="absolute top-2 right-2 h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 z-10"
+                         className="absolute top-2 right-2 h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 z-10"
                          onClick={(e) => {
                            e.stopPropagation();
                            deleteVehicle(vehicle.id);
@@ -493,21 +493,22 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
                        <CollapsibleTrigger asChild>
                          <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                           <div className="flex items-center justify-between pr-10">
-                            {/* Pierwszy rząd - podstawowe info */}
+                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pr-10">
+                            {/* Mobile: 2 kolumny grid, Desktop: flex row */}
                             <div className="flex-1 space-y-3">
-                               <div className="flex items-center gap-6">
-                                  <div className="min-w-[120px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Nr rej.:</span>
-                                    <div className="font-semibold">{vehicle.plate}</div>
+                               {/* Rząd 1 - podstawowe info */}
+                               <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
+                                  <div className="min-w-0 md:min-w-[100px]">
+                                    <span className="text-xs text-muted-foreground">Nr rej.:</span>
+                                    <div className="font-bold text-sm">{vehicle.plate}</div>
                                   </div>
-                                  <div className="min-w-[150px]">
-                                    <span className="font-medium text-sm text-muted-foreground">Pojazd:</span>
-                                    <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+                                  <div className="min-w-0 md:min-w-[120px]">
+                                    <span className="text-xs text-muted-foreground">Pojazd:</span>
+                                    <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
                                   </div>
-                                   <div className="min-w-[100px]">
-                                     <span className="font-medium text-sm text-muted-foreground">Flota:</span>
-                                     <div onClick={(e) => e.stopPropagation()}>
+                                   <div className="min-w-0 md:min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                     <span className="text-xs text-muted-foreground">Flota:</span>
+                                     <div>
                                        {userType === 'admin' ? (
                                          <VehicleFleetSelector 
                                            vehicleId={vehicle.id}
@@ -515,13 +516,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                            onFleetUpdate={fetchVehicles}
                                          />
                                        ) : (
-                                         <div className="font-semibold text-sm">
+                                         <div className="font-semibold text-sm truncate">
                                            {vehicle.fleet?.name || 'Brak floty'}
                                          </div>
                                        )}
                                      </div>
                                    </div>
-                                     <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                     <div className="min-w-0 md:min-w-[100px]" onClick={(e) => e.stopPropagation()}>
                                        <VehicleRentBlock
                                          value={vehicle.weekly_rental_fee}
                                          onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
@@ -532,10 +533,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                      </div>
                                </div>
                               
-                               {/* Drugi rząd - kierowca i daty */}
-                               <div className="flex items-center gap-6 pt-2 border-t border-muted/30">
-                                    <div className="min-w-[150px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                       <span className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                               {/* Rząd 2 - kierowca i dokumenty */}
+                               <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6 pt-2 border-t border-border/50">
+                                    <div className="min-w-0 md:min-w-[150px]" onClick={(e) => e.stopPropagation()}>
+                                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                                          Kierowca:
                                          <ChevronDown className="h-3 w-3 text-primary" />
                                        </span>
@@ -545,7 +546,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                          currentValue={vehicle.assignedDriver?.id || null}
                                          placeholder={vehicle.assignedDriver 
                                            ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
-                                           : "Brak przypisania"
+                                           : "Brak"
                                          }
                                          searchPlaceholder="Szukaj kierowcy..."
                                          noResultsText="Brak kierowców"
@@ -565,22 +566,20 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                          className="inline-block"
                                        />
                                     </div>
-                                   <div className="min-w-[200px]" onClick={(e) => e.stopPropagation()}>
-                                     <span className="font-medium text-sm text-muted-foreground">Dokumenty:</span>
-                                     <div className="font-semibold">
+                                   <div className="min-w-0 md:min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                                     <span className="text-xs text-muted-foreground">Dokumenty:</span>
+                                     <div className="overflow-x-auto">
                                        <ExpiryBadges vehicleId={vehicle.id} />
                                      </div>
                                    </div>
                                    {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
-                                      <div className="min-w-[120px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                      <div className="min-w-0 md:min-w-[100px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         <Switch
                                           checked={listedVehicleIds.has(vehicle.id)}
                                           onCheckedChange={async (checked) => {
                                             if (checked) {
-                                              // Open listing modal
                                               setListingVehicle(vehicle);
                                             } else {
-                                              // Remove from marketplace
                                               try {
                                                 await supabase
                                                   .from("vehicle_listings")
@@ -594,7 +593,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                             }
                                           }}
                                         />
-                                        <span className="text-sm text-muted-foreground">
+                                        <span className="text-xs text-muted-foreground">
                                           {listedVehicleIds.has(vehicle.id) ? "Na giełdzie" : "Giełda"}
                                         </span>
                                       </div>
@@ -602,8 +601,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                 </div>
                             </div>
                             
-                            {/* Przycisk rozwijania */}
-                            <div className="ml-4">
+                            {/* Przycisk rozwijania - hidden on mobile, visible on desktop */}
+                            <div className="hidden md:block ml-4">
                               {expandedVehicles.has(vehicle.id) ? 
                                 <ChevronUp className="h-5 w-5" /> : 
                                 <ChevronDown className="h-5 w-5" />
@@ -658,32 +657,33 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
               )}
             </div>
           </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {activeTab === "fleets" && (
-          <FleetTabManagement cityId={cityId} />
-        )}
+      {activeTab === "fleets" && (
+        <FleetTabManagement cityId={cityId} />
+      )}
 
-        {activeTab === "driver-vehicles" && userType === 'admin' && (
-          <DriverVehiclesTab />
-        )}
+      {activeTab === "driver-vehicles" && userType === 'admin' && (
+        <DriverVehiclesTab />
+      )}
 
-        {activeTab === "najem" && userType === 'fleet' && fleetId && (
-          <FleetRentalsTab fleetId={fleetId} />
-        )}
+      {activeTab === "najem" && userType === 'fleet' && fleetId && (
+        <FleetRentalsTab fleetId={fleetId} />
+      )}
 
-        {activeTab === "rentals" && userType === 'fleet' && fleetId && (
-          <FleetRentalsManagement fleetId={fleetId} />
-        )}
+      {activeTab === "rentals" && userType === 'fleet' && fleetId && (
+        <FleetRentalsManagement fleetId={fleetId} />
+      )}
 
-        {activeTab === "settings" && userType === 'fleet' && fleetId && (
-          <FleetContractSettings fleetId={fleetId} />
-        )}
+      {activeTab === "settings" && userType === 'fleet' && fleetId && (
+        <FleetContractSettings fleetId={fleetId} />
+      )}
 
-        {activeTab === "car-brands" && userType === 'admin' && (
-          <CarBrandsManagement />
-        )}
-      </CardContent>
+      {activeTab === "car-brands" && userType === 'admin' && (
+        <CarBrandsManagement />
+      )}
 
       <AddVehicleModal 
         isOpen={showAddModal}
@@ -738,6 +738,6 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           }}
         />
       )}
-    </Card>
+    </div>
   );
 }

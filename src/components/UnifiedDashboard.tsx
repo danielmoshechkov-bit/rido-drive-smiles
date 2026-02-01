@@ -43,6 +43,7 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
 import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
 import { CreditCard } from "lucide-react";
+import { MobileTabMenu } from "@/components/MobileTabMenu";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -452,97 +453,16 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           </div>
 
           {/* Mobile - Collapsible tab bar only (no hamburger) */}
-          <div className="md:hidden mb-3">
-            <div className="flex items-center gap-2">
-              {/* Purple collapsible tab bar showing current tab */}
-              <Collapsible className="flex-1">
-                <CollapsibleTrigger className="w-full">
-                  <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
-                    <span className="font-medium text-sm truncate">
-                      {activeTab === 'weekly-report' && t('admin.weeklyReport')}
-                      {activeTab === 'settlements' && t('admin.settlements')}
-                      {activeTab === 'drivers-list' && t('admin.driversList')}
-                      {activeTab === 'fleet' && 'Flota'}
-                      {activeTab === 'documents' && 'Dokumenty'}
-                      {activeTab === 'system-alerts' && 'Informacje'}
-                      {activeTab === 'settings' && t('admin.settings')}
-                      {activeTab === 'informacje' && 'Informacje'}
-                      {activeTab === 'my-settlements' && 'Moje rozliczenia'}
-                      {activeTab === 'accounts' && 'Przełącz konto'}
-                      {activeTab === 'fleet-accounts' && 'Konta flotowe'}
-                      {activeTab === 'user-roles' && 'Uprawnienia'}
-                      {activeTab === 'plans' && 'Plany'}
-                      {activeTab === 'visibility' && 'Widoczność'}
-                      {activeTab === 'tab-visibility' && 'Widoczność zakładek'}
-                      {activeTab === 'data-import' && t('admin.dataImport')}
-                      {activeTab === 'fleet-live' && 'Fleet Live'}
-                      {activeTab === 'rental-payments' && 'Płatności'}
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1">
-                  <div className="bg-background border rounded-xl p-2 shadow-lg space-y-1">
-                    {canViewTab('settlements') && activeTab !== 'settlements' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => setActiveTab('settlements')}
-                      >
-                        <DollarSign className="h-3 w-3 mr-2" />
-                        {t('admin.settlements')}
-                      </Button>
-                    )}
-                    {canViewTab('fleet') && activeTab !== 'fleet' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => setActiveTab('fleet')}
-                      >
-                        <Car className="h-3 w-3 mr-2" />
-                        Flota
-                      </Button>
-                    )}
-                    {canViewTab('drivers-list') && activeTab !== 'drivers-list' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => setActiveTab('drivers-list')}
-                      >
-                        <Users className="h-3 w-3 mr-2" />
-                        {t('admin.driversList')}
-                      </Button>
-                    )}
-                    {userType === 'fleet' && activeTab !== 'informacje' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => setActiveTab('informacje')}
-                      >
-                        <Info className="h-3 w-3 mr-2" />
-                        Informacje
-                      </Button>
-                    )}
-                    {activeTab !== 'accounts' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => setActiveTab('accounts')}
-                      >
-                        <Repeat className="h-3 w-3 mr-2" />
-                        Przełącz konto
-                      </Button>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          </div>
+          <MobileTabMenu 
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            canViewTab={canViewTab}
+            userType={userType}
+            roles={roles}
+            myDriverId={myDriverId}
+            t={t}
+            fleetId={fleetId}
+          />
 
           {canViewTab('weekly-report') && (
             <TabsContent value="weekly-report" className="space-y-6">

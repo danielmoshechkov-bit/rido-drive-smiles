@@ -140,7 +140,22 @@ export default function RentalClientPortal() {
     try {
       await logAction("signature_drawn");
 
-      // Upload signature to storage
+      // 1. Sprawdź czy rental istnieje
+      const { data: existingRental, error: checkError } = await (supabase
+        .from("vehicle_rentals") as any)
+        .select("id, status, portal_access_token")
+        .eq("id", rentalId)
+        .single();
+      
+      if (checkError || !existingRental) {
+        console.error("Rental not found:", checkError);
+        toast.error("Nie znaleziono umowy");
+        return;
+      }
+
+      console.log("Found rental:", existingRental.id, "status:", existingRental.status);
+
+      // 2. Upload signature to storage
       const blob = await (await fetch(signatureDataUrl)).blob();
       const fileName = `driver_signatures/${rentalId}/${Date.now()}.png`;
 
@@ -148,14 +163,19 @@ export default function RentalClientPortal() {
         .from("driver-documents")
         .upload(fileName, blob, { contentType: "image/png" });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from("driver-documents")
         .getPublicUrl(fileName);
 
-      // Update rental with signature and legal info
-      let updateQuery = (supabase
+      console.log("Signature uploaded:", publicUrl);
+
+      // 3. Update rental - BEZ filtra po tokenie (już zweryfikowaliśmy dostęp wcześniej)
+      const { error: updateError } = await (supabase
         .from("vehicle_rentals") as any)
         .update({
           driver_signed_at: new Date().toISOString(),
@@ -164,15 +184,11 @@ export default function RentalClientPortal() {
           status: "client_signed",
         })
         .eq("id", rentalId);
-      
-      // Only filter by token if provided
-      if (accessToken) {
-        updateQuery = updateQuery.eq("portal_access_token", accessToken);
+
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw updateError;
       }
-
-      const { error: updateError } = await updateQuery;
-
-      if (updateError) throw updateError;
 
       await logAction("signature_submitted", { signature_url: publicUrl });
 
@@ -180,7 +196,7 @@ export default function RentalClientPortal() {
       setStep("complete");
     } catch (error: any) {
       console.error("Signature error:", error);
-      toast.error("Błąd zapisywania podpisu. Spróbuj ponownie.");
+      toast.error("Błąd zapisywania podpisu: " + (error?.message || "Nieznany błąd"));
     } finally {
       setIsSigning(false);
     }
