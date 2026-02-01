@@ -739,7 +739,7 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         />
       )}
 
-      {/* Contract Preview Modal - A4 style document */}
+      {/* Contract Preview Modal - A4 style document - responsive */}
       <Dialog open={showContractPreview} onOpenChange={setShowContractPreview}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-3xl lg:max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="p-4 border-b shrink-0">
@@ -748,11 +748,11 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
               Podgląd umowy najmu
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto bg-muted p-4">
-            {/* A4 document wrapper */}
-            <div className="max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm mb-4">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-muted p-2 sm:p-4">
+            {/* A4 document wrapper - responsive */}
+            <div className="w-full max-w-full sm:max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm mb-4 overflow-hidden">
               {rental && (
-                <div className="p-8">
+                <div className="p-4 sm:p-8" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                   <ContractPreview rental={rental} />
                 </div>
               )}

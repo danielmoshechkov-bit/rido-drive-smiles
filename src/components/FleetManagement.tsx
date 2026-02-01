@@ -79,6 +79,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [listedVehicleIds, setListedVehicleIds] = useState<Set<string>>(new Set());
   const [showAddDriverModal, setShowAddDriverModal] = useState(false);
   const [showRentalWizard, setShowRentalWizard] = useState(false);
+  const [fleetInfo, setFleetInfo] = useState<{name: string} | null>(null);
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
   const { isMarketplaceEnabled } = useFeatureToggles();
 
@@ -173,6 +174,18 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     fetchVehicles();
     loadDrivers();
     loadListedVehicles();
+    
+    // Fetch fleet name if fleetId is provided
+    if (fleetId) {
+      supabase
+        .from("fleets")
+        .select("name")
+        .eq("id", fleetId)
+        .single()
+        .then(({ data }) => {
+          if (data) setFleetInfo(data);
+        });
+    }
   }, [cityId, fleetId]);
 
   const filtered = vehicles.filter(v => {
@@ -692,7 +705,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         onSuccess={fetchVehicles}
         userType={fleetId ? 'fleet' : 'admin'}
         fleetId={fleetId}
-        fleetName={cityName}
+        fleetName={fleetInfo?.name || cityName}
       />
 
       {listingVehicle && fleetId && (

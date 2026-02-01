@@ -4158,6 +4158,44 @@ export type Database = {
           },
         ]
       }
+      fleet_signatures: {
+        Row: {
+          auto_sign_enabled: boolean | null
+          created_at: string | null
+          fleet_id: string | null
+          id: string
+          is_active: boolean | null
+          signature_url: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_sign_enabled?: boolean | null
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          signature_url: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_sign_enabled?: boolean | null
+          created_at?: string | null
+          fleet_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          signature_url?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_signatures_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: true
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_sms_templates: {
         Row: {
           created_at: string
