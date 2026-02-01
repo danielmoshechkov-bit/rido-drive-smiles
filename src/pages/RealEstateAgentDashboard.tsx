@@ -68,9 +68,9 @@ export default function RealEstateAgentDashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Check for driver account
+    // Check for driver account - use drivers table directly
     const { data: driverData } = await supabase
-      .from("driver_fleet_memberships")
+      .from("drivers")
       .select("id")
       .eq("user_id", session.user.id)
       .maybeSingle();
