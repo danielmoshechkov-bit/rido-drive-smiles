@@ -418,7 +418,7 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Progress Steps */}
       <div className="flex items-center justify-between overflow-x-auto pb-2">
         {[
@@ -458,61 +458,49 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         ))}
       </div>
 
-      {/* Action Buttons - Always visible */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={() => setShowContractPreview(true)}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Podgląd umowy
-            </Button>
-            {!isContractLocked && (
-              <Button
-                variant="outline"
-                onClick={() => setShowEditDriver(true)}
-                className="gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                Edytuj dane
-              </Button>
-            )}
-            <Badge variant="secondary" className="ml-auto">
-              {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Action Buttons - Compact */}
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/50 rounded-lg">
+        <Button
+          size="sm"
+          onClick={() => setShowContractPreview(true)}
+          className="gap-2"
+        >
+          <Eye className="h-4 w-4" />
+          Podgląd umowy
+        </Button>
+        {!isContractLocked && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowEditDriver(true)}
+            className="gap-2"
+          >
+            <Pencil className="h-4 w-4" />
+            Edytuj dane
+          </Button>
+        )}
+        <Badge variant="secondary" className="ml-auto text-xs">
+          {rental.contract_number || `RNT-${rental.id.slice(0, 8).toUpperCase()}`}
+        </Badge>
+      </div>
 
-      {/* Rental Info */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="font-semibold">
-                {rental.vehicle.brand} {rental.vehicle.model} ({rental.vehicle.plate})
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Kierowca: {rental.driver.first_name} {rental.driver.last_name}
-              </p>
-              {rental.driver.email && (
-                <p className="text-xs text-muted-foreground">{rental.driver.email}</p>
-              )}
-              {rental.driver.phone && (
-                <p className="text-xs text-muted-foreground">{rental.driver.phone}</p>
-              )}
-            </div>
-          </div>
-          {isContractLocked && (
-            <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground flex items-center gap-1">
-              <CheckCircle className="h-3 w-3" />
-              Umowa zablokowana - edycja niemożliwa po podpisaniu
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Rental Info - Compact */}
+      <div className="p-3 bg-muted/30 rounded-lg">
+        <p className="font-medium text-sm">
+          {rental.vehicle.brand} {rental.vehicle.model} ({rental.vehicle.plate})
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Kierowca: {rental.driver.first_name} {rental.driver.last_name}
+          {rental.driver.email && ` • ${rental.driver.email}`}
+          {rental.driver.phone && ` • ${rental.driver.phone}`}
+        </p>
+        {isContractLocked && (
+          <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+            <CheckCircle className="h-3 w-3 text-primary" />
+            Umowa zablokowana
+          </p>
+        )}
+      </div>
 
       {/* Step 1: Send Invitation */}
       {currentStep === 1 && (

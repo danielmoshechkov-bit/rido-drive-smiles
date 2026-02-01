@@ -386,10 +386,10 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
           setShowEditFlow(false);
           setSelectedRental(null);
         }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4" />
                 Umowa najmu - {selectedRental.vehicle?.brand} {selectedRental.vehicle?.model}
               </DialogTitle>
             </DialogHeader>

@@ -155,7 +155,7 @@ export default function RentalClientPortal() {
         .getPublicUrl(fileName);
 
       // Update rental with signature and legal info
-      const { error: updateError } = await (supabase
+      let updateQuery = (supabase
         .from("vehicle_rentals") as any)
         .update({
           driver_signed_at: new Date().toISOString(),
@@ -163,8 +163,14 @@ export default function RentalClientPortal() {
           driver_signature_user_agent: navigator.userAgent,
           status: "client_signed",
         })
-        .eq("id", rentalId)
-        .eq("portal_access_token", accessToken);
+        .eq("id", rentalId);
+      
+      // Only filter by token if provided
+      if (accessToken) {
+        updateQuery = updateQuery.eq("portal_access_token", accessToken);
+      }
+
+      const { error: updateError } = await updateQuery;
 
       if (updateError) throw updateError;
 
