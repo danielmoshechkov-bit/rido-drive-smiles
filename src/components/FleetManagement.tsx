@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UniversalSubTabBar } from "./UniversalSubTabBar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp, Search, Filter, Plus, Trash2, Car, X, Store, FileKey } from "lucide-react";
@@ -404,22 +405,22 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6 overflow-x-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-auto w-full flex flex-wrap ${userType === 'admin' ? 'grid grid-cols-2 sm:grid-cols-4' : fleetId ? 'grid grid-cols-3' : 'grid-cols-1'}`}>
-            <TabsTrigger value="vehicles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Auta</TabsTrigger>
-            {userType === 'admin' && (
-              <>
-                <TabsTrigger value="fleets" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Floty</TabsTrigger>
-                <TabsTrigger value="driver-vehicles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Auta kierowców</TabsTrigger>
-                <TabsTrigger value="car-brands" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Lista aut</TabsTrigger>
-              </>
-            )}
-            {userType === 'fleet' && fleetId && (
-              <>
-                <TabsTrigger value="najem" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Najem</TabsTrigger>
-                <TabsTrigger value="rentals" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Rezerwacje z giełdy</TabsTrigger>
-              </>
-            )}
-          </TabsList>
+          <UniversalSubTabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={[
+              { value: "vehicles", label: "Auta", visible: true },
+              ...(userType === 'admin' ? [
+                { value: "fleets", label: "Floty", visible: true },
+                { value: "driver-vehicles", label: "Auta kierowców", visible: true },
+                { value: "car-brands", label: "Lista aut", visible: true },
+              ] : []),
+              ...(userType === 'fleet' && fleetId ? [
+                { value: "najem", label: "Najem", visible: true },
+                { value: "rentals", label: "Rezerwacje z giełdy", visible: true },
+              ] : []),
+            ]}
+          />
 
           <TabsContent value="vehicles" className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
