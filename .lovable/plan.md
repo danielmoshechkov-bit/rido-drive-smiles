@@ -1,159 +1,132 @@
 
+
 # Plan Naprawy - 4 Problemy UI/UX
 
 ## ANALIZA PROBLEMÓW
 
-### 1. PODGLĄD UMOWY JEST PUSTY (foto 1)
-**Problem:** Po podpisaniu umowy, kliknięcie "Podgląd umowy" pokazuje pustą ramkę zamiast wygenerowanego dokumentu z podpisami.
+### 1. Zamiana kolejności: Najpierw taby, potem wyszukiwarka (foto 1)
+**Problem:** Wyszukiwarka jest przed przyciskami "Aktywne", "Do podpisu", "Zakończone". Użytkownik chce odwrotnie: taby najpierw, wyszukiwarka za nimi. Dodatkowo wyszukiwarka jest zbyt szeroka.
 
-**Przyczyna:** W komponencie `ContractPreview` (linie 768-863 w RentalContractSignatureFlow.tsx) dane są pobierane poprawnie, ale:
-- Generowany HTML może nie zawierać podpisów (brak danych)
-- Możliwy problem z łączeniem danych floty (kolumny `address_street` vs `street`, `address_city` vs `city`)
+**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 245-270)
 
 **Rozwiązanie:**
-W `ContractPreview` poprawić query - użyć właściwych nazw kolumn z tabeli `fleets`:
+- Zamienić kolejność elementów w `flex`
+- Zmniejszyć szerokość wyszukiwarki: dodać `max-w-xs` lub `max-w-[200px]`
+
 ```tsx
-// Linia 781-782 - zmienić:
-fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
-// Na:
-fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
-```
-Oraz poprawić budowanie adresu (linia 798-801):
-```tsx
-const fleetAddress = [
-  fleet?.street,
-  fleet?.postal_code,
-  fleet?.city
-].filter(Boolean).join(', ');
-```
-
----
-
-### 2. PRZYCISKI W ZŁYM MIEJSCU (foto 2 vs foto 3)
-**Problem:** W zakładce "Najem" przyciski "Aktywne", "Do podpisu", "Zakończone" są w nagłówku karty - chcesz je jak przyciski "Dodaj" i "Wynajem" w zakładce "Auta" (obok szukajki, przed tabelą).
-
-**Lokalizacja:** `src/components/fleet/FleetRentalsTab.tsx` (linie 237-268)
-
-**Obecny układ:**
-- `CardHeader` zawiera tytuł + sub-taby obok siebie + szukajka pod spodem
-
-**Docelowy układ (jak w foto 3):**
-- `CardHeader` tylko tytuł
-- Pod nagłówkiem: rząd z szukajką + przyciski sub-tabów po prawej stronie
-- Jak `+ Dodaj | Wynajem` są obok szukajki w zakładce Auta
-
-**Rozwiązanie:**
-Przepisać układ FleetRentalsTab.tsx:
-```tsx
-<Card>
-  <CardHeader className="pb-2">
-    <CardTitle className="flex items-center gap-2">
-      <FileText className="h-5 w-5" />
-      Umowy najmu
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="pt-2">
-    {/* Row with search + tabs - like foto 3 */}
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input placeholder="..." value={searchQuery} onChange={...} className="pl-10" />
-      </div>
-      <div className="flex gap-1 bg-muted rounded-lg p-1">
-        {subTabs.map(...)}
-      </div>
-    </div>
-    {/* Table */}
-    ...
-  </CardContent>
-</Card>
-```
-
----
-
-### 3. ZDJĘCIA PROTOKOŁU - WYMIARY I OPISY (foto 4)
-**Problem:** 
-- Zdjęcia nie są dopasowane do ramki (aspect ratio)
-- Potrzebne jasne opisy jak robić zdjęcia z każdego rogu (lewy przedni = widać lewy bok + przód, prawy przedni = widać prawy bok + przód, itd.)
-
-**Lokalizacja:** `src/components/fleet/RentalPhotoProtocol.tsx`
-
-**Rozwiązanie:**
-1. Zaktualizować opisy kategorii zdjęć (linie 33-105):
-```tsx
-const PHOTO_CATEGORIES: PhotoCategory[] = [
-  { 
-    id: "corner_front_left", 
-    label: "Przód lewy", 
-    description: "Stań pod kątem 45° z lewej - widoczny przód i lewy bok pojazdu",
-    icon: <Car className="h-5 w-5" />,
-    required: true,
-    minPhotos: 1
-  },
-  { 
-    id: "corner_front_right", 
-    label: "Przód prawy", 
-    description: "Stań pod kątem 45° z prawej - widoczny przód i prawy bok pojazdu",
-    ...
-  },
-  { 
-    id: "corner_rear_left", 
-    label: "Tył lewy", 
-    description: "Stań pod kątem 45° z lewej - widoczny tył i lewy bok pojazdu",
-    ...
-  },
-  { 
-    id: "corner_rear_right", 
-    label: "Tył prawy", 
-    description: "Stań pod kątem 45° z prawej - widoczny tył i prawy bok pojazdu",
-    ...
-  },
-  ...
-];
-```
-
-2. Upewnić się że zdjęcia są kompresowane bez utraty jakości dla zbliżeń (linia 157-158):
-W funkcji `compressPhotoImage` zachować wysoką jakość (0.85+) aby było widać detale jak rysy.
-
-3. Dopasowanie zdjęć do ramki (linia 304-310):
-```tsx
-<div 
-  key={idx}
-  className="aspect-[4/3] rounded-md overflow-hidden bg-muted"
->
-  <img 
-    src={url} 
-    alt={`${category.label} ${idx + 1}`}
-    className="w-full h-full object-cover object-center"
-  />
+<div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+  {/* Sub-tabs FIRST */}
+  <div className="flex gap-1 bg-muted rounded-lg p-1">
+    {subTabs.map(tab => (...))}
+  </div>
+  
+  {/* Search SECOND - smaller */}
+  <div className="relative max-w-[200px] sm:max-w-xs">
+    <Search className="..." />
+    <Input placeholder="Szukaj..." className="pl-10" />
+  </div>
 </div>
 ```
-Klasa `object-cover object-center` zapewnia wypełnienie ramki bez deformacji.
 
 ---
 
-### 4. RAMKA MOBILNA NIE DOPASOWANA (foto 5)
-**Problem:** Na mobile widok "Umowy najmu" w zakładce "Najem" - tabela i przyciski nachodzą na krawędzie ekranu.
+### 2. Ramka umowy nie dopasowana (foto 2 + foto 4)
+**Problem:** Dialog z umową ("Rental Edit Flow Dialog") jest za mały i nie mieści zawartości. Modal nie jest dobrze dopasowany do ekranu.
 
-**Lokalizacja:** `src/components/fleet/FleetRentalsTab.tsx`
+**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 400-422) i `RentalContractSignatureFlow.tsx`
+
+**Obecne:**
+```tsx
+<DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
+```
 
 **Rozwiązanie:**
-1. Dodać `overflow-x-hidden` do Card
-2. Zmniejszyć paddingi na mobile
-3. Zapewnić scroll dla tabeli gdy zbyt szeroka
+- Zmienić `max-w-3xl` na `max-w-4xl` lub `max-w-5xl`
+- Zwiększyć `max-h-[85vh]` na `max-h-[90vh]`
+- Dodać responsywną szerokość: `w-[95vw] sm:w-auto`
+
+---
+
+### 3. Układ podpisów i sekcji umowy (foto 3 + PDF wzór)
+**Problem:**
+- Podpisy są jeden pod drugim zamiast obok siebie
+- §12 i inne sekcje są wyrównane do lewej zamiast wyśrodkowane
+- Wzór PDF pokazuje: NAJPIERW Wynajmujący na górze, Najemca na dole
+- Brak opcji pieczątki floty
+
+**Plik:** `src/utils/rentalContractGenerator.ts`
+
+**Obecny układ podpisów (linie 359-388):**
+```tsx
+<div class="signatures">
+  <div class="signature">Najemca</div>
+  <div class="signature">Wynajmujący</div>
+</div>
+```
+
+**Docelowy układ (wg PDF):**
+```
+Wynajmujący (na górze)
+[pieczątka] [podpis]
+
+Najemca (poniżej)
+[podpis]
+```
+
+**Zmiany w CSS:**
+- Sekcje `section-title` wyrównać do środka: `text-align: center`
+- Zmienić układ podpisów z `flex` obok siebie na PIONOWY układ jak w PDF
+- Dodać miejsce na pieczątkę floty (opcjonalne)
+
+**Dodać pieczątki w `FleetContractSettings.tsx`:**
+- Nowa sekcja "Pieczątka floty" pod "Podpis floty"
+- Upload obrazka pieczątki do tabeli `fleet_signatures` (nowa kolumna `stamp_url`)
+- Wyświetlać pieczątki na umowie obok podpisu
+
+---
+
+### 4. Akcje w tabeli - więcej opcji (foto 5)
+**Problem:** Obecnie tylko ikona oka (Eye). Potrzebne są:
+- Podgląd
+- Wydrukuj
+- Zakończ
+- Pobierz PDF
+- Wyślij do klienta
+
+**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 359-386)
+
+**Rozwiązanie:**
+Zastąpić pojedynczy przycisk dropdown menu z akcjami:
 
 ```tsx
-<Card className="overflow-x-hidden">
-  <CardContent className="p-2 sm:p-4 md:p-6">
-    ...
-    {/* Table wrapper */}
-    <div className="overflow-x-auto -mx-2 sm:mx-0">
-      <Table>
-        ...
-      </Table>
-    </div>
-  </CardContent>
-</Card>
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button size="sm" variant="ghost">
+      <MoreHorizontal className="h-4 w-4" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    <DropdownMenuItem onClick={() => openContractPreview(rental)}>
+      <Eye className="h-4 w-4 mr-2" /> Podgląd
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => printContract(rental)}>
+      <Printer className="h-4 w-4 mr-2" /> Wydrukuj
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => downloadContract(rental)}>
+      <Download className="h-4 w-4 mr-2" /> Pobierz PDF
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => sendToClient(rental)}>
+      <Send className="h-4 w-4 mr-2" /> Wyślij do klienta
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem 
+      onClick={() => endContract(rental)}
+      className="text-destructive"
+    >
+      <XCircle className="h-4 w-4 mr-2" /> Zakończ umowę
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
 ```
 
 ---
@@ -162,148 +135,178 @@ Klasa `object-cover object-center` zapewnia wypełnienie ramki bez deformacji.
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/fleet/RentalContractSignatureFlow.tsx` | Poprawić query dla fleets (street/city zamiast address_street/address_city) |
-| `src/components/fleet/FleetRentalsTab.tsx` | 1) Przenieść sub-taby obok szukajki, 2) Responsywność mobile |
-| `src/components/fleet/RentalPhotoProtocol.tsx` | Zaktualizować opisy kategorii zdjęć + aspect ratio |
+| `src/components/fleet/FleetRentalsTab.tsx` | 1) Zamiana kolejności: taby przed szukajką, 2) Mniejsza szukajka, 3) Większy dialog, 4) Dropdown z akcjami |
+| `src/utils/rentalContractGenerator.ts` | 1) Sekcje wyśrodkowane, 2) Podpisy pionowo (Wynajmujący góra, Najemca dół), 3) Miejsce na pieczątkę |
+| `src/components/fleet/FleetContractSettings.tsx` | Dodać upload pieczątki floty |
+| `supabase/migrations/NEW.sql` | Dodać kolumnę `stamp_url` do `fleet_signatures` |
 
 ---
 
 ## SZCZEGÓŁY TECHNICZNE
 
-### RentalContractSignatureFlow.tsx - poprawka query
+### FleetRentalsTab.tsx - zmiana kolejności i rozmiar szukajki
 
-**Linia 781-782 - zmienić:**
+**Linie 245-270:**
+```tsx
+<div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+  {/* Sub-tabs FIRST */}
+  <div className="flex gap-1 bg-muted rounded-lg p-1 shrink-0">
+    {subTabs.map(tab => (
+      <Button
+        key={tab.value}
+        size="sm"
+        variant={activeSubTab === tab.value ? "default" : "ghost"}
+        onClick={() => setActiveSubTab(tab.value as SubTab)}
+        className="text-xs sm:text-sm whitespace-nowrap"
+      >
+        {tab.label}
+      </Button>
+    ))}
+  </div>
+  
+  {/* Search SECOND - smaller width */}
+  <div className="relative w-full sm:max-w-[200px]">
+    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+    <Input
+      placeholder="Szukaj..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="pl-10"
+    />
+  </div>
+</div>
+```
+
+### FleetRentalsTab.tsx - większy dialog
+
+**Linia 405:**
 ```tsx
 // PRZED:
-fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
+<DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
 
 // PO:
-fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
+<DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
 ```
 
-**Linie 798-801 - zmienić:**
-```tsx
-// PRZED:
-const fleetAddress = [
-  fleet?.address_street,
-  fleet?.address_city
-].filter(Boolean).join(', ');
+### FleetRentalsTab.tsx - dropdown z akcjami
 
-// PO:
-const fleetAddress = [
-  fleet?.street,
-  fleet?.postal_code,
-  fleet?.city
-].filter(Boolean).join(', ');
+Dodać importy:
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Printer, XCircle } from "lucide-react";
 ```
 
-### FleetRentalsTab.tsx - nowy układ
+Zmienić linie 359-386 (akcje w TableCell) na dropdown.
 
-```tsx
-return (
-  <>
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Umowy najmu
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-3 sm:p-4 md:p-6 pt-2">
-        {/* Search + Tabs row - responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Szukaj po kierowcy, rejestracji lub marce..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {/* Sub-tabs - align right on desktop, full width on mobile */}
-          <div className="flex gap-1 bg-muted rounded-lg p-1 self-end sm:self-auto">
-            {subTabs.map(tab => (
-              <Button
-                key={tab.value}
-                size="sm"
-                variant={activeSubTab === tab.value ? "default" : "ghost"}
-                onClick={() => setActiveSubTab(tab.value as SubTab)}
-                className="text-xs sm:text-sm whitespace-nowrap"
-              >
-                {tab.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+### rentalContractGenerator.ts - sekcje wyśrodkowane + nowy układ podpisów
 
-        {/* Table with horizontal scroll on mobile */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-12">...</div>
-        ) : (
-          <div className="overflow-x-auto -mx-3 sm:mx-0">
-            <div className="min-w-[600px] sm:min-w-0 px-3 sm:px-0">
-              <Table>
-                ...
-              </Table>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-    ...
-  </>
-);
+**CSS (linie 110-115):**
+```css
+.section-title { 
+  font-size: 12pt; 
+  font-weight: bold; 
+  margin-bottom: 10px;
+  text-decoration: underline;
+  text-align: center;  /* DODANE - wyśrodkowanie */
+}
 ```
 
-### RentalPhotoProtocol.tsx - nowe opisy
+**Podpisy (linie 359-388) - nowy układ pionowy:**
+```html
+<!-- LESSOR/LANDLORD FIRST (Wynajmujący) -->
+<div class="signature-block" style="margin-bottom: 40px; text-align: center;">
+  <div style="display: flex; justify-content: center; gap: 40px; align-items: flex-end;">
+    ${data.fleetStampUrl ? `
+      <div style="text-align: center;">
+        <img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px;" alt="Pieczątka" />
+        <div style="font-size: 9pt; margin-top: 5px;">Pieczątka</div>
+      </div>
+    ` : ''}
+    <div style="text-align: center;">
+      ${data.fleetSignatureUrl 
+        ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
+        : '<div style="height: 60px;"></div>'
+      }
+      <div class="signature-line">
+        Podpis Wynajmującego<br>
+        ${data.fleetName}
+      </div>
+      ${data.fleetSignedAt 
+        ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
+        : ''
+      }
+    </div>
+  </div>
+</div>
+
+<!-- TENANT SECOND (Najemca) -->
+<div class="signature-block" style="text-align: center;">
+  ${data.driverSignatureUrl 
+    ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
+    : '<div style="height: 60px;"></div>'
+  }
+  <div class="signature-line">
+    Podpis Najemcy<br>
+    ${data.driverFirstName} ${data.driverLastName}
+  </div>
+  ${data.driverSignedAt 
+    ? `<div class="signature-date">Podpisano: ${format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm")}</div>`
+    : ''
+  }
+</div>
+```
+
+### ContractData interface - dodać pole dla pieczątki
 
 ```tsx
-const PHOTO_CATEGORIES: PhotoCategory[] = [
-  { 
-    id: "corner_front_left", 
-    label: "Przód lewy", 
-    description: "Stań pod kątem 45° - widoczny przód i lewy bok pojazdu",
-    icon: <Car className="h-5 w-5 rotate-[-45deg]" />,
-    required: true,
-    minPhotos: 1
-  },
-  { 
-    id: "corner_front_right", 
-    label: "Przód prawy", 
-    description: "Stań pod kątem 45° - widoczny przód i prawy bok pojazdu",
-    icon: <Car className="h-5 w-5 rotate-[45deg]" />,
-    required: true,
-    minPhotos: 1
-  },
-  { 
-    id: "corner_rear_left", 
-    label: "Tył lewy", 
-    description: "Stań pod kątem 45° - widoczny tył i lewy bok pojazdu",
-    icon: <Car className="h-5 w-5 rotate-[-135deg]" />,
-    required: true,
-    minPhotos: 1
-  },
-  { 
-    id: "corner_rear_right", 
-    label: "Tył prawy", 
-    description: "Stań pod kątem 45° - widoczny tył i prawy bok pojazdu",
-    icon: <Car className="h-5 w-5 rotate-[135deg]" />,
-    required: true,
-    minPhotos: 1
-  },
-  // pozostałe kategorie bez zmian...
-];
+export interface ContractData {
+  // ... existing fields ...
+  fleetStampUrl?: string;  // NOWE POLE
+}
+```
+
+### FleetContractSettings.tsx - dodać upload pieczątki
+
+Dodać drugą kartę pod kartą podpisu:
+```tsx
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Stamp className="h-5 w-5" />
+      Pieczątka floty
+    </CardTitle>
+    <CardDescription>
+      Opcjonalna pieczątka wyświetlana na umowach obok podpisu
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* Upload / Preview podobny do podpisu */}
+  </CardContent>
+</Card>
+```
+
+### Migracja SQL
+
+```sql
+-- Add stamp_url column to fleet_signatures
+ALTER TABLE fleet_signatures ADD COLUMN IF NOT EXISTS stamp_url TEXT;
 ```
 
 ---
 
 ## KOLEJNOŚĆ WDROŻENIA
 
-1. **RentalContractSignatureFlow.tsx** - poprawka query dla fleets (linie 781-801)
-2. **FleetRentalsTab.tsx** - zmiana układu (szukajka + sub-taby w jednym rzędzie) + responsywność
-3. **RentalPhotoProtocol.tsx** - nowe opisy kategorii zdjęć
+1. **SQL Migration** - dodać kolumnę `stamp_url`
+2. **FleetRentalsTab.tsx** - zamiana kolejności taby/szukajka + rozmiar + dialog + dropdown akcje
+3. **rentalContractGenerator.ts** - wyśrodkowanie sekcji + nowy układ podpisów z miejscem na pieczątkę
+4. **FleetContractSettings.tsx** - dodać upload pieczątki
+5. **RentalContractSignatureFlow.tsx** - przekazać `fleetStampUrl` do generatora
 
 ---
 
@@ -311,7 +314,11 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
 
 | Problem | Rozwiązanie |
 |---------|-------------|
-| Pusty podgląd umowy | Poprawić nazwy kolumn fleets w query (street/city) |
-| Przyciski w złym miejscu | Przenieść sub-taby obok szukajki (jak "Dodaj"/"Wynajem") |
-| Zdjęcia protokołu | Lepsze opisy 45° kątów + object-cover dla dopasowania |
-| Ramka mobilna | Dodać overflow-x-auto dla tabeli + mniejsze paddingi |
+| Kolejność: szukajka przed tabami | Zamienić miejscami w JSX |
+| Szukajka za duża | Dodać `max-w-[200px]` |
+| Dialog nie dopasowany | Zwiększyć do `max-w-5xl`, `w-[95vw]` |
+| Podpisy nie obok siebie | Zmienić na układ pionowy: Wynajmujący góra, Najemca dół |
+| Sekcje nie wyśrodkowane | Dodać `text-align: center` do `.section-title` |
+| Brak pieczątki | Dodać upload w ustawieniach + pole w generatorze |
+| Tylko jedna akcja w tabeli | Dropdown z: Podgląd, Wydrukuj, Pobierz, Wyślij, Zakończ |
+
