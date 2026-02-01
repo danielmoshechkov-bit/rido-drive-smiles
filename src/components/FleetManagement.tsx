@@ -506,132 +506,234 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
                        <CollapsibleTrigger asChild>
                          <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pr-10">
-                            {/* Mobile: 2 kolumny grid, Desktop: flex row */}
-                            <div className="flex-1 space-y-3">
-                               {/* Rząd 1 - podstawowe info */}
-                               <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
-                                  <div className="min-w-0 md:min-w-[100px]">
-                                    <span className="text-xs text-muted-foreground">Nr rej.:</span>
-                                    <div className="font-bold text-sm">{vehicle.plate}</div>
-                                  </div>
-                                  <div className="min-w-0 md:min-w-[120px]">
-                                    <span className="text-xs text-muted-foreground">Pojazd:</span>
-                                    <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
-                                  </div>
-                                   <div className="min-w-0 md:min-w-[100px]" onClick={(e) => e.stopPropagation()}>
-                                     <span className="text-xs text-muted-foreground">Flota:</span>
-                                     <div>
-                                       {userType === 'admin' ? (
-                                         <VehicleFleetSelector 
-                                           vehicleId={vehicle.id}
-                                           currentFleetId={vehicle.fleet_id}
-                                           onFleetUpdate={fetchVehicles}
-                                         />
-                                       ) : (
-                                         <div className="font-semibold text-sm truncate">
-                                           {vehicle.fleet?.name || 'Brak floty'}
-                                         </div>
-                                       )}
-                                     </div>
-                                   </div>
-                                     <div className="min-w-0 md:min-w-[100px]" onClick={(e) => e.stopPropagation()}>
-                                       <VehicleRentBlock
-                                         value={vehicle.weekly_rental_fee}
-                                         onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
-                                         assignedAt={vehicle.assignedDriver?.assigned_at}
-                                         onAssignedAtChange={(date) => updateAssignedDate(vehicle.id, date)}
-                                         userRole={userType}
-                                       />
-                                     </div>
+                           <div className="flex items-start justify-between pr-10">
+                             
+                             {/* MOBILE VIEW - compact 2 rows */}
+                             <div className="md:hidden flex-1 space-y-2">
+                               {/* Row 1: Plate + Vehicle */}
+                               <div className="flex items-center gap-4">
+                                 <div className="min-w-0">
+                                   <span className="text-xs text-muted-foreground">Nr rej.:</span>
+                                   <div className="font-bold text-sm">{vehicle.plate}</div>
+                                 </div>
+                                 <div className="min-w-0 flex-1">
+                                   <span className="text-xs text-muted-foreground">Pojazd:</span>
+                                   <div className="font-semibold text-sm truncate">{vehicle.brand} {vehicle.model}</div>
+                                 </div>
                                </div>
-                              
-                               {/* Rząd 2 - kierowca i dokumenty */}
-                               <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6 pt-2 border-t border-border/50">
-                                    <div className="min-w-0 md:min-w-[150px]" onClick={(e) => e.stopPropagation()}>
-                                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                         Kierowca:
-                                         <ChevronDown className="h-3 w-3 text-primary" />
-                                       </span>
-                                       <UniversalSelector
-                                         id={`vehicle-driver-${vehicle.id}`}
-                                         items={drivers}
-                                         currentValue={vehicle.assignedDriver?.id || null}
-                                         placeholder={vehicle.assignedDriver 
-                                           ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
-                                           : "Brak"
-                                         }
-                                         searchPlaceholder="Szukaj kierowcy..."
-                                         noResultsText="Brak kierowców"
-                                         showSearch={true}
-                                         showAdd={false}
-                                         showAddNew={userType === 'fleet' && !!fleetId}
-                                         addNewButtonText="Dodaj kierowcę"
-                                         allowClear={true}
-                                         onSelect={async (item) => {
-                                           if (item) {
-                                             await assignDriver(vehicle.id, item.id);
-                                           } else {
-                                             await removeDriverAssignment(vehicle.id);
-                                           }
-                                         }}
-                                         onAddNew={() => setShowAddDriverModal(true)}
-                                         className="inline-block"
-                                       />
-                                    </div>
-                                   <div className="min-w-0 md:min-w-[180px]" onClick={(e) => e.stopPropagation()}>
-                                     <span className="text-xs text-muted-foreground">Dokumenty:</span>
-                                     <div className="overflow-x-auto">
-                                       <ExpiryBadges vehicleId={vehicle.id} />
-                                     </div>
+                               {/* Row 2: Rent + Documents */}
+                               <div className="flex items-center justify-between gap-2">
+                                 <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                                   <VehicleRentBlock
+                                     value={vehicle.weekly_rental_fee}
+                                     onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
+                                     assignedAt={vehicle.assignedDriver?.assigned_at}
+                                     onAssignedAtChange={(date) => updateAssignedDate(vehicle.id, date)}
+                                     userRole={userType}
+                                   />
+                                 </div>
+                                 <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                                   <ExpiryBadges vehicleId={vehicle.id} />
+                                 </div>
+                               </div>
+                             </div>
+                             
+                             {/* DESKTOP VIEW - full layout */}
+                             <div className="hidden md:block flex-1 space-y-3">
+                                {/* Rząd 1 - podstawowe info */}
+                                <div className="flex items-center gap-6">
+                                   <div className="min-w-[100px]">
+                                     <span className="text-xs text-muted-foreground">Nr rej.:</span>
+                                     <div className="font-bold text-sm">{vehicle.plate}</div>
                                    </div>
-                                   {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
-                                      <div className="min-w-0 md:min-w-[100px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                        <Switch
-                                          checked={listedVehicleIds.has(vehicle.id)}
-                                          onCheckedChange={async (checked) => {
-                                            if (checked) {
-                                              setListingVehicle(vehicle);
+                                   <div className="min-w-[120px]">
+                                     <span className="text-xs text-muted-foreground">Pojazd:</span>
+                                     <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
+                                   </div>
+                                    <div className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                      <span className="text-xs text-muted-foreground">Flota:</span>
+                                      <div>
+                                        {userType === 'admin' ? (
+                                          <VehicleFleetSelector 
+                                            vehicleId={vehicle.id}
+                                            currentFleetId={vehicle.fleet_id}
+                                            onFleetUpdate={fetchVehicles}
+                                          />
+                                        ) : (
+                                          <div className="font-semibold text-sm truncate">
+                                            {vehicle.fleet?.name || 'Brak floty'}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                      <div className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                        <VehicleRentBlock
+                                          value={vehicle.weekly_rental_fee}
+                                          onChange={(value) => updateWeeklyRentalFee(vehicle.id, value.toString())}
+                                          assignedAt={vehicle.assignedDriver?.assigned_at}
+                                          onAssignedAtChange={(date) => updateAssignedDate(vehicle.id, date)}
+                                          userRole={userType}
+                                        />
+                                      </div>
+                                </div>
+                               
+                                {/* Rząd 2 - kierowca i dokumenty */}
+                                <div className="flex items-center gap-6 pt-2 border-t border-border/50">
+                                     <div className="min-w-[150px]" onClick={(e) => e.stopPropagation()}>
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                          Kierowca:
+                                          <ChevronDown className="h-3 w-3 text-primary" />
+                                        </span>
+                                        <UniversalSelector
+                                          id={`vehicle-driver-${vehicle.id}`}
+                                          items={drivers}
+                                          currentValue={vehicle.assignedDriver?.id || null}
+                                          placeholder={vehicle.assignedDriver 
+                                            ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
+                                            : "Brak"
+                                          }
+                                          searchPlaceholder="Szukaj kierowcy..."
+                                          noResultsText="Brak kierowców"
+                                          showSearch={true}
+                                          showAdd={false}
+                                          showAddNew={userType === 'fleet' && !!fleetId}
+                                          addNewButtonText="Dodaj kierowcę"
+                                          allowClear={true}
+                                          onSelect={async (item) => {
+                                            if (item) {
+                                              await assignDriver(vehicle.id, item.id);
                                             } else {
-                                              try {
-                                                await supabase
-                                                  .from("vehicle_listings")
-                                                  .delete()
-                                                  .eq("vehicle_id", vehicle.id);
-                                                toast.success("Usunięto z giełdy");
-                                                loadListedVehicles();
-                                              } catch (error) {
-                                                toast.error("Błąd usuwania z giełdy");
-                                              }
+                                              await removeDriverAssignment(vehicle.id);
                                             }
                                           }}
+                                          onAddNew={() => setShowAddDriverModal(true)}
+                                          className="inline-block"
                                         />
-                                        <span className="text-xs text-muted-foreground">
-                                          {listedVehicleIds.has(vehicle.id) ? "Na giełdzie" : "Giełda"}
-                                        </span>
+                                     </div>
+                                    <div className="min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                                      <span className="text-xs text-muted-foreground">Dokumenty:</span>
+                                      <div className="overflow-x-auto">
+                                        <ExpiryBadges vehicleId={vehicle.id} />
                                       </div>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            {/* Przycisk rozwijania - hidden on mobile, visible on desktop */}
-                            <div className="hidden md:block ml-4">
-                              {expandedVehicles.has(vehicle.id) ? 
-                                <ChevronUp className="h-5 w-5" /> : 
-                                <ChevronDown className="h-5 w-5" />
-                              }
-                            </div>
-                          </div>
+                                    </div>
+                                    {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
+                                       <div className="min-w-[100px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                         <Switch
+                                           checked={listedVehicleIds.has(vehicle.id)}
+                                           onCheckedChange={async (checked) => {
+                                             if (checked) {
+                                               setListingVehicle(vehicle);
+                                             } else {
+                                               try {
+                                                 await supabase
+                                                   .from("vehicle_listings")
+                                                   .delete()
+                                                   .eq("vehicle_id", vehicle.id);
+                                                 toast.success("Usunięto z giełdy");
+                                                 loadListedVehicles();
+                                               } catch (error) {
+                                                 toast.error("Błąd usuwania z giełdy");
+                                               }
+                                             }
+                                           }}
+                                         />
+                                         <span className="text-xs text-muted-foreground">
+                                           {listedVehicleIds.has(vehicle.id) ? "Na giełdzie" : "Giełda"}
+                                         </span>
+                                       </div>
+                                     )}
+                                 </div>
+                             </div>
+                             
+                             {/* Expand arrow - visible on BOTH mobile and desktop */}
+                             <div className="ml-4 mt-1">
+                               {expandedVehicles.has(vehicle.id) ? 
+                                 <ChevronUp className="h-5 w-5 text-muted-foreground" /> : 
+                                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                               }
+                             </div>
+                           </div>
                         </div>
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
                         <div className="border-t p-4">
+                          {/* Mobile: Show additional fields first */}
+                          <div className="md:hidden space-y-4 mb-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  Kierowca:
+                                  <ChevronDown className="h-3 w-3 text-primary" />
+                                </span>
+                                <UniversalSelector
+                                  id={`vehicle-driver-mobile-${vehicle.id}`}
+                                  items={drivers}
+                                  currentValue={vehicle.assignedDriver?.id || null}
+                                  placeholder={vehicle.assignedDriver 
+                                    ? `${vehicle.assignedDriver.first_name} ${vehicle.assignedDriver.last_name}`
+                                    : "Brak"
+                                  }
+                                  searchPlaceholder="Szukaj kierowcy..."
+                                  noResultsText="Brak kierowców"
+                                  showSearch={true}
+                                  showAdd={false}
+                                  showAddNew={userType === 'fleet' && !!fleetId}
+                                  addNewButtonText="Dodaj kierowcę"
+                                  allowClear={true}
+                                  onSelect={async (item) => {
+                                    if (item) {
+                                      await assignDriver(vehicle.id, item.id);
+                                    } else {
+                                      await removeDriverAssignment(vehicle.id);
+                                    }
+                                  }}
+                                  onAddNew={() => setShowAddDriverModal(true)}
+                                  className="inline-block"
+                                />
+                              </div>
+                              <div>
+                                <span className="text-xs text-muted-foreground">Flota:</span>
+                                <div className="font-semibold text-sm truncate">
+                                  {vehicle.fleet?.name || 'Brak floty'}
+                                </div>
+                              </div>
+                            </div>
+                            {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Switch
+                                  checked={listedVehicleIds.has(vehicle.id)}
+                                  onCheckedChange={async (checked) => {
+                                    if (checked) {
+                                      setListingVehicle(vehicle);
+                                    } else {
+                                      try {
+                                        await supabase
+                                          .from("vehicle_listings")
+                                          .delete()
+                                          .eq("vehicle_id", vehicle.id);
+                                        toast.success("Usunięto z giełdy");
+                                        loadListedVehicles();
+                                      } catch (error) {
+                                        toast.error("Błąd usuwania z giełdy");
+                                      }
+                                    }
+                                  }}
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {listedVehicleIds.has(vehicle.id) ? "Na giełdzie" : "Giełda"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Tabs - for both mobile and desktop */}
                           <Tabs defaultValue="info" className="w-full">
-                            <TabsList className="grid w-full grid-cols-5 rounded-lg">
+                            <TabsList className="grid w-full grid-cols-5 rounded-lg text-xs md:text-sm">
                               <TabsTrigger value="info">Info</TabsTrigger>
                               <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-                              <TabsTrigger value="history">Historia Kierowców</TabsTrigger>
+                              <TabsTrigger value="history" className="hidden md:inline-flex">Historia Kierowców</TabsTrigger>
+                              <TabsTrigger value="history" className="md:hidden">Historia</TabsTrigger>
                               <TabsTrigger value="service">Serwis</TabsTrigger>
                               <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
                             </TabsList>
