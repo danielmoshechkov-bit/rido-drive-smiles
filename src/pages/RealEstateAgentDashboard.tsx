@@ -302,26 +302,28 @@ export default function RealEstateAgentDashboard() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="listings" className="gap-2">
-              <Home className="h-4 w-4" />
-              <span className="hidden sm:inline">Ogłoszenia</span>
-            </TabsTrigger>
-            <TabsTrigger value="add" className="gap-2" disabled={agent.status !== "verified"}>
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Dodaj</span>
-            </TabsTrigger>
-            <TabsTrigger value="team" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Zespół</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Ustawienia</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Tabs - unified with driver portal style */}
+        <TabsPill value={activeTab} onValueChange={setActiveTab}>
+          <TabsTrigger value="listings">
+            <Home className="h-4 w-4 mr-2" />
+            Ogłoszenia
+          </TabsTrigger>
+          <TabsTrigger value="add" disabled={agent.status !== "verified"}>
+            <Plus className="h-4 w-4 mr-2" />
+            Dodaj
+          </TabsTrigger>
+          <TabsTrigger value="team">
+            <Users className="h-4 w-4 mr-2" />
+            Zespół
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="h-4 w-4 mr-2" />
+            Ustawienia
+          </TabsTrigger>
+          <TabsTrigger value="accounts">
+            <Repeat className="h-4 w-4 mr-2" />
+            Przełącz konto
+          </TabsTrigger>
 
           <TabsContent value="listings">
             <Card>
@@ -507,7 +509,19 @@ export default function RealEstateAgentDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          {/* Account Switcher */}
+          <TabsContent value="accounts">
+            <Card>
+              <CardHeader>
+                <CardTitle>Przełącz konto</CardTitle>
+                <CardDescription>Przełącz między swoimi kontami w systemie</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AccountSwitcherPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </TabsPill>
       </div>
     </div>
   );
