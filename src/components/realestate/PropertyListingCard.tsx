@@ -171,7 +171,7 @@ export function PropertyListingCard({
               <img
                 src={getPhotoSrc(currentPhoto)}
                 alt={listing.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                 onError={() => handleImageError(currentPhoto)}
               />
 
@@ -387,7 +387,7 @@ export function PropertyListingCard({
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
             onError={() => handleImageError(currentPhoto)}
           />
 

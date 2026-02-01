@@ -389,58 +389,60 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   };
 
   return (
-    <Card className="rounded-lg">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
+    <Card className="rounded-lg overflow-x-hidden">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
-            Flota - {cityName}
+            <Car className="h-5 w-5 shrink-0" />
+            <span className="truncate">Flota - {cityName}</span>
           </CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1 truncate">
             Zarządzaj flotą w mieście {cityName}
           </p>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 overflow-x-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${userType === 'admin' ? 'grid-cols-4' : fleetId ? 'grid-cols-3' : 'grid-cols-1'}`}>
-            <TabsTrigger value="vehicles">Auta</TabsTrigger>
+          <TabsList className={`bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-auto w-full flex flex-wrap ${userType === 'admin' ? 'grid grid-cols-2 sm:grid-cols-4' : fleetId ? 'grid grid-cols-3' : 'grid-cols-1'}`}>
+            <TabsTrigger value="vehicles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Auta</TabsTrigger>
             {userType === 'admin' && (
               <>
-                <TabsTrigger value="fleets">Floty</TabsTrigger>
-                <TabsTrigger value="driver-vehicles">Auta kierowców</TabsTrigger>
-                <TabsTrigger value="car-brands">Lista aut</TabsTrigger>
+                <TabsTrigger value="fleets" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Floty</TabsTrigger>
+                <TabsTrigger value="driver-vehicles" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Auta kierowców</TabsTrigger>
+                <TabsTrigger value="car-brands" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Lista aut</TabsTrigger>
               </>
             )}
             {userType === 'fleet' && fleetId && (
               <>
-                <TabsTrigger value="najem">Najem</TabsTrigger>
-                <TabsTrigger value="rentals">Rezerwacje z giełdy</TabsTrigger>
+                <TabsTrigger value="najem" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Najem</TabsTrigger>
+                <TabsTrigger value="rentals" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium">Rezerwacje z giełdy</TabsTrigger>
               </>
             )}
           </TabsList>
 
           <TabsContent value="vehicles" className="space-y-4">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
               {/* Left side - action buttons */}
-              <div className="flex items-center gap-3">
-                <Button onClick={() => setShowAddModal(true)} variant="outline" className="gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <Button onClick={() => setShowAddModal(true)} variant="outline" className="gap-2 text-xs sm:text-sm">
                   <Plus className="h-4 w-4" />
-                  Dodaj pojazd
+                  <span className="hidden xs:inline">Dodaj pojazd</span>
+                  <span className="xs:hidden">Dodaj</span>
                 </Button>
-                <Button onClick={() => setShowRentalWizard(true)} className="gap-2">
+                <Button onClick={() => setShowRentalWizard(true)} className="gap-2 text-xs sm:text-sm">
                   <FileKey className="h-4 w-4" />
-                  Wynajmij pojazd
+                  <span className="hidden xs:inline">Wynajmij pojazd</span>
+                  <span className="xs:hidden">Wynajem</span>
                 </Button>
               </div>
               
               {/* Right side - search and filter */}
-              <div className="flex items-center gap-3">
-                <div className="relative w-72">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none sm:w-72">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
-                    placeholder="Szukaj po numerze rejestracyjnym"
+                    placeholder="Szukaj..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     className="pl-10"
@@ -449,7 +451,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="px-3 py-2 border rounded-md text-sm bg-background"
+                  className="px-2 sm:px-3 py-2 border rounded-md text-sm bg-background flex-shrink-0"
                 >
                   <option value="all">Status</option>
                   <option value="aktywne">Aktywne</option>
