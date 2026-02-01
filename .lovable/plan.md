@@ -1,215 +1,256 @@
 
-# Plan naprawy: 3 problemy w systemie GetRido
+# Plan naprawy modułu umów najmu i innych zgłoszonych błędów
 
-## Podsumowanie problemów
+## Przegląd zgłoszonych problemów
 
-Zidentyfikowałem 3 główne problemy, które wymagają naprawy:
-
-1. **Błąd tworzenia umów najmu** - brak wymaganych kolumn w tabeli `vehicle_rentals`
-2. **Uproszczony system inwentarza** - brak cen zakupu, kategorii z sugestiami i integracji z fakturami
-3. **Pojazdy floty nie pojawiają się** - problem z przypisaniem floty do nowo dodanych pojazdów
+1. **Biały ekran w Panelu Admin (Portale)** - przy edycji/dodawaniu kategorii
+2. **Konto testowe agencji nieruchomości** - nieruchomosci@test.pl
+3. **Wyświetlanie zdjęć pionowych** - nieodpowiednie dopasowanie w miniaturach
+4. **Moduł umów - zbyt dużo pustej przestrzeni** - wymagane nadmierne przewijanie
+5. **Formularz danych kierowcy - brak scrollowania** - nie można przewinąć do końca
+6. **Podgląd umowy - pusta strona** - błąd w nazwie kolumny bazy danych
+7. **Brak przycisku usuwania** - dla niepodpisanych umów
+8. **Brak zakładek w Najem** - Aktywne/Zakończone/Do podpisu
+9. **Profesjonalny podgląd umowy i podpisy** - duplikaty checkboxów, wymóg przewinięcia
 
 ---
 
-## Problem 1: Błąd "Could not find 'is_indefinite' column"
+## Szczegółowy plan napraw
 
-### Przyczyna
-Tabela `vehicle_rentals` w bazie danych nie zawiera wielu kolumn, które są używane w kodzie:
-- `is_indefinite` - czy wynajem bezterminowy
-- `rental_type` - typ wynajmu (taxi, prywatny, długoterminowy)
-- `weekly_rental_fee` - stawka tygodniowa
-- `contract_number` - numer umowy
-- `portal_access_token` - token dostępu do portalu klienta
-- `driver_signed_at`, `fleet_signed_at` - daty podpisów
-- `driver_signature_url`, `fleet_signature_url` - URL podpisów
-- `protocol_completed_at`, `invitation_sent_at` - daty protokołu i zaproszenia
+### 1. Naprawa białego ekranu w Admin Portal Categories
 
-### Rozwiązanie
-Migracja SQL dodająca brakujące kolumny do tabeli `vehicle_rentals`:
+**Plik:** `src/components/admin/PortalCategoriesManager.tsx`
 
-```sql
-ALTER TABLE vehicle_rentals 
-ADD COLUMN IF NOT EXISTS is_indefinite BOOLEAN DEFAULT true,
-ADD COLUMN IF NOT EXISTS rental_type TEXT DEFAULT 'standard',
-ADD COLUMN IF NOT EXISTS weekly_rental_fee NUMERIC(10,2),
-ADD COLUMN IF NOT EXISTS contract_number TEXT,
-ADD COLUMN IF NOT EXISTS portal_access_token TEXT,
-ADD COLUMN IF NOT EXISTS driver_signed_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS fleet_signed_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS driver_signature_url TEXT,
-ADD COLUMN IF NOT EXISTS fleet_signature_url TEXT,
-ADD COLUMN IF NOT EXISTS protocol_completed_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS invitation_sent_at TIMESTAMPTZ;
+**Problem:** Async handlers nie są opakowane w try/catch, co powoduje crash aplikacji.
 
--- Uczynienie listing_id opcjonalnym (nie zawsze potrzebny przy tworzeniu umowy)
-ALTER TABLE vehicle_rentals ALTER COLUMN listing_id DROP NOT NULL;
+**Rozwiązanie:**
+- Dodać try/catch do wszystkich async handlerów: `handleSave`, `handleDelete`, `handleToggleVisibility`, `handleMove`
+- Dodać globalną obsługę błędów w App.tsx
 
--- Zmiana weekly_price na opcjonalne (zastąpione przez weekly_rental_fee)
-ALTER TABLE vehicle_rentals ALTER COLUMN weekly_price DROP NOT NULL;
+---
+
+### 2. Utworzenie konta testowego
+
+**Wymagane:** Konto dla agencji nieruchomości
+
+- Email: `nieruchomosci@test.pl`
+- Hasło: `Test123!`
+- Rola: `realestate` (lub odpowiednia dla agencji)
+
+**Uwaga:** To wymaga ręcznego utworzenia użytkownika w panelu Supabase Auth lub przez skrypt migracyjny.
+
+---
+
+### 3. Naprawa wyświetlania zdjęć pionowych
+
+**Pliki:**
+- `src/components/FeaturedListingCard.tsx`
+- `src/components/realestate/PropertyListingCard.tsx`
+- `src/components/ui/ImageLightbox.tsx`
+
+**Problem:** Zdjęcia pionowe nie wypełniają prawidłowo kontenerów miniatur.
+
+**Rozwiązanie:**
+- Upewnić się, że kontenery mają stały aspect ratio (`aspect-[4/3]` lub `aspect-video`)
+- Użyć `object-cover` z `object-center` dla lepszego kadrowania
+- W lightbox miniatury już mają poprawne style, ale główne zdjęcie może wymagać `object-contain` dla zachowania proporcji
+
+---
+
+### 4. Naprawa układu modułu umów (zbyt dużo pustej przestrzeni)
+
+**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx`
+
+**Problem:** Za dużo pustej przestrzeni w modalu, wymaga nadmiernego przewijania.
+
+**Rozwiązanie:**
+- Zmniejszyć paddingi i marginesy
+- Użyć bardziej kompaktowego layoutu dla kroków progress
+- Zoptymalizować układ kart informacyjnych
+- Zmienić `max-h` DialogContent na odpowiedniejszy rozmiar
+
+---
+
+### 5. Naprawa scrollowania formularza danych kierowcy
+
+**Plik:** `src/components/fleet/EditDriverDataModal.tsx`
+
+**Problem:** Formularz nie ma działającego scrollbara, nie można zobaczyć wszystkich pól.
+
+**Rozwiązanie:**
+- Sprawdzić konfigurację `ScrollArea` - ma `flex-1 min-h-0` co powinno działać
+- Upewnić się, że `DialogContent` ma `flex flex-col` i odpowiedni `max-h`
+- Dodać `overflow-y-auto` jako fallback jeśli ScrollArea nie działa
+
+---
+
+### 6. Naprawa pustej strony podglądu umowy
+
+**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx` (funkcja `ContractPreview`)
+
+**Problem:** Query używa `address_street`, `address_city` dla tabeli `fleets`, ale prawdziwe kolumny to `street`, `city`, `postal_code`.
+
+**Rozwiązanie linii 789:**
+```typescript
+// PRZED:
+fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
+
+// PO:
+fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
+```
+
+**Rozwiązanie linii 805-808:**
+```typescript
+// PRZED:
+const fleetAddress = [
+  fleet?.address_street,
+  fleet?.address_city
+].filter(Boolean).join(', ');
+
+// PO:
+const fleetAddress = [
+  fleet?.street,
+  fleet?.postal_code,
+  fleet?.city
+].filter(Boolean).join(', ');
 ```
 
 ---
 
-## Problem 2: Rozbudowany system inwentarza
+### 7. Dodanie przycisku usuwania niepodpisanych umów
 
-### Brakujące funkcjonalności:
-1. **Cena zakupu** - brak kolumn `default_purchase_price_net/gross`
-2. **Kategorie z sugestiami** - obecnie tylko pole tekstowe, bez wyboru z istniejących
-3. **Integracja z fakturami** - brak typeahead przy wpisywaniu nazwy produktu
-4. **Ostrzeżenia o marży** - brak kalkulacji zysku/straty
-5. **Stan magazynowy** - brak ostrzeżeń o braku produktu
+**Plik:** `src/components/fleet/FleetActiveRentals.tsx`
 
-### Rozwiązanie - Faza A: Migracja bazy danych
+**Rozwiązanie:**
+- Dodać przycisk `Trash2` (ikona kosza) obok przycisku "Podgląd" dla umów ze statusem `draft` lub `pending_signature` (bez `driver_signed_at`)
+- Implementacja `handleDeleteRental` z potwierdzeniem
+- Po usunięciu odświeżyć listę
 
-```sql
--- Dodanie cen zakupu do inventory_products
-ALTER TABLE inventory_products
-ADD COLUMN IF NOT EXISTS default_purchase_price_net NUMERIC(12,2),
-ADD COLUMN IF NOT EXISTS default_purchase_price_gross NUMERIC(12,2);
+---
 
--- Tabela kategorii produktów (słownik)
-CREATE TABLE IF NOT EXISTS inventory_categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  parent_id UUID REFERENCES inventory_categories(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, entity_id, name)
-);
+### 8. Dodanie zakładek Aktywne/Zakończone/Do podpisu
 
--- RLS dla kategorii
-ALTER TABLE inventory_categories ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their categories" ON inventory_categories
-  FOR ALL USING (auth.uid() = user_id);
-```
+**Plik:** `src/components/fleet/FleetActiveRentals.tsx`
 
-### Rozwiązanie - Faza B: Modyfikacja UI
+**Rozwiązanie:**
+- Dodać komponent `Tabs` z trzema zakładkami:
+  - **Aktywne** - status: `signed`, `finalized`, `active`
+  - **Do podpisu** - status: `draft`, `pending_signature`
+  - **Zakończone** - status: `completed`, `cancelled`
+- Dodać filtry:
+  - Wyszukiwarka (imię, nazwisko, nr rejestracyjny)
+  - Zakres dat
+- Dodać kolumnę ze zdjęciem auta
+- Rozszerzyć query o pobieranie pierwszego zdjęcia pojazdu
 
-**InventoryProductList.tsx** - dodanie:
-- Pola cena zakupu netto/brutto
-- Dropdown kategorii z wyszukiwaniem i możliwością dodania nowej
-- Kalkulacja marży (cena sprzedaży - cena zakupu)
+---
 
-**SimpleFreeInvoice.tsx** - dodanie:
-- Typeahead przy wpisywaniu nazwy pozycji faktury
-- Sugestie z `inventory_products` (nazwa, cena, jednostka, VAT)
-- Ostrzeżenie gdy cena sprzedaży < ceny zakupu
-- Pytanie o aktualizację ceny stałej po zmianie
-- Ostrzeżenie gdy sprzedajemy więcej niż na stanie
+### 9. Naprawa profesjonalnego podglądu umowy i podpisów
 
-### Przykładowy flow:
+**Pliki:**
+- `src/pages/RentalClientPortal.tsx`
+- `src/components/fleet/RentalContractViewer.tsx`
+
+**Problemy:**
+a) Duplikat checkboxów (raz w `RentalContractViewer`, raz w `RentalClientPortal`)
+b) Checkboxy nie działają (są zdublowane)
+c) Podpis z piórem nie działa
+d) Wymóg przewinięcia całego dokumentu
+
+**Rozwiązanie:**
+
+**a) Usunięcie duplikatów z RentalContractViewer:**
+- Komponent `RentalContractViewer` nie powinien renderować własnych checkboxów
+- Powinien tylko wyświetlać HTML umowy
+- Usunąć sekcję checkboxów i przycisk "Akceptuję i przechodzę do podpisu"
+
+**b) Naprawa checkboxów w RentalClientPortal:**
+- Checkboxy są już zaimplementowane prawidłowo w `RentalClientPortal.tsx`
+- Wystarczy usunąć duplikaty z `RentalContractViewer`
+
+**c) Naprawa podpisu:**
+- `SignaturePad` wygląda na poprawnie zaimplementowany (canvas z touch events)
+- Sprawdzić czy `handleSignatureSubmit` w RentalClientPortal prawidłowo zapisuje
+
+**d) Wymóg przewinięcia:**
+- W `RentalClientPortal` już jest zaimplementowane `hasScrolledToEnd`
+- Trzeba upewnić się, że `onScroll` handler działa poprawnie
+- Dodać logowanie przewinięcia do `contract_signature_logs`
+
+---
+
+## Diagram zmian w module umów
 
 ```text
-1. Dodaję produkt "Rura gruba":
-   - Wybieram kategorię z listy lub dodaję nową "Materiały budowlane"
-   - Cena zakupu netto: 10 zł, brutto: 12.30 zł (VAT 23%)
-   - Cena sprzedaży netto: 15 zł, brutto: 18.45 zł
-   - Stan: 10 szt.
-
-2. Wystawiam fakturę:
-   - Wpisuję "rura" → sugestia "Rura gruba" (15 zł netto)
-   - Wybieram → automatycznie wypełnia cenę, VAT, jednostkę
-   - Zmieniam cenę na 8 zł → ostrzeżenie: "Sprzedajesz poniżej ceny zakupu (10 zł)"
-   - Wpisuję ilość 15 szt. → ostrzeżenie: "Na stanie tylko 10 szt."
-   
-3. Po wystawieniu faktury:
-   - Widzę zysk/stratę na pozycji
-   - Widzę obliczony VAT do zapłaty
-   - Widzę szacowany podatek dochodowy
+┌─────────────────────────────────────────────────────────────────┐
+│                    FleetActiveRentals.tsx                        │
+├─────────────────────────────────────────────────────────────────┤
+│  [Tabs: Aktywne | Do podpisu | Zakończone]                      │
+│  [Wyszukiwarka: kierowca, auto, daty]                           │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ [Foto] | Pojazd | Kierowca | Status | [Podgląd] [Usuń]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                RentalContractSignatureFlow.tsx                   │
+├─────────────────────────────────────────────────────────────────┤
+│  [Progress Steps: kompaktowe]                                    │
+│  [Podgląd umowy] [Edytuj dane] <- działające przyciski          │
+│  [Kompaktowe info o pojeździe i kierowcy]                       │
+│  [Wyślij link: Email/SMS]                                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│               RentalClientPortal.tsx (dla kierowcy)              │
+├─────────────────────────────────────────────────────────────────┤
+│  [Przewijalny dokument umowy - wygląd A4]                       │
+│  ↓ Przewiń do końca                                              │
+│  [✓] Akceptuję umowę                                             │
+│  [✓] Akceptuję OWU                                               │
+│  [✓] Akceptuję RODO                                              │
+│  [Przejdź do podpisu] <- aktywny po spełnieniu warunków         │
+│                                                                  │
+│  [SignaturePad - podpis palcem/rysikiem]                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Problem 3: Pojazdy floty nie pojawiają się na liście
+## Kolejność wdrożenia
 
-### Przyczyna
-W `AddVehicleModal.tsx`:
-- Linia 94: `fleet_id: isFleetUser ? fleetId : null` - prawidłowe
-- ALE: Modal jest wywoływany bez przekazania `fleetId` lub `userType='fleet'`
+1. **Naprawy krytyczne (błędy blokujące):**
+   - Naprawa pustego podglądu umowy (błąd kolumny `address_street`)
+   - Usunięcie duplikatów checkboxów
 
-W `VehicleRentalWizard.tsx`:
-- Linia 839-844: `AddVehicleModal` otrzymuje tylko `fleetId={fleetId}` ale bez `userType='fleet'`
-- To powoduje, że `isFleetUser` jest `false` i `fleet_id` NIE jest przypisywane
+2. **Naprawy UX:**
+   - Scrollowanie formularza kierowcy
+   - Zmniejszenie pustej przestrzeni w modalu
+   - Naprawa białego ekranu Admin Portal
 
-### Rozwiązanie
+3. **Nowe funkcje:**
+   - Przycisk usuwania umów
+   - Zakładki Aktywne/Zakończone/Do podpisu
+   - Filtry i wyszukiwarka
 
-**VehicleRentalWizard.tsx** - zmiana linii 838-844:
-```tsx
-<AddVehicleModal
-  isOpen={showAddVehicle}
-  onClose={() => setShowAddVehicle(false)}
-  fleetId={fleetId}
-  userType="fleet"  // DODAĆ TĘ LINIĘ
-  variant="rental"
-  onSuccess={...}
-/>
-```
-
-Dodatkowo, pole "Właściciel/Flota" w modalu powinno:
-- Automatycznie wypełniać się nazwą floty dla użytkowników flotowych
-- Być disabled (nieedytowalne) dla użytkowników flotowych
+4. **Konto testowe:**
+   - Utworzenie użytkownika w panelu Supabase
 
 ---
 
-## Sekcja techniczna: Lista zmian
+## Podsumowanie zmian plików
 
-### Migracje SQL:
-1. **vehicle_rentals_add_columns.sql** - dodanie brakujących kolumn
-2. **inventory_purchase_prices.sql** - dodanie cen zakupu i tabeli kategorii
+| Plik | Typ zmiany |
+|------|------------|
+| `src/components/fleet/RentalContractSignatureFlow.tsx` | Naprawa query, kompaktowy layout |
+| `src/components/fleet/FleetActiveRentals.tsx` | Zakładki, filtry, przycisk usuwania |
+| `src/components/fleet/RentalContractViewer.tsx` | Usunięcie duplikatów checkboxów |
+| `src/components/admin/PortalCategoriesManager.tsx` | try/catch dla async handlers |
+| `src/components/fleet/EditDriverDataModal.tsx` | Naprawa scrollowania |
+| `src/pages/RentalClientPortal.tsx` | Weryfikacja logiki podpisu |
+| `src/components/FeaturedListingCard.tsx` | object-cover dla zdjęć pionowych |
+| `src/components/realestate/PropertyListingCard.tsx` | object-cover dla zdjęć pionowych |
 
-### Pliki do modyfikacji:
-
-| Plik | Zmiany |
-|------|--------|
-| `VehicleRentalWizard.tsx` | Dodanie `userType="fleet"` do AddVehicleModal |
-| `InventoryProductList.tsx` | Dodanie pól ceny zakupu, dropdown kategorii z sugestiami |
-| `SimpleFreeInvoice.tsx` | Dodanie typeahead produktów, ostrzeżeń o marży |
-| `useInventoryProducts.ts` | Dodanie pól ceny zakupu do interfejsu |
-
-### Nowe pliki:
-
-| Plik | Opis |
-|------|------|
-| `src/components/inventory/CategorySelector.tsx` | Dropdown kategorii z wyszukiwaniem i dodawaniem |
-| `src/components/invoices/ProductTypeahead.tsx` | Sugestie produktów przy wpisywaniu na fakturze |
-| `src/hooks/useInventoryCategories.ts` | Hook do zarządzania kategoriami |
-
----
-
-## Kolejność implementacji
-
-1. **Migracja SQL dla vehicle_rentals** (naprawia błąd umów natychmiast)
-2. **Fix VehicleRentalWizard** (naprawia przypisanie floty)
-3. **Migracja SQL dla inventory** (dodaje strukturę)
-4. **UI inwentarza** (kategorie, ceny zakupu)
-5. **Integracja faktur** (typeahead, ostrzeżenia)
-
----
-
-## Kalkulacja podatków (dla podsumowania faktury)
-
-Przykład obliczenia zysku na fakturze:
-
-```text
-Sprzedaż:
-- 10x Rura gruba @ 12.30 zł brutto = 123.00 zł brutto (100 zł netto + 23 zł VAT)
-
-Zakup:
-- 10x Rura gruba @ 10.30 zł brutto = 103.00 zł brutto (około 83.74 zł netto + 19.26 zł VAT)
-
-Zysk brutto: 123 - 103 = 20 zł
-VAT do zapłaty: 23 - 19.26 = 3.74 zł (VAT należny - VAT naliczony)
-Zysk netto przed podatkiem: 100 - 83.74 = 16.26 zł
-
-Podatek dochodowy (zależy od formy):
-- Ryczałt 8.5%: 100 × 8.5% = 8.50 zł
-- Liniowy 19%: 16.26 × 19% = 3.09 zł
-- Skala (12%/32%): 16.26 × 12% = 1.95 zł
-
-Rzeczywisty zysk "na rękę":
-- Ryczałt: 16.26 - 8.50 = 7.76 zł
-- Liniowy: 16.26 - 3.09 = 13.17 zł
-```
-
-System będzie obliczał te wartości automatycznie na podstawie ustawień formy opodatkowania klienta.
