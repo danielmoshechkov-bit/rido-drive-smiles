@@ -563,7 +563,16 @@ export default function RealEstateAgentDashboard() {
                 <CardDescription>Przełącz między swoimi kontami w systemie</CardDescription>
               </CardHeader>
               <CardContent>
-                <AccountSwitcherPanel />
+                <AccountSwitcherPanel 
+                  isDriverAccount={isDriverAccount}
+                  isFleetAccount={isFleetAccount}
+                  isMarketplaceAccount={isMarketplaceAccount}
+                  isRealEstateAccount={true}
+                  isAdminAccount={isAdminAccount}
+                  isMarketplaceEnabled={true}
+                  currentAccountType="real_estate"
+                  navigate={navigate}
+                />
               </CardContent>
             </Card>
           </TabsContent>
