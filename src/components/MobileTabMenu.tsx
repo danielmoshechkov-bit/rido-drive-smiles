@@ -60,7 +60,10 @@ export function MobileTabMenu({
       <div className="flex items-center gap-2">
         <Collapsible open={isOpen} onOpenChange={setIsOpen} className="flex-1">
           <CollapsibleTrigger className="w-full">
-            <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+            <div 
+              className="flex items-center justify-between text-white px-4 py-2.5 rounded-xl shadow-[0_4px_15px_rgba(108,60,240,0.15)]"
+              style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
+            >
               <span className="font-medium text-sm truncate">
                 {getActiveTabLabel()}
               </span>
