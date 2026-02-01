@@ -1,167 +1,168 @@
 
-# Kompleksowy Plan Naprawy UI/UX
 
-## PODSUMOWANIE PROBLEMÓW Z DZISIEJSZEGO DNIA
+# Plan Naprawy UI/UX - 4 Kluczowe Problemy
 
-Na podstawie analizy kodu i zrzutów ekranu zidentyfikowałem następujące problemy:
+## PODSUMOWANIE PROBLEMÓW
 
-### 1. FLOTA - Układ zakładek nie pasuje do wzorca "Rozliczenia"
-**Problem:** W zakładce "Rozliczenia" jest pasek `UniversalSubTabBar` z przyciskami (Moje rozliczenia, Rozlicz kierowców, itd.) POD główną zakładką, a następnie Card z tabelą. W "Flota" układ jest inny - zakładki Auta/Najem/Rezerwacje są wewnątrz komponentu Tabs jako `TabsList`, co daje inny wygląd wizualny.
-
-**Rozwiązanie:**
-- Zmienić strukturę FleetManagement.tsx tak, aby główna zakładka "Flota" wyświetlała podkategorie (Auta, Najem, Rezerwacje z giełdy) w stylu `UniversalSubTabBar` jak w "Rozliczenia"
-- Pod paskiem kategorii wyświetlać odpowiednią zawartość (tabelę pojazdów, najmy, rezerwacje)
-
-### 2. MARKETPLACE - Kliknięcie na zdjęcie/kartę nie działa
-**Problem:** Komponent `ListingCard.tsx` używany w giełdzie pojazdów nie ma:
-- Funkcji otwierania lightbox po kliknięciu na zdjęcie
-- Nawigacji do szczegółów ogłoszenia po kliknięciu na kartę
-
-**Rozwiązanie:**
-- Dodać import `ImageLightbox` do `ListingCard.tsx`
-- Dodać `handlePhotoClick` z `e.stopPropagation()` który otwiera lightbox
-- Dodać `handleCardClick` który nawiguje do `/gielda/ogloszenie/{id}` (pomijając kliknięcia na przyciski i zdjęcia)
-
-### 3. PODPIS - Nie zapisuje się
-**Problem:** Błąd "Błąd zapisywania podpisu" - widoczny na zrzucie ekranu.
-
-**Rozwiązanie:**
-- W `RentalClientPortal.tsx` sprawdzić zapytanie do bazy - obecnie filtruje po `portal_access_token` nawet gdy jest pusty
-- Dodać logowanie błędów aby zdiagnozować dokładną przyczynę
-- Poprawić warunek: jeśli brak tokenu, nie dodawać filtra po tokenie
-
-### 4. UMOWA - Nie wygląda profesjonalnie
-**Problem:** Podgląd umowy na stronie /umowa/:id wygląda jak zwykły tekst, nie jak dokument A4.
-
-**Rozwiązanie:**
-- W `RentalContractViewer.tsx` upewnić się że HTML z umowy jest renderowany wewnątrz białego "arkusza" z cieniem, na szarym tle
-- Sprawdzić czy style CSS z `generateRentalContractHtml` są prawidłowo zastosowane
-- Dodać właściwy styl druku: biała strona, cień, marginesy
-
-### 5. MODAL - Nie mieści się na mobile (foto 5, 6)
-**Problem:** Modal z procesem podpisywania umowy jest za szeroki na urządzeniach mobilnych.
-
-**Rozwiązanie:**
-- W `RentalContractSignatureFlow.tsx` dodać responsywne klasy do `DialogContent`
-- Zmniejszyć max-width na mobile: `max-w-[95vw] sm:max-w-3xl`
-- Upewnić się że zawartość nie wychodzi poza ramkę
-
-### 6. BRAK zakładki USTAWIENIA UMOWY
-**Problem:** Użytkownik prosił o zakładkę "Ustawienia" w Flocie gdzie można zapisać podpis floty.
-
-**Rozwiązanie:**
-- Dodać zakładkę "Ustawienia umowy" do FleetManagement.tsx
-- Stworzyć komponent `FleetContractSettings.tsx` z możliwością:
-  - Podglądu zapisanego podpisu
-  - Dodania/zmiany podpisu
-  - Włączenia/wyłączenia auto-podpisu
+Na podstawie zrzutów ekranu i analizy kodu zidentyfikowałem następujące problemy, które **nadal nie są naprawione**:
 
 ---
 
-## SZCZEGÓŁOWY PLAN IMPLEMENTACJI
+## 1. Menu mobilne nie zamyka się po wyborze zakładki
 
-### Krok 1: Naprawa układu zakładek "Flota"
+**Problem (foto 1):**
+W widoku mobilnym, po rozwinięciu listy głównych zakładek (np. "Flota") i wybraniu opcji, lista pozostaje otwarta zamiast się zamykać.
 
-**Plik:** `src/components/FleetManagement.tsx`
+**Lokalizacja błędu:**
+`src/components/UnifiedDashboard.tsx` (linie 454-543)
+W komponencie `Collapsible` brak stanu kontrolującego otwarcie/zamknięcie oraz brak zamykania po kliknięciu na Button.
 
-Zmiany:
-- Zamiast używać wewnętrznego `<Tabs>` z `<TabsList>`, użyć `UniversalSubTabBar` tak jak w `FleetSettlementsView.tsx`
-- Struktura:
-  ```
-  <Card>
-    <CardHeader>...</CardHeader>
-    <CardContent>
-      <UniversalSubTabBar ... />
-      {activeTab === "vehicles" && <VehiclesContent />}
-      {activeTab === "najem" && <FleetRentalsTab />}
-      {activeTab === "rentals" && <MarketplaceReservationsContent />}
-    </CardContent>
-  </Card>
-  ```
+**Rozwiązanie:**
+- Dodać stan `const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);`
+- Przekazać `open={isMobileMenuOpen}` do `Collapsible`
+- W każdym `Button` onClick dodać `setIsMobileMenuOpen(false)` obok `setActiveTab(...)`
 
-### Krok 2: Naprawa kliknięć w ListingCard (marketplace)
+---
 
-**Plik:** `src/components/marketplace/ListingCard.tsx`
+## 2. Widok mobilny karty pojazdu - dane obcięte
 
-Zmiany:
-- Dodać import: `import { ImageLightbox } from "@/components/ui/ImageLightbox";`
-- Dodać stan: `const [showLightbox, setShowLightbox] = useState(false);`
-- Dodać `handlePhotoClick`:
-  ```tsx
-  const handlePhotoClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setShowLightbox(true);
-  };
-  ```
-- Dodać `handleCardClick` na `<Card>`:
-  ```tsx
-  const handleCardClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('[data-photo-area]')) return;
-    navigate(`/gielda/ogloszenie/${listing.id}`);
-  };
-  ```
-- Owinąć sekcję zdjęć w `div` z `data-photo-area="true"` i `onClick={handlePhotoClick}`
-- Dodać `<ImageLightbox ... />` na końcu
+**Problem (foto 2):**
+W widoku mobilnym karty pojazdów (Lexus CT, Toyota Auris) nie widać wszystkich danych - np. "Dok: OC" jest obcięte, brak informacji o przeglądzie, kierowcy, kwocie. Dane powinny być widoczne lub rozwijalne.
 
-### Krok 3: Naprawa zapisywania podpisu
+**Lokalizacja błędu:**
+`src/components/FleetManagement.tsx` (linie 474-650) - sekcja renderująca karty pojazdów
 
-**Plik:** `src/pages/RentalClientPortal.tsx`
+**Rozwiązanie:**
+- Zmienić układ z `flex-row gap-6` na responsywny `flex flex-col md:flex-row gap-4`
+- Usunąć `truncate` z elementów, które powinny być widoczne
+- Dodać `flex-wrap` dla grup informacji
+- Zmienić układ tak, żeby na mobile było:
+  - Rząd 1: Nr rej + Pojazd
+  - Rząd 2: Kierowca + Dokumenty (OC, przegląd)
+  - Rząd 3: Stawka tygodniowa
 
-Zmiany w `handleSignatureSubmit`:
-- Zmienić warunek filtrowania:
-  ```tsx
-  let updateQuery = supabase
-    .from("vehicle_rentals")
-    .update({...})
-    .eq("id", rentalId);
-  
-  // Tylko filtruj po tokenie jeśli jest dostępny
-  if (accessToken) {
-    updateQuery = updateQuery.eq("portal_access_token", accessToken);
-  }
-  ```
-- Dodać lepsze logowanie błędów
+---
 
-### Krok 4: Profesjonalny wygląd umowy
+## 3. Układ zakładki "Flota" nie pasuje do wzorca "Rozliczenia"
 
-**Plik:** `src/components/fleet/RentalContractViewer.tsx`
+**Problem (foto 3 vs foto 4):**
+W zakładce "Rozliczenia" mamy:
+1. Główna zakładka (Rozliczenia) - fioletowy pasek
+2. POD NIM: UniversalSubTabBar z przyciskami (Moje rozliczenia, Rozlicz kierowców, etc.)
+3. POD NIM: Zawartość (Card "Wynik tygodniowy" itp.)
 
-Zmiany:
-- Upewnić się że kontener z umową ma styl "A4 document":
-  ```tsx
-  <div className="h-[60vh] overflow-y-auto bg-muted p-4" onScroll={handleScroll}>
-    <div className="max-w-[210mm] mx-auto bg-white shadow-xl rounded-sm border">
-      <div 
-        className="p-8 prose prose-sm max-w-none"
-        style={{ fontFamily: 'Times New Roman, serif', lineHeight: '1.6' }}
-        dangerouslySetInnerHTML={{ __html: contractHtml }} 
-      />
-    </div>
+W zakładce "Flota" obecnie jest:
+1. Główna zakładka (Flota) - fioletowy pasek
+2. Card "Flota - Car4Ride sp. z o.o." z **zakładkami WEWNĄTRZ** karty
+
+**Rozwiązanie:**
+Całkowita przebudowa `FleetManagement.tsx`:
+- Usunąć opakowanie `<Card>` + `<CardHeader>` + `<CardContent>` z komponentu
+- Renderować `<UniversalSubTabBar>` na samym początku (poza Card)
+- Dopiero PO wybraniu zakładki wyświetlać odpowiednią zawartość (np. Card z listą pojazdów)
+
+```tsx
+// NOWA STRUKTURA (jak FleetSettlementsView):
+return (
+  <div className="space-y-4">
+    <UniversalSubTabBar ... />
+    
+    {activeTab === "vehicles" && (
+      <Card>
+        <CardHeader>...</CardHeader>
+        <CardContent>
+          {/* Lista pojazdów */}
+        </CardContent>
+      </Card>
+    )}
+    
+    {activeTab === "najem" && (
+      <FleetRentalsTab ... />
+    )}
+    
+    {activeTab === "rentals" && (
+      <Card>...</Card>
+    )}
   </div>
-  ```
+);
+```
 
-### Krok 5: Responsywność modalu
+---
 
-**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx`
+## 4. Podpis nie zapisuje się
 
-Zmiany w DialogContent:
-- Zmienić `max-w-4xl` na `max-w-[95vw] sm:max-w-3xl lg:max-w-4xl`
-- Dodać `overflow-x-hidden`
+**Problem (foto 5):**
+Komunikat "Błąd zapisywania podpisu. Spróbuj ponownie." - podpis nie jest zapisywany do bazy.
 
-### Krok 6: Zakładka ustawień umowy
+**Lokalizacja błędu:**
+`src/pages/RentalClientPortal.tsx` (linie 136-186) - funkcja `handleSignatureSubmit`
 
-**Nowy plik:** `src/components/fleet/FleetContractSettings.tsx`
+**Diagnoza:**
+Sprawdzenie zapytania update w bazie - możliwe, że filtr `portal_access_token` nie pasuje lub rekord nie istnieje.
 
-Funkcje:
-- Wyświetlanie zapisanego podpisu floty
-- Edycja/dodanie podpisu (SignaturePad)
-- Checkbox "Auto-podpisuj umowy"
-- Zapis do tabeli `fleet_signatures`
+**Rozwiązanie:**
+- Dodać szczegółowe logowanie przed i po zapytaniu
+- Sprawdzić czy `rentalId` jest poprawne
+- Rozdzielić update na dwie wersje:
+  1. Z tokenem (dla kierowcy z zewnątrz)
+  2. Bez tokena (dla zalogowanego fleet managera)
+- Dodać walidację czy rental istnieje przed próbą update
 
-**Plik:** `src/components/FleetManagement.tsx`
-- Dodać zakładkę "Ustawienia umowy" do `UniversalSubTabBar`
+```tsx
+const handleSignatureSubmit = async (signatureDataUrl: string) => {
+  if (!rentalId) return;
+  setIsSigning(true);
+  
+  try {
+    // 1. Sprawdź czy rental istnieje
+    const { data: existingRental, error: checkError } = await supabase
+      .from("vehicle_rentals")
+      .select("id, status, portal_access_token")
+      .eq("id", rentalId)
+      .single();
+    
+    if (checkError || !existingRental) {
+      console.error("Rental not found:", checkError);
+      toast.error("Nie znaleziono umowy");
+      return;
+    }
+    
+    // 2. Upload signature
+    const blob = await (await fetch(signatureDataUrl)).blob();
+    const fileName = `driver_signatures/${rentalId}/${Date.now()}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from("driver-documents")
+      .upload(fileName, blob);
+    
+    if (uploadError) throw uploadError;
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from("driver-documents")
+      .getPublicUrl(fileName);
+    
+    // 3. Update rental - BEZ filtra po tokenie, bo już zweryfikowaliśmy dostęp
+    const { error: updateError } = await supabase
+      .from("vehicle_rentals")
+      .update({
+        driver_signed_at: new Date().toISOString(),
+        driver_signature_url: publicUrl,
+        driver_signature_user_agent: navigator.userAgent,
+        status: "client_signed",
+      })
+      .eq("id", rentalId);
+    
+    if (updateError) throw updateError;
+    
+    toast.success("Umowa podpisana pomyślnie!");
+    setStep("complete");
+  } catch (error: any) {
+    console.error("Signature error:", error);
+    toast.error("Błąd zapisywania podpisu: " + (error.message || "Nieznany błąd"));
+  } finally {
+    setIsSigning(false);
+  }
+};
+```
 
 ---
 
@@ -169,20 +170,103 @@ Funkcje:
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/FleetManagement.tsx` | Zmiana struktury zakładek na styl "Rozliczenia" |
-| `src/components/marketplace/ListingCard.tsx` | Dodanie lightbox + nawigacja po kliknięciu |
-| `src/pages/RentalClientPortal.tsx` | Naprawa warunku zapisu podpisu |
-| `src/components/fleet/RentalContractViewer.tsx` | Styl A4 dla umowy |
-| `src/components/fleet/RentalContractSignatureFlow.tsx` | Responsywność modalu |
-| `src/components/fleet/FleetContractSettings.tsx` | NOWY - ustawienia podpisu floty |
+| `src/components/UnifiedDashboard.tsx` | Dodać stan `isMobileMenuOpen` i zamykanie menu po wyborze |
+| `src/components/FleetManagement.tsx` | 1) Zmienić strukturę - zakładki POZA Card, 2) Responsywność kart pojazdów |
+| `src/pages/RentalClientPortal.tsx` | Naprawić logikę zapisu podpisu |
+
+---
+
+## SZCZEGÓŁY TECHNICZNE
+
+### UnifiedDashboard.tsx - dodanie stanu dla menu
+
+```tsx
+// Dodać na początku komponentu:
+const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+// Zmienić Collapsible:
+<Collapsible open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} className="flex-1">
+
+// W każdym Button wewnątrz CollapsibleContent:
+<Button 
+  variant="ghost" 
+  size="sm"
+  className="w-full justify-start text-xs"
+  onClick={() => {
+    setActiveTab('fleet');
+    setIsMobileMenuOpen(false); // DODAĆ TO
+  }}
+>
+```
+
+### FleetManagement.tsx - nowa struktura
+
+Aktualna struktura:
+```
+<Card>
+  <CardHeader>Flota - {cityName}</CardHeader>
+  <CardContent>
+    <UniversalSubTabBar />  ← WEWNĄTRZ Card
+    {activeTab content}
+  </CardContent>
+</Card>
+```
+
+Nowa struktura (jak Rozliczenia):
+```
+<div>
+  <UniversalSubTabBar />  ← POZA Card
+  
+  {activeTab === "vehicles" && (
+    <Card>
+      <CardHeader>Flota - {cityName}</CardHeader>
+      <CardContent>
+        {lista pojazdów}
+      </CardContent>
+    </Card>
+  )}
+  
+  {activeTab === "najem" && <FleetRentalsTab />}
+  {activeTab === "settings" && <FleetContractSettings />}
+</div>
+```
+
+### FleetManagement.tsx - responsywność kart pojazdów
+
+```tsx
+// Zmienić layout w kartach pojazdów (około linii 498-530):
+<div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
+  {/* Rząd 1 */}
+  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
+    <div className="min-w-[100px]">
+      <span className="text-xs text-muted-foreground">Nr rej.:</span>
+      <div className="font-bold text-sm">{vehicle.plate}</div>
+    </div>
+    <div className="min-w-[120px]">
+      <span className="text-xs text-muted-foreground">Pojazd:</span>
+      <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
+    </div>
+  </div>
+  
+  {/* Rząd 2 - kierowca + dokumenty */}
+  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
+    <div className="min-w-[120px]">
+      <span className="text-xs text-muted-foreground">Kierowca:</span>
+      <UniversalSelector ... />
+    </div>
+    <div className="min-w-[100px]">
+      <span className="text-xs text-muted-foreground">Dokumenty:</span>
+      <ExpiryBadges ... />
+    </div>
+  </div>
+</div>
+```
 
 ---
 
 ## KOLEJNOŚĆ WDROŻENIA
 
-1. **FleetManagement.tsx** - zmiana układu zakładek
-2. **ListingCard.tsx** - lightbox + nawigacja
-3. **RentalClientPortal.tsx** - naprawa podpisu
-4. **RentalContractViewer.tsx** - styl A4
-5. **RentalContractSignatureFlow.tsx** - responsywność
-6. **FleetContractSettings.tsx** - nowy komponent
+1. **UnifiedDashboard.tsx** - naprawa zamykania menu mobilnego
+2. **FleetManagement.tsx** - przebudowa struktury zakładek + responsywność
+3. **RentalClientPortal.tsx** - naprawa zapisu podpisu
+
