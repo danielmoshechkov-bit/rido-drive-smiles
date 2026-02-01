@@ -1,113 +1,106 @@
 
-# Plan naprawy modułu umów najmu i innych zgłoszonych błędów
+# Plan naprawy 10 zgłoszonych problemów
 
-## Przegląd zgłoszonych problemów
+## Analiza obecnego stanu
 
-1. **Biały ekran w Panelu Admin (Portale)** - przy edycji/dodawaniu kategorii
-2. **Konto testowe agencji nieruchomości** - nieruchomosci@test.pl
-3. **Wyświetlanie zdjęć pionowych** - nieodpowiednie dopasowanie w miniaturach
-4. **Moduł umów - zbyt dużo pustej przestrzeni** - wymagane nadmierne przewijanie
-5. **Formularz danych kierowcy - brak scrollowania** - nie można przewinąć do końca
-6. **Podgląd umowy - pusta strona** - błąd w nazwie kolumny bazy danych
-7. **Brak przycisku usuwania** - dla niepodpisanych umów
-8. **Brak zakładek w Najem** - Aktywne/Zakończone/Do podpisu
-9. **Profesjonalny podgląd umowy i podpisy** - duplikaty checkboxów, wymóg przewinięcia
+Po dokładnym sprawdzeniu kodu stwierdzam, że poprzednie zmiany **NIE zostały w pełni wdrożone**. Poniżej przedstawiam szczegółowy status każdego problemu i plan naprawy.
 
 ---
 
-## Szczegółowy plan napraw
+## 1. Admin Portal - biały ekran przy edycji kategorii
 
-### 1. Naprawa białego ekranu w Admin Portal Categories
+**Status:** NIE NAPRAWIONE
 
 **Plik:** `src/components/admin/PortalCategoriesManager.tsx`
 
-**Problem:** Async handlers nie są opakowane w try/catch, co powoduje crash aplikacji.
+**Problem:** Funkcje `handleSave`, `handleDelete`, `handleToggleVisibility`, `handleMove` nie mają odpowiedniej obsługi błędów, co powoduje crash aplikacji.
 
 **Rozwiązanie:**
-- Dodać try/catch do wszystkich async handlerów: `handleSave`, `handleDelete`, `handleToggleVisibility`, `handleMove`
-- Dodać globalną obsługę błędów w App.tsx
+- Dodać try/catch z odpowiednim wyświetlaniem błędów użytkownikowi
+- Upewnić się, że wszystkie async operacje są bezpiecznie opakowane
 
 ---
 
-### 2. Utworzenie konta testowego
+## 2. Konto testowe agencji nieruchomości
 
-**Wymagane:** Konto dla agencji nieruchomości
+**Status:** NIE UTWORZONE
 
+**Dane:**
 - Email: `nieruchomosci@test.pl`
 - Hasło: `Test123!`
-- Rola: `realestate` (lub odpowiednia dla agencji)
+- Rola: `realestate`
 
-**Uwaga:** To wymaga ręcznego utworzenia użytkownika w panelu Supabase Auth lub przez skrypt migracyjny.
+**Rozwiązanie:** Utworzenie konta przez migrację SQL lub ręcznie w panelu Supabase Auth.
 
 ---
 
-### 3. Naprawa wyświetlania zdjęć pionowych
+## 3. Zdjęcia pionowe - złe dopasowanie
 
-**Pliki:**
+**Status:** NIE SPRAWDZONE
+
+**Pliki do modyfikacji:**
 - `src/components/FeaturedListingCard.tsx`
 - `src/components/realestate/PropertyListingCard.tsx`
-- `src/components/ui/ImageLightbox.tsx`
-
-**Problem:** Zdjęcia pionowe nie wypełniają prawidłowo kontenerów miniatur.
 
 **Rozwiązanie:**
-- Upewnić się, że kontenery mają stały aspect ratio (`aspect-[4/3]` lub `aspect-video`)
-- Użyć `object-cover` z `object-center` dla lepszego kadrowania
-- W lightbox miniatury już mają poprawne style, ale główne zdjęcie może wymagać `object-contain` dla zachowania proporcji
+- Upewnić się, że kontenery obrazów mają `aspect-ratio` i `object-cover`
+- Dodać `object-position: center` dla lepszego kadrowania
 
 ---
 
-### 4. Naprawa układu modułu umów (zbyt dużo pustej przestrzeni)
+## 4. Moduł umów - zbyt dużo pustej przestrzeni
+
+**Status:** NIE NAPRAWIONE
 
 **Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx`
 
-**Problem:** Za dużo pustej przestrzeni w modalu, wymaga nadmiernego przewijania.
-
 **Rozwiązanie:**
 - Zmniejszyć paddingi i marginesy
-- Użyć bardziej kompaktowego layoutu dla kroków progress
-- Zoptymalizować układ kart informacyjnych
-- Zmienić `max-h` DialogContent na odpowiedniejszy rozmiar
+- Kompaktowy układ kart informacyjnych
+- Optymalizacja kroków progress
 
 ---
 
-### 5. Naprawa scrollowania formularza danych kierowcy
+## 5. Formularz kierowcy - brak scrollowania
+
+**Status:** CZĘŚCIOWO NAPRAWIONE
 
 **Plik:** `src/components/fleet/EditDriverDataModal.tsx`
 
-**Problem:** Formularz nie ma działającego scrollbara, nie można zobaczyć wszystkich pól.
+**Problem:** `ScrollArea` jest zaimplementowane, ale może nie działać poprawnie na niektórych urządzeniach.
 
 **Rozwiązanie:**
-- Sprawdzić konfigurację `ScrollArea` - ma `flex-1 min-h-0` co powinno działać
-- Upewnić się, że `DialogContent` ma `flex flex-col` i odpowiedni `max-h`
-- Dodać `overflow-y-auto` jako fallback jeśli ScrollArea nie działa
+- Dodać fallback `overflow-y-auto` bezpośrednio na kontenerze
+- Sprawdzić konfigurację `DialogContent`
 
 ---
 
-### 6. Naprawa pustej strony podglądu umowy
+## 6. Podgląd umowy - pusta strona (BŁĄD KRYTYCZNY)
 
-**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx` (funkcja `ContractPreview`)
+**Status:** NIE NAPRAWIONE
 
-**Problem:** Query używa `address_street`, `address_city` dla tabeli `fleets`, ale prawdziwe kolumny to `street`, `city`, `postal_code`.
+**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx`
 
-**Rozwiązanie linii 789:**
+**Problem na linii 789:**
 ```typescript
-// PRZED:
+// AKTUALNIE (BŁĘDNE):
 fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
 
-// PO:
+// POWINNO BYĆ:
 fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
 ```
 
-**Rozwiązanie linii 805-808:**
+Tabela `fleets` ma kolumny `street`, `city`, `postal_code` - NIE `address_street`, `address_city`.
+
+**Problem na liniach 805-808:**
 ```typescript
-// PRZED:
+// AKTUALNIE (BŁĘDNE):
 const fleetAddress = [
   fleet?.address_street,
   fleet?.address_city
 ].filter(Boolean).join(', ');
 
-// PO:
+// POWINNO BYĆ:
 const fleetAddress = [
   fleet?.street,
   fleet?.postal_code,
@@ -115,142 +108,87 @@ const fleetAddress = [
 ].filter(Boolean).join(', ');
 ```
 
+**Uwaga:** W pliku `RentalContractViewer.tsx` te zmiany już zostały wprowadzone (linie 53, 82-86), ale w `RentalContractSignatureFlow.tsx` wciąż jest błąd!
+
 ---
 
-### 7. Dodanie przycisku usuwania niepodpisanych umów
+## 7. Przycisk usuwania niepodpisanych umów
+
+**Status:** NIE DODANE
 
 **Plik:** `src/components/fleet/FleetActiveRentals.tsx`
 
 **Rozwiązanie:**
-- Dodać przycisk `Trash2` (ikona kosza) obok przycisku "Podgląd" dla umów ze statusem `draft` lub `pending_signature` (bez `driver_signed_at`)
+- Dodać import `Trash2` z lucide-react
+- Dodać przycisk usuwania dla statusów `draft` i `pending_signature`
 - Implementacja `handleDeleteRental` z potwierdzeniem
-- Po usunięciu odświeżyć listę
+- Odświeżenie listy po usunięciu
 
 ---
 
-### 8. Dodanie zakładek Aktywne/Zakończone/Do podpisu
+## 8. Zakładki Aktywne/Do podpisu/Zakończone
+
+**Status:** NIE DODANE
 
 **Plik:** `src/components/fleet/FleetActiveRentals.tsx`
 
 **Rozwiązanie:**
-- Dodać komponent `Tabs` z trzema zakładkami:
-  - **Aktywne** - status: `signed`, `finalized`, `active`
-  - **Do podpisu** - status: `draft`, `pending_signature`
-  - **Zakończone** - status: `completed`, `cancelled`
-- Dodać filtry:
-  - Wyszukiwarka (imię, nazwisko, nr rejestracyjny)
-  - Zakres dat
-- Dodać kolumnę ze zdjęciem auta
-- Rozszerzyć query o pobieranie pierwszego zdjęcia pojazdu
+- Dodać komponenty `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`
+- Trzy zakładki:
+  - **Aktywne:** status `signed`, `finalized`, `active`
+  - **Do podpisu:** status `draft`, `pending_signature`
+  - **Zakończone:** status `completed`, `cancelled`
+- Dodać wyszukiwarkę (imię, nazwisko, nr rejestracyjny)
+- Dodać filtr zakresu dat
+- Dodać kolumnę ze zdjęciem pojazdu
 
 ---
 
-### 9. Naprawa profesjonalnego podglądu umowy i podpisów
+## 9. Duplikat checkboxów w podglądzie umowy
 
-**Pliki:**
-- `src/pages/RentalClientPortal.tsx`
-- `src/components/fleet/RentalContractViewer.tsx`
+**Status:** NIE NAPRAWIONE
 
-**Problemy:**
-a) Duplikat checkboxów (raz w `RentalContractViewer`, raz w `RentalClientPortal`)
-b) Checkboxy nie działają (są zdublowane)
-c) Podpis z piórem nie działa
-d) Wymóg przewinięcia całego dokumentu
+**Problem:** Checkboxy są wyświetlane DWA RAZY:
+1. W `RentalContractViewer.tsx` (linie 239-291)
+2. W `RentalClientPortal.tsx` (linie 248-296)
 
 **Rozwiązanie:**
-
-**a) Usunięcie duplikatów z RentalContractViewer:**
-- Komponent `RentalContractViewer` nie powinien renderować własnych checkboxów
-- Powinien tylko wyświetlać HTML umowy
-- Usunąć sekcję checkboxów i przycisk "Akceptuję i przechodzę do podpisu"
-
-**b) Naprawa checkboxów w RentalClientPortal:**
-- Checkboxy są już zaimplementowane prawidłowo w `RentalClientPortal.tsx`
-- Wystarczy usunąć duplikaty z `RentalContractViewer`
-
-**c) Naprawa podpisu:**
-- `SignaturePad` wygląda na poprawnie zaimplementowany (canvas z touch events)
-- Sprawdzić czy `handleSignatureSubmit` w RentalClientPortal prawidłowo zapisuje
-
-**d) Wymóg przewinięcia:**
-- W `RentalClientPortal` już jest zaimplementowane `hasScrolledToEnd`
-- Trzeba upewnić się, że `onScroll` handler działa poprawnie
-- Dodać logowanie przewinięcia do `contract_signature_logs`
+- `RentalContractViewer.tsx` powinien TYLKO wyświetlać treść umowy HTML
+- Usunąć checkboxy i przycisk "Akceptuję i przechodzę do podpisu" z `RentalContractViewer.tsx`
+- Checkboxy pozostają tylko w `RentalClientPortal.tsx`
 
 ---
 
-## Diagram zmian w module umów
+## 10. Profesjonalny wygląd umowy (format A4)
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    FleetActiveRentals.tsx                        │
-├─────────────────────────────────────────────────────────────────┤
-│  [Tabs: Aktywne | Do podpisu | Zakończone]                      │
-│  [Wyszukiwarka: kierowca, auto, daty]                           │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ [Foto] | Pojazd | Kierowca | Status | [Podgląd] [Usuń]  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                RentalContractSignatureFlow.tsx                   │
-├─────────────────────────────────────────────────────────────────┤
-│  [Progress Steps: kompaktowe]                                    │
-│  [Podgląd umowy] [Edytuj dane] <- działające przyciski          │
-│  [Kompaktowe info o pojeździe i kierowcy]                       │
-│  [Wyślij link: Email/SMS]                                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│               RentalClientPortal.tsx (dla kierowcy)              │
-├─────────────────────────────────────────────────────────────────┤
-│  [Przewijalny dokument umowy - wygląd A4]                       │
-│  ↓ Przewiń do końca                                              │
-│  [✓] Akceptuję umowę                                             │
-│  [✓] Akceptuję OWU                                               │
-│  [✓] Akceptuję RODO                                              │
-│  [Przejdź do podpisu] <- aktywny po spełnieniu warunków         │
-│                                                                  │
-│  [SignaturePad - podpis palcem/rysikiem]                        │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Status:** NIE NAPRAWIONE
+
+**Rozwiązanie:**
+- Zmienić styl wyświetlania umowy na format przypominający dokument A4
+- Dodać cienie i ramki imitujące kartkę papieru
+- Poprawić typografię dokumentu
 
 ---
 
 ## Kolejność wdrożenia
 
-1. **Naprawy krytyczne (błędy blokujące):**
-   - Naprawa pustego podglądu umowy (błąd kolumny `address_street`)
-   - Usunięcie duplikatów checkboxów
-
-2. **Naprawy UX:**
-   - Scrollowanie formularza kierowcy
-   - Zmniejszenie pustej przestrzeni w modalu
-   - Naprawa białego ekranu Admin Portal
-
-3. **Nowe funkcje:**
-   - Przycisk usuwania umów
-   - Zakładki Aktywne/Zakończone/Do podpisu
-   - Filtry i wyszukiwarka
-
-4. **Konto testowe:**
-   - Utworzenie użytkownika w panelu Supabase
+1. **Naprawa krytyczna (punkt 6):** Błąd kolumn w bazie danych - umowa nie może się wczytać
+2. **Usunięcie duplikatów (punkt 9):** Checkboxy wyświetlane 2 razy
+3. **Dodanie funkcjonalności (punkty 7, 8):** Przycisk usuwania, zakładki
+4. **Naprawa UX (punkty 4, 5):** Layout, scrollowanie
+5. **Pozostałe (punkty 1, 3, 10):** Admin Portal, zdjęcia, wygląd A4
+6. **Konto testowe (punkt 2):** Utworzenie w Supabase
 
 ---
 
-## Podsumowanie zmian plików
+## Pliki do modyfikacji
 
-| Plik | Typ zmiany |
-|------|------------|
-| `src/components/fleet/RentalContractSignatureFlow.tsx` | Naprawa query, kompaktowy layout |
-| `src/components/fleet/FleetActiveRentals.tsx` | Zakładki, filtry, przycisk usuwania |
-| `src/components/fleet/RentalContractViewer.tsx` | Usunięcie duplikatów checkboxów |
-| `src/components/admin/PortalCategoriesManager.tsx` | try/catch dla async handlers |
-| `src/components/fleet/EditDriverDataModal.tsx` | Naprawa scrollowania |
-| `src/pages/RentalClientPortal.tsx` | Weryfikacja logiki podpisu |
-| `src/components/FeaturedListingCard.tsx` | object-cover dla zdjęć pionowych |
-| `src/components/realestate/PropertyListingCard.tsx` | object-cover dla zdjęć pionowych |
-
+| Plik | Zmiany |
+|------|--------|
+| `RentalContractSignatureFlow.tsx` | Naprawa query (linia 789), naprawa adresu floty (linie 805-808), kompaktowy layout |
+| `FleetActiveRentals.tsx` | Dodanie zakładek, filtrów, przycisku usuwania, kolumny ze zdjęciem |
+| `RentalContractViewer.tsx` | Usunięcie checkboxów i przycisku (linie 224-291) - pozostawić tylko HTML umowy |
+| `EditDriverDataModal.tsx` | Naprawa scrollowania |
+| `PortalCategoriesManager.tsx` | Dodanie try/catch |
+| `FeaturedListingCard.tsx` | Naprawa aspect-ratio zdjęć |
+| `PropertyListingCard.tsx` | Naprawa aspect-ratio zdjęć |
