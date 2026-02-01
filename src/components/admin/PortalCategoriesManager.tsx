@@ -446,7 +446,7 @@ export function PortalCategoriesManager() {
       </Card>
 
       {/* Edit/Add Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} modal={true}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>

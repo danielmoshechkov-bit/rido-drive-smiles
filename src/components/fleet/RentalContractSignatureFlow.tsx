@@ -751,20 +751,25 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
         />
       )}
 
-      {/* Contract Preview Modal */}
+      {/* Contract Preview Modal - A4 style document */}
       <Dialog open={showContractPreview} onOpenChange={setShowContractPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
               Podgląd umowy najmu
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="h-[70vh] pr-4">
-            {rental && (
-              <ContractPreview rental={rental} />
-            )}
-          </ScrollArea>
+          <div className="flex-1 overflow-y-auto bg-muted p-4">
+            {/* A4 document wrapper */}
+            <div className="max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm mb-4">
+              {rental && (
+                <div className="p-8">
+                  <ContractPreview rental={rental} />
+                </div>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
