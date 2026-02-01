@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -11,7 +12,9 @@ import {
   Trash2, 
   Loader2, 
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Stamp,
+  Upload
 } from "lucide-react";
 
 interface FleetContractSettingsProps {
@@ -22,11 +25,14 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [stampUrl, setStampUrl] = useState<string | null>(null);
   const [autoSignEnabled, setAutoSignEnabled] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [uploadingStamp, setUploadingStamp] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
+  const stampInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSignature();
@@ -45,6 +51,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
 
       if (!error && data) {
         setSignatureUrl(data.signature_url);
+        setStampUrl(data.stamp_url || null);
         setAutoSignEnabled(data.auto_sign_enabled !== false);
       }
     } catch (error) {
@@ -212,6 +219,61 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
     }
   };
 
+  const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingStamp(true);
+    try {
+      const fileName = `fleet_stamps/${fleetId}/${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from("driver-documents")
+        .upload(fileName, file, { contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("driver-documents")
+        .getPublicUrl(fileName);
+
+      // Save to database
+      const supabaseAny = supabase as any;
+      await supabaseAny.from("fleet_signatures").upsert({
+        fleet_id: fleetId,
+        stamp_url: publicUrl,
+        is_active: true,
+      }, { onConflict: "fleet_id" });
+
+      setStampUrl(publicUrl);
+      toast.success("Pieczątka została zapisana!");
+    } catch (error: any) {
+      console.error("Error uploading stamp:", error);
+      toast.error("Błąd wgrywania pieczątki");
+    } finally {
+      setUploadingStamp(false);
+    }
+  };
+
+  const deleteStamp = async () => {
+    if (!confirm("Czy na pewno chcesz usunąć pieczątkę?")) return;
+
+    setSaving(true);
+    try {
+      const supabaseAny = supabase as any;
+      await supabaseAny
+        .from("fleet_signatures")
+        .update({ stamp_url: null })
+        .eq("fleet_id", fleetId);
+
+      setStampUrl(null);
+      toast.success("Pieczątka została usunięta");
+    } catch (error) {
+      toast.error("Błąd usuwania pieczątki");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -349,6 +411,85 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Stamp Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Stamp className="h-5 w-5" />
+            Pieczątka floty
+          </CardTitle>
+          <CardDescription>
+            Opcjonalna pieczątka wyświetlana na umowach obok podpisu
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {stampUrl ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Pieczątka zapisana</span>
+              </div>
+              
+              <div className="border rounded-lg p-4 bg-white">
+                <img 
+                  src={stampUrl} 
+                  alt="Pieczątka floty" 
+                  className="max-h-24 mx-auto"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => stampInputRef.current?.click()}
+                  disabled={uploadingStamp}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Zmień pieczątkę
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={deleteStamp}
+                  disabled={saving}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Usuń
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
+                <AlertCircle className="h-5 w-5" />
+                <span>Brak pieczątki (opcjonalne)</span>
+              </div>
+              <Button 
+                onClick={() => stampInputRef.current?.click()} 
+                disabled={uploadingStamp}
+                className="gap-2"
+              >
+                {uploadingStamp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Wgraj pieczątkę
+              </Button>
+            </div>
+          )}
+          
+          <input
+            ref={stampInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleStampUpload}
+          />
         </CardContent>
       </Card>
     </div>

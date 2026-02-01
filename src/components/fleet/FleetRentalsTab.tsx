@@ -27,7 +27,10 @@ import {
   Trash2,
   X,
   FileCheck,
-  FileX
+  FileX,
+  MoreHorizontal,
+  Printer,
+  XCircle
 } from "lucide-react";
 import {
   Dialog,
@@ -53,6 +56,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { RentalPhotoProtocol } from "./RentalPhotoProtocol";
 import { RentalContractSignatureFlow } from "./RentalContractSignatureFlow";
 import { cn } from "@/lib/utils";
@@ -241,20 +251,10 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-2 sm:p-4 md:p-6 pt-2">
-          {/* Search + Tabs row - like "Auta" tab layout */}
+          {/* Tabs + Search row - tabs FIRST, smaller search */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Szukaj po kierowcy, rejestracji lub marce..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            {/* Sub-tabs - align right on desktop */}
-            <div className="flex gap-1 bg-muted rounded-lg p-1 self-end sm:self-auto">
+            {/* Sub-tabs FIRST */}
+            <div className="flex gap-1 bg-muted rounded-lg p-1 shrink-0">
               {subTabs.map(tab => (
                 <Button
                   key={tab.value}
@@ -266,6 +266,16 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
                   {tab.label}
                 </Button>
               ))}
+            </div>
+            {/* Search SECOND - smaller width */}
+            <div className="relative w-full sm:max-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Szukaj..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </div>
             {filtered.length === 0 ? (
@@ -357,32 +367,75 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button size="sm" variant="ghost">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-popover">
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRental(rental);
+                                  setShowEditFlow(true);
+                                }}>
+                                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => {
                                   e.stopPropagation();
                                   openSigningLink(rental);
-                                }}
-                              >
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                              {canDelete(rental) && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteRental(rental);
-                                  }}
-                                  disabled={processingId === rental.id}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
+                                }}>
+                                  <ExternalLink className="h-4 w-4 mr-2" /> Otwórz link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Print functionality
+                                  openSigningLink(rental);
+                                }}>
+                                  <Printer className="h-4 w-4 mr-2" /> Wydrukuj
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast.info("Pobieranie PDF...");
+                                }}>
+                                  <Download className="h-4 w-4 mr-2" /> Pobierz PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast.info("Wysyłanie do klienta...");
+                                }}>
+                                  <Send className="h-4 w-4 mr-2" /> Wyślij do klienta
+                                </DropdownMenuItem>
+                                {canDelete(rental) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteRental(rental);
+                                      }}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" /> Usuń
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {["finalized", "active", "fleet_signed"].includes(rental.status) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toast.info("Zakończenie umowy...");
+                                      }}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <XCircle className="h-4 w-4 mr-2" /> Zakończ umowę
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
@@ -402,7 +455,7 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
           setShowEditFlow(false);
           setSelectedRental(null);
         }}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
+          <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
             <DialogHeader className="pb-2">
               <DialogTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4" />
