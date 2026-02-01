@@ -1,91 +1,160 @@
 
-# Plan Naprawy UI - 2 Problemy
+# Plan Naprawy - 4 Problemy UI/UX
 
 ## ANALIZA PROBLEMÓW
 
-### 1. Kolor paska głównego - fioletowy zamiast niebieskiego na mobile
+### 1. PODGLĄD UMOWY JEST PUSTY (foto 1)
+**Problem:** Po podpisaniu umowy, kliknięcie "Podgląd umowy" pokazuje pustą ramkę zamiast wygenerowanego dokumentu z podpisami.
 
-**Obecny stan:**
-- Desktop (foto 1): Pasek główny "Rozliczenia, Lista kierowców, Flota..." jest **niebieski** (#3B82F6)
-- Mobile (foto 2): Ten sam pasek zmienia kolor na **fioletowy** - błąd!
-
-**Przyczyna:**
-W `MobileTabMenu.tsx` (linia 63) używany jest stały kolor z klasy `bg-primary` zamiast dynamicznej zmiennej CSS `--nav-bar-color`:
-```tsx
-<div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
-```
-
-Na desktopie `TabsPill` używa `style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}`, która jest ustawiana przez hook `useUISettings` (może być niebieska gdy ustawiono blue preset).
-
-Na mobile `MobileTabMenu` używa `bg-primary` która jest ZAWSZE fioletowa (Tailwind: `--primary: 259 65% 58%`).
+**Przyczyna:** W komponencie `ContractPreview` (linie 768-863 w RentalContractSignatureFlow.tsx) dane są pobierane poprawnie, ale:
+- Generowany HTML może nie zawierać podpisów (brak danych)
+- Możliwy problem z łączeniem danych floty (kolumny `address_street` vs `street`, `address_city` vs `city`)
 
 **Rozwiązanie:**
-Zmienić `MobileTabMenu.tsx`:
-- Zamienić `bg-primary text-primary-foreground` na inline style: `style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}`
-- Tekst: biały `text-white`
+W `ContractPreview` poprawić query - użyć właściwych nazw kolumn z tabeli `fleets`:
+```tsx
+// Linia 781-782 - zmienić:
+fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
+// Na:
+fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
+```
+Oraz poprawić budowanie adresu (linia 798-801):
+```tsx
+const fleetAddress = [
+  fleet?.street,
+  fleet?.postal_code,
+  fleet?.city
+].filter(Boolean).join(', ');
+```
 
 ---
 
-### 2. Widok mobilny karty pojazdu - wszystko nachodzi na siebie
+### 2. PRZYCISKI W ZŁYM MIEJSCU (foto 2 vs foto 3)
+**Problem:** W zakładce "Najem" przyciski "Aktywne", "Do podpisu", "Zakończone" są w nagłówku karty - chcesz je jak przyciski "Dodaj" i "Wynajem" w zakładce "Auta" (obok szukajki, przed tabelą).
 
-**Obecny stan (foto 3):**
-- Na mobile wszystkie dane (nr rej, pojazd, flota, wynajem, kierowca, dokumenty) są wyświetlane w 2 rzędach po 4 kolumny
-- Dane są obcięte i nieczytelne
-- Brak wizualnego wskaźnika rozwijania na mobile
+**Lokalizacja:** `src/components/fleet/FleetRentalsTab.tsx` (linie 237-268)
 
-**Wzór docelowy (foto 4):**
-- Na desktopie po kliknięciu rozwija się pełny widok z zakładkami: Info, Dokumenty, Historia Kierowców, Serwis, Zdjęcia
-- Na mobile też powinno działać, ale podsumowanie musi być czytelne
+**Obecny układ:**
+- `CardHeader` zawiera tytuł + sub-taby obok siebie + szukajka pod spodem
+
+**Docelowy układ (jak w foto 3):**
+- `CardHeader` tylko tytuł
+- Pod nagłówkiem: rząd z szukajką + przyciski sub-tabów po prawej stronie
+- Jak `+ Dodaj | Wynajem` są obok szukajki w zakładce Auta
 
 **Rozwiązanie:**
-Przebudować widok karty pojazdu na mobile:
-
-**A) Widok zwinięty (mobile) - KOMPAKTOWY:**
-- Rząd 1: Nr rejestracyjny + Pojazd (marka model)
-- Rząd 2: Wynajem zł/tydz. + Dokumenty (OC, Przegląd badges)
-- Strzałka rozwijania widoczna na końcu
-
-**B) Widok rozwinięty (mobile) - PEŁNY:**
-Po kliknięciu pokazuje się pełny widok z:
-- Kierowca (select)
-- Flota
-- Giełda switch
-- Zakładki: Info, Dokumenty, Historia, Serwis, Zdjęcia
-
-**Kluczowe zmiany w `FleetManagement.tsx`:**
-
-1. Dodać strzałkę rozwijania widoczną na mobile (zmienić `hidden md:block` → `block`)
-
-2. Na mobile pokazywać tylko najważniejsze dane:
+Przepisać układ FleetRentalsTab.tsx:
 ```tsx
-{/* Mobile compact view */}
-<div className="md:hidden space-y-2">
-  <div className="flex items-center justify-between">
-    <div className="flex gap-4">
-      <div>
-        <span className="text-xs text-muted-foreground">Nr rej.:</span>
-        <div className="font-bold text-sm">{vehicle.plate}</div>
+<Card>
+  <CardHeader className="pb-2">
+    <CardTitle className="flex items-center gap-2">
+      <FileText className="h-5 w-5" />
+      Umowy najmu
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="pt-2">
+    {/* Row with search + tabs - like foto 3 */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input placeholder="..." value={searchQuery} onChange={...} className="pl-10" />
       </div>
-      <div>
-        <span className="text-xs text-muted-foreground">Pojazd:</span>
-        <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
+      <div className="flex gap-1 bg-muted rounded-lg p-1">
+        {subTabs.map(...)}
       </div>
     </div>
-    <ChevronDown className={cn("h-5 w-5 transition-transform", expanded && "rotate-180")} />
-  </div>
-  <div className="flex items-center justify-between">
-    <VehicleRentBlock ... />
-    <ExpiryBadges vehicleId={vehicle.id} compact />
-  </div>
-</div>
-
-{/* Desktop full view */}
-<div className="hidden md:block">
-  {/* Current full layout */}
-</div>
+    {/* Table */}
+    ...
+  </CardContent>
+</Card>
 ```
 
-3. W rozwiniętym widoku na mobile - pełna zawartość (kierowca, zakładki itd.)
+---
+
+### 3. ZDJĘCIA PROTOKOŁU - WYMIARY I OPISY (foto 4)
+**Problem:** 
+- Zdjęcia nie są dopasowane do ramki (aspect ratio)
+- Potrzebne jasne opisy jak robić zdjęcia z każdego rogu (lewy przedni = widać lewy bok + przód, prawy przedni = widać prawy bok + przód, itd.)
+
+**Lokalizacja:** `src/components/fleet/RentalPhotoProtocol.tsx`
+
+**Rozwiązanie:**
+1. Zaktualizować opisy kategorii zdjęć (linie 33-105):
+```tsx
+const PHOTO_CATEGORIES: PhotoCategory[] = [
+  { 
+    id: "corner_front_left", 
+    label: "Przód lewy", 
+    description: "Stań pod kątem 45° z lewej - widoczny przód i lewy bok pojazdu",
+    icon: <Car className="h-5 w-5" />,
+    required: true,
+    minPhotos: 1
+  },
+  { 
+    id: "corner_front_right", 
+    label: "Przód prawy", 
+    description: "Stań pod kątem 45° z prawej - widoczny przód i prawy bok pojazdu",
+    ...
+  },
+  { 
+    id: "corner_rear_left", 
+    label: "Tył lewy", 
+    description: "Stań pod kątem 45° z lewej - widoczny tył i lewy bok pojazdu",
+    ...
+  },
+  { 
+    id: "corner_rear_right", 
+    label: "Tył prawy", 
+    description: "Stań pod kątem 45° z prawej - widoczny tył i prawy bok pojazdu",
+    ...
+  },
+  ...
+];
+```
+
+2. Upewnić się że zdjęcia są kompresowane bez utraty jakości dla zbliżeń (linia 157-158):
+W funkcji `compressPhotoImage` zachować wysoką jakość (0.85+) aby było widać detale jak rysy.
+
+3. Dopasowanie zdjęć do ramki (linia 304-310):
+```tsx
+<div 
+  key={idx}
+  className="aspect-[4/3] rounded-md overflow-hidden bg-muted"
+>
+  <img 
+    src={url} 
+    alt={`${category.label} ${idx + 1}`}
+    className="w-full h-full object-cover object-center"
+  />
+</div>
+```
+Klasa `object-cover object-center` zapewnia wypełnienie ramki bez deformacji.
+
+---
+
+### 4. RAMKA MOBILNA NIE DOPASOWANA (foto 5)
+**Problem:** Na mobile widok "Umowy najmu" w zakładce "Najem" - tabela i przyciski nachodzą na krawędzie ekranu.
+
+**Lokalizacja:** `src/components/fleet/FleetRentalsTab.tsx`
+
+**Rozwiązanie:**
+1. Dodać `overflow-x-hidden` do Card
+2. Zmniejszyć paddingi na mobile
+3. Zapewnić scroll dla tabeli gdy zbyt szeroka
+
+```tsx
+<Card className="overflow-x-hidden">
+  <CardContent className="p-2 sm:p-4 md:p-6">
+    ...
+    {/* Table wrapper */}
+    <div className="overflow-x-auto -mx-2 sm:mx-0">
+      <Table>
+        ...
+      </Table>
+    </div>
+  </CardContent>
+</Card>
+```
 
 ---
 
@@ -93,130 +162,148 @@ Po kliknięciu pokazuje się pełny widok z:
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/MobileTabMenu.tsx` | Zmienić `bg-primary` na `style={{ backgroundColor: 'var(--nav-bar-color)' }}` |
-| `src/components/FleetManagement.tsx` | Osobny widok mobilny karty pojazdu z kompaktowym podsumowaniem |
+| `src/components/fleet/RentalContractSignatureFlow.tsx` | Poprawić query dla fleets (street/city zamiast address_street/address_city) |
+| `src/components/fleet/FleetRentalsTab.tsx` | 1) Przenieść sub-taby obok szukajki, 2) Responsywność mobile |
+| `src/components/fleet/RentalPhotoProtocol.tsx` | Zaktualizować opisy kategorii zdjęć + aspect ratio |
 
 ---
 
-## SZCZEGÓŁY IMPLEMENTACJI
+## SZCZEGÓŁY TECHNICZNE
 
-### MobileTabMenu.tsx - kolor paska
+### RentalContractSignatureFlow.tsx - poprawka query
 
-**Zmiana linii 63:**
+**Linia 781-782 - zmienić:**
 ```tsx
 // PRZED:
-<div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
 
 // PO:
-<div 
-  className="flex items-center justify-between text-white px-4 py-2.5 rounded-xl shadow-[0_4px_15px_rgba(108,60,240,0.15)]"
-  style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
->
+fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
 ```
 
-### FleetManagement.tsx - responsywna karta pojazdu
+**Linie 798-801 - zmienić:**
+```tsx
+// PRZED:
+const fleetAddress = [
+  fleet?.address_street,
+  fleet?.address_city
+].filter(Boolean).join(', ');
 
-Struktura nowej karty:
+// PO:
+const fleetAddress = [
+  fleet?.street,
+  fleet?.postal_code,
+  fleet?.city
+].filter(Boolean).join(', ');
+```
+
+### FleetRentalsTab.tsx - nowy układ
 
 ```tsx
-<CollapsibleTrigger asChild>
-  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-    <div className="flex items-center justify-between pr-8">
-      
-      {/* MOBILE VIEW - compact */}
-      <div className="md:hidden flex-1 space-y-2">
-        {/* Row 1: Plate + Vehicle */}
-        <div className="flex gap-4">
-          <div>
-            <span className="text-xs text-muted-foreground">Nr rej.:</span>
-            <div className="font-bold">{vehicle.plate}</div>
-          </div>
-          <div>
-            <span className="text-xs text-muted-foreground">Pojazd:</span>
-            <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
-          </div>
-        </div>
-        {/* Row 2: Rent + Documents */}
-        <div className="flex items-center justify-between">
-          <div onClick={(e) => e.stopPropagation()}>
-            <VehicleRentBlock
-              value={vehicle.weekly_rental_fee}
-              onChange={...}
-              userRole={userType}
-              compact
+return (
+  <>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Umowy najmu
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4 md:p-6 pt-2">
+        {/* Search + Tabs row - responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Szukaj po kierowcy, rejestracji lub marce..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
             />
           </div>
-          <div onClick={(e) => e.stopPropagation()}>
-            <ExpiryBadges vehicleId={vehicle.id} compact />
+          {/* Sub-tabs - align right on desktop, full width on mobile */}
+          <div className="flex gap-1 bg-muted rounded-lg p-1 self-end sm:self-auto">
+            {subTabs.map(tab => (
+              <Button
+                key={tab.value}
+                size="sm"
+                variant={activeSubTab === tab.value ? "default" : "ghost"}
+                onClick={() => setActiveSubTab(tab.value as SubTab)}
+                className="text-xs sm:text-sm whitespace-nowrap"
+              >
+                {tab.label}
+              </Button>
+            ))}
           </div>
         </div>
-      </div>
-      
-      {/* DESKTOP VIEW - full */}
-      <div className="hidden md:flex flex-1 items-center gap-6">
-        {/* Current full row layout */}
-        ...
-      </div>
-      
-      {/* Expand arrow - visible on BOTH mobile and desktop */}
-      <div className="ml-4">
-        {expandedVehicles.has(vehicle.id) ? 
-          <ChevronUp className="h-5 w-5" /> : 
-          <ChevronDown className="h-5 w-5" />
-        }
-      </div>
-      
-    </div>
-  </div>
-</CollapsibleTrigger>
 
-<CollapsibleContent>
-  <div className="border-t p-4">
-    {/* Mobile: Show additional fields first */}
-    <div className="md:hidden space-y-4 mb-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div onClick={(e) => e.stopPropagation()}>
-          <span className="text-xs text-muted-foreground">Kierowca:</span>
-          <UniversalSelector ... />
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground">Flota:</span>
-          <div className="font-semibold text-sm">{vehicle.fleet?.name || 'Brak'}</div>
-        </div>
-      </div>
-      {isMarketplaceEnabled && (
-        <div className="flex items-center gap-2">
-          <Switch ... />
-          <span className="text-xs">Giełda</span>
-        </div>
-      )}
-    </div>
-    
-    {/* Tabs - for both mobile and desktop */}
-    <Tabs defaultValue="info" className="w-full">
-      <TabsList className="grid w-full grid-cols-5 rounded-lg text-xs md:text-sm">
-        <TabsTrigger value="info">Info</TabsTrigger>
-        <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-        <TabsTrigger value="history">Historia</TabsTrigger>
-        <TabsTrigger value="service">Serwis</TabsTrigger>
-        <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
-      </TabsList>
-      ...
-    </Tabs>
-  </div>
-</CollapsibleContent>
+        {/* Table with horizontal scroll on mobile */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-12">...</div>
+        ) : (
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <div className="min-w-[600px] sm:min-w-0 px-3 sm:px-0">
+              <Table>
+                ...
+              </Table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+    ...
+  </>
+);
+```
+
+### RentalPhotoProtocol.tsx - nowe opisy
+
+```tsx
+const PHOTO_CATEGORIES: PhotoCategory[] = [
+  { 
+    id: "corner_front_left", 
+    label: "Przód lewy", 
+    description: "Stań pod kątem 45° - widoczny przód i lewy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[-45deg]" />,
+    required: true,
+    minPhotos: 1
+  },
+  { 
+    id: "corner_front_right", 
+    label: "Przód prawy", 
+    description: "Stań pod kątem 45° - widoczny przód i prawy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[45deg]" />,
+    required: true,
+    minPhotos: 1
+  },
+  { 
+    id: "corner_rear_left", 
+    label: "Tył lewy", 
+    description: "Stań pod kątem 45° - widoczny tył i lewy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[-135deg]" />,
+    required: true,
+    minPhotos: 1
+  },
+  { 
+    id: "corner_rear_right", 
+    label: "Tył prawy", 
+    description: "Stań pod kątem 45° - widoczny tył i prawy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[135deg]" />,
+    required: true,
+    minPhotos: 1
+  },
+  // pozostałe kategorie bez zmian...
+];
 ```
 
 ---
 
 ## KOLEJNOŚĆ WDROŻENIA
 
-1. **MobileTabMenu.tsx** - zmiana koloru paska na dynamiczny
-2. **FleetManagement.tsx** - nowy responsywny układ karty pojazdu:
-   - Osobny widok kompaktowy dla mobile
-   - Pełny widok dla desktop
-   - Strzałka rozwijania widoczna na obu
-   - Pełne dane w rozwiniętym widoku
+1. **RentalContractSignatureFlow.tsx** - poprawka query dla fleets (linie 781-801)
+2. **FleetRentalsTab.tsx** - zmiana układu (szukajka + sub-taby w jednym rzędzie) + responsywność
+3. **RentalPhotoProtocol.tsx** - nowe opisy kategorii zdjęć
 
 ---
 
@@ -224,5 +311,7 @@ Struktura nowej karty:
 
 | Problem | Rozwiązanie |
 |---------|-------------|
-| Kolor paska mobile ≠ desktop | Użyć `var(--nav-bar-color)` zamiast `bg-primary` |
-| Dane nachodzą na mobile | Osobny kompaktowy widok mobile + rozwijanie do pełnego |
+| Pusty podgląd umowy | Poprawić nazwy kolumn fleets w query (street/city) |
+| Przyciski w złym miejscu | Przenieść sub-taby obok szukajki (jak "Dodaj"/"Wynajem") |
+| Zdjęcia protokołu | Lepsze opisy 45° kątów + object-cover dla dopasowania |
+| Ramka mobilna | Dodać overflow-x-auto dla tabeli + mniejsze paddingi |
