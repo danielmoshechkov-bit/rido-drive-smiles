@@ -34,39 +34,39 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { 
     id: "corner_front_left", 
     label: "Przód lewy", 
-    description: "Róg przedni lewy pojazdu",
-    icon: <Car className="h-5 w-5" />,
+    description: "Stań pod kątem 45° - widoczny przód i lewy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[-45deg]" />,
     required: true,
     minPhotos: 1
   },
   { 
     id: "corner_front_right", 
     label: "Przód prawy", 
-    description: "Róg przedni prawy pojazdu",
-    icon: <Car className="h-5 w-5" />,
+    description: "Stań pod kątem 45° - widoczny przód i prawy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[45deg]" />,
     required: true,
     minPhotos: 1
   },
   { 
     id: "corner_rear_left", 
     label: "Tył lewy", 
-    description: "Róg tylny lewy pojazdu",
-    icon: <Car className="h-5 w-5" />,
+    description: "Stań pod kątem 45° - widoczny tył i lewy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[-135deg]" />,
     required: true,
     minPhotos: 1
   },
   { 
     id: "corner_rear_right", 
     label: "Tył prawy", 
-    description: "Róg tylny prawy pojazdu",
-    icon: <Car className="h-5 w-5" />,
+    description: "Stań pod kątem 45° - widoczny tył i prawy bok pojazdu",
+    icon: <Car className="h-5 w-5 rotate-[135deg]" />,
     required: true,
     minPhotos: 1
   },
   { 
     id: "dashboard", 
     label: "Licznik i zegary", 
-    description: "Licznik, zegary, stan paliwa",
+    description: "Widoczny przebieg, stan paliwa i kontrolki",
     icon: <Fuel className="h-5 w-5" />,
     required: true,
     minPhotos: 1
@@ -74,7 +74,7 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { 
     id: "interior_front", 
     label: "Wnętrze przód", 
-    description: "Siedzenia przednie",
+    description: "Siedzenia przednie, kierownica, konsola",
     icon: <Armchair className="h-5 w-5" />,
     required: true,
     minPhotos: 1
@@ -82,7 +82,7 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { 
     id: "interior_rear", 
     label: "Wnętrze tył", 
-    description: "Siedzenia tylne",
+    description: "Siedzenia tylne i podłoga",
     icon: <Armchair className="h-5 w-5" />,
     required: true,
     minPhotos: 1
@@ -90,7 +90,7 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { 
     id: "trunk", 
     label: "Bagażnik", 
-    description: "Bagażnik (widoczne koło zapasowe lub jego brak)",
+    description: "Bagażnik z widocznym kołem zapasowym lub jego brakiem",
     icon: <Package2 className="h-5 w-5" />,
     required: true,
     minPhotos: 1
@@ -98,7 +98,7 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   { 
     id: "driver_with_vehicle", 
     label: "Kierowca przy pojeździe", 
-    description: "Zdjęcie kierowcy przy wydawanym pojeździe",
+    description: "Zdjęcie kierowcy stojącego przy wydawanym pojeździe",
     icon: <User className="h-5 w-5" />,
     required: true,
     minPhotos: 1
@@ -306,7 +306,7 @@ export function RentalPhotoProtocol({ rentalId, onComplete, readOnly = false }: 
                         <img 
                           src={url} 
                           alt={`${category.label} ${idx + 1}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover object-center"
                         />
                       </div>
                     ))}
