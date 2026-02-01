@@ -223,67 +223,6 @@ export default function RentalClientPortal() {
           </div>
         )}
 
-            {/* Acceptance Checkboxes */}
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptContract"
-                    checked={acceptContract}
-                    onCheckedChange={(checked) => setAcceptContract(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptContract" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Zapoznałem się z treścią umowy najmu i akceptuję jej warunki
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptOWU"
-                    checked={acceptOWU}
-                    onCheckedChange={(checked) => setAcceptOWU(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptOWU" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Akceptuję Ogólne Warunki Umowy (OWU) najmu pojazdu
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptRODO"
-                    checked={acceptRODO}
-                    onCheckedChange={(checked) => setAcceptRODO(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptRODO" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Wyrażam zgodę na przetwarzanie danych osobowych zgodnie z klauzulą RODO
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={!canProceedToSignature}
-              onClick={handleContractAccepted}
-            >
-              Przejdź do podpisu
-            </Button>
-          </div>
-        )}
-
         {/* Signature */}
         {step === "signature" && (
           <div className="space-y-6">
