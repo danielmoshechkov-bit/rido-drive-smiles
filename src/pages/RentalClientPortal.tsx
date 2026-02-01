@@ -211,39 +211,17 @@ export default function RentalClientPortal() {
           </Card>
         )}
 
-        {/* Contract Viewer with Checkboxes */}
+        {/* Contract Viewer - uses RentalContractViewer which has its own checkboxes */}
         {step === "contract" && rentalId && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold">Umowa najmu pojazdu</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Przewiń całą umowę do końca, aby odblokować przyciski akceptacji
-              </p>
-            </div>
-
-            {/* Scrollable Contract */}
-            <Card>
-              <CardContent className="p-0">
-                <div 
-                  ref={contractRef}
-                  className="max-h-[400px] overflow-y-auto p-4"
-                  onScroll={handleScroll}
-                >
-                  <RentalContractViewer
-                    rentalId={rentalId}
-                    accessToken={accessToken || undefined}
-                    onSigned={() => {}}
-                  />
-                </div>
-                
-                {!hasScrolledToEnd && (
-                  <div className="flex items-center justify-center gap-2 py-3 bg-muted text-sm text-muted-foreground">
-                    <ChevronDown className="h-4 w-4 animate-bounce" />
-                    Przewiń do końca dokumentu
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* RentalContractViewer handles everything: document, scroll tracking, checkboxes, and button */}
+            <RentalContractViewer
+              rentalId={rentalId}
+              accessToken={accessToken || undefined}
+              onSigned={() => setStep("signature")}
+            />
+          </div>
+        )}
 
             {/* Acceptance Checkboxes */}
             <Card>
