@@ -136,12 +136,18 @@ export function VehicleListingCard({
     setShowContact(!showContact);
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[role="button"]')) {
+      return;
+    }
     navigate(`/gielda/ogloszenie/${listing.id}`);
   };
 
-  // Handle clicking on the photo area - open lightbox
+  // Handle clicking on the photo area - open lightbox (stops propagation)
   const handlePhotoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setShowLightbox(true);
   };
@@ -158,10 +164,12 @@ export function VehicleListingCard({
         {/* Photo Gallery - clicking opens lightbox */}
         <div 
           className={cn(
-            "relative bg-muted overflow-hidden",
+            "relative bg-muted overflow-hidden cursor-zoom-in",
             compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
+          role="button"
+          aria-label="Powiększ zdjęcie"
         >
           <img
             src={getPhotoSrc(currentPhoto)}

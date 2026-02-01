@@ -211,98 +211,15 @@ export default function RentalClientPortal() {
           </Card>
         )}
 
-        {/* Contract Viewer with Checkboxes */}
+        {/* Contract Viewer - uses RentalContractViewer which has its own checkboxes */}
         {step === "contract" && rentalId && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold">Umowa najmu pojazdu</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Przewiń całą umowę do końca, aby odblokować przyciski akceptacji
-              </p>
-            </div>
-
-            {/* Scrollable Contract */}
-            <Card>
-              <CardContent className="p-0">
-                <div 
-                  ref={contractRef}
-                  className="max-h-[400px] overflow-y-auto p-4"
-                  onScroll={handleScroll}
-                >
-                  <RentalContractViewer
-                    rentalId={rentalId}
-                    accessToken={accessToken || undefined}
-                    onSigned={() => {}}
-                  />
-                </div>
-                
-                {!hasScrolledToEnd && (
-                  <div className="flex items-center justify-center gap-2 py-3 bg-muted text-sm text-muted-foreground">
-                    <ChevronDown className="h-4 w-4 animate-bounce" />
-                    Przewiń do końca dokumentu
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Acceptance Checkboxes */}
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptContract"
-                    checked={acceptContract}
-                    onCheckedChange={(checked) => setAcceptContract(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptContract" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Zapoznałem się z treścią umowy najmu i akceptuję jej warunki
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptOWU"
-                    checked={acceptOWU}
-                    onCheckedChange={(checked) => setAcceptOWU(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptOWU" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Akceptuję Ogólne Warunki Umowy (OWU) najmu pojazdu
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="acceptRODO"
-                    checked={acceptRODO}
-                    onCheckedChange={(checked) => setAcceptRODO(checked === true)}
-                    disabled={!hasScrolledToEnd}
-                  />
-                  <Label 
-                    htmlFor="acceptRODO" 
-                    className={`text-sm leading-relaxed ${!hasScrolledToEnd ? "text-muted-foreground" : ""}`}
-                  >
-                    Wyrażam zgodę na przetwarzanie danych osobowych zgodnie z klauzulą RODO
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={!canProceedToSignature}
-              onClick={handleContractAccepted}
-            >
-              Przejdź do podpisu
-            </Button>
+            {/* RentalContractViewer handles everything: document, scroll tracking, checkboxes, and button */}
+            <RentalContractViewer
+              rentalId={rentalId}
+              accessToken={accessToken || undefined}
+              onSigned={() => setStep("signature")}
+            />
           </div>
         )}
 

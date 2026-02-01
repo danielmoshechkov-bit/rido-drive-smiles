@@ -4,15 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsPill } from "@/components/ui/TabsPill";
+import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
-  Building, Plus, Home, Users, BarChart3, Settings,
+  Building, Plus, Home, Users, Settings,
   ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
-  GitCompare, Phone, ChevronDown, ChevronUp
+  GitCompare, Phone, ChevronDown, ChevronUp, Repeat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 interface AgentProfile {
   id: string;
@@ -49,10 +52,56 @@ export default function RealEstateAgentDashboard() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "listings");
   const [expandedListings, setExpandedListings] = useState<Record<string, boolean>>({});
+  
+  // Account types for switcher
+  const [isDriverAccount, setIsDriverAccount] = useState(false);
+  const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
 
   useEffect(() => {
     fetchAgentProfile();
+    checkAccountTypes();
   }, []);
+  
+  const checkAccountTypes = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // Check for driver account
+    const { data: driverData } = await (supabase as any)
+      .from("drivers")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    setIsDriverAccount(!!driverData);
+
+    // Check for fleet account
+    const { data: fleetRoles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .in("role", ["fleet_settlement", "fleet_rental"]);
+    setIsFleetAccount(!!fleetRoles && fleetRoles.length > 0);
+
+    // Check for marketplace account
+    const { data: marketplaceProfile } = await supabase
+      .from("marketplace_user_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    setIsMarketplaceAccount(!!marketplaceProfile);
+
+    // Check for admin
+    const isMainAdmin = session.user.email === 'daniel.moshechkov@gmail.com';
+    const { data: adminRole } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdminAccount(isMainAdmin || !!adminRole);
+  };
 
   const fetchAgentProfile = async () => {
     try {
@@ -299,26 +348,28 @@ export default function RealEstateAgentDashboard() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="listings" className="gap-2">
-              <Home className="h-4 w-4" />
-              <span className="hidden sm:inline">Ogłoszenia</span>
-            </TabsTrigger>
-            <TabsTrigger value="add" className="gap-2" disabled={agent.status !== "verified"}>
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Dodaj</span>
-            </TabsTrigger>
-            <TabsTrigger value="team" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Zespół</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Ustawienia</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Tabs - unified with driver portal style */}
+        <TabsPill value={activeTab} onValueChange={setActiveTab}>
+          <TabsTrigger value="listings">
+            <Home className="h-4 w-4 mr-2" />
+            Ogłoszenia
+          </TabsTrigger>
+          <TabsTrigger value="add" disabled={agent.status !== "verified"}>
+            <Plus className="h-4 w-4 mr-2" />
+            Dodaj
+          </TabsTrigger>
+          <TabsTrigger value="team">
+            <Users className="h-4 w-4 mr-2" />
+            Zespół
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="h-4 w-4 mr-2" />
+            Ustawienia
+          </TabsTrigger>
+          <TabsTrigger value="accounts">
+            <Repeat className="h-4 w-4 mr-2" />
+            Przełącz konto
+          </TabsTrigger>
 
           <TabsContent value="listings">
             <Card>
@@ -504,7 +555,28 @@ export default function RealEstateAgentDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          {/* Account Switcher */}
+          <TabsContent value="accounts">
+            <Card>
+              <CardHeader>
+                <CardTitle>Przełącz konto</CardTitle>
+                <CardDescription>Przełącz między swoimi kontami w systemie</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AccountSwitcherPanel 
+                  isDriverAccount={isDriverAccount}
+                  isFleetAccount={isFleetAccount}
+                  isMarketplaceAccount={isMarketplaceAccount}
+                  isRealEstateAccount={true}
+                  isAdminAccount={isAdminAccount}
+                  isMarketplaceEnabled={true}
+                  currentAccountType="real_estate"
+                  navigate={navigate}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </TabsPill>
       </div>
     </div>
   );
