@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface ListingCardProps {
   listing: {
@@ -96,6 +97,7 @@ export function ListingCard({
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const [showLightbox, setShowLightbox] = useState(false);
   
   const isCompact = compact || variant === 'compact';
   const isList = variant === 'list';
@@ -112,6 +114,27 @@ export function ListingCard({
       return local[0] + '***@***.' + domain.split('.').pop();
     }
     return email[0] + '***@***.com';
+  };
+
+  // Handle photo click - opens lightbox
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowLightbox(true);
+  };
+
+  // Handle card click - navigates to listing details
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Skip if clicking on buttons, photo area, or interactive elements
+    if (
+      target.closest('button') || 
+      target.closest('[data-photo-area]') ||
+      target.closest('a')
+    ) {
+      return;
+    }
+    navigate(`/gielda/ogloszenie/${listing.id}`);
   };
 
   const photos = listing.photos?.length > 0 ? listing.photos : ["/placeholder.svg"];
@@ -222,11 +245,19 @@ export function ListingCard({
 
   return (
     <>
-      <Card className={cn(
-        "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md",
-        isSelectedForCompare && "ring-2 ring-primary"
-      )}>
-        <div className={cn("relative bg-muted overflow-hidden", isCompact ? "aspect-[3/2]" : "aspect-[4/3]")}>
+      <Card 
+        className={cn(
+          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+          isSelectedForCompare && "ring-2 ring-primary"
+        )}
+        onClick={handleCardClick}
+      >
+        {/* Photo area - clicking opens lightbox */}
+        <div 
+          className={cn("relative bg-muted overflow-hidden", isCompact ? "aspect-[3/2]" : "aspect-[4/3]")}
+          data-photo-area="true"
+          onClick={handlePhotoClick}
+        >
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
@@ -325,6 +356,15 @@ export function ListingCard({
           )}
         </div>
       </Card>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={photos}
+        initialIndex={currentPhoto}
+        open={showLightbox}
+        onOpenChange={setShowLightbox}
+        alt={listing.title}
+      />
     </>
   );
 }
