@@ -406,35 +406,19 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       <CardContent className="space-y-6 overflow-x-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Main tabs bar - styled like Rozliczenia */}
-          <TabsList className="bg-muted h-auto p-1 flex flex-wrap justify-center gap-1 w-full">
-            <TabsTrigger value="vehicles" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-              Auta
-            </TabsTrigger>
-            {userType === 'admin' && (
-              <>
-                <TabsTrigger value="fleets" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-                  Floty
-                </TabsTrigger>
-                <TabsTrigger value="driver-vehicles" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-                  Auta kierowców
-                </TabsTrigger>
-                <TabsTrigger value="car-brands" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-                  Lista aut
-                </TabsTrigger>
-              </>
-            )}
-            {userType === 'fleet' && fleetId && (
-              <>
-                <TabsTrigger value="najem" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-                  Najem
-                </TabsTrigger>
-                <TabsTrigger value="rentals" className="data-[state=active]:bg-background rounded-md px-4 py-2">
-                  Rezerwacje z giełdy
-                </TabsTrigger>
-              </>
-            )}
-          </TabsList>
+          {/* Main tabs bar - styled like Rozliczenia with UniversalSubTabBar */}
+          <UniversalSubTabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={[
+              { value: "vehicles", label: "Auta", visible: true },
+              { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
+              { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
+              { value: "fleets", label: "Floty", visible: userType === 'admin' },
+              { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
+              { value: "car-brands", label: "Lista aut", visible: userType === 'admin' },
+            ]}
+          />
 
           <TabsContent value="vehicles" className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">

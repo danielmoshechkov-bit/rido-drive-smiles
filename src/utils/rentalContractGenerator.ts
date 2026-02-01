@@ -66,106 +66,197 @@ export function generateRentalContractHtml(data: ContractData): string {
   <title>Umowa najmu pojazdu - ${data.contractNumber}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { margin: 15mm; size: A4; }
+    @page { margin: 20mm; size: A4; }
     @media print {
       html, body { height: 100%; margin: 0 !important; padding: 0 !important; }
       .contract { max-width: 100%; page-break-inside: avoid; }
     }
     body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      font-size: 11px; 
-      line-height: 1.5; 
-      color: #333; 
-      padding: 10px;
+      font-family: 'Times New Roman', Georgia, serif; 
+      font-size: 12pt; 
+      line-height: 1.6; 
+      color: #000; 
       background: white;
     }
-    .contract { max-width: 800px; margin: 0 auto; background: white; }
-    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #7c3aed; padding-bottom: 15px; }
-    .header h1 { font-size: 18px; color: #333; margin-bottom: 5px; }
-    .header .subtitle { font-size: 11px; color: #666; }
-    .section { margin-bottom: 15px; }
-    .section-title { font-size: 12px; font-weight: bold; color: #7c3aed; margin-bottom: 8px; border-bottom: 1px solid #e5e5e5; padding-bottom: 3px; }
-    .paragraph { margin-bottom: 10px; text-align: justify; }
-    .parties { display: flex; gap: 20px; margin-bottom: 15px; }
-    .party { flex: 1; padding: 10px; background: #f8f5ff; border-radius: 6px; }
-    .party-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
-    .party-name { font-weight: bold; margin-bottom: 3px; }
-    .party-details { font-size: 10px; color: #555; }
-    .vehicle-info { background: #f0f9ff; padding: 10px; border-radius: 6px; margin-bottom: 15px; }
-    .vehicle-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .vehicle-item { }
-    .vehicle-label { font-size: 9px; color: #666; }
-    .vehicle-value { font-weight: 600; }
-    .terms { background: #fef3c7; padding: 10px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #f59e0b; }
-    .fee { font-size: 14px; font-weight: bold; color: #7c3aed; }
-    .signatures { display: flex; gap: 40px; margin-top: 30px; }
-    .signature { flex: 1; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; font-size: 10px; color: #666; }
+    .contract { 
+      max-width: 210mm; 
+      margin: 0 auto; 
+      background: white;
+      padding: 15mm;
+    }
+    .header { 
+      text-align: right; 
+      margin-bottom: 30px;
+      font-size: 11pt;
+    }
+    .header-place-date {
+      text-align: right;
+      margin-bottom: 40px;
+    }
+    .title-block {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .title-block h1 { 
+      font-size: 16pt; 
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+    .title-block .subtitle { 
+      font-size: 11pt; 
+    }
+    .section { margin-bottom: 20px; }
+    .section-title { 
+      font-size: 12pt; 
+      font-weight: bold; 
+      margin-bottom: 10px;
+      text-decoration: underline;
+    }
+    .paragraph { 
+      margin-bottom: 12px; 
+      text-align: justify; 
+      text-indent: 1.5em;
+    }
+    .paragraph-no-indent {
+      margin-bottom: 12px; 
+      text-align: justify; 
+    }
+    .parties-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .parties-table td {
+      width: 50%;
+      vertical-align: top;
+      padding: 10px;
+    }
+    .party-label { 
+      font-weight: bold;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      font-size: 10pt;
+    }
+    .party-name { font-weight: bold; margin-bottom: 5px; }
+    .party-details { font-size: 11pt; line-height: 1.4; }
+    .vehicle-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      border: 1px solid #000;
+    }
+    .vehicle-table td, .vehicle-table th {
+      border: 1px solid #000;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .vehicle-table th {
+      background: #f5f5f5;
+      font-weight: bold;
+      width: 35%;
+    }
+    .terms-box { 
+      border: 2px solid #000;
+      padding: 15px;
+      margin: 15px 0;
+      background: #fafafa;
+    }
+    .fee { 
+      font-size: 14pt; 
+      font-weight: bold; 
+    }
+    .signatures { 
+      display: flex; 
+      justify-content: space-between;
+      margin-top: 50px;
+      padding-top: 20px;
+    }
+    .signature { 
+      width: 45%;
+      text-align: center; 
+    }
+    .signature-line { 
+      border-top: 1px solid #000; 
+      margin-top: 60px; 
+      padding-top: 8px; 
+      font-size: 10pt; 
+    }
     .signature-img { max-width: 150px; max-height: 60px; }
-    .signature-date { font-size: 9px; color: #888; margin-top: 3px; }
-    .important { font-weight: bold; color: #dc2626; }
-    ol { margin-left: 20px; margin-bottom: 10px; }
-    ol li { margin-bottom: 5px; }
+    .signature-date { font-size: 9pt; margin-top: 5px; }
+    .important { font-weight: bold; }
+    ol, ul { margin-left: 25px; margin-bottom: 12px; }
+    ol li, ul li { margin-bottom: 8px; }
+    .small-text { font-size: 10pt; }
   </style>
 </head>
 <body>
   <div class="contract">
-    <div class="header">
-      <h1>UMOWA NAJMU POJAZDU</h1>
+    <!-- Header with place and date -->
+    <div class="header-place-date">
+      Warszawa, dnia ${format(new Date(data.createdAt), "d MMMM yyyy", { locale: pl })} r.
+    </div>
+
+    <!-- Title -->
+    <div class="title-block">
+      <h1>Umowa Najmu Pojazdu</h1>
       <div class="subtitle">Nr: ${data.contractNumber}</div>
-      <div class="subtitle">zawarta w formie dokumentowej za pośrednictwem Portalu GetRido</div>
-      <div class="subtitle">w dniu ${format(new Date(data.createdAt), "d MMMM yyyy", { locale: pl })}</div>
+      <div class="subtitle small-text">zawarta w formie dokumentowej za pośrednictwem Portalu GetRido</div>
     </div>
 
     <div class="section">
       <div class="section-title">§1. Strony Umowy</div>
-      <div class="parties">
-        <div class="party">
-          <div class="party-label">Wynajmujący</div>
-          <div class="party-name">${data.fleetName}</div>
-          <div class="party-details">
-            ${data.fleetNip ? `NIP: ${data.fleetNip}<br>` : ''}
-            ${data.fleetAddress || ''}<br>
-            ${data.fleetPhone ? `Tel: ${data.fleetPhone}<br>` : ''}
-            ${data.fleetEmail ? `Email: ${data.fleetEmail}` : ''}
-          </div>
-        </div>
-        <div class="party">
-          <div class="party-label">Najemca</div>
-          <div class="party-name">${data.driverFirstName} ${data.driverLastName}</div>
-          <div class="party-details">
-            PESEL: ${data.driverPesel || '—'}<br>
-            ${data.driverAddress}<br>
-            Tel: ${data.driverPhone}<br>
-            Email: ${data.driverEmail}<br>
-            Prawo jazdy: ${data.driverLicenseNumber || '—'}
-          </div>
-        </div>
-      </div>
+      <table class="parties-table">
+        <tr>
+          <td>
+            <div class="party-label">Wynajmujący:</div>
+            <div class="party-name">${data.fleetName}</div>
+            <div class="party-details">
+              ${data.fleetNip ? `NIP: ${data.fleetNip}<br>` : ''}
+              ${data.fleetAddress || ''}<br>
+              ${data.fleetPhone ? `Tel: ${data.fleetPhone}<br>` : ''}
+              ${data.fleetEmail ? `Email: ${data.fleetEmail}` : ''}
+            </div>
+          </td>
+          <td>
+            <div class="party-label">Najemca:</div>
+            <div class="party-name">${data.driverFirstName} ${data.driverLastName}</div>
+            <div class="party-details">
+              PESEL: ${data.driverPesel || '—'}<br>
+              ${data.driverAddress}<br>
+              Tel: ${data.driverPhone}<br>
+              Email: ${data.driverEmail}<br>
+              Prawo jazdy: ${data.driverLicenseNumber || '—'}
+            </div>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <div class="section">
       <div class="section-title">§2. Przedmiot Umowy</div>
-      <div class="vehicle-info">
-        <div class="vehicle-grid">
-          <div class="vehicle-item">
-            <div class="vehicle-label">Marka i model</div>
-            <div class="vehicle-value">${data.vehicleBrand} ${data.vehicleModel}</div>
-          </div>
-          <div class="vehicle-item">
-            <div class="vehicle-label">Nr rejestracyjny</div>
-            <div class="vehicle-value">${data.vehiclePlate}</div>
-          </div>
-          <div class="vehicle-item">
-            <div class="vehicle-label">VIN</div>
-            <div class="vehicle-value">${data.vehicleVin || '—'}</div>
-          </div>
-          <div class="vehicle-item">
-            <div class="vehicle-label">Rok produkcji</div>
-            <div class="vehicle-value">${data.vehicleYear || '—'}</div>
-          </div>
-        </div>
-      </div>
+      <p class="paragraph-no-indent">
+        Wynajmujący oddaje Najemcy do używania pojazd o następujących parametrach:
+      </p>
+      <table class="vehicle-table">
+        <tr>
+          <th>Marka i model</th>
+          <td>${data.vehicleBrand} ${data.vehicleModel}</td>
+        </tr>
+        <tr>
+          <th>Nr rejestracyjny</th>
+          <td>${data.vehiclePlate}</td>
+        </tr>
+        <tr>
+          <th>VIN</th>
+          <td>${data.vehicleVin || '—'}</td>
+        </tr>
+        <tr>
+          <th>Rok produkcji</th>
+          <td>${data.vehicleYear || '—'}</td>
+        </tr>
+      </table>
       <p class="paragraph">
         Pojazd wydawany jest Najemcy w stanie opisanym w elektronicznym protokole zdawczo-odbiorczym, 
         stanowiącym integralną część niniejszej Umowy.
@@ -191,9 +282,9 @@ export function generateRentalContractHtml(data: ContractData): string {
 
     <div class="section">
       <div class="section-title">§5. Czynsz i płatności</div>
-      <div class="terms">
-        <p>Stawka czynszu: <span class="fee">${data.weeklyFee.toLocaleString('pl-PL')} zł / tydzień</span></p>
-        <p style="margin-top: 5px; font-size: 10px;">Czynsz płatny jest z góry, w cyklach tygodniowych.</p>
+      <div class="terms-box">
+        <p>Stawka czynszu najmu: <span class="fee">${data.weeklyFee.toLocaleString('pl-PL')} zł tygodniowo</span></p>
+        <p class="small-text" style="margin-top: 8px;">Czynsz płatny jest z góry, w cyklach tygodniowych, do każdego poniedziałku.</p>
       </div>
       <p class="paragraph">
         Wynajmujący ma prawo pobrać kaucję zabezpieczającą. Wcześniejszy zwrot pojazdu nie zwalnia 

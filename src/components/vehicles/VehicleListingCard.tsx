@@ -137,9 +137,13 @@ export function VehicleListingCard({
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't navigate if clicking on interactive elements
+    // Don't navigate if clicking on interactive elements or the photo area
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('[role="button"]')) {
+    if (
+      target.closest('button') || 
+      target.closest('[data-photo-area]') ||
+      target.tagName === 'IMG'
+    ) {
       return;
     }
     navigate(`/gielda/ogloszenie/${listing.id}`);
@@ -168,7 +172,7 @@ export function VehicleListingCard({
             compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
-          role="button"
+          data-photo-area="true"
           aria-label="Powiększ zdjęcie"
         >
           <img
