@@ -233,40 +233,41 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
   return (
     <>
       {/* All content in one Card - sub-tabs inside */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Umowy najmu
-            </CardTitle>
-            {/* Internal sub-tabs */}
-            <div className="flex gap-1 bg-muted rounded-lg p-1">
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Umowy najmu
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 sm:p-4 md:p-6 pt-2">
+          {/* Search + Tabs row - like "Auta" tab layout */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Szukaj po kierowcy, rejestracji lub marce..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {/* Sub-tabs - align right on desktop */}
+            <div className="flex gap-1 bg-muted rounded-lg p-1 self-end sm:self-auto">
               {subTabs.map(tab => (
                 <Button
                   key={tab.value}
                   size="sm"
                   variant={activeSubTab === tab.value ? "default" : "ghost"}
                   onClick={() => setActiveSubTab(tab.value as SubTab)}
-                  className="text-xs sm:text-sm"
+                  className="text-xs sm:text-sm whitespace-nowrap"
                 >
                   {tab.label}
                 </Button>
               ))}
             </div>
           </div>
-          {/* Search bar inside card header */}
-          <div className="relative max-w-md mt-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Szukaj po kierowcy, rejestracji lub marce..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardHeader>
-          <CardContent className="p-0">
             {filtered.length === 0 ? (
               <div className="text-center py-12">
                 <Car className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -277,8 +278,10 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
                 </p>
               </div>
             ) : (
-              <div className="rounded-md border">
-                <Table>
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+                <div className="min-w-[600px] sm:min-w-0 px-2 sm:px-0">
+                  <div className="rounded-md border">
+                    <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Pojazd</TableHead>
@@ -385,11 +388,13 @@ export function FleetRentalsTab({ fleetId }: FleetRentalsTabProps) {
                       );
                     })}
                   </TableBody>
-                </Table>
+                    </Table>
+                  </div>
+                </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
       {/* Rental Edit Flow Dialog */}
       {selectedRental && showEditFlow && (

@@ -779,7 +779,7 @@ function ContractPreview({ rental }: { rental: RentalData }) {
             *,
             vehicles:vehicle_id (id, plate, brand, model, year, vin),
             drivers:driver_id (id, first_name, last_name, email, phone, pesel, address_street, address_city, address_postal_code, license_number),
-            fleets:fleet_id (id, name, nip, address_street, address_city, phone, email)
+            fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
           `)
           .eq("id", rental.id)
           .single();
@@ -796,8 +796,9 @@ function ContractPreview({ rental }: { rental: RentalData }) {
           ].filter(Boolean).join(', ');
 
           const fleetAddress = [
-            fleet?.address_street,
-            fleet?.address_city
+            fleet?.street,
+            fleet?.postal_code,
+            fleet?.city
           ].filter(Boolean).join(', ');
 
           const contractData: ContractData = {
