@@ -1,55 +1,91 @@
 
-
-# Plan Naprawy - 6 Problemów
+# Plan Naprawy UI - 2 Problemy
 
 ## ANALIZA PROBLEMÓW
 
-### 1. BŁĄD PODPISU (foto 5) - "vehicle_rentals_status_check"
-**Przyczyna:** Kod próbuje ustawić status `client_signed`, ale constraint w bazie danych pozwala tylko na: `pending`, `accepted`, `active`, `completed`, `cancelled`, `rejected`, `draft`, `pending_signature`, `signed`, `finalized`. Status `client_signed` nie istnieje!
+### 1. Kolor paska głównego - fioletowy zamiast niebieskiego na mobile
 
-**Rozwiązanie:** Dodać migrację SQL, która doda `client_signed`, `fleet_signed` i `sent_to_client` do dozwolonych statusów.
+**Obecny stan:**
+- Desktop (foto 1): Pasek główny "Rozliczenia, Lista kierowców, Flota..." jest **niebieski** (#3B82F6)
+- Mobile (foto 2): Ten sam pasek zmienia kolor na **fioletowy** - błąd!
 
----
+**Przyczyna:**
+W `MobileTabMenu.tsx` (linia 63) używany jest stały kolor z klasy `bg-primary` zamiast dynamicznej zmiennej CSS `--nav-bar-color`:
+```tsx
+<div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
+```
 
-### 2. PODPIS FLOTY NIE ZAPISUJE SIĘ PO ODŚWIEŻENIU
-**Przyczyna:** Tabela `fleet_signatures` może nie mieć kolumny primary key na `fleet_id` lub brak tabeli. `upsert` wymaga poprawnego konfliktu.
+Na desktopie `TabsPill` używa `style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}`, która jest ustawiana przez hook `useUISettings` (może być niebieska gdy ustawiono blue preset).
 
-**Rozwiązanie:** 
-- Sprawdzić czy tabela istnieje
-- Dodać migrację tworzącą tabelę jeśli nie istnieje
-- Poprawić logikę upsert w `FleetContractSettings.tsx`
+Na mobile `MobileTabMenu` używa `bg-primary` która jest ZAWSZE fioletowa (Tailwind: `--primary: 259 65% 58%`).
 
----
-
-### 3. ZAKŁADKA NAJEM - SUB-TABY W SZAREJ RAMCE
-**Problem (foto 1):** Przyciski "Aktywne", "Do podpisu", "Zakończone" są osobno, a powinny być wewnątrz szarej ramki tabeli (jak inne zakładki wewnętrzne).
-
-**Rozwiązanie:** W `FleetRentalsTab.tsx` zmienić strukturę:
-- Usunąć `UniversalSubTabBar` 
-- Zastąpić prostymi przyciskami wewnątrz `CardHeader` lub paskiem tabów wewnątrz karty
+**Rozwiązanie:**
+Zmienić `MobileTabMenu.tsx`:
+- Zamienić `bg-primary text-primary-foreground` na inline style: `style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}`
+- Tekst: biały `text-white`
 
 ---
 
-### 4. DODAWANIE AUTA - NAZWA FLOTY
-**Problem (foto 3):** Pole "Właściciel / Flota" pokazuje placeholder zamiast automatycznej nazwy floty.
+### 2. Widok mobilny karty pojazdu - wszystko nachodzi na siebie
 
-**Rozwiązanie:** W `FleetManagement.tsx` upewnić się, że `fleetName` jest przekazywane do `AddVehicleModal`. Pobrać nazwę floty z bazy jeśli nie ma.
+**Obecny stan (foto 3):**
+- Na mobile wszystkie dane (nr rej, pojazd, flota, wynajem, kierowca, dokumenty) są wyświetlane w 2 rzędach po 4 kolumny
+- Dane są obcięte i nieczytelne
+- Brak wizualnego wskaźnika rozwijania na mobile
 
----
+**Wzór docelowy (foto 4):**
+- Na desktopie po kliknięciu rozwija się pełny widok z zakładkami: Info, Dokumenty, Historia Kierowców, Serwis, Zdjęcia
+- Na mobile też powinno działać, ale podsumowanie musi być czytelne
 
-### 5. RAMKA PODGLĄDU UMOWY - PRZEWIJANIE NA BOKI
-**Problem (foto 4):** Modal umowy wymaga przewijania horyzontalnego.
+**Rozwiązanie:**
+Przebudować widok karty pojazdu na mobile:
 
-**Rozwiązanie:** W `RentalContractSignatureFlow.tsx` i `RentalContractViewer.tsx`:
-- Dodać `overflow-x-hidden` do kontenerów
-- Zmniejszyć `max-w-[210mm]` na `max-w-full` w widoku mobilnym
+**A) Widok zwinięty (mobile) - KOMPAKTOWY:**
+- Rząd 1: Nr rejestracyjny + Pojazd (marka model)
+- Rząd 2: Wynajem zł/tydz. + Dokumenty (OC, Przegląd badges)
+- Strzałka rozwijania widoczna na końcu
 
----
+**B) Widok rozwinięty (mobile) - PEŁNY:**
+Po kliknięciu pokazuje się pełny widok z:
+- Kierowca (select)
+- Flota
+- Giełda switch
+- Zakładki: Info, Dokumenty, Historia, Serwis, Zdjęcia
 
-### 6. UKŁAD UMOWY - LEPSZY FORMAT
-**Problem (foto 2):** Umowa powinna mieć lepszy format z wyraźnym podziałem Wynajmujący/Najemca w dwóch kolumnach.
+**Kluczowe zmiany w `FleetManagement.tsx`:**
 
-**Rozwiązanie:** Zaktualizować `rentalContractGenerator.ts` - już wygląda dobrze wg kodu, ale upewnić się że style są poprawnie zastosowane.
+1. Dodać strzałkę rozwijania widoczną na mobile (zmienić `hidden md:block` → `block`)
+
+2. Na mobile pokazywać tylko najważniejsze dane:
+```tsx
+{/* Mobile compact view */}
+<div className="md:hidden space-y-2">
+  <div className="flex items-center justify-between">
+    <div className="flex gap-4">
+      <div>
+        <span className="text-xs text-muted-foreground">Nr rej.:</span>
+        <div className="font-bold text-sm">{vehicle.plate}</div>
+      </div>
+      <div>
+        <span className="text-xs text-muted-foreground">Pojazd:</span>
+        <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
+      </div>
+    </div>
+    <ChevronDown className={cn("h-5 w-5 transition-transform", expanded && "rotate-180")} />
+  </div>
+  <div className="flex items-center justify-between">
+    <VehicleRentBlock ... />
+    <ExpiryBadges vehicleId={vehicle.id} compact />
+  </div>
+</div>
+
+{/* Desktop full view */}
+<div className="hidden md:block">
+  {/* Current full layout */}
+</div>
+```
+
+3. W rozwiniętym widoku na mobile - pełna zawartość (kierowca, zakładki itd.)
 
 ---
 
@@ -57,141 +93,136 @@
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/migrations/NEW.sql` | Dodać `client_signed`, `fleet_signed`, `sent_to_client` do constraint |
-| `supabase/migrations/NEW.sql` | Stworzyć tabelę `fleet_signatures` jeśli nie istnieje |
-| `src/components/fleet/FleetRentalsTab.tsx` | Zmienić sub-taby na wewnętrzne w ramce karty |
-| `src/components/FleetManagement.tsx` | Dodać pobieranie `fleetName` i przekazać do modalu |
-| `src/components/fleet/RentalContractViewer.tsx` | Poprawić responsywność - `overflow-x-hidden` |
-| `src/components/fleet/RentalContractSignatureFlow.tsx` | Poprawić responsywność modalu |
+| `src/components/MobileTabMenu.tsx` | Zmienić `bg-primary` na `style={{ backgroundColor: 'var(--nav-bar-color)' }}` |
+| `src/components/FleetManagement.tsx` | Osobny widok mobilny karty pojazdu z kompaktowym podsumowaniem |
 
 ---
 
-## SZCZEGÓŁY TECHNICZNE
+## SZCZEGÓŁY IMPLEMENTACJI
 
-### Migracja SQL - statusy
+### MobileTabMenu.tsx - kolor paska
 
-```sql
-ALTER TABLE vehicle_rentals DROP CONSTRAINT IF EXISTS vehicle_rentals_status_check;
+**Zmiana linii 63:**
+```tsx
+// PRZED:
+<div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-2.5 rounded-xl">
 
-ALTER TABLE vehicle_rentals ADD CONSTRAINT vehicle_rentals_status_check 
-CHECK (status = ANY (ARRAY[
-  'pending'::text, 
-  'accepted'::text, 
-  'active'::text, 
-  'completed'::text, 
-  'cancelled'::text, 
-  'rejected'::text,
-  'draft'::text,
-  'pending_signature'::text,
-  'signed'::text,
-  'finalized'::text,
-  'sent_to_client'::text,
-  'client_signed'::text,
-  'fleet_signed'::text
-]));
+// PO:
+<div 
+  className="flex items-center justify-between text-white px-4 py-2.5 rounded-xl shadow-[0_4px_15px_rgba(108,60,240,0.15)]"
+  style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
+>
 ```
 
-### Migracja SQL - tabela fleet_signatures
+### FleetManagement.tsx - responsywna karta pojazdu
 
-```sql
-CREATE TABLE IF NOT EXISTS fleet_signatures (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fleet_id UUID REFERENCES fleets(id) ON DELETE CASCADE UNIQUE,
-  signature_url TEXT NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  auto_sign_enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_fleet_signatures_fleet_id ON fleet_signatures(fleet_id);
-```
-
-### FleetRentalsTab.tsx - sub-taby wewnątrz karty
-
-Zmiana struktury:
-- Obecnie: `UniversalSubTabBar` → `Card` z listą
-- Nowa: `Card` z `TabsList` wewnątrz `CardHeader`
+Struktura nowej karty:
 
 ```tsx
-return (
-  <Card>
-    <CardHeader className="pb-0">
-      <div className="flex items-center justify-between">
-        <CardTitle>Umowy najmu</CardTitle>
-        {/* Wewnętrzne przyciski zamiast UniversalSubTabBar */}
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          <Button
-            size="sm"
-            variant={activeSubTab === "aktywne" ? "default" : "ghost"}
-            onClick={() => setActiveSubTab("aktywne")}
-          >
-            Aktywne
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSubTab === "do-podpisu" ? "default" : "ghost"}
-            onClick={() => setActiveSubTab("do-podpisu")}
-          >
-            Do podpisu
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSubTab === "zakonczone" ? "default" : "ghost"}
-            onClick={() => setActiveSubTab("zakonczone")}
-          >
-            Zakończone
-          </Button>
+<CollapsibleTrigger asChild>
+  <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+    <div className="flex items-center justify-between pr-8">
+      
+      {/* MOBILE VIEW - compact */}
+      <div className="md:hidden flex-1 space-y-2">
+        {/* Row 1: Plate + Vehicle */}
+        <div className="flex gap-4">
+          <div>
+            <span className="text-xs text-muted-foreground">Nr rej.:</span>
+            <div className="font-bold">{vehicle.plate}</div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Pojazd:</span>
+            <div className="font-semibold">{vehicle.brand} {vehicle.model}</div>
+          </div>
+        </div>
+        {/* Row 2: Rent + Documents */}
+        <div className="flex items-center justify-between">
+          <div onClick={(e) => e.stopPropagation()}>
+            <VehicleRentBlock
+              value={vehicle.weekly_rental_fee}
+              onChange={...}
+              userRole={userType}
+              compact
+            />
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <ExpiryBadges vehicleId={vehicle.id} compact />
+          </div>
         </div>
       </div>
-    </CardHeader>
-    <CardContent>
-      {/* Wyszukiwarka i tabela */}
-    </CardContent>
-  </Card>
-);
-```
-
-### FleetManagement.tsx - nazwa floty
-
-Dodać pobieranie nazwy floty jeśli nie ma:
-```tsx
-const [fleetInfo, setFleetInfo] = useState<{name: string} | null>(null);
-
-useEffect(() => {
-  if (fleetId) {
-    supabase.from("fleets").select("name").eq("id", fleetId).single()
-      .then(({ data }) => setFleetInfo(data));
-  }
-}, [fleetId]);
-
-// W renderze:
-<AddVehicleModal 
-  ...
-  fleetName={fleetInfo?.name || ""}
-/>
-```
-
-### RentalContractViewer.tsx - responsywność
-
-```tsx
-<div 
-  className="h-[60vh] overflow-y-auto overflow-x-hidden bg-muted p-2 sm:p-4"
-  onScroll={handleScroll}
->
-  <div className="max-w-full sm:max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm">
-    ...
+      
+      {/* DESKTOP VIEW - full */}
+      <div className="hidden md:flex flex-1 items-center gap-6">
+        {/* Current full row layout */}
+        ...
+      </div>
+      
+      {/* Expand arrow - visible on BOTH mobile and desktop */}
+      <div className="ml-4">
+        {expandedVehicles.has(vehicle.id) ? 
+          <ChevronUp className="h-5 w-5" /> : 
+          <ChevronDown className="h-5 w-5" />
+        }
+      </div>
+      
+    </div>
   </div>
-</div>
+</CollapsibleTrigger>
+
+<CollapsibleContent>
+  <div className="border-t p-4">
+    {/* Mobile: Show additional fields first */}
+    <div className="md:hidden space-y-4 mb-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div onClick={(e) => e.stopPropagation()}>
+          <span className="text-xs text-muted-foreground">Kierowca:</span>
+          <UniversalSelector ... />
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">Flota:</span>
+          <div className="font-semibold text-sm">{vehicle.fleet?.name || 'Brak'}</div>
+        </div>
+      </div>
+      {isMarketplaceEnabled && (
+        <div className="flex items-center gap-2">
+          <Switch ... />
+          <span className="text-xs">Giełda</span>
+        </div>
+      )}
+    </div>
+    
+    {/* Tabs - for both mobile and desktop */}
+    <Tabs defaultValue="info" className="w-full">
+      <TabsList className="grid w-full grid-cols-5 rounded-lg text-xs md:text-sm">
+        <TabsTrigger value="info">Info</TabsTrigger>
+        <TabsTrigger value="documents">Dokumenty</TabsTrigger>
+        <TabsTrigger value="history">Historia</TabsTrigger>
+        <TabsTrigger value="service">Serwis</TabsTrigger>
+        <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
+      </TabsList>
+      ...
+    </Tabs>
+  </div>
+</CollapsibleContent>
 ```
 
 ---
 
 ## KOLEJNOŚĆ WDROŻENIA
 
-1. **Migracja SQL** - dodać statusy i tabelę `fleet_signatures`
-2. **FleetRentalsTab.tsx** - zmienić sub-taby na wewnętrzne w karcie
-3. **FleetManagement.tsx** - pobieranie nazwy floty
-4. **RentalContractViewer.tsx** - responsywność
-5. **RentalContractSignatureFlow.tsx** - responsywność modalu
+1. **MobileTabMenu.tsx** - zmiana koloru paska na dynamiczny
+2. **FleetManagement.tsx** - nowy responsywny układ karty pojazdu:
+   - Osobny widok kompaktowy dla mobile
+   - Pełny widok dla desktop
+   - Strzałka rozwijania widoczna na obu
+   - Pełne dane w rozwiniętym widoku
 
+---
+
+## PODSUMOWANIE
+
+| Problem | Rozwiązanie |
+|---------|-------------|
+| Kolor paska mobile ≠ desktop | Użyć `var(--nav-bar-color)` zamiast `bg-primary` |
+| Dane nachodzą na mobile | Osobny kompaktowy widok mobile + rozwijanie do pełnego |
