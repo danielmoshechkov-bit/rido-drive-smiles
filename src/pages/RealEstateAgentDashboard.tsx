@@ -4,15 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsPill } from "@/components/ui/TabsPill";
+import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
-  Building, Plus, Home, Users, BarChart3, Settings,
+  Building, Plus, Home, Users, Settings,
   ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
-  GitCompare, Phone, ChevronDown, ChevronUp
+  GitCompare, Phone, ChevronDown, ChevronUp, Repeat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 interface AgentProfile {
   id: string;
