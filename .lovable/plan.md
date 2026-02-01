@@ -1,176 +1,188 @@
 
+# Kompleksowy Plan Naprawy UI/UX
 
-# Plan naprawy 5 zgłoszonych problemów
+## PODSUMOWANIE PROBLEMÓW Z DZISIEJSZEGO DNIA
 
-## Przegląd zgłoszeń
+Na podstawie analizy kodu i zrzutów ekranu zidentyfikowałem następujące problemy:
 
-1. **Zakładki z podkategoriami** - wzorzec jak w "Rozliczenia" (Moje rozliczenia / Rozlicz kierowców) powinien być zastosowany w "Flota" (Auta / Najem / Rezerwacje z giełdy)
-2. **Duplikat menu mobilnego** - hamburger (3 kreski) i dropdown wyświetlają to samo menu
-3. **Widok mobilny Flota nie responsywny** - wymaga przewijania w prawo, obcięta nazwa floty
-4. **Przycisk mapy "Zaznacz na mapie"** - powinien wyglądać jak "Pokaż na mapie" i być między "Więcej filtrów" a "Pokaż na mapie"
-5. **Zdjęcia pionowe** - nie dopasowują się do widoku miniatur i lightbox
+### 1. FLOTA - Układ zakładek nie pasuje do wzorca "Rozliczenia"
+**Problem:** W zakładce "Rozliczenia" jest pasek `UniversalSubTabBar` z przyciskami (Moje rozliczenia, Rozlicz kierowców, itd.) POD główną zakładką, a następnie Card z tabelą. W "Flota" układ jest inny - zakładki Auta/Najem/Rezerwacje są wewnątrz komponentu Tabs jako `TabsList`, co daje inny wygląd wizualny.
+
+**Rozwiązanie:**
+- Zmienić strukturę FleetManagement.tsx tak, aby główna zakładka "Flota" wyświetlała podkategorie (Auta, Najem, Rezerwacje z giełdy) w stylu `UniversalSubTabBar` jak w "Rozliczenia"
+- Pod paskiem kategorii wyświetlać odpowiednią zawartość (tabelę pojazdów, najmy, rezerwacje)
+
+### 2. MARKETPLACE - Kliknięcie na zdjęcie/kartę nie działa
+**Problem:** Komponent `ListingCard.tsx` używany w giełdzie pojazdów nie ma:
+- Funkcji otwierania lightbox po kliknięciu na zdjęcie
+- Nawigacji do szczegółów ogłoszenia po kliknięciu na kartę
+
+**Rozwiązanie:**
+- Dodać import `ImageLightbox` do `ListingCard.tsx`
+- Dodać `handlePhotoClick` z `e.stopPropagation()` który otwiera lightbox
+- Dodać `handleCardClick` który nawiguje do `/gielda/ogloszenie/{id}` (pomijając kliknięcia na przyciski i zdjęcia)
+
+### 3. PODPIS - Nie zapisuje się
+**Problem:** Błąd "Błąd zapisywania podpisu" - widoczny na zrzucie ekranu.
+
+**Rozwiązanie:**
+- W `RentalClientPortal.tsx` sprawdzić zapytanie do bazy - obecnie filtruje po `portal_access_token` nawet gdy jest pusty
+- Dodać logowanie błędów aby zdiagnozować dokładną przyczynę
+- Poprawić warunek: jeśli brak tokenu, nie dodawać filtra po tokenie
+
+### 4. UMOWA - Nie wygląda profesjonalnie
+**Problem:** Podgląd umowy na stronie /umowa/:id wygląda jak zwykły tekst, nie jak dokument A4.
+
+**Rozwiązanie:**
+- W `RentalContractViewer.tsx` upewnić się że HTML z umowy jest renderowany wewnątrz białego "arkusza" z cieniem, na szarym tle
+- Sprawdzić czy style CSS z `generateRentalContractHtml` są prawidłowo zastosowane
+- Dodać właściwy styl druku: biała strona, cień, marginesy
+
+### 5. MODAL - Nie mieści się na mobile (foto 5, 6)
+**Problem:** Modal z procesem podpisywania umowy jest za szeroki na urządzeniach mobilnych.
+
+**Rozwiązanie:**
+- W `RentalContractSignatureFlow.tsx` dodać responsywne klasy do `DialogContent`
+- Zmniejszyć max-width na mobile: `max-w-[95vw] sm:max-w-3xl`
+- Upewnić się że zawartość nie wychodzi poza ramkę
+
+### 6. BRAK zakładki USTAWIENIA UMOWY
+**Problem:** Użytkownik prosił o zakładkę "Ustawienia" w Flocie gdzie można zapisać podpis floty.
+
+**Rozwiązanie:**
+- Dodać zakładkę "Ustawienia umowy" do FleetManagement.tsx
+- Stworzyć komponent `FleetContractSettings.tsx` z możliwością:
+  - Podglądu zapisanego podpisu
+  - Dodania/zmiany podpisu
+  - Włączenia/wyłączenia auto-podpisu
 
 ---
 
-## Analiza obecnego stanu
+## SZCZEGÓŁOWY PLAN IMPLEMENTACJI
 
-### Problem 1: Zakładki z podkategoriami
-
-**Obecny stan:**
-- W "Rozliczenia" jest główny pasek zakładek + podkategorie pod spodem (linie ~357-361 UnifiedDashboard.tsx)
-- W "Flota" (FleetManagement.tsx) zakładki Auta/Najem/Rezerwacje są wewnątrz komponentu TabsList bez paska podkategorii w tym samym stylu
-
-**Rozwiązanie:**
-- Dodać wspólny styl dla podkategorii zakładek - pasek z mniejszymi przyciskami pod główną zakładką
-- Użyć istniejącego komponentu UniversalTabBar lub stworzyć podobny styl w FleetManagement
-
-### Problem 2: Duplikat menu mobilnego
-
-**Obecny stan (UnifiedDashboard.tsx linie 454-700):**
-- Hamburger Menu (Sheet) - linie 458-615
-- Collapsible dropdown z tym samym menu - linie 618-730
-
-Oba elementy zawierają identyczne opcje nawigacyjne.
-
-**Rozwiązanie:**
-- Usunąć hamburger menu (Sheet) z widoku mobilnego
-- Pozostawić tylko dropdown (Collapsible) który automatycznie się zamyka po wybraniu
-
-### Problem 3: Widok mobilny Flota
-
-**Obecny stan (FleetManagement.tsx):**
-- Karta rozwijana pojazdu nie ma `max-w-full` ani `overflow-hidden`
-- Brak responsywnych klas dla małych ekranów
-
-**Rozwiązanie:**
-- Dodać `overflow-x-hidden` do głównego kontenera
-- Użyć `truncate` dla nazwy floty
-- Dodać responsywne ukrywanie/zmiany layoutu dla małych ekranów
-
-### Problem 4: Przycisk mapy
-
-**Obecny stan (RealEstateSearch.tsx linie 431-452):**
-- "Zaznacz na mapie" (onDrawSearch) jest przed "Pokaż na mapie"
-- Ma inny styl (border-primary)
-
-**Rozwiązanie:**
-- Zmienić kolejność: "Więcej filtrów" → "Zaznacz na mapie" → "Pokaż na mapie"
-- Nadać "Zaznacz na mapie" taki sam styl jak "Pokaż na mapie" (variant="default")
-
-### Problem 5: Zdjęcia pionowe
-
-**Obecny stan:**
-- FeaturedListingCard.tsx linia 195: `object-cover` jest ustawione
-- PropertyListingCard.tsx linia 390: `object-cover` jest ustawione
-- ImageLightbox.tsx linia 83: używa `object-contain`
-
-**Problem:** Zdjęcia pionowe w karcie są obcinane lub źle kadrowane.
-
-**Rozwiązanie:**
-- Upewnić się, że kontener ma stały aspect ratio (`aspect-[4/3]`)
-- Dodać `object-position: center` żeby wycentrować kadrowanie
-- W Lightbox zachować `object-contain` żeby zachować proporcje
-
----
-
-## Szczegółowy plan implementacji
-
-### 1. Naprawa zakładek "Flota" - styl podkategorii
+### Krok 1: Naprawa układu zakładek "Flota"
 
 **Plik:** `src/components/FleetManagement.tsx`
 
-**Zmiany:**
-```text
-Linia 406-422: Zmienić TabsList na styl podobny do paska "Rozliczenia"
-- Dodać pasek w kolorze gradient-hero z białymi przyciskami
-- Styl: bg-gradient-hero text-primary-foreground rounded-lg
-```
+Zmiany:
+- Zamiast używać wewnętrznego `<Tabs>` z `<TabsList>`, użyć `UniversalSubTabBar` tak jak w `FleetSettlementsView.tsx`
+- Struktura:
+  ```
+  <Card>
+    <CardHeader>...</CardHeader>
+    <CardContent>
+      <UniversalSubTabBar ... />
+      {activeTab === "vehicles" && <VehiclesContent />}
+      {activeTab === "najem" && <FleetRentalsTab />}
+      {activeTab === "rentals" && <MarketplaceReservationsContent />}
+    </CardContent>
+  </Card>
+  ```
 
-### 2. Usunięcie duplikatu menu mobilnego
+### Krok 2: Naprawa kliknięć w ListingCard (marketplace)
 
-**Plik:** `src/components/UnifiedDashboard.tsx`
+**Plik:** `src/components/marketplace/ListingCard.tsx`
 
-**Zmiany:**
-```text
-Linie 458-615: Usunąć całą sekcję Sheet (hamburger menu)
-Linie 618-730: Pozostawić dropdown i poprawić zamykanie
-- Po wybraniu opcji dropdown powinien się zamknąć
-```
+Zmiany:
+- Dodać import: `import { ImageLightbox } from "@/components/ui/ImageLightbox";`
+- Dodać stan: `const [showLightbox, setShowLightbox] = useState(false);`
+- Dodać `handlePhotoClick`:
+  ```tsx
+  const handlePhotoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowLightbox(true);
+  };
+  ```
+- Dodać `handleCardClick` na `<Card>`:
+  ```tsx
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[data-photo-area]')) return;
+    navigate(`/gielda/ogloszenie/${listing.id}`);
+  };
+  ```
+- Owinąć sekcję zdjęć w `div` z `data-photo-area="true"` i `onClick={handlePhotoClick}`
+- Dodać `<ImageLightbox ... />` na końcu
 
-### 3. Responsywny widok mobilny Flota
+### Krok 3: Naprawa zapisywania podpisu
+
+**Plik:** `src/pages/RentalClientPortal.tsx`
+
+Zmiany w `handleSignatureSubmit`:
+- Zmienić warunek filtrowania:
+  ```tsx
+  let updateQuery = supabase
+    .from("vehicle_rentals")
+    .update({...})
+    .eq("id", rentalId);
+  
+  // Tylko filtruj po tokenie jeśli jest dostępny
+  if (accessToken) {
+    updateQuery = updateQuery.eq("portal_access_token", accessToken);
+  }
+  ```
+- Dodać lepsze logowanie błędów
+
+### Krok 4: Profesjonalny wygląd umowy
+
+**Plik:** `src/components/fleet/RentalContractViewer.tsx`
+
+Zmiany:
+- Upewnić się że kontener z umową ma styl "A4 document":
+  ```tsx
+  <div className="h-[60vh] overflow-y-auto bg-muted p-4" onScroll={handleScroll}>
+    <div className="max-w-[210mm] mx-auto bg-white shadow-xl rounded-sm border">
+      <div 
+        className="p-8 prose prose-sm max-w-none"
+        style={{ fontFamily: 'Times New Roman, serif', lineHeight: '1.6' }}
+        dangerouslySetInnerHTML={{ __html: contractHtml }} 
+      />
+    </div>
+  </div>
+  ```
+
+### Krok 5: Responsywność modalu
+
+**Plik:** `src/components/fleet/RentalContractSignatureFlow.tsx`
+
+Zmiany w DialogContent:
+- Zmienić `max-w-4xl` na `max-w-[95vw] sm:max-w-3xl lg:max-w-4xl`
+- Dodać `overflow-x-hidden`
+
+### Krok 6: Zakładka ustawień umowy
+
+**Nowy plik:** `src/components/fleet/FleetContractSettings.tsx`
+
+Funkcje:
+- Wyświetlanie zapisanego podpisu floty
+- Edycja/dodanie podpisu (SignaturePad)
+- Checkbox "Auto-podpisuj umowy"
+- Zapis do tabeli `fleet_signatures`
 
 **Plik:** `src/components/FleetManagement.tsx`
-
-**Zmiany:**
-```text
-Linia 392: Dodać overflow-x-hidden do głównej karty
-Linie 425-459: Responsywny układ przycisków i wyszukiwarki
-- Na mobile: flex-col zamiast flex-row
-- Wyszukiwarka: w-full na mobile
-```
-
-### 4. Zmiana kolejności i stylu przycisków mapy
-
-**Plik:** `src/components/realestate/RealEstateSearch.tsx`
-
-**Zmiany:**
-```text
-Linie 429-453: Zmienić kolejność przycisków:
-1. Więcej filtrów (bez zmian)
-2. Zaznacz na mapie - zmienić variant="default" (fioletowy)
-3. Pokaż na mapie (bez zmian)
-```
-
-**Plik:** `src/components/marketplace/VehicleSearchWithMap.tsx`
-
-**Zmiany podobne jak wyżej**
-
-### 5. Naprawa wyświetlania zdjęć pionowych
-
-**Plik:** `src/components/FeaturedListingCard.tsx`
-
-**Zmiany:**
-```text
-Linia 195: Dodać object-center do klasy obrazka
-className="w-full h-full object-cover object-center transition-transform..."
-```
-
-**Plik:** `src/components/realestate/PropertyListingCard.tsx`
-
-**Zmiany:**
-```text
-Linia 174: Dodać object-center
-Linia 390: Dodać object-center
-```
-
-**Plik:** `src/components/vehicles/VehiclePhotoGallery.tsx`
-
-**Zmiany:**
-```text
-Sprawdzić i dodać object-center do wszystkich zdjęć
-```
+- Dodać zakładkę "Ustawienia umowy" do `UniversalSubTabBar`
 
 ---
 
-## Kolejność wdrożenia
-
-1. **Zdjęcia pionowe** (punkt 5) - szybka poprawka CSS
-2. **Duplikat menu** (punkt 2) - usunięcie kodu
-3. **Przyciski mapy** (punkt 4) - zmiana kolejności i stylu
-4. **Responsywny Flota** (punkt 3) - poprawki CSS
-5. **Zakładki podkategorii** (punkt 1) - zmiana stylu TabsList
-
----
-
-## Pliki do modyfikacji
+## PLIKI DO MODYFIKACJI
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/UnifiedDashboard.tsx` | Usunięcie Sheet hamburger menu |
-| `src/components/FleetManagement.tsx` | Responsywność + styl zakładek |
-| `src/components/realestate/RealEstateSearch.tsx` | Kolejność przycisków mapy |
-| `src/components/marketplace/VehicleSearchWithMap.tsx` | Kolejność przycisków mapy |
-| `src/components/FeaturedListingCard.tsx` | object-center dla zdjęć |
-| `src/components/realestate/PropertyListingCard.tsx` | object-center dla zdjęć |
-| `src/components/vehicles/VehiclePhotoGallery.tsx` | object-center dla zdjęć |
+| `src/components/FleetManagement.tsx` | Zmiana struktury zakładek na styl "Rozliczenia" |
+| `src/components/marketplace/ListingCard.tsx` | Dodanie lightbox + nawigacja po kliknięciu |
+| `src/pages/RentalClientPortal.tsx` | Naprawa warunku zapisu podpisu |
+| `src/components/fleet/RentalContractViewer.tsx` | Styl A4 dla umowy |
+| `src/components/fleet/RentalContractSignatureFlow.tsx` | Responsywność modalu |
+| `src/components/fleet/FleetContractSettings.tsx` | NOWY - ustawienia podpisu floty |
 
+---
+
+## KOLEJNOŚĆ WDROŻENIA
+
+1. **FleetManagement.tsx** - zmiana układu zakładek
+2. **ListingCard.tsx** - lightbox + nawigacja
+3. **RentalClientPortal.tsx** - naprawa podpisu
+4. **RentalContractViewer.tsx** - styl A4
+5. **RentalContractSignatureFlow.tsx** - responsywność
+6. **FleetContractSettings.tsx** - nowy komponent
