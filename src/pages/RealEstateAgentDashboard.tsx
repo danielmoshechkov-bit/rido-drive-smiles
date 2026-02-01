@@ -52,10 +52,56 @@ export default function RealEstateAgentDashboard() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "listings");
   const [expandedListings, setExpandedListings] = useState<Record<string, boolean>>({});
+  
+  // Account types for switcher
+  const [isDriverAccount, setIsDriverAccount] = useState(false);
+  const [isFleetAccount, setIsFleetAccount] = useState(false);
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
 
   useEffect(() => {
     fetchAgentProfile();
+    checkAccountTypes();
   }, []);
+  
+  const checkAccountTypes = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // Check for driver account
+    const { data: driverData } = await supabase
+      .from("driver_fleet_memberships")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    setIsDriverAccount(!!driverData);
+
+    // Check for fleet account
+    const { data: fleetRoles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .in("role", ["fleet_settlement", "fleet_rental"]);
+    setIsFleetAccount(!!fleetRoles && fleetRoles.length > 0);
+
+    // Check for marketplace account
+    const { data: marketplaceProfile } = await supabase
+      .from("marketplace_user_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    setIsMarketplaceAccount(!!marketplaceProfile);
+
+    // Check for admin
+    const isMainAdmin = session.user.email === 'daniel.moshechkov@gmail.com';
+    const { data: adminRole } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdminAccount(isMainAdmin || !!adminRole);
+  };
 
   const fetchAgentProfile = async () => {
     try {
