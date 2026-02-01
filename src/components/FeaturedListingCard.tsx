@@ -192,7 +192,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
               <img 
                 src={photos[currentPhotoIndex]} 
                 alt={listing.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -369,9 +369,9 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
             {photos[currentPhotoIndex] ? (
               <img 
-                src={photos[currentPhotoIndex]} 
+                src={photos[currentPhotoIndex]}
                 alt={listing.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-center"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">

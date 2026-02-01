@@ -80,7 +80,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
           <img 
             src={getPhotoSrc(0)} 
             alt={title}
-            className="w-full h-full object-cover aspect-[4/3] group-hover:brightness-90 transition-all"
+            className="w-full h-full object-cover object-center aspect-[4/3] group-hover:brightness-90 transition-all"
             onError={() => handleImageError(0)}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
@@ -96,7 +96,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             <img 
               src={getPhotoSrc(idx + 1)} 
               alt={`${title} ${idx + 2}`}
-              className="w-full h-full object-cover group-hover:brightness-90 transition-all"
+              className="w-full h-full object-cover object-center group-hover:brightness-90 transition-all"
               onError={() => handleImageError(idx + 1)}
             />
             {idx === 3 && displayPhotos.length > 5 && (
@@ -126,7 +126,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
           <img 
             src={getPhotoSrc(currentIndex)} 
             alt={title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-center"
             onError={() => handleImageError(currentIndex)}
           />
         </div>
