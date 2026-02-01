@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -741,7 +741,7 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
 
       {/* Contract Preview Modal - A4 style document */}
       <Dialog open={showContractPreview} onOpenChange={setShowContractPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-3xl lg:max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />

@@ -32,6 +32,7 @@ import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AddFleetDriverModal } from "./fleet/AddFleetDriverModal";
 import { VehicleRentalWizard } from "./fleet/VehicleRentalWizard";
+import { FleetContractSettings } from "./fleet/FleetContractSettings";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -405,22 +406,25 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
       </CardHeader>
 
       <CardContent className="space-y-6 overflow-x-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Main tabs bar - styled like Rozliczenia with UniversalSubTabBar */}
-          <UniversalSubTabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            tabs={[
-              { value: "vehicles", label: "Auta", visible: true },
-              { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
-              { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
-              { value: "fleets", label: "Floty", visible: userType === 'admin' },
-              { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
-              { value: "car-brands", label: "Lista aut", visible: userType === 'admin' },
-            ]}
-          />
+        {/* UniversalSubTabBar styled like Rozliczenia - tabs above content card */}
+        <UniversalSubTabBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          tabs={[
+            { value: "vehicles", label: "Auta", visible: true },
+            { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
+            { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
+            { value: "settings", label: "Ustawienia umowy", visible: userType === 'fleet' && !!fleetId },
+            { value: "fleets", label: "Floty", visible: userType === 'admin' },
+            { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
+            { value: "car-brands", label: "Lista aut", visible: userType === 'admin' },
+          ]}
+        />
 
-          <TabsContent value="vehicles" className="space-y-4">
+        {/* Content based on active tab */}
+        {activeTab === "vehicles" && (
+
+          <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
               {/* Left side - action buttons */}
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -653,36 +657,32 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                 ))
               )}
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="fleets" className="space-y-6">
-            <FleetTabManagement cityId={cityId} />
-          </TabsContent>
+        {activeTab === "fleets" && (
+          <FleetTabManagement cityId={cityId} />
+        )}
 
-          {userType === 'admin' && (
-            <TabsContent value="driver-vehicles" className="space-y-6">
-              <DriverVehiclesTab />
-            </TabsContent>
-          )}
+        {activeTab === "driver-vehicles" && userType === 'admin' && (
+          <DriverVehiclesTab />
+        )}
 
-          {userType === 'fleet' && fleetId && (
-            <TabsContent value="najem" className="space-y-6">
-              <FleetRentalsTab fleetId={fleetId} />
-            </TabsContent>
-          )}
+        {activeTab === "najem" && userType === 'fleet' && fleetId && (
+          <FleetRentalsTab fleetId={fleetId} />
+        )}
 
-          {userType === 'fleet' && fleetId && (
-            <TabsContent value="rentals" className="space-y-6">
-              <FleetRentalsManagement fleetId={fleetId} />
-            </TabsContent>
-          )}
+        {activeTab === "rentals" && userType === 'fleet' && fleetId && (
+          <FleetRentalsManagement fleetId={fleetId} />
+        )}
 
-          {userType === 'admin' && (
-            <TabsContent value="car-brands" className="space-y-6">
-              <CarBrandsManagement />
-            </TabsContent>
-          )}
-        </Tabs>
+        {activeTab === "settings" && userType === 'fleet' && fleetId && (
+          <FleetContractSettings fleetId={fleetId} />
+        )}
+
+        {activeTab === "car-brands" && userType === 'admin' && (
+          <CarBrandsManagement />
+        )}
       </CardContent>
 
       <AddVehicleModal 
