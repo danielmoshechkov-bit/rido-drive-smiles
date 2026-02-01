@@ -61,7 +61,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
           <img
             src={getPhotoSrc(0)}
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
             onError={() => handleImageError(0)}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -79,7 +79,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             <img
               src={getPhotoSrc(index + 1)}
               alt={`${title} - zdjęcie ${index + 2}`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
               onError={() => handleImageError(index + 1)}
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -174,7 +174,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
               {lightboxIndex + 1} / {displayPhotos.length}
             </div>
 
-            {/* Main Image */}
+            {/* Main Image - better fit for portrait photos */}
             <img
               src={getPhotoSrc(lightboxIndex)}
               alt={`${title} - zdjęcie ${lightboxIndex + 1}`}

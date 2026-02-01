@@ -25,6 +25,7 @@ import { UniversalSelector } from "./UniversalSelector";
 import { VehicleListingModal } from "./fleet/VehicleListingModal";
 import { FleetRentalsManagement } from "./fleet/FleetRentalsManagement";
 import { FleetActiveRentals } from "./fleet/FleetActiveRentals";
+import { FleetRentalsTab } from "./fleet/FleetRentalsTab";
 import { DriverVehiclesTab } from "./DriverVehiclesTab";
 import { CarBrandsManagement } from "./CarBrandsManagement";
 import { VehiclePhotosTab } from "./driver/VehiclePhotosTab";
@@ -669,7 +670,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
           {userType === 'fleet' && fleetId && (
             <TabsContent value="najem" className="space-y-6">
-              <FleetActiveRentals fleetId={fleetId} />
+              <FleetRentalsTab fleetId={fleetId} />
             </TabsContent>
           )}
 
