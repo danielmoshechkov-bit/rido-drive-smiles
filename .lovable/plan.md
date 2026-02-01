@@ -1,168 +1,55 @@
 
 
-# Plan Naprawy UI/UX - 4 Kluczowe Problemy
+# Plan Naprawy - 6 Problemów
 
-## PODSUMOWANIE PROBLEMÓW
+## ANALIZA PROBLEMÓW
 
-Na podstawie zrzutów ekranu i analizy kodu zidentyfikowałem następujące problemy, które **nadal nie są naprawione**:
+### 1. BŁĄD PODPISU (foto 5) - "vehicle_rentals_status_check"
+**Przyczyna:** Kod próbuje ustawić status `client_signed`, ale constraint w bazie danych pozwala tylko na: `pending`, `accepted`, `active`, `completed`, `cancelled`, `rejected`, `draft`, `pending_signature`, `signed`, `finalized`. Status `client_signed` nie istnieje!
 
----
-
-## 1. Menu mobilne nie zamyka się po wyborze zakładki
-
-**Problem (foto 1):**
-W widoku mobilnym, po rozwinięciu listy głównych zakładek (np. "Flota") i wybraniu opcji, lista pozostaje otwarta zamiast się zamykać.
-
-**Lokalizacja błędu:**
-`src/components/UnifiedDashboard.tsx` (linie 454-543)
-W komponencie `Collapsible` brak stanu kontrolującego otwarcie/zamknięcie oraz brak zamykania po kliknięciu na Button.
-
-**Rozwiązanie:**
-- Dodać stan `const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);`
-- Przekazać `open={isMobileMenuOpen}` do `Collapsible`
-- W każdym `Button` onClick dodać `setIsMobileMenuOpen(false)` obok `setActiveTab(...)`
+**Rozwiązanie:** Dodać migrację SQL, która doda `client_signed`, `fleet_signed` i `sent_to_client` do dozwolonych statusów.
 
 ---
 
-## 2. Widok mobilny karty pojazdu - dane obcięte
+### 2. PODPIS FLOTY NIE ZAPISUJE SIĘ PO ODŚWIEŻENIU
+**Przyczyna:** Tabela `fleet_signatures` może nie mieć kolumny primary key na `fleet_id` lub brak tabeli. `upsert` wymaga poprawnego konfliktu.
 
-**Problem (foto 2):**
-W widoku mobilnym karty pojazdów (Lexus CT, Toyota Auris) nie widać wszystkich danych - np. "Dok: OC" jest obcięte, brak informacji o przeglądzie, kierowcy, kwocie. Dane powinny być widoczne lub rozwijalne.
-
-**Lokalizacja błędu:**
-`src/components/FleetManagement.tsx` (linie 474-650) - sekcja renderująca karty pojazdów
-
-**Rozwiązanie:**
-- Zmienić układ z `flex-row gap-6` na responsywny `flex flex-col md:flex-row gap-4`
-- Usunąć `truncate` z elementów, które powinny być widoczne
-- Dodać `flex-wrap` dla grup informacji
-- Zmienić układ tak, żeby na mobile było:
-  - Rząd 1: Nr rej + Pojazd
-  - Rząd 2: Kierowca + Dokumenty (OC, przegląd)
-  - Rząd 3: Stawka tygodniowa
+**Rozwiązanie:** 
+- Sprawdzić czy tabela istnieje
+- Dodać migrację tworzącą tabelę jeśli nie istnieje
+- Poprawić logikę upsert w `FleetContractSettings.tsx`
 
 ---
 
-## 3. Układ zakładki "Flota" nie pasuje do wzorca "Rozliczenia"
+### 3. ZAKŁADKA NAJEM - SUB-TABY W SZAREJ RAMCE
+**Problem (foto 1):** Przyciski "Aktywne", "Do podpisu", "Zakończone" są osobno, a powinny być wewnątrz szarej ramki tabeli (jak inne zakładki wewnętrzne).
 
-**Problem (foto 3 vs foto 4):**
-W zakładce "Rozliczenia" mamy:
-1. Główna zakładka (Rozliczenia) - fioletowy pasek
-2. POD NIM: UniversalSubTabBar z przyciskami (Moje rozliczenia, Rozlicz kierowców, etc.)
-3. POD NIM: Zawartość (Card "Wynik tygodniowy" itp.)
-
-W zakładce "Flota" obecnie jest:
-1. Główna zakładka (Flota) - fioletowy pasek
-2. Card "Flota - Car4Ride sp. z o.o." z **zakładkami WEWNĄTRZ** karty
-
-**Rozwiązanie:**
-Całkowita przebudowa `FleetManagement.tsx`:
-- Usunąć opakowanie `<Card>` + `<CardHeader>` + `<CardContent>` z komponentu
-- Renderować `<UniversalSubTabBar>` na samym początku (poza Card)
-- Dopiero PO wybraniu zakładki wyświetlać odpowiednią zawartość (np. Card z listą pojazdów)
-
-```tsx
-// NOWA STRUKTURA (jak FleetSettlementsView):
-return (
-  <div className="space-y-4">
-    <UniversalSubTabBar ... />
-    
-    {activeTab === "vehicles" && (
-      <Card>
-        <CardHeader>...</CardHeader>
-        <CardContent>
-          {/* Lista pojazdów */}
-        </CardContent>
-      </Card>
-    )}
-    
-    {activeTab === "najem" && (
-      <FleetRentalsTab ... />
-    )}
-    
-    {activeTab === "rentals" && (
-      <Card>...</Card>
-    )}
-  </div>
-);
-```
+**Rozwiązanie:** W `FleetRentalsTab.tsx` zmienić strukturę:
+- Usunąć `UniversalSubTabBar` 
+- Zastąpić prostymi przyciskami wewnątrz `CardHeader` lub paskiem tabów wewnątrz karty
 
 ---
 
-## 4. Podpis nie zapisuje się
+### 4. DODAWANIE AUTA - NAZWA FLOTY
+**Problem (foto 3):** Pole "Właściciel / Flota" pokazuje placeholder zamiast automatycznej nazwy floty.
 
-**Problem (foto 5):**
-Komunikat "Błąd zapisywania podpisu. Spróbuj ponownie." - podpis nie jest zapisywany do bazy.
+**Rozwiązanie:** W `FleetManagement.tsx` upewnić się, że `fleetName` jest przekazywane do `AddVehicleModal`. Pobrać nazwę floty z bazy jeśli nie ma.
 
-**Lokalizacja błędu:**
-`src/pages/RentalClientPortal.tsx` (linie 136-186) - funkcja `handleSignatureSubmit`
+---
 
-**Diagnoza:**
-Sprawdzenie zapytania update w bazie - możliwe, że filtr `portal_access_token` nie pasuje lub rekord nie istnieje.
+### 5. RAMKA PODGLĄDU UMOWY - PRZEWIJANIE NA BOKI
+**Problem (foto 4):** Modal umowy wymaga przewijania horyzontalnego.
 
-**Rozwiązanie:**
-- Dodać szczegółowe logowanie przed i po zapytaniu
-- Sprawdzić czy `rentalId` jest poprawne
-- Rozdzielić update na dwie wersje:
-  1. Z tokenem (dla kierowcy z zewnątrz)
-  2. Bez tokena (dla zalogowanego fleet managera)
-- Dodać walidację czy rental istnieje przed próbą update
+**Rozwiązanie:** W `RentalContractSignatureFlow.tsx` i `RentalContractViewer.tsx`:
+- Dodać `overflow-x-hidden` do kontenerów
+- Zmniejszyć `max-w-[210mm]` na `max-w-full` w widoku mobilnym
 
-```tsx
-const handleSignatureSubmit = async (signatureDataUrl: string) => {
-  if (!rentalId) return;
-  setIsSigning(true);
-  
-  try {
-    // 1. Sprawdź czy rental istnieje
-    const { data: existingRental, error: checkError } = await supabase
-      .from("vehicle_rentals")
-      .select("id, status, portal_access_token")
-      .eq("id", rentalId)
-      .single();
-    
-    if (checkError || !existingRental) {
-      console.error("Rental not found:", checkError);
-      toast.error("Nie znaleziono umowy");
-      return;
-    }
-    
-    // 2. Upload signature
-    const blob = await (await fetch(signatureDataUrl)).blob();
-    const fileName = `driver_signatures/${rentalId}/${Date.now()}.png`;
-    const { error: uploadError } = await supabase.storage
-      .from("driver-documents")
-      .upload(fileName, blob);
-    
-    if (uploadError) throw uploadError;
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from("driver-documents")
-      .getPublicUrl(fileName);
-    
-    // 3. Update rental - BEZ filtra po tokenie, bo już zweryfikowaliśmy dostęp
-    const { error: updateError } = await supabase
-      .from("vehicle_rentals")
-      .update({
-        driver_signed_at: new Date().toISOString(),
-        driver_signature_url: publicUrl,
-        driver_signature_user_agent: navigator.userAgent,
-        status: "client_signed",
-      })
-      .eq("id", rentalId);
-    
-    if (updateError) throw updateError;
-    
-    toast.success("Umowa podpisana pomyślnie!");
-    setStep("complete");
-  } catch (error: any) {
-    console.error("Signature error:", error);
-    toast.error("Błąd zapisywania podpisu: " + (error.message || "Nieznany błąd"));
-  } finally {
-    setIsSigning(false);
-  }
-};
-```
+---
+
+### 6. UKŁAD UMOWY - LEPSZY FORMAT
+**Problem (foto 2):** Umowa powinna mieć lepszy format z wyraźnym podziałem Wynajmujący/Najemca w dwóch kolumnach.
+
+**Rozwiązanie:** Zaktualizować `rentalContractGenerator.ts` - już wygląda dobrze wg kodu, ale upewnić się że style są poprawnie zastosowane.
 
 ---
 
@@ -170,94 +57,130 @@ const handleSignatureSubmit = async (signatureDataUrl: string) => {
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/UnifiedDashboard.tsx` | Dodać stan `isMobileMenuOpen` i zamykanie menu po wyborze |
-| `src/components/FleetManagement.tsx` | 1) Zmienić strukturę - zakładki POZA Card, 2) Responsywność kart pojazdów |
-| `src/pages/RentalClientPortal.tsx` | Naprawić logikę zapisu podpisu |
+| `supabase/migrations/NEW.sql` | Dodać `client_signed`, `fleet_signed`, `sent_to_client` do constraint |
+| `supabase/migrations/NEW.sql` | Stworzyć tabelę `fleet_signatures` jeśli nie istnieje |
+| `src/components/fleet/FleetRentalsTab.tsx` | Zmienić sub-taby na wewnętrzne w ramce karty |
+| `src/components/FleetManagement.tsx` | Dodać pobieranie `fleetName` i przekazać do modalu |
+| `src/components/fleet/RentalContractViewer.tsx` | Poprawić responsywność - `overflow-x-hidden` |
+| `src/components/fleet/RentalContractSignatureFlow.tsx` | Poprawić responsywność modalu |
 
 ---
 
 ## SZCZEGÓŁY TECHNICZNE
 
-### UnifiedDashboard.tsx - dodanie stanu dla menu
+### Migracja SQL - statusy
+
+```sql
+ALTER TABLE vehicle_rentals DROP CONSTRAINT IF EXISTS vehicle_rentals_status_check;
+
+ALTER TABLE vehicle_rentals ADD CONSTRAINT vehicle_rentals_status_check 
+CHECK (status = ANY (ARRAY[
+  'pending'::text, 
+  'accepted'::text, 
+  'active'::text, 
+  'completed'::text, 
+  'cancelled'::text, 
+  'rejected'::text,
+  'draft'::text,
+  'pending_signature'::text,
+  'signed'::text,
+  'finalized'::text,
+  'sent_to_client'::text,
+  'client_signed'::text,
+  'fleet_signed'::text
+]));
+```
+
+### Migracja SQL - tabela fleet_signatures
+
+```sql
+CREATE TABLE IF NOT EXISTS fleet_signatures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fleet_id UUID REFERENCES fleets(id) ON DELETE CASCADE UNIQUE,
+  signature_url TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  auto_sign_enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fleet_signatures_fleet_id ON fleet_signatures(fleet_id);
+```
+
+### FleetRentalsTab.tsx - sub-taby wewnątrz karty
+
+Zmiana struktury:
+- Obecnie: `UniversalSubTabBar` → `Card` z listą
+- Nowa: `Card` z `TabsList` wewnątrz `CardHeader`
 
 ```tsx
-// Dodać na początku komponentu:
-const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+return (
+  <Card>
+    <CardHeader className="pb-0">
+      <div className="flex items-center justify-between">
+        <CardTitle>Umowy najmu</CardTitle>
+        {/* Wewnętrzne przyciski zamiast UniversalSubTabBar */}
+        <div className="flex gap-1 bg-muted rounded-lg p-1">
+          <Button
+            size="sm"
+            variant={activeSubTab === "aktywne" ? "default" : "ghost"}
+            onClick={() => setActiveSubTab("aktywne")}
+          >
+            Aktywne
+          </Button>
+          <Button
+            size="sm"
+            variant={activeSubTab === "do-podpisu" ? "default" : "ghost"}
+            onClick={() => setActiveSubTab("do-podpisu")}
+          >
+            Do podpisu
+          </Button>
+          <Button
+            size="sm"
+            variant={activeSubTab === "zakonczone" ? "default" : "ghost"}
+            onClick={() => setActiveSubTab("zakonczone")}
+          >
+            Zakończone
+          </Button>
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent>
+      {/* Wyszukiwarka i tabela */}
+    </CardContent>
+  </Card>
+);
+```
 
-// Zmienić Collapsible:
-<Collapsible open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} className="flex-1">
+### FleetManagement.tsx - nazwa floty
 
-// W każdym Button wewnątrz CollapsibleContent:
-<Button 
-  variant="ghost" 
-  size="sm"
-  className="w-full justify-start text-xs"
-  onClick={() => {
-    setActiveTab('fleet');
-    setIsMobileMenuOpen(false); // DODAĆ TO
-  }}
+Dodać pobieranie nazwy floty jeśli nie ma:
+```tsx
+const [fleetInfo, setFleetInfo] = useState<{name: string} | null>(null);
+
+useEffect(() => {
+  if (fleetId) {
+    supabase.from("fleets").select("name").eq("id", fleetId).single()
+      .then(({ data }) => setFleetInfo(data));
+  }
+}, [fleetId]);
+
+// W renderze:
+<AddVehicleModal 
+  ...
+  fleetName={fleetInfo?.name || ""}
+/>
+```
+
+### RentalContractViewer.tsx - responsywność
+
+```tsx
+<div 
+  className="h-[60vh] overflow-y-auto overflow-x-hidden bg-muted p-2 sm:p-4"
+  onScroll={handleScroll}
 >
-```
-
-### FleetManagement.tsx - nowa struktura
-
-Aktualna struktura:
-```
-<Card>
-  <CardHeader>Flota - {cityName}</CardHeader>
-  <CardContent>
-    <UniversalSubTabBar />  ← WEWNĄTRZ Card
-    {activeTab content}
-  </CardContent>
-</Card>
-```
-
-Nowa struktura (jak Rozliczenia):
-```
-<div>
-  <UniversalSubTabBar />  ← POZA Card
-  
-  {activeTab === "vehicles" && (
-    <Card>
-      <CardHeader>Flota - {cityName}</CardHeader>
-      <CardContent>
-        {lista pojazdów}
-      </CardContent>
-    </Card>
-  )}
-  
-  {activeTab === "najem" && <FleetRentalsTab />}
-  {activeTab === "settings" && <FleetContractSettings />}
-</div>
-```
-
-### FleetManagement.tsx - responsywność kart pojazdów
-
-```tsx
-// Zmienić layout w kartach pojazdów (około linii 498-530):
-<div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
-  {/* Rząd 1 */}
-  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
-    <div className="min-w-[100px]">
-      <span className="text-xs text-muted-foreground">Nr rej.:</span>
-      <div className="font-bold text-sm">{vehicle.plate}</div>
-    </div>
-    <div className="min-w-[120px]">
-      <span className="text-xs text-muted-foreground">Pojazd:</span>
-      <div className="font-semibold text-sm">{vehicle.brand} {vehicle.model}</div>
-    </div>
-  </div>
-  
-  {/* Rząd 2 - kierowca + dokumenty */}
-  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
-    <div className="min-w-[120px]">
-      <span className="text-xs text-muted-foreground">Kierowca:</span>
-      <UniversalSelector ... />
-    </div>
-    <div className="min-w-[100px]">
-      <span className="text-xs text-muted-foreground">Dokumenty:</span>
-      <ExpiryBadges ... />
-    </div>
+  <div className="max-w-full sm:max-w-[210mm] mx-auto bg-white shadow-lg rounded-sm">
+    ...
   </div>
 </div>
 ```
@@ -266,7 +189,9 @@ Nowa struktura (jak Rozliczenia):
 
 ## KOLEJNOŚĆ WDROŻENIA
 
-1. **UnifiedDashboard.tsx** - naprawa zamykania menu mobilnego
-2. **FleetManagement.tsx** - przebudowa struktury zakładek + responsywność
-3. **RentalClientPortal.tsx** - naprawa zapisu podpisu
+1. **Migracja SQL** - dodać statusy i tabelę `fleet_signatures`
+2. **FleetRentalsTab.tsx** - zmienić sub-taby na wewnętrzne w karcie
+3. **FleetManagement.tsx** - pobieranie nazwy floty
+4. **RentalContractViewer.tsx** - responsywność
+5. **RentalContractSignatureFlow.tsx** - responsywność modalu
 
