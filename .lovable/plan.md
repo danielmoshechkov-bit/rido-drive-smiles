@@ -1,477 +1,398 @@
 
-# Plan Implementacji Modułu "AI Call Agent" (MVP)
+
+# Plan Naprawy - 5 Problemów UI/UX i Funkcjonalności
 
 ## PODSUMOWANIE WYKONAWCZE
 
-Moduł "AI Call Agent" to nowy, niezależny dodatek do platformy GetRido umożliwiający automatyczne oddzwanianie do leadów przy użyciu AI. Moduł wykorzysta istniejącą infrastrukturę (feature flags, role sales_admin/sales_rep, tabele ai_agent_*) i rozszerzy ją o nowe funkcjonalności whitelist, import leadów i kolejkę połączeń.
+Na podstawie analizy kodu zidentyfikowano 5 głównych problemów do naprawy:
 
-**WAŻNE**: Większość podstawowej infrastruktury AI Agenta już istnieje w projekcie:
-- Tabele: `ai_agent_configs`, `ai_agent_calls`, `ai_agent_calendar_slots`, `ai_agent_usage`
-- Feature flag: `ai_sales_agent_enabled`
-- Komponenty: `AIAgentDashboard`, `AIAgentConfigPanel`, `AIAgentVoiceSelector`, `AIAgentCallsLog`, `AIAgentCalendarPanel`, `AIAgentUsagePanel`
-- Hooki: `useAIAgentConfig`, `useAIAgentCalls`, `useAIAgentCalendar`, `useAIAgentQueue`, `useAIAgentAccess`
-
-Plan skupia się na **rozszerzeniu** istniejącej funkcjonalności, nie budowaniu od zera.
+1. **Ikony w tab kategoriach zbyt blisko tekstu** - w `UniversalSearchResults.tsx` brakuje odpowiedniego odstępu między ikonami a tekstem
+2. **Admin Portal niezgodny stylistycznie** - brak AccountSwitcherPanel i innych modułów (Marketplace, Mapy) w przełączniku
+3. **Konta testowe nie istnieją** - warsztat@test.pl i detaling@test.pl nie zostały utworzone jako konta auth.users
+4. **Nowi kierowcy z rozliczeń nie są rozpoznawani** - brak mechanizmu alertu i mapowania nowych kierowców Uber/Bolt/FreeNow
+5. **AI Call Agent - brakujące elementy** - profil firmy, skrypty rozmów, zgody prawne
 
 ---
 
-## FAZA 1: ROZSZERZENIE BAZY DANYCH
+## PROBLEM 1: IKONY W KATEGORIACH ZA BLISKO TEKSTU
 
-### 1.1 Nowe tabele - Whitelist i Access Control
+### Lokalizacja
+`src/pages/UniversalSearchResults.tsx` (linie 192-233)
 
-```sql
--- Whitelist firm po NIP
-CREATE TABLE public.ai_call_company_whitelist (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nip TEXT NOT NULL UNIQUE,
-  company_name TEXT,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'disabled')),
-  valid_from DATE,
-  valid_to DATE,
-  added_by UUID REFERENCES auth.users(id),
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Whitelist użytkowników po email
-CREATE TABLE public.ai_call_user_whitelist (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT NOT NULL UNIQUE,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
-  valid_from DATE,
-  valid_to DATE,
-  added_by UUID REFERENCES auth.users(id),
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Kolejka połączeń AI
-CREATE TABLE public.ai_call_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  config_id UUID REFERENCES public.ai_agent_configs(id) ON DELETE CASCADE NOT NULL,
-  lead_id UUID REFERENCES public.sales_leads(id) ON DELETE CASCADE NOT NULL,
-  priority INTEGER DEFAULT 5,
-  scheduled_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled')),
-  retry_count INTEGER DEFAULT 0,
-  max_retries INTEGER DEFAULT 3,
-  last_error TEXT,
-  processing_started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Rozszerzenie ai_agent_configs o język
-ALTER TABLE public.ai_agent_configs
-ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'pl',
-ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["manual"]'::jsonb,
-ADD COLUMN IF NOT EXISTS calling_hours_start TIME DEFAULT '09:00',
-ADD COLUMN IF NOT EXISTS calling_hours_end TIME DEFAULT '20:00';
+### Analiza
+W TabsTrigger używana jest klasa `gap-2` ale ikony i tekst są wyrenderowane bez spacji między nimi:
+```tsx
+<Car className="h-4 w-4" />
+Pojazdy
 ```
 
-### 1.2 Nowe feature flags
-
-```sql
-INSERT INTO public.feature_toggles (feature_key, feature_name, description, is_enabled, category)
-VALUES 
-  ('ai_call_enabled_global', 'AI Call - Global', 'Globalny przełącznik modułu AI Call', false, 'ai'),
-  ('ai_call_recording_enabled', 'AI Call - Nagrywanie', 'Nagrywanie rozmów AI (domyślnie OFF)', false, 'ai'),
-  ('ai_call_test_mode', 'AI Call - Tryb testowy', 'Tryb testowy dla kont demo', true, 'ai'),
-  ('ai_call_meta_enabled', 'AI Call - Meta Leads', 'Import leadów z Meta/Facebook', false, 'ai'),
-  ('ai_call_sheets_enabled', 'AI Call - Google Sheets', 'Import leadów z Google Sheets', false, 'ai'),
-  ('ai_call_telegram_enabled', 'AI Call - Telegram', 'Import leadów z Telegram', false, 'ai')
-ON CONFLICT (feature_key) DO NOTHING;
+### Rozwiązanie
+Dodać `gap-2` lub `gap-3` i upewnić się że elementy są w kontenerze flex:
+```tsx
+<TabsTrigger 
+  value="vehicles" 
+  className="px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 flex items-center gap-2 ..."
+>
+  <Car className="h-4 w-4" />
+  <span>Pojazdy</span>
+  ...
+</TabsTrigger>
 ```
 
-### 1.3 RLS Policies
-
-```sql
--- ai_call_company_whitelist - tylko sales_admin
-ALTER TABLE public.ai_call_company_whitelist ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Sales admins manage company whitelist" ON public.ai_call_company_whitelist
-  FOR ALL USING (public.is_sales_admin(auth.uid()));
-
--- ai_call_user_whitelist - tylko sales_admin
-ALTER TABLE public.ai_call_user_whitelist ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Sales admins manage user whitelist" ON public.ai_call_user_whitelist
-  FOR ALL USING (public.is_sales_admin(auth.uid()));
-
--- ai_call_queue - użytkownicy widzą swoje
-ALTER TABLE public.ai_call_queue ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users view own queue" ON public.ai_call_queue
-  FOR SELECT USING (
-    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
-  );
-CREATE POLICY "Users manage own queue" ON public.ai_call_queue
-  FOR ALL USING (
-    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
-  );
-CREATE POLICY "Sales admins view all queue" ON public.ai_call_queue
-  FOR SELECT USING (public.is_sales_admin(auth.uid()));
-```
+### Pliki do modyfikacji
+- `src/pages/UniversalSearchResults.tsx` (linie 192-233)
 
 ---
 
-## FAZA 2: PANEL ADMINA SPRZEDAŻY
+## PROBLEM 2: ADMIN PORTAL NIEZGODNY STYLISTYCZNIE
 
-### 2.1 Nowa zakładka w AdminSettingsView
+### Analiza
+1. **AdminPortal.tsx** nie ma `AccountSwitcherPanel` - nie można przełączyć się na inne konta
+2. **AdminPortalSwitcher** jest widoczny, ale brak jest opcji "Marketplace" i "Mapy" w standardowym menu kont
+3. Styl nagłówka różni się od innych dashboardów
 
-**Plik:** `src/components/AdminSettingsView.tsx`
+### Rozwiązanie
 
-Dodać nową zakładkę "AI Call Admin" widoczną tylko dla `sales_admin`:
-
+#### 2.1 Dodać AccountSwitcherPanel do AdminPortal.tsx
 ```tsx
-// W subTabs dodać:
-{ value: "ai-call-admin", label: "AI Call Admin", visible: true }
+// W AdminPortal.tsx dodać import i użycie:
+import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 
-// W render:
-{activeSubTab === "ai-call-admin" && <AICallAdminPanel />}
+// W render dodać sekcję "Twoje konta":
+<AccountSwitcherPanel
+  isDriverAccount={false}
+  isFleetAccount={isFleetAdmin}
+  isMarketplaceAccount={isMarketplaceAdmin}
+  isRealEstateAccount={isRealEstateAdmin}
+  isAdminAccount={true}
+  isSalesAdmin={isSalesAdmin}
+  isSalesRep={isSalesRep}
+  isMarketplaceEnabled={true}
+  currentAccountType="admin"
+  navigate={navigate}
+/>
 ```
 
-### 2.2 Nowy komponent: AICallAdminPanel
+#### 2.2 Dodać sprawdzanie ról dla innych modułów
+- Dodać stany: `isFleetAdmin`, `isMarketplaceAdmin`, `isSalesAdmin`, etc.
+- Pobrać role użytkownika z `user_roles`
 
-**Plik:** `src/components/admin/AICallAdminPanel.tsx`
-
-Zawartość:
-- **Globalny przełącznik** - toggle `ai_call_enabled_global`
-- **Whitelist firm** - tabela z dodawaniem po NIP (multi-add z textarea)
-- **Whitelist użytkowników** - tabela z dodawaniem po email
-- **Konfiguracja API** - placeholders dla:
-  - Telephony provider (Twilio/Plivo)
-  - STT provider (Deepgram/Google)
-  - TTS provider (ElevenLabs/Azure)
-  - LLM provider (OpenAI/Gemini)
-- **Globalne limity** - max minut/dzień, godziny dzwonienia
-
-```
-+--------------------------------------------------+
-|  AI Call Agent - Panel Admina                     |
-+--------------------------------------------------+
-|  [Switch] Włącz globalnie moduł AI Call          |
-+--------------------------------------------------+
-|  Whitelist Firm (po NIP)           [+ Dodaj NIP] |
-|  ┌────────────────────────────────────────────┐  |
-|  │ NIP          │ Firma       │ Status │ Akcje│  |
-|  │ 5223252793   │ Car4Ride    │ Active │ [X]  │  |
-|  └────────────────────────────────────────────┘  |
-|                                                   |
-|  Whitelist Użytkowników            [+ Dodaj]     |
-|  ┌────────────────────────────────────────────┐  |
-|  │ Email              │ Status  │ Akcje       │  |
-|  │ warsztat@test.pl   │ Active  │ [X]         │  |
-|  └────────────────────────────────────────────┘  |
-+--------------------------------------------------+
-```
-
-### 2.3 Nowy hook: useAICallAdmin
-
-**Plik:** `src/hooks/useAICallAdmin.ts`
-
-```tsx
-// CRUD dla ai_call_company_whitelist
-export function useAICallCompanyWhitelist() {...}
-export function useAddCompanyToWhitelist() {...}
-export function useRemoveCompanyFromWhitelist() {...}
-
-// CRUD dla ai_call_user_whitelist
-export function useAICallUserWhitelist() {...}
-export function useAddUserToWhitelist() {...}
-export function useRemoveUserFromWhitelist() {...}
-```
+### Pliki do modyfikacji
+- `src/pages/AdminPortal.tsx` (dodać AccountSwitcherPanel + pobieranie ról)
 
 ---
 
-## FAZA 3: ROZSZERZENIE PANELU FIRMY (AI Agent Dashboard)
+## PROBLEM 3: KONTA TESTOWE NIE ISTNIEJĄ
 
-### 3.1 Aktualizacja useAIAgentAccess
+### Analiza
+Query `SELECT * FROM auth.users WHERE email IN ('warsztat@test.pl', 'detaling@test.pl')` zwraca pustą listę. Konta są w whitelist AI Call, ale same konta auth.users nie istnieją.
 
-**Plik:** `src/hooks/useAIAgentAccess.ts`
+### Rozwiązanie
+Utworzyć konta przez Supabase Admin API lub edge function:
 
-Obecnie używa hardcoded whitelist - zmienić na query do tabel whitelist:
+#### 3.1 Nowa edge function: `create-test-accounts`
+```typescript
+// supabase/functions/create-test-accounts/index.ts
+// Utworzy:
+// - warsztat@test.pl (hasło: Test123!)
+// - detaling@test.pl (hasło: Test123!)
+// Z rolami: service_provider
+```
 
+#### 3.2 Struktura kont testowych
+- Dodać wpisy do `entities` dla firm testowych (np. "Warsztat Testowy", "Detaling Testowy")
+- Dodać role do `user_roles`: service_provider
+- Utworzyć `ai_agent_configs` z przykładowymi danymi
+
+### Pliki do utworzenia/modyfikacji
+- `supabase/functions/create-test-accounts/index.ts` (nowy)
+- Uruchomić ręcznie lub z Admin panelu
+
+---
+
+## PROBLEM 4: NOWI KIEROWCY Z ROZLICZEŃ NIE SĄ ROZPOZNAWANI
+
+### Analiza
+W `supabase/functions/settlements/index.ts` system automatycznie tworzy nowych kierowców gdy nie znajdzie dopasowania. Problem: użytkownik nie jest informowany o tym w UI i nie może ręcznie połączyć kierowców.
+
+Funkcja `findOrCreateDriver` (linie 565-578) automatycznie tworzy kierowcę, ale nie ma mechanizmu:
+1. Powiadomienia o nowych kierowcach
+2. Ręcznego mapowania Uber ID → Driver
+
+### Rozwiązanie
+
+#### 4.1 Rozszerzyć odpowiedź settlements o listę nowych kierowców
+W `settlements/index.ts` zwracać szczegóły nowych kierowców:
+```typescript
+return {
+  success: true,
+  settlement_id,
+  stats: {
+    processed: settlementsToInsert.length,
+    new_drivers: newDriversCount,
+    matched_drivers: matchedDriversCount,
+    unmapped_drivers: unmappedDriversList // NOWE - lista kierowców do zmapowania
+  }
+}
+```
+
+#### 4.2 Dodać modal "Nowi kierowcy" w FleetSettlementImport.tsx
 ```tsx
-export function useAIAgentAccess() {
-  return useQuery({
-    queryKey: ["ai-agent-access"],
-    queryFn: async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (!user) return { hasAccess: false, isGloballyEnabled: false };
+// Po imporcie, jeśli są nowi kierowcy, pokaż modal:
+interface UnmappedDriver {
+  id: string;
+  full_name: string;
+  uber_id?: string;
+  bolt_id?: string;
+  freenow_id?: string;
+  phone?: string;
+}
 
-      // Check global flag
-      const { data: globalFlag } = await supabase
-        .from("feature_toggles")
-        .select("is_enabled")
-        .eq("feature_key", "ai_call_enabled_global")
-        .single();
+// Modal z listą i możliwością połączenia:
+<Dialog open={showUnmappedModal}>
+  <DialogContent>
+    <DialogTitle>Nowi kierowcy w rozliczeniu</DialogTitle>
+    <p>System rozpoznał {unmappedDrivers.length} nowych kierowców...</p>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Nazwa</TableHead>
+          <TableHead>Uber ID</TableHead>
+          <TableHead>Bolt ID</TableHead>
+          <TableHead>FreeNow ID</TableHead>
+          <TableHead>Połącz z...</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {unmappedDrivers.map(driver => (
+          <TableRow>
+            <TableCell>{driver.full_name}</TableCell>
+            <TableCell>{driver.uber_id}</TableCell>
+            <TableCell>{driver.bolt_id}</TableCell>
+            <TableCell>{driver.freenow_id}</TableCell>
+            <TableCell>
+              <Select onValueChange={(id) => linkDriver(driver.id, id)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz kierowcę" />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingDrivers.map(d => (
+                    <SelectItem value={d.id}>{d.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </DialogContent>
+</Dialog>
+```
 
-      if (!globalFlag?.is_enabled) {
-        return { hasAccess: false, isGloballyEnabled: false };
-      }
-
-      // Check user whitelist
-      const { data: userWhitelist } = await supabase
-        .from("ai_call_user_whitelist")
-        .select("id")
-        .eq("email", user.email?.toLowerCase())
-        .eq("status", "active")
-        .maybeSingle();
-
-      if (userWhitelist) {
-        return { hasAccess: true, isGloballyEnabled: true };
-      }
-
-      // Check company whitelist (via user's entities/NIP)
-      // ... sprawdzenie po NIP firmy użytkownika
-
-      return { hasAccess: false, isGloballyEnabled: true };
-    },
+#### 4.3 Dodać endpoint do łączenia kierowców
+```typescript
+// Funkcja do łączenia platform_id z istniejącym kierowcą:
+async function linkPlatformId(driverId: string, platform: string, platformId: string) {
+  await supabase.from('driver_platform_ids').upsert({
+    driver_id: driverId,
+    platform,
+    platform_id: platformId
   });
 }
 ```
 
-### 3.2 Rozszerzenie AIAgentConfigPanel
-
-**Plik:** `src/components/sales/ai-agent/AIAgentConfigPanel.tsx`
-
-Dodać nowe sekcje:
-- **Język rozmowy** - select: PL/EN/RU/UA/DE/ES/AR
-- **Źródła leadów** - checkboxy: Meta/Sheets/Telegram/Manual
-- **Godziny połączeń** - time inputs start/end
-- **Pole "Link do strony"** + przycisk "Pobierz propozycję opisu z AI"
-
-### 3.3 Nowy komponent: AIAgentLeadInbox
-
-**Plik:** `src/components/sales/ai-agent/AIAgentLeadInbox.tsx`
-
-Lead Inbox dedykowany dla AI Call z:
-- Filtrami: źródło, status AI, data
-- Akcjami:
-  - "Zadzwoń teraz" (manual trigger)
-  - "Dodaj do kolejki"
-  - "Oznacz do ręcznej obsługi"
-- Statusy AI: `scheduled`, `in_progress`, `completed`, `failed`, `callback_requested`, `booking_made`
-
-```
-+--------------------------------------------------+
-|  Lead Inbox                    [+ Import] [Filtry]|
-+--------------------------------------------------+
-|  ┌────────────────────────────────────────────┐  |
-|  │ Firma        │ Tel      │ Źródło │ Status  │  |
-|  │ AutoSerwis   │ 500...   │ Meta   │ Pending │  |
-|  │              │          │        │[Zadzwoń]│  |
-|  └────────────────────────────────────────────┘  |
-+--------------------------------------------------+
-```
-
-### 3.4 Nowy komponent: AIAgentQueuePanel (rozszerzenie)
-
-**Plik:** `src/components/sales/ai-agent/AIAgentQueuePanel.tsx`
-
-Panel kolejki z:
-- Lista leadów w kolejce
-- Priorytetyzacja (drag & drop lub manual priority)
-- Akcje: Start, Pause, Cancel
-- Status procesingu
+### Pliki do modyfikacji
+- `supabase/functions/settlements/index.ts` (zwracać listę nowych kierowców)
+- `src/components/fleet/FleetSettlementImport.tsx` (dodać modal mapowania)
+- Opcjonalnie: `src/components/fleet/UnmappedDriversModal.tsx` (nowy komponent)
 
 ---
 
-## FAZA 4: IMPORT LEADÓW (MVP)
+## PROBLEM 5: AI CALL AGENT - BRAKUJĄCE ELEMENTY
 
-### 4.1 Meta Leads Webhook
+### Analiza stanu
+- ✅ Tabele whitelist istnieją (`ai_call_user_whitelist`, `ai_call_company_whitelist`)
+- ✅ Feature flags istnieją (`ai_call_enabled_global`, `ai_call_test_mode`, etc.)
+- ✅ Test mode jest włączony
+- ✅ Konta testowe są na whitelist
+- ❌ Global flag `ai_call_enabled_global` jest **FALSE**
+- ❌ Brak tabel: `ai_call_business_profiles`, `ai_call_scripts`, `ai_call_legal_consents`
+- ❌ Brak UI do profilu firmy i skryptów rozmów
+- ❌ Brak mechanizmu generowania skryptów przez AI
 
-**Plik:** `supabase/functions/ai-call-webhook-meta/index.ts`
+### Rozwiązanie
 
-Placeholder webhook dla Facebook Lead Ads:
-- Przyjmuje dane z Meta
-- Mapuje pola do `sales_leads`
-- Ustawia `source = 'meta'`
-- Dodaje do kolejki jeśli spełnia warunki
-
-### 4.2 Google Sheets Import
-
-**Plik:** `src/components/sales/ai-agent/AIAgentSheetsImport.tsx`
-
-Modal do importu CSV/Sheets:
-- Upload CSV lub link do Google Sheets
-- Mapowanie kolumn: phone, name, email, interest
-- Preview przed importem
-- Batch insert do `sales_leads` z `source = 'google_sheets'`
-
-### 4.3 Telegram Webhook
-
-**Plik:** `supabase/functions/ai-call-webhook-telegram/index.ts`
-
-Placeholder webhook dla Telegram bota:
-- Endpoint `/api/leads/telegram`
-- Parsuje wiadomość, wyciąga telefon i dane
-- Ustawia `source = 'telegram'`
-
----
-
-## FAZA 5: MECHANIZM DZWONIENIA (PLACEHOLDER)
-
-### 5.1 Edge Function: ai-call-worker
-
-**Plik:** `supabase/functions/ai-call-worker/index.ts`
-
-Worker do przetwarzania kolejki (placeholder):
-
-```typescript
-// Pobiera leady z kolejki status=pending
-// Sprawdza godziny pracy
-// Sprawdza limity użytkownika
-// Inicjuje połączenie (PLACEHOLDER - Twilio integration later)
-// Zapisuje wynik do ai_agent_calls
-// Aktualizuje status leada
-```
-
-### 5.2 Manual "Zadzwoń teraz"
-
-**Plik:** `src/components/sales/ai-agent/AICallNowButton.tsx`
-
-Przycisk do ręcznego wywołania połączenia AI:
-- Sprawdza czy API skonfigurowane
-- Tworzy wpis w `ai_call_queue` z priority=1
-- Wywołuje worker
-
----
-
-## FAZA 6: KONTA TESTOWE
-
-### 6.1 Seed data dla testowych firm
+#### 5.1 Nowe tabele bazy danych
 
 ```sql
--- Dodaj do whitelist
-INSERT INTO public.ai_call_user_whitelist (email, status, notes)
-VALUES 
-  ('warsztat@test.pl', 'active', 'Konto testowe MVP'),
-  ('detaling@test.pl', 'active', 'Konto testowe MVP'),
-  ('anastasiia.shapovalova1991@gmail.com', 'active', 'Tester'),
-  ('majewskitest@test.pl', 'active', 'Tester')
-ON CONFLICT (email) DO NOTHING;
-
--- Włącz test mode
-UPDATE public.feature_toggles 
-SET is_enabled = true 
-WHERE feature_key = 'ai_call_test_mode';
-```
-
----
-
-## FAZA 7: AUDIT LOG
-
-### 7.1 Tabela audit
-
-Rozszerzyć istniejący system logów lub stworzyć dedykowany:
-
-```sql
-CREATE TABLE public.ai_call_audit_log (
+-- Profil firmy do rozmów AI
+CREATE TABLE public.ai_call_business_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  action TEXT NOT NULL,
-  actor_user_id UUID REFERENCES auth.users(id),
-  target_type TEXT,
-  target_id UUID,
-  details JSONB,
+  config_id UUID REFERENCES public.ai_agent_configs(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  website_url TEXT,
+  business_description TEXT,
+  services_json JSONB DEFAULT '[]'::jsonb,
+  faq_json JSONB DEFAULT '[]'::jsonb,
+  rules_json JSONB DEFAULT '{}'::jsonb,
+  pricing_notes TEXT,
+  last_script_generation_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Skrypty rozmów AI
+CREATE TABLE public.ai_call_scripts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  config_id UUID REFERENCES public.ai_agent_configs(id) ON DELETE CASCADE NOT NULL,
+  language TEXT DEFAULT 'pl',
+  voice_id TEXT,
+  scenario_type TEXT DEFAULT 'lead_callback' 
+    CHECK (scenario_type IN ('lead_callback','booking','pricing','upsell','objections_price','objections_time','objections_think','followup_missed','followup_summary','premium')),
+  style TEXT DEFAULT 'friendly' CHECK (style IN ('concise','friendly','premium')),
+  status TEXT DEFAULT 'draft_ai' CHECK (status IN ('draft_ai','approved','archived')),
+  title TEXT,
+  content_json JSONB NOT NULL,
+  version INTEGER DEFAULT 1,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Zgody prawne AI Call
+CREATE TABLE public.ai_call_legal_consents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) NOT NULL,
+  config_id UUID REFERENCES public.ai_agent_configs(id) ON DELETE CASCADE,
+  consent_type TEXT NOT NULL CHECK (consent_type IN ('ai_call_processing','ai_call_contacting','ai_call_recording_optional')),
+  version TEXT NOT NULL,
+  accepted BOOLEAN DEFAULT false,
+  accepted_at TIMESTAMPTZ,
+  ip_address TEXT,
+  user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- RLS
+ALTER TABLE public.ai_call_business_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_call_scripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_call_legal_consents ENABLE ROW LEVEL SECURITY;
+
+-- Policies (uproszczone)
+CREATE POLICY "Users manage own profiles" ON public.ai_call_business_profiles
+  FOR ALL USING (
+    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Users manage own scripts" ON public.ai_call_scripts
+  FOR ALL USING (
+    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Users manage own consents" ON public.ai_call_legal_consents
+  FOR ALL USING (user_id = auth.uid());
 ```
 
-Logowane akcje:
-- `module_enabled/disabled`
-- `company_added/removed`
-- `user_added/removed`
-- `call_initiated`
-- `call_completed`
-- `booking_made`
+#### 5.2 Nowe komponenty UI
 
----
+**AIAgentBusinessProfile.tsx** - Panel profilu firmy:
+- Pole "Website URL"
+- Pole "Opis działalności" (textarea duże)
+- Dynamiczna lista usług (nazwa, cena od/do, czas)
+- Sekcja FAQ (pytania/odpowiedzi)
+- Sekcja "Czego nie obiecywać"
+- Przycisk "Zapisz i wygeneruj skrypty rozmów"
 
-## STRUKTURA PLIKÓW (NOWE)
+**AIAgentScriptsList.tsx** - Lista skryptów:
+- Tabela: tytuł, typ scenariusza, język, status, data
+- Podgląd skryptu (modal read-only)
+- Akcje: Zatwierdź, Archiwizuj, Odśwież
 
+**AIAgentLegalConsentsModal.tsx** - Modal zgód:
+- Checkbox: "Zgadzam się na przetwarzanie danych do AI Call"
+- Checkbox: "Zgadzam się na kontakt telefoniczny AI"
+- Opcjonalny checkbox: "Zgadzam się na nagrywanie rozmów"
+- Link do regulaminu
+- Przycisk "Akceptuję i włączam AI oddzwanianie"
+
+#### 5.3 Generowanie skryptów przez AI
+
+**Edge function: ai-generate-call-scripts**
+```typescript
+// supabase/functions/ai-generate-call-scripts/index.ts
+// Input: config_id, business_profile
+// Output: 10 skryptów rozmów zapisanych w ai_call_scripts
+
+const SCENARIO_TYPES = [
+  'lead_callback',
+  'booking', 
+  'pricing',
+  'upsell',
+  'objections_price',
+  'objections_time',
+  'objections_think',
+  'followup_missed',
+  'followup_summary',
+  'premium'
+];
+
+// Dla każdego typu wygeneruj skrypt na podstawie profilu firmy
+for (const type of SCENARIO_TYPES) {
+  const prompt = buildPromptForScenario(type, businessProfile);
+  const script = await generateScript(prompt);
+  await saveScript(configId, type, script);
+}
 ```
-src/
-├── components/
-│   ├── admin/
-│   │   ├── AICallAdminPanel.tsx          # Panel admina sprzedaży
-│   │   └── AICallWhitelistManager.tsx    # Manager whitelist
-│   └── sales/
-│       └── ai-agent/
-│           ├── AIAgentLeadInbox.tsx      # Lead inbox dla AI
-│           ├── AIAgentSheetsImport.tsx   # Import z Google Sheets
-│           ├── AICallNowButton.tsx       # Przycisk "Zadzwoń teraz"
-│           └── AIAgentLanguageSelector.tsx # Wybór języka
-├── hooks/
-│   ├── useAICallAdmin.ts                 # CRUD whitelist
-│   └── useAICallQueue.ts                 # Queue management
-│
-supabase/
-├── functions/
-│   ├── ai-call-webhook-meta/             # Webhook Meta
-│   ├── ai-call-webhook-telegram/         # Webhook Telegram
-│   └── ai-call-worker/                   # Worker kolejki
-└── migrations/
-    └── [timestamp]_ai_call_module.sql    # Wszystkie zmiany DB
-```
+
+#### 5.4 Rozszerzenie AIAgentDashboard.tsx
+
+Dodać nowe zakładki:
+- "Profil firmy" → `AIAgentBusinessProfile`
+- "Skrypty" → `AIAgentScriptsList`
+
+W zakładce "Konfiguracja":
+- Dodać przycisk "Włącz AI oddzwanianie" który otwiera modal zgód
+- Bez zaakceptowanych zgód blokować włączenie
+
+### Pliki do utworzenia/modyfikacji
+- `supabase/migrations/[timestamp]_ai_call_profiles_scripts.sql` (nowa migracja)
+- `src/components/sales/ai-agent/AIAgentBusinessProfile.tsx` (nowy)
+- `src/components/sales/ai-agent/AIAgentScriptsList.tsx` (nowy)
+- `src/components/sales/ai-agent/AIAgentLegalConsentsModal.tsx` (nowy)
+- `src/components/sales/ai-agent/AIAgentDashboard.tsx` (rozszerzyć)
+- `src/hooks/useAICallBusinessProfile.ts` (nowy)
+- `src/hooks/useAICallScripts.ts` (nowy)
+- `supabase/functions/ai-generate-call-scripts/index.ts` (nowy)
 
 ---
 
-## DEFINICJA "DONE" (CHECKLIST)
+## PODSUMOWANIE PLIKÓW DO MODYFIKACJI
 
-- [ ] Admin Sprzedaży ma panel "AI Call Admin" i może:
-  - [ ] Włączyć/wyłączyć globalnie moduł
-  - [ ] Dodać whitelistę maili
-  - [ ] Dodać whitelistę firm po NIP
-  - [ ] Zobaczyć placeholders dla API keys
-
-- [ ] Firma z dostępem widzi zakładkę "AI Agent" i może:
-  - [ ] Włączyć AI oddzwanianie
-  - [ ] Ustawić język, głos, godziny, limit prób
-  - [ ] Wypełnić profil firmy + pobrać propozycję z AI
-  - [ ] Zobaczyć Lead Inbox z filtrowaniem
-
-- [ ] Działa import leadów:
-  - [ ] CSV/Sheets import z mapowaniem
-  - [ ] Webhook Meta (placeholder)
-  - [ ] Webhook Telegram (placeholder)
-
-- [ ] Jest kolejka połączeń:
-  - [ ] Tabela `ai_call_queue`
-  - [ ] UI do zarządzania kolejką
-  - [ ] Przycisk "Zadzwoń teraz"
-  - [ ] Zapis wyników do `ai_agent_calls`
-
-- [ ] Konta testowe działają:
-  - [ ] warsztat@test.pl w whitelist
-  - [ ] detaling@test.pl w whitelist
-  - [ ] Widoczna zakładka AI Agent
-
-- [ ] Audit log zapisuje kluczowe akcje
+| Problem | Pliki | Typ zmiany |
+|---------|-------|------------|
+| 1. Ikony spacing | `src/pages/UniversalSearchResults.tsx` | Edycja (dodać gap/span) |
+| 2. Admin Portal | `src/pages/AdminPortal.tsx` | Edycja (dodać AccountSwitcher) |
+| 3. Konta testowe | `supabase/functions/create-test-accounts/index.ts` | Nowy |
+| 4. Nowi kierowcy | `settlements/index.ts`, `FleetSettlementImport.tsx` | Edycja + nowy modal |
+| 5. AI Call Profile | 6+ nowych plików + 1 migracja | Nowe |
 
 ---
 
-## SZACOWANY NAKŁAD PRACY
+## KOLEJNOŚĆ WDROŻENIA
 
-| Faza | Opis | Szacunek |
-|------|------|----------|
-| 1 | Rozszerzenie bazy danych | ~1h |
-| 2 | Panel admina sprzedaży | ~3h |
-| 3 | Rozszerzenie panelu firmy | ~4h |
-| 4 | Import leadów | ~3h |
-| 5 | Mechanizm dzwonienia (placeholder) | ~2h |
-| 6 | Konta testowe | ~0.5h |
-| 7 | Audit log | ~1h |
-| **SUMA** | | **~14.5h** |
+1. **Faza 1** - Szybkie poprawki UI (Problem 1, 2): ~2h
+2. **Faza 2** - Konta testowe (Problem 3): ~1h
+3. **Faza 3** - Mapowanie kierowców (Problem 4): ~4h
+4. **Faza 4** - AI Call rozszerzenia (Problem 5): ~8h
+
+**Łączny szacowany czas: ~15h**
 
 ---
 
-## UWAGI KOŃCOWE
+## UWAGI TECHNICZNE
 
-1. **Nie zmieniamy istniejących modułów** - tylko dodajemy nowe komponenty
-2. **Wykorzystujemy istniejącą infrastrukturę** - tabele `ai_agent_*`, hooki, komponenty
-3. **API integracje są placeholders** - na MVP przygotowujemy architekturę bez działających połączeń
-4. **Multi-tenant isolation** - każda firma widzi tylko swoje dane
-5. **Feature flags kontrolują wszystko** - gdy OFF, UI nie istnieje
+1. **NIE ZMIENIAMY** istniejących nazw tabel, ról ani modułów
+2. **WYKORZYSTUJEMY** istniejącą infrastrukturę (`ai_agent_configs`, `feature_toggles`, etc.)
+3. **ZACHOWUJEMY** izolację multi-tenant (RLS per config_id/user_id)
+4. **PRZED WŁĄCZENIEM** AI Call global flag upewnić się że test mode działa
+
