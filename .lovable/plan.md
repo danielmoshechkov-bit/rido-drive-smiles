@@ -1,324 +1,477 @@
 
+# Plan Implementacji Modułu "AI Call Agent" (MVP)
 
-# Plan Naprawy - 4 Problemy UI/UX
+## PODSUMOWANIE WYKONAWCZE
 
-## ANALIZA PROBLEMÓW
+Moduł "AI Call Agent" to nowy, niezależny dodatek do platformy GetRido umożliwiający automatyczne oddzwanianie do leadów przy użyciu AI. Moduł wykorzysta istniejącą infrastrukturę (feature flags, role sales_admin/sales_rep, tabele ai_agent_*) i rozszerzy ją o nowe funkcjonalności whitelist, import leadów i kolejkę połączeń.
 
-### 1. Zamiana kolejności: Najpierw taby, potem wyszukiwarka (foto 1)
-**Problem:** Wyszukiwarka jest przed przyciskami "Aktywne", "Do podpisu", "Zakończone". Użytkownik chce odwrotnie: taby najpierw, wyszukiwarka za nimi. Dodatkowo wyszukiwarka jest zbyt szeroka.
+**WAŻNE**: Większość podstawowej infrastruktury AI Agenta już istnieje w projekcie:
+- Tabele: `ai_agent_configs`, `ai_agent_calls`, `ai_agent_calendar_slots`, `ai_agent_usage`
+- Feature flag: `ai_sales_agent_enabled`
+- Komponenty: `AIAgentDashboard`, `AIAgentConfigPanel`, `AIAgentVoiceSelector`, `AIAgentCallsLog`, `AIAgentCalendarPanel`, `AIAgentUsagePanel`
+- Hooki: `useAIAgentConfig`, `useAIAgentCalls`, `useAIAgentCalendar`, `useAIAgentQueue`, `useAIAgentAccess`
 
-**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 245-270)
-
-**Rozwiązanie:**
-- Zamienić kolejność elementów w `flex`
-- Zmniejszyć szerokość wyszukiwarki: dodać `max-w-xs` lub `max-w-[200px]`
-
-```tsx
-<div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-  {/* Sub-tabs FIRST */}
-  <div className="flex gap-1 bg-muted rounded-lg p-1">
-    {subTabs.map(tab => (...))}
-  </div>
-  
-  {/* Search SECOND - smaller */}
-  <div className="relative max-w-[200px] sm:max-w-xs">
-    <Search className="..." />
-    <Input placeholder="Szukaj..." className="pl-10" />
-  </div>
-</div>
-```
+Plan skupia się na **rozszerzeniu** istniejącej funkcjonalności, nie budowaniu od zera.
 
 ---
 
-### 2. Ramka umowy nie dopasowana (foto 2 + foto 4)
-**Problem:** Dialog z umową ("Rental Edit Flow Dialog") jest za mały i nie mieści zawartości. Modal nie jest dobrze dopasowany do ekranu.
+## FAZA 1: ROZSZERZENIE BAZY DANYCH
 
-**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 400-422) i `RentalContractSignatureFlow.tsx`
-
-**Obecne:**
-```tsx
-<DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
-```
-
-**Rozwiązanie:**
-- Zmienić `max-w-3xl` na `max-w-4xl` lub `max-w-5xl`
-- Zwiększyć `max-h-[85vh]` na `max-h-[90vh]`
-- Dodać responsywną szerokość: `w-[95vw] sm:w-auto`
-
----
-
-### 3. Układ podpisów i sekcji umowy (foto 3 + PDF wzór)
-**Problem:**
-- Podpisy są jeden pod drugim zamiast obok siebie
-- §12 i inne sekcje są wyrównane do lewej zamiast wyśrodkowane
-- Wzór PDF pokazuje: NAJPIERW Wynajmujący na górze, Najemca na dole
-- Brak opcji pieczątki floty
-
-**Plik:** `src/utils/rentalContractGenerator.ts`
-
-**Obecny układ podpisów (linie 359-388):**
-```tsx
-<div class="signatures">
-  <div class="signature">Najemca</div>
-  <div class="signature">Wynajmujący</div>
-</div>
-```
-
-**Docelowy układ (wg PDF):**
-```
-Wynajmujący (na górze)
-[pieczątka] [podpis]
-
-Najemca (poniżej)
-[podpis]
-```
-
-**Zmiany w CSS:**
-- Sekcje `section-title` wyrównać do środka: `text-align: center`
-- Zmienić układ podpisów z `flex` obok siebie na PIONOWY układ jak w PDF
-- Dodać miejsce na pieczątkę floty (opcjonalne)
-
-**Dodać pieczątki w `FleetContractSettings.tsx`:**
-- Nowa sekcja "Pieczątka floty" pod "Podpis floty"
-- Upload obrazka pieczątki do tabeli `fleet_signatures` (nowa kolumna `stamp_url`)
-- Wyświetlać pieczątki na umowie obok podpisu
-
----
-
-### 4. Akcje w tabeli - więcej opcji (foto 5)
-**Problem:** Obecnie tylko ikona oka (Eye). Potrzebne są:
-- Podgląd
-- Wydrukuj
-- Zakończ
-- Pobierz PDF
-- Wyślij do klienta
-
-**Plik:** `src/components/fleet/FleetRentalsTab.tsx` (linie 359-386)
-
-**Rozwiązanie:**
-Zastąpić pojedynczy przycisk dropdown menu z akcjami:
-
-```tsx
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <Button size="sm" variant="ghost">
-      <MoreHorizontal className="h-4 w-4" />
-    </Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align="end">
-    <DropdownMenuItem onClick={() => openContractPreview(rental)}>
-      <Eye className="h-4 w-4 mr-2" /> Podgląd
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => printContract(rental)}>
-      <Printer className="h-4 w-4 mr-2" /> Wydrukuj
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => downloadContract(rental)}>
-      <Download className="h-4 w-4 mr-2" /> Pobierz PDF
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => sendToClient(rental)}>
-      <Send className="h-4 w-4 mr-2" /> Wyślij do klienta
-    </DropdownMenuItem>
-    <DropdownMenuSeparator />
-    <DropdownMenuItem 
-      onClick={() => endContract(rental)}
-      className="text-destructive"
-    >
-      <XCircle className="h-4 w-4 mr-2" /> Zakończ umowę
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
-```
-
----
-
-## PLIKI DO MODYFIKACJI
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/fleet/FleetRentalsTab.tsx` | 1) Zamiana kolejności: taby przed szukajką, 2) Mniejsza szukajka, 3) Większy dialog, 4) Dropdown z akcjami |
-| `src/utils/rentalContractGenerator.ts` | 1) Sekcje wyśrodkowane, 2) Podpisy pionowo (Wynajmujący góra, Najemca dół), 3) Miejsce na pieczątkę |
-| `src/components/fleet/FleetContractSettings.tsx` | Dodać upload pieczątki floty |
-| `supabase/migrations/NEW.sql` | Dodać kolumnę `stamp_url` do `fleet_signatures` |
-
----
-
-## SZCZEGÓŁY TECHNICZNE
-
-### FleetRentalsTab.tsx - zmiana kolejności i rozmiar szukajki
-
-**Linie 245-270:**
-```tsx
-<div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-  {/* Sub-tabs FIRST */}
-  <div className="flex gap-1 bg-muted rounded-lg p-1 shrink-0">
-    {subTabs.map(tab => (
-      <Button
-        key={tab.value}
-        size="sm"
-        variant={activeSubTab === tab.value ? "default" : "ghost"}
-        onClick={() => setActiveSubTab(tab.value as SubTab)}
-        className="text-xs sm:text-sm whitespace-nowrap"
-      >
-        {tab.label}
-      </Button>
-    ))}
-  </div>
-  
-  {/* Search SECOND - smaller width */}
-  <div className="relative w-full sm:max-w-[200px]">
-    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-    <Input
-      placeholder="Szukaj..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      className="pl-10"
-    />
-  </div>
-</div>
-```
-
-### FleetRentalsTab.tsx - większy dialog
-
-**Linia 405:**
-```tsx
-// PRZED:
-<DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-4 md:p-6">
-
-// PO:
-<DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
-```
-
-### FleetRentalsTab.tsx - dropdown z akcjami
-
-Dodać importy:
-```tsx
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Printer, XCircle } from "lucide-react";
-```
-
-Zmienić linie 359-386 (akcje w TableCell) na dropdown.
-
-### rentalContractGenerator.ts - sekcje wyśrodkowane + nowy układ podpisów
-
-**CSS (linie 110-115):**
-```css
-.section-title { 
-  font-size: 12pt; 
-  font-weight: bold; 
-  margin-bottom: 10px;
-  text-decoration: underline;
-  text-align: center;  /* DODANE - wyśrodkowanie */
-}
-```
-
-**Podpisy (linie 359-388) - nowy układ pionowy:**
-```html
-<!-- LESSOR/LANDLORD FIRST (Wynajmujący) -->
-<div class="signature-block" style="margin-bottom: 40px; text-align: center;">
-  <div style="display: flex; justify-content: center; gap: 40px; align-items: flex-end;">
-    ${data.fleetStampUrl ? `
-      <div style="text-align: center;">
-        <img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px;" alt="Pieczątka" />
-        <div style="font-size: 9pt; margin-top: 5px;">Pieczątka</div>
-      </div>
-    ` : ''}
-    <div style="text-align: center;">
-      ${data.fleetSignatureUrl 
-        ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
-        : '<div style="height: 60px;"></div>'
-      }
-      <div class="signature-line">
-        Podpis Wynajmującego<br>
-        ${data.fleetName}
-      </div>
-      ${data.fleetSignedAt 
-        ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
-        : ''
-      }
-    </div>
-  </div>
-</div>
-
-<!-- TENANT SECOND (Najemca) -->
-<div class="signature-block" style="text-align: center;">
-  ${data.driverSignatureUrl 
-    ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
-    : '<div style="height: 60px;"></div>'
-  }
-  <div class="signature-line">
-    Podpis Najemcy<br>
-    ${data.driverFirstName} ${data.driverLastName}
-  </div>
-  ${data.driverSignedAt 
-    ? `<div class="signature-date">Podpisano: ${format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm")}</div>`
-    : ''
-  }
-</div>
-```
-
-### ContractData interface - dodać pole dla pieczątki
-
-```tsx
-export interface ContractData {
-  // ... existing fields ...
-  fleetStampUrl?: string;  // NOWE POLE
-}
-```
-
-### FleetContractSettings.tsx - dodać upload pieczątki
-
-Dodać drugą kartę pod kartą podpisu:
-```tsx
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <Stamp className="h-5 w-5" />
-      Pieczątka floty
-    </CardTitle>
-    <CardDescription>
-      Opcjonalna pieczątka wyświetlana na umowach obok podpisu
-    </CardDescription>
-  </CardHeader>
-  <CardContent>
-    {/* Upload / Preview podobny do podpisu */}
-  </CardContent>
-</Card>
-```
-
-### Migracja SQL
+### 1.1 Nowe tabele - Whitelist i Access Control
 
 ```sql
--- Add stamp_url column to fleet_signatures
-ALTER TABLE fleet_signatures ADD COLUMN IF NOT EXISTS stamp_url TEXT;
+-- Whitelist firm po NIP
+CREATE TABLE public.ai_call_company_whitelist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nip TEXT NOT NULL UNIQUE,
+  company_name TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'disabled')),
+  valid_from DATE,
+  valid_to DATE,
+  added_by UUID REFERENCES auth.users(id),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Whitelist użytkowników po email
+CREATE TABLE public.ai_call_user_whitelist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
+  valid_from DATE,
+  valid_to DATE,
+  added_by UUID REFERENCES auth.users(id),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Kolejka połączeń AI
+CREATE TABLE public.ai_call_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  config_id UUID REFERENCES public.ai_agent_configs(id) ON DELETE CASCADE NOT NULL,
+  lead_id UUID REFERENCES public.sales_leads(id) ON DELETE CASCADE NOT NULL,
+  priority INTEGER DEFAULT 5,
+  scheduled_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled')),
+  retry_count INTEGER DEFAULT 0,
+  max_retries INTEGER DEFAULT 3,
+  last_error TEXT,
+  processing_started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Rozszerzenie ai_agent_configs o język
+ALTER TABLE public.ai_agent_configs
+ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'pl',
+ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["manual"]'::jsonb,
+ADD COLUMN IF NOT EXISTS calling_hours_start TIME DEFAULT '09:00',
+ADD COLUMN IF NOT EXISTS calling_hours_end TIME DEFAULT '20:00';
+```
+
+### 1.2 Nowe feature flags
+
+```sql
+INSERT INTO public.feature_toggles (feature_key, feature_name, description, is_enabled, category)
+VALUES 
+  ('ai_call_enabled_global', 'AI Call - Global', 'Globalny przełącznik modułu AI Call', false, 'ai'),
+  ('ai_call_recording_enabled', 'AI Call - Nagrywanie', 'Nagrywanie rozmów AI (domyślnie OFF)', false, 'ai'),
+  ('ai_call_test_mode', 'AI Call - Tryb testowy', 'Tryb testowy dla kont demo', true, 'ai'),
+  ('ai_call_meta_enabled', 'AI Call - Meta Leads', 'Import leadów z Meta/Facebook', false, 'ai'),
+  ('ai_call_sheets_enabled', 'AI Call - Google Sheets', 'Import leadów z Google Sheets', false, 'ai'),
+  ('ai_call_telegram_enabled', 'AI Call - Telegram', 'Import leadów z Telegram', false, 'ai')
+ON CONFLICT (feature_key) DO NOTHING;
+```
+
+### 1.3 RLS Policies
+
+```sql
+-- ai_call_company_whitelist - tylko sales_admin
+ALTER TABLE public.ai_call_company_whitelist ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Sales admins manage company whitelist" ON public.ai_call_company_whitelist
+  FOR ALL USING (public.is_sales_admin(auth.uid()));
+
+-- ai_call_user_whitelist - tylko sales_admin
+ALTER TABLE public.ai_call_user_whitelist ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Sales admins manage user whitelist" ON public.ai_call_user_whitelist
+  FOR ALL USING (public.is_sales_admin(auth.uid()));
+
+-- ai_call_queue - użytkownicy widzą swoje
+ALTER TABLE public.ai_call_queue ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view own queue" ON public.ai_call_queue
+  FOR SELECT USING (
+    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
+  );
+CREATE POLICY "Users manage own queue" ON public.ai_call_queue
+  FOR ALL USING (
+    config_id IN (SELECT id FROM public.ai_agent_configs WHERE user_id = auth.uid())
+  );
+CREATE POLICY "Sales admins view all queue" ON public.ai_call_queue
+  FOR SELECT USING (public.is_sales_admin(auth.uid()));
 ```
 
 ---
 
-## KOLEJNOŚĆ WDROŻENIA
+## FAZA 2: PANEL ADMINA SPRZEDAŻY
 
-1. **SQL Migration** - dodać kolumnę `stamp_url`
-2. **FleetRentalsTab.tsx** - zamiana kolejności taby/szukajka + rozmiar + dialog + dropdown akcje
-3. **rentalContractGenerator.ts** - wyśrodkowanie sekcji + nowy układ podpisów z miejscem na pieczątkę
-4. **FleetContractSettings.tsx** - dodać upload pieczątki
-5. **RentalContractSignatureFlow.tsx** - przekazać `fleetStampUrl` do generatora
+### 2.1 Nowa zakładka w AdminSettingsView
+
+**Plik:** `src/components/AdminSettingsView.tsx`
+
+Dodać nową zakładkę "AI Call Admin" widoczną tylko dla `sales_admin`:
+
+```tsx
+// W subTabs dodać:
+{ value: "ai-call-admin", label: "AI Call Admin", visible: true }
+
+// W render:
+{activeSubTab === "ai-call-admin" && <AICallAdminPanel />}
+```
+
+### 2.2 Nowy komponent: AICallAdminPanel
+
+**Plik:** `src/components/admin/AICallAdminPanel.tsx`
+
+Zawartość:
+- **Globalny przełącznik** - toggle `ai_call_enabled_global`
+- **Whitelist firm** - tabela z dodawaniem po NIP (multi-add z textarea)
+- **Whitelist użytkowników** - tabela z dodawaniem po email
+- **Konfiguracja API** - placeholders dla:
+  - Telephony provider (Twilio/Plivo)
+  - STT provider (Deepgram/Google)
+  - TTS provider (ElevenLabs/Azure)
+  - LLM provider (OpenAI/Gemini)
+- **Globalne limity** - max minut/dzień, godziny dzwonienia
+
+```
++--------------------------------------------------+
+|  AI Call Agent - Panel Admina                     |
++--------------------------------------------------+
+|  [Switch] Włącz globalnie moduł AI Call          |
++--------------------------------------------------+
+|  Whitelist Firm (po NIP)           [+ Dodaj NIP] |
+|  ┌────────────────────────────────────────────┐  |
+|  │ NIP          │ Firma       │ Status │ Akcje│  |
+|  │ 5223252793   │ Car4Ride    │ Active │ [X]  │  |
+|  └────────────────────────────────────────────┘  |
+|                                                   |
+|  Whitelist Użytkowników            [+ Dodaj]     |
+|  ┌────────────────────────────────────────────┐  |
+|  │ Email              │ Status  │ Akcje       │  |
+|  │ warsztat@test.pl   │ Active  │ [X]         │  |
+|  └────────────────────────────────────────────┘  |
++--------------------------------------------------+
+```
+
+### 2.3 Nowy hook: useAICallAdmin
+
+**Plik:** `src/hooks/useAICallAdmin.ts`
+
+```tsx
+// CRUD dla ai_call_company_whitelist
+export function useAICallCompanyWhitelist() {...}
+export function useAddCompanyToWhitelist() {...}
+export function useRemoveCompanyFromWhitelist() {...}
+
+// CRUD dla ai_call_user_whitelist
+export function useAICallUserWhitelist() {...}
+export function useAddUserToWhitelist() {...}
+export function useRemoveUserFromWhitelist() {...}
+```
 
 ---
 
-## PODSUMOWANIE
+## FAZA 3: ROZSZERZENIE PANELU FIRMY (AI Agent Dashboard)
 
-| Problem | Rozwiązanie |
-|---------|-------------|
-| Kolejność: szukajka przed tabami | Zamienić miejscami w JSX |
-| Szukajka za duża | Dodać `max-w-[200px]` |
-| Dialog nie dopasowany | Zwiększyć do `max-w-5xl`, `w-[95vw]` |
-| Podpisy nie obok siebie | Zmienić na układ pionowy: Wynajmujący góra, Najemca dół |
-| Sekcje nie wyśrodkowane | Dodać `text-align: center` do `.section-title` |
-| Brak pieczątki | Dodać upload w ustawieniach + pole w generatorze |
-| Tylko jedna akcja w tabeli | Dropdown z: Podgląd, Wydrukuj, Pobierz, Wyślij, Zakończ |
+### 3.1 Aktualizacja useAIAgentAccess
 
+**Plik:** `src/hooks/useAIAgentAccess.ts`
+
+Obecnie używa hardcoded whitelist - zmienić na query do tabel whitelist:
+
+```tsx
+export function useAIAgentAccess() {
+  return useQuery({
+    queryKey: ["ai-agent-access"],
+    queryFn: async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (!user) return { hasAccess: false, isGloballyEnabled: false };
+
+      // Check global flag
+      const { data: globalFlag } = await supabase
+        .from("feature_toggles")
+        .select("is_enabled")
+        .eq("feature_key", "ai_call_enabled_global")
+        .single();
+
+      if (!globalFlag?.is_enabled) {
+        return { hasAccess: false, isGloballyEnabled: false };
+      }
+
+      // Check user whitelist
+      const { data: userWhitelist } = await supabase
+        .from("ai_call_user_whitelist")
+        .select("id")
+        .eq("email", user.email?.toLowerCase())
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (userWhitelist) {
+        return { hasAccess: true, isGloballyEnabled: true };
+      }
+
+      // Check company whitelist (via user's entities/NIP)
+      // ... sprawdzenie po NIP firmy użytkownika
+
+      return { hasAccess: false, isGloballyEnabled: true };
+    },
+  });
+}
+```
+
+### 3.2 Rozszerzenie AIAgentConfigPanel
+
+**Plik:** `src/components/sales/ai-agent/AIAgentConfigPanel.tsx`
+
+Dodać nowe sekcje:
+- **Język rozmowy** - select: PL/EN/RU/UA/DE/ES/AR
+- **Źródła leadów** - checkboxy: Meta/Sheets/Telegram/Manual
+- **Godziny połączeń** - time inputs start/end
+- **Pole "Link do strony"** + przycisk "Pobierz propozycję opisu z AI"
+
+### 3.3 Nowy komponent: AIAgentLeadInbox
+
+**Plik:** `src/components/sales/ai-agent/AIAgentLeadInbox.tsx`
+
+Lead Inbox dedykowany dla AI Call z:
+- Filtrami: źródło, status AI, data
+- Akcjami:
+  - "Zadzwoń teraz" (manual trigger)
+  - "Dodaj do kolejki"
+  - "Oznacz do ręcznej obsługi"
+- Statusy AI: `scheduled`, `in_progress`, `completed`, `failed`, `callback_requested`, `booking_made`
+
+```
++--------------------------------------------------+
+|  Lead Inbox                    [+ Import] [Filtry]|
++--------------------------------------------------+
+|  ┌────────────────────────────────────────────┐  |
+|  │ Firma        │ Tel      │ Źródło │ Status  │  |
+|  │ AutoSerwis   │ 500...   │ Meta   │ Pending │  |
+|  │              │          │        │[Zadzwoń]│  |
+|  └────────────────────────────────────────────┘  |
++--------------------------------------------------+
+```
+
+### 3.4 Nowy komponent: AIAgentQueuePanel (rozszerzenie)
+
+**Plik:** `src/components/sales/ai-agent/AIAgentQueuePanel.tsx`
+
+Panel kolejki z:
+- Lista leadów w kolejce
+- Priorytetyzacja (drag & drop lub manual priority)
+- Akcje: Start, Pause, Cancel
+- Status procesingu
+
+---
+
+## FAZA 4: IMPORT LEADÓW (MVP)
+
+### 4.1 Meta Leads Webhook
+
+**Plik:** `supabase/functions/ai-call-webhook-meta/index.ts`
+
+Placeholder webhook dla Facebook Lead Ads:
+- Przyjmuje dane z Meta
+- Mapuje pola do `sales_leads`
+- Ustawia `source = 'meta'`
+- Dodaje do kolejki jeśli spełnia warunki
+
+### 4.2 Google Sheets Import
+
+**Plik:** `src/components/sales/ai-agent/AIAgentSheetsImport.tsx`
+
+Modal do importu CSV/Sheets:
+- Upload CSV lub link do Google Sheets
+- Mapowanie kolumn: phone, name, email, interest
+- Preview przed importem
+- Batch insert do `sales_leads` z `source = 'google_sheets'`
+
+### 4.3 Telegram Webhook
+
+**Plik:** `supabase/functions/ai-call-webhook-telegram/index.ts`
+
+Placeholder webhook dla Telegram bota:
+- Endpoint `/api/leads/telegram`
+- Parsuje wiadomość, wyciąga telefon i dane
+- Ustawia `source = 'telegram'`
+
+---
+
+## FAZA 5: MECHANIZM DZWONIENIA (PLACEHOLDER)
+
+### 5.1 Edge Function: ai-call-worker
+
+**Plik:** `supabase/functions/ai-call-worker/index.ts`
+
+Worker do przetwarzania kolejki (placeholder):
+
+```typescript
+// Pobiera leady z kolejki status=pending
+// Sprawdza godziny pracy
+// Sprawdza limity użytkownika
+// Inicjuje połączenie (PLACEHOLDER - Twilio integration later)
+// Zapisuje wynik do ai_agent_calls
+// Aktualizuje status leada
+```
+
+### 5.2 Manual "Zadzwoń teraz"
+
+**Plik:** `src/components/sales/ai-agent/AICallNowButton.tsx`
+
+Przycisk do ręcznego wywołania połączenia AI:
+- Sprawdza czy API skonfigurowane
+- Tworzy wpis w `ai_call_queue` z priority=1
+- Wywołuje worker
+
+---
+
+## FAZA 6: KONTA TESTOWE
+
+### 6.1 Seed data dla testowych firm
+
+```sql
+-- Dodaj do whitelist
+INSERT INTO public.ai_call_user_whitelist (email, status, notes)
+VALUES 
+  ('warsztat@test.pl', 'active', 'Konto testowe MVP'),
+  ('detaling@test.pl', 'active', 'Konto testowe MVP'),
+  ('anastasiia.shapovalova1991@gmail.com', 'active', 'Tester'),
+  ('majewskitest@test.pl', 'active', 'Tester')
+ON CONFLICT (email) DO NOTHING;
+
+-- Włącz test mode
+UPDATE public.feature_toggles 
+SET is_enabled = true 
+WHERE feature_key = 'ai_call_test_mode';
+```
+
+---
+
+## FAZA 7: AUDIT LOG
+
+### 7.1 Tabela audit
+
+Rozszerzyć istniejący system logów lub stworzyć dedykowany:
+
+```sql
+CREATE TABLE public.ai_call_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action TEXT NOT NULL,
+  actor_user_id UUID REFERENCES auth.users(id),
+  target_type TEXT,
+  target_id UUID,
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+Logowane akcje:
+- `module_enabled/disabled`
+- `company_added/removed`
+- `user_added/removed`
+- `call_initiated`
+- `call_completed`
+- `booking_made`
+
+---
+
+## STRUKTURA PLIKÓW (NOWE)
+
+```
+src/
+├── components/
+│   ├── admin/
+│   │   ├── AICallAdminPanel.tsx          # Panel admina sprzedaży
+│   │   └── AICallWhitelistManager.tsx    # Manager whitelist
+│   └── sales/
+│       └── ai-agent/
+│           ├── AIAgentLeadInbox.tsx      # Lead inbox dla AI
+│           ├── AIAgentSheetsImport.tsx   # Import z Google Sheets
+│           ├── AICallNowButton.tsx       # Przycisk "Zadzwoń teraz"
+│           └── AIAgentLanguageSelector.tsx # Wybór języka
+├── hooks/
+│   ├── useAICallAdmin.ts                 # CRUD whitelist
+│   └── useAICallQueue.ts                 # Queue management
+│
+supabase/
+├── functions/
+│   ├── ai-call-webhook-meta/             # Webhook Meta
+│   ├── ai-call-webhook-telegram/         # Webhook Telegram
+│   └── ai-call-worker/                   # Worker kolejki
+└── migrations/
+    └── [timestamp]_ai_call_module.sql    # Wszystkie zmiany DB
+```
+
+---
+
+## DEFINICJA "DONE" (CHECKLIST)
+
+- [ ] Admin Sprzedaży ma panel "AI Call Admin" i może:
+  - [ ] Włączyć/wyłączyć globalnie moduł
+  - [ ] Dodać whitelistę maili
+  - [ ] Dodać whitelistę firm po NIP
+  - [ ] Zobaczyć placeholders dla API keys
+
+- [ ] Firma z dostępem widzi zakładkę "AI Agent" i może:
+  - [ ] Włączyć AI oddzwanianie
+  - [ ] Ustawić język, głos, godziny, limit prób
+  - [ ] Wypełnić profil firmy + pobrać propozycję z AI
+  - [ ] Zobaczyć Lead Inbox z filtrowaniem
+
+- [ ] Działa import leadów:
+  - [ ] CSV/Sheets import z mapowaniem
+  - [ ] Webhook Meta (placeholder)
+  - [ ] Webhook Telegram (placeholder)
+
+- [ ] Jest kolejka połączeń:
+  - [ ] Tabela `ai_call_queue`
+  - [ ] UI do zarządzania kolejką
+  - [ ] Przycisk "Zadzwoń teraz"
+  - [ ] Zapis wyników do `ai_agent_calls`
+
+- [ ] Konta testowe działają:
+  - [ ] warsztat@test.pl w whitelist
+  - [ ] detaling@test.pl w whitelist
+  - [ ] Widoczna zakładka AI Agent
+
+- [ ] Audit log zapisuje kluczowe akcje
+
+---
+
+## SZACOWANY NAKŁAD PRACY
+
+| Faza | Opis | Szacunek |
+|------|------|----------|
+| 1 | Rozszerzenie bazy danych | ~1h |
+| 2 | Panel admina sprzedaży | ~3h |
+| 3 | Rozszerzenie panelu firmy | ~4h |
+| 4 | Import leadów | ~3h |
+| 5 | Mechanizm dzwonienia (placeholder) | ~2h |
+| 6 | Konta testowe | ~0.5h |
+| 7 | Audit log | ~1h |
+| **SUMA** | | **~14.5h** |
+
+---
+
+## UWAGI KOŃCOWE
+
+1. **Nie zmieniamy istniejących modułów** - tylko dodajemy nowe komponenty
+2. **Wykorzystujemy istniejącą infrastrukturę** - tabele `ai_agent_*`, hooki, komponenty
+3. **API integracje są placeholders** - na MVP przygotowujemy architekturę bez działających połączeń
+4. **Multi-tenant isolation** - każda firma widzi tylko swoje dane
+5. **Feature flags kontrolują wszystko** - gdy OFF, UI nie istnieje
