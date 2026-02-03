@@ -1,157 +1,58 @@
 
 # Plan Kontynuacji Wdrożenia - 5 Problemów
 
-## PODSUMOWANIE STANU
+## ✅ WSZYSTKO UKOŃCZONE!
 
-### ✅ Ukończone:
+### ✅ Ukończone w poprzedniej sesji:
 1. **Ikony spacing** - TabsTrigger w `UniversalSearchResults.tsx` - naprawione
 2. **AdminPortal** - AccountSwitcherPanel dodany, role pobierane
-3. **Tabele bazy danych** - wszystkie istnieją:
-   - `ai_call_business_profiles` ✅
-   - `ai_call_scripts` ✅
-   - `ai_call_legal_consents` ✅
-   - `driver_platform_ids` ✅
-   - `unmapped_settlement_drivers` ✅
-4. **Feature flags** - `ai_call_enabled_global` = TRUE ✅
-5. **Komponenty UI** - Utworzone:
-   - `AIAgentBusinessProfile.tsx` ✅
-   - `AIAgentScriptsList.tsx` ✅
-   - `AIAgentLegalConsentsModal.tsx` ✅
-   - `UnmappedDriversModal.tsx` ✅
-6. **Edge functions** - Utworzone:
-   - `ai-generate-call-scripts` ✅
-   - `create-test-accounts` ✅
-7. **AIAgentDashboard.tsx** - Zakładki "Profil" i "Skrypty" dodane ✅
+3. **Tabele bazy danych** - wszystkie istnieją
+4. **Feature flags** - `ai_call_enabled_global` = TRUE
+5. **Komponenty UI** - AIAgentBusinessProfile, AIAgentScriptsList, AIAgentLegalConsentsModal, UnmappedDriversModal
+6. **Edge functions** - ai-generate-call-scripts, create-test-accounts
+7. **AIAgentDashboard.tsx** - Zakładki "Profil" i "Skrypty" dodane
 
-### ❌ Do dokończenia:
+### ✅ Ukończone teraz:
 
-## 1. Utworzenie kont testowych (warsztat@test.pl, detaling@test.pl)
+## 1. Konta testowe UTWORZONE ✅
+- warsztat@test.pl (userId: fcba3af4-d18d-44ff-b2c8-5b528d9fa614)
+- detaling@test.pl (userId: f058388d-bb0e-4a8d-9124-347c82eba9b3)
+- Hasło: Test123!
+- Role: service_provider
+- AI Agent configs utworzone
 
-**Problem:** Konta nie istnieją w `auth.users`
-**Rozwiązanie:** Zdeprojować i wywołać edge function `create-test-accounts`
+## 2. UnmappedDriversModal zintegrowany z FleetSettlementImport.tsx ✅
+- Dodany import i stan (unmappedDrivers, showUnmappedModal)
+- Modal wyświetla się po imporcie gdy są nowi kierowcy
+- Możliwość mapowania platform IDs do istniejących kierowców
 
-```typescript
-// Wywołanie:
-await supabase.functions.invoke('create-test-accounts', {});
-```
+## 3. Settlements edge function rozszerzony ✅
+- Zwraca `unmapped_drivers` lista w stats
+- Zapisuje nowych kierowców do tabeli `unmapped_settlement_drivers`
+- Wszystkie 3 parsery (Uber, Bolt, FreeNow) i RIDO template zaktualizowane
+- Funkcja `findOrCreateDriver` zwraca teraz `{ driverId, isNew }`
 
-## 2. Integracja UnmappedDriversModal z FleetSettlementImport.tsx
-
-**Problem:** Modal istnieje ale nie jest używany w `FleetSettlementImport.tsx`
-
-**Zmiany w `src/components/fleet/FleetSettlementImport.tsx`:**
-
-```tsx
-// Dodać importy:
-import { UnmappedDriversModal } from "./UnmappedDriversModal";
-
-// Dodać stan:
-const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
-const [showUnmappedModal, setShowUnmappedModal] = useState(false);
-
-// Po udanym imporcie (linia ~192), dodać sprawdzenie:
-if (data.stats?.unmapped_drivers?.length > 0) {
-  setUnmappedDrivers(data.stats.unmapped_drivers);
-  setShowUnmappedModal(true);
-}
-
-// Dodać modal w JSX:
-<UnmappedDriversModal
-  open={showUnmappedModal}
-  onOpenChange={setShowUnmappedModal}
-  unmappedDrivers={unmappedDrivers}
-  fleetId={fleetId}
-  onComplete={() => {
-    setUnmappedDrivers([]);
-    onComplete?.();
-  }}
-/>
-```
-
-## 3. Rozszerzenie odpowiedzi settlements o listę nowych kierowców
-
-**Problem:** Edge function `settlements` zwraca tylko `new_drivers: liczba`, nie listę
-
-**Zmiany w `supabase/functions/settlements/index.ts`:**
-
-1. Dodać tablicę do śledzenia nowych kierowców:
-```typescript
-const newDriversList: any[] = [];
-```
-
-2. W funkcji `findOrCreateDriver` dodać zapisywanie nowego kierowcy do tablicy:
-```typescript
-// Po utworzeniu nowego kierowcy:
-newDriversList.push({
-  id: newDriver.id,
-  full_name: `${newDriver.first_name} ${newDriver.last_name}`,
-  uber_id: rowData.uberId,
-  bolt_id: rowData.boltId,
-  freenow_id: rowData.freenowId,
-});
-
-// Zapisać też do unmapped_settlement_drivers:
-await supabase.from('unmapped_settlement_drivers').insert({
-  fleet_id: meta.fleet_id,
-  full_name: `${newDriver.first_name} ${newDriver.last_name}`,
-  uber_id: rowData.uberId || null,
-  bolt_id: rowData.boltId || null,
-  freenow_id: rowData.freenowId || null,
-  status: 'pending'
-});
-```
-
-3. Rozszerzyć response o listę nowych kierowców:
-```typescript
-return new Response(
-  JSON.stringify({
-    success: true,
-    settlement_period_id: settlementPeriod.id,
-    stats: {
-      processed: settlementsToInsert.length,
-      new_drivers: newDriversCount,
-      matched_drivers: matchedDriversCount,
-      unmapped_drivers: newDriversList  // NOWE
-    },
-  }),
-  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-);
-```
-
-## 4. Deploy edge functions
-
-Zdeprojować następujące edge functions:
-- `create-test-accounts`
-- `ai-generate-call-scripts`
-
-## 5. Wywołanie create-test-accounts
-
-Po zdeployowaniu, wywołać funkcję aby utworzyć konta testowe.
+## 4. Edge functions zdeployowane ✅
+- settlements
+- create-test-accounts
+- ai-generate-call-scripts
 
 ---
 
-## PLIKI DO MODYFIKACJI
+## ZMIANY W PLIKACH
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/fleet/FleetSettlementImport.tsx` | Integracja UnmappedDriversModal |
-| `supabase/functions/settlements/index.ts` | Dodanie listy nowych kierowców do response |
-
-## KOLEJNOŚĆ WDROŻENIA
-
-1. Zmodyfikować `FleetSettlementImport.tsx` - dodać modal i stan
-2. Zmodyfikować `settlements/index.ts` - zwracać listę nowych kierowców
-3. Deploy edge functions (`create-test-accounts`, `ai-generate-call-scripts`)
-4. Wywołać `create-test-accounts` aby utworzyć konta testowe
-5. Przetestować flow importu rozliczeń z mapowaniem kierowców
+| `src/components/fleet/FleetSettlementImport.tsx` | +import UnmappedDriversModal, +stany, +integracja |
+| `supabase/functions/settlements/index.ts` | +unmappedDrivers tracking, +zapis do DB, +rozszerzony response |
+| `supabase/functions/create-test-accounts/index.ts` | Zdeployowany i wywołany |
+| `supabase/functions/ai-generate-call-scripts/index.ts` | Zdeployowany |
 
 ---
 
-## SZACOWANY CZAS
+## DO PRZETESTOWANIA
 
-| Zadanie | Czas |
-|---------|------|
-| Integracja UnmappedDriversModal | ~30 min |
-| Rozszerzenie settlements response | ~45 min |
-| Deploy i test edge functions | ~15 min |
-| **Suma** | ~1.5h |
+1. Import rozliczeń z nowymi kierowcami → czy modal się pojawia?
+2. Logowanie na warsztat@test.pl / detaling@test.pl
+3. Panel AI Agent → zakładki Profil, Skrypty, Zgody prawne
+
