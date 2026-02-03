@@ -20,7 +20,8 @@ import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, C
 
 export default function AdminPortal() {
   const navigate = useNavigate();
-  const { isAdmin, isSalesAdmin, isSalesRep, isFleetAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isSalesAdmin, isSalesRep, isFleetSettlement, isFleetRental, loading: roleLoading } = useUserRole();
+  const isFleetAccount = isFleetSettlement || isFleetRental;
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('ai-assistant');
@@ -116,7 +117,7 @@ export default function AdminPortal() {
         <div className="mb-6">
           <AccountSwitcherPanel
             isDriverAccount={false}
-            isFleetAccount={isFleetAdmin}
+            isFleetAccount={isFleetAccount}
             isMarketplaceAccount={isMarketplaceAccount}
             isRealEstateAccount={isRealEstateAccount}
             isAdminAccount={true}
@@ -128,6 +129,7 @@ export default function AdminPortal() {
           />
         </div>
 
+        <UniversalSubTabBar
           activeTab={activeSubTab}
           onTabChange={setActiveSubTab}
           tabs={subTabs}
