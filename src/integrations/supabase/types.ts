@@ -678,6 +678,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_call_business_profiles: {
+        Row: {
+          business_description: string | null
+          config_id: string
+          created_at: string | null
+          faq_json: Json | null
+          id: string
+          last_script_generation_at: string | null
+          pricing_notes: string | null
+          rules_json: Json | null
+          services_json: Json | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          business_description?: string | null
+          config_id: string
+          created_at?: string | null
+          faq_json?: Json | null
+          id?: string
+          last_script_generation_at?: string | null
+          pricing_notes?: string | null
+          rules_json?: Json | null
+          services_json?: Json | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          business_description?: string | null
+          config_id?: string
+          created_at?: string | null
+          faq_json?: Json | null
+          id?: string
+          last_script_generation_at?: string | null
+          pricing_notes?: string | null
+          rules_json?: Json | null
+          services_json?: Json | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_business_profiles_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: true
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_call_company_whitelist: {
         Row: {
           added_by: string | null
@@ -716,6 +766,53 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: []
+      }
+      ai_call_legal_consents: {
+        Row: {
+          accepted: boolean | null
+          accepted_at: string | null
+          config_id: string | null
+          consent_type: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+          version: string
+        }
+        Insert: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          config_id?: string | null
+          consent_type: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+          version?: string
+        }
+        Update: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          config_id?: string | null
+          consent_type?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_legal_consents_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_call_queue: {
         Row: {
@@ -776,6 +873,62 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_call_scripts: {
+        Row: {
+          config_id: string
+          content_json: Json
+          created_at: string | null
+          created_by: string | null
+          id: string
+          language: string | null
+          scenario_type: string | null
+          status: string | null
+          style: string | null
+          title: string | null
+          updated_at: string | null
+          version: number | null
+          voice_id: string | null
+        }
+        Insert: {
+          config_id: string
+          content_json?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          language?: string | null
+          scenario_type?: string | null
+          status?: string | null
+          style?: string | null
+          title?: string | null
+          updated_at?: string | null
+          version?: number | null
+          voice_id?: string | null
+        }
+        Update: {
+          config_id?: string
+          content_json?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          language?: string | null
+          scenario_type?: string | null
+          status?: string | null
+          style?: string | null
+          title?: string | null
+          updated_at?: string | null
+          version?: number | null
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_scripts_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
             referencedColumns: ["id"]
           },
         ]
@@ -10743,6 +10896,66 @@ export type Database = {
           marketplace_type?: string
         }
         Relationships: []
+      }
+      unmapped_settlement_drivers: {
+        Row: {
+          bolt_id: string | null
+          created_at: string | null
+          fleet_id: string | null
+          freenow_id: string | null
+          full_name: string | null
+          id: string
+          linked_driver_id: string | null
+          phone: string | null
+          resolved_at: string | null
+          settlement_period_id: string | null
+          status: string | null
+          uber_id: string | null
+        }
+        Insert: {
+          bolt_id?: string | null
+          created_at?: string | null
+          fleet_id?: string | null
+          freenow_id?: string | null
+          full_name?: string | null
+          id?: string
+          linked_driver_id?: string | null
+          phone?: string | null
+          resolved_at?: string | null
+          settlement_period_id?: string | null
+          status?: string | null
+          uber_id?: string | null
+        }
+        Update: {
+          bolt_id?: string | null
+          created_at?: string | null
+          fleet_id?: string | null
+          freenow_id?: string | null
+          full_name?: string | null
+          id?: string
+          linked_driver_id?: string | null
+          phone?: string | null
+          resolved_at?: string | null
+          settlement_period_id?: string | null
+          status?: string | null
+          uber_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unmapped_settlement_drivers_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unmapped_settlement_drivers_linked_driver_id_fkey"
+            columns: ["linked_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_calendar_events: {
         Row: {

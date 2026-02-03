@@ -192,7 +192,7 @@ export default function UniversalSearchResults() {
                 <TabsTrigger 
                   value="vehicles" 
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 flex items-center gap-2",
                     "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
                     "hover:bg-white/20 focus-visible:outline-none",
                     "disabled:opacity-40"
@@ -200,27 +200,27 @@ export default function UniversalSearchResults() {
                   disabled={totalCounts.vehicles === 0}
                 >
                   <Car className="h-4 w-4" />
-                  Pojazdy
+                  <span>Pojazdy</span>
                   {totalCounts.vehicles > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.vehicles}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="realEstate" 
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 flex items-center gap-2",
                     "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
                     "hover:bg-white/20 focus-visible:outline-none",
                     "disabled:opacity-40"
                   )}
                   disabled={totalCounts.realEstate === 0}
                 >
-                  <Home className="h-4 w-4" />
-                  Nieruchomości
+                  <Home className="h-4 w-4 mr-1" />
+                  <span>Nieruchomości</span>
                   {totalCounts.realEstate > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.realEstate}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="services" 
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 gap-2",
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 flex items-center gap-2",
                     "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
                     "hover:bg-white/20 focus-visible:outline-none",
                     "disabled:opacity-40"
@@ -228,7 +228,7 @@ export default function UniversalSearchResults() {
                   disabled={totalCounts.services === 0}
                 >
                   <Wrench className="h-4 w-4" />
-                  Usługi
+                  <span>Usługi</span>
                   {totalCounts.services > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.services}</Badge>}
                 </TabsTrigger>
               </TabsList>

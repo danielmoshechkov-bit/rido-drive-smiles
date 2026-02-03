@@ -14,15 +14,18 @@ import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesMana
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isSalesAdmin, isSalesRep, isFleetAdmin, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('ai-assistant');
+  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
+  const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -30,6 +33,21 @@ export default function AdminPortal() {
       setUser(user);
       if (!user) {
         navigate('/auth');
+      } else {
+        // Check marketplace and real estate accounts
+        const { data: marketplaceProfile } = await supabase
+          .from('marketplace_user_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setIsMarketplaceAccount(!!marketplaceProfile);
+
+        const { data: realEstateAgent } = await supabase
+          .from('real_estate_agents')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setIsRealEstateAccount(!!realEstateAgent);
       }
       setLoading(false);
     };
@@ -94,7 +112,22 @@ export default function AdminPortal() {
           </p>
         </div>
 
-        <UniversalSubTabBar
+        {/* Account Switcher */}
+        <div className="mb-6">
+          <AccountSwitcherPanel
+            isDriverAccount={false}
+            isFleetAccount={isFleetAdmin}
+            isMarketplaceAccount={isMarketplaceAccount}
+            isRealEstateAccount={isRealEstateAccount}
+            isAdminAccount={true}
+            isSalesAdmin={isSalesAdmin}
+            isSalesRep={isSalesRep}
+            isMarketplaceEnabled={true}
+            currentAccountType="admin"
+            navigate={navigate}
+          />
+        </div>
+
           activeTab={activeSubTab}
           onTabChange={setActiveSubTab}
           tabs={subTabs}

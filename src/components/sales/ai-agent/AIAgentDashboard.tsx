@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bot, Settings, Phone, Calendar, BarChart3, AlertCircle, Inbox } from "lucide-react";
+import { Bot, Settings, Phone, Calendar, BarChart3, AlertCircle, Inbox, Building2, FileText } from "lucide-react";
 import { useAIAgentConfig, useCreateAIAgentConfig } from "@/hooks/useAIAgentConfig";
 import { AIAgentConfigPanel } from "./AIAgentConfigPanel";
 import { AIAgentVoiceSelector } from "./AIAgentVoiceSelector";
@@ -12,6 +12,8 @@ import { AIAgentUsagePanel } from "./AIAgentUsagePanel";
 import { AIAgentCalendarPanel } from "./AIAgentCalendarPanel";
 import { AIAgentQueuePanel } from "./AIAgentQueuePanel";
 import { AIAgentLeadInbox } from "./AIAgentLeadInbox";
+import { AIAgentBusinessProfile } from "./AIAgentBusinessProfile";
+import { AIAgentScriptsList } from "./AIAgentScriptsList";
 
 export function AIAgentDashboard() {
   const [activeTab, setActiveTab] = useState("config");
@@ -102,10 +104,18 @@ export function AIAgentDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="config" className="gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Konfiguracja</span>
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Profil</span>
+          </TabsTrigger>
+          <TabsTrigger value="scripts" className="gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Skrypty</span>
           </TabsTrigger>
           <TabsTrigger value="leads" className="gap-2">
             <Inbox className="h-4 w-4" />
@@ -135,6 +145,14 @@ export function AIAgentDashboard() {
 
         <TabsContent value="config" className="mt-6">
           <AIAgentConfigPanel config={config} />
+        </TabsContent>
+
+        <TabsContent value="profile" className="mt-6">
+          <AIAgentBusinessProfile configId={config.id} />
+        </TabsContent>
+
+        <TabsContent value="scripts" className="mt-6">
+          <AIAgentScriptsList configId={config.id} />
         </TabsContent>
 
         <TabsContent value="leads" className="mt-6">
