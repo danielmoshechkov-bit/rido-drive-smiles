@@ -526,6 +526,8 @@ export type Database = {
       ai_agent_configs: {
         Row: {
           booking_rules: Json | null
+          calling_hours_end: string | null
+          calling_hours_start: string | null
           company_description: string | null
           company_name: string
           conversation_style: string | null
@@ -533,6 +535,8 @@ export type Database = {
           faq: Json | null
           id: string
           is_active: boolean | null
+          language: string | null
+          lead_sources: Json | null
           max_calls_per_day: number | null
           max_minutes_per_month: number | null
           max_retries_per_lead: number | null
@@ -542,10 +546,13 @@ export type Database = {
           user_id: string
           voice_gender: string | null
           voice_id: string | null
+          website_url: string | null
           working_hours: Json | null
         }
         Insert: {
           booking_rules?: Json | null
+          calling_hours_end?: string | null
+          calling_hours_start?: string | null
           company_description?: string | null
           company_name: string
           conversation_style?: string | null
@@ -553,6 +560,8 @@ export type Database = {
           faq?: Json | null
           id?: string
           is_active?: boolean | null
+          language?: string | null
+          lead_sources?: Json | null
           max_calls_per_day?: number | null
           max_minutes_per_month?: number | null
           max_retries_per_lead?: number | null
@@ -562,10 +571,13 @@ export type Database = {
           user_id: string
           voice_gender?: string | null
           voice_id?: string | null
+          website_url?: string | null
           working_hours?: Json | null
         }
         Update: {
           booking_rules?: Json | null
+          calling_hours_end?: string | null
+          calling_hours_start?: string | null
           company_description?: string | null
           company_name?: string
           conversation_style?: string | null
@@ -573,6 +585,8 @@ export type Database = {
           faq?: Json | null
           id?: string
           is_active?: boolean | null
+          language?: string | null
+          lead_sources?: Json | null
           max_calls_per_day?: number | null
           max_minutes_per_month?: number | null
           max_retries_per_lead?: number | null
@@ -582,6 +596,7 @@ export type Database = {
           user_id?: string
           voice_gender?: string | null
           voice_id?: string | null
+          website_url?: string | null
           working_hours?: Json | null
         }
         Relationships: []
@@ -632,6 +647,174 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_call_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
+      ai_call_company_whitelist: {
+        Row: {
+          added_by: string | null
+          company_name: string | null
+          created_at: string | null
+          id: string
+          nip: string
+          notes: string | null
+          status: string | null
+          updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          id?: string
+          nip: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          id?: string
+          nip?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
+      ai_call_queue: {
+        Row: {
+          completed_at: string | null
+          config_id: string
+          created_at: string | null
+          id: string
+          last_error: string | null
+          lead_id: string
+          max_retries: number | null
+          priority: number | null
+          processing_started_at: string | null
+          retry_count: number | null
+          scheduled_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          config_id: string
+          created_at?: string | null
+          id?: string
+          last_error?: string | null
+          lead_id: string
+          max_retries?: number | null
+          priority?: number | null
+          processing_started_at?: string | null
+          retry_count?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          config_id?: string
+          created_at?: string | null
+          id?: string
+          last_error?: string | null
+          lead_id?: string
+          max_retries?: number | null
+          priority?: number | null
+          processing_started_at?: string | null
+          retry_count?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_queue_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_call_user_whitelist: {
+        Row: {
+          added_by: string | null
+          created_at: string | null
+          email: string
+          id: string
+          notes: string | null
+          status: string | null
+          updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
       }
       ai_conversation_sessions: {
         Row: {

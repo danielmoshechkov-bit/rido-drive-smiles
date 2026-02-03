@@ -3,13 +3,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bot, Settings, Phone, Calendar, BarChart3, AlertCircle } from "lucide-react";
+import { Bot, Settings, Phone, Calendar, BarChart3, AlertCircle, Inbox } from "lucide-react";
 import { useAIAgentConfig, useCreateAIAgentConfig } from "@/hooks/useAIAgentConfig";
 import { AIAgentConfigPanel } from "./AIAgentConfigPanel";
 import { AIAgentVoiceSelector } from "./AIAgentVoiceSelector";
 import { AIAgentCallsLog } from "./AIAgentCallsLog";
 import { AIAgentUsagePanel } from "./AIAgentUsagePanel";
 import { AIAgentCalendarPanel } from "./AIAgentCalendarPanel";
+import { AIAgentQueuePanel } from "./AIAgentQueuePanel";
+import { AIAgentLeadInbox } from "./AIAgentLeadInbox";
 
 export function AIAgentDashboard() {
   const [activeTab, setActiveTab] = useState("config");
@@ -100,10 +102,18 @@ export function AIAgentDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="config" className="gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Konfiguracja</span>
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="gap-2">
+            <Inbox className="h-4 w-4" />
+            <span className="hidden sm:inline">Leady</span>
+          </TabsTrigger>
+          <TabsTrigger value="queue" className="gap-2">
+            <Phone className="h-4 w-4" />
+            <span className="hidden sm:inline">Kolejka</span>
           </TabsTrigger>
           <TabsTrigger value="voice" className="gap-2">
             <Bot className="h-4 w-4" />
@@ -125,6 +135,14 @@ export function AIAgentDashboard() {
 
         <TabsContent value="config" className="mt-6">
           <AIAgentConfigPanel config={config} />
+        </TabsContent>
+
+        <TabsContent value="leads" className="mt-6">
+          <AIAgentLeadInbox configId={config.id} />
+        </TabsContent>
+
+        <TabsContent value="queue" className="mt-6">
+          <AIAgentQueuePanel configId={config.id} />
         </TabsContent>
 
         <TabsContent value="voice" className="mt-6">

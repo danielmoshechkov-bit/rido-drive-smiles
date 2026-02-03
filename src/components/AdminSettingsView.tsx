@@ -12,6 +12,7 @@ import { AISettingsPanel } from './ai/AISettingsPanel';
 import { PaidServicesPanel } from './admin/PaidServicesPanel';
 import { UISettingsPanel } from './admin/UISettingsPanel';
 import { AIVoiceAgentSettings } from './admin/AIVoiceAgentSettings';
+import { AICallAdminPanel } from './admin/AICallAdminPanel';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
@@ -22,6 +23,7 @@ export function AdminSettingsView() {
     { value: "features", label: "Funkcje", visible: true },
     { value: "ai", label: "Ustawienia AI", visible: true },
     { value: "ai-voice-agent", label: "AI Voice Agent", visible: true },
+    { value: "ai-call-admin", label: "AI Call Admin", visible: true },
     { value: "paid-services", label: "Płatne usługi", visible: true },
     { value: "user-roles", label: "Uprawnienia", visible: true },
     { value: "plans", label: "Plany", visible: true },
@@ -45,6 +47,7 @@ export function AdminSettingsView() {
       {activeSubTab === "features" && <FeatureTogglesManagement />}
       {activeSubTab === "ai" && <AISettingsPanel />}
       {activeSubTab === "ai-voice-agent" && <AIVoiceAgentSettings />}
+      {activeSubTab === "ai-call-admin" && <AICallAdminPanel />}
       {activeSubTab === "paid-services" && <PaidServicesPanel />}
       {activeSubTab === "user-roles" && <UserRolesManager />}
       {activeSubTab === "plans" && <SettlementPlansManagement />}
