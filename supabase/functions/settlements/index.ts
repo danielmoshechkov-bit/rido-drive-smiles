@@ -121,29 +121,32 @@ Deno.serve(async (req) => {
 
     console.log('📋 Import mode:', has3Csvs ? '3 platform CSVs' : '1 RIDO template');
 
-    let settlementsToInsert: any[] = [];
-    let newDriversCount = 0;
-    let matchedDriversCount = 0;
+  let settlementsToInsert: any[] = [];
+  let newDriversCount = 0;
+  let matchedDriversCount = 0;
+  let unmappedDriversList: any[] = [];
 
-    if (has3Csvs) {
-      const result = await process3PlatformCsvs(
-        supabase,
-        { uber_csv, bolt_csv, freenow_csv },
-        { period_from, period_to, city_id: effectiveCityId, fleet_id }
-      );
-      settlementsToInsert = result.settlements;
-      newDriversCount = result.newDrivers;
-      matchedDriversCount = result.matchedDrivers;
-    } else if (hasMainCsv) {
-      const result = await processRidoTemplate(
-        supabase,
-        main_csv,
-        { period_from, period_to, city_id: effectiveCityId, fleet_id }
-      );
-      settlementsToInsert = result.settlements;
-      newDriversCount = result.newDrivers;
-      matchedDriversCount = result.matchedDrivers;
-    }
+  if (has3Csvs) {
+    const result = await process3PlatformCsvs(
+      supabase,
+      { uber_csv, bolt_csv, freenow_csv },
+      { period_from, period_to, city_id: effectiveCityId, fleet_id }
+    );
+    settlementsToInsert = result.settlements;
+    newDriversCount = result.newDrivers;
+    matchedDriversCount = result.matchedDrivers;
+    unmappedDriversList = result.unmappedDrivers || [];
+  } else if (hasMainCsv) {
+    const result = await processRidoTemplate(
+      supabase,
+      main_csv,
+      { period_from, period_to, city_id: effectiveCityId, fleet_id }
+    );
+    settlementsToInsert = result.settlements;
+    newDriversCount = result.newDrivers;
+    matchedDriversCount = result.matchedDrivers;
+    unmappedDriversList = result.unmappedDrivers || [];
+  }
 
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
@@ -261,7 +264,8 @@ Deno.serve(async (req) => {
         stats: {
           processed: settlementsToInsert.length,
           new_drivers: newDriversCount,
-          matched_drivers: matchedDriversCount
+          matched_drivers: matchedDriversCount,
+          unmapped_drivers: unmappedDriversList
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -313,23 +317,27 @@ async function process3PlatformCsvs(
 
   let newDrivers = 0;
   let matchedDrivers = 0;
+  let unmappedDrivers: any[] = [];
 
   if (csvFiles.uber_csv) {
-    const result = await parseUberCsv(csvFiles.uber_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    const result = await parseUberCsv(csvFiles.uber_csv, supabase, meta.city_id, meta.fleet_id, existingDriversMap, driverDataMap);
     newDrivers += result.newDrivers;
     matchedDrivers += result.matchedDrivers;
+    unmappedDrivers = unmappedDrivers.concat(result.unmappedDrivers || []);
   }
 
   if (csvFiles.bolt_csv) {
-    const result = await parseBoltCsv(csvFiles.bolt_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    const result = await parseBoltCsv(csvFiles.bolt_csv, supabase, meta.city_id, meta.fleet_id, existingDriversMap, driverDataMap);
     newDrivers += result.newDrivers;
     matchedDrivers += result.matchedDrivers;
+    unmappedDrivers = unmappedDrivers.concat(result.unmappedDrivers || []);
   }
 
   if (csvFiles.freenow_csv) {
-    const result = await parseFreenowCsv(csvFiles.freenow_csv, supabase, meta.city_id, existingDriversMap, driverDataMap);
+    const result = await parseFreenowCsv(csvFiles.freenow_csv, supabase, meta.city_id, meta.fleet_id, existingDriversMap, driverDataMap);
     newDrivers += result.newDrivers;
     matchedDrivers += result.matchedDrivers;
+    unmappedDrivers = unmappedDrivers.concat(result.unmappedDrivers || []);
   }
 
   // Fetch fuel data
@@ -429,7 +437,7 @@ async function process3PlatformCsvs(
     });
   }
 
-  return { settlements, newDrivers, matchedDrivers };
+  return { settlements, newDrivers, matchedDrivers, unmappedDrivers };
 }
 
 // ========== MODE 2: PROCESS RIDO TEMPLATE ==========
@@ -509,6 +517,7 @@ async function processRidoTemplate(
   const settlements: any[] = [];
   let newDrivers = 0;
   let matchedDrivers = 0;
+  const unmappedDrivers: any[] = [];
 
   for (let i = 1; i < parsedRows.length; i++) {
     const row = parsedRows[i];
@@ -562,20 +571,32 @@ async function processRidoTemplate(
     console.log(`📊 RIDO Wiersz ${i} [${rowData.fullName}]: base=${total_base.toFixed(2)}, tax=${total_tax.toFixed(2)}, comm=${total_commission.toFixed(2)}, cash=${total_cash.toFixed(2)}, fuel=${fuel.toFixed(2)}, vat=${fuelVATRefund.toFixed(2)} => WYPŁATA=${net_amount.toFixed(2)}`);
 
     const beforeSize = existingDriversMap.size;
-    const driverId = await findOrCreateDriver(
+    const result = await findOrCreateDriver(
       supabase,
       rowData,
       meta.city_id,
+      meta.fleet_id,
       existingDriversMap,
       headers,
       row,
       getRidoIdIdx
     );
 
-    if (!driverId) continue;
+    if (!result.driverId) continue;
+    const driverId = result.driverId;
 
-    if (existingDriversMap.size > beforeSize) newDrivers++;
-    else matchedDrivers++;
+    if (result.isNew) {
+      newDrivers++;
+      unmappedDrivers.push({
+        id: driverId,
+        full_name: rowData.fullName,
+        uber_id: rowData.uberId || null,
+        bolt_id: null,
+        freenow_id: null
+      });
+    } else {
+      matchedDrivers++;
+    }
 
     settlements.push({
       city_id: meta.city_id,
@@ -616,7 +637,7 @@ async function processRidoTemplate(
     });
   }
 
-  return { settlements, newDrivers, matchedDrivers };
+  return { settlements, newDrivers, matchedDrivers, unmappedDrivers };
 }
 
 // ========== PLATFORM CSV PARSERS ==========
@@ -624,6 +645,7 @@ async function parseUberCsv(
   base64Csv: string,
   supabase: any,
   city_id: string,
+  fleet_id: string | undefined,
   existingDriversMap: Map<string, any>,
   driverDataMap: Map<string, PlatformData>
 ) {
@@ -649,6 +671,7 @@ async function parseUberCsv(
 
   let newDrivers = 0;
   let matchedDrivers = 0;
+  const unmappedDrivers: any[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -710,6 +733,27 @@ async function parseUberCsv(
         driverId = newDriver.id;
         newDrivers++;
         
+        const fullName = `${nameParts[0] || 'Uber'} ${nameParts.slice(1).join(' ') || 'Driver'}`;
+        unmappedDrivers.push({
+          id: driverId,
+          full_name: fullName,
+          uber_id: platformId || null,
+          bolt_id: null,
+          freenow_id: null
+        });
+        
+        // Save to unmapped_settlement_drivers table
+        if (fleet_id) {
+          await supabase.from('unmapped_settlement_drivers').insert({
+            fleet_id: fleet_id,
+            full_name: fullName,
+            uber_id: platformId || null,
+            bolt_id: null,
+            freenow_id: null,
+            status: 'pending'
+          });
+        }
+        
         if (platformId) {
           await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
@@ -732,13 +776,14 @@ async function parseUberCsv(
     }
   }
 
-  return { newDrivers, matchedDrivers };
+  return { newDrivers, matchedDrivers, unmappedDrivers };
 }
 
 async function parseBoltCsv(
   base64Csv: string,
   supabase: any,
   city_id: string,
+  fleet_id: string | undefined,
   existingDriversMap: Map<string, any>,
   driverDataMap: Map<string, PlatformData>
 ) {
@@ -757,6 +802,7 @@ async function parseBoltCsv(
 
   let newDrivers = 0;
   let matchedDrivers = 0;
+  const unmappedDrivers: any[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -807,6 +853,26 @@ async function parseBoltCsv(
         driverId = newDriver.id;
         newDrivers++;
         
+        const fullName = `${nameParts[0] || 'Bolt'} ${nameParts.slice(1).join(' ') || 'Driver'}`;
+        unmappedDrivers.push({
+          id: driverId,
+          full_name: fullName,
+          uber_id: null,
+          bolt_id: platformId || null,
+          freenow_id: null
+        });
+        
+        if (fleet_id) {
+          await supabase.from('unmapped_settlement_drivers').insert({
+            fleet_id: fleet_id,
+            full_name: fullName,
+            uber_id: null,
+            bolt_id: platformId || null,
+            freenow_id: null,
+            status: 'pending'
+          });
+        }
+        
         if (platformId) {
           await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
@@ -829,13 +895,14 @@ async function parseBoltCsv(
     }
   }
 
-  return { newDrivers, matchedDrivers };
+  return { newDrivers, matchedDrivers, unmappedDrivers };
 }
 
 async function parseFreenowCsv(
   base64Csv: string,
   supabase: any,
   city_id: string,
+  fleet_id: string | undefined,
   existingDriversMap: Map<string, any>,
   driverDataMap: Map<string, PlatformData>
 ) {
@@ -854,6 +921,7 @@ async function parseFreenowCsv(
 
   let newDrivers = 0;
   let matchedDrivers = 0;
+  const unmappedDrivers: any[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -903,6 +971,26 @@ async function parseFreenowCsv(
         driverId = newDriver.id;
         newDrivers++;
         
+        const fullName = `${nameParts[0] || 'FreeNow'} ${nameParts.slice(1).join(' ') || 'Driver'}`;
+        unmappedDrivers.push({
+          id: driverId,
+          full_name: fullName,
+          uber_id: null,
+          bolt_id: null,
+          freenow_id: platformId || null
+        });
+        
+        if (fleet_id) {
+          await supabase.from('unmapped_settlement_drivers').insert({
+            fleet_id: fleet_id,
+            full_name: fullName,
+            uber_id: null,
+            bolt_id: null,
+            freenow_id: platformId || null,
+            status: 'pending'
+          });
+        }
+        
         if (platformId) {
           await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
@@ -924,7 +1012,7 @@ async function parseFreenowCsv(
     }
   }
 
-  return { newDrivers, matchedDrivers };
+  return { newDrivers, matchedDrivers, unmappedDrivers };
 }
 
 // ========== HELPER FUNCTIONS ==========
@@ -1014,11 +1102,12 @@ async function findOrCreateDriver(
   supabase: any,
   rowData: { email: string; uberId: string; phone: string; fullName: string; getRidoId: string },
   city_id: string,
+  fleet_id: string | undefined,
   existingDriversMap: Map<string, any>,
   headers: string[],
   row: string[],
   getRidoIdIdx: number
-): Promise<string | null> {
+): Promise<{ driverId: string | null; isNew: boolean }> {
   // Try to match by various identifiers
   const lookupKeys = [
     rowData.getRidoId ? `getrido:${rowData.getRidoId}` : null,
@@ -1028,7 +1117,7 @@ async function findOrCreateDriver(
 
   for (const key of lookupKeys) {
     if (existingDriversMap.has(key)) {
-      return existingDriversMap.get(key).id;
+      return { driverId: existingDriversMap.get(key).id, isNew: false };
     }
   }
 
@@ -1044,7 +1133,7 @@ async function findOrCreateDriver(
     if (firstName && lastName && 
         (dFirst.includes(firstName) || firstName.includes(dFirst)) &&
         (dLast.includes(lastName) || lastName.includes(dLast))) {
-      return driver.id;
+      return { driverId: driver.id, isNew: false };
     }
   }
 
@@ -1065,7 +1154,20 @@ async function findOrCreateDriver(
 
   if (error || !newDriver) {
     console.error('Error creating driver:', error);
-    return null;
+    return { driverId: null, isNew: false };
+  }
+
+  // Save to unmapped_settlement_drivers table
+  if (fleet_id) {
+    const fullName = `${nameParts[0] || 'Nieznany'} ${nameParts.slice(1).join(' ') || 'Kierowca'}`;
+    await supabase.from('unmapped_settlement_drivers').insert({
+      fleet_id: fleet_id,
+      full_name: fullName,
+      uber_id: rowData.uberId || null,
+      bolt_id: null,
+      freenow_id: null,
+      status: 'pending'
+    });
   }
 
   // Add to map for future lookups
@@ -1080,5 +1182,5 @@ async function findOrCreateDriver(
     });
   }
 
-  return newDriver.id;
+  return { driverId: newDriver.id, isNew: true };
 }

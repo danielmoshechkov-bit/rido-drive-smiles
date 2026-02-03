@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Upload, FileText, AlertCircle, Loader2, Plus, Minus, Trash2 } from 'lucide-react';
+import { UnmappedDriversModal } from './UnmappedDriversModal';
 import { SettlementImportTabs } from '../SettlementImportTabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -42,6 +43,8 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
   const [addCityDialogOpen, setAddCityDialogOpen] = useState(false);
   const [newCityName, setNewCityName] = useState('');
   const [addingCity, setAddingCity] = useState(false);
+  const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
+  const [showUnmappedModal, setShowUnmappedModal] = useState(false);
 
   // Load cities
   const fetchCities = async () => {
@@ -190,6 +193,12 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
       }
 
       toast.success(`✅ Rozliczenie utworzone! Przetworzono: ${data.stats.processed} kierowców`);
+      
+      // Check for unmapped drivers
+      if (data.stats?.unmapped_drivers?.length > 0) {
+        setUnmappedDrivers(data.stats.unmapped_drivers);
+        setShowUnmappedModal(true);
+      }
       
       // Import fuel if file provided
       if (fuelFile) {
@@ -403,6 +412,17 @@ export const FleetSettlementImport = ({ fleetId, onComplete }: FleetSettlementIm
           </Button>
         </CardContent>
       </Card>
+
+      <UnmappedDriversModal
+        open={showUnmappedModal}
+        onOpenChange={setShowUnmappedModal}
+        unmappedDrivers={unmappedDrivers}
+        fleetId={fleetId}
+        onComplete={() => {
+          setUnmappedDrivers([]);
+          onComplete?.();
+        }}
+      />
     </div>
   );
 };
