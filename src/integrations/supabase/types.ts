@@ -4093,6 +4093,7 @@ export type Database = {
           email: string | null
           email_for_invoices: string | null
           id: string
+          is_active: boolean | null
           krs: string | null
           logo_url: string | null
           name: string
@@ -4117,6 +4118,7 @@ export type Database = {
           email?: string | null
           email_for_invoices?: string | null
           id?: string
+          is_active?: boolean | null
           krs?: string | null
           logo_url?: string | null
           name: string
@@ -4141,6 +4143,7 @@ export type Database = {
           email?: string | null
           email_for_invoices?: string | null
           id?: string
+          is_active?: boolean | null
           krs?: string | null
           logo_url?: string | null
           name?: string

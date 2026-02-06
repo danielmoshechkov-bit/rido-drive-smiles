@@ -129,6 +129,11 @@ export default function ClientPortal() {
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPhone, setAccountPhone] = useState('');
   const [savingAccount, setSavingAccount] = useState(false);
+  
+  // Invoice filters
+  const [invoiceYear, setInvoiceYear] = useState(new Date().getFullYear());
+  const [invoiceMonth, setInvoiceMonth] = useState(new Date().getMonth() + 1);
+  const [invoiceViewMode, setInvoiceViewMode] = useState<'manual' | 'auto'>('manual');
 
   // Read tab from URL on mount
   useEffect(() => {
@@ -323,7 +328,7 @@ export default function ClientPortal() {
     console.log('Fetching entities for user:', userId);
     const { data, error } = await supabase
       .from('entities')
-      .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer')
+      .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer, is_active')
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false });
     
@@ -381,6 +386,52 @@ export default function ClientPortal() {
     }
   };
 
+  // Handle company deactivation (switch to private account)
+  const handleDeactivateCompany = async (entityId: string) => {
+    if (!confirm('Czy na pewno chcesz wyłączyć konto firmowe? Stracisz możliwość wystawiania faktur, ale zachowasz dostęp do historii.')) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('entities')
+        .update({ is_active: false } as any)
+        .eq('id', entityId);
+      
+      if (error) throw error;
+      
+      // Refresh entities
+      if (user) {
+        await fetchUserEntities(user.id);
+      }
+      toast.success('Konto firmowe zostało wyłączone');
+    } catch (err: any) {
+      console.error('Deactivate company error:', err);
+      toast.error('Nie udało się wyłączyć konta firmowego');
+    }
+  };
+
+  // Handle company reactivation
+  const handleReactivateCompany = async (entityId: string) => {
+    try {
+      const { error } = await supabase
+        .from('entities')
+        .update({ is_active: true } as any)
+        .eq('id', entityId);
+      
+      if (error) throw error;
+      
+      // Refresh entities
+      if (user) {
+        await fetchUserEntities(user.id);
+      }
+      toast.success('Konto firmowe zostało włączone');
+    } catch (err: any) {
+      console.error('Reactivate company error:', err);
+      toast.error('Nie udało się włączyć konta firmowego');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -407,8 +458,9 @@ export default function ClientPortal() {
 
   const totalListings = vehicleListings.length + propertyListings.length;
 
-  // Księgowość visible only if user has at least one company (entity)
-  const hasCompanySetup = userEntities.length > 0;
+  // Księgowość visible only if user has at least one ACTIVE company (entity)
+  const activeEntities = userEntities.filter(e => e.is_active !== false);
+  const hasCompanySetup = activeEntities.length > 0;
 
   // Build tabs dynamically - Księgowość only for users with company setup
   const mainTabs = [
@@ -992,41 +1044,114 @@ export default function ClientPortal() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Ostatnie faktury</CardTitle>
-                      <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <CardTitle>Ostatnie faktury</CardTitle>
+                          <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
+                        </div>
+                        
+                        {/* Filtry rok/miesiąc */}
+                        <div className="flex items-center gap-2">
+                          <select 
+                            value={invoiceMonth} 
+                            onChange={(e) => setInvoiceMonth(parseInt(e.target.value))}
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            {[...Array(12)].map((_, i) => (
+                              <option key={i + 1} value={i + 1}>
+                                {new Date(2000, i, 1).toLocaleString('pl-PL', { month: 'long' })}
+                              </option>
+                            ))}
+                          </select>
+                          
+                          <select 
+                            value={invoiceYear} 
+                            onChange={(e) => setInvoiceYear(parseInt(e.target.value))}
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            {[2024, 2025, 2026].map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      
+                      {/* Przełącznik wystawione/autofaktury - dla kierowców B2B */}
+                      {isDriverAccount && (
+                        <div className="flex gap-2 mt-4">
+                          <Button 
+                            variant={invoiceViewMode === 'manual' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setInvoiceViewMode('manual')}
+                          >
+                            Wystawione
+                          </Button>
+                          <Button 
+                            variant={invoiceViewMode === 'auto' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setInvoiceViewMode('auto')}
+                          >
+                            Autofaktury
+                          </Button>
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent>
-                      {invoices.length > 0 ? (
-                        <div className="space-y-3 pb-20">
-                          {invoices.slice(0, 5).map((invoice) => (
-                            <InvoiceExpandableRow
-                              key={invoice.id}
-                              invoice={invoice}
-                              onUpdate={() => user && fetchUserInvoices(user.id)}
-                            />
-                          ))}
-                          {invoices.length > 5 && (
-                            <Button 
-                              variant="ghost" 
-                              className="w-full text-sm"
-                              onClick={() => setAccountingSubTab('faktury')}
-                            >
-                              Zobacz wszystkie ({invoices.length})
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                          )}
-                        </div>
+                      {/* Wyświetlanie filtrowanych faktur */}
+                      {invoiceViewMode === 'manual' ? (
+                        <>
+                          {(() => {
+                            const filteredInvoices = invoices.filter(inv => {
+                              const invDate = new Date(inv.issue_date || inv.created_at);
+                              return invDate.getFullYear() === invoiceYear && 
+                                     (invDate.getMonth() + 1) === invoiceMonth;
+                            });
+                            
+                            return filteredInvoices.length > 0 ? (
+                              <div className="space-y-3 pb-20">
+                                {filteredInvoices.slice(0, 5).map((invoice) => (
+                                  <InvoiceExpandableRow
+                                    key={invoice.id}
+                                    invoice={invoice}
+                                    onUpdate={() => user && fetchUserInvoices(user.id)}
+                                  />
+                                ))}
+                                {filteredInvoices.length > 5 && (
+                                  <Button 
+                                    variant="ghost" 
+                                    className="w-full text-sm"
+                                    onClick={() => setAccountingSubTab('faktury')}
+                                  >
+                                    Zobacz wszystkie ({filteredInvoices.length})
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-12 text-muted-foreground">
+                                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                <p>Brak faktur w wybranym okresie</p>
+                                <p className="text-sm mt-1">
+                                  Zmień miesiąc lub rok aby zobaczyć inne faktury
+                                </p>
+                                <Button className="mt-4" onClick={handleNewInvoice}>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Wystaw fakturę
+                                </Button>
+                              </div>
+                            );
+                          })()}
+                        </>
                       ) : (
                         <div className="text-center py-12 text-muted-foreground">
                           <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>Brak faktur</p>
+                          <p>Autofaktury B2B</p>
                           <p className="text-sm mt-1">
-                            Wystaw pierwszą fakturę w programie
+                            Faktury generowane automatycznie przez system rozliczeń
                           </p>
-                          <Button className="mt-4" onClick={handleNewInvoice}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Wystaw fakturę
-                          </Button>
+                          <p className="text-xs mt-2 text-muted-foreground">
+                            Przejdź do Portalu Kierowcy, aby zobaczyć autofaktury
+                          </p>
                         </div>
                       )}
                     </CardContent>
@@ -1109,31 +1234,67 @@ export default function ClientPortal() {
                 <CardContent>
                   {userEntities.length > 0 ? (
                     <div className="space-y-4">
-                      {userEntities.map((entity, index) => (
+                      {userEntities.map((entity) => (
                         <div 
                           key={entity.id}
-                          className="border rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            setEditingEntity(entity);
-                            setShowCompanySetup(true);
-                          }}
+                          className={`border rounded-lg p-4 transition-colors ${entity.is_active === false ? 'opacity-60 bg-muted/30' : 'hover:bg-muted/50'}`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <Building2 className="h-5 w-5 text-primary" />
+                          <div className="flex items-center justify-between">
+                            <div 
+                              className="flex items-center gap-3 flex-1 cursor-pointer"
+                              onClick={() => {
+                                setEditingEntity(entity);
+                                setShowCompanySetup(true);
+                              }}
+                            >
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <Building2 className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-semibold">{entity.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-semibold">{entity.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
-                              </p>
+                            <div className="flex items-center gap-2">
+                              {entity.is_active === false ? (
+                                <Badge variant="secondary">Nieaktywna</Badge>
+                              ) : (
+                                <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
+                                  {entity.vat_payer ? 'VAT' : 'Bez VAT'}
+                                </Badge>
+                              )}
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={entity.vat_payer ? 'default' : 'secondary'}>
-                              {entity.vat_payer ? 'VAT' : 'Bez VAT'}
-                            </Badge>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          
+                          {/* Deactivate/Reactivate button */}
+                          <div className="mt-3 pt-3 border-t flex justify-end">
+                            {entity.is_active === false ? (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReactivateCompany(entity.id);
+                                }}
+                              >
+                                Włącz konto firmowe
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeactivateCompany(entity.id);
+                                }}
+                              >
+                                Wyłącz konto firmowe
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}
