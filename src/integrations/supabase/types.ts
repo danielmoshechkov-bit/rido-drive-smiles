@@ -11045,6 +11045,7 @@ export type Database = {
         Row: {
           bolt_id: string | null
           created_at: string | null
+          driver_id: string | null
           fleet_id: string | null
           freenow_id: string | null
           full_name: string | null
@@ -11059,6 +11060,7 @@ export type Database = {
         Insert: {
           bolt_id?: string | null
           created_at?: string | null
+          driver_id?: string | null
           fleet_id?: string | null
           freenow_id?: string | null
           full_name?: string | null
@@ -11073,6 +11075,7 @@ export type Database = {
         Update: {
           bolt_id?: string | null
           created_at?: string | null
+          driver_id?: string | null
           fleet_id?: string | null
           freenow_id?: string | null
           full_name?: string | null
@@ -11085,6 +11088,13 @@ export type Database = {
           uber_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "unmapped_settlement_drivers_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "unmapped_settlement_drivers_fleet_id_fkey"
             columns: ["fleet_id"]
