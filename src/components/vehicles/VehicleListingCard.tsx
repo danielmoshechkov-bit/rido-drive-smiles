@@ -276,8 +276,8 @@ export function VehicleListingCard({
         <div className={cn("p-4 flex flex-col", compact && "p-2")}>
           {/* Title - Fixed height */}
           <h3 className={cn(
-            "font-semibold line-clamp-1 h-7 flex items-center",
-            compact ? "text-sm h-5" : "text-lg"
+            "font-bold leading-tight",
+            compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]"
           )}>{listing.title}</h3>
 
           {/* Vehicle Details - Fixed height row */}
