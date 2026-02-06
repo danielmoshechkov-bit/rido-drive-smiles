@@ -1,323 +1,211 @@
 
 
-# Plan Integracji ASARI CRM z Portalem Nieruchomości
+# Plan Naprawy Systemu Mapowania Kierowców z CSV
 
-## Cel
+## Zidentyfikowane Problemy
 
-Umożliwienie agencjom nieruchomości automatycznego importu ogłoszeń z systemu ASARI CRM na portal, z obsługą hierarchii agencja-pracownik oraz automatyczną synchronizacją.
+### Problem 1: Kierowcy-"śmieci" widoczni w rozliczeniach
+Na screenshocie widać kierowców jak "ds sdds", "das dsa", "Anastasiia Shapovalova" którzy są przypisani do floty, ale nie mają żadnych rozliczeń w wybranym okresie. System pobiera WSZYSTKICH kierowców z floty i wyświetla ich w tabeli, nawet jeśli mają same zera.
 
-## Istniejąca Infrastruktura
+### Problem 2: Brak inteligentnego matchingu imion
+Obecny algorytm matchingu kierowców z CSV jest zbyt prosty:
+- Szuka dokładnego dopasowania po `platform_id` 
+- Albo prostego `includes()` na imieniu i nazwisku
+- Nie obsługuje: różnej kolejności (Kowalski Jan vs Jan Kowalski), literówek, polskich znaków
 
-Projekt ma już przygotowane podstawy:
+### Problem 3: Brak rekordów w `unmapped_settlement_drivers`
+Tabela jest pusta, więc przycisk "Sprawdź nowych kierowców" zawsze pokazuje "Brak nowych kierowców". Problem: kierowcy są tworzeni, ale nie są zapisywani do tabeli unmapped jeśli fleet_id nie jest ustawiony lub jest błąd.
 
-| Element | Status |
-|---------|--------|
-| Tabela `real_estate_listings` | Gotowa (ma `external_id`, `crm_source`) |
-| Tabela `real_estate_agents` | Gotowa (ma `parent_agent_id` dla hierarchii) |
-| Tabela `agency_crm_integrations` | Gotowa (pełna konfiguracja XML/FTP/API) |
-| Tabela `crm_integration_providers` | Gotowa (lista dostawców CRM) |
-| Panel admin CRM | Gotowy (`CRMIntegrationsPanel.tsx`) |
-
-## Struktura Eksportu ASARI
-
-Na podstawie dokumentacji ASARI:
-
-1. **Format**: XML w formacie EbiuroV2
-2. **Kodowanie**: UTF-8 (lub WIN1250, ISO8859-2)
-3. **Tryby transferu**: URL XML, FTP (RFC3659)
-4. **Kolejność przesyłania**:
-   - `definictions.xml` (słowniki)
-   - Pliki zdjęć
-   - Pliki ofert `*_001.xml, *_002.xml, ...`
-   - Plik konfiguracyjny `*_CFG.xml`
-
-### Kluczowe Pola do Mapowania
-
-```text
-ASARI XML ID → real_estate_listings
-----------------------------------------
-ID:1   numer oferty        → external_id
-ID:491 tytuł ogłoszenia    → title
-ID:10  cena ofertowa PLN   → price
-ID:58  pow. użytkowa [m2]  → area
-ID:79  liczba pokoi        → rooms
-ID:62  piętro              → floor
-ID:63  ilość pięter        → total_floors
-ID:71  rok budowy          → build_year
-ID:48  miejscowość         → city
-ID:49  dzielnica           → district
-ID:300 ulica               → address
-ID:201,202 współrzędne     → latitude, longitude
-ID:64  uwagi dodatkowe     → description
-ID:170 agent - telefon     → contact_phone
-ID:171 agent - e-mail      → contact_email
-ID:305 agent               → contact_person
-ID:36  nieruchomość        → property_type (mapowanie słownika)
-ID:43  operacja            → transaction_type (SPRZEDAŻ/WYNAJEM)
-ID:82  przynależne         → has_balcony, has_garden, has_parking (parsowanie)
-```
-
-### Słowniki do Mapowania
-
-| ID Słownika | Nazwa | Mapowanie |
-|-------------|-------|-----------|
-| 1 | typ oferty | SPRZEDAŻ → sale, WYNAJEM → rent |
-| 68 | nieruchomość | DOM, MIESZKANIE, DZIAŁKA, LOKAL, OBIEKT |
-| 74 | rodzaj mieszkania | BLOK, KAMIENICA, APARTAMENTOWIEC itp. |
-| 75 | typ domu | WOLNOSTOJĄCY, BLIŹNIAK, SZEREGOWIEC itp. |
+### Problem 4: Aneta Sknadaj i Paweł Koziarek nie zostali dopasowani
+Nowi kierowcy z CSV (Uber) nie zostali połączeni z istniejącymi kierowcami w bazie, bo:
+- Aneta nie ma wpisu w `driver_platform_ids`
+- System stworzył nowego kierowcę zamiast próbować fuzzy match
 
 ---
 
-## Plan Implementacji
+## Rozwiązanie
 
-### Faza 1: Migracja Bazy Danych
+### Faza 1: Filtrowanie kierowców bez danych rozliczeniowych
 
-**Dodać tabelę logów importu i rozszerzyć strukturę:**
+**Plik:** `src/components/FleetSettlementsView.tsx`
+
+Zmienić logikę wyświetlania tak, aby NIE pokazywać kierowców, którzy:
+- Mają `total_base === 0`
+- Mają `platform_net >= 0` (nie mają ujemnego salda)
+- NIE mają żadnych `settlements` w wybranym okresie
+
+Dodać na końcu agregacji filtrowanie:
+
+```text
+const filteredAggregated = aggregated.filter(row => 
+  row.total_base > 0 || 
+  row.has_negative_balance || 
+  settlements.some(s => s.driver_id === row.driver_id)
+);
+```
+
+### Faza 2: Ulepszony Matching Kierowców (Fuzzy)
+
+**Plik:** `supabase/functions/settlements/index.ts`
+
+Dodać funkcję `fuzzyMatchDriver()` z obsługą:
+
+1. **Normalizacja nazw**:
+   - Usuń polskie znaki (ą→a, ę→e, ł→l, etc.)
+   - Lowercase
+   - Usuń wielokrotne spacje
+   - Trim
+
+2. **Algorytm dopasowania** (bez AI - szybki i darmowy):
+   - Exact match (po normalizacji)
+   - Reversed order match ("Jan Kowalski" = "Kowalski Jan")
+   - First name + Last name initial ("Jan K" vs "Jan Kowalski")
+   - Levenshtein distance < 2 dla drobnych literówek
+
+3. **Scoring system**:
+   - Platform ID match = 100 punktów (pewne)
+   - Exact name match = 80 punktów
+   - Reversed name = 70 punktów
+   - Phone match = 90 punktów
+   - Fuzzy match (Levenshtein) = 50-60 punktów
+
+```typescript
+function normalizePolishName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/ą/g, 'a')
+    .replace(/ć/g, 'c')
+    .replace(/ę/g, 'e')
+    .replace(/ł/g, 'l')
+    .replace(/ń/g, 'n')
+    .replace(/ó/g, 'o')
+    .replace(/ś/g, 's')
+    .replace(/ź/g, 'z')
+    .replace(/ż/g, 'z')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function fuzzyMatchDriver(
+  csvName: string, 
+  existingDrivers: Map<string, any>
+): { driver: any | null, score: number } {
+  const normalized = normalizePolishName(csvName);
+  const nameParts = normalized.split(' ');
+  const reversed = nameParts.reverse().join(' ');
+  
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const [key, driver] of existingDrivers.entries()) {
+    const driverName = normalizePolishName(
+      `${driver.first_name || ''} ${driver.last_name || ''}`
+    );
+    
+    // Exact match
+    if (driverName === normalized) {
+      return { driver, score: 80 };
+    }
+    
+    // Reversed order
+    if (driverName === reversed) {
+      if (bestScore < 70) {
+        bestMatch = driver;
+        bestScore = 70;
+      }
+    }
+    
+    // Levenshtein distance
+    const distance = levenshtein(normalized, driverName);
+    if (distance <= 2 && bestScore < 60) {
+      bestMatch = driver;
+      bestScore = 60 - distance * 5;
+    }
+  }
+  
+  return { driver: bestMatch, score: bestScore };
+}
+```
+
+### Faza 3: Poprawka Zapisu do `unmapped_settlement_drivers`
+
+**Problem**: Rekord nie jest zapisywany, bo `fleet_id` jest undefined w niektórych przypadkach.
+
+**Rozwiązanie**: Zawsze zapisuj do `unmapped_settlement_drivers` jeśli kierowca jest nowy, nawet bez `fleet_id`:
+
+```typescript
+// W parseUberCsv, parseBoltCsv, parseFreenowCsv:
+if (!driverId) {
+  // ... tworzenie nowego kierowcy ...
+  
+  // ZAWSZE zapisz do unmapped
+  await supabase.from('unmapped_settlement_drivers').upsert({
+    fleet_id: fleet_id || null,
+    full_name: fullName,
+    uber_id: platform === 'uber' ? platformId : null,
+    bolt_id: platform === 'bolt' ? platformId : null,
+    freenow_id: platform === 'freenow' ? platformId : null,
+    status: 'pending',
+    driver_id: driverId // <-- dodaj powiązanie z utworzonym kierowcą
+  }, { onConflict: 'driver_id' });
+}
+```
+
+### Faza 4: Dodać kolumnę `driver_id` do `unmapped_settlement_drivers`
+
+**Migracja SQL:**
 
 ```sql
--- Tabela logów pojedynczych importów
-CREATE TABLE crm_import_logs (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  integration_id UUID REFERENCES agency_crm_integrations(id),
-  started_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'running',
-  total_in_feed INTEGER DEFAULT 0,
-  added_count INTEGER DEFAULT 0,
-  updated_count INTEGER DEFAULT 0,
-  deactivated_count INTEGER DEFAULT 0,
-  error_count INTEGER DEFAULT 0,
-  error_details JSONB
-);
+ALTER TABLE unmapped_settlement_drivers 
+ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES drivers(id);
 
--- Tabela mapowania pracownik-agent CRM
-CREATE TABLE crm_agent_mappings (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  integration_id UUID REFERENCES agency_crm_integrations(id),
-  crm_agent_id TEXT NOT NULL,
-  crm_agent_name TEXT,
-  crm_agent_email TEXT,
-  crm_agent_phone TEXT,
-  agent_id UUID REFERENCES real_estate_agents(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(integration_id, crm_agent_id)
-);
-
--- Dodać kolumny do real_estate_listings
-ALTER TABLE real_estate_listings 
-ADD COLUMN IF NOT EXISTS crm_last_sync_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS crm_raw_data JSONB,
-ADD COLUMN IF NOT EXISTS video_url TEXT,
-ADD COLUMN IF NOT EXISTS virtual_tour_url TEXT;
+CREATE INDEX IF NOT EXISTS idx_unmapped_drivers_fleet_status 
+ON unmapped_settlement_drivers(fleet_id, status);
 ```
 
-### Faza 2: Edge Function - Parser ASARI XML
+### Faza 5: Opcjonalna Integracja AI (na przyszłość)
 
-**Plik:** `supabase/functions/crm-import-asari/index.ts`
+Jeśli fuzzy matching nie wystarczy, możemy dodać endpoint AI do weryfikacji:
 
 ```text
-Funkcja edge do parsowania XML ASARI:
+POST /functions/v1/ai-match-drivers
+{
+  "csv_names": ["Aneta Sknadaj", "Paweł Koziarek"],
+  "existing_drivers": [
+    {"id": "...", "name": "Aneta Skandaj"},
+    {"id": "...", "name": "Paweł Koziołek"}
+  ]
+}
 
-1. Pobieranie XML
-   - Z URL (HTTP GET z opcjonalnym Basic Auth)
-   - Z FTP (połączenie, pobranie pliku)
-
-2. Parsowanie XML
-   - Parsuj definictions.xml (słowniki) 
-   - Parsuj pliki ofert *_001.xml, *_002.xml
-   - Obsłuż sekcję <DELETE> - deaktywacja ogłoszeń
-
-3. Mapowanie pól
-   - Konwersja ID parametrów ASARI → pola tabeli
-   - Tłumaczenie słowników (MIESZKANIE → apartment)
-   - Obsługa współrzędnych GPS
-   - Parsowanie przynależnych (balkon, piwnica, garaż)
-
-4. Import zdjęć
-   - Pobieranie zdjęć z URL-i w ofercie
-   - Upload do Supabase Storage
-   - Generowanie miniatur
-
-5. Mapowanie agentów
-   - Dopasowanie agent CRM → agent w systemie
-   - Tworzenie nowych agentów-pracowników automatycznie
-   - Przypisanie kontaktów (telefon, email) do ogłoszenia
-
-6. Upsert do bazy
-   - INSERT nowych ofert
-   - UPDATE istniejących (po external_id)
-   - Deaktywacja usuniętych z feeda
+Response:
+{
+  "matches": [
+    {"csv_name": "Aneta Sknadaj", "matched_id": "...", "confidence": 0.95},
+    {"csv_name": "Paweł Koziarek", "matched_id": null, "confidence": 0.3}
+  ]
+}
 ```
 
-### Faza 3: Scheduler Importu (Cron)
-
-**Konfiguracja automatycznego importu:**
-
-```text
-Harmonogramy (do wyboru w konfiguracji):
-- Co 1 godzinę
-- Co 3 godziny
-- Co 6 godzin
-- Co 12 godzin
-- Co 24 godziny
-
-Trigger: pg_cron lub zewnętrzny scheduler
-```
-
-### Faza 4: Panel Agencji - Konfiguracja CRM
-
-**Plik:** `src/pages/AgencyDashboard.tsx` (lub nowy komponent)
-
-Dodać sekcję dla agencji do samodzielnej konfiguracji:
-
-```text
-UI dla agencji:
-┌─────────────────────────────────────────────────────────┐
-│ Integracja z CRM                                        │
-├─────────────────────────────────────────────────────────┤
-│ [Dropdown: Wybierz system CRM] ASARI ▼                  │
-│                                                         │
-│ Tryb importu: ○ URL XML  ○ FTP  ○ API                   │
-│                                                         │
-│ URL do pliku XML: [________________________]            │
-│ Login (opcjonalnie): [____________]                     │
-│ Hasło (opcjonalnie): [____________]                     │
-│                                                         │
-│ Harmonogram: [Co 24 godziny ▼]                          │
-│                                                         │
-│ [Testuj połączenie]  [Zapisz konfigurację]              │
-│                                                         │
-│ ─────────────────────────────────────────────────────── │
-│ Ostatni import: 2026-02-05 14:30                        │
-│ Status: ✅ Sukces                                       │
-│ Ofert w feedzie: 45 | Dodanych: 3 | Zaktualizowanych: 12│
-│                                                         │
-│ Mapowanie pracowników:                                  │
-│ ┌─────────────────────────────────────────────────────┐ │
-│ │ Jan Kowalski (CRM) → [Wybierz agenta ▼] Jan K. ✓    │ │
-│ │ Anna Nowak (CRM)   → [Wybierz agenta ▼] Nowy agent  │ │
-│ └─────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Faza 5: Obsługa Hierarchii Agencja-Pracownik
-
-**Logika przypisywania ogłoszeń:**
-
-```text
-Scenariusz:
-1. Agencja "ABC Nieruchomości" rejestruje się → agent_id = A1
-2. Dodaje pracownika "Jan Kowalski" → agent_id = A2, parent_agent_id = A1
-3. Konfiguruje ASARI CRM z integration_id = I1
-
-Import ogłoszenia z CRM:
-- XML zawiera: agent="Jan Kowalski", email="jan@abc.pl"
-- System sprawdza crm_agent_mappings:
-  - Jeśli istnieje mapowanie → użyj przypisanego agent_id
-  - Jeśli nie → szukaj po email w real_estate_agents
-  - Jeśli nie znaleziono → utwórz nowego agenta jako pracownika (parent_agent_id = A1)
-
-Wynik:
-- Ogłoszenie ma agent_id = A2 (pracownik)
-- Ogłoszenie ma agency_id = A1 (agencja)
-- Dane kontaktowe: telefon i email pracownika z CRM
-```
+To zostanie dodane później jako opcja "Użyj AI do dopasowania" w UI.
 
 ---
 
-## Pliki do Utworzenia/Modyfikacji
+## Pliki do Modyfikacji
 
-| Plik | Akcja | Opis |
-|------|-------|------|
-| `supabase/functions/crm-import-asari/index.ts` | Nowy | Parser XML ASARI, główna logika importu |
-| `supabase/functions/crm-import-asari/parser.ts` | Nowy | Parsowanie XML i mapowanie pól |
-| `supabase/functions/crm-import-asari/dictionaries.ts` | Nowy | Słowniki mapowania ASARI → system |
-| `supabase/functions/crm-import-scheduler/index.ts` | Nowy | Scheduler uruchamiający importy |
-| `src/pages/AgencyDashboard.tsx` | Modyfikacja | Dodać sekcję konfiguracji CRM |
-| `src/components/agency/AgencyCRMSettings.tsx` | Nowy | Komponent ustawień CRM dla agencji |
-| SQL Migration | Nowy | Tabele `crm_import_logs`, `crm_agent_mappings` |
+| Plik | Zmiana |
+|------|--------|
+| `src/components/FleetSettlementsView.tsx` | Filtrować kierowców bez danych z tabeli |
+| `supabase/functions/settlements/index.ts` | Dodać fuzzy matching, poprawić zapis unmapped |
+| SQL Migration | Dodać `driver_id` do `unmapped_settlement_drivers` |
 
 ---
 
-## Mapowanie Typów Nieruchomości
+## Efekt
 
-```text
-ASARI (słownik 68 - nieruchomość):
-DOM        → house
-MIESZKANIE → apartment
-DZIAŁKA    → land
-LOKAL      → commercial
-OBIEKT     → commercial
-POKÓJ      → room
+1. **Brak "śmieciowych" wierszy** - kierowcy bez rozliczeń w okresie nie będą widoczni
+2. **Lepsze dopasowywanie** - "Aneta Sknadaj" zostanie dopasowana do "Aneta Skandaj" (literówka)
+3. **Działający przycisk "Sprawdź nowych"** - nowi kierowcy będą poprawnie zapisywani
+4. **Gotowość na AI** - struktura przygotowana do integracji GPT/Gemini w przyszłości
 
-ASARI (słownik 74 - rodzaj mieszkania):
-BLOK           → apartment
-KAMIENICA      → apartment
-APARTAMENTOWIEC → apartment
-LOFT           → apartment
-
-ASARI (słownik 75 - typ domu):
-WOLNOSTOJĄCY → house
-BLIŹNIAK     → house
-SZEREGOWIEC  → house
-SEGMENT      → house
-```
-
----
-
-## Obsługa Sekcji DELETE
-
-Zgodnie z dokumentacją ASARI, sekcja `<DELETE>` zawiera tylko numery ofert do usunięcia:
-
-```xml
-<DELETE>
-  <offers>
-    <signature>110/9/OMS</signature>
-    <signature>111/9/OMS</signature>
-  </offers>
-  <pictures />
-</DELETE>
-```
-
-**Logika:**
-1. Pobierz listę signature z `<DELETE><offers>`
-2. Znajdź ogłoszenia w `real_estate_listings` gdzie `external_id` = signature
-3. Ustaw `status = 'inactive'` (soft delete)
-4. NIE usuwaj z bazy - zachowaj historię
-
----
-
-## Bezpieczeństwo
-
-1. **Hasła/Tokeny** - przechowywane jako Supabase Secrets
-2. **Walidacja XML** - sanityzacja danych przed zapisem
-3. **Rate limiting** - max 1 import na 15 minut
-4. **RLS** - agencja widzi tylko swoje integracje
-
----
-
-## Testowanie (zgodnie z dokumentacją ASARI)
-
-Scenariusze testowe:
-1. Dodanie oferty (minimum po jednej na dział)
-2. Usunięcie oferty (wycofanie z eksportu)
-3. Zmiana danych w ofercie (cena, opis, lokalizacja)
-4. Dodanie zdjęcia
-5. Usunięcie zdjęcia
-6. Aktualizacja zdjęcia (znak wodny)
-7. Przestawienie kolejności zdjęć
-8. Pełny eksport - czy stan zgodny
-9. Wycofanie + pełny eksport
-
----
-
-## Kolejność Wdrożenia
-
-1. **Faza 1** - Migracja SQL (tabele logów, mapowania)
-2. **Faza 2** - Edge Function parser ASARI
-3. **Faza 3** - Panel agencji do konfiguracji
-4. **Faza 4** - Scheduler automatycznych importów
-5. **Faza 5** - Testy integracyjne z kontem testowym ASARI
-
-**Szacowany czas: ~8-10h**
+**Szacowany czas: ~3-4h**
 
