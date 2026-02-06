@@ -422,12 +422,11 @@ export default function ClientPortal() {
     { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
   ];
 
-  // Redirect away from ksiegowosc tab if user loses company access
-  useEffect(() => {
-    if (activeTab === 'ksiegowosc' && !hasCompanySetup) {
-      setActiveTab('start');
-    }
-  }, [hasCompanySetup, activeTab]);
+  // Redirect away from ksiegowosc tab if user loses company access (in render, not useEffect)
+  if (activeTab === 'ksiegowosc' && !hasCompanySetup && !loading) {
+    // Use setTimeout to avoid state update during render
+    setTimeout(() => setActiveTab('start'), 0);
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
