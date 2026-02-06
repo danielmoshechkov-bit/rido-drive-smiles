@@ -125,7 +125,8 @@ export function ServiceListingCard({
       <Card 
         className={cn(
           "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
-          viewMode === 'list' && "flex flex-row"
+          viewMode === 'list' && "flex flex-row",
+          viewMode === 'compact' && "flex flex-row h-36"
         )}
         onClick={handleCardClick}
       >
@@ -133,7 +134,10 @@ export function ServiceListingCard({
         <div 
           className={cn(
             "relative bg-muted overflow-hidden",
-            viewMode === 'list' ? "w-1/3 min-w-[200px] aspect-auto h-auto" : "aspect-[4/3]"
+            viewMode === 'list' ? "w-1/3 min-w-[200px] aspect-auto h-auto" : "",
+            viewMode === 'compact' ? "w-32 min-w-[128px] h-full" : "",
+            viewMode === 'grid' ? "aspect-[4/3]" : "",
+            !viewMode && "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
         >
@@ -200,7 +204,8 @@ export function ServiceListingCard({
         {/* Content */}
         <div className={cn(
           "p-4 flex flex-col",
-          viewMode === 'list' && "flex-1"
+          viewMode === 'list' && "flex-1",
+          viewMode === 'compact' && "flex-1 p-3 justify-center"
         )}>
           {/* Company Name */}
           <h3 className="font-semibold text-lg line-clamp-1 h-7 flex items-center">

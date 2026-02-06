@@ -410,16 +410,24 @@ export default function ClientPortal() {
   // Księgowość visible only if user has at least one company (entity)
   const hasCompanySetup = userEntities.length > 0;
 
+  // Build tabs dynamically - Księgowość only for users with company setup
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
-    // Księgowość - ZAWSZE widoczna (użytkownik może założyć firmę)
-    { id: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
+    // Księgowość - tylko dla użytkowników z firmą
+    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ulubione', label: 'Ulubione', icon: Heart },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
   ];
+
+  // Redirect away from ksiegowosc tab if user loses company access
+  useEffect(() => {
+    if (activeTab === 'ksiegowosc' && !hasCompanySetup) {
+      setActiveTab('start');
+    }
+  }, [hasCompanySetup, activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
