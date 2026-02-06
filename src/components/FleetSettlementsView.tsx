@@ -991,10 +991,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         };
       });
 
-      console.log('📈 Aggregated settlements:', aggregated.length);
-      console.log('✅ Sample settlement:', aggregated[0]);
+      // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze
+      // Pokazuj tylko kierowców którzy:
+      // 1. Mają jakiekolwiek zarobki (total_base > 0)
+      // 2. LUB mają ujemne saldo (has_negative_balance)
+      // 3. LUB mają rozliczenia w tym okresie
+      const settlementsDriverIds = new Set(settlementsData?.map(s => s.driver_id) || []);
       
-      setSettlements(aggregated);
+      const filteredAggregated = aggregated.filter(row => 
+        row.total_base > 0 || 
+        row.has_negative_balance || 
+        settlementsDriverIds.has(row.driver_id)
+      );
+
+      console.log('📈 Aggregated settlements:', aggregated.length);
+      console.log('🧹 Filtered (removed ghost drivers):', filteredAggregated.length);
+      console.log('✅ Sample settlement:', filteredAggregated[0]);
+      
+      setSettlements(filteredAggregated);
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
