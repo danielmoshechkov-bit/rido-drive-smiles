@@ -226,8 +226,8 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-muted" />
       )}
       
-      {/* Content - no icons, only text */}
-      <CardContent className="relative z-10 p-4 md:p-5 h-36 md:h-44 flex flex-col justify-end">
+      {/* Content - matching ServiceCategoryTile styling */}
+      <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
         <h3 className={cn(
           "font-bold text-sm md:text-base leading-tight",
           tile.image ? "text-white" : "text-foreground"
@@ -533,7 +533,7 @@ export default function EasyHub() {
 
       {/* Marketplace Tiles */}
       <section className="container mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
           {currentTiles.map((tile) => (
             <MarketplaceTileCard 
               key={tile.id} 
