@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { TabsPill } from "@/components/ui/TabsPill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
@@ -285,30 +286,27 @@ export default function AdminMarketplace() {
           <p className="text-muted-foreground">Zarządzaj giełdą pojazdów</p>
         </div>
 
-        <Tabs defaultValue="listings" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="listings" className="flex items-center gap-2">
-              <List className="h-4 w-4" />
-              Ogłoszenia
-            </TabsTrigger>
-            <TabsTrigger value="ads" className="flex items-center gap-2">
-              <Image className="h-4 w-4" />
-              Reklamy
-            </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center gap-2">
-              <Grid className="h-4 w-4" />
-              Kategorie
-            </TabsTrigger>
-            <TabsTrigger value="premium" className="flex items-center gap-2">
-              <Star className="h-4 w-4" />
-              Premium
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Ustawienia
-            </TabsTrigger>
-          </TabsList>
-
+        <TabsPill defaultValue="listings" className="space-y-6">
+          <TabsTrigger value="listings" className="flex items-center gap-2">
+            <List className="h-4 w-4" />
+            Ogłoszenia
+          </TabsTrigger>
+          <TabsTrigger value="ads" className="flex items-center gap-2">
+            <Image className="h-4 w-4" />
+            Reklamy
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="flex items-center gap-2">
+            <Grid className="h-4 w-4" />
+            Kategorie
+          </TabsTrigger>
+          <TabsTrigger value="premium" className="flex items-center gap-2">
+            <Star className="h-4 w-4" />
+            Premium
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Ustawienia
+          </TabsTrigger>
           {/* Listings Tab */}
           <TabsContent value="listings">
             <Card>
@@ -598,7 +596,7 @@ export default function AdminMarketplace() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+        </TabsPill>
       </div>
     </div>
   );

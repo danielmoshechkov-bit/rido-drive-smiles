@@ -47,6 +47,7 @@ import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
 import ServicesMarketplace from "./pages/ServicesMarketplace";
 import ServiceProviderDetail from "./pages/ServiceProviderDetail";
+import ServiceProviderDashboard from "./pages/ServiceProviderDashboard";
 import UniversalSearchResults from "./pages/UniversalSearchResults";
 import AccountingDashboard from "./pages/AccountingDashboard";
 import InsuranceAgentRegister from "./pages/InsuranceAgentRegister";
@@ -103,6 +104,7 @@ const App = () => (
             <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
             <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
             <Route path="/uslugi" element={<ServicesMarketplace />} />
+            <Route path="/uslugi/panel" element={<ServiceProviderDashboard />} />
             <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />
             <Route path="/wyniki" element={<UniversalSearchResults />} />
             <Route path="/ksiegowosc" element={<AccountingDashboard />} />

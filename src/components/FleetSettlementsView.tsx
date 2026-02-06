@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2 } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { DriverDebtHistory } from './DriverDebtHistory';
+import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -108,6 +109,35 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [debtDialogOpen, setDebtDialogOpen] = useState(false);
   const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{id: string, name: string} | null>(null);
   const [driverDebts, setDriverDebts] = useState<Record<string, number>>({});
+  const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
+  const [showUnmappedModal, setShowUnmappedModal] = useState(false);
+  const [checkingUnmapped, setCheckingUnmapped] = useState(false);
+
+  // Check for unmapped drivers
+  const handleCheckUnmappedDrivers = async () => {
+    setCheckingUnmapped(true);
+    try {
+      const { data: unmapped, error } = await supabase
+        .from('unmapped_settlement_drivers')
+        .select('*')
+        .eq('fleet_id', fleetId)
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      
+      if (unmapped && unmapped.length > 0) {
+        setUnmappedDrivers(unmapped);
+        setShowUnmappedModal(true);
+      } else {
+        toast.info('Brak nowych kierowców do zmapowania');
+      }
+    } catch (err) {
+      console.error('Error checking unmapped drivers:', err);
+      toast.error('Błąd sprawdzania nowych kierowców');
+    } finally {
+      setCheckingUnmapped(false);
+    }
+  };
 
   // Fetch cities for filter
   useEffect(() => {
@@ -1368,6 +1398,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   Generuj przelew
                 </Button>
                 <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleCheckUnmappedDrivers}
+                  disabled={checkingUnmapped}
+                  className="gap-1.5"
+                >
+                  {checkingUnmapped ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                  Sprawdź nowych kierowców
+                </Button>
+                <Button 
                   variant="destructive" 
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
@@ -1850,6 +1894,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         </DialogContent>
       </Dialog>
     </Card>
+
+      {/* Unmapped Drivers Modal */}
+      <UnmappedDriversModal
+        open={showUnmappedModal}
+        onOpenChange={setShowUnmappedModal}
+        unmappedDrivers={unmappedDrivers}
+        fleetId={fleetId}
+        onComplete={() => {
+          setUnmappedDrivers([]);
+          fetchSettlements();
+        }}
+      />
     </div>
   );
 }

@@ -12242,6 +12242,7 @@ export type Database = {
         | "accountant"
         | "sales_admin"
         | "sales_rep"
+        | "service_provider"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -12382,6 +12383,7 @@ export const Constants = {
         "accountant",
         "sales_admin",
         "sales_rep",
+        "service_provider",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },
