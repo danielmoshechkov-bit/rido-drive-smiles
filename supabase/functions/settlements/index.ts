@@ -314,6 +314,12 @@ async function process3PlatformCsvs(
         existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
       });
     }
+    
+    // Index by full name (for fuzzy matching)
+    const fullName = `${driver.first_name || ''} ${driver.last_name || ''}`.trim().toLowerCase();
+    if (fullName && fullName.length > 1) {
+      existingDriversMap.set(`name:${fullName}`, driver);
+    }
   });
 
   let newDrivers = 0;
@@ -666,9 +672,22 @@ async function parseUberCsv(
     (h.includes('driver') && h.includes('id')) || 
     h === 'id'
   );
-  const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko'));
+  
+  // Uber uses SEPARATE columns for first name and last name
+  const firstNameIdx = headers.findIndex(h => 
+    h.includes('imię') || h.includes('imie') || h.includes('first') || h === 'first_name'
+  );
+  const lastNameIdx = headers.findIndex(h => 
+    h.includes('nazwisko') || h.includes('last') || h === 'last_name'
+  );
+  // Fallback: combined name column (Bolt/FreeNow style)
+  const fullNameIdx = headers.findIndex(h => 
+    (h.includes('name') && !h.includes('first') && !h.includes('last')) ||
+    h.includes('kierowca') ||
+    h.includes('driver')
+  );
 
-  console.log('📊 UBER CSV - indeksy:', { payoutIdx, cashIdx, driverIdIdx, driverNameIdx });
+  console.log('📊 UBER CSV - indeksy:', { payoutIdx, cashIdx, driverIdIdx, firstNameIdx, lastNameIdx, fullNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -685,7 +704,18 @@ async function parseUberCsv(
     const uber_net = uber_base - uber_tax_8;
 
     let platformId = row[driverIdIdx]?.trim();
-    const driverName = row[driverNameIdx]?.trim() || '';
+    
+    // Build driver name from separate columns OR combined column
+    let driverName = '';
+    if (firstNameIdx !== -1 && lastNameIdx !== -1) {
+      // Uber format: separate first name and last name columns
+      const firstName = row[firstNameIdx]?.trim() || '';
+      const lastName = row[lastNameIdx]?.trim() || '';
+      driverName = `${firstName} ${lastName}`.trim();
+    } else if (fullNameIdx !== -1) {
+      // Bolt/FreeNow format: combined name column
+      driverName = row[fullNameIdx]?.trim() || '';
+    }
     
     if (platformId && platformId.includes(',') && platformId.length > 20) {
       const parts = platformId.split(',');
