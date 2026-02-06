@@ -2817,30 +2817,111 @@ export type Database = {
           },
         ]
       }
+      crm_agent_mappings: {
+        Row: {
+          agent_id: string | null
+          auto_created: boolean | null
+          created_at: string | null
+          crm_agent_email: string | null
+          crm_agent_id: string
+          crm_agent_name: string | null
+          crm_agent_phone: string | null
+          id: string
+          integration_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          auto_created?: boolean | null
+          created_at?: string | null
+          crm_agent_email?: string | null
+          crm_agent_id: string
+          crm_agent_name?: string | null
+          crm_agent_phone?: string | null
+          id?: string
+          integration_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          auto_created?: boolean | null
+          created_at?: string | null
+          crm_agent_email?: string | null
+          crm_agent_id?: string
+          crm_agent_name?: string | null
+          crm_agent_phone?: string | null
+          id?: string
+          integration_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_agent_mappings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_agent_mappings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "agency_crm_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_import_logs: {
         Row: {
+          added_count: number | null
+          completed_at: string | null
           created_at: string | null
+          deactivated_count: number | null
           details: Json | null
+          error_count: number | null
+          error_details: Json | null
           id: string
           integration_id: string | null
           log_type: string
           message: string
+          started_at: string | null
+          status: string | null
+          total_in_feed: number | null
+          updated_count: number | null
         }
         Insert: {
+          added_count?: number | null
+          completed_at?: string | null
           created_at?: string | null
+          deactivated_count?: number | null
           details?: Json | null
+          error_count?: number | null
+          error_details?: Json | null
           id?: string
           integration_id?: string | null
           log_type: string
           message: string
+          started_at?: string | null
+          status?: string | null
+          total_in_feed?: number | null
+          updated_count?: number | null
         }
         Update: {
+          added_count?: number | null
+          completed_at?: string | null
           created_at?: string | null
+          deactivated_count?: number | null
           details?: Json | null
+          error_count?: number | null
+          error_details?: Json | null
           id?: string
           integration_id?: string | null
           log_type?: string
           message?: string
+          started_at?: string | null
+          status?: string | null
+          total_in_feed?: number | null
+          updated_count?: number | null
         }
         Relationships: [
           {
@@ -8163,6 +8244,8 @@ export type Database = {
           contact_phone: string | null
           contact_reveals_count: number | null
           created_at: string | null
+          crm_last_sync_at: string | null
+          crm_raw_data: Json | null
           crm_source: string | null
           description: string | null
           district: string | null
@@ -8196,7 +8279,9 @@ export type Database = {
           total_floors: number | null
           transaction_type: string
           updated_at: string | null
+          video_url: string | null
           views: number | null
+          virtual_tour_url: string | null
         }
         Insert: {
           address?: string | null
@@ -8211,6 +8296,8 @@ export type Database = {
           contact_phone?: string | null
           contact_reveals_count?: number | null
           created_at?: string | null
+          crm_last_sync_at?: string | null
+          crm_raw_data?: Json | null
           crm_source?: string | null
           description?: string | null
           district?: string | null
@@ -8244,7 +8331,9 @@ export type Database = {
           total_floors?: number | null
           transaction_type: string
           updated_at?: string | null
+          video_url?: string | null
           views?: number | null
+          virtual_tour_url?: string | null
         }
         Update: {
           address?: string | null
@@ -8259,6 +8348,8 @@ export type Database = {
           contact_phone?: string | null
           contact_reveals_count?: number | null
           created_at?: string | null
+          crm_last_sync_at?: string | null
+          crm_raw_data?: Json | null
           crm_source?: string | null
           description?: string | null
           district?: string | null
@@ -8292,7 +8383,9 @@ export type Database = {
           total_floors?: number | null
           transaction_type?: string
           updated_at?: string | null
+          video_url?: string | null
           views?: number | null
+          virtual_tour_url?: string | null
         }
         Relationships: [
           {
