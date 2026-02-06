@@ -2601,6 +2601,54 @@ export type Database = {
         }
         Relationships: []
       }
+      client_reviews: {
+        Row: {
+          booking_id: string | null
+          client_user_id: string
+          comment: string | null
+          created_at: string | null
+          id: string
+          is_anonymous: boolean | null
+          rating: number
+          reviewer_provider_id: string
+        }
+        Insert: {
+          booking_id?: string | null
+          client_user_id: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          rating: number
+          reviewer_provider_id: string
+        }
+        Update: {
+          booking_id?: string | null
+          client_user_id?: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          rating?: number
+          reviewer_provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_reviews_reviewer_provider_id_fkey"
+            columns: ["reviewer_provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coin_transactions: {
         Row: {
           amount: number

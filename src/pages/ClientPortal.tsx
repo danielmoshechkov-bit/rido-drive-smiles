@@ -125,6 +125,10 @@ export default function ClientPortal() {
   // Mobile tab dropdown state
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
   
+  // Ogłoszenia sub-tabs
+  const [oglaszeniaSubTab, setOglaszeniaSubTab] = useState<'wystawione' | 'zakonczone' | 'ulubione'>('wystawione');
+  const [ulubioneFavoriteCategory, setUlubioneFavoriteCategory] = useState<'wszystkie' | 'motoryzacja' | 'nieruchomosci' | 'uslugi'>('wszystkie');
+  
   // Account settings form
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPhone, setAccountPhone] = useState('');
@@ -462,14 +466,13 @@ export default function ClientPortal() {
   const activeEntities = userEntities.filter(e => e.is_active !== false);
   const hasCompanySetup = activeEntities.length > 0;
 
-  // Build tabs dynamically - Księgowość only for users with company setup
+  // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
     // Księgowość - tylko dla użytkowników z firmą
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
-    { id: 'ulubione', label: 'Ulubione', icon: Heart },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
   ];
@@ -757,120 +760,275 @@ export default function ClientPortal() {
             </div>
           )}
 
-          {/* My Listings Tab */}
+          {/* My Listings Tab - with sub-tabs */}
           {activeTab === 'ogloszenia' && (
             <div className="space-y-6">
-              {vehicleListings.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Car className="h-5 w-5" />
-                      Ogłoszenia motoryzacyjne
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {vehicleListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}
-                        >
-                          <div className="flex items-center gap-4">
-                            {listing.photos?.[0] ? (
-                              <img 
-                                src={listing.photos[0]} 
-                                alt={listing.title}
-                                className="w-16 h-12 object-cover rounded-lg"
-                              />
-                            ) : (
-                              <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
-                                <Car className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold">{listing.title}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(listing.created_at).toLocaleDateString('pl-PL')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
-                            {getStatusBadge(listing.status)}
-                          </div>
-                        </div>
-                      ))}
+              {/* Pod-zakładki */}
+              <div className="flex gap-2 border-b pb-2">
+                <Button 
+                  variant={oglaszeniaSubTab === 'wystawione' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setOglaszeniaSubTab('wystawione')}
+                >
+                  Wystawione
+                </Button>
+                <Button 
+                  variant={oglaszeniaSubTab === 'zakonczone' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setOglaszeniaSubTab('zakonczone')}
+                >
+                  Zakończone
+                </Button>
+                <Button 
+                  variant={oglaszeniaSubTab === 'ulubione' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setOglaszeniaSubTab('ulubione')}
+                >
+                  <Heart className="h-4 w-4 mr-1" />
+                  Ulubione
+                </Button>
+              </div>
+
+              {/* Wystawione - Active Listings */}
+              {oglaszeniaSubTab === 'wystawione' && (
+                <div className="space-y-6">
+                  {totalListings > 0 && (
+                    <div className="flex justify-end">
+                      <AddListingModal 
+                        user={user}
+                        trigger={
+                          <Button size="sm">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Dodaj
+                          </Button>
+                        }
+                      />
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+
+                  {vehicleListings.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Car className="h-5 w-5" />
+                          Ogłoszenia motoryzacyjne
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {vehicleListings.map((listing) => (
+                            <div
+                              key={listing.id}
+                              className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}
+                            >
+                              <div className="flex items-center gap-4">
+                                {listing.photos?.[0] ? (
+                                  <img 
+                                    src={listing.photos[0]} 
+                                    alt={listing.title}
+                                    className="w-16 h-12 object-cover rounded-lg"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                                    <Car className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold">{listing.title}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(listing.created_at).toLocaleDateString('pl-PL')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                                {getStatusBadge(listing.status)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {propertyListings.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Home className="h-5 w-5" />
+                          Ogłoszenia nieruchomości
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {propertyListings.map((listing) => (
+                            <div
+                              key={listing.id}
+                              className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                            >
+                              <div className="flex items-center gap-4">
+                                {listing.photos?.[0] ? (
+                                  <img 
+                                    src={listing.photos[0]} 
+                                    alt={listing.title}
+                                    className="w-16 h-12 object-cover rounded-lg"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                                    <Home className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold">{listing.title}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(listing.created_at).toLocaleDateString('pl-PL')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                                {getStatusBadge(listing.status)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {totalListings === 0 && (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                        <p className="font-semibold mb-2">Brak ogłoszeń</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Nie masz jeszcze żadnych ogłoszeń
+                        </p>
+                        <AddListingModal 
+                          user={user}
+                          trigger={
+                            <Button>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Dodaj ogłoszenie
+                            </Button>
+                          }
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
 
-              {propertyListings.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Home className="h-5 w-5" />
-                      Ogłoszenia nieruchomości
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {propertyListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
-                        >
-                          <div className="flex items-center gap-4">
-                            {listing.photos?.[0] ? (
-                              <img 
-                                src={listing.photos[0]} 
-                                alt={listing.title}
-                                className="w-16 h-12 object-cover rounded-lg"
-                              />
-                            ) : (
-                              <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
-                                <Home className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold">{listing.title}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(listing.created_at).toLocaleDateString('pl-PL')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
-                            {getStatusBadge(listing.status)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {totalListings === 0 && (
+              {/* Zakończone - Expired Listings */}
+              {oglaszeniaSubTab === 'zakonczone' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                    <p className="font-semibold mb-2">Brak ogłoszeń</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Nie masz jeszcze żadnych ogłoszeń
+                    <p className="font-semibold mb-2">Brak zakończonych ogłoszeń</p>
+                    <p className="text-sm text-muted-foreground">
+                      Zakończone ogłoszenia pojawią się tutaj po wygaśnięciu
                     </p>
-                    <AddListingModal 
-                      user={user}
-                      trigger={
-                        <Button>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Dodaj ogłoszenie
-                        </Button>
-                      }
-                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Zakończone ogłoszenia są usuwane po 60 dniach
+                    </p>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Ulubione - Favorites (moved from main tabs) */}
+              {oglaszeniaSubTab === 'ulubione' && (
+                <div className="space-y-4">
+                  {/* Category filters */}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge 
+                      variant={ulubioneFavoriteCategory === 'wszystkie' ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setUlubioneFavoriteCategory('wszystkie')}
+                    >
+                      Wszystkie
+                    </Badge>
+                    <Badge 
+                      variant={ulubioneFavoriteCategory === 'motoryzacja' ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setUlubioneFavoriteCategory('motoryzacja')}
+                    >
+                      <Car className="h-3 w-3 mr-1" />
+                      Motoryzacja
+                    </Badge>
+                    <Badge 
+                      variant={ulubioneFavoriteCategory === 'nieruchomosci' ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setUlubioneFavoriteCategory('nieruchomosci')}
+                    >
+                      <Home className="h-3 w-3 mr-1" />
+                      Nieruchomości
+                    </Badge>
+                    <Badge 
+                      variant={ulubioneFavoriteCategory === 'uslugi' ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setUlubioneFavoriteCategory('uslugi')}
+                    >
+                      Usługi
+                    </Badge>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Heart className="h-5 w-5" />
+                        Ulubione ogłoszenia
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {favorites.length > 0 ? (
+                        <div className="space-y-4">
+                          {favorites
+                            .filter(fav => {
+                              if (ulubioneFavoriteCategory === 'wszystkie') return true;
+                              if (ulubioneFavoriteCategory === 'motoryzacja') return fav.vehicle_id;
+                              // Add more filters when property/service favorites are added
+                              return true;
+                            })
+                            .map((fav) => (
+                            <div
+                              key={fav.id}
+                              className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => navigate(`/gielda/ogloszenie/${fav.vehicle_id}`)}
+                            >
+                              <div className="flex items-center gap-4">
+                                {fav.vehicle_listings?.photos?.[0] ? (
+                                  <img 
+                                    src={fav.vehicle_listings.photos[0]} 
+                                    alt={fav.vehicle_listings.title}
+                                    className="w-16 h-12 object-cover rounded-lg"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
+                                    <Car className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold">{fav.vehicle_listings?.title}</p>
+                                </div>
+                              </div>
+                              <p className="font-semibold">{fav.vehicle_listings?.price?.toLocaleString('pl-PL')} PLN</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Brak ulubionych ogłoszeń</p>
+                          <p className="text-sm mt-1">
+                            Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </div>
           )}
@@ -896,56 +1054,13 @@ export default function ClientPortal() {
             </Card>
           )}
 
-          {/* Favorites Tab */}
-          {activeTab === 'ulubione' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="h-5 w-5" />
-                  Ulubione ogłoszenia
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {favorites.length > 0 ? (
-                  <div className="space-y-4">
-                    {favorites.map((fav) => (
-                      <div
-                        key={fav.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/gielda/ogloszenie/${fav.vehicle_id}`)}
-                      >
-                        <div className="flex items-center gap-4">
-                          {fav.vehicle_listings?.photos?.[0] ? (
-                            <img 
-                              src={fav.vehicle_listings.photos[0]} 
-                              alt={fav.vehicle_listings.title}
-                              className="w-16 h-12 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
-                              <Car className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold">{fav.vehicle_listings?.title}</p>
-                          </div>
-                        </div>
-                        <p className="font-semibold">{fav.vehicle_listings?.price?.toLocaleString('pl-PL')} PLN</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak ulubionych ogłoszeń</p>
-                    <p className="text-sm mt-1">
-                      Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Favorites Tab - redirects to ogloszenia/ulubione */}
+          {activeTab === 'ulubione' && (() => {
+            // Redirect old favorites tab to new location
+            setActiveTab('ogloszenia');
+            setOglaszeniaSubTab('ulubione');
+            return null;
+          })()}
 
           {/* Accounting Tab */}
           {activeTab === 'ksiegowosc' && (

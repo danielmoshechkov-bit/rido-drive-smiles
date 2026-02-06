@@ -240,8 +240,8 @@ export function PropertyListingCard({
 
             {/* Content - Right side */}
             <div className="flex-1 p-4 flex flex-col">
-              {/* Title */}
-              <h3 className="font-semibold text-base line-clamp-2">{listing.title}</h3>
+              {/* Title - 2 linijki, większa czcionka */}
+              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{listing.title}</h3>
 
               {/* Property specs row */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
@@ -483,10 +483,10 @@ export function PropertyListingCard({
 
         {/* Content */}
         <div className={cn("p-4 flex flex-col flex-1", compact && "p-2")}>
-          {/* Title - Allow 2 lines */}
+          {/* Title - 2 linijki, większa czcionka */}
           <h3 className={cn(
-            "font-semibold leading-tight",
-            compact ? "text-sm line-clamp-1" : "text-base line-clamp-2 min-h-[2.5rem]"
+            "font-bold leading-tight",
+            compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3rem]"
           )}>{listing.title}</h3>
 
           {/* Property Type & Area & Rooms - Single row */}
