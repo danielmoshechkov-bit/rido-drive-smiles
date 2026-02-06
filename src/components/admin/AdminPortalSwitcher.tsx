@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +64,13 @@ const portals: Portal[] = [
     description: 'Zarządzanie usługami i wykonawcami',
   },
   {
+    id: 'sales',
+    name: 'Sprzedaż / CRM',
+    icon: Briefcase,
+    path: '/sprzedaz',
+    description: 'Panel handlowca i CRM',
+  },
+  {
     id: 'accounting',
     name: 'Księgowość',
     icon: Calculator,
@@ -94,6 +101,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/ksiegowosc')) {
       return portals.find((p) => p.id === 'accounting');
+    }
+    if (location.pathname.includes('/sprzedaz') || location.pathname.includes('/handlowiec')) {
+      return portals.find((p) => p.id === 'sales');
     }
     return portals.find((p) => p.id === 'fleet');
   };
