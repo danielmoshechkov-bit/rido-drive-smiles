@@ -112,6 +112,7 @@ const mainTiles: MarketplaceTile[] = [
 ];
 
 // Motoryzacja sub-tiles - unique images and icons (includes Portal Kierowcy)
+// Order: Ogłoszenia, Warsztaty, Detailing+PPF, Portal Flotowy, Portal Kierowcy
 const motoryzacjaSubTiles: MarketplaceTile[] = [
   {
     id: 'portal-ogloszen-auto',
@@ -123,17 +124,8 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     available: true
   },
   {
-    id: 'portal-rozliczen',
-    title: 'Portal Rozliczeń',
-    description: 'Zarządzaj flotą i kierowcami',
-    icon: Calculator,
-    image: tileFleet,
-    link: '/fleet',
-    available: true
-  },
-  {
     id: 'warsztat',
-    title: 'Warsztat',
+    title: 'Warsztaty',
     description: 'Naprawy i serwis samochodowy',
     icon: Wrench,
     image: tileWorkshop,
@@ -141,21 +133,21 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     available: true
   },
   {
-    id: 'detailing',
-    title: 'Detailing',
-    description: 'Pielęgnacja i zabezpieczenie',
+    id: 'detailing-ppf',
+    title: 'Detailing i Folia PPF',
+    description: 'Pielęgnacja, ceramika i folie ochronne',
     icon: Droplets,
     image: tileDetailing,
     link: '/uslugi?kategoria=detailing',
     available: true
   },
   {
-    id: 'ppf',
-    title: 'Studio PPF',
-    description: 'Folie ochronne i ceramika',
-    icon: Layers,
-    image: tilePPF,
-    link: '/uslugi?kategoria=ppf',
+    id: 'portal-flotowy',
+    title: 'Portal zarządzania Flotą',
+    description: 'Zarządzaj flotą i kierowcami',
+    icon: Calculator,
+    image: tileFleet,
+    link: '/fleet',
     available: true
   },
   {
@@ -235,7 +227,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
       )}
       
       {/* Content - no icons, only text */}
-      <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
+      <CardContent className="relative z-10 p-4 md:p-5 h-36 md:h-44 flex flex-col justify-end">
         <h3 className={cn(
           "font-bold text-sm md:text-base leading-tight",
           tile.image ? "text-white" : "text-foreground"
