@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "./PasswordStrengthIndicator";
 interface AuthModalProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function AuthModal({
   customDescription
 }: AuthModalProps) {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const [mode, setMode] = useState<"login" | "register" | "success">(initialMode);
   const [loading, setLoading] = useState(false);
   
   // Login state
@@ -60,6 +60,7 @@ export function AuthModal({
     if (open) {
       setMode(initialMode);
       setShowResetForm(false);
+      setFieldErrors({});
     }
   }, [open, initialMode]);
 
@@ -81,9 +82,18 @@ export function AuthModal({
       if (authError) {
         if (authError.message.includes("Invalid login credentials")) {
           toast.error("Nieprawidłowy email lub hasło");
+        } else if (authError.message.includes("Email not confirmed")) {
+          toast.error("Konto nie zostało aktywowane. Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.");
         } else {
           toast.error(authError.message);
         }
+        return;
+      }
+
+      // Check if email is confirmed
+      if (authData.user && !authData.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        toast.error("Konto nie zostało aktywowane. Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.");
         return;
       }
       
@@ -200,12 +210,8 @@ export function AuthModal({
 
       // Check for success response
       if (response.data?.success) {
-        toast.success(response.data.message || "Rejestracja zakończona! Możesz się teraz zalogować.");
-        
-        // Auto-login after registration
-        setLoginEmail(registerData.email);
-        setLoginPassword(registerData.password);
-        setMode("login");
+        // Show success screen with email verification message
+        setMode("success");
       } else if (response.data?.error) {
         // Error returned in data
         const errorMessage = response.data.error;
@@ -254,9 +260,9 @@ export function AuthModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header with logo */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 pb-4">
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 pb-4 shrink-0">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <img 
@@ -266,21 +272,25 @@ export function AuthModal({
               />
               <div>
                 <DialogTitle className="text-xl font-bold">
-                  {showResetForm 
-                    ? "Resetowanie hasła" 
-                    : mode === "login" 
-                      ? "Zaloguj się" 
-                      : "Dołącz do GetRido"
+                  {mode === "success"
+                    ? "Sprawdź swoją skrzynkę!"
+                    : showResetForm 
+                      ? "Resetowanie hasła" 
+                      : mode === "login" 
+                        ? "Zaloguj się" 
+                        : "Dołącz do GetRido"
                   }
                 </DialogTitle>
                 <DialogDescription className="text-sm">
-                  {showResetForm 
-                    ? "Podaj email, wyślemy Ci link do resetowania"
-                    : customDescription 
-                      ? customDescription
-                      : mode === "login"
-                        ? "Zaloguj się, aby kontynuować"
-                        : "Jedno konto – kupuj, sprzedawaj, zarządzaj"
+                  {mode === "success"
+                    ? "Wysłaliśmy email z linkiem aktywacyjnym"
+                    : showResetForm 
+                      ? "Podaj email, wyślemy Ci link do resetowania"
+                      : customDescription 
+                        ? customDescription
+                        : mode === "login"
+                          ? "Zaloguj się, aby kontynuować"
+                          : "Jedno konto – kupuj, sprzedawaj, zarządzaj"
                   }
                 </DialogDescription>
               </div>
@@ -288,9 +298,50 @@ export function AuthModal({
           </DialogHeader>
         </div>
         
-        <div className="p-6 pt-4">
-          {/* Password Reset Form */}
-          {showResetForm ? (
+        <div className="p-6 pt-4 overflow-y-auto flex-1">
+          {/* Registration Success Screen */}
+          {mode === "success" ? (
+            <div className="space-y-6 text-center py-4">
+              <div className="flex justify-center">
+                <div className="p-4 bg-green-100 rounded-full">
+                  <CheckCircle className="h-12 w-12 text-green-600" />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Dziękujemy za rejestrację!</h3>
+                <p className="text-muted-foreground">
+                  Na adres <strong>{registerData.email}</strong> wysłaliśmy email z linkiem aktywacyjnym.
+                </p>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <Mail className="h-5 w-5" />
+                  <span className="font-medium">Sprawdź swoją skrzynkę</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Kliknij link w wiadomości, aby aktywować konto. Bez aktywacji nie będziesz mógł się zalogować.
+                </p>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                Nie widzisz wiadomości? Sprawdź folder SPAM lub poczekaj kilka minut.
+              </div>
+              
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setMode("login");
+                  setLoginEmail(registerData.email);
+                }}
+              >
+                Przejdź do logowania
+              </Button>
+            </div>
+          ) : showResetForm ? (
+            /* Password Reset Form */
             <div className="space-y-4">
               <Button 
                 variant="ghost" 
