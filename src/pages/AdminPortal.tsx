@@ -13,10 +13,11 @@ import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesMana
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { EmailSettings } from '@/components/EmailSettings';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
+import { SecurityApiKeysPanel } from '@/components/admin/SecurityApiKeysPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail } from 'lucide-react';
+import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -87,6 +88,7 @@ export default function AdminPortal() {
   const tabs = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
     { value: 'api', label: 'API i Integracje', icon: Settings },
+    { value: 'security', label: 'Zabezpieczenia', icon: Shield },
     { value: 'voice', label: 'Głos i TTS', icon: Volume2 },
     { value: 'email', label: 'Poczta email', icon: Mail },
     { value: 'registries', label: 'Rejestry', icon: Building2 },
@@ -209,6 +211,11 @@ export default function AdminPortal() {
                 <AISettingsPanel />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Security & API Keys Tab */}
+          <TabsContent value="security">
+            <SecurityApiKeysPanel />
           </TabsContent>
 
           {/* Voice / TTS Tab */}
