@@ -1,9 +1,17 @@
 name: Deploy to LH.pl
 
 on:
-  push:
-    branches:
-      - main
+  # Ręczne uruchamianie - kliknij "Run workflow" w GitHub Actions
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Potwierdź wdrożenie na serwer produkcyjny'
+        required: true
+        default: 'tak'
+        type: choice
+        options:
+          - 'tak'
+          - 'nie'
 
 jobs:
   ftp-deploy:
