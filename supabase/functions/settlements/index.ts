@@ -954,14 +954,47 @@ async function parseBoltCsv(
 
     let driverId: string | null = null;
 
-    // 1. Try platform ID match
+    // 1. Try platform ID match from cache
     if (platformId && existingDriversMap.has(`bolt:${platformId}`)) {
       driverId = existingDriversMap.get(`bolt:${platformId}`).id;
       matchedDrivers++;
-      console.log(`✅ BOLT: Matched by platform ID: ${platformId}`);
-    } 
+      console.log(`✅ BOLT: Matched by platform ID (cache): ${platformId}`);
+    }
+    
+    // 1b. CRITICAL: Also check database directly for platform_id (in case cache is stale)
+    // BUT only match within the same fleet to prevent cross-fleet matching!
+    if (!driverId && platformId) {
+      let platformQuery = supabase
+        .from('driver_platform_ids')
+        .select('driver_id, drivers!inner(id, first_name, last_name, fleet_id)')
+        .eq('platform', 'bolt')
+        .eq('platform_id', platformId);
+      
+      // CRITICAL: Only match drivers from the same fleet!
+      if (fleet_id) {
+        platformQuery = platformQuery.eq('drivers.fleet_id', fleet_id);
+      }
+      
+      const { data: existingPlatformId } = await platformQuery.maybeSingle();
+      
+      if (existingPlatformId?.driver_id) {
+        driverId = existingPlatformId.driver_id;
+        matchedDrivers++;
+        console.log(`✅ BOLT: Matched by platform ID (DB lookup, same fleet): ${platformId} → ${driverId}`);
+        
+        const driverInfo = existingPlatformId.drivers;
+        if (driverInfo) {
+          existingDriversMap.set(`bolt:${platformId}`, { 
+            id: driverInfo.id, 
+            first_name: driverInfo.first_name, 
+            last_name: driverInfo.last_name 
+          });
+        }
+      }
+    }
+    
     // 2. Try fuzzy name matching
-    else if (driverName) {
+    if (!driverId && driverName) {
       const fuzzyResult = fuzzyMatchDriver(driverName, existingDriversMap, 50);
       if (fuzzyResult.driver && fuzzyResult.score >= 50) {
         driverId = fuzzyResult.driver.id;
@@ -1092,14 +1125,47 @@ async function parseFreenowCsv(
 
     let driverId: string | null = null;
 
-    // 1. Try platform ID match
+    // 1. Try platform ID match from cache
     if (platformId && existingDriversMap.has(`freenow:${platformId}`)) {
       driverId = existingDriversMap.get(`freenow:${platformId}`).id;
       matchedDrivers++;
-      console.log(`✅ FREENOW: Matched by platform ID: ${platformId}`);
-    } 
+      console.log(`✅ FREENOW: Matched by platform ID (cache): ${platformId}`);
+    }
+    
+    // 1b. CRITICAL: Also check database directly for platform_id (in case cache is stale)
+    // BUT only match within the same fleet to prevent cross-fleet matching!
+    if (!driverId && platformId) {
+      let platformQuery = supabase
+        .from('driver_platform_ids')
+        .select('driver_id, drivers!inner(id, first_name, last_name, fleet_id)')
+        .eq('platform', 'freenow')
+        .eq('platform_id', platformId);
+      
+      // CRITICAL: Only match drivers from the same fleet!
+      if (fleet_id) {
+        platformQuery = platformQuery.eq('drivers.fleet_id', fleet_id);
+      }
+      
+      const { data: existingPlatformId } = await platformQuery.maybeSingle();
+      
+      if (existingPlatformId?.driver_id) {
+        driverId = existingPlatformId.driver_id;
+        matchedDrivers++;
+        console.log(`✅ FREENOW: Matched by platform ID (DB lookup, same fleet): ${platformId} → ${driverId}`);
+        
+        const driverInfo = existingPlatformId.drivers;
+        if (driverInfo) {
+          existingDriversMap.set(`freenow:${platformId}`, { 
+            id: driverInfo.id, 
+            first_name: driverInfo.first_name, 
+            last_name: driverInfo.last_name 
+          });
+        }
+      }
+    }
+    
     // 2. Try fuzzy name matching
-    else if (driverName) {
+    if (!driverId && driverName) {
       const fuzzyResult = fuzzyMatchDriver(driverName, existingDriversMap, 50);
       if (fuzzyResult.driver && fuzzyResult.score >= 50) {
         driverId = fuzzyResult.driver.id;
