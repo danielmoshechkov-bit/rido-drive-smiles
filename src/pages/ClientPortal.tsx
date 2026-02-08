@@ -474,7 +474,7 @@ export default function ClientPortal() {
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
-    { id: 'konta', label: 'Przełącz konto', icon: RefreshCw },
+    { id: 'konta', label: 'Dodaj konto', icon: RefreshCw },
   ];
 
   // Redirect away from ksiegowosc tab if user loses company access (in render, not useEffect)
@@ -686,12 +686,12 @@ export default function ClientPortal() {
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('konta')}>
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-purple-100">
+                      <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30">
                         <Users className="h-8 w-8 text-purple-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Przełącz konto</h3>
-                        <p className="text-sm text-muted-foreground">Zarządzaj kontami kierowcy, floty i sprzedawcy</p>
+                        <h3 className="font-bold text-lg">Dodaj konto</h3>
+                        <p className="text-sm text-muted-foreground">Zarejestruj się jako kierowca, flota lub sprzedawca</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />

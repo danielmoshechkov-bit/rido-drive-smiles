@@ -167,12 +167,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
             Portal Kierowcy
           </DropdownMenuItem>
         )}
-        {accountTypes.isMarketplace && (
-          <DropdownMenuItem onClick={() => navigate('/gielda/panel')}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Panel Giełdy
-          </DropdownMenuItem>
-        )}
+        {/* Panel Giełdy removed - users go through Portal Klienta */}
         {accountTypes.isRealEstate && (
           <DropdownMenuItem onClick={() => navigate('/nieruchomosci/agent/panel')}>
           <HomeIcon className="h-4 w-4 mr-2" />

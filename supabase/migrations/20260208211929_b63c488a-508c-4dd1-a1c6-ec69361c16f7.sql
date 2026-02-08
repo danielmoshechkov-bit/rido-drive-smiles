@@ -1,0 +1,1 @@
+UPDATE feature_toggles SET is_enabled = true WHERE feature_key = 'marketplace_email_confirmation_required';
