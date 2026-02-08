@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Sparkles, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+// Owner emails with full AI access
+const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
 
 interface RealEstateAISearchProps {
   onSearchResults: (results: any[], filters: any, explanation: string) => void;
@@ -13,6 +16,15 @@ interface RealEstateAISearchProps {
 export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAISearchProps) {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [hasAIAccess, setHasAIAccess] = useState(false);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setHasAIAccess(user?.email ? OWNER_EMAILS.includes(user.email) : false);
+    };
+    checkAccess();
+  }, []);
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -85,16 +97,16 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
           <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
           <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => hasAIAccess && setQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Opisz czego szukasz, np. '3 pokoje z balkonem w Gdańsku do 600 tys'"
-            className="pl-10 pr-4"
-            disabled={isSearching}
+            placeholder={hasAIAccess ? "Opisz czego szukasz, np. '3 pokoje z balkonem w Gdańsku do 600 tys'" : "Wyszukiwarka AI - wkrótce dostępna"}
+            className="pl-10 pr-4 disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isSearching || !hasAIAccess}
           />
         </div>
         <Button
           onClick={handleSearch}
-          disabled={isSearching || !query.trim()}
+          disabled={isSearching || !query.trim() || !hasAIAccess}
           className="gap-2"
         >
           {isSearching ? (
@@ -111,20 +123,22 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
         </Button>
       </div>
       
-      {/* Example queries */}
-      <div className="flex flex-wrap gap-2">
-        <span className="text-xs text-muted-foreground">Przykłady:</span>
-        {exampleQueries.map((example, idx) => (
-          <button
-            key={idx}
-            onClick={() => setQuery(example)}
-            className="text-xs text-primary hover:underline"
-            disabled={isSearching}
-          >
-            "{example}"
-          </button>
-        ))}
-      </div>
+      {/* Example queries - only shown for owners */}
+      {hasAIAccess && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground">Przykłady:</span>
+          {exampleQueries.map((example, idx) => (
+            <button
+              key={idx}
+              onClick={() => setQuery(example)}
+              className="text-xs text-primary hover:underline"
+              disabled={isSearching}
+            >
+              "{example}"
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
