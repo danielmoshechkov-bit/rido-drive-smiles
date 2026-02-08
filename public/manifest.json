@@ -1,10 +1,10 @@
 {
-  "name": "get RIDO Driver Portal",
-  "short_name": "get RIDO",
-  "description": "Portal kierowcy RIDO - zarządzanie rozliczeniami i dokumentami",
-  "start_url": "/mapy",
+  "name": "GetRido – Portal Ogłoszeń i Usług",
+  "short_name": "GetRido",
+  "description": "GetRido – inteligentny portal ogłoszeń nieruchomości, motoryzacji i usług z AI. Kupuj, sprzedawaj i zlecaj w jednym miejscu.",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#6C4AE2",
+  "background_color": "#ffffff",
   "theme_color": "#6C4AE2",
   "orientation": "portrait-primary",
   "scope": "/",
@@ -24,25 +24,26 @@
   ],
   "shortcuts": [
     {
-      "name": "GetRido Maps",
-      "short_name": "Mapy",
-      "description": "Nawigacja i mapy",
-      "url": "/mapy",
+      "name": "Motoryzacja",
+      "short_name": "Auta",
+      "description": "Ogłoszenia motoryzacyjne",
+      "url": "/gielda",
       "icons": [{ "src": "/pwa-icon-black.png", "sizes": "96x96" }]
     },
     {
-      "name": "Portal Kierowcy",
-      "short_name": "Kierowca",
-      "description": "Panel kierowcy",
-      "url": "/driver",
+      "name": "Nieruchomości",
+      "short_name": "Nieruchomości",
+      "description": "Ogłoszenia nieruchomości",
+      "url": "/nieruchomosci",
       "icons": [{ "src": "/pwa-icon-black.png", "sizes": "96x96" }]
     },
     {
-      "name": "Panel Administratora",
-      "short_name": "Admin",
-      "description": "Panel administratora",
-      "url": "/admin",
+      "name": "Usługi",
+      "short_name": "Usługi",
+      "description": "Portal usług",
+      "url": "/uslugi",
       "icons": [{ "src": "/pwa-icon-black.png", "sizes": "96x96" }]
     }
-  ]
+  ],
+  "categories": ["business", "shopping", "lifestyle"]
 }
