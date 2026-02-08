@@ -103,16 +103,16 @@ export function UnmappedDriversModal({
 
   const fetchUnmappedFuelCards = async () => {
     try {
-      // Get all drivers' fuel card numbers
-      const { data: drivers } = await supabase
+      // Get all drivers' fuel card numbers from ALL drivers (not just this fleet)
+      // because fuel transactions might come from cards not yet assigned to any driver
+      const { data: allDrivers } = await supabase
         .from("drivers")
         .select("fuel_card_number")
-        .eq("fleet_id", fleetId)
         .not("fuel_card_number", "is", null);
 
       // Build normalized set for comparison - normalize by stripping leading zeros
       const assignedCardsNormalized = new Set<string>();
-      drivers?.forEach(d => {
+      allDrivers?.forEach(d => {
         if (d.fuel_card_number) {
           // Always store the normalized (no leading zeros) version
           const normalized = d.fuel_card_number.replace(/^0+/, '');
@@ -126,10 +126,13 @@ export function UnmappedDriversModal({
       const twoMonthsAgo = new Date();
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
+      // Get ALL fuel transactions - they are not associated with a fleet directly
       const { data: transactions } = await supabase
         .from("fuel_transactions")
         .select("card_number, total_amount, transaction_date")
-        .gte("transaction_date", twoMonthsAgo.toISOString().split('T')[0]);
+        .gte("transaction_date", twoMonthsAgo.toISOString().split('T')[0])
+        .not("card_number", "is", null)
+        .not("card_number", "eq", "");
 
       console.log('🔍 FUEL DEBUG - All transactions:', transactions?.length || 0);
       console.log('🔍 FUEL DEBUG - Transaction card numbers:', [...new Set(transactions?.map(t => t.card_number))]);
@@ -176,10 +179,56 @@ export function UnmappedDriversModal({
   // Function to add a new driver with platform ID
   const handleAddNewDriver = async (unmappedDriver: UnmappedDriver, platform: string) => {
     try {
+      // Check if driver with this platform ID already exists
+      const platformId = platform === 'uber' ? unmappedDriver.uber_id :
+                         platform === 'bolt' ? unmappedDriver.bolt_id :
+                         platform === 'freenow' ? unmappedDriver.freenow_id : null;
+      
+      if (platformId) {
+        const { data: existingPlatformId } = await supabase
+          .from('driver_platform_ids')
+          .select('driver_id')
+          .eq('platform', platform)
+          .eq('platform_id', platformId)
+          .maybeSingle();
+        
+        if (existingPlatformId) {
+          toast.error('Kierowca z tym ID platformy już istnieje!');
+          return;
+        }
+      }
+
       // Extract first and last name from full_name
       const nameParts = (unmappedDriver.full_name || 'Nieznany').split(' ');
       const firstName = nameParts[0] || 'Nieznany';
       const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Check if driver with same name already exists in fleet
+      const { data: existingDriverByName } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('fleet_id', fleetId)
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName)
+        .maybeSingle();
+
+      if (existingDriverByName) {
+        // Link platform ID to existing driver instead of creating new
+        if (platformId) {
+          await supabase
+            .from('driver_platform_ids')
+            .upsert({
+              driver_id: existingDriverByName.id,
+              platform: platform,
+              platform_id: platformId,
+            }, { onConflict: 'driver_id,platform' });
+        }
+        
+        await fetchExistingDrivers();
+        handleMapping(unmappedDriver.id, existingDriverByName.id);
+        toast.success(`Przypisano platformę do istniejącego kierowcy: ${firstName} ${lastName}`);
+        return;
+      }
 
       // Get city_id from first driver in fleet (fallback)
       const { data: firstDriver } = await supabase
@@ -206,10 +255,6 @@ export function UnmappedDriversModal({
       if (driverError) throw driverError;
 
       // Add platform ID
-      const platformId = platform === 'uber' ? unmappedDriver.uber_id :
-                         platform === 'bolt' ? unmappedDriver.bolt_id :
-                         platform === 'freenow' ? unmappedDriver.freenow_id : null;
-
       if (platformId && newDriver) {
         await supabase
           .from('driver_platform_ids')
