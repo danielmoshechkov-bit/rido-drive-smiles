@@ -8,8 +8,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe, Building2 } from "lucide-react";
+import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe, Building2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 
 const languages = [
   { code: "pl", label: "Polski", flag: "🇵🇱" },
@@ -23,6 +24,12 @@ export default function DriverRegister() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
+  
+  // Check if user is already logged in
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,8 +45,9 @@ export default function DriverRegister() {
   const [loading, setLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || "pl");
   
-  // Fleet registration - now uses NIP instead of code
-  const fleetNip = searchParams.get('nip');
+  // Fleet NIP - for connecting to existing fleet
+  const fleetNipFromUrl = searchParams.get('nip');
+  const [fleetNip, setFleetNip] = useState(fleetNipFromUrl || "");
   const [fleetInfo, setFleetInfo] = useState<{id: string; name: string} | null>(null);
   const [fleetLoading, setFleetLoading] = useState(false);
   
@@ -47,17 +55,69 @@ export default function DriverRegister() {
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer");
   const [iban, setIban] = useState("");
 
-  // Password validation
+  // Password validation (only for new users)
   const passwordRequirements = {
-    minLength: password.length >= 8,
+    minLength: password.length >= 6,
     hasUppercase: /[A-Z]/.test(password),
-    hasLowercase: /[a-z]/.test(password),
-    hasNumber: /\d/.test(password),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
   };
 
   const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+
+  // Check auth status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setCurrentUser(session.user);
+        setEmail(session.user.email || "");
+        
+        // Check if user is already a driver
+        const { data: existingDriver } = await supabase
+          .from("driver_app_users")
+          .select("driver_id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        
+        if (existingDriver?.driver_id) {
+          toast.info("Masz już konto kierowcy");
+          navigate("/driver");
+          return;
+        }
+        
+        // Pre-fill from marketplace profile if exists
+        const { data: profile } = await supabase
+          .from("marketplace_user_profiles")
+          .select("first_name, last_name, phone")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        
+        if (profile) {
+          if (profile.first_name) setFirstName(profile.first_name);
+          if (profile.last_name) setLastName(profile.last_name);
+          if (profile.phone) setPhone(profile.phone);
+        }
+      }
+      setCheckingAuth(false);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setCurrentUser(session.user);
+        setEmail(session.user.email || "");
+      } else {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     const loadCities = async () => {
@@ -67,22 +127,37 @@ export default function DriverRegister() {
     loadCities();
   }, []);
 
-  // Load fleet info if NIP provided
+  // Load fleet info when NIP changes
   useEffect(() => {
-    if (fleetNip) {
+    const checkFleetNip = async () => {
+      if (!fleetNip || fleetNip.length < 10) {
+        setFleetInfo(null);
+        return;
+      }
+      
+      const cleanNip = fleetNip.replace(/[\s-]/g, "");
+      if (cleanNip.length !== 10) {
+        setFleetInfo(null);
+        return;
+      }
+      
       setFleetLoading(true);
-      supabase
+      const { data, error } = await supabase
         .from('fleets')
         .select('id, name')
-        .eq('nip', fleetNip)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setFleetInfo(data);
-          }
-          setFleetLoading(false);
-        });
-    }
+        .eq('nip', cleanNip)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setFleetInfo(data);
+      } else {
+        setFleetInfo(null);
+      }
+      setFleetLoading(false);
+    };
+    
+    const timer = setTimeout(checkFleetNip, 500);
+    return () => clearTimeout(timer);
   }, [fleetNip]);
 
   const handleLanguageChange = (langCode: string) => {
@@ -91,24 +166,34 @@ export default function DriverRegister() {
   };
 
   const submit = async () => {
-    if (!firstName || !lastName || !email || !phone || !cityId || !password) {
+    if (!firstName || !lastName || !phone || !cityId) {
       return toast.error(t("register.fillAllFields"));
     }
+    
+    // For new users, require email and password
+    if (!isLoggedIn) {
+      if (!email) {
+        return toast.error(t("register.fillAllFields"));
+      }
+      if (!isPasswordValid) {
+        return toast.error(t("register.passwordInvalid"));
+      }
+      if (!passwordsMatch) {
+        return toast.error(t("register.passwordsMismatch"));
+      }
+      if (!rodo || !terms) {
+        return toast.error(t("register.acceptRequired"));
+      }
+    }
+    
     if (paymentMethod === "transfer" && !iban) {
       return toast.error(t("register.ibanRequired"));
-    }
-    if (!isPasswordValid) {
-      return toast.error(t("register.passwordInvalid"));
-    }
-    if (!passwordsMatch) {
-      return toast.error(t("register.passwordsMismatch"));
-    }
-    if (!rodo || !terms) {
-      return toast.error(t("register.acceptRequired"));
     }
 
     setLoading(true);
     try {
+      const cleanFleetNip = fleetNip ? fleetNip.replace(/[\s-]/g, "") : null;
+      
       const response = await fetch(
         'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/register-driver',
         {
@@ -120,14 +205,15 @@ export default function DriverRegister() {
           body: JSON.stringify({
             first_name: firstName,
             last_name: lastName,
-            email,
+            email: isLoggedIn ? currentUser.email : email,
             phone,
             city_id: cityId,
-            password,
+            password: isLoggedIn ? null : password, // No password needed for logged in users
             payment_method: paymentMethod,
             iban: paymentMethod === "transfer" ? iban : null,
             language: selectedLanguage,
-            fleet_nip: fleetNip || null
+            fleet_nip: cleanFleetNip && cleanFleetNip.length === 10 ? cleanFleetNip : null,
+            existing_user_id: isLoggedIn ? currentUser.id : null // Pass existing user ID
           })
         }
       );
@@ -145,8 +231,13 @@ export default function DriverRegister() {
         return;
       }
 
-      toast.success(t("register.success"));
-      navigate("/register-success");
+      if (isLoggedIn) {
+        toast.success("Konto kierowcy zostało utworzone!");
+        navigate("/driver");
+      } else {
+        toast.success(t("register.success"));
+        navigate("/register-success");
+      }
 
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -155,6 +246,14 @@ export default function DriverRegister() {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
@@ -183,28 +282,18 @@ export default function DriverRegister() {
             </div>
             
             <CardTitle className="text-3xl">{t("register.title")}</CardTitle>
-            <p className="text-muted-foreground">{t("register.subtitle")}</p>
+            <p className="text-muted-foreground">
+              {isLoggedIn 
+                ? "Uzupełnij dane, aby aktywować konto kierowcy" 
+                : t("register.subtitle")
+              }
+            </p>
             
-            {/* Fleet info banner */}
-            {fleetNip && (
-              <div className={`mt-4 p-3 rounded-lg border ${fleetInfo ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-muted/50 border-border'}`}>
-                {fleetLoading ? (
-                  <p className="text-sm text-muted-foreground">Sprawdzanie NIP floty...</p>
-                ) : fleetInfo ? (
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-green-600" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                        Rejestrujesz się do floty:
-                      </p>
-                      <p className="text-lg font-bold text-green-900 dark:text-green-100">
-                        {fleetInfo.name}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-amber-600">⚠️ Nie znaleziono floty o podanym NIP</p>
-                )}
+            {isLoggedIn && (
+              <div className="mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  ✓ Zalogowano jako: <strong>{currentUser.email}</strong>
+                </p>
               </div>
             )}
             
@@ -232,16 +321,19 @@ export default function DriverRegister() {
               </div>
             </div>
             
-            <div className="space-y-1">
-              <Label htmlFor="email">{t("register.email")} *</Label>
-              <Input
-                id="email"
-                placeholder={t("register.emailPlaceholder")}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+            {/* Email - only for new users */}
+            {!isLoggedIn && (
+              <div className="space-y-1">
+                <Label htmlFor="email">{t("register.email")} *</Label>
+                <Input
+                  id="email"
+                  placeholder={t("register.emailPlaceholder")}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            )}
             
             <div className="space-y-1">
               <Label htmlFor="phone">{t("register.phone")} *</Label>
@@ -266,6 +358,45 @@ export default function DriverRegister() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+            </div>
+            
+            {/* Fleet NIP - optional connection to fleet */}
+            <div className="space-y-2 p-4 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <Label htmlFor="fleetNip" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                NIP partnera flotowego (opcjonalnie)
+              </Label>
+              <Input
+                id="fleetNip"
+                placeholder="1234567890"
+                value={fleetNip}
+                onChange={(e) => setFleetNip(e.target.value)}
+                maxLength={13}
+              />
+              <p className="text-xs text-muted-foreground">
+                Jeśli masz NIP od partnera flotowego, wprowadź go tutaj aby dołączyć do jego floty
+              </p>
+              
+              {fleetLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sprawdzanie NIP...
+                </div>
+              )}
+              
+              {!fleetLoading && fleetNip && fleetNip.replace(/[\s-]/g, "").length === 10 && (
+                fleetInfo ? (
+                  <div className="flex items-center gap-2 p-2 bg-green-100 dark:bg-green-900/30 rounded text-green-800 dark:text-green-200">
+                    <Check className="h-4 w-4" />
+                    <span className="text-sm">Dołączysz do floty: <strong>{fleetInfo.name}</strong></span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded text-amber-800 dark:text-amber-200">
+                    <X className="h-4 w-4" />
+                    <span className="text-sm">Nie znaleziono floty o podanym NIP</span>
+                  </div>
+                )
+              )}
             </div>
             
             {/* Sposób rozliczenia */}
@@ -322,113 +453,107 @@ export default function DriverRegister() {
               )}
             </div>
             
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label htmlFor="password">{t("register.password")} *</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    placeholder={t("register.passwordPlaceholder")}
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="confirmPassword">{t("register.confirmPassword")} *</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    placeholder={t("register.confirmPasswordPlaceholder")}
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {password && (
-                <div className="bg-muted/50 p-3 rounded-md space-y-2">
-                  <p className="text-sm font-medium">{t("register.passwordRequirements")}:</p>
-                  <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className={`flex items-center gap-2 ${passwordRequirements.minLength ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordRequirements.minLength ? <Check size={12} /> : <X size={12} />}
-                      {t("register.minLength")}
-                    </div>
-                    <div className={`flex items-center gap-2 ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordRequirements.hasUppercase ? <Check size={12} /> : <X size={12} />}
-                      {t("register.uppercase")}
-                    </div>
-                    <div className={`flex items-center gap-2 ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordRequirements.hasLowercase ? <Check size={12} /> : <X size={12} />}
-                      {t("register.lowercase")}
-                    </div>
-                    <div className={`flex items-center gap-2 ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordRequirements.hasNumber ? <Check size={12} /> : <X size={12} />}
-                      {t("register.number")}
-                    </div>
-                    <div className={`flex items-center gap-2 ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordRequirements.hasSpecialChar ? <Check size={12} /> : <X size={12} />}
-                      {t("register.specialChar")}
-                    </div>
+            {/* Password fields - only for new users */}
+            {!isLoggedIn && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="password">{t("register.password")} *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      placeholder={t("register.passwordPlaceholder")}
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
-                  {confirmPassword && (
-                    <div className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : 'text-red-500'}`}>
-                      {passwordsMatch ? <Check size={12} /> : <X size={12} />}
-                      {t("register.passwordsMatch")}
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-3 pt-4">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox 
-                  checked={rodo} 
-                  onCheckedChange={(v) => setRodo(Boolean(v))}
-                />
-                {t("register.rodo")} *
-              </label>
-              
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox 
-                  checked={terms} 
-                  onCheckedChange={(v) => setTerms(Boolean(v))}
-                />
-                {t("register.terms")} *
-              </label>
-            </div>
+                <div className="space-y-1">
+                  <Label htmlFor="confirmPassword">{t("register.confirmPassword")} *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      placeholder={t("register.confirmPasswordPlaceholder")}
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password strength indicator */}
+                {password && (
+                  <PasswordStrengthIndicator password={password} />
+                )}
+                
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <X size={14} /> Hasła nie są takie same
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Terms and RODO - only for new users */}
+            {!isLoggedIn && (
+              <div className="space-y-3 pt-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox 
+                    checked={rodo} 
+                    onCheckedChange={(v) => setRodo(Boolean(v))}
+                  />
+                  {t("register.rodo")} *
+                </label>
+                
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox 
+                    checked={terms} 
+                    onCheckedChange={(v) => setTerms(Boolean(v))}
+                  />
+                  {t("register.terms")} *
+                </label>
+              </div>
+            )}
 
             <Button 
               onClick={submit} 
               className="w-full"
-              disabled={loading || !isPasswordValid || !passwordsMatch}
+              disabled={loading || (!isLoggedIn && (!isPasswordValid || !passwordsMatch))}
             >
-              {loading ? t("register.loading") : t("register.submit")}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t("register.loading")}
+                </>
+              ) : isLoggedIn ? (
+                "Aktywuj konto kierowcy"
+              ) : (
+                t("register.submit")
+              )}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground">
-              {t("register.hasAccount")} <a href="/auth" className="text-primary hover:underline">{t("register.login")}</a>
-            </div>
+            {!isLoggedIn && (
+              <div className="text-center text-sm text-muted-foreground">
+                {t("register.hasAccount")} <a href="/auth" className="text-primary hover:underline">{t("register.login")}</a>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

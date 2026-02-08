@@ -137,7 +137,7 @@ export function AccountSwitcherPanel({
       label: 'Rozliczenia i Flota',
       description: 'Zarządzanie flotą i kierowcami',
       icon: <Truck className="h-5 w-5" />,
-      route: '/fleet/register',
+      route: '/fleet/rejestracja',
       available: true // Always available
     },
     {

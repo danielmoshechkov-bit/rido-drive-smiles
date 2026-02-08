@@ -11,11 +11,12 @@ interface RegisterDriverRequest {
   email: string;
   phone: string;
   city_id: string;
-  password: string;
+  password?: string | null;
   payment_method: string;
   iban?: string;
   language?: string;
-  fleet_nip?: string;
+  fleet_nip?: string | null;
+  existing_user_id?: string | null; // For logged-in users adding driver role
 }
 
 Deno.serve(async (req) => {
@@ -33,9 +34,13 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterDriverRequest = await req.json();
-    const { first_name, last_name, email, phone, city_id, password, payment_method, iban, language = "pl", fleet_nip } = body;
+    const { 
+      first_name, last_name, email, phone, city_id, password, 
+      payment_method, iban, language = "pl", fleet_nip, existing_user_id 
+    } = body;
 
-    console.log("📝 Starting driver registration for:", email, "language:", language, "fleet_nip:", fleet_nip);
+    const isExistingUser = !!existing_user_id;
+    console.log("📝 Starting driver registration for:", email, "language:", language, "fleet_nip:", fleet_nip, "existing_user:", isExistingUser);
 
     // Resolve fleet_id from fleet NIP if provided
     let fleetId: string | null = null;
@@ -54,32 +59,70 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Create auth user with email_confirm: true (user can login immediately)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Email is confirmed, user can login immediately
-      user_metadata: { first_name, last_name, preferred_language: language }
-    });
-
-    if (authError) {
-      console.error("❌ Auth error:", authError.message);
+    let userId: string;
+    
+    if (isExistingUser) {
+      // Use existing user ID - no new auth user creation needed
+      userId = existing_user_id;
+      console.log("✅ Using existing user ID:", userId);
       
-      if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+      // Verify user exists
+      const { data: existingUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      if (userError || !existingUser) {
         return new Response(
-          JSON.stringify({ error: "Email już jest zarejestrowany. Użyj opcji logowania lub resetowania hasła." }),
+          JSON.stringify({ error: "Użytkownik nie istnieje" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+      // Check if already a driver
+      const { data: existingDriverApp } = await supabaseAdmin
+        .from("driver_app_users")
+        .select("driver_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      if (existingDriverApp?.driver_id) {
+        return new Response(
+          JSON.stringify({ error: "Masz już konto kierowcy" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      // Create new auth user with email_confirm: true (user can login immediately)
+      if (!password) {
+        return new Response(
+          JSON.stringify({ error: "Hasło jest wymagane dla nowych użytkowników" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // Email is confirmed, user can login immediately
+        user_metadata: { first_name, last_name, preferred_language: language }
+      });
 
-    const userId = authData.user!.id;
-    console.log("✅ Auth user created with confirmed email:", userId);
+      if (authError) {
+        console.error("❌ Auth error:", authError.message);
+        
+        if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+          return new Response(
+            JSON.stringify({ error: "Email już jest zarejestrowany. Użyj opcji logowania lub resetowania hasła." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ error: authError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      userId = authData.user!.id;
+      console.log("✅ Auth user created with confirmed email:", userId);
+    }
 
     // 2. Check for existing driver - PRIORITIZE PHONE (most stable identifier)
     let driverId: string | null = null;
@@ -169,8 +212,10 @@ Deno.serve(async (req) => {
 
       if (driverError) {
         console.error("❌ Driver insert error:", driverError.message);
-        // Rollback: delete auth user
-        await supabaseAdmin.auth.admin.deleteUser(userId);
+        // Rollback: delete auth user only if we created it
+        if (!isExistingUser) {
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+        }
         return new Response(
           JSON.stringify({ error: "Błąd tworzenia profilu kierowcy: " + driverError.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -211,6 +256,15 @@ Deno.serve(async (req) => {
       console.error("❌ user_roles error:", roleError.message);
     } else {
       console.log("✅ Driver role assigned");
+    }
+
+    // For existing users, skip email - they're already logged in
+    if (isExistingUser) {
+      console.log("🎉 Driver registration completed for existing user:", email);
+      return new Response(
+        JSON.stringify({ success: true, message: "Konto kierowcy zostało aktywowane!" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 5. Send ONLY our custom RIDO registration email (no Supabase default email)
