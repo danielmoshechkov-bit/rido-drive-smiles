@@ -132,17 +132,30 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-center">
-            {mode === 'login' && 'Zaloguj się'}
-            {mode === 'register' && 'Utwórz konto'}
-            {mode === 'reset' && 'Resetuj hasło'}
-          </DialogTitle>
-          <DialogDescription className="text-center">
-            {mode === 'login' && 'Zaloguj się, aby uzyskać dostęp do swojego konta'}
-            {mode === 'register' && 'Stwórz konto, aby korzystać z pełnych możliwości'}
-            {mode === 'reset' && 'Podaj email, aby otrzymać link do resetowania hasła'}
-          </DialogDescription>
+        <DialogHeader className="flex flex-col items-center gap-3">
+          {/* Logo section */}
+          <div className="flex items-center gap-3">
+            <img 
+              src="/getrido-mascot.png" 
+              alt="GetRido" 
+              className="h-12 w-12 rounded-xl"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <div>
+              <DialogTitle className="text-xl font-bold text-left">
+                {mode === 'login' && 'Zaloguj się'}
+                {mode === 'register' && 'Dołącz do GetRido'}
+                {mode === 'reset' && 'Resetuj hasło'}
+              </DialogTitle>
+              <DialogDescription className="text-left">
+                {mode === 'login' && 'Zaloguj się, aby kontynuować'}
+                {mode === 'register' && 'Jedno konto – kupuj, sprzedawaj, zarządzaj'}
+                {mode === 'reset' && 'Podaj email, aby otrzymać link do resetowania hasła'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword} className="space-y-4 pt-4">
