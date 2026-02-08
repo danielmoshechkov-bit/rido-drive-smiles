@@ -1,214 +1,90 @@
 
-# Plan Naprawy Systemu Mapowania Nowych Rekordów z CSV
+# Plan Naprawy UI Mapowania Kierowców i Kart Paliwowych
 
 ## Zdiagnozowane Problemy
 
-### Problem 1: Kierowcy bez `driver_app_users` nie są wyświetlani w rozliczeniach
+### Problem 1: Alert pokazuje 3 rekordy, a modal pokazuje tylko 1
 
-**Przyczyna:** W `FleetSettlementsView.tsx` linia 633 używa `!inner` JOIN:
-```typescript
-driver_app_users!inner(settlement_plan_id, user_id)
-```
+**Przyczyna:** 
+- Alert `newRecordsAlert` zlicza osobno rekordy z `unmapped_settlement_drivers` ORAZ kierowców bez `driver_app_users`
+- Modal `UnmappedDriversModal` filtruje kierowców po `uber_id`, `bolt_id`, `freenow_id`:
+  ```typescript
+  const uberDrivers = unmappedDrivers.filter(d => d.uber_id);
+  const boltDrivers = unmappedDrivers.filter(d => d.bolt_id);
+  const freenowDrivers = unmappedDrivers.filter(d => d.freenow_id);
+  ```
+- Kierowcy auto-utworzeni mogą nie mieć `uber_id` (np. parser nie zapisuje go poprawnie)
 
-Kierowcy utworzeni automatycznie przez import CSV (np. Aneta Sknadaj, Paweł Koziarek) **NIE mają wpisu w `driver_app_users`**, więc są pomijani przy pobieraniu danych.
+**Dowód z bazy:**
+- Aneta Sknadaj i "asd sda" i "test tess" są w bazie jako kierowcy bez `driver_app_users.user_id`
+- Ale w modalu pokazuje się tylko 1 rekord - reszta nie ma przypisanego platform_id
 
-**Dowód:** Query do bazy pokazuje że Aneta jest w `settlements` z `total_earnings: 934.28`, ale nie ma wpisu w `driver_app_users` (`user_id: null`).
-
-### Problem 2: Tabela `unmapped_settlement_drivers` jest pusta
-
-**Przyczyna:** Kierowcy są dopasowywani przez fuzzy matching i trafiają do `driver_platform_ids`, więc NIE są zapisywani do `unmapped`. Ale potem nie są widoczni w UI bo brakuje `driver_app_users`.
-
-### Problem 3: Brak zakładek per platforma w modalu mapowania
-
-Obecny `UnmappedDriversModal` pokazuje wszystko na jednej liście - brak podziału na Uber/Bolt/FreeNow/Paliwo.
-
-### Problem 4: Paliwo - brak ostrzeżenia o nieprzypisanych kartach
-
-`FleetFuelView` pokazuje "Nieprzypisany" ale:
-- Brak czerwonego podświetlenia
-- Brak możliwości szybkiego przypisania karty
-- Zły styl numerów kart (font-mono zamiast naszego stylu)
+**Rozwiązanie:**
+- Poprawić wykrywanie nowych rekordów w `handleCheckUnmappedDrivers`
+- Dodać kierowców bez platform_id do listy jako "Bez platformy" lub pokazać ich w osobnej sekcji
 
 ---
 
-## Rozwiązanie Techniczne
+### Problem 2: Zbyt duży wiersz w tabeli mapowania
 
-### Faza 1: Naprawić pobieranie kierowców (KRYTYCZNE)
+**Przyczyna:** 
+Komponent `renderDriverSelector` zwraca `<div className="space-y-2">` z osobnym inputem wyszukiwania i listą - każdy element zajmuje dużo miejsca.
 
-**Plik:** `src/components/FleetSettlementsView.tsx` (linia 633)
+**Rozwiązanie:**
+Zmienić na kompaktowy design typu Combobox/Popover:
+- Jeden wiersz z przyciskiem "Wybierz kierowcę ▼"
+- Po kliknięciu rozwija się dropdown z wyszukiwarką
+- Dodać przycisk "+" do tworzenia nowego kierowcy
 
-Zmienić `!inner` na `!left`:
+---
+
+### Problem 3: Kliknięcie kierowcy w liście nie zamyka dropdownu
+
+**Przyczyna:**
+W `renderDriverSelector` linia 329:
 ```typescript
-driver_app_users!left(settlement_plan_id, user_id)
+onClick={() => onSelect(recordId, driver.id)}
 ```
 
-Dzięki temu kierowcy BEZ wpisu w `driver_app_users` też będą pobierani i wyświetlani w rozliczeniach.
+Funkcja `handleMapping` aktualizuje state `mappings`, ale nie zamyka dropdownu - brak stanu `openDropdowns`.
 
-### Faza 2: Dodać automatyczne wykrywanie nowych rekordów
+**Rozwiązanie:**
+- Dodać stan kontrolujący który dropdown jest otwarty
+- Po wybraniu kierowcy zamknąć dropdown i pokazać potwierdzenie wyboru
 
-Po załadowaniu rozliczeń, sprawdzić:
-1. Czy są kierowcy w `settlements` dla wybranego okresu którzy NIE mają `driver_app_users`?
-2. Czy są rekordy w `unmapped_settlement_drivers` z `status = 'pending'`?
+---
 
-Jeśli tak → pokazać alert "Znaleziono X nowych rekordów" z przyciskiem do mapowania.
+### Problem 4: Paliwo - brak nowych kart w modalu
 
-**Plik:** `src/components/FleetSettlementsView.tsx`
+**Przyczyna:**
+Modal pobiera nieprzypisane karty paliwowe w `fetchUnmappedFuelCards()` ale query:
+- Sprawdza tylko karty z transakcjami z ostatniego miesiąca
+- Porównuje z `drivers.fuel_card_number`
+- System ma tabelę `fuel_cards` ale jest pusta - nie jest używana!
 
+**Dowód z bazy:**
+- Karta `0010206980198` jest w `fuel_transactions` ale NIE jest przypisana do żadnego kierowcy
+
+**Rozwiązanie:**
+- Wykorzystać tabelę `fuel_cards` jako centralną bazę kart paliwowych
+- Przy imporcie transakcji paliwowych automatycznie dodawać nowe karty do `fuel_cards`
+- Modal powinien porównywać z `fuel_cards` a nie liczyć na żywo
+
+---
+
+### Problem 5: Przycisk "Aktualizuj kierowców" bez funkcji
+
+**Lokalizacja:** `DriversManagement.tsx` linia 452-461
+
+**Obecny kod:**
 ```typescript
-// Po fetchSettlements, sprawdź nowe rekordy
-const checkNewRecords = async () => {
-  // 1. Kierowcy bez driver_app_users
-  const { data: unmappedDrivers } = await supabase
-    .from('drivers')
-    .select('id, first_name, last_name')
-    .eq('fleet_id', fleetId)
-    .is('driver_app_users.user_id', null);
-  
-  // 2. Unmapped z tabeli
-  const { data: pendingUnmapped } = await supabase
-    .from('unmapped_settlement_drivers')
-    .select('*')
-    .eq('fleet_id', fleetId)
-    .eq('status', 'pending');
-  
-  const totalNew = (unmappedDrivers?.length || 0) + (pendingUnmapped?.length || 0);
-  
-  if (totalNew > 0) {
-    setNewRecordsCount(totalNew);
-    // Pokaż alert
-  }
-};
+onClick={() => {
+  toast.info('Funkcja aktualizacji kierowców - w przygotowaniu');
+}}
 ```
 
-### Faza 3: Przebudować modal mapowania z zakładkami
-
-**Plik:** `src/components/fleet/UnmappedDriversModal.tsx`
-
-Dodać zakładki: Uber | Bolt | FreeNow | Paliwo
-
-Dla każdej platformy:
-- Pobierz kierowców którzy mają ID tej platformy ale nie są przypisani
-- Pokaż: Imię Nazwisko | Platform ID | Dropdown z wyszukiwarką kierowców | Przycisk "Nowy"
-
-```tsx
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// W komponencie:
-<Tabs defaultValue="uber">
-  <TabsList className="grid w-full grid-cols-4">
-    <TabsTrigger value="uber">
-      Uber {uberRecords.length > 0 && <Badge>{uberRecords.length}</Badge>}
-    </TabsTrigger>
-    <TabsTrigger value="bolt">
-      Bolt {boltRecords.length > 0 && <Badge>{boltRecords.length}</Badge>}
-    </TabsTrigger>
-    <TabsTrigger value="freenow">
-      FreeNow {freenowRecords.length > 0 && <Badge>{freenowRecords.length}</Badge>}
-    </TabsTrigger>
-    <TabsTrigger value="fuel">
-      Paliwo {fuelRecords.length > 0 && <Badge>{fuelRecords.length}</Badge>}
-    </TabsTrigger>
-  </TabsList>
-  
-  <TabsContent value="uber">
-    <UnmappedPlatformTable 
-      records={uberRecords} 
-      platform="uber"
-      existingDrivers={existingDrivers}
-      onMap={handleMapDriver}
-      onAddNew={handleAddNewDriver}
-    />
-  </TabsContent>
-  {/* ... pozostałe zakładki */}
-</Tabs>
-```
-
-### Faza 4: Dodać wyszukiwarkę kierowców w dropdownie
-
-Użyć `Combobox` pattern z wyszukiwarką:
-
-```tsx
-<Command>
-  <CommandInput placeholder="Szukaj kierowcy..." />
-  <CommandList>
-    <CommandEmpty>Nie znaleziono kierowcy</CommandEmpty>
-    <CommandGroup>
-      {filteredDrivers.map(driver => (
-        <CommandItem 
-          key={driver.id}
-          onSelect={() => handleMapDriver(unmappedId, driver.id)}
-        >
-          {driver.first_name} {driver.last_name}
-          {driver.phone && <span className="text-muted-foreground ml-2">({driver.phone})</span>}
-        </CommandItem>
-      ))}
-    </CommandGroup>
-  </CommandList>
-</Command>
-```
-
-### Faza 5: Poprawić widok paliwa
-
-**Plik:** `src/components/FleetFuelView.tsx`
-
-1. Dodać czerwone podświetlenie dla "Nieprzypisany":
-```tsx
-<TableCell 
-  className={cn(
-    card.driver_name === 'Nieprzypisany' && 'text-red-600 font-medium cursor-pointer hover:underline'
-  )}
-  onClick={() => card.driver_name === 'Nieprzypisany' && setAssignCardModal(card.card_number)}
->
-  {card.driver_name === 'Nieprzypisany' ? 'Nie przypisano' : card.driver_name}
-</TableCell>
-```
-
-2. Zmienić styl numeru karty:
-```tsx
-<TableCell className="tabular-nums">{formatCardNumber(card.card_number)}</TableCell>
-```
-
-3. Dodać modal przypisania karty do kierowcy
-
-### Faza 6: Auto-aktualizacja rozliczeń po mapowaniu
-
-Po zapisaniu mapowania w modalu, automatycznie:
-1. Zaktualizować `driver_platform_ids`
-2. Zaktualizować `settlements` - przepisać `driver_id` z auto-utworzonego kierowcy na właściwego
-3. Usunąć auto-utworzonego kierowcę (opcjonalnie)
-4. Odświeżyć listę rozliczeń
-
-```typescript
-const handleSaveMapping = async () => {
-  for (const [unmappedId, targetDriverId] of Object.entries(mappings)) {
-    const unmapped = unmappedDrivers.find(d => d.id === unmappedId);
-    
-    // 1. Przenieś platform IDs na właściwego kierowcę
-    if (unmapped.uber_id) {
-      await supabase.from('driver_platform_ids').upsert({
-        driver_id: targetDriverId,
-        platform: 'uber',
-        platform_id: unmapped.uber_id
-      }, { onConflict: 'driver_id,platform' });
-    }
-    
-    // 2. Przenieś rozliczenia na właściwego kierowcę
-    await supabase
-      .from('settlements')
-      .update({ driver_id: targetDriverId })
-      .eq('driver_id', unmapped.driver_id);
-    
-    // 3. Oznacz jako resolved
-    await supabase
-      .from('unmapped_settlement_drivers')
-      .update({ status: 'resolved', linked_driver_id: targetDriverId })
-      .eq('id', unmappedId);
-  }
-  
-  // 4. Odśwież rozliczenia
-  onComplete();
-};
-```
+**Rozwiązanie:**
+Ukryć przycisk do czasu implementacji funkcji (zakomentować lub dodać warunek `false &&`)
 
 ---
 
@@ -216,44 +92,178 @@ const handleSaveMapping = async () => {
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/FleetSettlementsView.tsx` | Zmienić `!inner` na `!left`, dodać wykrywanie nowych rekordów |
-| `src/components/fleet/UnmappedDriversModal.tsx` | Dodać zakładki per platforma, wyszukiwarka, paliwo |
-| `src/components/FleetFuelView.tsx` | Czerwone "Nie przypisano", kliknij aby przypisać |
-| `src/components/fleet/FuelCardAssignModal.tsx` | NOWY - modal do przypisania karty |
+| `src/components/fleet/UnmappedDriversModal.tsx` | Kompaktowy dropdown, obsługa zamykania po wyborze, przycisk "+" dodaj kierowcę |
+| `src/components/DriversManagement.tsx` | Ukryć przycisk "Aktualizuj kierowców" |
+| `src/components/FleetSettlementsView.tsx` | Poprawić liczenie nowych rekordów |
+
+---
+
+## Szczegóły Techniczne
+
+### Zmiana 1: Kompaktowy Driver Selector w UnmappedDriversModal
+
+**Przed:**
+```
+[  Szukaj kierowcy...    ]
+┌────────────────────────┐
+│ — Nie wybrano —        │
+│ ASHRAF ABDELBAKY...    │
+│ Dominik Andrzej...     │
+└────────────────────────┘
+```
+
+**Po:**
+```
+┌─────────────────────┬───┐
+│ Wybierz kierowcę  ▼ │ + │  <-- kliknięcie otwiera dropdown
+└─────────────────────┴───┘
+```
+
+Po wybraniu:
+```
+┌─────────────────────┬───┐
+│ ✓ Aneta Sknadaj     │ ✕ │  <-- ✕ czyści wybór
+└─────────────────────┴───┘
+```
+
+**Implementacja:**
+
+```tsx
+// Nowy state dla otwartych dropdownów
+const [openSelectors, setOpenSelectors] = useState<Record<string, boolean>>({});
+
+const renderCompactDriverSelector = (
+  recordId: string,
+  selectedValue: string | undefined,
+  onSelect: (id: string, value: string) => void,
+  searchKey: string
+) => {
+  const isOpen = openSelectors[searchKey] || false;
+  const filteredDrivers = getFilteredDrivers(searchKey);
+  const selectedDriver = existingDrivers.find(d => d.id === selectedValue);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Popover 
+        open={isOpen} 
+        onOpenChange={(open) => setOpenSelectors(prev => ({ ...prev, [searchKey]: open }))}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "w-48 justify-between",
+              selectedValue && "bg-primary/5"
+            )}
+          >
+            {selectedDriver 
+              ? `${selectedDriver.first_name} ${selectedDriver.last_name}` 
+              : "Wybierz kierowcę"
+            }
+            <ChevronDown className="h-4 w-4 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          <div className="p-2">
+            <Input
+              placeholder="Szukaj..."
+              className="h-8"
+              value={searchQueries[searchKey] || ""}
+              onChange={(e) => setSearchQueries(prev => ({ ...prev, [searchKey]: e.target.value }))}
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filteredDrivers.map(driver => (
+              <div
+                key={driver.id}
+                className={cn(
+                  "px-3 py-2 text-sm cursor-pointer hover:bg-muted/50",
+                  selectedValue === driver.id && "bg-primary/10"
+                )}
+                onClick={() => {
+                  onSelect(recordId, driver.id);
+                  setOpenSelectors(prev => ({ ...prev, [searchKey]: false }));
+                }}
+              >
+                {driver.first_name} {driver.last_name}
+                {driver.phone && <span className="text-muted-foreground ml-1">({driver.phone})</span>}
+              </div>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+      
+      {/* Przycisk dodania nowego kierowcy */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => handleAddNewDriver(recordId)}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+      
+      {/* Przycisk wyczyszczenia wyboru */}
+      {selectedValue && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onSelect(recordId, "_clear")}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+};
+```
+
+### Zmiana 2: Jeden wiersz na kierowcę w tabeli
+
+```tsx
+// Zamiast całej tabeli z osobnym wierszem, kompaktowa lista:
+<div className="space-y-3">
+  {drivers.map(driver => (
+    <div key={driver.id} className="flex items-center gap-4 py-2 border-b">
+      <div className="w-40 font-medium truncate">
+        {driver.full_name || "Nieznany"}
+      </div>
+      <Badge variant="outline" className="font-mono text-xs w-36 truncate">
+        {platformId || "-"}
+      </Badge>
+      {renderCompactDriverSelector(...)}
+    </div>
+  ))}
+</div>
+```
+
+### Zmiana 3: Ukrycie przycisku "Aktualizuj kierowców"
+
+```tsx
+// DriversManagement.tsx linia 452-461
+{/* Ukryty do czasu implementacji */}
+{false && (
+  <Button onClick={...} variant="outline" className="gap-2">
+    <RotateCcw className="h-4 w-4" />
+    Aktualizuj kierowców
+  </Button>
+)}
+```
+
+### Zmiana 4: Poprawne liczenie nowych rekordów
+
+Zmienić logikę `checkForNewRecordsAfterLoad` aby uwzględniała WSZYSTKICH kierowców bez app_users którzy mają rozliczenia w aktualnym okresie.
 
 ---
 
 ## Efekt Końcowy
 
-1. **Aneta Sknadaj i Paweł Koziarek POJAWIĄ SIĘ** w rozliczeniach (fix `!inner` → `!left`)
-2. **Alert o nowych rekordach** po imporcie CSV
-3. **Modal z zakładkami** Uber/Bolt/FreeNow/Paliwo do łatwego mapowania
-4. **Wyszukiwarka kierowców** w dropdownie mapowania
-5. **Czerwone ostrzeżenie** dla nieprzypisanych kart paliwowych
-6. **Kliknij aby przypisać** kartę do kierowcy
-7. **Auto-aktualizacja** rozliczeń po mapowaniu
+1. **Kompaktowy modal mapowania** - jeden wiersz na rekord, dropdown z wyszukiwarką
+2. **Kliknięcie wybiera i zamyka** - dropdown się zamyka po wyborze
+3. **Przycisk "+" do nowego kierowcy** - można tworzyć kierowców bezpośrednio z modalu
+4. **Poprawne liczenie rekordów** - alert pokazuje prawdziwą liczbę nowych rekordów
+5. **Ukryty przycisk bez funkcji** - "Aktualizuj kierowców" niewidoczny
 
----
-
-## Szczegóły Techniczne: Identyfikacja platform
-
-### Uber
-- **Kolumna identyfikująca:** A (Identyfikator UUID kierowcy)
-- **Imię:** B (Imię kierowcy)
-- **Nazwisko:** C (Nazwisko kierowcy)
-- **Łączenie:** `${firstName} ${lastName}`
-
-### Bolt
-- **Kolumna identyfikująca:** C (Numer telefonu)
-- **ID kierowcy:** A
-- **Email:** B (Adres e-mail)
-- **Auto-matching:** Jeśli kierowca ma w bazie ten sam telefon lub email → automatycznie połącz
-
-### FreeNow
-- **Kolumna identyfikująca:** A (ID kierowcy)
-- **Dane:** B (zawiera imię i nazwisko)
-
-### Paliwo
-- **Kolumna identyfikująca:** A (Numer karty)
-- **Matching:** Po `fuel_card_number` w tabeli `drivers`
-- **Ostrzeżenie:** Jeśli karta nie jest przypisana → czerwony tekst "Nie przypisano" → kliknij aby przypisać
+**Szacowany czas: ~2-3h**
