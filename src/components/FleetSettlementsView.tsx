@@ -1062,18 +1062,44 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze
       // Pokazuj tylko kierowców którzy:
       // 1. Mają jakiekolwiek zarobki (total_base > 0)
-      // 2. LUB mają ujemne saldo (has_negative_balance)
+      // 2. LUB mają ujemne saldo (has_negative_balance) - ALE nie właściciele flot
       // 3. LUB mają rozliczenia w tym okresie
       const settlementsDriverIds = new Set(settlementsData?.map(s => s.driver_id) || []);
       
-      const filteredAggregated = aggregated.filter(row => 
-        row.total_base > 0 || 
-        row.has_negative_balance || 
-        settlementsDriverIds.has(row.driver_id)
+      // Get fleet owners (users with fleet_settlement or fleet_rental roles)
+      const { data: ownerDriverAppUsers } = await supabase
+        .from('driver_app_users')
+        .select('driver_id, user_id')
+        .in('driver_id', driverIds);
+
+      const { data: fleetOwnerRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('fleet_id', fleetId)
+        .in('role', ['fleet_settlement', 'fleet_rental']);
+
+      const ownerUserIds = new Set(fleetOwnerRoles?.map(r => r.user_id) || []);
+      const ownerDriverIds = new Set(
+        ownerDriverAppUsers?.filter(d => ownerUserIds.has(d.user_id)).map(d => d.driver_id) || []
       );
 
+      console.log('👤 Fleet owner driver IDs:', Array.from(ownerDriverIds));
+      
+      const filteredAggregated = aggregated.filter(row => {
+        // Hide fleet owners with only negative balance (they only receive payouts, no rides)
+        if (ownerDriverIds.has(row.driver_id) && row.total_base <= 0) {
+          console.log('🚫 Hiding fleet owner with negative balance:', row.driver_name, row.total_base);
+          return false;
+        }
+        
+        // Standard filtering: show if has earnings, negative balance, or settlements
+        return row.total_base > 0 || 
+               row.has_negative_balance || 
+               settlementsDriverIds.has(row.driver_id);
+      });
+
       console.log('📈 Aggregated settlements:', aggregated.length);
-      console.log('🧹 Filtered (removed ghost drivers):', filteredAggregated.length);
+      console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
       console.log('✅ Sample settlement:', filteredAggregated[0]);
       
       setSettlements(filteredAggregated);
@@ -1481,16 +1507,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   className="w-[180px] h-9"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="showZero"
-                  checked={showZeroRows}
-                  onCheckedChange={(checked) => setShowZeroRows(checked === true)}
-                />
-                <Label htmlFor="showZero" className="text-sm cursor-pointer">
-                  Pokaż "0" wyniki
-                </Label>
-              </div>
+              {/* Checkbox removed - filtering handled automatically in fetchSettlements */}
               <div className="h-6 w-px bg-border" />
               <div className="flex items-center gap-2">
                 <Button 
@@ -1632,16 +1649,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       <CardContent>
         {(() => {
-          // Filter settlements based on search and hide zero
+          // Filter settlements based on search only (zero filtering is done in fetchSettlements)
           const filteredSettlements = settlements.filter(s => {
             // Search filter
             if (searchQuery.trim()) {
               const query = searchQuery.toLowerCase();
               if (!s.driver_name.toLowerCase().includes(query)) return false;
-            }
-            // Hide zero filter (default: hide zeros unless checkbox is checked)
-            if (!showZeroRows && s.total_base === 0 && s.final_payout === 0) {
-              return false;
             }
             return true;
           });
