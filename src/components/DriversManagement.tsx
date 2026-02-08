@@ -294,33 +294,46 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   };
 
   const removeFromFleet = async (driverId: string, driverName: string) => {
-    // Permanent deletion with data preserved warning
-    if (!confirm(`⚠️ UWAGA: Czy na pewno chcesz TRWALE USUNĄĆ kierowcę ${driverName}?\n\n• Kierowca zniknie z tej floty\n• Dane historyczne (rozliczenia, dokumenty) zostaną zachowane\n• Jeśli dodasz tego kierowcę ponownie, dane historyczne będą dostępne\n\nTa operacja jest nieodwracalna!`)) return;
+    // Permanent removal from fleet list, but data preserved in system
+    if (!confirm(`⚠️ UWAGA: Usunięcie kierowcy ${driverName}\n\n• Kierowca zostanie usunięty z Twojej listy\n• Dane historyczne (rozliczenia, dokumenty) pozostaną w systemie\n• Po ponownym dodaniu kierowcy dane będą dostępne\n\nCzy kontynuować?`)) return;
 
     try {
       console.log(`🗑️ Removing driver ${driverId} (${driverName}) from fleet...`);
       
       // Delete the driver record - CASCADE will handle related records
-      const { error } = await supabase
+      // Use .select() to get affected rows count
+      const { data: deletedData, error } = await supabase
         .from('drivers')
         .delete()
-        .eq('id', driverId);
+        .eq('id', driverId)
+        .select('id');
 
       if (error) {
         console.error('❌ Error deleting driver:', error);
         
-        // If FK error, try to manually clear dependencies first
+        // If FK error or permission error
         if (error.message?.includes('foreign key') || error.code === '23503') {
-          toast.error(`Nie można usunąć: powiązane dane blokują usunięcie. Spróbuj ponownie lub skontaktuj się z administratorem.`);
+          toast.error(`Nie można usunąć: powiązane dane blokują usunięcie.`);
+        } else if (error.code === '42501' || error.message?.includes('permission')) {
+          toast.error(`Brak uprawnień do usunięcia kierowcy.`);
         } else {
           toast.error(`Błąd: ${error.message || 'Nieznany błąd'}`);
         }
         return;
       }
 
-      console.log(`✅ Driver ${driverName} removed successfully`);
+      // Check if row was actually deleted (RLS might block silently)
+      if (!deletedData || deletedData.length === 0) {
+        console.error('❌ No rows deleted - RLS might be blocking');
+        toast.error(`Nie udało się usunąć kierowcy. Brak uprawnień lub kierowca już nie istnieje.`);
+        return;
+      }
+
+      console.log(`✅ Driver ${driverName} removed successfully, deleted rows:`, deletedData.length);
       toast.success(`Kierowca ${driverName} został usunięty`);
-      refetch();
+      
+      // Immediately refetch to update the list
+      await refetch();
       onDriverUpdate();
     } catch (error: any) {
       console.error('❌ Exception removing driver:', error);

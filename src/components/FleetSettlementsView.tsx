@@ -114,11 +114,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [checkingUnmapped, setCheckingUnmapped] = useState(false);
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
 
-  // Check for unmapped drivers - enhanced to also check for drivers without driver_app_users
+  // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
     setCheckingUnmapped(true);
     try {
-      // 1. Check unmapped_settlement_drivers table
+      // Only check unmapped_settlement_drivers table - this contains NEW IDs from CSV
+      // that couldn't be matched to any existing driver
       const { data: unmapped, error } = await supabase
         .from('unmapped_settlement_drivers')
         .select('*')
@@ -127,48 +128,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       
       if (error) throw error;
 
-      // 2. Check for drivers in this fleet without driver_app_users (auto-created by import)
-      const { data: allFleetDrivers } = await supabase
-        .from('drivers')
-        .select(`
-          id, first_name, last_name, phone,
-          driver_platform_ids(platform, platform_id),
-          driver_app_users(user_id)
-        `)
-        .eq('fleet_id', fleetId);
-
-      // Find drivers without driver_app_users (likely auto-created)
-      const driversWithoutAppUsers = (allFleetDrivers || []).filter(d => {
-        const appUsers = (d as any).driver_app_users;
-        return !appUsers || (Array.isArray(appUsers) && appUsers.length === 0) || 
-               (Array.isArray(appUsers) && appUsers.every((au: any) => !au.user_id));
-      });
-
-      // Convert to unmapped format
-      const autoCreatedUnmapped = driversWithoutAppUsers.map(d => {
-        const platformIds = (d as any).driver_platform_ids || [];
-        const uberId = platformIds.find((p: any) => p.platform === 'uber')?.platform_id;
-        const boltId = platformIds.find((p: any) => p.platform === 'bolt')?.platform_id;
-        const freenowId = platformIds.find((p: any) => p.platform === 'freenow')?.platform_id;
-
-        return {
-          id: `auto-${d.id}`,
-          full_name: `${d.first_name} ${d.last_name}`,
-          uber_id: uberId,
-          bolt_id: boltId,
-          freenow_id: freenowId,
-          phone: d.phone,
-          auto_created_driver_id: d.id
-        };
-      });
-
-      const allUnmapped = [...(unmapped || []), ...autoCreatedUnmapped];
+      // NOTE: We no longer add drivers without driver_app_users here
+      // because those are already in the system with platform IDs assigned.
+      // The purpose of this modal is to map NEW platform IDs from CSV,
+      // not to manage existing drivers' app accounts.
       
-      if (allUnmapped.length > 0) {
-        setUnmappedDrivers(allUnmapped);
+      if ((unmapped || []).length > 0) {
+        setUnmappedDrivers(unmapped || []);
         setShowUnmappedModal(true);
       } else {
-        toast.info('Brak nowych kierowców do zmapowania');
+        toast.info('Brak nowych kierowców do zmapowania. Wszystkie ID z CSV zostały przypisane.');
       }
     } catch (err) {
       console.error('Error checking unmapped drivers:', err);
@@ -179,6 +148,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Auto-check for new records after settlement data loads
+  // Only counts truly NEW platform IDs from CSV, not existing drivers without accounts
   const checkForNewRecordsAfterLoad = async () => {
     try {
       const { count: pendingCount } = await supabase
@@ -187,20 +157,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .eq('fleet_id', fleetId)
         .eq('status', 'pending');
 
-      // Also check for drivers without app users
-      const { data: driversWithoutAppUsers } = await supabase
-        .from('drivers')
-        .select('id, driver_app_users!left(user_id)')
-        .eq('fleet_id', fleetId);
-
-      const noAppUserCount = (driversWithoutAppUsers || []).filter(d => {
-        const appUsers = (d as any).driver_app_users;
-        return !appUsers || (Array.isArray(appUsers) && appUsers.length === 0) ||
-               (Array.isArray(appUsers) && appUsers.every((au: any) => !au.user_id));
-      }).length;
-
-      const totalNew = (pendingCount || 0) + noAppUserCount;
-      setNewRecordsAlert(totalNew);
+      // Only count pending unmapped records - NOT drivers without app accounts
+      // because those are already in the system with assigned platform IDs
+      setNewRecordsAlert(pendingCount || 0);
     } catch (err) {
       console.error('Error checking new records:', err);
     }
