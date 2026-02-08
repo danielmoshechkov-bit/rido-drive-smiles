@@ -347,6 +347,34 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
           .eq("id", rental.vehicle.id);
       }
 
+      // Create driver-vehicle assignment for rental history
+      if (rental?.driver && rental?.vehicle) {
+        // First deactivate any existing active assignments for this vehicle
+        await supabase
+          .from("driver_vehicle_assignments")
+          .update({ 
+            status: "inactive", 
+            unassigned_at: new Date().toISOString() 
+          })
+          .eq("vehicle_id", rental.vehicle.id)
+          .eq("status", "active");
+        
+        // Create new active assignment
+        const { error: assignError } = await supabase
+          .from("driver_vehicle_assignments")
+          .insert({
+            driver_id: rental.driver.id,
+            vehicle_id: rental.vehicle.id,
+            fleet_id: fleetId,
+            status: "active",
+            assigned_at: new Date().toISOString()
+          });
+        
+        if (assignError) {
+          console.error("Error creating vehicle assignment:", assignError);
+        }
+      }
+
       // Send confirmation email with signed contract
       if (rental?.invitation_email) {
         await supabase.functions.invoke("send-rental-confirmation", {

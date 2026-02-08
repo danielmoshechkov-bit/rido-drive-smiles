@@ -742,11 +742,12 @@ async function parseUberCsv(
         
         // Link platform ID to existing driver if not already linked
         if (platformId) {
-          await supabase.from('driver_platform_ids').upsert({
+          const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'uber',
             platform_id: platformId
-          }, { onConflict: 'driver_id,platform' }).catch(() => {});
+          }, { onConflict: 'driver_id,platform' });
+          if (pidErr) console.log('⚠️ uber platform_ids upsert error:', pidErr.message);
           existingDriversMap.set(`uber:${platformId}`, fuzzyResult.driver);
         }
       }
@@ -786,7 +787,7 @@ async function parseUberCsv(
         });
         
         // ALWAYS save to unmapped_settlement_drivers (with driver_id for linking)
-        await supabase.from('unmapped_settlement_drivers').upsert({
+        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
           fleet_id: fleet_id || null,
           driver_id: driverId,
           full_name: fullName,
@@ -794,9 +795,8 @@ async function parseUberCsv(
           bolt_id: null,
           freenow_id: null,
           status: 'pending'
-        }, { onConflict: 'driver_id' }).catch((e: any) => {
-          console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-        });
+        }, { onConflict: 'driver_id' });
+        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
         
         if (platformId) {
           await supabase.from('driver_platform_ids').insert({
@@ -881,11 +881,12 @@ async function parseBoltCsv(
         console.log(`✅ BOLT: Fuzzy matched "${driverName}" → "${fuzzyResult.driver.first_name} ${fuzzyResult.driver.last_name}" (score: ${fuzzyResult.score}, type: ${fuzzyResult.matchType})`);
         
         if (platformId) {
-          await supabase.from('driver_platform_ids').upsert({
+          const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'bolt',
             platform_id: platformId
-          }, { onConflict: 'driver_id,platform' }).catch(() => {});
+          }, { onConflict: 'driver_id,platform' });
+          if (pidErr) console.log('⚠️ bolt platform_ids upsert error:', pidErr.message);
           existingDriversMap.set(`bolt:${platformId}`, fuzzyResult.driver);
         }
       }
@@ -925,7 +926,7 @@ async function parseBoltCsv(
         });
         
         // ALWAYS save to unmapped_settlement_drivers
-        await supabase.from('unmapped_settlement_drivers').upsert({
+        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
           fleet_id: fleet_id || null,
           driver_id: driverId,
           full_name: fullName,
@@ -933,16 +934,16 @@ async function parseBoltCsv(
           bolt_id: platformId || null,
           freenow_id: null,
           status: 'pending'
-        }, { onConflict: 'driver_id' }).catch((e: any) => {
-          console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-        });
+        }, { onConflict: 'driver_id' });
+        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
         
         if (platformId) {
-          await supabase.from('driver_platform_ids').insert({
+          const { error: pidErr } = await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
             platform: 'bolt',
             platform_id: platformId
-          }).catch(() => {});
+          });
+          if (pidErr) console.log('⚠️ bolt platform_ids insert error:', pidErr.message);
         }
       }
     }
@@ -1019,11 +1020,12 @@ async function parseFreenowCsv(
         console.log(`✅ FREENOW: Fuzzy matched "${driverName}" → "${fuzzyResult.driver.first_name} ${fuzzyResult.driver.last_name}" (score: ${fuzzyResult.score}, type: ${fuzzyResult.matchType})`);
         
         if (platformId) {
-          await supabase.from('driver_platform_ids').upsert({
+          const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'freenow',
             platform_id: platformId
-          }, { onConflict: 'driver_id,platform' }).catch(() => {});
+          }, { onConflict: 'driver_id,platform' });
+          if (pidErr) console.log('⚠️ freenow platform_ids upsert error:', pidErr.message);
           existingDriversMap.set(`freenow:${platformId}`, fuzzyResult.driver);
         }
       }
@@ -1063,7 +1065,7 @@ async function parseFreenowCsv(
         });
         
         // ALWAYS save to unmapped_settlement_drivers
-        await supabase.from('unmapped_settlement_drivers').upsert({
+        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
           fleet_id: fleet_id || null,
           driver_id: driverId,
           full_name: fullName,
@@ -1071,16 +1073,16 @@ async function parseFreenowCsv(
           bolt_id: null,
           freenow_id: platformId || null,
           status: 'pending'
-        }, { onConflict: 'driver_id' }).catch((e: any) => {
-          console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-        });
+        }, { onConflict: 'driver_id' });
+        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
         
         if (platformId) {
-          await supabase.from('driver_platform_ids').insert({
+          const { error: pidErr } = await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
             platform: 'freenow',
             platform_id: platformId
-          }).catch(() => {});
+          });
+          if (pidErr) console.log('⚠️ freenow platform_ids insert error:', pidErr.message);
         }
       }
     }
