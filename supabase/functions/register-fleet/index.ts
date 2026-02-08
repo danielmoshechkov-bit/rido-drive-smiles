@@ -120,23 +120,21 @@ Deno.serve(async (req) => {
       console.log("✅ Auth user created:", userId);
     }
 
-    // 2. Create fleet record
+    // 2. Create fleet record (using existing columns in fleets table)
     const { data: fleetData, error: fleetError } = await supabaseAdmin
       .from("fleets")
       .insert({
         name: company_name,
-        short_name: company_short_name,
         nip,
         address,
         city,
         postal_code,
         contact_name,
-        contact_email,
-        contact_phone,
+        email: contact_email, // Map to existing 'email' column
+        phone: contact_phone, // Map to existing 'phone' column
         contact_phone_for_drivers: driver_contact_phone || null,
-        owner_id: userId,
-        status: 'new', // Mark as new for admin review
-        is_verified: false
+        owner_name: contact_name,
+        owner_phone: contact_phone
       })
       .select()
       .single();
