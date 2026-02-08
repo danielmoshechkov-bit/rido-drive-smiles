@@ -7457,7 +7457,7 @@ export type Database = {
           last_name: string | null
           listings_count: number | null
           parent_company_id: string | null
-          phone: string
+          phone: string | null
           preferred_listing_type: string | null
           public_email: string | null
           public_phone: string | null
@@ -7487,7 +7487,7 @@ export type Database = {
           last_name?: string | null
           listings_count?: number | null
           parent_company_id?: string | null
-          phone: string
+          phone?: string | null
           preferred_listing_type?: string | null
           public_email?: string | null
           public_phone?: string | null
@@ -7517,7 +7517,7 @@ export type Database = {
           last_name?: string | null
           listings_count?: number | null
           parent_company_id?: string | null
-          phone?: string
+          phone?: string | null
           preferred_listing_type?: string | null
           public_email?: string | null
           public_phone?: string | null

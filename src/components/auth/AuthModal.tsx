@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
-
+import { PasswordStrengthIndicator, validatePassword } from "./PasswordStrengthIndicator";
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -140,9 +140,13 @@ export function AuthModal({
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
       errors.email = "Niepoprawny format email";
     }
-    if (registerData.password.length < 6) {
-      errors.password = "Hasło musi mieć minimum 6 znaków";
+    
+    // Password strength validation
+    const passwordValidation = validatePassword(registerData.password);
+    if (!passwordValidation.valid) {
+      errors.password = passwordValidation.errors[0];
     }
+    
     if (registerData.password !== registerData.confirmPassword) {
       errors.confirmPassword = "Hasła nie są takie same";
     }
@@ -472,7 +476,7 @@ export function AuthModal({
                 )}
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="reg-password">Hasło *</Label>
                   <div className="relative">
@@ -482,18 +486,18 @@ export function AuthModal({
                       type="password"
                       value={registerData.password}
                       onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                      placeholder="Min. 6 znaków"
+                      placeholder="Utwórz silne hasło"
                       className={`pl-10 ${fieldErrors.password ? 'border-destructive' : ''}`}
                       required
-                      minLength={6}
                     />
                   </div>
+                  <PasswordStrengthIndicator password={registerData.password} />
                   {fieldErrors.password && (
                     <p className="text-xs text-destructive">{fieldErrors.password}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="reg-confirm">Potwierdź *</Label>
+                  <Label htmlFor="reg-confirm">Potwierdź hasło *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -501,7 +505,7 @@ export function AuthModal({
                       type="password"
                       value={registerData.confirmPassword}
                       onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                      placeholder="Powtórz"
+                      placeholder="Powtórz hasło"
                       className={`pl-10 ${fieldErrors.confirmPassword ? 'border-destructive' : ''}`}
                       required
                     />
