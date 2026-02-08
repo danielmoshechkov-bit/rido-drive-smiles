@@ -168,13 +168,50 @@ Deno.serve(async (req) => {
       console.log("✅ Fleet role assigned");
     }
 
-    // 4. Also create marketplace profile for the fleet owner
+    // 4. Create driver record for fleet owner (so they appear in their own settlements)
+    const nameParts = contact_name.split(" ");
+    const firstName = nameParts[0] || contact_name;
+    const lastName = nameParts.slice(1).join(" ") || "";
+    
+    const { data: driverData, error: driverError } = await supabaseAdmin
+      .from("drivers")
+      .insert({
+        fleet_id: fleetData.id,
+        first_name: firstName,
+        last_name: lastName,
+        email: contact_email,
+        phone: contact_phone,
+        payment_method: 'transfer', // Default to transfer
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (driverError) {
+      console.error("⚠️ Driver record creation error (non-fatal):", driverError.message);
+    } else {
+      console.log("✅ Fleet owner driver record created:", driverData.id);
+      
+      // 5. Link driver to user account via driver_app_users
+      await supabaseAdmin
+        .from("driver_app_users")
+        .insert({
+          driver_id: driverData.id,
+          user_id: userId,
+          fleet_id: fleetData.id,
+          settlement_frequency: 'weekly',
+          app_access_enabled: true
+        });
+      console.log("✅ Driver app user link created");
+    }
+
+    // 6. Also create marketplace profile for the fleet owner
     await supabaseAdmin
       .from("marketplace_user_profiles")
       .insert({
         user_id: userId,
-        first_name: contact_name.split(" ")[0] || contact_name,
-        last_name: contact_name.split(" ").slice(1).join(" ") || null,
+        first_name: firstName,
+        last_name: lastName || null,
         email: contact_email,
         phone: contact_phone,
         account_mode: 'business',
