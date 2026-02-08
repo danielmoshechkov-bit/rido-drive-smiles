@@ -289,30 +289,32 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <CardTitle>Przychody aut</CardTitle>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs text-xs">
-                      Wynajem jest liczony proporcjonalnie. Dzień przypisania nie jest liczony.
-                      Stawka dzienna = wynajem tygodniowy ÷ 7 dni.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Rok:</Label>
+      <Card className="overflow-hidden">
+        <CardHeader className="space-y-4">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">Przychody aut</CardTitle>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs text-xs">
+                    Wynajem jest liczony proporcjonalnie. Dzień przypisania nie jest liczony.
+                    Stawka dzienna = wynajem tygodniowy ÷ 7 dni.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          {/* Mobile layout */}
+          <div className="flex flex-col gap-3 md:hidden">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Rok:</Label>
                 <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[100px]">
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,20 +324,20 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Label className="text-sm whitespace-nowrap">Okres:</Label>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Okres:</Label>
                 <Select 
                   value={selectedWeek?.toString() || ''} 
                   onValueChange={(v) => setSelectedWeek(parseInt(v))}
                   disabled={selectedWeek === null}
                 >
-                  <SelectTrigger className="flex-1 sm:w-[240px]">
-                    <SelectValue placeholder="Wybierz okres" />
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Wybierz" />
                   </SelectTrigger>
                   <SelectContent>
                     {weeks.map(week => (
                       <SelectItem key={week.number} value={week.number.toString()}>
-                        {week.label}
+                        Tydzień {week.number}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -343,8 +345,44 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
               </div>
             </div>
           </div>
+          
+          {/* Desktop layout */}
+          <div className="hidden md:flex flex-row items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Rok:</Label>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026].map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Okres:</Label>
+              <Select 
+                value={selectedWeek?.toString() || ''} 
+                onValueChange={(v) => setSelectedWeek(parseInt(v))}
+                disabled={selectedWeek === null}
+              >
+                <SelectTrigger className="w-[240px]">
+                  <SelectValue placeholder="Wybierz okres" />
+                </SelectTrigger>
+                <SelectContent>
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
-      <CardContent>
+      <CardContent className="p-0 md:p-6">
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
             Ładowanie danych...
@@ -354,17 +392,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             Brak przypisanych pojazdów dla tej floty
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="p-1.5 text-xs">Kierowca</TableHead>
-                  <TableHead className="p-1.5 text-xs">Pojazd</TableHead>
-                  <TableHead className="p-1.5 text-xs">Wynajem od</TableHead>
-                  <TableHead className="text-right p-1.5 text-xs">Stawka</TableHead>
-                  <TableHead className="text-right p-1.5 text-xs">Wynajem</TableHead>
-                  <TableHead className="text-right p-1.5 text-xs">Opłacone</TableHead>
-                  <TableHead className="text-right p-1.5 text-xs">Zadłużenie</TableHead>
-                  <TableHead className="p-1.5 text-xs">Akcje</TableHead>
+                  <TableHead className="p-1.5 text-xs whitespace-nowrap">Kierowca</TableHead>
+                  <TableHead className="p-1.5 text-xs whitespace-nowrap">Pojazd</TableHead>
+                  <TableHead className="p-1.5 text-xs whitespace-nowrap">Wynajem od</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Stawka</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Wynajem</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Opłacone</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Zadłużenie</TableHead>
+                  <TableHead className="p-1.5 text-xs whitespace-nowrap">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
             <TableBody>
@@ -456,6 +495,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </TableRow>
               </TableFooter>
           </Table>
+          </div>
         )}
       </CardContent>
     </Card>

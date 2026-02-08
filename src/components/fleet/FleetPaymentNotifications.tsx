@@ -190,13 +190,13 @@ export function FleetPaymentNotifications({ fleetId }: FleetPaymentNotifications
   if (notifications.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-lg">Potwierdzenia płatności</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={fetchNotifications}>
+            <Button variant="outline" size="sm" onClick={fetchNotifications} className="w-full sm:w-auto">
               <RefreshCw className="h-4 w-4 mr-2" />
               Odśwież
             </Button>
@@ -209,13 +209,13 @@ export function FleetPaymentNotifications({ fleetId }: FleetPaymentNotifications
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Bell className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-lg">Oczekujące potwierdzenia płatności</h3>
+          <h3 className="font-semibold text-base sm:text-lg">Oczekujące potwierdzenia</h3>
           <Badge variant="destructive">{notifications.length}</Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchNotifications}>
+        <Button variant="outline" size="sm" onClick={fetchNotifications} className="w-full sm:w-auto">
           <RefreshCw className="h-4 w-4 mr-2" />
           Odśwież
         </Button>
@@ -231,24 +231,24 @@ export function FleetPaymentNotifications({ fleetId }: FleetPaymentNotifications
           return (
             <Card key={notification.id} className="border-l-4 border-l-amber-500">
               <CardContent className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex-1 min-w-[200px]">
+                <div className="flex flex-col gap-4">
+                  <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <span className="font-medium">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      <span className="font-medium text-sm">
                         Czy kierowca zapłacił za wynajem?
                       </span>
                     </div>
                     
                     <div className="space-y-1 text-sm">
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        <span>{driver?.first_name} {driver?.last_name}</span>
+                        <User className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{driver?.first_name} {driver?.last_name}</span>
                       </div>
                       {vehicle && (
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Car className="h-3 w-3" />
-                          <span>{vehicle.plate} - {vehicle.brand} {vehicle.model}</span>
+                          <Car className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{vehicle.plate} - {vehicle.brand} {vehicle.model}</span>
                         </div>
                       )}
                       <div className="font-semibold text-foreground">
@@ -260,13 +260,13 @@ export function FleetPaymentNotifications({ fleetId }: FleetPaymentNotifications
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 w-full">
                     <Button
                       variant="default"
                       size="sm"
                       onClick={() => setConfirmDialog({ open: true, notificationId: notification.id, action: 'paid' })}
                       disabled={isProcessing}
-                      className="bg-emerald-600 hover:bg-emerald-700"
+                      className="bg-emerald-600 hover:bg-emerald-700 h-9 text-xs"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -282,6 +282,7 @@ export function FleetPaymentNotifications({ fleetId }: FleetPaymentNotifications
                       size="sm"
                       onClick={() => setConfirmDialog({ open: true, notificationId: notification.id, action: 'not_paid' })}
                       disabled={isProcessing}
+                      className="h-9 text-xs"
                     >
                       {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
