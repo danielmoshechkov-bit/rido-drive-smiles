@@ -265,17 +265,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName}?`)) return;
 
     try {
-      // Usuń powiązane dane - ALL foreign key dependencies
-      await supabase.from('driver_platform_ids').delete().eq('driver_id', driverId);
-      await supabase.from('driver_document_statuses').delete().eq('driver_id', driverId);
-      await supabase.from('driver_vehicle_assignments').delete().eq('driver_id', driverId);
-      await supabase.from('driver_app_users').delete().eq('driver_id', driverId);
-      await supabase.from('settlements').delete().eq('driver_id', driverId);
-      await supabase.from('driver_debts').delete().eq('driver_id', driverId);
-      await supabase.from('unmapped_settlement_drivers').delete().eq('linked_driver_id', driverId);
-      await supabase.from('driver_fleet_relations').delete().eq('driver_id', driverId);
-      await supabase.from('auto_invoicing_consents').delete().eq('driver_id', driverId);
-      await supabase.from('autofactoring_agreements').delete().eq('driver_id', driverId);
+      // Delete all FK dependencies - use type assertion to avoid deep TS inference
+      const db = supabase as any;
+      await db.from('driver_platform_ids').delete().eq('driver_id', driverId);
+      await db.from('driver_document_statuses').delete().eq('driver_id', driverId);
+      await db.from('driver_vehicle_assignments').delete().eq('driver_id', driverId);
+      await db.from('driver_app_users').delete().eq('driver_id', driverId);
+      await db.from('settlements').delete().eq('driver_id', driverId);
+      await db.from('driver_debts').delete().eq('driver_id', driverId);
+      await db.from('driver_debt_transactions').delete().eq('driver_id', driverId);
+      await db.from('unmapped_settlement_drivers').delete().eq('linked_driver_id', driverId);
+      await db.from('driver_fleet_relations').delete().eq('driver_id', driverId);
+      await db.from('auto_invoicing_consents').delete().eq('driver_id', driverId);
+      await db.from('autofactoring_agreements').delete().eq('driver_id', driverId);
+      await db.from('driver_documents').delete().eq('driver_id', driverId);
+      await db.from('driver_settlements').delete().eq('driver_id', driverId);
+      await db.from('manual_driver_matches').delete().eq('driver_id', driverId);
+      await db.from('driver_communications').delete().eq('driver_id', driverId);
+      await db.from('driver_additional_fees').delete().eq('driver_id', driverId);
+      await db.from('driver_accumulated_earnings').delete().eq('driver_id', driverId);
+      await db.from('driver_locations').delete().eq('driver_id', driverId);
+      await db.from('driver_invoices').delete().eq('driver_id', driverId);
+      await db.from('driver_b2b_profiles').delete().eq('driver_id', driverId);
+      await db.from('driver_auto_invoicing_settings').delete().eq('driver_id', driverId);
+      await db.from('fuel_cards').delete().eq('driver_id', driverId);
+      await db.from('vehicle_rentals').delete().eq('driver_id', driverId);
       
       // Usuń główny rekord kierowcy
       const { error } = await supabase.from('drivers').delete().eq('id', driverId);
@@ -285,7 +299,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       onDriverUpdate();
     } catch (error) {
       console.error('Error deleting driver:', error);
-      toast.error('Błąd podczas usuwania kierowcy');
+      toast.error('Błąd podczas usuwania kierowcy z floty');
     }
   };
 
