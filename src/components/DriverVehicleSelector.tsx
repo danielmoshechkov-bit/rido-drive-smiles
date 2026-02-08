@@ -32,8 +32,8 @@ export const DriverVehicleSelector = ({
 
   useEffect(() => {
     const fetchVehicles = async () => {
-      // Pobierz wszystkie dostępne pojazdy, nie tylko z konkretnej floty
-      const { data } = await supabase
+      // Build query - filter by fleet if fleetId is provided
+      let query = supabase
         .from("vehicles")
         .select(`
           id, 
@@ -45,6 +45,13 @@ export const DriverVehicleSelector = ({
         `)
         .eq("status", "aktywne")
         .order("brand", { ascending: true });
+
+      // If fleetId is provided, only show vehicles from that fleet
+      if (fleetId) {
+        query = query.eq("fleet_id", fleetId);
+      }
+
+      const { data } = await query;
 
       // Pobierz aktywne przypisania pojazdów (oprócz obecnego kierowcy)
       const { data: assignmentsData } = await supabase
@@ -61,7 +68,7 @@ export const DriverVehicleSelector = ({
     };
 
     fetchVehicles();
-  }, [driverId]); // Usuń dependency na fleetId żeby ładować wszystkie pojazdy
+  }, [driverId, fleetId]);
 
   useEffect(() => {
     if (currentVehicleId && vehicles.length > 0) {
