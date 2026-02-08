@@ -130,29 +130,47 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
       return;
     }
     
-    // Pobierz aktywne przypisania kierowców
-    const { data: assignments } = await supabase
+    // Pobierz aktywne przypisania kierowców dla tej floty
+    let assignmentsQuery = supabase
       .from("driver_vehicle_assignments")
       .select(`
         vehicle_id,
         assigned_at,
-        drivers(id, first_name, last_name, email)
+        driver_id,
+        drivers:driver_id(id, first_name, last_name, email)
       `)
       .eq("status", "active");
+    
+    // Filter by fleet_id if provided (important for RLS)
+    if (fleetId) {
+      assignmentsQuery = assignmentsQuery.eq("fleet_id", fleetId);
+    }
+    
+    const { data: assignments, error: assignmentsError } = await assignmentsQuery;
+    
+    console.log('🚗 Assignments fetched:', assignments?.length, 'for fleet:', fleetId, 'Error:', assignmentsError);
+    if (assignments && assignments.length > 0) {
+      console.log('🚗 Sample assignment:', JSON.stringify(assignments[0]));
+    }
     
     // Połącz dane pojazdów z przypisaniami
     const vehiclesWithAssignments = allVehicles?.map(vehicle => {
       const assignment = assignments?.find(a => a.vehicle_id === vehicle.id);
+      // Handle both old format (drivers) and new format (driver_id relation)
+      const driverData = assignment?.drivers || null;
+      
+      console.log(`🚗 Vehicle ${vehicle.plate}: assignment found =`, !!assignment, 'driver =', driverData);
+      
       return {
         ...vehicle,
         fleet: vehicle.fleets,
-        assignedDriver: assignment?.drivers 
+        assignedDriver: driverData 
           ? {
-              id: assignment.drivers.id,
-              first_name: assignment.drivers.first_name,
-              last_name: assignment.drivers.last_name,
-              email: assignment.drivers.email,
-              assigned_at: assignment.assigned_at
+              id: (driverData as any).id,
+              first_name: (driverData as any).first_name,
+              last_name: (driverData as any).last_name,
+              email: (driverData as any).email,
+              assigned_at: assignment?.assigned_at
             }
           : null
       };
