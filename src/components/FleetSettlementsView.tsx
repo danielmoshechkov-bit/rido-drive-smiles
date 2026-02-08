@@ -1060,42 +1060,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
 
       // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze
-      // Pokazuj tylko kierowców którzy:
-      // 1. Mają jakiekolwiek zarobki (total_base > 0)
-      // 2. LUB mają ujemne saldo (has_negative_balance) - ALE nie właściciele flot
-      // 3. LUB mają rozliczenia w tym okresie
+      // Pokazuj tylko kierowców którzy mają AKTYWNE zarobki (total_base > 0)
+      // UKRYJ: 
+      // - Kierowców z ujemnym saldem (tylko wypłaty, brak kursów) - np. właściciele flot
+      // - Kierowców bez żadnych rozliczeń
       const settlementsDriverIds = new Set(settlementsData?.map(s => s.driver_id) || []);
       
-      // Get fleet owners (users with fleet_settlement or fleet_rental roles)
-      const { data: ownerDriverAppUsers } = await supabase
-        .from('driver_app_users')
-        .select('driver_id, user_id')
-        .in('driver_id', driverIds);
-
-      const { data: fleetOwnerRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('fleet_id', fleetId)
-        .in('role', ['fleet_settlement', 'fleet_rental']);
-
-      const ownerUserIds = new Set(fleetOwnerRoles?.map(r => r.user_id) || []);
-      const ownerDriverIds = new Set(
-        ownerDriverAppUsers?.filter(d => ownerUserIds.has(d.user_id)).map(d => d.driver_id) || []
-      );
-
-      console.log('👤 Fleet owner driver IDs:', Array.from(ownerDriverIds));
-      
       const filteredAggregated = aggregated.filter(row => {
-        // Hide fleet owners with only negative balance (they only receive payouts, no rides)
-        if (ownerDriverIds.has(row.driver_id) && row.total_base <= 0) {
-          console.log('🚫 Hiding fleet owner with negative balance:', row.driver_name, row.total_base);
+        // UKRYJ kierowców którzy mają TYLKO ujemne saldo (total_base < 0 = tylko wypłaty bez kursów)
+        // To dotyczy właścicieli flot którzy tylko otrzymują wypłaty z platform
+        if (row.total_base < 0) {
+          console.log('🚫 Hiding driver with only negative balance (payout receiver):', row.driver_name, row.total_base);
           return false;
         }
         
-        // Standard filtering: show if has earnings, negative balance, or settlements
-        return row.total_base > 0 || 
-               row.has_negative_balance || 
-               settlementsDriverIds.has(row.driver_id);
+        // UKRYJ kierowców z zerowym saldem i bez rozliczeń
+        if (row.total_base === 0 && !settlementsDriverIds.has(row.driver_id)) {
+          return false;
+        }
+        
+        // Pokaż kierowców z pozytywnymi zarobkami lub z rozliczeniami
+        return row.total_base > 0 || settlementsDriverIds.has(row.driver_id);
       });
 
       console.log('📈 Aggregated settlements:', aggregated.length);

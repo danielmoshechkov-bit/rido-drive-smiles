@@ -122,16 +122,17 @@ export function UnmappedDriversModal({
 
       console.log('🔍 FUEL DEBUG - Assigned cards (normalized):', Array.from(assignedCardsNormalized));
 
-      // Get recent fuel transactions
-      const lastMonth = new Date();
-      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      // Get ALL recent fuel transactions (last 2 months to be safe)
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
       const { data: transactions } = await supabase
         .from("fuel_transactions")
-        .select("card_number, total_amount")
-        .gte("transaction_date", lastMonth.toISOString().split('T')[0]);
+        .select("card_number, total_amount, transaction_date")
+        .gte("transaction_date", twoMonthsAgo.toISOString().split('T')[0]);
 
-      console.log('🔍 FUEL DEBUG - Transaction card numbers:', transactions?.map(t => t.card_number));
+      console.log('🔍 FUEL DEBUG - All transactions:', transactions?.length || 0);
+      console.log('🔍 FUEL DEBUG - Transaction card numbers:', [...new Set(transactions?.map(t => t.card_number))]);
 
       // Group by card and filter unassigned
       const cardTotals: Record<string, { amount: number; count: number }> = {};
@@ -169,6 +170,76 @@ export function UnmappedDriversModal({
       setUnmappedFuelCards(unassigned);
     } catch (err) {
       console.error("Error fetching unmapped fuel cards:", err);
+    }
+  };
+
+  // Function to add a new driver with platform ID
+  const handleAddNewDriver = async (unmappedDriver: UnmappedDriver, platform: string) => {
+    try {
+      // Extract first and last name from full_name
+      const nameParts = (unmappedDriver.full_name || 'Nieznany').split(' ');
+      const firstName = nameParts[0] || 'Nieznany';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Get city_id from first driver in fleet (fallback)
+      const { data: firstDriver } = await supabase
+        .from('drivers')
+        .select('city_id')
+        .eq('fleet_id', fleetId)
+        .limit(1)
+        .single();
+
+      // Create new driver
+      const { data: newDriver, error: driverError } = await supabase
+        .from('drivers')
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          fleet_id: fleetId,
+          city_id: firstDriver?.city_id || 'f6ecca60-ca80-4227-8409-8a44f5d342fd',
+          phone: unmappedDriver.phone,
+          email: unmappedDriver.email,
+        })
+        .select('id')
+        .single();
+
+      if (driverError) throw driverError;
+
+      // Add platform ID
+      const platformId = platform === 'uber' ? unmappedDriver.uber_id :
+                         platform === 'bolt' ? unmappedDriver.bolt_id :
+                         platform === 'freenow' ? unmappedDriver.freenow_id : null;
+
+      if (platformId && newDriver) {
+        await supabase
+          .from('driver_platform_ids')
+          .insert({
+            driver_id: newDriver.id,
+            platform: platform,
+            platform_id: platformId,
+          });
+      }
+
+      // Create driver_app_users entry
+      if (newDriver) {
+        await supabase
+          .from('driver_app_users')
+          .insert({
+            driver_id: newDriver.id,
+            user_id: newDriver.id, // Use driver_id as placeholder
+          });
+      }
+
+      // Refresh existing drivers list
+      await fetchExistingDrivers();
+      
+      // Auto-select the new driver
+      handleMapping(unmappedDriver.id, newDriver.id);
+      
+      toast.success(`Dodano kierowcę: ${firstName} ${lastName}`);
+    } catch (err) {
+      console.error('Error adding new driver:', err);
+      toast.error('Błąd dodawania kierowcy');
     }
   };
 
@@ -313,7 +384,9 @@ export function UnmappedDriversModal({
     recordId: string,
     selectedValue: string | undefined,
     onSelect: (id: string, value: string) => void,
-    searchKey: string
+    searchKey: string,
+    unmappedDriver?: UnmappedDriver,
+    platform?: string
   ) => {
     const isOpen = openSelectors[searchKey] || false;
     const filteredDrivers = getFilteredDrivers(searchKey);
@@ -390,18 +463,18 @@ export function UnmappedDriversModal({
           </PopoverContent>
         </Popover>
         
-        {/* Plus button for new driver */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={() => {
-            toast.info("Funkcja dodawania nowego kierowcy - użyj modułu Kierowcy");
-          }}
-          title="Dodaj nowego kierowcę"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        {/* Plus button for new driver - adds driver to database with platform ID */}
+        {unmappedDriver && platform && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 shrink-0 hover:bg-primary/10 hover:border-primary/50"
+            onClick={() => handleAddNewDriver(unmappedDriver, platform)}
+            title={`Dodaj "${unmappedDriver.full_name}" jako nowego kierowcę`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        )}
         
         {/* Clear button */}
         {selectedValue && (
@@ -460,7 +533,9 @@ export function UnmappedDriversModal({
                   driver.id,
                   mappings[driver.id],
                   handleMapping,
-                  `${platform}-${driver.id}`
+                  `${platform}-${driver.id}`,
+                  driver,
+                  platform
                 )}
               </div>
             </div>
@@ -603,7 +678,9 @@ export function UnmappedDriversModal({
                             driver.id,
                             mappings[driver.id],
                             handleMapping,
-                            `no_platform-${driver.id}`
+                            `no_platform-${driver.id}`,
+                            driver,
+                            "no_platform"
                           )}
                         </div>
                       </div>
