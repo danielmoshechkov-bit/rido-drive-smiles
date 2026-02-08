@@ -262,77 +262,34 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   };
 
   const deleteDriver = async (driverId: string, driverName: string) => {
-    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName}?`)) return;
+    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName}? Ta operacja jest nieodwracalna.`)) return;
 
     try {
-      // Delete ALL FK dependencies - comprehensive cascade delete
-      // Use type assertion to avoid deep TS inference issues
-      const db = supabase as any;
+      console.log(`🗑️ Deleting driver ${driverId} (${driverName})...`);
       
-      // Core driver tables
-      await db.from('driver_platform_ids').delete().eq('driver_id', driverId);
-      await db.from('driver_document_statuses').delete().eq('driver_id', driverId);
-      await db.from('driver_vehicle_assignments').delete().eq('driver_id', driverId);
-      await db.from('driver_app_users').delete().eq('driver_id', driverId);
-      await db.from('driver_debts').delete().eq('driver_id', driverId);
-      await db.from('driver_debt_transactions').delete().eq('driver_id', driverId);
-      await db.from('driver_fleet_relations').delete().eq('driver_id', driverId);
-      await db.from('driver_documents').delete().eq('driver_id', driverId);
-      await db.from('driver_settlements').delete().eq('driver_id', driverId);
-      await db.from('driver_communications').delete().eq('driver_id', driverId);
-      await db.from('driver_additional_fees').delete().eq('driver_id', driverId);
-      await db.from('driver_accumulated_earnings').delete().eq('driver_id', driverId);
-      await db.from('driver_locations').delete().eq('driver_id', driverId);
-      await db.from('driver_invoices').delete().eq('driver_id', driverId);
-      await db.from('driver_b2b_profiles').delete().eq('driver_id', driverId);
-      await db.from('driver_auto_invoicing_settings').delete().eq('driver_id', driverId);
-      await db.from('driver_reputation').delete().eq('driver_id', driverId);
-      
-      // Settlement related
-      await db.from('settlements').delete().eq('driver_id', driverId);
-      await db.from('settlements_weekly').delete().eq('driver_id', driverId);
-      await db.from('settlement_plan_changes').delete().eq('driver_id', driverId);
-      await db.from('settlement_import_diagnostics').delete().eq('matched_driver_id', driverId);
-      await db.from('settlement_import_diagnostics').delete().eq('created_driver_id', driverId);
-      await db.from('unmapped_settlement_drivers').delete().eq('linked_driver_id', driverId);
-      await db.from('unmapped_settlement_drivers').delete().eq('driver_id', driverId);
-      await db.from('manual_driver_matches').delete().eq('driver_id', driverId);
-      
-      // Fuel and vehicles
-      await db.from('fuel_cards').delete().eq('driver_id', driverId);
-      await db.from('fuel_logs').delete().eq('driver_id', driverId);
-      await db.from('vehicle_rentals').delete().eq('driver_id', driverId);
-      await db.from('rental_payment_reminders').delete().eq('driver_id', driverId);
-      
-      // Consents and agreements
-      await db.from('auto_invoicing_consents').delete().eq('driver_id', driverId);
-      await db.from('autofactoring_agreements').delete().eq('driver_id', driverId);
-      
-      // Communication and system
-      await db.from('messages').delete().eq('driver_id', driverId);
-      await db.from('system_alerts').delete().eq('driver_id', driverId);
-      await db.from('fleet_invitations').delete().eq('driver_id', driverId);
-      await db.from('price_change_notifications').delete().eq('driver_id', driverId);
-      
-      // Raw data
-      await db.from('rides_raw').delete().eq('driver_id', driverId);
-      await db.from('documents').delete().eq('driver_id', driverId);
-      
-      // Marketplace
-      await db.from('marketplace_listings').delete().eq('driver_id', driverId);
-      
-      // Fleet roles (different column)
-      await db.from('fleet_delegated_roles').delete().eq('assigned_to_driver_id', driverId);
-      
-      // Finally delete the main driver record
+      // FK constraints are now set to CASCADE, so we just delete the driver record
+      // and all related records will be automatically deleted
       const { error } = await supabase.from('drivers').delete().eq('id', driverId);
-      if (error) throw error;
       
+      if (error) {
+        console.error('❌ Error deleting driver:', error);
+        
+        // If still getting FK error, show detailed message
+        if (error.message?.includes('foreign key') || error.code === '23503') {
+          toast.error(`Nie można usunąć: powiązane dane blokują usunięcie. Skontaktuj się z administratorem.`);
+        } else {
+          toast.error(`Błąd: ${error.message || 'Nieznany błąd'}`);
+        }
+        return;
+      }
+      
+      console.log(`✅ Driver ${driverName} deleted successfully`);
       toast.success(`Usunięto kierowcę ${driverName}`);
+      refetch();
       onDriverUpdate();
-    } catch (error) {
-      console.error('Error deleting driver:', error);
-      toast.error('Błąd podczas usuwania kierowcy z floty');
+    } catch (error: any) {
+      console.error('❌ Exception deleting driver:', error);
+      toast.error(`Błąd: ${error?.message || 'Nieznany błąd podczas usuwania'}`);
     }
   };
 

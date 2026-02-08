@@ -726,14 +726,41 @@ async function parseUberCsv(
 
     let driverId: string | null = null;
 
-    // 1. Try platform ID match (100% confidence)
+    // 1. Try platform ID match from cache
     if (platformId && existingDriversMap.has(`uber:${platformId}`)) {
       driverId = existingDriversMap.get(`uber:${platformId}`).id;
       matchedDrivers++;
-      console.log(`✅ UBER: Matched by platform ID: ${platformId}`);
-    } 
+      console.log(`✅ UBER: Matched by platform ID (cache): ${platformId}`);
+    }
+    
+    // 1b. CRITICAL: Also check database directly for platform_id (in case cache is stale)
+    if (!driverId && platformId) {
+      const { data: existingPlatformId } = await supabase
+        .from('driver_platform_ids')
+        .select('driver_id')
+        .eq('platform', 'uber')
+        .eq('platform_id', platformId)
+        .maybeSingle();
+      
+      if (existingPlatformId?.driver_id) {
+        driverId = existingPlatformId.driver_id;
+        matchedDrivers++;
+        console.log(`✅ UBER: Matched by platform ID (DB lookup): ${platformId} → ${driverId}`);
+        
+        // Update cache
+        const { data: driver } = await supabase
+          .from('drivers')
+          .select('id, first_name, last_name')
+          .eq('id', driverId)
+          .single();
+        if (driver) {
+          existingDriversMap.set(`uber:${platformId}`, driver);
+        }
+      }
+    }
+    
     // 2. Try fuzzy name matching
-    else if (driverName) {
+    if (!driverId && driverName) {
       const fuzzyResult = fuzzyMatchDriver(driverName, existingDriversMap, 50);
       if (fuzzyResult.driver && fuzzyResult.score >= 50) {
         driverId = fuzzyResult.driver.id;
