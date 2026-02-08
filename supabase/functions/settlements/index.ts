@@ -780,16 +780,57 @@ async function parseUberCsv(
       }
     }
 
-    // 3. Create new driver if no match found
+    // 3. Check by name if driver already exists in this fleet (prevent duplicates)
     if (!driverId) {
-      console.log(`🔍 UBER: No match found for "${driverName}" (platformId: ${platformId}), attempting to create new driver...`);
-      
       const nameParts = driverName.split(' ');
       const firstName = nameParts[0] || 'Uber';
       const lastName = nameParts.slice(1).join(' ') || 'Driver';
       const fullName = `${firstName} ${lastName}`.trim();
       
-      // CRITICAL FIX: Create new driver record
+      console.log(`🔍 UBER: No platform match for "${driverName}" (platformId: ${platformId}), checking by name in fleet...`);
+      
+      // CRITICAL: Check if driver with exact name already exists in this fleet
+      let existingQuery = supabase
+        .from('drivers')
+        .select('id, first_name, last_name')
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName);
+      
+      if (fleet_id) {
+        existingQuery = existingQuery.eq('fleet_id', fleet_id);
+      }
+      
+      const { data: existingByName } = await existingQuery.maybeSingle();
+      
+      if (existingByName) {
+        driverId = existingByName.id;
+        matchedDrivers++;
+        console.log(`✅ UBER: Found existing driver by name "${fullName}" (ID: ${driverId})`);
+        
+        // Link platform ID to existing driver
+        if (platformId) {
+          const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
+            driver_id: driverId,
+            platform: 'uber',
+            platform_id: platformId
+          }, { onConflict: 'driver_id,platform' });
+          if (!pidErr) {
+            console.log(`✅ UBER: Linked platform_id ${platformId} to existing driver ${driverId}`);
+            existingDriversMap.set(`uber:${platformId}`, existingByName);
+          }
+        }
+      }
+    }
+    
+    // 4. Create NEW driver ONLY if no match by platform ID or name
+    if (!driverId) {
+      const nameParts = driverName.split(' ');
+      const firstName = nameParts[0] || 'Uber';
+      const lastName = nameParts.slice(1).join(' ') || 'Driver';
+      const fullName = `${firstName} ${lastName}`.trim();
+      
+      console.log(`🆕 UBER: Creating new driver "${fullName}" (platformId: ${platformId})...`);
+      
       const { data: newDriver, error: insertError } = await supabase
         .from('drivers')
         .insert({
@@ -808,7 +849,7 @@ async function parseUberCsv(
         driverId = newDriver.id;
         newDrivers++;
         
-        console.log(`🆕 UBER: Created new driver: ${fullName} (ID: ${driverId}, platformId: ${platformId})`);
+        console.log(`🆕 UBER: NEW driver created: ${fullName} (ID: ${driverId}, platformId: ${platformId})`);
         
         unmappedDrivers.push({
           id: driverId,
