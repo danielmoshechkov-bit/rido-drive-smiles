@@ -1243,8 +1243,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       );
     }
     
-    // For drivers: show their own settlements
-    if (isDriver && myDriverId) {
+    // For fleet owners and drivers: show their own settlements
+    // Anyone with myDriverId (fleet owner or driver) sees their own settlements
+    if (myDriverId) {
       return (
         <div>
           <UniversalSubTabBar
