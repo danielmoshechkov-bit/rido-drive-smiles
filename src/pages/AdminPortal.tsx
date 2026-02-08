@@ -16,7 +16,8 @@ import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot } from 'lucide-react';
+import { EmailSettings } from '@/components/EmailSettings';
+import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -68,6 +69,7 @@ export default function AdminPortal() {
     { value: 'ai-assistant', label: 'AI Asystent', visible: true },
     { value: 'api', label: 'API i Integracje', visible: true },
     { value: 'voice', label: 'Głos i TTS', visible: true },
+    { value: 'email', label: 'Poczta email', visible: true },
     { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
     { value: 'accounting', label: 'Moduł księgowy', visible: true },
     { value: 'features', label: 'Funkcje portalu', visible: true },
@@ -90,6 +92,19 @@ export default function AdminPortal() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Blue Admin Bar - matching other admin panels */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              <span className="font-semibold text-sm">Panel Administratora GetRido</span>
+            </div>
+            <span className="text-xs text-blue-100">Globalne ustawienia portalu</span>
+          </div>
+        </div>
+      </div>
+      
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -176,6 +191,26 @@ export default function AdminPortal() {
                 </CardHeader>
                 <CardContent>
                   <TTSSettingsPanel />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Email Settings Tab */}
+          {activeSubTab === 'email' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    Ustawienia poczty email
+                  </CardTitle>
+                  <CardDescription>
+                    Konfiguracja serwera SMTP i szablonów wiadomości
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <EmailSettings />
                 </CardContent>
               </Card>
             </div>
