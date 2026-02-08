@@ -467,40 +467,97 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="space-y-4">
+          {/* Mobile layout - stacked */}
+          <div className="flex flex-col gap-4 md:hidden">
             <div>
-              <CardTitle>Lista kierowców - {cityName}</CardTitle>
+              <CardTitle className="text-lg">Lista kierowców</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {mode === 'admin' && (
-                <Button onClick={async () => {
-                  if (!cityId) {
-                    toast.error("Wybierz miasto przed synchronizacją");
-                    return;
-                  }
-                  try {
-                    const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
-                    if (error) throw error;
-                    if (data?.success) {
-                      toast.success(`Zaktualizowano kierowców: ${data.stats.updatedDrivers}, ID platform: ${data.stats.upsertedPlatformIds}`);
-                      refetch();
-                      onDriverUpdate();
-                    } else {
-                      throw new Error(data?.error || 'Błąd synchronizacji');
-                    }
-                  } catch (e) {
-                    toast.error(`Błąd synchronizacji: ${e instanceof Error ? e.message : 'Nieznany błąd'}`);
-                  }
-                }} variant="outline" className="gap-2">
-                  Odśwież IDs
+            <div className="grid grid-cols-2 gap-2">
+              {mode === 'fleet' && (
+                <Button 
+                  onClick={() => setShowDelegateRoleModal(true)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9"
+                >
+                  <Shield className="h-4 w-4" />
+                  Przyznaj rolę
                 </Button>
               )}
-              {mode === 'fleet' && (
-                <>
+              <Button 
+                onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
+                size="sm"
+                className="gap-1.5 h-9"
+                disabled={!cityId && mode !== 'fleet'}
+              >
+                <Plus className="h-4 w-4" />
+                Dodaj kierowcę
+              </Button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Szukaj kierowców..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 rounded-lg h-9"
+              />
+            </div>
+            {mode === 'fleet' && cities.length > 0 && (
+              <Select value={selectedCityFilter} onValueChange={setSelectedCityFilter}>
+                <SelectTrigger className="h-9">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Wszystkie miasta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie miasta</SelectItem>
+                  {cities.map(city => (
+                    <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <DriverFilters onFilterChange={setFilters} />
+          </div>
+          
+          {/* Desktop layout - inline */}
+          <div className="hidden md:block">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Lista kierowców - {cityName}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {mode === 'admin' && (
+                  <Button onClick={async () => {
+                    if (!cityId) {
+                      toast.error("Wybierz miasto przed synchronizacją");
+                      return;
+                    }
+                    try {
+                      const { data, error } = await supabase.functions.invoke('sync-driver-ids', { body: { city_id: cityId } });
+                      if (error) throw error;
+                      if (data?.success) {
+                        toast.success(`Zaktualizowano kierowców: ${data.stats.updatedDrivers}, ID platform: ${data.stats.upsertedPlatformIds}`);
+                        refetch();
+                        onDriverUpdate();
+                      } else {
+                        throw new Error(data?.error || 'Błąd synchronizacji');
+                      }
+                    } catch (e) {
+                      toast.error(`Błąd synchronizacji: ${e instanceof Error ? e.message : 'Nieznany błąd'}`);
+                    }
+                  }} variant="outline" className="gap-2">
+                    Odśwież IDs
+                  </Button>
+                )}
+                {mode === 'fleet' && (
                   <Button 
                     onClick={() => setShowDelegateRoleModal(true)}
                     variant="outline"
@@ -509,49 +566,47 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                     <Shield className="h-4 w-4" />
                     Przyznaj rolę
                   </Button>
-                  {/* Przycisk ukryty do czasu implementacji funkcji */}
-                </>
-              )}
-              <Button 
-                onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
-                className="gap-2"
-                disabled={!cityId && mode !== 'fleet'}
-              >
-                <Plus className="h-4 w-4" />
-                Dodaj kierowcę
-              </Button>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
-            <div className="flex items-center gap-2 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Szukaj kierowców..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 rounded-lg"
-                />
+                )}
+                <Button 
+                  onClick={() => mode === 'fleet' ? setShowFleetInviteModal(true) : setShowAddModal(true)} 
+                  className="gap-2"
+                  disabled={!cityId && mode !== 'fleet'}
+                >
+                  <Plus className="h-4 w-4" />
+                  Dodaj kierowcę
+                </Button>
               </div>
-              
-              {/* City filter for fleet mode */}
-              {mode === 'fleet' && cities.length > 0 && (
-                <Select value={selectedCityFilter} onValueChange={setSelectedCityFilter}>
-                  <SelectTrigger className="w-48">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Wszystkie miasta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Wszystkie miasta</SelectItem>
-                    {cities.map(city => (
-                      <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
             </div>
-            <DriverFilters onFilterChange={setFilters} />
+            
+            <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Szukaj kierowców..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 rounded-lg"
+                  />
+                </div>
+                
+                {mode === 'fleet' && cities.length > 0 && (
+                  <Select value={selectedCityFilter} onValueChange={setSelectedCityFilter}>
+                    <SelectTrigger className="w-48">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Wszystkie miasta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie miasta</SelectItem>
+                      {cities.map(city => (
+                        <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <DriverFilters onFilterChange={setFilters} />
+            </div>
           </div>
         </CardHeader>
         
