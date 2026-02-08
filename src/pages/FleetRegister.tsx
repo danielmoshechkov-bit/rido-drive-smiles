@@ -19,6 +19,8 @@ export default function FleetRegister() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isHuman, setIsHuman] = useState(false);
   const [step, setStep] = useState(1);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isExistingUser, setIsExistingUser] = useState(false);
   
   const [formData, setFormData] = useState({
     // Dane firmy
@@ -39,7 +41,7 @@ export default function FleetRegister() {
     driver_contact_name: "",
     driver_contact_phone: "",
     
-    // Konto
+    // Konto (not needed for existing users)
     email: "",
     password: "",
     confirmPassword: "",
@@ -50,6 +52,20 @@ export default function FleetRegister() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        setCurrentUser(session.user);
+        setIsExistingUser(true);
+        
+        // Pre-fill contact info from user metadata
+        const firstName = session.user.user_metadata?.first_name || '';
+        const lastName = session.user.user_metadata?.last_name || '';
+        const fullName = [firstName, lastName].filter(Boolean).join(' ');
+        
+        setFormData(prev => ({
+          ...prev,
+          contact_email: session.user.email || '',
+          contact_name: fullName || prev.contact_name,
+        }));
+        
         // Check if user already has fleet role
         supabase
           .from("user_roles")
@@ -88,7 +104,8 @@ export default function FleetRegister() {
       if (!formData.contact_phone.trim()) errors.contact_phone = "Telefon jest wymagany";
     }
     
-    if (currentStep === 3) {
+    // Step 3 validation only for new users
+    if (currentStep === 3 && !isExistingUser) {
       if (!formData.email.trim()) {
         errors.email = "Email do logowania jest wymagany";
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -104,7 +121,63 @@ export default function FleetRegister() {
 
   const handleNext = () => {
     if (validateStep(step)) {
-      setStep(step + 1);
+      // For existing users, skip step 3 (go directly from step 2 to submit)
+      if (step === 2 && isExistingUser) {
+        // Trigger form submission directly
+        handleSubmitExistingUser();
+      } else {
+        setStep(step + 1);
+      }
+    }
+  };
+  
+  const handleSubmitExistingUser = async () => {
+    if (!isHuman) {
+      toast.error("Potwierdź, że nie jesteś robotem");
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const response = await supabase.functions.invoke("register-fleet", {
+        body: {
+          company_name: formData.company_name,
+          company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
+          nip: formData.nip.replace(/[\s-]/g, ""),
+          address: `${formData.address_street} ${formData.address_number}`.trim(),
+          city: formData.address_city,
+          postal_code: formData.address_postal_code,
+          contact_name: formData.contact_name,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+          driver_contact_name: formData.driver_contact_name,
+          driver_contact_phone: formData.driver_contact_phone,
+          // For existing user - pass their user ID
+          existing_user_id: currentUser?.id,
+        },
+      });
+      
+      if (response.data?.error) {
+        if (response.data.field) {
+          setFieldErrors({ [response.data.field]: response.data.error });
+          if (['company_name', 'nip'].includes(response.data.field)) setStep(1);
+          else if (['contact_name', 'contact_email', 'contact_phone'].includes(response.data.field)) setStep(2);
+        } else {
+          toast.error(response.data.error);
+        }
+        return;
+      }
+      
+      if (response.error) throw new Error(response.error.message);
+      
+      toast.success("Flota została zarejestrowana!");
+      navigate("/fleet/dashboard");
+    } catch (error: any) {
+      console.error("Fleet registration error:", error);
+      toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -210,7 +283,7 @@ export default function FleetRegister() {
       <div className="w-full max-w-lg">
         <Button 
           variant="ghost" 
-          onClick={() => navigate("/fleet")}
+          onClick={() => isExistingUser ? navigate("/klient") : navigate("/fleet")}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -226,12 +299,16 @@ export default function FleetRegister() {
             </div>
             <CardTitle className="text-2xl">Zarejestruj flotę</CardTitle>
             <CardDescription>
-              Krok {step} z 3: {step === 1 && "Dane firmy"}{step === 2 && "Osoba kontaktowa"}{step === 3 && "Konto administratora"}
+              {isExistingUser ? (
+                <>Krok {step} z 2: {step === 1 && "Dane firmy"}{step === 2 && "Osoba kontaktowa"}</>
+              ) : (
+                <>Krok {step} z 3: {step === 1 && "Dane firmy"}{step === 2 && "Osoba kontaktowa"}{step === 3 && "Konto administratora"}</>
+              )}
             </CardDescription>
             
             {/* Progress bar */}
             <div className="flex gap-2 mt-4">
-              {[1, 2, 3].map((s) => (
+              {(isExistingUser ? [1, 2] : [1, 2, 3]).map((s) => (
                 <div 
                   key={s} 
                   className={`h-2 flex-1 rounded-full transition-colors ${s <= step ? 'bg-primary' : 'bg-muted'}`}
@@ -284,6 +361,23 @@ export default function FleetRegister() {
                   
                   {renderField("driver_contact_name", "Imię", <User className="h-4 w-4" />, "text", "Anna", false)}
                   {renderField("driver_contact_phone", "Telefon", <Phone className="h-4 w-4" />, "tel", "+48 987 654 321", false)}
+                  
+                  {/* For existing users - show human check on step 2 */}
+                  {isExistingUser && (
+                    <div className="space-y-3 pt-4">
+                      <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg border">
+                        <Checkbox
+                          id="human"
+                          checked={isHuman}
+                          onCheckedChange={(checked) => setIsHuman(checked === true)}
+                        />
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-green-600" />
+                          <label htmlFor="human" className="text-sm font-medium">Nie jestem robotem</label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -345,30 +439,53 @@ export default function FleetRegister() {
                   </Button>
                 )}
                 
-                {step < 3 ? (
-                  <Button type="button" onClick={handleNext} className="flex-1">
-                    Dalej
-                  </Button>
+                {/* For existing users: show "Zarejestruj flotę" on step 2 */}
+                {isExistingUser ? (
+                  step === 2 ? (
+                    <Button type="button" onClick={handleNext} className="flex-1" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Rejestracja...
+                        </>
+                      ) : (
+                        "Zarejestruj flotę"
+                      )}
+                    </Button>
+                  ) : (
+                    <Button type="button" onClick={handleNext} className="flex-1">
+                      Dalej
+                    </Button>
+                  )
                 ) : (
-                  <Button type="submit" className="flex-1" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Rejestracja...
-                      </>
-                    ) : (
-                      "Zarejestruj flotę"
-                    )}
-                  </Button>
+                  // For new users: step 3 is the last step
+                  step < 3 ? (
+                    <Button type="button" onClick={handleNext} className="flex-1">
+                      Dalej
+                    </Button>
+                  ) : (
+                    <Button type="submit" className="flex-1" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Rejestracja...
+                        </>
+                      ) : (
+                        "Zarejestruj flotę"
+                      )}
+                    </Button>
+                  )
                 )}
               </div>
 
-              <p className="text-center text-sm text-muted-foreground pt-2">
-                Masz już konto?{" "}
-                <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/auth")}>
-                  Zaloguj się
-                </Button>
-              </p>
+              {!isExistingUser && (
+                <p className="text-center text-sm text-muted-foreground pt-2">
+                  Masz już konto?{" "}
+                  <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/auth")}>
+                    Zaloguj się
+                  </Button>
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

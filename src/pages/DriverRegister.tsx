@@ -258,6 +258,16 @@ export default function DriverRegister() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
       <div className="container mx-auto max-w-2xl">
+        {/* Back button for logged-in users */}
+        {isLoggedIn && (
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/klient')}
+            className="mb-4"
+          >
+            ← Powrót
+          </Button>
+        )}
         <Card>
           <CardHeader className="text-center">
             {/* Language selector */}

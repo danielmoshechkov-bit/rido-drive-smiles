@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -68,6 +70,13 @@ const targetAudience = [
 
 export default function FleetLanding() {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,19 +99,39 @@ export default function FleetLanding() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate('/auth')}
-            >
-              Zaloguj
-            </Button>
-            <Button 
-              size="sm"
-              onClick={() => navigate('/auth')}
-            >
-              Zarejestruj
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/klient')}
+                >
+                  Moje konto
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => navigate('/fleet/rejestracja')}
+                >
+                  Zarejestruj flotę
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/auth')}
+                >
+                  Zaloguj
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => navigate('/fleet/rejestracja')}
+                >
+                  Zarejestruj
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -129,18 +158,20 @@ export default function FleetLanding() {
               <Button 
                 size="lg" 
                 className="gap-2"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/fleet/rejestracja')}
               >
                 <Building2 className="h-5 w-5" />
                 Zarejestruj flotę
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                onClick={() => navigate('/auth')}
-              >
-                Mam już konto
-              </Button>
+              {!isLoggedIn && (
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={() => navigate('/auth')}
+                >
+                  Mam już konto
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -227,19 +258,21 @@ export default function FleetLanding() {
             <Button 
               size="lg" 
               className="gap-2 min-w-[200px]"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/fleet/rejestracja')}
             >
               <Building2 className="h-5 w-5" />
               Zarejestruj flotę
             </Button>
           </div>
           
-          <p className="mt-6 text-muted-foreground">
-            Masz już konto?{' '}
-            <Link to="/auth" className="text-primary hover:underline font-medium">
-              Zaloguj się
-            </Link>
-          </p>
+          {!isLoggedIn && (
+            <p className="mt-6 text-muted-foreground">
+              Masz już konto?{' '}
+              <Link to="/auth" className="text-primary hover:underline font-medium">
+                Zaloguj się
+              </Link>
+            </p>
+          )}
         </div>
       </section>
 

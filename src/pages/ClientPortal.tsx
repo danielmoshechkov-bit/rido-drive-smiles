@@ -136,6 +136,8 @@ export default function ClientPortal() {
   // Account settings form
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPhone, setAccountPhone] = useState('');
+  const [accountFirstName, setAccountFirstName] = useState('');
+  const [accountLastName, setAccountLastName] = useState('');
   const [savingAccount, setSavingAccount] = useState(false);
   
   // Invoice filters
@@ -189,6 +191,8 @@ export default function ClientPortal() {
     // Initialize account form with user data
     setAccountEmail(currentUser.email || '');
     setAccountPhone(currentUser.user_metadata?.phone || currentUser.phone || '');
+    setAccountFirstName(currentUser.user_metadata?.first_name || currentUser.user_metadata?.imie || '');
+    setAccountLastName(currentUser.user_metadata?.last_name || currentUser.user_metadata?.nazwisko || '');
 
     // Check account types
     await Promise.all([
@@ -242,6 +246,12 @@ export default function ClientPortal() {
       .eq('user_id', userId)
       .maybeSingle();
     setMarketplaceProfile(data);
+    
+    // Initialize name fields from marketplace profile if not set from user metadata
+    if (data) {
+      setAccountFirstName(prev => prev || data.first_name || '');
+      setAccountLastName(prev => prev || data.last_name || '');
+    }
   };
 
   const checkRealEstateAccount = async (userId: string) => {
@@ -389,7 +399,9 @@ export default function ClientPortal() {
       const { error } = await supabase.auth.updateUser({
         email: accountEmail !== user?.email ? accountEmail : undefined,
         data: {
-          phone: accountPhone
+          phone: accountPhone,
+          first_name: accountFirstName,
+          last_name: accountLastName
         }
       });
 
@@ -789,43 +801,28 @@ export default function ClientPortal() {
                   </CardContent>
                 </Card>
 
-                {/* Wystaw fakturę tile - zablokowane dopóki nie ma firmy */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card 
-                        className={`transition-shadow ${hasCompanySetup ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
-                        onClick={() => hasCompanySetup && handleNewInvoice()}
-                      >
-                        <CardContent className="p-6 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-green-100">
-                              <FileText className="h-8 w-8 text-green-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg flex items-center gap-2">
-                                Wystaw fakturę
-                                {!hasCompanySetup && <Lock className="h-4 w-4 text-muted-foreground" />}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">
-                                {hasCompanySetup 
-                                  ? 'Szybko wystaw fakturę VAT dla kontrahenta'
-                                  : 'Dodaj firmę w ustawieniach, aby wystawiać faktury'
-                                }
-                              </p>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    {!hasCompanySetup && (
-                      <TooltipContent>
-                        <p>Dodaj swoją firmę w zakładce "Ustawienia", aby wystawiać faktury</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                {/* Wystaw fakturę tile - ukryte gdy nie ma firmy */}
+                {hasCompanySetup && (
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => handleNewInvoice()}
+                  >
+                    <CardContent className="p-6 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-lg bg-green-100">
+                          <FileText className="h-8 w-8 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg">Wystaw fakturę</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Szybko wystaw fakturę VAT dla kontrahenta
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* Stats Grid */}
@@ -1596,6 +1593,28 @@ export default function ClientPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="account-first-name">Imię</Label>
+                        <Input
+                          id="account-first-name"
+                          type="text"
+                          value={accountFirstName}
+                          onChange={(e) => setAccountFirstName(e.target.value)}
+                          placeholder="Jan"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="account-last-name">Nazwisko</Label>
+                        <Input
+                          id="account-last-name"
+                          type="text"
+                          value={accountLastName}
+                          onChange={(e) => setAccountLastName(e.target.value)}
+                          placeholder="Kowalski"
+                        />
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="account-email">Email</Label>

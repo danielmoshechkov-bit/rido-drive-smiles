@@ -17,8 +17,9 @@ interface RegisterFleetRequest {
   contact_phone: string;
   driver_contact_name?: string;
   driver_contact_phone?: string;
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
+  existing_user_id?: string; // For logged-in users adding fleet role
 }
 
 Deno.serve(async (req) => {
@@ -39,10 +40,10 @@ Deno.serve(async (req) => {
       company_name, company_short_name, nip, address, city, postal_code,
       contact_name, contact_email, contact_phone,
       driver_contact_name, driver_contact_phone,
-      email, password 
+      email, password, existing_user_id
     } = body;
 
-    console.log("📝 Starting fleet registration for:", company_name);
+    console.log("📝 Starting fleet registration for:", company_name, existing_user_id ? "(existing user)" : "(new user)");
 
     // Check if feature toggle is enabled
     const { data: toggleData } = await supabaseAdmin
@@ -72,36 +73,52 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Create auth user
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm for fleet accounts
-      user_metadata: { 
-        company_name, 
-        contact_name,
-        account_type: 'fleet' 
-      }
-    });
+    let userId: string;
 
-    if (authError) {
-      console.error("❌ Auth error:", authError.message);
-      
-      if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+    // If existing user is adding fleet role
+    if (existing_user_id) {
+      userId = existing_user_id;
+      console.log("✅ Using existing user:", userId);
+    } else {
+      // Validate email/password for new users
+      if (!email || !password) {
         return new Response(
-          JSON.stringify({ error: "Ten email jest już zarejestrowany.", field: "email" }),
+          JSON.stringify({ error: "Email i hasło są wymagane dla nowych użytkowników." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
-    const userId = authData.user!.id;
-    console.log("✅ Auth user created:", userId);
+      // 1. Create auth user
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // Auto-confirm for fleet accounts
+        user_metadata: { 
+          company_name, 
+          contact_name,
+          account_type: 'fleet' 
+        }
+      });
+
+      if (authError) {
+        console.error("❌ Auth error:", authError.message);
+        
+        if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+          return new Response(
+            JSON.stringify({ error: "Ten email jest już zarejestrowany.", field: "email" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ error: authError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      userId = authData.user!.id;
+      console.log("✅ Auth user created:", userId);
+    }
 
     // 2. Create fleet record
     const { data: fleetData, error: fleetError } = await supabaseAdmin
@@ -126,8 +143,10 @@ Deno.serve(async (req) => {
 
     if (fleetError) {
       console.error("❌ Fleet insert error:", fleetError.message);
-      // Rollback auth user
-      await supabaseAdmin.auth.admin.deleteUser(userId);
+      // Rollback auth user only if we created a new one
+      if (!existing_user_id) {
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+      }
       return new Response(
         JSON.stringify({ error: "Błąd tworzenia floty: " + fleetError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
