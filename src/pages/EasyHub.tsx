@@ -48,7 +48,7 @@ import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
-import tileServices from "@/assets/tile-services-new.jpg";
+import tileServices from "@/assets/tile-services-tools.jpg";
 import tileInvoicing from "@/assets/tile-invoicing.jpg";
 // New unique images for subcategories
 import tileWorkshop from "@/assets/tile-workshop.jpg";
@@ -58,6 +58,7 @@ import tileInteriorDesign from "@/assets/tile-interior-design.jpg";
 import tileRenovation from "@/assets/tile-renovation.jpg";
 import tileConstruction from "@/assets/tile-construction.jpg";
 import tileClientPortal from "@/assets/tile-client-portal.jpg";
+import { ServicesComingSoonModal } from "@/components/ServicesComingSoonModal";
 
 interface MarketplaceTile {
   id: string;
@@ -267,6 +268,12 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   );
 }
 
+// List of emails with full access to services
+const SERVICES_FULL_ACCESS_EMAILS = [
+  'daniel.moshechkov@gmail.com',
+  'anastasiia.shapovalova1991@gmail.com'
+];
+
 export default function EasyHub() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -278,7 +285,11 @@ export default function EasyHub() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showAccountingModal, setShowAccountingModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showServicesComingSoon, setShowServicesComingSoon] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
+
+  // Check if user has full services access
+  const hasServicesAccess = user?.email && SERVICES_FULL_ACCESS_EMAILS.includes(user.email);
 
   // Handle URL parameter for category
   useEffect(() => {
@@ -339,6 +350,16 @@ export default function EasyHub() {
       return;
     }
     
+    // Services - check access
+    if (tile.id === 'services') {
+      if (hasServicesAccess) {
+        navigate('/uslugi');
+      } else {
+        setShowServicesComingSoon(true);
+      }
+      return;
+    }
+    
     // Księgowość - route based on auth status
     if (tile.id === 'ksiegowosc') {
       if (user) {
@@ -361,6 +382,13 @@ export default function EasyHub() {
       return;
     }
     
+    // Service-related tiles - check access for non-authorized users
+    const serviceRelatedTiles = ['warsztat', 'detailing-ppf', 'projektanci', 'remonty', 'budowlanka'];
+    if (serviceRelatedTiles.includes(tile.id) && !hasServicesAccess) {
+      setShowServicesComingSoon(true);
+      return;
+    }
+    
     // Direct link
     if (tile.link) {
       navigate(tile.link);
@@ -369,7 +397,17 @@ export default function EasyHub() {
 
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
-    let tiles = [...mainTiles];
+    let tiles: MarketplaceTile[] = [];
+    
+    // Add main tiles but filter services for non-authorized users
+    mainTiles.forEach(tile => {
+      if (tile.id === 'services') {
+        // Always show services tile, but with different behavior in handleTileClick
+        tiles.push(tile);
+      } else {
+        tiles.push(tile);
+      }
+    });
     
     // Insert Maps at position 2 for logged-in users
     if (mapsVisible && user) {
@@ -398,7 +436,7 @@ export default function EasyHub() {
     }
     
     return tiles;
-  }, [mapsVisible, user]);
+  }, [mapsVisible, user, hasServicesAccess]);
 
   // Get category title
   const getCategoryTitle = () => {
@@ -531,9 +569,9 @@ export default function EasyHub() {
         </section>
       )}
 
-      {/* Marketplace Tiles */}
+      {/* Marketplace Tiles - 2 columns on mobile */}
       <section className="container mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
           {currentTiles.map((tile) => (
             <MarketplaceTileCard 
               key={tile.id} 
@@ -705,6 +743,12 @@ export default function EasyHub() {
         open={showLoginModal}
         onOpenChange={setShowLoginModal}
         redirectTo="/klient"
+      />
+
+      {/* Services Coming Soon Modal */}
+      <ServicesComingSoonModal
+        open={showServicesComingSoon}
+        onOpenChange={setShowServicesComingSoon}
       />
     </div>
   );

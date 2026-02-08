@@ -10005,6 +10005,51 @@ export type Database = {
           },
         ]
       }
+      service_provider_requests: {
+        Row: {
+          created_at: string
+          description: string | null
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string
+          processed_at: string | null
+          processed_by: string | null
+          service_type: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone: string
+          processed_at?: string | null
+          processed_by?: string | null
+          service_type: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          service_type?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       service_providers: {
         Row: {
           auto_confirm: boolean | null
