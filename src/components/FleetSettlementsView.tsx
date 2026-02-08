@@ -100,7 +100,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [cities, setCities] = useState<{id: string, name: string}[]>([]);
   const [selectedCityId, setSelectedCityId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [hideZeroRows, setHideZeroRows] = useState<boolean>(false);
+  const [showZeroRows, setShowZeroRows] = useState<boolean>(false);
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [payoutType, setPayoutType] = useState<'cash' | 'transfer' | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -1383,12 +1383,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
-                  id="hideZero"
-                  checked={hideZeroRows}
-                  onCheckedChange={(checked) => setHideZeroRows(checked === true)}
+                  id="showZero"
+                  checked={showZeroRows}
+                  onCheckedChange={(checked) => setShowZeroRows(checked === true)}
                 />
-                <Label htmlFor="hideZero" className="text-sm cursor-pointer">
-                  Ukryj 0
+                <Label htmlFor="showZero" className="text-sm cursor-pointer">
+                  Pokaż "0" wyniki
                 </Label>
               </div>
               <div className="h-6 w-px bg-border" />
@@ -1539,8 +1539,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               const query = searchQuery.toLowerCase();
               if (!s.driver_name.toLowerCase().includes(query)) return false;
             }
-            // Hide zero filter
-            if (hideZeroRows && s.total_base === 0 && s.final_payout === 0) {
+            // Hide zero filter (default: hide zeros unless checkbox is checked)
+            if (!showZeroRows && s.total_base === 0 && s.final_payout === 0) {
               return false;
             }
             return true;
