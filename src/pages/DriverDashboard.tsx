@@ -315,7 +315,7 @@ const DriverDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle pt-[env(safe-area-inset-top)]">
       {/* Price Change Notification Modal - blocks everything until accepted */}
       {priceChangeNotification && (
         <PriceChangeModal

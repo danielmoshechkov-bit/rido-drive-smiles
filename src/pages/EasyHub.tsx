@@ -410,8 +410,8 @@ export default function EasyHub() {
       }
     });
     
-    // Insert Maps at position 2 for logged-in users
-    if (mapsVisible && user) {
+    // Insert Maps at position 2 only for owner emails (hasServicesAccess)
+    if (mapsVisible && user && hasServicesAccess) {
       tiles.splice(2, 0, {
         id: 'maps',
         title: 'Mapy',
@@ -545,37 +545,47 @@ export default function EasyHub() {
         </p>
       </section>
 
-      {/* AI Search Bar */}
+      {/* AI Search Bar - only enabled for owner emails */}
       <section className="container mx-auto px-4 py-4 md:py-6">
         <div className="max-w-2xl mx-auto">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="AI, które znajdzie to za Ciebie…"
+              placeholder={hasServicesAccess ? "AI, które znajdzie to za Ciebie…" : "Wyszukiwarka AI - wkrótce dostępna"}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg"
+              onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
+              disabled={!hasServicesAccess}
+              className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
             />
-            {searchQuery.trim() ? (
-              <Button
-                onClick={handleSearch}
-                disabled={isSearching}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-              >
-                {isSearching ? "..." : "Szukaj"}
-              </Button>
+            {hasServicesAccess ? (
+              searchQuery.trim() ? (
+                <Button
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+                >
+                  {isSearching ? "..." : "Szukaj"}
+                </Button>
+              ) : (
+                <SearchCategoryModal
+                  trigger={
+                    <Button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+                    >
+                      Szukaj
+                    </Button>
+                  }
+                />
+              )
             ) : (
-              <SearchCategoryModal
-                trigger={
-                  <Button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                  >
-                    Szukaj
-                  </Button>
-                }
-              />
+              <Button
+                disabled
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6 opacity-60"
+              >
+                Wkrótce
+              </Button>
             )}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">

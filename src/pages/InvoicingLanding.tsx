@@ -278,12 +278,12 @@ export default function InvoicingLanding() {
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-12 pb-20">
-        <Card className="bg-gradient-to-r from-primary to-purple-600 text-white border-0">
+        <Card className="bg-gradient-to-r from-primary to-purple-600 border-0">
           <CardContent className="p-8 md:p-12 text-center">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white">
               Zacznij już teraz - za darmo!
             </h2>
-            <p className="text-white/80 mb-8 max-w-xl mx-auto">
+            <p className="text-white/90 mb-8 max-w-xl mx-auto">
               Nie wymagamy karty kredytowej. Wystawiaj faktury, zarządzaj magazynem 
               i korzystaj z AI bez żadnych opłat.
             </p>

@@ -17,6 +17,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import MapsLayout from '@/components/maps/MapsLayout';
+// Owner emails with full access
+const OWNER_EMAILS = [
+  'daniel.moshechkov@gmail.com',
+  'anastasiia.shapovalova1991@gmail.com'
+];
 
 const GetRidoMaps = () => {
   const navigate = useNavigate();
@@ -38,6 +43,9 @@ const GetRidoMaps = () => {
 
   const loading = roleLoading || visibilityLoading || authLoading;
 
+  // Check if user is an owner
+  const isOwner = user?.email && OWNER_EMAILS.includes(user.email);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -52,10 +60,10 @@ const GetRidoMaps = () => {
     return null;
   }
 
-  // If user doesn't have access and is not admin, show access denied
-  if (!isVisible && role !== 'admin') {
+  // If user doesn't have access (not owner and not admin with visibility), show access denied
+  if (!isOwner && !isVisible && role !== 'admin') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 pt-[env(safe-area-inset-top)]">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
