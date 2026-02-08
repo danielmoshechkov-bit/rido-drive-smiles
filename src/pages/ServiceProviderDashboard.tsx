@@ -10,6 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilderWizard';
+import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
+import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
+import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
+import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
 import { 
   LayoutDashboard, 
   Wrench, 
@@ -19,17 +25,22 @@ import {
   Phone,
   Users,
   Clock,
-  Star
+  Star,
+  Globe,
+  Bot
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
   const { roles } = useUserRole();
+  const { features } = useFeatureToggles();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [configData, setConfigData] = useState<any>(null);
+  const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
+  const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [stats, setStats] = useState({
     totalBookings: 0,
     pendingBookings: 0,
@@ -151,9 +162,15 @@ export default function ServiceProviderDashboard() {
             Rezerwacje
           </TabsTrigger>
           <TabsTrigger value="ai-agent">
-            <Phone className="h-4 w-4 mr-1.5" />
-            AI Agent
+            <Bot className="h-4 w-4 mr-1.5" />
+            AI Agenci
           </TabsTrigger>
+          {features.website_builder_enabled && (
+            <TabsTrigger value="website">
+              <Globe className="h-4 w-4 mr-1.5" />
+              Strona WWW
+            </TabsTrigger>
+          )}
           <TabsTrigger value="account">
             <Users className="h-4 w-4 mr-1.5" />
             Przełącz konto
@@ -344,6 +361,13 @@ export default function ServiceProviderDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Website Builder Tab */}
+          {features.website_builder_enabled && (
+            <TabsContent value="website" className="mt-6">
+              <WebsiteBuilderWizard />
+            </TabsContent>
+          )}
 
           {/* Account Switcher Tab */}
           <TabsContent value="account" className="mt-6">
