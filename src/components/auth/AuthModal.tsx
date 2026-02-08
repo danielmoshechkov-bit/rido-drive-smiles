@@ -169,30 +169,55 @@ export function AuthModal({
         },
       });
 
-      if (response.data?.error) {
-        if (response.data.field) {
-          setFieldErrors({ [response.data.field]: response.data.error });
-        } else if (response.data.error.includes("email") || response.data.error.includes("zarejestrowany")) {
-          setFieldErrors({ email: response.data.error });
+      // Handle error response from edge function
+      if (response.error) {
+        // Try to parse the error message from the response
+        let errorMessage = "Błąd rejestracji. Spróbuj ponownie.";
+        let errorField = "general";
+        
+        // Check if there's data with error info
+        if (response.data?.error) {
+          errorMessage = response.data.error;
+          if (response.data.field) {
+            errorField = response.data.field;
+          }
+        }
+        
+        // Set field-specific errors
+        if (errorField === "email" || errorMessage.includes("email") || errorMessage.includes("zarejestrowany")) {
+          setFieldErrors({ email: errorMessage });
+        } else if (errorField === "password" || errorMessage.includes("hasło") || errorMessage.includes("password")) {
+          setFieldErrors({ password: errorMessage });
         } else {
-          setFieldErrors({ general: response.data.error });
+          setFieldErrors({ general: errorMessage });
         }
         return;
       }
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      // Check for success response
+      if (response.data?.success) {
+        toast.success(response.data.message || "Rejestracja zakończona! Możesz się teraz zalogować.");
+        
+        // Auto-login after registration
+        setLoginEmail(registerData.email);
+        setLoginPassword(registerData.password);
+        setMode("login");
+      } else if (response.data?.error) {
+        // Error returned in data
+        const errorMessage = response.data.error;
+        const errorField = response.data.field;
+        
+        if (errorField === "email" || errorMessage.includes("email") || errorMessage.includes("zarejestrowany")) {
+          setFieldErrors({ email: errorMessage });
+        } else if (errorField === "password" || errorMessage.includes("hasło") || errorMessage.includes("password")) {
+          setFieldErrors({ password: errorMessage });
+        } else {
+          setFieldErrors({ general: errorMessage });
+        }
       }
-
-      toast.success("Rejestracja zakończona! Możesz się teraz zalogować.");
-      
-      // Auto-login after registration
-      setLoginEmail(registerData.email);
-      setLoginPassword(registerData.password);
-      setMode("login");
     } catch (error: any) {
       console.error("Registration error:", error);
-      setFieldErrors({ general: error.message || "Błąd rejestracji. Spróbuj ponownie." });
+      setFieldErrors({ general: "Błąd połączenia. Spróbuj ponownie." });
     } finally {
       setLoading(false);
     }
@@ -241,7 +266,7 @@ export function AuthModal({
                     ? "Resetowanie hasła" 
                     : mode === "login" 
                       ? "Zaloguj się" 
-                      : "Dołącz do RIDO"
+                      : "Dołącz do GetRido"
                   }
                 </DialogTitle>
                 <DialogDescription className="text-sm">
