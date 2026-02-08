@@ -206,15 +206,47 @@ export function UnmappedDriversModal({
                          platform === 'freenow' ? unmappedDriver.freenow_id : null;
       
       if (platformId) {
+        // Check if this platform ID exists anywhere (including other fleets)
         const { data: existingPlatformId } = await supabase
           .from('driver_platform_ids')
-          .select('driver_id')
+          .select('driver_id, drivers!inner(id, first_name, last_name, fleet_id)')
           .eq('platform', platform)
           .eq('platform_id', platformId)
           .maybeSingle();
         
-        if (existingPlatformId) {
-          toast.error('Kierowca z tym ID platformy już istnieje!');
+        if (existingPlatformId?.driver_id) {
+          const existingDriver = existingPlatformId.drivers as any;
+          
+          // If driver already belongs to THIS fleet, just map them
+          if (existingDriver.fleet_id === fleetId) {
+            await fetchExistingDrivers();
+            handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
+            toast.success(`Kierowca ${existingDriver.first_name} ${existingDriver.last_name} już jest w Twojej flocie - przypisano.`);
+            return;
+          }
+          
+          // Driver exists in ANOTHER fleet - transfer them to this fleet!
+          console.log(`🔄 Transferring driver ${existingPlatformId.driver_id} from fleet ${existingDriver.fleet_id} to ${fleetId}`);
+          
+          // Update driver's fleet_id to transfer them
+          const { error: transferError } = await supabase
+            .from('drivers')
+            .update({ fleet_id: fleetId })
+            .eq('id', existingPlatformId.driver_id);
+          
+          if (transferError) {
+            console.error('Error transferring driver:', transferError);
+            toast.error('Błąd podczas przenoszenia kierowcy');
+            return;
+          }
+          
+          // Refresh existing drivers list
+          await fetchExistingDrivers();
+          
+          // Map the unmapped record to the transferred driver
+          handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
+          
+          toast.success(`Przeniesiono kierowcę ${existingDriver.first_name} ${existingDriver.last_name} do Twojej floty!`);
           return;
         }
       }
@@ -257,7 +289,7 @@ export function UnmappedDriversModal({
         .select('city_id')
         .eq('fleet_id', fleetId)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       // Create new driver
       const { data: newDriver, error: driverError } = await supabase
