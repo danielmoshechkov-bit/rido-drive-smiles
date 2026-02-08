@@ -262,11 +262,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       
       // Filter by city and cash payment method
       // Include drivers with weekly frequency OR those who requested payout
+      // Also include drivers without payment_method set (default to cash for KW)
       const cashDrivers = settlements.filter(s => {
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
         if (cityId !== 'all' && driver.city_id !== cityId) return false;
-        if (driver.payment_method !== 'cash') return false;
+        // Include 'cash' or null/undefined (drivers without explicit payment method)
+        if (driver.payment_method && driver.payment_method !== 'cash') return false;
         
         const appUser = driver.driver_app_users?.[0];
         const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
@@ -276,7 +278,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
 
       if (cashDrivers.length === 0) {
-        toast.info('Brak kierowców z rozliczeniem gotówkowym dla wybranego miasta');
+        toast.info('Brak kierowców z ustawionym rozliczeniem gotówkowym (metoda płatności: gotówka). Zmień metodę płatności kierowcom w ustawieniach.');
         return;
       }
 
@@ -1416,20 +1418,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </span>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleCheckUnmappedDrivers}
-            disabled={checkingUnmapped}
-            className="border-amber-500/50 text-amber-800 hover:bg-amber-500/20"
-          >
-            {checkingUnmapped ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Users className="h-4 w-4 mr-2" />
-            )}
-            Przypisz kierowców
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleCheckUnmappedDrivers}
+              disabled={checkingUnmapped}
+              className="border-amber-500/50 text-amber-800 hover:bg-amber-500/20"
+            >
+              {checkingUnmapped ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Users className="h-4 w-4 mr-2" />
+              )}
+              Przypisz kierowców
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setNewRecordsAlert(0)}
+              className="h-8 w-8 p-0 text-amber-700 hover:text-amber-900 hover:bg-amber-500/20"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
