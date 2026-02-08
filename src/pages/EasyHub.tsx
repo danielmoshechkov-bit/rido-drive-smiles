@@ -40,7 +40,7 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { FeaturedListings } from "@/components/FeaturedListings";
 import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
-import { LoginModal } from "@/components/LoginModal";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import tile images
@@ -285,7 +285,7 @@ export default function EasyHub() {
   const [activeCategory, setActiveCategory] = useState<CategoryView>('main');
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showAccountingModal, setShowAccountingModal] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showServicesComingSoon, setShowServicesComingSoon] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
@@ -517,9 +517,9 @@ export default function EasyHub() {
                 variant="outline"
                 size="sm"
                 className="h-9 px-4 text-sm font-medium"
-                onClick={() => setShowLoginModal(true)}
+                onClick={() => setShowAuthModal(true)}
               >
-                Zaloguj
+                Zaloguj / Zarejestruj
               </Button>
             ) : (
               <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
@@ -780,11 +780,11 @@ export default function EasyHub() {
         </DialogContent>
       </Dialog>
 
-      {/* Login Modal */}
-      <LoginModal
-        open={showLoginModal}
-        onOpenChange={setShowLoginModal}
-        redirectTo="/klient"
+      {/* Auth Modal */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        initialMode="login"
       />
 
       {/* Services Coming Soon Modal */}
