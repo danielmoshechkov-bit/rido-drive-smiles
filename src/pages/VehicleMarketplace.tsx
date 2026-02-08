@@ -83,6 +83,9 @@ interface VehicleListing {
   } | null;
 }
 
+// Owner emails with full AI access
+const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
+
 export default function VehicleMarketplace() {
   const navigate = useNavigate();
   const [listings, setListings] = useState<VehicleListing[]>([]);
@@ -100,6 +103,9 @@ export default function VehicleMarketplace() {
   const [aiQuery, setAiQuery] = useState("");
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [showMapResults, setShowMapResults] = useState(false);
+  
+  // Check if user is an owner with AI access
+  const hasAIAccess = user?.email && OWNER_EMAILS.includes(user.email);
   
   // View mode
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
@@ -457,28 +463,29 @@ export default function VehicleMarketplace() {
         </div>
 
         <div className="relative container mx-auto px-4 py-8 md:py-12">
-          {/* AI Search Bar */}
+          {/* AI Search Bar - only enabled for owner emails */}
           <div className="max-w-3xl mx-auto mb-6">
             <div className="relative">
               <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
               <Input
                 type="text"
-                placeholder="Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'"
+                placeholder={hasAIAccess ? "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'" : "Wyszukiwarka AI - wkrótce dostępna"}
                 value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
-                className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-background/95 backdrop-blur"
+                onChange={(e) => hasAIAccess && setAiQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && hasAIAccess && handleAISearch()}
+                disabled={!hasAIAccess}
+                className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-background/95 backdrop-blur disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <Button
                 onClick={handleAISearch}
-                disabled={isSearchingAI || !aiQuery.trim()}
+                disabled={isSearchingAI || !aiQuery.trim() || !hasAIAccess}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
               >
                 {isSearchingAI ? "..." : "Szukaj AI"}
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground mt-2">
-              Powered by <span className="text-primary font-medium">Rido AI</span> • 
+              Powered by <span className="text-primary font-medium">Rido AI</span> •
               Szukaj naturalnym językiem
             </p>
           </div>

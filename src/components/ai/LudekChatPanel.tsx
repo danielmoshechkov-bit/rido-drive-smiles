@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, Search, AlertCircle, LogIn } from 'lucide-react';
+import { Send, Loader2, Sparkles, Search, AlertCircle, LogIn, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+
+// Owner emails with full AI access
+const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
 
 interface Message {
   id: string;
@@ -36,6 +39,7 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hasAIAccess, setHasAIAccess] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -45,6 +49,7 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
+      setHasAIAccess(user?.email ? OWNER_EMAILS.includes(user.email) : false);
     };
     checkUser();
   }, []);
@@ -188,7 +193,19 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
 
       <CardContent className="p-0 flex flex-col h-[400px]">
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          {messages.length === 0 ? (
+          {!hasAIAccess ? (
+            // Show locked state for non-owners
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Lock className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Wkrótce dostępne</h3>
+              <p className="text-sm text-muted-foreground">
+                Funkcja Rido AI jest w fazie testowej. 
+                Wkrótce będzie dostępna dla wszystkich użytkowników.
+              </p>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="space-y-4">
               <div className="text-center text-muted-foreground text-sm py-4">
                 <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -274,16 +291,16 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
             <Input
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => hasAIAccess && setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Szukam hybrydy od 2020..."
-              disabled={isLoading}
-              className="flex-1"
+              placeholder={hasAIAccess ? "Szukam hybrydy od 2020..." : "Wkrótce dostępne..."}
+              disabled={isLoading || !hasAIAccess}
+              className="flex-1 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <Button 
               size="icon" 
               onClick={() => handleSend()} 
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isLoading || !hasAIAccess}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -292,11 +309,15 @@ export function LudekChatPanel({ onClose, onSearchResults }: LudekChatPanelProps
               )}
             </Button>
           </div>
-          {!userId && (
+          {!hasAIAccess ? (
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">
+              Funkcja wkrótce dostępna
+            </p>
+          ) : !userId ? (
             <p className="text-[10px] text-muted-foreground mt-1 text-center">
               Niezalogowany • 3 zapytania dziennie
             </p>
-          )}
+          ) : null}
         </div>
       </CardContent>
     </Card>
