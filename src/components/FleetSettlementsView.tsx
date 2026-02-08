@@ -34,6 +34,7 @@ import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
+import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -113,6 +114,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [showUnmappedModal, setShowUnmappedModal] = useState(false);
   const [checkingUnmapped, setCheckingUnmapped] = useState(false);
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
+  const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
 
   // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
@@ -1569,7 +1571,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => { setPayoutType('transfer'); setPayoutDialogOpen(true); }}
+                  onClick={() => setBankTransferDialogOpen(true)}
                   className="gap-1.5 text-xs"
                 >
                   <CreditCard className="h-4 w-4" />
@@ -1615,7 +1617,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => { setPayoutType('transfer'); setPayoutDialogOpen(true); }}
+                onClick={() => setBankTransferDialogOpen(true)}
                 className="gap-1.5 text-xs h-9"
               >
                 <CreditCard className="h-4 w-4" />
@@ -1648,25 +1650,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </div>
         </CardHeader>
 
-        {/* City Selection Dialog for Payouts */}
+        {/* Bank Transfer Export Dialog */}
+        <BankTransferExportDialog
+          open={bankTransferDialogOpen}
+          onOpenChange={setBankTransferDialogOpen}
+          fleetId={fleetId}
+          settlements={settlements}
+          periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
+          weekStart={currentWeek?.start}
+        />
+
+        {/* City Selection Dialog for Cash Payouts */}
         <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {payoutType === 'cash' ? 'Generuj listę wypłat gotówkowych' : 'Generuj listę przelewów'}
+                Generuj listę wypłat gotówkowych
               </DialogTitle>
               <DialogDescription>
-                Wybierz miasto, dla którego chcesz wygenerować {payoutType === 'cash' ? 'dokument KW' : 'listę przelewów'}.
+                Wybierz miasto, dla którego chcesz wygenerować dokument KW.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <Select
                 onValueChange={(cityId) => {
-                  if (payoutType === 'cash') {
-                    handleGenerateCashPayouts(cityId);
-                  } else {
-                    handleGenerateTransfers(cityId);
-                  }
+                  handleGenerateCashPayouts(cityId);
                   setPayoutDialogOpen(false);
                 }}
               >

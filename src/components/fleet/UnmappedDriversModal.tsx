@@ -207,9 +207,17 @@ export function UnmappedDriversModal({
       
       if (platformId) {
         // Check if this platform ID exists anywhere (including other fleets)
+        // Fetch FULL driver data including all platform IDs for complete transfer
         const { data: existingPlatformId } = await supabase
           .from('driver_platform_ids')
-          .select('driver_id, drivers!inner(id, first_name, last_name, fleet_id)')
+          .select(`
+            driver_id, 
+            drivers!inner(
+              id, first_name, last_name, fleet_id, 
+              phone, email, fuel_card_number, fuel_card_pin,
+              iban, payment_method, billing_method, getrido_id
+            )
+          `)
           .eq('platform', platform)
           .eq('platform_id', platformId)
           .maybeSingle();
@@ -226,9 +234,12 @@ export function UnmappedDriversModal({
           }
           
           // Driver exists in ANOTHER fleet - transfer them to this fleet!
+          // All driver data (phone, email, platform IDs, fuel cards) is PRESERVED
+          // because we're only changing fleet_id - driver record and all related data stays intact
           console.log(`🔄 Transferring driver ${existingPlatformId.driver_id} from fleet ${existingDriver.fleet_id} to ${fleetId}`);
+          console.log(`📋 Driver data preserved: phone=${existingDriver.phone}, email=${existingDriver.email}, fuel_card=${existingDriver.fuel_card_number}`);
           
-          // Update driver's fleet_id to transfer them
+          // Update driver's fleet_id to transfer them (all other data is preserved automatically)
           const { error: transferError } = await supabase
             .from('drivers')
             .update({ fleet_id: fleetId })
@@ -240,13 +251,24 @@ export function UnmappedDriversModal({
             return;
           }
           
+          // Fetch all platform IDs this driver has (to show in toast)
+          const { data: allPlatformIds } = await supabase
+            .from('driver_platform_ids')
+            .select('platform, platform_id')
+            .eq('driver_id', existingPlatformId.driver_id);
+          
+          const platformsInfo = allPlatformIds?.map(p => p.platform).join(', ') || platform;
+          
           // Refresh existing drivers list
           await fetchExistingDrivers();
           
           // Map the unmapped record to the transferred driver
           handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
           
-          toast.success(`Przeniesiono kierowcę ${existingDriver.first_name} ${existingDriver.last_name} do Twojej floty!`);
+          toast.success(
+            `Przeniesiono kierowcę ${existingDriver.first_name} ${existingDriver.last_name} do Twojej floty!`,
+            { description: `Platformy: ${platformsInfo}. Dane kontaktowe i karty paliwowe zachowane.` }
+          );
           return;
         }
       }
