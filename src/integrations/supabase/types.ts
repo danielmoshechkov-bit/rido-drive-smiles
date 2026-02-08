@@ -525,6 +525,7 @@ export type Database = {
       }
       ai_agent_configs: {
         Row: {
+          agent_type: string | null
           booking_rules: Json | null
           calling_hours_end: string | null
           calling_hours_start: string | null
@@ -550,6 +551,7 @@ export type Database = {
           working_hours: Json | null
         }
         Insert: {
+          agent_type?: string | null
           booking_rules?: Json | null
           calling_hours_end?: string | null
           calling_hours_start?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           working_hours?: Json | null
         }
         Update: {
+          agent_type?: string | null
           booking_rules?: Json | null
           calling_hours_end?: string | null
           calling_hours_start?: string | null
@@ -598,6 +601,171 @@ export type Database = {
           voice_id?: string | null
           website_url?: string | null
           working_hours?: Json | null
+        }
+        Relationships: []
+      }
+      ai_agent_conversations: {
+        Row: {
+          call_id: string | null
+          config_id: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          outcome: string | null
+          outcome_details: Json | null
+          sentiment_scores: Json | null
+          successful_patterns: Json | null
+          transcript: Json | null
+        }
+        Insert: {
+          call_id?: string | null
+          config_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          outcome_details?: Json | null
+          sentiment_scores?: Json | null
+          successful_patterns?: Json | null
+          transcript?: Json | null
+        }
+        Update: {
+          call_id?: string | null
+          config_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          outcome_details?: Json | null
+          sentiment_scores?: Json | null
+          successful_patterns?: Json | null
+          transcript?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_conversations_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_conversations_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_global_knowledge: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          is_approved: boolean | null
+          pattern: string
+          source_config_id: string | null
+          success_rate: number | null
+          usage_count: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          pattern: string
+          source_config_id?: string | null
+          success_rate?: number | null
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          pattern?: string
+          source_config_id?: string | null
+          success_rate?: number | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_global_knowledge_source_config_id_fkey"
+            columns: ["source_config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_pricing: {
+        Row: {
+          agent_type: string
+          created_at: string | null
+          free_minutes_per_month: number | null
+          id: string
+          is_active: boolean | null
+          monthly_base_fee: number | null
+          price_per_booking: number | null
+          price_per_minute: number
+        }
+        Insert: {
+          agent_type: string
+          created_at?: string | null
+          free_minutes_per_month?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_base_fee?: number | null
+          price_per_booking?: number | null
+          price_per_minute: number
+        }
+        Update: {
+          agent_type?: string
+          created_at?: string | null
+          free_minutes_per_month?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_base_fee?: number | null
+          price_per_booking?: number | null
+          price_per_minute?: number
+        }
+        Relationships: []
+      }
+      ai_agent_types: {
+        Row: {
+          base_prompt: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name_pl: string
+          type_key: string
+        }
+        Insert: {
+          base_prompt?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name_pl: string
+          type_key: string
+        }
+        Update: {
+          base_prompt?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name_pl?: string
+          type_key?: string
         }
         Relationships: []
       }
@@ -4810,6 +4978,7 @@ export type Database = {
       fuel_cards: {
         Row: {
           card_number: string
+          card_number_normalized: string | null
           city_id: string
           created_at: string
           driver_id: string | null
@@ -4818,6 +4987,7 @@ export type Database = {
         }
         Insert: {
           card_number: string
+          card_number_normalized?: string | null
           city_id: string
           created_at?: string
           driver_id?: string | null
@@ -4826,6 +4996,7 @@ export type Database = {
         }
         Update: {
           card_number?: string
+          card_number_normalized?: string | null
           city_id?: string
           created_at?: string
           driver_id?: string | null
@@ -10211,6 +10382,82 @@ export type Database = {
           },
         ]
       }
+      settlement_import_diagnostics: {
+        Row: {
+          created_at: string | null
+          created_driver_id: string | null
+          csv_row_number: number | null
+          error_message: string | null
+          fleet_id: string | null
+          id: string
+          import_timestamp: string | null
+          match_result: string | null
+          match_score: number | null
+          matched_driver_id: string | null
+          platform: string
+          raw_driver_name: string | null
+          raw_email: string | null
+          raw_phone: string | null
+          raw_platform_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_driver_id?: string | null
+          csv_row_number?: number | null
+          error_message?: string | null
+          fleet_id?: string | null
+          id?: string
+          import_timestamp?: string | null
+          match_result?: string | null
+          match_score?: number | null
+          matched_driver_id?: string | null
+          platform: string
+          raw_driver_name?: string | null
+          raw_email?: string | null
+          raw_phone?: string | null
+          raw_platform_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_driver_id?: string | null
+          csv_row_number?: number | null
+          error_message?: string | null
+          fleet_id?: string | null
+          id?: string
+          import_timestamp?: string | null
+          match_result?: string | null
+          match_score?: number | null
+          matched_driver_id?: string | null
+          platform?: string
+          raw_driver_name?: string | null
+          raw_email?: string | null
+          raw_phone?: string | null
+          raw_platform_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_import_diagnostics_created_driver_id_fkey"
+            columns: ["created_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_import_diagnostics_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_import_diagnostics_matched_driver_id_fkey"
+            columns: ["matched_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settlement_periods: {
         Row: {
           city_id: string
@@ -12280,6 +12527,296 @@ export type Database = {
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "user_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      website_corrections: {
+        Row: {
+          ai_response: string | null
+          applied_at: string | null
+          created_at: string | null
+          element_description: string | null
+          element_selector: string | null
+          full_description: string | null
+          id: string
+          page_id: string | null
+          project_id: string | null
+          short_note: string | null
+          status: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          applied_at?: string | null
+          created_at?: string | null
+          element_description?: string | null
+          element_selector?: string | null
+          full_description?: string | null
+          id?: string
+          page_id?: string | null
+          project_id?: string | null
+          short_note?: string | null
+          status?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          applied_at?: string | null
+          created_at?: string | null
+          element_description?: string | null
+          element_selector?: string | null
+          full_description?: string | null
+          id?: string
+          page_id?: string | null
+          project_id?: string | null
+          short_note?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_corrections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "website_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      website_form_data: {
+        Row: {
+          about_short: string | null
+          ai_answers: Json | null
+          ai_questions: Json | null
+          city_area: string | null
+          company_name: string
+          created_at: string | null
+          cta_type: string | null
+          email: string | null
+          generated_logo_url: string | null
+          google_maps_link: string | null
+          has_logo: boolean | null
+          id: string
+          language: string | null
+          logo_description: string | null
+          logo_url: string | null
+          phone: string | null
+          project_id: string | null
+          slogan: string | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_whatsapp: string | null
+          tone_of_voice: string | null
+          visual_style: string | null
+          why_us_points: Json | null
+          working_hours: string | null
+        }
+        Insert: {
+          about_short?: string | null
+          ai_answers?: Json | null
+          ai_questions?: Json | null
+          city_area?: string | null
+          company_name: string
+          created_at?: string | null
+          cta_type?: string | null
+          email?: string | null
+          generated_logo_url?: string | null
+          google_maps_link?: string | null
+          has_logo?: boolean | null
+          id?: string
+          language?: string | null
+          logo_description?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          project_id?: string | null
+          slogan?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_whatsapp?: string | null
+          tone_of_voice?: string | null
+          visual_style?: string | null
+          why_us_points?: Json | null
+          working_hours?: string | null
+        }
+        Update: {
+          about_short?: string | null
+          ai_answers?: Json | null
+          ai_questions?: Json | null
+          city_area?: string | null
+          company_name?: string
+          created_at?: string | null
+          cta_type?: string | null
+          email?: string | null
+          generated_logo_url?: string | null
+          google_maps_link?: string | null
+          has_logo?: boolean | null
+          id?: string
+          language?: string | null
+          logo_description?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          project_id?: string | null
+          slogan?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_whatsapp?: string | null
+          tone_of_voice?: string | null
+          visual_style?: string | null
+          why_us_points?: Json | null
+          working_hours?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_form_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "website_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      website_pricing: {
+        Row: {
+          base_price: number
+          corrections_included: number
+          created_at: string | null
+          domain_setup_price: number | null
+          extra_corrections_price: number | null
+          generation_cost: number | null
+          id: string
+          is_active: boolean | null
+          package_type: string
+          seo_addon_price: number | null
+        }
+        Insert: {
+          base_price: number
+          corrections_included: number
+          created_at?: string | null
+          domain_setup_price?: number | null
+          extra_corrections_price?: number | null
+          generation_cost?: number | null
+          id?: string
+          is_active?: boolean | null
+          package_type: string
+          seo_addon_price?: number | null
+        }
+        Update: {
+          base_price?: number
+          corrections_included?: number
+          created_at?: string | null
+          domain_setup_price?: number | null
+          extra_corrections_price?: number | null
+          generation_cost?: number | null
+          id?: string
+          is_active?: boolean | null
+          package_type?: string
+          seo_addon_price?: number | null
+        }
+        Relationships: []
+      }
+      website_projects: {
+        Row: {
+          corrections_limit: number
+          corrections_used: number | null
+          created_at: string | null
+          custom_domain: string | null
+          domain_setup_addon: boolean | null
+          generated_css: string | null
+          generated_html: string | null
+          generated_pages: Json | null
+          id: string
+          is_published: boolean | null
+          package_type: string
+          provider_id: string | null
+          published_at: string | null
+          seo_addon: boolean | null
+          status: string | null
+          subdomain: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          corrections_limit?: number
+          corrections_used?: number | null
+          created_at?: string | null
+          custom_domain?: string | null
+          domain_setup_addon?: boolean | null
+          generated_css?: string | null
+          generated_html?: string | null
+          generated_pages?: Json | null
+          id?: string
+          is_published?: boolean | null
+          package_type: string
+          provider_id?: string | null
+          published_at?: string | null
+          seo_addon?: boolean | null
+          status?: string | null
+          subdomain?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          corrections_limit?: number
+          corrections_used?: number | null
+          created_at?: string | null
+          custom_domain?: string | null
+          domain_setup_addon?: boolean | null
+          generated_css?: string | null
+          generated_html?: string | null
+          generated_pages?: Json | null
+          id?: string
+          is_published?: boolean | null
+          package_type?: string
+          provider_id?: string | null
+          published_at?: string | null
+          seo_addon?: boolean | null
+          status?: string | null
+          subdomain?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_projects_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      website_services: {
+        Row: {
+          description: string | null
+          form_data_id: string | null
+          id: string
+          inclusions: Json | null
+          name: string
+          price_from: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          description?: string | null
+          form_data_id?: string | null
+          id?: string
+          inclusions?: Json | null
+          name: string
+          price_from?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          description?: string | null
+          form_data_id?: string | null
+          id?: string
+          inclusions?: Json | null
+          name?: string
+          price_from?: number | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_services_form_data_id_fkey"
+            columns: ["form_data_id"]
+            isOneToOne: false
+            referencedRelation: "website_form_data"
             referencedColumns: ["id"]
           },
         ]
