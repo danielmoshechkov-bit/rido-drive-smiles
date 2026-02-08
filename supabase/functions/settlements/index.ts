@@ -837,8 +837,7 @@ async function parseUberCsv(
           first_name: firstName,
           last_name: lastName,
           city_id: city_id,
-          fleet_id: fleet_id || null,
-          status: 'active'
+          fleet_id: fleet_id || null
         })
         .select('id')
         .single();
@@ -985,8 +984,7 @@ async function parseBoltCsv(
           first_name: firstName,
           last_name: lastName,
           city_id: city_id,
-          fleet_id: fleet_id || null,
-          status: 'active'
+          fleet_id: fleet_id || null
         })
         .select('id')
         .single();
@@ -1124,8 +1122,7 @@ async function parseFreenowCsv(
           first_name: firstName,
           last_name: lastName,
           city_id: city_id,
-          fleet_id: fleet_id || null,
-          status: 'active'
+          fleet_id: fleet_id || null
         })
         .select('id')
         .single();

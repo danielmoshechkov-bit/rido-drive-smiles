@@ -3,9 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin, Car } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AddDriverModal } from './AddDriverModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DriverStatusBadge } from './DriverStatusBadge';
@@ -54,6 +64,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [editingPlatformIdsDriver, setEditingPlatformIdsDriver] = useState<Driver | null>(null);
   const [feesModalDriver, setFeesModalDriver] = useState<Driver | null>(null);
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [driverToDelete, setDriverToDelete] = useState<{ id: string; name: string } | null>(null);
   
   const { cities } = useCities();
   
@@ -293,9 +305,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
-  const removeFromFleet = async (driverId: string, driverName: string) => {
-    // Permanent removal from fleet list, but data preserved in system
-    if (!confirm(`⚠️ UWAGA: Usunięcie kierowcy ${driverName}\n\n• Kierowca zostanie usunięty z Twojej listy\n• Dane historyczne (rozliczenia, dokumenty) pozostaną w systemie\n• Po ponownym dodaniu kierowcy dane będą dostępne\n\nCzy kontynuować?`)) return;
+  const openDeleteDialog = (driverId: string, driverName: string) => {
+    setDriverToDelete({ id: driverId, name: driverName });
+    setDeleteDialogOpen(true);
+  };
+
+  const removeFromFleet = async () => {
+    if (!driverToDelete) return;
+    
+    const { id: driverId, name: driverName } = driverToDelete;
 
     try {
       console.log(`🗑️ Removing driver ${driverId} (${driverName}) from fleet...`);
@@ -330,7 +348,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       }
 
       console.log(`✅ Driver ${driverName} removed successfully, deleted rows:`, deletedData.length);
-      toast.success(`Kierowca ${driverName} został usunięty`);
+      toast.success(`Kierowca ${driverName} został usunięty z floty`);
       
       // Immediately refetch to update the list
       await refetch();
@@ -338,6 +356,9 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     } catch (error: any) {
       console.error('❌ Exception removing driver:', error);
       toast.error(`Błąd: ${error?.message || 'Nieznany błąd podczas usuwania'}`);
+    } finally {
+      setDeleteDialogOpen(false);
+      setDriverToDelete(null);
     }
   };
 
@@ -601,10 +622,14 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                    )}
                                  </div>
                                )}
-                               {/* Własne auto badge - dla kierowców z autem bez floty */}
-                               {driver.vehicle_assignment?.vehicle && driver.vehicle_assignment.vehicle.fleet_id === null && (
-                                 <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
-                                   🚗 Własne: {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
+                               {/* Badge z informacją o pojeździe */}
+                               {driver.vehicle_assignment?.vehicle && driver.vehicle_assignment.status === 'active' && !driver.vehicle_assignment.unassigned_at && (
+                                 <Badge 
+                                   variant="outline" 
+                                   className={`text-xs ${driver.vehicle_assignment.vehicle.fleet_id ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
+                                 >
+                                   <Car className="h-3 w-3 mr-1" />
+                                   {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
                                  </Badge>
                                )}
                               </div>
@@ -814,7 +839,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeFromFleet(driver.id, `${driver.first_name} ${driver.last_name}`);
+                            openDeleteDialog(driver.id, `${driver.first_name} ${driver.last_name}`);
                           }}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           title="Usuń z floty"
@@ -1005,6 +1030,43 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
           }}
         />
       )}
+
+      {/* Delete Driver Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Usunięcie kierowcy z floty
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-3 pt-2">
+              <p>
+                <strong>Uwaga:</strong> Kierowca <strong>{driverToDelete?.name}</strong> zostanie
+                trwale usunięty z Twojej listy floty.
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>Kierowca zniknie z Twojej listy kierowców</li>
+                <li>Dane historyczne (rozliczenia, dokumenty) pozostaną w systemie</li>
+                <li>Administrator może odzyskać dane kierowcy</li>
+              </ul>
+              <p className="text-destructive font-medium">
+                Tej operacji nie można cofnąć.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDriverToDelete(null)}>
+              Anuluj
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={removeFromFleet}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Usuń kierowcę
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
