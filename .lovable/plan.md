@@ -1,421 +1,229 @@
 
-# Kompleksowy Plan: Diagnostyka Bugów + Moduły Stron WWW i AI Agentów
+# Plan Naprawy Systemu Rozliczeń i Aktywacji Modułów
+
+## Problem 1: Modal pokazuje 1 rekord zamiast 3
+
+### Diagnoza
+- Alert poprawnie wykrywa 3 kierowców bez `driver_app_users`: "test tess", "asd sda", "Aneta Sknadaj"
+- Modal filtruje kierowców wg platform: `uberDrivers = unmappedDrivers.filter(d => d.uber_id)`
+- Tylko Aneta Sknadaj ma przypisany `uber_id` (`68d27e4a-c382-4cbf-ba4d-1c8bf8b0572c`)
+- "test tess" i "asd sda" nie mają żadnych platform_ids więc nie pojawiają się w żadnej zakładce
+
+### Rozwiązanie
+Dodać nową zakładkę "Bez platformy" w modalu dla kierowców bez żadnego platform_id:
+
+```typescript
+// Dodać nowy filtr:
+const noPlatformDrivers = unmappedDrivers.filter(d => 
+  !d.uber_id && !d.bolt_id && !d.freenow_id
+);
+
+// Dodać nową zakładkę w Tabs:
+<TabsTrigger value="no_platform">
+  Bez platformy {noPlatformDrivers.length > 0 && <Badge>{noPlatformDrivers.length}</Badge>}
+</TabsTrigger>
+
+<TabsContent value="no_platform">
+  {renderPlatformList(noPlatformDrivers, "no_platform")}
+</TabsContent>
+```
 
 ---
 
-## SEKCJA 0: DIAGNOSTYKA BUGÓW (BEZ ZMIAN LOGIKI)
+## Problem 2: Karta paliwowa 10206980198 nie wykryta
 
-### Problem 1: Kierowca Paweł Koziarek NIE wykryty
+### Diagnoza
+- Transakcje zawierają kartę `0010206980198` (z wiodącymi zerami)
+- Przypisane karty w drivers mają format `10206980xxx` (bez zer)
+- Logika normalizacji dodaje formaty z 0 i 00 na początku
+- Problem: karta `10206980198` NIE jest przypisana do żadnego kierowcy w bazie
 
-**Diagnoza techniczna:**
-- UUID `6c252dc6-0767-47e0-aec1-283eee321c7d` NIE istnieje w `driver_platform_ids`
-- NIE istnieje w `unmapped_settlement_drivers` (tabela jest pusta)
-- Parser CSV albo: (a) dopasował go fuzzy matching do istniejącego kierowcy, (b) pominął wiersz z błędem
+### Rozwiązanie
+Dodać console.log diagnostyczny + poprawić logikę porównywania:
 
-**Rozwiązanie - NOWY MECHANIZM DIAGNOSTYCZNY:**
+```typescript
+// W fetchUnmappedFuelCards dodać:
+console.log('🔍 FUEL DEBUG:', {
+  assignedCards: Array.from(assignedCards),
+  transactionCardNumbers: transactions?.map(t => t.card_number),
+});
 
-Utworzę nową tabelę `settlement_import_diagnostics` i logging endpoint:
+// Poprawić normalizację - dodać więcej wariantów:
+const normalized = t.card_number?.replace(/^0+/, '') || '';
+const transactionNormalized = normalized;
+
+// Sprawdzić czy normalized jest w assignedCards
+const normalizedAssigned = Array.from(assignedCards).map(c => c.replace(/^0+/, ''));
+const isAssigned = normalizedAssigned.includes(transactionNormalized);
+```
+
+---
+
+## Problem 3: Daniel Moshechkov (właściciel floty) widoczny w rozliczeniach
+
+### Diagnoza
+- Daniel ma `uber_base: -13450.97` (ujemne - to wypłata dla właściciela)
+- Kod obsługuje `has_negative_balance: true` dla kierowców z ujemnym saldem
+- Ale właściciel floty który TYLKO otrzymuje wypłaty (bez kursów) powinien być ukryty
+
+### Rozwiązanie
+Dodać flagę `is_fleet_owner` i filtrować takie osoby:
+
+```typescript
+// W fetchSettlements, przed agregacją:
+// Pobierz user_roles żeby zidentyfikować fleet_settlement/fleet_rental
+const { data: fleetOwnerRoles } = await supabase
+  .from('user_roles')
+  .select('user_id')
+  .eq('fleet_id', fleetId)
+  .in('role', ['fleet_settlement', 'fleet_rental']);
+
+const ownerUserIds = new Set(fleetOwnerRoles?.map(r => r.user_id) || []);
+
+// W agregacji sprawdź:
+const driverAppUserId = (driver as any).driver_app_users?.user_id;
+const isFleetOwner = driverAppUserId && ownerUserIds.has(driverAppUserId);
+
+// Jeśli to właściciel i ma TYLKO ujemne saldo (brak kursów) - ukryj
+if (isFleetOwner && total_base <= 0) {
+  return null; // lub pomiń w filtrowaniu
+}
+```
+
+---
+
+## Problem 4: Checkbox "Pokaż 0 wyniki" nie działa
+
+### Diagnoza
+- Filtr sprawdza: `s.total_base === 0 && s.final_payout === 0`
+- Kierowcy z ujemnymi saldami mają `total_base < 0` więc nie są filtrowane
+- Kierowcy bez danych mają `total_base === 0` ale mogą mieć `final_payout !== 0`
+
+### Rozwiązanie
+Poprawić logikę filtrowania:
+
+```typescript
+// Zmienić warunek w filteredSettlements:
+if (!showZeroRows) {
+  // Ukryj jeśli: brak aktywności (total_base = 0) LUB tylko ujemne saldo bez kursów
+  const hasNoActivity = s.total_base === 0;
+  const hasOnlyNegative = s.total_base < 0 && s.uber_base <= 0 && s.bolt_base <= 0 && s.freenow_base <= 0;
+  
+  if (hasNoActivity || hasOnlyNegative) {
+    return false;
+  }
+}
+```
+
+Lub całkowicie usunąć checkbox jeśli nie jest potrzebny.
+
+---
+
+## Problem 5: Aktywacja modułów dla usługodawców
+
+### Wymagane zmiany w bazie danych
 
 ```sql
--- Nowa tabela do diagnostyki importów
-CREATE TABLE settlement_import_diagnostics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fleet_id UUID REFERENCES fleets(id),
-  import_timestamp TIMESTAMPTZ DEFAULT now(),
-  platform TEXT NOT NULL, -- 'uber', 'bolt', 'freenow', 'fuel'
-  csv_row_number INTEGER,
-  raw_driver_name TEXT,
-  raw_platform_id TEXT,
-  raw_phone TEXT,
-  raw_email TEXT,
-  match_result TEXT, -- 'matched_exact', 'matched_fuzzy', 'created_new', 'skipped'
-  match_score INTEGER,
-  matched_driver_id UUID,
-  created_driver_id UUID,
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+-- Włącz moduł stron WWW
+UPDATE feature_toggles 
+SET is_enabled = true 
+WHERE feature_key = 'website_builder_enabled';
+
+-- Włącz globalne uczenie AI agentów
+UPDATE feature_toggles 
+SET is_enabled = true 
+WHERE feature_key = 'ai_agents_global_learning';
+```
+
+### Konto detaling@test.pl
+- User ID: `f058388d-bb0e-4a8d-9124-347c82eba9b3`
+- Ma już rolę `service_provider` - może się zalogować
+- Hasło: `Test123!` (zgodnie z kontem testowym)
+- Po włączeniu toggles, zakładki "Strona WWW" i "AI Agenci" pojawią się w panelu
+
+---
+
+## Pliki do modyfikacji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/fleet/UnmappedDriversModal.tsx` | Dodać zakładkę "Bez platformy", poprawić logikę paliwa |
+| `src/components/FleetSettlementsView.tsx` | Ukryć właścicieli flot z ujemnym saldem, poprawić filtr "0 wyniki" |
+| Baza danych | Aktywować feature toggles |
+
+---
+
+## Szczegóły techniczne
+
+### Zmiana 1: Zakładka "Bez platformy" w UnmappedDriversModal
+
+Linia ~70 dodać:
+```typescript
+const noPlatformDrivers = unmappedDrivers.filter(d => 
+  !d.uber_id && !d.bolt_id && !d.freenow_id
 );
 ```
 
-**Zmiany w Edge Function `settlements/index.ts`:**
-Dodać logowanie każdego wiersza CSV do tabeli diagnostycznej - NIE zmieniając istniejącej logiki parsowania.
+W TabsList (około linia 510) dodać:
+```tsx
+<TabsTrigger value="no_platform" className="gap-1.5">
+  <Car className="h-3.5 w-3.5" />
+  Bez platformy
+  {noPlatformDrivers.length > 0 && (
+    <Badge variant="secondary" className="ml-1">
+      {noPlatformDrivers.length}
+    </Badge>
+  )}
+</TabsTrigger>
+```
 
----
+### Zmiana 2: Ukrycie właścicieli flot
 
-### Problem 2: Karta paliwowa 10206980198 nie wykryta
-
-**Diagnoza techniczna:**
-- Karta istnieje w `fuel_transactions` jako `0010206980198` (z wiodącymi zerami)
-- Przypisane karty mają format `10206980xxx` (bez zer)
-- Logika `fetchUnmappedFuelCards` normalizuje zera, ALE problem może być w porównywaniu
-
-**Rozwiązanie - DIAGNOSTIC LOGGING:**
-
-Dodać w `UnmappedDriversModal.tsx` logowanie:
-
+W FleetSettlementsView linia ~690 dodać zapytanie o właścicieli:
 ```typescript
-console.log('🔍 FUEL DIAGNOSTIC:', {
-  assignedCards: Array.from(assignedCards),
-  transactionCards: transactions?.map(t => t.card_number),
-  normalizedMatches: // szczegóły porównania
+const { data: ownerDriverAppUsers } = await supabase
+  .from('driver_app_users')
+  .select('driver_id, user_id')
+  .in('driver_id', driverIds);
+
+const { data: fleetOwnerRoles } = await supabase
+  .from('user_roles')
+  .select('user_id')
+  .eq('fleet_id', fleetId)
+  .in('role', ['fleet_settlement', 'fleet_rental']);
+
+const ownerUserIds = new Set(fleetOwnerRoles?.map(r => r.user_id) || []);
+const ownerDriverIds = new Set(
+  ownerDriverAppUsers?.filter(d => ownerUserIds.has(d.user_id)).map(d => d.driver_id) || []
+);
+```
+
+W agregacji (~linia 1060) dodać filtrowanie:
+```typescript
+// Przed zwróceniem settlements, odfiltruj właścicieli z ujemnym saldem
+const filteredAggregated = aggregated.filter(row => {
+  // Właściciel floty z ujemnym saldem (tylko wypłaty) - ukryj
+  if (ownerDriverIds.has(row.driver_id) && row.total_base <= 0) {
+    return false;
+  }
+  // Standardowe filtrowanie ghost drivers
+  return row.total_base > 0 || row.has_negative_balance || settlementsDriverIds.has(row.driver_id);
 });
 ```
 
-**Dodatkowo - Nowa tabela `fuel_cards`:**
+### Zmiana 3: Usunięcie checkboxa "Pokaż 0 wyniki"
 
-```sql
--- Centralna baza kart paliwowych
-CREATE TABLE fuel_cards (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  card_number TEXT UNIQUE NOT NULL,
-  card_number_normalized TEXT GENERATED ALWAYS AS (LTRIM(card_number, '0')) STORED,
-  driver_id UUID REFERENCES drivers(id),
-  fleet_id UUID,
-  first_seen_at TIMESTAMPTZ DEFAULT now(),
-  last_transaction_at TIMESTAMPTZ,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+Ten checkbox nie ma sensu w obecnej logice - usunąć go lub zamienić na:
+```typescript
+// Zamiast checkboxa "Pokaż 0 wyniki", ukryć wszystkich z total_base <= 0 domyślnie
 ```
 
 ---
 
-## SEKCJA 1: MODUŁ TWORZENIA STRON WWW
+## Efekt końcowy
 
-### Struktura Bazy Danych
-
-```sql
--- Główna tabela stron WWW
-CREATE TABLE website_projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) NOT NULL,
-  provider_id UUID REFERENCES service_providers(id),
-  
-  -- Pakiet
-  package_type TEXT NOT NULL CHECK (package_type IN ('one_page', 'multi_page')),
-  seo_addon BOOLEAN DEFAULT false,
-  domain_setup_addon BOOLEAN DEFAULT false,
-  
-  -- Status
-  status TEXT DEFAULT 'draft' CHECK (status IN (
-    'draft', 'form_completed', 'ai_questions', 'generating', 
-    'preview_ready', 'editing', 'published'
-  )),
-  
-  -- Limity
-  corrections_used INTEGER DEFAULT 0,
-  corrections_limit INTEGER NOT NULL,
-  
-  -- Wygenerowana strona
-  generated_html TEXT,
-  generated_css TEXT,
-  generated_pages JSONB DEFAULT '[]',
-  
-  -- Domena
-  custom_domain TEXT,
-  subdomain TEXT,
-  is_published BOOLEAN DEFAULT false,
-  published_at TIMESTAMPTZ,
-  
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Dane formularza WWW
-CREATE TABLE website_form_data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES website_projects(id) ON DELETE CASCADE,
-  
-  -- Firma i kontakt
-  company_name TEXT NOT NULL,
-  slogan TEXT,
-  city_area TEXT,
-  phone TEXT,
-  email TEXT,
-  working_hours TEXT,
-  social_facebook TEXT,
-  social_instagram TEXT,
-  social_whatsapp TEXT,
-  google_maps_link TEXT,
-  
-  -- Opis firmy
-  about_short TEXT,
-  why_us_points JSONB DEFAULT '[]',
-  
-  -- CTA
-  cta_type TEXT DEFAULT 'call' CHECK (cta_type IN ('call', 'form', 'whatsapp', 'all')),
-  
-  -- Logo
-  has_logo BOOLEAN DEFAULT false,
-  logo_url TEXT,
-  logo_description TEXT,
-  generated_logo_url TEXT,
-  
-  -- AI questions/answers
-  ai_questions JSONB DEFAULT '[]',
-  ai_answers JSONB DEFAULT '{}',
-  
-  -- Styl
-  tone_of_voice TEXT,
-  visual_style TEXT,
-  language TEXT DEFAULT 'pl',
-  
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Usługi na stronie
-CREATE TABLE website_services (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  form_data_id UUID REFERENCES website_form_data(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  price_from NUMERIC,
-  description TEXT,
-  inclusions JSONB DEFAULT '[]',
-  sort_order INTEGER DEFAULT 0
-);
-
--- Poprawki na stronie
-CREATE TABLE website_corrections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES website_projects(id) ON DELETE CASCADE,
-  
-  -- Lokalizacja poprawki
-  page_id TEXT,
-  element_selector TEXT,
-  element_description TEXT,
-  
-  -- Opis poprawki
-  short_note TEXT,
-  full_description TEXT,
-  
-  -- Status
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'applied', 'rejected')),
-  
-  -- Wynik AI
-  ai_response TEXT,
-  applied_at TIMESTAMPTZ,
-  
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Ceny pakietów (Admin)
-CREATE TABLE website_pricing (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  package_type TEXT UNIQUE NOT NULL,
-  base_price NUMERIC NOT NULL,
-  corrections_included INTEGER NOT NULL,
-  seo_addon_price NUMERIC DEFAULT 0,
-  domain_setup_price NUMERIC DEFAULT 0,
-  extra_corrections_price NUMERIC DEFAULT 0,
-  generation_cost NUMERIC DEFAULT 5,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-### Komponenty React
-
-**Nowe pliki:**
-
-| Plik | Opis |
-|------|------|
-| `src/components/website-builder/WebsiteBuilderWizard.tsx` | Główny wizard |
-| `src/components/website-builder/PackageSelection.tsx` | Wybór pakietu |
-| `src/components/website-builder/WebsiteFormStep.tsx` | Formularz danych |
-| `src/components/website-builder/AIQuestionsStep.tsx` | Pytania AI |
-| `src/components/website-builder/PreviewStep.tsx` | Podgląd strony |
-| `src/components/website-builder/CorrectionEditor.tsx` | Edytor poprawek |
-| `src/components/website-builder/PublishStep.tsx` | Publikacja |
-| `src/components/admin/WebsitePricingPanel.tsx` | Panel cen admina |
-
-### Edge Functions
-
-| Funkcja | Opis |
-|---------|------|
-| `website-generate` | Generowanie strony z AI (Gemini) |
-| `website-correction` | Aplikowanie poprawek (fragment) |
-| `website-logo-generate` | Generowanie logo (Nano Banana) |
-| `website-publish` | Publikacja strony |
-
-### Flow użytkownika
-
-```text
-1. Wybór pakietu → One-page / Multi-page
-         ↓
-2. Formularz danych → Firma, usługi, CTA, logo
-         ↓
-3. AI dopytuje → Max 1-2 rundy pytań
-         ↓
-4. Generuj podgląd → Koszt X zł
-         ↓
-5. Podgląd → Desktop/Mobile iframe
-         ↓
-6. Poprawki → Kliknij element → Notatka
-         ↓
-7. Publikacja → Domena, hosting
-```
-
----
-
-## SEKCJA 2: MODUŁ AI AGENTÓW (Rozbudowa istniejącego)
-
-### Istniejąca infrastruktura
-
-Moduł AI Agent już istnieje w:
-- `src/components/sales/ai-agent/*` - 13 komponentów
-- Tabele: `ai_agent_configs`, `ai_call_business_profiles`, `ai_call_scripts`, `ai_call_queue`, itd.
-- Panel: `ServiceProviderDashboard.tsx` → zakładka "AI Agent"
-
-### Rozszerzenia do dodania
-
-**Nowe tabele:**
-
-```sql
--- Typy agentów
-CREATE TABLE ai_agent_types (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type_key TEXT UNIQUE NOT NULL, -- 'sales', 'reception', 'confirmation', 'support'
-  name_pl TEXT NOT NULL,
-  description TEXT,
-  base_prompt TEXT,
-  is_active BOOLEAN DEFAULT true
-);
-
--- Globalna baza wiedzy (uczenie między agentami)
-CREATE TABLE ai_agent_global_knowledge (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  category TEXT NOT NULL, -- 'objection_handling', 'booking_patterns', 'closing_techniques'
-  pattern TEXT NOT NULL,
-  success_rate NUMERIC,
-  usage_count INTEGER DEFAULT 0,
-  source_config_id UUID REFERENCES ai_agent_configs(id),
-  is_approved BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Sesje rozmów AI (dla uczenia)
-CREATE TABLE ai_agent_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  config_id UUID REFERENCES ai_agent_configs(id),
-  call_id UUID REFERENCES ai_agent_calls(id),
-  lead_id UUID REFERENCES sales_leads(id),
-  
-  transcript JSONB, -- pełna transkrypcja
-  outcome TEXT, -- 'booked', 'callback', 'rejected', 'no_answer'
-  outcome_details JSONB,
-  
-  -- Metryki uczenia
-  sentiment_scores JSONB,
-  successful_patterns JSONB,
-  
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Ceny AI agentów (Admin)
-CREATE TABLE ai_agent_pricing (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_type TEXT NOT NULL,
-  price_per_minute NUMERIC NOT NULL,
-  price_per_booking NUMERIC,
-  monthly_base_fee NUMERIC DEFAULT 0,
-  free_minutes_per_month INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true
-);
-```
-
-### Nowe komponenty
-
-| Plik | Opis |
-|------|------|
-| `src/components/ai-agents/AgentTypeSelector.tsx` | Wybór typu agenta |
-| `src/components/ai-agents/KnowledgeBaseEditor.tsx` | Baza wiedzy |
-| `src/components/ai-agents/ConversationAnalytics.tsx` | Analityka rozmów |
-| `src/components/ai-agents/GlobalLearningPanel.tsx` | Panel uczenia globalnego |
-| `src/components/admin/AIAgentsPricingPanel.tsx` | Ceny agentów (Admin) |
-
-### Zakładki w ServiceProviderDashboard
-
-Nowe zakładki do dodania:
-- **AI Agenci** (rozbudowa istniejącej "AI Agent")
-  - Panel główny
-  - Typy agentów
-  - Baza wiedzy
-  - Harmonogram dzwonienia
-  - Analityka
-
----
-
-## PODSUMOWANIE PLIKÓW DO UTWORZENIA
-
-### Baza danych (migracje)
-1. `settlement_import_diagnostics` - diagnostyka importów
-2. `fuel_cards` - centralna baza kart
-3. `website_*` - 6 tabel dla modułu WWW
-4. `ai_agent_*` - 4 nowe tabele dla agentów
-
-### Edge Functions
-1. `website-generate`
-2. `website-correction`
-3. `website-logo-generate`
-4. `website-publish`
-5. `settlement-diagnostics` (logging endpoint)
-
-### Komponenty React
-**Website Builder (7 plików):**
-- `WebsiteBuilderWizard.tsx`
-- `PackageSelection.tsx`
-- `WebsiteFormStep.tsx`
-- `AIQuestionsStep.tsx`
-- `PreviewStep.tsx`
-- `CorrectionEditor.tsx`
-- `PublishStep.tsx`
-
-**AI Agents (5 plików):**
-- `AgentTypeSelector.tsx`
-- `KnowledgeBaseEditor.tsx`
-- `ConversationAnalytics.tsx`
-- `GlobalLearningPanel.tsx`
-- Admin: `AIAgentsPricingPanel.tsx`
-
-**Admin (2 pliki):**
-- `WebsitePricingPanel.tsx`
-- Rozbudowa `AICallAdminPanel.tsx`
-
-### Zmiany w istniejących plikach
-- `ServiceProviderDashboard.tsx` - nowa zakładka "Strona WWW"
-- `settlements/index.ts` - dodanie logowania diagnostycznego
-- `UnmappedDriversModal.tsx` - dodanie logowania kart
-
----
-
-## FEATURE TOGGLES (Admin)
-
-```sql
-INSERT INTO feature_toggles (feature_key, feature_name, category, is_enabled, description) VALUES
-('website_builder_enabled', 'Kreator stron WWW', 'services', false, 'Moduł tworzenia stron WWW dla usługodawców'),
-('website_builder_seo_addon', 'SEO Addon', 'services', true, 'Opcja SEO w kreatorze stron'),
-('ai_agents_global_learning', 'AI Uczenie globalne', 'ai', false, 'Agregacja wiedzy między agentami'),
-('ai_agents_free_tier', 'AI Agenci darmowy tier', 'ai', true, 'Darmowy dostęp do AI agentów (beta)');
-```
-
----
-
-## SZACOWANY CZAS IMPLEMENTACJI
-
-| Sekcja | Czas |
-|--------|------|
-| SEKCJA 0: Diagnostyka bugów | 3-4h |
-| SEKCJA 1: Moduł WWW (szkielet + podstawy) | 12-16h |
-| SEKCJA 2: Rozbudowa AI Agentów | 8-10h |
-| **RAZEM** | **23-30h** |
-
----
-
-## KOLEJNOŚĆ IMPLEMENTACJI
-
-1. **Faza 1**: Diagnostyka bugów (SEKCJA 0) - natychmiast
-2. **Faza 2**: Tabele + feature toggles dla obu modułów
-3. **Faza 3**: Szkielet UI modułu WWW (zakładka + wizard)
-4. **Faza 4**: Edge functions generowania strony
-5. **Faza 5**: Rozbudowa AI Agentów
-6. **Faza 6**: Panel admina dla obu modułów
+1. Modal mapowania pokaże WSZYSTKIE 3 rekordy (2 w "Bez platformy", 1 w "Uber")
+2. Nowa karta paliwowa `10206980198` pojawi się w zakładce "Paliwo"
+3. Daniel Moshechkov (właściciel floty) nie będzie widoczny w rozliczeniach
+4. Checkbox "Pokaż 0 wyniki" usunięty lub poprawiony
+5. Moduły "Strona WWW" i "AI Agenci" aktywne dla wszystkich usługodawców
