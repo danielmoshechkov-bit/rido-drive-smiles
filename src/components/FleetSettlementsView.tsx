@@ -562,10 +562,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     // For admin, default to "my" (Przychód firmy)
     if (roles.includes('admin')) {
       setActiveSubTab("my");
-    } else if (isDriver) {
+    } else {
+      // Always try to fetch myDriverId for fleet owners AND drivers
+      // This ensures "Moje rozliczenia" tab appears for fleet owners too
       fetchMyDriverId();
     }
-  }, [isDriver, roles]);
+  }, [fleetId, roles]);
 
   const fetchMyDriverId = async () => {
     try {
@@ -1099,10 +1101,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  // Show "Moje rozliczenia" for:
+  // 1. Admins -> "Przychód firmy"
+  // 2. Any user with myDriverId (fleet owner or driver) -> "Moje rozliczenia"
   const subTabs = [
     ...(roles.includes('admin') 
       ? [{ value: "my", label: "Przychód firmy", visible: true }] 
-      : isDriver && myDriverId 
+      : myDriverId 
         ? [{ value: "my", label: "Moje rozliczenia", visible: true }] 
         : []
     ),
