@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
           type: 'signup',
           email,
           password,
-          options: { redirectTo: `${siteUrl}/` }
+          options: { redirectTo: `${siteUrl}/?activated=true` }
         });
 
       if (linkError) {

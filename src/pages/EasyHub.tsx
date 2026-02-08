@@ -300,21 +300,29 @@ export default function EasyHub() {
   // Check if user has full services access
   const hasServicesAccess = user?.email && SERVICES_FULL_ACCESS_EMAILS.includes(user.email);
 
-  // Handle activation token from email link (hash contains access_token after Supabase verification)
+  // Handle activation from email link
+  // Check for: 1) ?activated=true query param, 2) hash with access_token (Supabase callback)
   useEffect(() => {
     const hash = location.hash;
+    const activated = searchParams.get('activated');
     
-    // Check if this is an activation callback (Supabase puts tokens in hash)
-    if (hash && (hash.includes('access_token') || hash.includes('type=signup'))) {
-      console.log('Activation callback detected');
+    // Check if this is an activation callback
+    const isActivationCallback = 
+      activated === 'true' || 
+      (hash && (hash.includes('access_token') || hash.includes('type=signup')));
+    
+    if (isActivationCallback) {
+      console.log('Activation callback detected:', { activated, hash: !!hash });
       
-      // Clear the hash from URL for cleaner look
-      window.history.replaceState(null, '', location.pathname);
+      // Clear the URL params for cleaner look
+      if (activated || hash) {
+        window.history.replaceState(null, '', location.pathname);
+      }
       
       // Show the activation success modal
       setShowActivationModal(true);
     }
-  }, [location.hash, location.pathname]);
+  }, [location.hash, location.pathname, searchParams]);
 
   // Handle URL parameter for category
   useEffect(() => {
