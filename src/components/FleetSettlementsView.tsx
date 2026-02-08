@@ -944,6 +944,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
+        // 🚫 FILTRUJ WŁAŚCICIELI FLOT: Jeśli kierowca ma TYLKO ujemne saldo (wypłata bez kursów)
+        // np. Daniel Moshechkov z uber_base = -13450.97 = to właściciel floty, ukryj go
+        if (total_base < 0) {
+          // Return null to be filtered out later
+          return null;
+        }
+
         // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - NIE NALICZAJ OPŁAT
         if (platform_net < 0) {
           return {
@@ -1059,29 +1066,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         };
       });
 
-      // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze
+      // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze i null
       // Pokazuj tylko kierowców którzy mają AKTYWNE zarobki (total_base > 0)
       // UKRYJ: 
-      // - Kierowców z ujemnym saldem (tylko wypłaty, brak kursów) - np. właściciele flot
+      // - Kierowców z ujemnym saldem (już odfiltrowane jako null wyżej)
       // - Kierowców bez żadnych rozliczeń
       const settlementsDriverIds = new Set(settlementsData?.map(s => s.driver_id) || []);
       
-      const filteredAggregated = aggregated.filter(row => {
-        // UKRYJ kierowców którzy mają TYLKO ujemne saldo (total_base < 0 = tylko wypłaty bez kursów)
-        // To dotyczy właścicieli flot którzy tylko otrzymują wypłaty z platform
-        if (row.total_base < 0) {
-          console.log('🚫 Hiding driver with only negative balance (payout receiver):', row.driver_name, row.total_base);
-          return false;
-        }
-        
-        // UKRYJ kierowców z zerowym saldem i bez rozliczeń
-        if (row.total_base === 0 && !settlementsDriverIds.has(row.driver_id)) {
-          return false;
-        }
-        
-        // Pokaż kierowców z pozytywnymi zarobkami lub z rozliczeniami
-        return row.total_base > 0 || settlementsDriverIds.has(row.driver_id);
-      });
+      const filteredAggregated = aggregated
+        .filter((row): row is NonNullable<typeof row> => row !== null) // Remove null rows (fleet owners)
+        .filter(row => {
+          // UKRYJ kierowców z zerowym saldem i bez rozliczeń
+          if (row.total_base === 0 && !settlementsDriverIds.has(row.driver_id)) {
+            return false;
+          }
+          
+          // Pokaż kierowców z pozytywnymi zarobkami lub z rozliczeniami
+          return row.total_base > 0 || settlementsDriverIds.has(row.driver_id);
+        });
 
       console.log('📈 Aggregated settlements:', aggregated.length);
       console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
