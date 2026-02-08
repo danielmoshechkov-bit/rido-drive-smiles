@@ -8,10 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -1035,35 +1033,26 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-destructive" />
-              Usunięcie kierowcy z floty
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-3 pt-2">
-              <p>
-                <strong>Uwaga:</strong> Kierowca <strong>{driverToDelete?.name}</strong> zostanie
-                trwale usunięty z Twojej listy floty.
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                <li>Kierowca zniknie z Twojej listy kierowców</li>
-                <li>Dane historyczne (rozliczenia, dokumenty) pozostaną w systemie</li>
-                <li>Administrator może odzyskać dane kierowcy</li>
-              </ul>
-              <p className="text-destructive font-medium">
-                Tej operacji nie można cofnąć.
-              </p>
-            </AlertDialogDescription>
+            <AlertDialogTitle>Usunięcie kierowcy z floty</AlertDialogTitle>
           </AlertDialogHeader>
+          <div className="py-4 space-y-4">
+            <p>
+              <strong>Uwaga:</strong> Kierowca <strong>{driverToDelete?.name}</strong> zostanie trwale usunięty z Twojej listy floty.
+            </p>
+            <p className="text-muted-foreground">
+              Kierowca zniknie z Twojej listy kierowców. Tej operacji nie można cofnąć.
+            </p>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDriverToDelete(null)}>
               Anuluj
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              variant="destructive"
               onClick={removeFromFleet}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Usuń kierowcę
-            </AlertDialogAction>
+              Potwierdź
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

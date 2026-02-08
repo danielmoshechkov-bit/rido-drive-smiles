@@ -3,38 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Loader2, CheckCircle2, UserPlus } from "lucide-react";
-
-interface Vehicle {
-  id: string;
-  plate: string;
-  brand: string;
-  model: string;
-}
-
-interface Driver {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  getrido_id: string | null;
-  driver_platform_ids?: Array<{ platform: string; platform_id: string }>;
-}
+import { Loader2, UserPlus } from "lucide-react";
 
 interface FleetInvitationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   fleetId: string;
-  availableVehicles: Vehicle[];
+  availableVehicles: Array<{ id: string; plate: string; brand: string; model: string }>;
 }
 
-export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, availableVehicles }: FleetInvitationModalProps) {
+export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId }: FleetInvitationModalProps) {
   // Form fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -45,70 +26,7 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
   const [boltId, setBoltId] = useState("");
   const [freenowId, setFreenowId] = useState("");
   const [iban, setIban] = useState("");
-  
-  // Search results
-  const [foundDrivers, setFoundDrivers] = useState<Driver[]>([]);
-  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
-  const [searching, setSearching] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [searchPerformed, setSearchPerformed] = useState(false);
   const [addingDriver, setAddingDriver] = useState(false);
-
-  const searchDrivers = async () => {
-    // Validate required fields
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error("Imię i nazwisko są wymagane");
-      return;
-    }
-
-    // At least one contact/ID field
-    if (!email.trim() && !phone.trim() && !getridoId.trim() && !uberId.trim() && !boltId.trim() && !freenowId.trim()) {
-      toast.error("Podaj przynajmniej jeden kontakt lub ID platformy");
-      return;
-    }
-
-    setSearching(true);
-    setSearchPerformed(true);
-    try {
-      // Send separate fields to edge function
-      const { data, error } = await supabase.functions.invoke("drivers-search", {
-        body: { 
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
-          getrido_id: getridoId.trim() || undefined,
-          uber_id: uberId.trim() || undefined,
-          bolt_id: boltId.trim() || undefined,
-          freenow_id: freenowId.trim() || undefined
-        }
-      });
-
-      if (error) throw error;
-
-      const drivers = data?.drivers || [];
-      
-      // Map platform_ids to driver_platform_ids for compatibility
-      const driversFormatted = drivers.map((d: any) => ({
-        ...d,
-        driver_platform_ids: d.platform_ids || []
-      }));
-      
-      setFoundDrivers(driversFormatted);
-      
-      if (driversFormatted.length > 0) {
-        toast.success(`Znaleziono ${driversFormatted.length} kierowców`);
-      } else {
-        toast.info("Nie znaleziono kierowców pasujących do kryteriów");
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      toast.error("Błąd podczas wyszukiwania");
-    } finally {
-      setSearching(false);
-    }
-  };
 
   const addNewDriver = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -194,35 +112,6 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     }
   };
 
-  const sendInvitation = async () => {
-    if (!selectedDriver) {
-      toast.error("Wybierz kierowcę");
-      return;
-    }
-
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("fleet-invitations/send", {
-        body: {
-          driver_id: selectedDriver.id,
-          fleet_id: fleetId,
-          vehicle_id: selectedVehicleId || null
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success("Wysłano zaproszenie do kierowcy");
-      handleClose();
-      onSuccess();
-    } catch (error: any) {
-      console.error("Error sending invitation:", error);
-      toast.error("Błąd wysyłania zaproszenia: " + error.message);
-    } finally {
-      setSending(false);
-    }
-  };
-
   const handleClose = () => {
     setFirstName("");
     setLastName("");
@@ -233,21 +122,17 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
     setBoltId("");
     setFreenowId("");
     setIban("");
-    setFoundDrivers([]);
-    setSelectedDriver(null);
-    setSelectedVehicleId("");
-    setSearchPerformed(false);
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Zaproś kierowcę do floty</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 overflow-y-auto flex-1 pr-2">
+        <div className="space-y-6">
           {/* Personal + Contact Data - 2x2 grid */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -352,152 +237,28 @@ export function FleetInvitationModal({ isOpen, onClose, onSuccess, fleetId, avai
             />
             <p className="text-xs text-muted-foreground">Numer konta do przelewów wypłat dla kierowcy</p>
           </div>
-
-          {/* Search and Add Buttons - equal size */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button 
-              onClick={searchDrivers} 
-              disabled={searching}
-              size="lg"
-            >
-              {searching ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Szukam...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Szukaj
-                </>
-              )}
-            </Button>
-            <Button 
-              onClick={addNewDriver} 
-              disabled={addingDriver || !firstName.trim() || !lastName.trim()}
-              variant="default"
-              size="lg"
-            >
-              {addingDriver ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Dodaję...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Dodaj
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Found Drivers List */}
-          {searchPerformed && (
-            <div className="space-y-2">
-              {foundDrivers.length > 0 ? (
-                <>
-                  <Label>Znalezieni kierowcy - wybierz jednego:</Label>
-                  <div className="border rounded-lg divide-y max-h-60 overflow-y-auto">
-                    {foundDrivers.map((driver) => (
-                      <Card
-                        key={driver.id}
-                        className={`p-4 cursor-pointer transition-all ${
-                          selectedDriver?.id === driver.id 
-                            ? "border-primary bg-accent shadow-sm" 
-                            : "hover:bg-accent/50 border-transparent"
-                        }`}
-                        onClick={() => setSelectedDriver(driver)}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <div className="font-semibold flex items-center gap-2">
-                              {driver.first_name} {driver.last_name}
-                              {selectedDriver?.id === driver.id && (
-                                <CheckCircle2 className="h-4 w-4 text-primary" />
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground space-y-0.5">
-                              {driver.email && <div>📧 {driver.email}</div>}
-                              {driver.phone && <div>📱 {driver.phone}</div>}
-                              {driver.getrido_id && <div>🚗 GetRido: {driver.getrido_id}</div>}
-                              {driver.driver_platform_ids && driver.driver_platform_ids.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {driver.driver_platform_ids.map((pid: any, idx: number) => (
-                                    <span key={idx} className="text-xs bg-secondary px-2 py-0.5 rounded">
-                                      {pid.platform}: {pid.platform_id}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground border rounded-lg space-y-4">
-                  <div>
-                    <p>Nie znaleziono kierowców pasujących do kryteriów</p>
-                    <p className="text-sm mt-2">Sprawdź dane i spróbuj ponownie lub dodaj nowego kierowcę</p>
-                  </div>
-                  <Button 
-                    onClick={addNewDriver} 
-                    disabled={addingDriver || !firstName.trim() || !lastName.trim()}
-                    variant="default"
-                  >
-                    {addingDriver ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Dodawanie...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Dodaj nowego kierowcę
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Vehicle Selection */}
-          {selectedDriver && (
-            <div className="space-y-2">
-              <Label>
-                Wybierz pojazd <span className="text-muted-foreground">(opcjonalne)</span>
-              </Label>
-              <Select value={selectedVehicleId || "no-vehicle"} onValueChange={(value) => setSelectedVehicleId(value === "no-vehicle" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Przydziel później..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no-vehicle">Bez pojazdu (przydziel później)</SelectItem>
-                  {availableVehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.plate} - {vehicle.brand} {vehicle.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             Anuluj
           </Button>
-          {selectedDriver && (
-            <Button onClick={sendInvitation} disabled={sending}>
-              {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Wyślij zaproszenie
-            </Button>
-          )}
+          <Button 
+            onClick={addNewDriver} 
+            disabled={addingDriver || !firstName.trim() || !lastName.trim()}
+          >
+            {addingDriver ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Dodaję...
+              </>
+            ) : (
+              <>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Dodaj kierowcę
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
