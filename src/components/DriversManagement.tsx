@@ -294,21 +294,37 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   };
 
   const removeFromFleet = async (driverId: string, driverName: string) => {
-    if (!confirm(`Czy na pewno chcesz usunąć kierowcę ${driverName} z floty? Kierowca pozostanie w systemie, ale nie będzie już przypisany do tej floty.`)) return;
+    // Permanent deletion with data preserved warning
+    if (!confirm(`⚠️ UWAGA: Czy na pewno chcesz TRWALE USUNĄĆ kierowcę ${driverName}?\n\n• Kierowca zniknie z tej floty\n• Dane historyczne (rozliczenia, dokumenty) zostaną zachowane\n• Jeśli dodasz tego kierowcę ponownie, dane historyczne będą dostępne\n\nTa operacja jest nieodwracalna!`)) return;
 
     try {
+      console.log(`🗑️ Removing driver ${driverId} (${driverName}) from fleet...`);
+      
+      // Delete the driver record - CASCADE will handle related records
       const { error } = await supabase
         .from('drivers')
-        .update({ fleet_id: null })
+        .delete()
         .eq('id', driverId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error deleting driver:', error);
+        
+        // If FK error, try to manually clear dependencies first
+        if (error.message?.includes('foreign key') || error.code === '23503') {
+          toast.error(`Nie można usunąć: powiązane dane blokują usunięcie. Spróbuj ponownie lub skontaktuj się z administratorem.`);
+        } else {
+          toast.error(`Błąd: ${error.message || 'Nieznany błąd'}`);
+        }
+        return;
+      }
 
-      toast.success(`Kierowca ${driverName} został usunięty z floty`);
+      console.log(`✅ Driver ${driverName} removed successfully`);
+      toast.success(`Kierowca ${driverName} został usunięty`);
       refetch();
       onDriverUpdate();
-    } catch (error) {
-      toast.error('Błąd podczas usuwania kierowcy z floty');
+    } catch (error: any) {
+      console.error('❌ Exception removing driver:', error);
+      toast.error(`Błąd: ${error?.message || 'Nieznany błąd podczas usuwania'}`);
     }
   };
 
