@@ -595,41 +595,6 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                   onVehicleUpdate={refetch}
                                   hideFleetName={mode === 'fleet'}
                                 />
-                               {driver.vehicle_assignment?.assigned_at && (
-                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                   <span>od:</span>
-                                   {mode === 'admin' ? (
-                                     <input
-                                       type="date"
-                                       value={format(new Date(driver.vehicle_assignment.assigned_at), 'yyyy-MM-dd')}
-                                       onChange={(e) => {
-                                         e.stopPropagation();
-                                         updateAssignedDate(driver.id, e.target.value);
-                                       }}
-                                       onClick={(e) => e.stopPropagation()}
-                                       className="border rounded px-1 py-0.5 text-xs cursor-pointer hover:border-primary transition-colors"
-                                     />
-                                   ) : (
-                                     <span>{format(new Date(driver.vehicle_assignment.assigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
-                                   )}
-                                   {driver.vehicle_assignment?.unassigned_at && (
-                                     <>
-                                       <span>do:</span>
-                                       <span>{format(new Date(driver.vehicle_assignment.unassigned_at), 'dd.MM.yyyy', { locale: pl })}</span>
-                                     </>
-                                   )}
-                                 </div>
-                               )}
-                               {/* Badge z informacją o pojeździe */}
-                               {driver.vehicle_assignment?.vehicle && driver.vehicle_assignment.status === 'active' && !driver.vehicle_assignment.unassigned_at && (
-                                 <Badge 
-                                   variant="outline" 
-                                   className={`text-xs ${driver.vehicle_assignment.vehicle.fleet_id ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
-                                 >
-                                   <Car className="h-3 w-3 mr-1" />
-                                   {driver.vehicle_assignment.vehicle.plate} • {driver.vehicle_assignment.vehicle.brand} {driver.vehicle_assignment.vehicle.model}
-                                 </Badge>
-                               )}
                               </div>
                              {/* Fleet badge - tylko w trybie admin */}
                              {mode === 'admin' && (
