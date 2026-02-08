@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
-import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
 import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement';
@@ -12,12 +11,12 @@ import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
-import { UniversalHomeButton } from '@/components/UniversalHomeButton';
-import { MyGetRidoButton } from '@/components/MyGetRidoButton';
-import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmailSettings } from '@/components/EmailSettings';
-import { Loader2, Globe, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail } from 'lucide-react';
+import { TabsPill } from '@/components/ui/TabsPill';
+import { TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { UserDropdown } from '@/components/UserDropdown';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -25,9 +24,8 @@ export default function AdminPortal() {
   const isFleetAccount = isFleetSettlement || isFleetRental;
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('ai-assistant');
-  const [isMarketplaceAccount, setIsMarketplaceAccount] = useState(false);
-  const [isRealEstateAccount, setIsRealEstateAccount] = useState(false);
+  const [activeTab, setActiveTab] = useState('ai-assistant');
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -36,20 +34,7 @@ export default function AdminPortal() {
       if (!user) {
         navigate('/auth');
       } else {
-        // Check marketplace and real estate accounts
-        const { data: marketplaceProfile } = await supabase
-          .from('marketplace_user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setIsMarketplaceAccount(!!marketplaceProfile);
-
-        const { data: realEstateAgent } = await supabase
-          .from('real_estate_agents')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setIsRealEstateAccount(!!realEstateAgent);
+        setUserEmail(user.email || '');
       }
       setLoading(false);
     };
@@ -65,18 +50,28 @@ export default function AdminPortal() {
     }
   }, [roleLoading, isAdmin, user, loading]);
 
-  const subTabs = [
-    { value: 'ai-assistant', label: 'AI Asystent', visible: true },
-    { value: 'api', label: 'API i Integracje', visible: true },
-    { value: 'voice', label: 'Głos i TTS', visible: true },
-    { value: 'email', label: 'Poczta email', visible: true },
-    { value: 'registries', label: 'Rejestry zewnętrzne', visible: true },
-    { value: 'accounting', label: 'Moduł księgowy', visible: true },
-    { value: 'features', label: 'Funkcje portalu', visible: true },
-    { value: 'portals', label: 'Portale', visible: true },
-    { value: 'branding', label: 'Wygląd', visible: true },
-    { value: 'users', label: 'Użytkownicy systemu', visible: true },
-  ];
+  // Read tab from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (activeTab) {
+      params.set('tab', activeTab);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    }
+  }, [activeTab]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   if (loading || roleLoading) {
     return (
@@ -91,255 +86,294 @@ export default function AdminPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Blue Admin Bar - matching other admin panels */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              <span className="font-semibold text-sm">Panel Administratora GetRido</span>
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          {/* Desktop header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="GetRido Logo" 
+                className="h-6 w-6"
+              />
+              <AdminPortalSwitcher />
             </div>
-            <span className="text-xs text-blue-100">Globalne ustawienia portalu</span>
+            <div className="flex items-center space-x-3">
+              <UserDropdown 
+                userName="Administrator"
+                userRole="Admin Portalu"
+                userEmail={userEmail}
+                onLogout={handleLogout}
+              />
+            </div>
+          </div>
+
+          {/* Mobile header */}
+          <div className="md:hidden flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="GetRido Logo" 
+                className="h-6 w-6"
+              />
+              <span className="text-sm font-semibold text-primary">Admin Portalu</span>
+            </div>
+            <UserDropdown 
+              userName="Admin"
+              userRole="Administrator"
+              userEmail={userEmail}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </div>
-      
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <UniversalHomeButton />
-            <AdminPortalSwitcher />
-          </div>
-          <MyGetRidoButton user={user} />
-        </div>
-      </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Globe className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">Admin Portalu GetRido</h1>
+      <div className="container mx-auto px-4 py-6">
+        <TabsPill value={activeTab} onValueChange={setActiveTab}>
+          {/* Desktop - horizontal scroll tabs */}
+          <div className="hidden md:block mb-6">
+            <TabsTrigger value="ai-assistant">
+              <Bot className="h-4 w-4 mr-1" />
+              AI Asystent
+            </TabsTrigger>
+            <TabsTrigger value="api">
+              <Settings className="h-4 w-4 mr-1" />
+              API i Integracje
+            </TabsTrigger>
+            <TabsTrigger value="voice">
+              <Volume2 className="h-4 w-4 mr-1" />
+              Głos i TTS
+            </TabsTrigger>
+            <TabsTrigger value="email">
+              <Mail className="h-4 w-4 mr-1" />
+              Poczta email
+            </TabsTrigger>
+            <TabsTrigger value="registries">
+              <Building2 className="h-4 w-4 mr-1" />
+              Rejestry
+            </TabsTrigger>
+            <TabsTrigger value="accounting">
+              <Calculator className="h-4 w-4 mr-1" />
+              Księgowość
+            </TabsTrigger>
+            <TabsTrigger value="features">
+              <Wrench className="h-4 w-4 mr-1" />
+              Funkcje
+            </TabsTrigger>
+            <TabsTrigger value="portals">
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Portale
+            </TabsTrigger>
+            <TabsTrigger value="branding">
+              <Palette className="h-4 w-4 mr-1" />
+              Wygląd
+            </TabsTrigger>
+            <TabsTrigger value="users">
+              <Users className="h-4 w-4 mr-1" />
+              Użytkownicy
+            </TabsTrigger>
           </div>
-          <p className="text-muted-foreground">
-            Globalne ustawienia portalu, API, funkcje i prowizje
-          </p>
-        </div>
 
-        {/* Account Switcher */}
-        <div className="mb-6">
-          <AccountSwitcherPanel
-            isDriverAccount={false}
-            isFleetAccount={isFleetAccount}
-            isMarketplaceAccount={isMarketplaceAccount}
-            isRealEstateAccount={isRealEstateAccount}
-            isAdminAccount={true}
-            isSalesAdmin={isSalesAdmin}
-            isSalesRep={isSalesRep}
-            isMarketplaceEnabled={true}
-            currentAccountType="admin"
-            navigate={navigate}
-          />
-        </div>
+          {/* Mobile - simplified tabs */}
+          <div className="md:hidden mb-4 overflow-x-auto">
+            <div className="flex gap-2 pb-2">
+              {[
+                { value: 'ai-assistant', label: 'AI', icon: Bot },
+                { value: 'api', label: 'API', icon: Settings },
+                { value: 'email', label: 'Email', icon: Mail },
+                { value: 'features', label: 'Funkcje', icon: Wrench },
+                { value: 'users', label: 'Użytkownicy', icon: Users },
+              ].map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value)}
+                  className={`px-3 py-2 rounded-full text-sm whitespace-nowrap flex items-center gap-1 ${
+                    activeTab === tab.value 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <tab.icon className="h-3 w-3" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <UniversalSubTabBar
-          activeTab={activeSubTab}
-          onTabChange={setActiveSubTab}
-          tabs={subTabs}
-        />
-
-        <div className="mt-6">
           {/* AI Assistant Tab */}
-          {activeSubTab === 'ai-assistant' && (
+          <TabsContent value="ai-assistant">
             <AdminAIAssistant />
-          )}
+          </TabsContent>
 
           {/* API & Integrations Tab */}
-          {activeSubTab === 'api' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Ustawienia AI
-                  </CardTitle>
-                  <CardDescription>
-                    Konfiguracja kluczy API dla OpenAI, Gemini i innych usług AI
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AISettingsPanel />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="api">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Ustawienia AI
+                </CardTitle>
+                <CardDescription>
+                  Konfiguracja kluczy API dla OpenAI, Gemini i innych usług AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AISettingsPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Voice / TTS Tab */}
-          {activeSubTab === 'voice' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Volume2 className="h-5 w-5" />
-                    Ustawienia głosu
-                  </CardTitle>
-                  <CardDescription>
-                    Konfiguracja TTS (synteza mowy) dla nawigacji i asystenta
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TTSSettingsPanel />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="voice">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Volume2 className="h-5 w-5" />
+                  Ustawienia głosu
+                </CardTitle>
+                <CardDescription>
+                  Konfiguracja TTS (synteza mowy) dla nawigacji i asystenta
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TTSSettingsPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Email Settings Tab */}
-          {activeSubTab === 'email' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
-                    Ustawienia poczty email
-                  </CardTitle>
-                  <CardDescription>
-                    Konfiguracja serwera SMTP i szablonów wiadomości
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <EmailSettings />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="email">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Ustawienia poczty email
+                </CardTitle>
+                <CardDescription>
+                  Konfiguracja serwera SMTP i szablonów wiadomości
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <EmailSettings />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* External Registries Tab */}
-          {activeSubTab === 'registries' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Rejestry zewnętrzne
-                  </CardTitle>
-                  <CardDescription>
-                    Integracje z GUS REGON, Białą Listą VAT i KSeF
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RegistryIntegrationsPanel />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="registries">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Rejestry zewnętrzne
+                </CardTitle>
+                <CardDescription>
+                  Integracje z GUS REGON, Białą Listą VAT i KSeF
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RegistryIntegrationsPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Accounting Module Tab */}
-          {activeSubTab === 'accounting' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    Moduł księgowy
-                  </CardTitle>
-                  <CardDescription>
-                    Ustawienia fakturowania, integracje GUS, biała lista VAT i KSeF
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AccountingModuleSettings />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="accounting">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Moduł księgowy
+                </CardTitle>
+                <CardDescription>
+                  Ustawienia fakturowania, integracje GUS, biała lista VAT i KSeF
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AccountingModuleSettings />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Feature Toggles Tab */}
-          {activeSubTab === 'features' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5" />
-                    Funkcje portalu
-                  </CardTitle>
-                  <CardDescription>
-                    Włączanie i wyłączanie modułów portalu
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FeatureTogglesManagement />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="features">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Funkcje portalu
+                </CardTitle>
+                <CardDescription>
+                  Włączanie i wyłączanie modułów portalu
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FeatureTogglesManagement />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Portals Tab */}
-          {activeSubTab === 'portals' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <LayoutGrid className="h-5 w-5" />
-                    Zarządzanie portalami
-                  </CardTitle>
-                  <CardDescription>
-                    Konfiguracja kafelków i kategorii na stronach portali (Motoryzacja, Nieruchomości, Usługi)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <PortalCategoriesManager />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="portals">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5" />
+                  Zarządzanie portalami
+                </CardTitle>
+                <CardDescription>
+                  Konfiguracja kafelków i kategorii na stronach portali (Motoryzacja, Nieruchomości, Usługi)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortalCategoriesManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Branding Tab */}
-          {activeSubTab === 'branding' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    Wygląd portalu
-                  </CardTitle>
-                  <CardDescription>
-                    Personalizacja logo, kolorów i brandingu
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Ustawienia wyglądu wkrótce</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <TabsContent value="branding">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Wygląd portalu
+                </CardTitle>
+                <CardDescription>
+                  Personalizacja logo, kolorów i brandingu
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>Ustawienia wyglądu wkrótce</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Users Tab */}
-          {activeSubTab === 'users' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Administratorzy systemu
-                  </CardTitle>
-                  <CardDescription>
-                    Zarządzanie uprawnieniami administratorów
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <UserRolesManager />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      </main>
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Administratorzy systemu
+                </CardTitle>
+                <CardDescription>
+                  Zarządzanie uprawnieniami administratorów
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UserRolesManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </TabsPill>
+      </div>
     </div>
   );
 }
