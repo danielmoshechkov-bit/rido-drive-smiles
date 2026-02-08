@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   Car, 
   Building2, 
@@ -29,7 +29,12 @@ import {
   Layers,
   Home,
   Wallet,
-  Settings
+  Settings,
+  CheckCircle,
+  LogIn,
+  Share,
+  MoreVertical,
+  ArrowLeft as ArrowLeftIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -277,6 +282,7 @@ const SERVICES_FULL_ACCESS_EMAILS = [
 
 export default function EasyHub() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -287,10 +293,28 @@ export default function EasyHub() {
   const [showAccountingModal, setShowAccountingModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showServicesComingSoon, setShowServicesComingSoon] = useState(false);
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationPlatform, setActivationPlatform] = useState<'none' | 'android' | 'iphone'>('none');
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
 
   // Check if user has full services access
   const hasServicesAccess = user?.email && SERVICES_FULL_ACCESS_EMAILS.includes(user.email);
+
+  // Handle activation token from email link (hash contains access_token after Supabase verification)
+  useEffect(() => {
+    const hash = location.hash;
+    
+    // Check if this is an activation callback (Supabase puts tokens in hash)
+    if (hash && (hash.includes('access_token') || hash.includes('type=signup'))) {
+      console.log('Activation callback detected');
+      
+      // Clear the hash from URL for cleaner look
+      window.history.replaceState(null, '', location.pathname);
+      
+      // Show the activation success modal
+      setShowActivationModal(true);
+    }
+  }, [location.hash, location.pathname]);
 
   // Handle URL parameter for category
   useEffect(() => {
@@ -792,6 +816,169 @@ export default function EasyHub() {
         open={showServicesComingSoon}
         onOpenChange={setShowServicesComingSoon}
       />
+
+      {/* Activation Success Modal */}
+      <Dialog open={showActivationModal} onOpenChange={setShowActivationModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader className="flex flex-col items-center gap-4 text-center">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                alt="GetRido" 
+                className="h-12 w-12"
+              />
+            </div>
+            <CheckCircle className="h-16 w-16 text-green-500" />
+            <DialogTitle className="text-2xl font-bold text-green-600">
+              🎉 Dziękujemy za aktywację konta!
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Twoje konto w GetRido zostało pomyślnie aktywowane. ✅
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4 space-y-4">
+            {activationPlatform === 'none' ? (
+              <>
+                <Button 
+                  onClick={() => {
+                    setShowActivationModal(false);
+                    navigate('/auth');
+                  }} 
+                  className="w-full" 
+                  size="lg"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  🚗 Zaloguj się do portalu
+                </Button>
+
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-4 text-center">
+                    📱 Pobierz aplikację na telefon dla szybkiego dostępu:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setActivationPlatform('android')}
+                      className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                    >
+                      <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <span className="text-3xl">🤖</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Android</p>
+                        <p className="text-xs text-muted-foreground">Chrome</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setActivationPlatform('iphone')}
+                      className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                    >
+                      <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800/50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <span className="text-3xl">🍎</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold">iPhone</p>
+                        <p className="text-xs text-muted-foreground">Safari</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setActivationPlatform('none')}
+                  className="mb-2"
+                >
+                  <ArrowLeftIcon className="h-4 w-4 mr-2" />
+                  Wróć
+                </Button>
+
+                {activationPlatform === 'android' && (
+                  <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2 justify-center">
+                        <span className="text-2xl">🤖</span>
+                        Instalacja na Android (Chrome)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-left">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
+                        <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce Chrome</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
+                        <p className="text-sm flex items-center gap-1 flex-wrap">
+                          Naciśnij <MoreVertical className="h-4 w-4 inline mx-1" /> (Menu) w prawym górnym rogu
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
+                        <p className="text-sm">Wybierz <strong>"Dodaj do ekranu głównego"</strong> lub <strong>"Zainstaluj aplikację"</strong></p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
+                        <p className="text-sm">Potwierdź instalację ✅</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {activationPlatform === 'iphone' && (
+                  <Card className="bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2 justify-center">
+                        <span className="text-2xl">🍎</span>
+                        Instalacja na iPhone (Safari)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-left">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
+                        <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce <strong>Safari</strong></p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
+                        <p className="text-sm flex items-center gap-1 flex-wrap">
+                          Naciśnij <Share className="h-4 w-4 inline mx-1" /> (Udostępnij) na dolnym pasku
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
+                        <p className="text-sm">Przewiń w dół i wybierz <strong>"Dodaj do ekranu początkowego"</strong></p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
+                        <p className="text-sm">Naciśnij <strong>"Dodaj"</strong> w prawym górnym rogu ✅</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button 
+                  onClick={() => {
+                    setShowActivationModal(false);
+                    navigate('/auth');
+                  }} 
+                  className="w-full mt-4" 
+                  size="lg"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  🚗 Zaloguj się do portalu
+                </Button>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              AI platforma do usług i ogłoszeń
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
