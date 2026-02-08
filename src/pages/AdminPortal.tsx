@@ -12,16 +12,14 @@ import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSet
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { EmailSettings } from '@/components/EmailSettings';
-import { TabsPill } from '@/components/ui/TabsPill';
-import { TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
-  const { isAdmin, isSalesAdmin, isSalesRep, isFleetSettlement, isFleetRental, loading: roleLoading } = useUserRole();
-  const isFleetAccount = isFleetSettlement || isFleetRental;
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ai-assistant');
@@ -85,6 +83,19 @@ export default function AdminPortal() {
     return null;
   }
 
+  const tabs = [
+    { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
+    { value: 'api', label: 'API i Integracje', icon: Settings },
+    { value: 'voice', label: 'Głos i TTS', icon: Volume2 },
+    { value: 'email', label: 'Poczta email', icon: Mail },
+    { value: 'registries', label: 'Rejestry', icon: Building2 },
+    { value: 'accounting', label: 'Księgowość', icon: Calculator },
+    { value: 'features', label: 'Funkcje', icon: Wrench },
+    { value: 'portals', label: 'Portale', icon: LayoutGrid },
+    { value: 'branding', label: 'Wygląd', icon: Palette },
+    { value: 'users', label: 'Użytkownicy', icon: Users },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
@@ -132,61 +143,34 @@ export default function AdminPortal() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
-        <TabsPill value={activeTab} onValueChange={setActiveTab}>
-          {/* Desktop - horizontal scroll tabs */}
-          <div className="hidden md:block mb-6">
-            <TabsTrigger value="ai-assistant">
-              <Bot className="h-4 w-4 mr-1" />
-              AI Asystent
-            </TabsTrigger>
-            <TabsTrigger value="api">
-              <Settings className="h-4 w-4 mr-1" />
-              API i Integracje
-            </TabsTrigger>
-            <TabsTrigger value="voice">
-              <Volume2 className="h-4 w-4 mr-1" />
-              Głos i TTS
-            </TabsTrigger>
-            <TabsTrigger value="email">
-              <Mail className="h-4 w-4 mr-1" />
-              Poczta email
-            </TabsTrigger>
-            <TabsTrigger value="registries">
-              <Building2 className="h-4 w-4 mr-1" />
-              Rejestry
-            </TabsTrigger>
-            <TabsTrigger value="accounting">
-              <Calculator className="h-4 w-4 mr-1" />
-              Księgowość
-            </TabsTrigger>
-            <TabsTrigger value="features">
-              <Wrench className="h-4 w-4 mr-1" />
-              Funkcje
-            </TabsTrigger>
-            <TabsTrigger value="portals">
-              <LayoutGrid className="h-4 w-4 mr-1" />
-              Portale
-            </TabsTrigger>
-            <TabsTrigger value="branding">
-              <Palette className="h-4 w-4 mr-1" />
-              Wygląd
-            </TabsTrigger>
-            <TabsTrigger value="users">
-              <Users className="h-4 w-4 mr-1" />
-              Użytkownicy
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          {/* Desktop - Purple pill tabs */}
+          <div className="hidden md:block">
+            <div 
+              className="rounded-full p-1 shadow-lg"
+              style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
+            >
+              <TabsList 
+                className="flex w-full items-center gap-1 overflow-x-auto scrollbar-hide rounded-full px-1 min-h-[44px] bg-transparent"
+              >
+                {tabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="px-4 h-10 flex items-center gap-2 rounded-full text-sm whitespace-nowrap transition text-white data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/20 focus-visible:outline-none"
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </div>
 
           {/* Mobile - simplified tabs */}
-          <div className="md:hidden mb-4 overflow-x-auto">
+          <div className="md:hidden overflow-x-auto">
             <div className="flex gap-2 pb-2">
-              {[
-                { value: 'ai-assistant', label: 'AI', icon: Bot },
-                { value: 'api', label: 'API', icon: Settings },
-                { value: 'email', label: 'Email', icon: Mail },
-                { value: 'features', label: 'Funkcje', icon: Wrench },
-                { value: 'users', label: 'Użytkownicy', icon: Users },
-              ].map(tab => (
+              {tabs.slice(0, 5).map(tab => (
                 <button
                   key={tab.value}
                   onClick={() => setActiveTab(tab.value)}
@@ -197,7 +181,7 @@ export default function AdminPortal() {
                   }`}
                 >
                   <tab.icon className="h-3 w-3" />
-                  {tab.label}
+                  {tab.label.split(' ')[0]}
                 </button>
               ))}
             </div>
@@ -372,7 +356,7 @@ export default function AdminPortal() {
               </CardContent>
             </Card>
           </TabsContent>
-        </TabsPill>
+        </Tabs>
       </div>
     </div>
   );

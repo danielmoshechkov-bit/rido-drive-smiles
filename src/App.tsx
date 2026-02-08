@@ -20,6 +20,7 @@ import FleetVehicleDetails from "./pages/FleetVehicleDetails";
 import DriverRegister from "./pages/DriverRegister";
 import RegisterSuccess from "./pages/RegisterSuccess";
 import EmailConfirmed from "./pages/EmailConfirmed";
+import ActivationConfirm from "./pages/ActivationConfirm";
 import DriverDashboard from "./pages/DriverDashboard";
 import FleetDashboard from "./pages/FleetDashboard";
 import SettlementSheet from "./pages/SettlementSheet";
@@ -132,6 +133,8 @@ const App = () => (
             <Route path="/driver/register" element={<DriverRegister />} />
             <Route path="/register-success" element={<RegisterSuccess />} />
             <Route path="/email-confirmed" element={<EmailConfirmed />} />
+            <Route path="/kierowca/aktywacja" element={<ActivationConfirm />} />
+            <Route path="/aktywacja" element={<ActivationConfirm />} />
             <Route path="/driver" element={<DriverDashboard />} />
             <Route path="/kierowca-info" element={<DriverInfoLanding />} />
             <Route path="/sprzedaz" element={<SalesPortal />} />
