@@ -39,7 +39,7 @@ export const SettlementImportTabs = ({
   setMainFile,
   setFuelFile
 }: SettlementImportTabsProps) => {
-  const [activeTab, setActiveTab] = useState<'template' | 'platforms'>('template');
+  const [activeTab, setActiveTab] = useState<'template' | 'platforms'>('platforms');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (file: File | null) => void) => {
     const file = e.target.files?.[0];
@@ -55,13 +55,13 @@ export const SettlementImportTabs = ({
   return (
     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'template' | 'platforms')}>
       <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="platforms">
+          <Upload className="h-4 w-4 mr-2" />
+          3 Osobne CSV + Paliwo
+        </TabsTrigger>
         <TabsTrigger value="template">
           <FileText className="h-4 w-4 mr-2" />
           1 Szablon RIDO
-        </TabsTrigger>
-        <TabsTrigger value="platforms">
-          <Upload className="h-4 w-4 mr-2" />
-          3 Osobne CSV-y
         </TabsTrigger>
       </TabsList>
 
