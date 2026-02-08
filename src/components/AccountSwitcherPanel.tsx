@@ -30,6 +30,7 @@ interface AccountSwitcherPanelProps {
 interface AccountOption {
   type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales';
   label: string;
+  description: string;
   icon: React.ReactNode;
   route: string;
   isEnabled: boolean;
@@ -66,6 +67,7 @@ export function AccountSwitcherPanel({
     {
       type: 'admin',
       label: 'Administrator',
+      description: 'Zarządzaj całym portalem',
       icon: <Globe className="h-8 w-8" />,
       route: '/admin/dashboard',
       isEnabled: isAdminAccount
@@ -73,6 +75,7 @@ export function AccountSwitcherPanel({
     {
       type: 'sales',
       label: isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec',
+      description: 'Kontakty, leady i sprzedaż',
       icon: <Briefcase className="h-8 w-8" />,
       route: '/sprzedaz',
       isEnabled: hasSalesAccess
@@ -80,6 +83,7 @@ export function AccountSwitcherPanel({
     {
       type: 'fleet',
       label: 'Flota',
+      description: 'Zarządzaj pojazdami i kierowcami',
       icon: <Truck className="h-8 w-8" />,
       route: '/fleet/dashboard',
       isEnabled: isFleetAccount
@@ -87,6 +91,7 @@ export function AccountSwitcherPanel({
     {
       type: 'driver',
       label: 'Kierowca',
+      description: 'Rozliczenia i dokumenty',
       icon: <Car className="h-8 w-8" />,
       route: '/driver',
       isEnabled: showDriverOption
@@ -94,6 +99,7 @@ export function AccountSwitcherPanel({
     {
       type: 'client',
       label: 'Portal Klienta',
+      description: 'Twoje konto i ustawienia',
       icon: <UserCircle className="h-8 w-8" />,
       route: '/klient',
       isEnabled: isClientPortal
@@ -175,12 +181,12 @@ export function AccountSwitcherPanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          {hasNoSpecializedAccounts ? "Dodaj nowe konto" : "Twoje konta"}
+          {hasNoSpecializedAccounts ? "Dodaj nowe konto" : "Wybierz moduł"}
         </CardTitle>
         <CardDescription>
           {hasNoSpecializedAccounts 
             ? "Wybierz rodzaj konta, które chcesz utworzyć"
-            : "Przełącz między swoimi kontami lub dodaj nowe"
+            : "Przełącz między modułami lub dodaj nowy"
           }
         </CardDescription>
       </CardHeader>
@@ -226,10 +232,11 @@ export function AccountSwitcherPanel({
               }`}
               onClick={() => currentAccountType !== 'client' && navigate('/klient')}
             >
-              <div className={`mx-auto mb-2 ${currentAccountType === 'client' ? 'text-primary' : 'text-muted-foreground'}`}>
-                <UserCircle className="h-8 w-8 mx-auto" />
+              <div className={`mx-auto mb-3 p-3 rounded-xl w-fit ${currentAccountType === 'client' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                <UserCircle className="h-8 w-8" />
               </div>
               <p className="font-medium text-sm">Portal Klienta</p>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">Twoje konto i ustawienia</p>
               {currentAccountType === 'client' && (
                 <Badge className="mt-2 text-xs">aktywne</Badge>
               )}
@@ -247,10 +254,11 @@ export function AccountSwitcherPanel({
                   }`}
                   onClick={() => !isActive && handleAccountClick(account)}
                 >
-                  <div className={`mx-auto mb-2 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                  <div className={`mx-auto mb-3 p-3 rounded-xl w-fit ${isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                     {account.icon}
                   </div>
                   <p className="font-medium text-sm">{account.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{account.description}</p>
                   {isActive && (
                     <Badge className="mt-2 text-xs">aktywne</Badge>
                   )}
@@ -263,8 +271,11 @@ export function AccountSwitcherPanel({
               className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => setShowAddAccountDialog(true)}
             >
-              <Plus className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground text-sm">Dodaj konto</p>
+              <div className="mx-auto mb-3 p-3 rounded-xl w-fit bg-muted/50">
+                <Plus className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">Dodaj moduł</p>
+              <p className="text-xs text-muted-foreground mt-1">Rozszerz funkcjonalność</p>
             </div>
           </div>
         )}
@@ -274,9 +285,9 @@ export function AccountSwitcherPanel({
       <Dialog open={showAddAccountDialog} onOpenChange={setShowAddAccountDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Dodaj nowe konto</DialogTitle>
+            <DialogTitle>Dodaj nowy moduł</DialogTitle>
             <DialogDescription>
-              Wybierz rodzaj konta, które chcesz utworzyć
+              Wybierz moduł, który chcesz aktywować
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-4">
