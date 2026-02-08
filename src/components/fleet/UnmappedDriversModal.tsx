@@ -70,6 +70,10 @@ export function UnmappedDriversModal({
   const uberDrivers = unmappedDrivers.filter(d => d.uber_id);
   const boltDrivers = unmappedDrivers.filter(d => d.bolt_id);
   const freenowDrivers = unmappedDrivers.filter(d => d.freenow_id);
+  // Drivers without any platform ID (need manual assignment)
+  const noPlatformDrivers = unmappedDrivers.filter(d => 
+    !d.uber_id && !d.bolt_id && !d.freenow_id
+  );
 
   useEffect(() => {
     if (open && fleetId) {
@@ -106,15 +110,17 @@ export function UnmappedDriversModal({
         .eq("fleet_id", fleetId)
         .not("fuel_card_number", "is", null);
 
-      const assignedCards = new Set<string>();
+      // Build normalized set for comparison - normalize by stripping leading zeros
+      const assignedCardsNormalized = new Set<string>();
       drivers?.forEach(d => {
         if (d.fuel_card_number) {
-          assignedCards.add(d.fuel_card_number);
-          assignedCards.add(d.fuel_card_number.replace(/^0+/, ''));
-          assignedCards.add('0' + d.fuel_card_number);
-          assignedCards.add('00' + d.fuel_card_number);
+          // Always store the normalized (no leading zeros) version
+          const normalized = d.fuel_card_number.replace(/^0+/, '');
+          assignedCardsNormalized.add(normalized);
         }
       });
+
+      console.log('🔍 FUEL DEBUG - Assigned cards (normalized):', Array.from(assignedCardsNormalized));
 
       // Get recent fuel transactions
       const lastMonth = new Date();
@@ -125,13 +131,24 @@ export function UnmappedDriversModal({
         .select("card_number, total_amount")
         .gte("transaction_date", lastMonth.toISOString().split('T')[0]);
 
+      console.log('🔍 FUEL DEBUG - Transaction card numbers:', transactions?.map(t => t.card_number));
+
       // Group by card and filter unassigned
       const cardTotals: Record<string, { amount: number; count: number }> = {};
       transactions?.forEach(t => {
-        const normalized = t.card_number.replace(/^0+/, '');
-        const isAssigned = assignedCards.has(t.card_number) || 
-                          assignedCards.has(normalized) ||
-                          assignedCards.has('0' + t.card_number);
+        if (!t.card_number) return;
+        
+        // Normalize the transaction card number by stripping leading zeros
+        const transactionNormalized = t.card_number.replace(/^0+/, '');
+        
+        // Check if this normalized card is assigned
+        const isAssigned = assignedCardsNormalized.has(transactionNormalized);
+        
+        console.log('🔍 FUEL CHECK:', { 
+          original: t.card_number, 
+          normalized: transactionNormalized, 
+          isAssigned 
+        });
         
         if (!isAssigned) {
           if (!cardTotals[t.card_number]) {
@@ -148,6 +165,7 @@ export function UnmappedDriversModal({
         transaction_count: data.count
       }));
 
+      console.log('🔍 FUEL DEBUG - Unassigned cards:', unassigned);
       setUnmappedFuelCards(unassigned);
     } catch (err) {
       console.error("Error fetching unmapped fuel cards:", err);
@@ -493,7 +511,7 @@ export function UnmappedDriversModal({
     );
   };
 
-  const totalNewRecords = uberDrivers.length + boltDrivers.length + freenowDrivers.length + unmappedFuelCards.length;
+  const totalNewRecords = uberDrivers.length + boltDrivers.length + freenowDrivers.length + noPlatformDrivers.length + unmappedFuelCards.length;
   const totalMappingsCount = Object.keys(mappings).length + Object.keys(fuelMappings).length;
 
   return (
@@ -515,8 +533,15 @@ export function UnmappedDriversModal({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Tabs defaultValue="uber" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue={noPlatformDrivers.length > 0 ? "no_platform" : "uber"} className="flex-1 overflow-hidden flex flex-col">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="no_platform" className="flex items-center gap-1.5 text-xs">
+                <Car className="h-3.5 w-3.5" />
+                Bez platformy
+                {noPlatformDrivers.length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{noPlatformDrivers.length}</Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="uber" className="flex items-center gap-1.5 text-xs">
                 <Car className="h-3.5 w-3.5" />
                 Uber
@@ -548,6 +573,44 @@ export function UnmappedDriversModal({
             </TabsList>
 
             <div className="flex-1 overflow-y-auto mt-4 pr-1">
+              <TabsContent value="no_platform" className="mt-0">
+                {noPlatformDrivers.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    Brak kierowców bez przypisanej platformy
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {noPlatformDrivers.map(driver => (
+                      <div 
+                        key={driver.id} 
+                        className="flex items-center gap-3 py-2 px-3 border rounded-md bg-muted/20"
+                      >
+                        <div className="w-36 shrink-0">
+                          <span className="font-medium text-sm truncate block">
+                            {driver.full_name || "Nieznany"}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-xs shrink-0 bg-amber-50 text-amber-700 border-amber-200">
+                          Bez platformy
+                        </Badge>
+                        {driver.phone && (
+                          <span className="text-xs text-muted-foreground truncate max-w-24">
+                            {driver.phone}
+                          </span>
+                        )}
+                        <div className="ml-auto">
+                          {renderCompactDriverSelector(
+                            driver.id,
+                            mappings[driver.id],
+                            handleMapping,
+                            `no_platform-${driver.id}`
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
               <TabsContent value="uber" className="mt-0">
                 {renderPlatformList(uberDrivers, "uber")}
               </TabsContent>
