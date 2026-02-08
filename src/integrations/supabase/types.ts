@@ -4905,6 +4905,7 @@ export type Database = {
           settlement_frequency_enabled: boolean | null
           street: string | null
           transfer_enabled: boolean | null
+          transfer_title_template: string | null
           vat_rate: number | null
         }
         Insert: {
@@ -4938,6 +4939,7 @@ export type Database = {
           settlement_frequency_enabled?: boolean | null
           street?: string | null
           transfer_enabled?: boolean | null
+          transfer_title_template?: string | null
           vat_rate?: number | null
         }
         Update: {
@@ -4971,6 +4973,7 @@ export type Database = {
           settlement_frequency_enabled?: boolean | null
           street?: string | null
           transfer_enabled?: boolean | null
+          transfer_title_template?: string | null
           vat_rate?: number | null
         }
         Relationships: []
