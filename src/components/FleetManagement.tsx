@@ -33,6 +33,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { AddFleetDriverModal } from "./fleet/AddFleetDriverModal";
 import { VehicleRentalWizard } from "./fleet/VehicleRentalWizard";
 import { FleetContractSettings } from "./fleet/FleetContractSettings";
+import { syncRentalAssignments } from "@/hooks/useRentalSync";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -171,9 +172,19 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   };
   
   useEffect(() => {
-    fetchVehicles();
-    loadDrivers();
-    loadListedVehicles();
+    const loadAll = async () => {
+      // First sync rentals with assignments
+      if (fleetId) {
+        await syncRentalAssignments(fleetId);
+      }
+      
+      // Then load data
+      fetchVehicles();
+      loadDrivers();
+      loadListedVehicles();
+    };
+    
+    loadAll();
     
     // Fetch fleet name if fleetId is provided
     if (fleetId) {
