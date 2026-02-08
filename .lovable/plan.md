@@ -1,132 +1,214 @@
 
-# Plan Naprawy Systemu Rozliczeń i Przypisań Kierowców
+# Plan Naprawy Systemu Mapowania Nowych Rekordów z CSV
 
 ## Zdiagnozowane Problemy
 
-### Problem 1: Kierowca nie jest przypisany do pojazdu po podpisaniu umowy najmu
+### Problem 1: Kierowcy bez `driver_app_users` nie są wyświetlani w rozliczeniach
 
-**Analiza:**
-- W sekcji "Najem" widać aktywną umowę: Toyota Corolla (WW999S) wynajęta przez Andrei Gustoi
-- W sekcji "Auta" ten sam pojazd pokazuje "Kierowca: Brak"
-- Przyczyna: Funkcja `finalizeContract()` w `RentalContractSignatureFlow.tsx` (linia 330-366) aktualizuje tylko status pojazdu na "wynajęty", ale NIE tworzy wpisu w tabeli `driver_vehicle_assignments`
-
-**Rozwiązanie:**
-W funkcji `finalizeContract()` dodać tworzenie przypisania kierowcy do pojazdu:
-
+**Przyczyna:** W `FleetSettlementsView.tsx` linia 633 używa `!inner` JOIN:
 ```typescript
-// Po zaktualizowaniu statusu pojazdu (linia 347), dodać:
-await supabase
-  .from('driver_vehicle_assignments')
-  .upsert({
-    driver_id: rental.driver.id,
-    vehicle_id: rental.vehicle.id,
-    fleet_id: fleetId,
-    status: 'active',
-    assigned_at: new Date().toISOString()
-  }, { onConflict: 'driver_id,vehicle_id' });
+driver_app_users!inner(settlement_plan_id, user_id)
 ```
+
+Kierowcy utworzeni automatycznie przez import CSV (np. Aneta Sknadaj, Paweł Koziarek) **NIE mają wpisu w `driver_app_users`**, więc są pomijani przy pobieraniu danych.
+
+**Dowód:** Query do bazy pokazuje że Aneta jest w `settlements` z `total_earnings: 934.28`, ale nie ma wpisu w `driver_app_users` (`user_id: null`).
+
+### Problem 2: Tabela `unmapped_settlement_drivers` jest pusta
+
+**Przyczyna:** Kierowcy są dopasowywani przez fuzzy matching i trafiają do `driver_platform_ids`, więc NIE są zapisywani do `unmapped`. Ale potem nie są widoczni w UI bo brakuje `driver_app_users`.
+
+### Problem 3: Brak zakładek per platforma w modalu mapowania
+
+Obecny `UnmappedDriversModal` pokazuje wszystko na jednej liście - brak podziału na Uber/Bolt/FreeNow/Paliwo.
+
+### Problem 4: Paliwo - brak ostrzeżenia o nieprzypisanych kartach
+
+`FleetFuelView` pokazuje "Nieprzypisany" ale:
+- Brak czerwonego podświetlenia
+- Brak możliwości szybkiego przypisania karty
+- Zły styl numerów kart (font-mono zamiast naszego stylu)
 
 ---
 
-### Problem 2: Błąd przy wgrywaniu CSV - "Edge Function returned a non-2xx status code"
+## Rozwiązanie Techniczne
 
-**Analiza z logów Edge Function:**
-```
-ERROR: TypeError: supabase.from(...).upsert(...).catch is not a function
-    at parseUberCsv (settlements/index.ts:588:19)
-```
+### Faza 1: Naprawić pobieranie kierowców (KRYTYCZNE)
 
-Błąd występuje w liniach 797 i 936 gdzie używana jest składnia:
-```javascript
-await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e) => {...});
+**Plik:** `src/components/FleetSettlementsView.tsx` (linia 633)
+
+Zmienić `!inner` na `!left`:
+```typescript
+driver_app_users!left(settlement_plan_id, user_id)
 ```
 
-W Supabase Edge Functions, klient Supabase zwraca `{ data, error }` a nie Promise z `.catch()`.
+Dzięki temu kierowcy BEZ wpisu w `driver_app_users` też będą pobierani i wyświetlani w rozliczeniach.
 
-**Rozwiązanie:**
-Zmienić wszystkie wystąpienia `.catch()` na prawidłową obsługę błędów:
+### Faza 2: Dodać automatyczne wykrywanie nowych rekordów
+
+Po załadowaniu rozliczeń, sprawdzić:
+1. Czy są kierowcy w `settlements` dla wybranego okresu którzy NIE mają `driver_app_users`?
+2. Czy są rekordy w `unmapped_settlement_drivers` z `status = 'pending'`?
+
+Jeśli tak → pokazać alert "Znaleziono X nowych rekordów" z przyciskiem do mapowania.
+
+**Plik:** `src/components/FleetSettlementsView.tsx`
 
 ```typescript
-// PRZED (błędne):
-await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e) => {
-  console.log('Error:', e.message);
-});
-
-// PO (poprawne):
-const { error: upsertError } = await supabase.from('unmapped_settlement_drivers').upsert({...});
-if (upsertError) {
-  console.log('⚠️ unmapped_settlement_drivers upsert error:', upsertError.message);
-}
+// Po fetchSettlements, sprawdź nowe rekordy
+const checkNewRecords = async () => {
+  // 1. Kierowcy bez driver_app_users
+  const { data: unmappedDrivers } = await supabase
+    .from('drivers')
+    .select('id, first_name, last_name')
+    .eq('fleet_id', fleetId)
+    .is('driver_app_users.user_id', null);
+  
+  // 2. Unmapped z tabeli
+  const { data: pendingUnmapped } = await supabase
+    .from('unmapped_settlement_drivers')
+    .select('*')
+    .eq('fleet_id', fleetId)
+    .eq('status', 'pending');
+  
+  const totalNew = (unmappedDrivers?.length || 0) + (pendingUnmapped?.length || 0);
+  
+  if (totalNew > 0) {
+    setNewRecordsCount(totalNew);
+    // Pokaż alert
+  }
+};
 ```
 
-Miejsca do poprawienia:
-- Linia ~797 (parseUberCsv)
-- Linia ~936 (parseBoltCsv)  
-- Linia ~945 (parseBoltCsv - driver_platform_ids)
-- Podobne miejsca w parseFreenowCsv
+### Faza 3: Przebudować modal mapowania z zakładkami
 
----
+**Plik:** `src/components/fleet/UnmappedDriversModal.tsx`
 
-### Problem 3: Odwrócenie logiki "Ukryj 0" + Alert o nowych rekordach
+Dodać zakładki: Uber | Bolt | FreeNow | Paliwo
 
-**Obecny stan:**
-- Checkbox "Ukryj 0" domyślnie wyłączony (`hideZeroRows = false`)
-- Użytkownik musi włączyć, żeby schować zerowe wyniki
-- Brak alertu o nowych rekordach z CSV
-
-**Rozwiązanie:**
-
-1. **Odwrócić logikę:**
-   - Zmienić domyślną wartość: `useState<boolean>(true)` (ukryj zera domyślnie)
-   - Zmienić label na: "Pokaż wyniki zerowe" 
-   - Zmienić logikę: pokazuj zera gdy checkbox zaznaczony
-
-2. **Dodać alert o nowych rekordach:**
-   Po wgraniu CSV, jeśli są nowe rekordy → automatycznie pokazać alert z przyciskiem otwierającym modal mapowania
-
-**Zmiana w `FleetSettlementsView.tsx`:**
+Dla każdej platformy:
+- Pobierz kierowców którzy mają ID tej platformy ale nie są przypisani
+- Pokaż: Imię Nazwisko | Platform ID | Dropdown z wyszukiwarką kierowców | Przycisk "Nowy"
 
 ```tsx
-// Linia 103 - zmienić domyślną wartość
-const [showZeroRows, setShowZeroRows] = useState<boolean>(false); // domyślnie ukryte
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Linia 1385-1391 - zmienić checkbox
-<Checkbox
-  id="showZero"
-  checked={showZeroRows}
-  onCheckedChange={(checked) => setShowZeroRows(checked === true)}
-/>
-<Label htmlFor="showZero" className="text-sm cursor-pointer">
-  Pokaż "0" wyniki
-</Label>
-
-// Linia 1543 - zmienić logikę filtrowania
-if (!showZeroRows && s.total_base === 0 && s.final_payout === 0) {
-  return false;
-}
+// W komponencie:
+<Tabs defaultValue="uber">
+  <TabsList className="grid w-full grid-cols-4">
+    <TabsTrigger value="uber">
+      Uber {uberRecords.length > 0 && <Badge>{uberRecords.length}</Badge>}
+    </TabsTrigger>
+    <TabsTrigger value="bolt">
+      Bolt {boltRecords.length > 0 && <Badge>{boltRecords.length}</Badge>}
+    </TabsTrigger>
+    <TabsTrigger value="freenow">
+      FreeNow {freenowRecords.length > 0 && <Badge>{freenowRecords.length}</Badge>}
+    </TabsTrigger>
+    <TabsTrigger value="fuel">
+      Paliwo {fuelRecords.length > 0 && <Badge>{fuelRecords.length}</Badge>}
+    </TabsTrigger>
+  </TabsList>
+  
+  <TabsContent value="uber">
+    <UnmappedPlatformTable 
+      records={uberRecords} 
+      platform="uber"
+      existingDrivers={existingDrivers}
+      onMap={handleMapDriver}
+      onAddNew={handleAddNewDriver}
+    />
+  </TabsContent>
+  {/* ... pozostałe zakładki */}
+</Tabs>
 ```
 
-3. **Alert o nowych rekordach:**
-   - Dodać nowy state: `const [newRecordsCount, setNewRecordsCount] = useState(0);`
-   - Po imporcie CSV sprawdzić ile nowych rekordów w `unmapped_settlement_drivers`
-   - Wyświetlić alert: "⚠️ Znaleziono X nowych rekordów" z przyciskiem "Sprawdź"
+### Faza 4: Dodać wyszukiwarkę kierowców w dropdownie
 
----
+Użyć `Combobox` pattern z wyszukiwarką:
 
-### Problem 4: Lepszy modal mapowania nowych kierowców
+```tsx
+<Command>
+  <CommandInput placeholder="Szukaj kierowcy..." />
+  <CommandList>
+    <CommandEmpty>Nie znaleziono kierowcy</CommandEmpty>
+    <CommandGroup>
+      {filteredDrivers.map(driver => (
+        <CommandItem 
+          key={driver.id}
+          onSelect={() => handleMapDriver(unmappedId, driver.id)}
+        >
+          {driver.first_name} {driver.last_name}
+          {driver.phone && <span className="text-muted-foreground ml-2">({driver.phone})</span>}
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  </CommandList>
+</Command>
+```
 
-**Obecny stan:**
-- Modal `UnmappedDriversModal` pokazuje listę bez podziału na platformy
-- Brak informacji o paliwie
+### Faza 5: Poprawić widok paliwa
 
-**Rozwiązanie:**
-Rozbudować modal o zakładki: Uber | Bolt | FreeNow | Paliwo
+**Plik:** `src/components/FleetFuelView.tsx`
 
-Każda zakładka pokazuje:
-- Imię i nazwisko z CSV
-- Platform ID (jeśli jest)
-- Dropdown z wyszukiwarką do wyboru istniejącego kierowcy
-- Opcja "Dodaj jako nowego"
+1. Dodać czerwone podświetlenie dla "Nieprzypisany":
+```tsx
+<TableCell 
+  className={cn(
+    card.driver_name === 'Nieprzypisany' && 'text-red-600 font-medium cursor-pointer hover:underline'
+  )}
+  onClick={() => card.driver_name === 'Nieprzypisany' && setAssignCardModal(card.card_number)}
+>
+  {card.driver_name === 'Nieprzypisany' ? 'Nie przypisano' : card.driver_name}
+</TableCell>
+```
+
+2. Zmienić styl numeru karty:
+```tsx
+<TableCell className="tabular-nums">{formatCardNumber(card.card_number)}</TableCell>
+```
+
+3. Dodać modal przypisania karty do kierowcy
+
+### Faza 6: Auto-aktualizacja rozliczeń po mapowaniu
+
+Po zapisaniu mapowania w modalu, automatycznie:
+1. Zaktualizować `driver_platform_ids`
+2. Zaktualizować `settlements` - przepisać `driver_id` z auto-utworzonego kierowcy na właściwego
+3. Usunąć auto-utworzonego kierowcę (opcjonalnie)
+4. Odświeżyć listę rozliczeń
+
+```typescript
+const handleSaveMapping = async () => {
+  for (const [unmappedId, targetDriverId] of Object.entries(mappings)) {
+    const unmapped = unmappedDrivers.find(d => d.id === unmappedId);
+    
+    // 1. Przenieś platform IDs na właściwego kierowcę
+    if (unmapped.uber_id) {
+      await supabase.from('driver_platform_ids').upsert({
+        driver_id: targetDriverId,
+        platform: 'uber',
+        platform_id: unmapped.uber_id
+      }, { onConflict: 'driver_id,platform' });
+    }
+    
+    // 2. Przenieś rozliczenia na właściwego kierowcę
+    await supabase
+      .from('settlements')
+      .update({ driver_id: targetDriverId })
+      .eq('driver_id', unmapped.driver_id);
+    
+    // 3. Oznacz jako resolved
+    await supabase
+      .from('unmapped_settlement_drivers')
+      .update({ status: 'resolved', linked_driver_id: targetDriverId })
+      .eq('id', unmappedId);
+  }
+  
+  // 4. Odśwież rozliczenia
+  onComplete();
+};
+```
 
 ---
 
@@ -134,119 +216,44 @@ Każda zakładka pokazuje:
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/settlements/index.ts` | Naprawić błąd `.catch()` na poprawną obsługę `{ error }` |
-| `src/components/fleet/RentalContractSignatureFlow.tsx` | Dodać tworzenie `driver_vehicle_assignments` po finalizacji umowy |
-| `src/components/FleetSettlementsView.tsx` | Odwrócić logikę "Ukryj 0" → "Pokaż 0", dodać alert o nowych rekordach |
-| `src/components/fleet/UnmappedDriversModal.tsx` | Dodać podział na platformy (Uber/Bolt/FreeNow/Paliwo) |
-
----
-
-## Szczegóły Techniczne
-
-### 1. Naprawa Edge Function (settlements/index.ts)
-
-Zmienić wszystkie wystąpienia:
-```typescript
-// Linia ~797 (parseUberCsv):
-- await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e: any) => {...});
-+ const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({...});
-+ if (unmappedErr) console.log('⚠️ unmapped upsert error:', unmappedErr.message);
-
-// Linia ~936 (parseBoltCsv):
-- await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e: any) => {...});
-+ const { error: unmappedErr2 } = await supabase.from('unmapped_settlement_drivers').upsert({...});
-+ if (unmappedErr2) console.log('⚠️ unmapped upsert error:', unmappedErr2.message);
-
-// Linia ~945 (parseBoltCsv - platform_ids):
-- await supabase.from('driver_platform_ids').insert({...}).catch(() => {});
-+ const { error: pidErr } = await supabase.from('driver_platform_ids').insert({...});
-+ if (pidErr) console.log('⚠️ platform_ids insert error:', pidErr.message);
-```
-
-### 2. Przypisanie kierowcy do pojazdu (RentalContractSignatureFlow.tsx)
-
-W funkcji `finalizeContract()`, po linii 348 dodać:
-
-```typescript
-// Create driver-vehicle assignment for rental history
-if (rental?.driver && rental?.vehicle) {
-  // First deactivate any existing active assignments for this vehicle
-  await supabase
-    .from('driver_vehicle_assignments')
-    .update({ 
-      status: 'inactive', 
-      unassigned_at: new Date().toISOString() 
-    })
-    .eq('vehicle_id', rental.vehicle.id)
-    .eq('status', 'active');
-  
-  // Create new active assignment
-  const { error: assignError } = await supabase
-    .from('driver_vehicle_assignments')
-    .insert({
-      driver_id: rental.driver.id,
-      vehicle_id: rental.vehicle.id,
-      fleet_id: fleetId,
-      status: 'active',
-      assigned_at: new Date().toISOString()
-    });
-  
-  if (assignError) {
-    console.error('Error creating vehicle assignment:', assignError);
-  }
-}
-```
-
-### 3. Odwrócenie logiki "Ukryj 0" (FleetSettlementsView.tsx)
-
-```tsx
-// Linia 103 - zmiana nazwy i domyślnej wartości
-const [showZeroResults, setShowZeroResults] = useState<boolean>(false);
-
-// Linia 1385-1391 - nowy checkbox
-<Checkbox
-  id="showZero"
-  checked={showZeroResults}
-  onCheckedChange={(checked) => setShowZeroResults(checked === true)}
-/>
-<Label htmlFor="showZero" className="text-sm cursor-pointer">
-  Pokaż "0" wyniki
-</Label>
-
-// Linia 1543 - odwrócona logika
-if (!showZeroResults && s.total_base === 0 && s.final_payout === 0) {
-  return false;
-}
-```
-
-### 4. Alert o nowych rekordach
-
-Po udanym imporcie CSV, automatycznie sprawdzić unmapped i pokazać alert:
-
-```tsx
-// Dodać w handleSettlementComplete lub po imporcie:
-const checkForNewRecords = async () => {
-  const { count } = await supabase
-    .from('unmapped_settlement_drivers')
-    .select('*', { count: 'exact', head: true })
-    .eq('fleet_id', fleetId)
-    .eq('status', 'pending');
-  
-  if (count && count > 0) {
-    setNewRecordsCount(count);
-    // Automatycznie pokaż alert lub modal
-  }
-};
-```
+| `src/components/FleetSettlementsView.tsx` | Zmienić `!inner` na `!left`, dodać wykrywanie nowych rekordów |
+| `src/components/fleet/UnmappedDriversModal.tsx` | Dodać zakładki per platforma, wyszukiwarka, paliwo |
+| `src/components/FleetFuelView.tsx` | Czerwone "Nie przypisano", kliknij aby przypisać |
+| `src/components/fleet/FuelCardAssignModal.tsx` | NOWY - modal do przypisania karty |
 
 ---
 
 ## Efekt Końcowy
 
-1. **Kierowca automatycznie przypisany do pojazdu** po podpisaniu umowy - widoczny w sekcji "Auta"
-2. **CSV się wgrywa poprawnie** - błąd `.catch()` naprawiony
-3. **Domyślnie ukryte zerowe wyniki** - checkbox "Pokaż 0 wyniki" do ich wyświetlenia
-4. **Alert o nowych rekordach** - informacja ile nowych kierowców wykryto w CSV
-5. **Lepsze mapowanie** - modal z podziałem na platformy
+1. **Aneta Sknadaj i Paweł Koziarek POJAWIĄ SIĘ** w rozliczeniach (fix `!inner` → `!left`)
+2. **Alert o nowych rekordach** po imporcie CSV
+3. **Modal z zakładkami** Uber/Bolt/FreeNow/Paliwo do łatwego mapowania
+4. **Wyszukiwarka kierowców** w dropdownie mapowania
+5. **Czerwone ostrzeżenie** dla nieprzypisanych kart paliwowych
+6. **Kliknij aby przypisać** kartę do kierowcy
+7. **Auto-aktualizacja** rozliczeń po mapowaniu
 
-**Szacowany czas implementacji: ~3-4h**
+---
+
+## Szczegóły Techniczne: Identyfikacja platform
+
+### Uber
+- **Kolumna identyfikująca:** A (Identyfikator UUID kierowcy)
+- **Imię:** B (Imię kierowcy)
+- **Nazwisko:** C (Nazwisko kierowcy)
+- **Łączenie:** `${firstName} ${lastName}`
+
+### Bolt
+- **Kolumna identyfikująca:** C (Numer telefonu)
+- **ID kierowcy:** A
+- **Email:** B (Adres e-mail)
+- **Auto-matching:** Jeśli kierowca ma w bazie ten sam telefon lub email → automatycznie połącz
+
+### FreeNow
+- **Kolumna identyfikująca:** A (ID kierowcy)
+- **Dane:** B (zawiera imię i nazwisko)
+
+### Paliwo
+- **Kolumna identyfikująca:** A (Numer karty)
+- **Matching:** Po `fuel_card_number` w tabeli `drivers`
+- **Ostrzeżenie:** Jeśli karta nie jest przypisana → czerwony tekst "Nie przypisano" → kliknij aby przypisać
