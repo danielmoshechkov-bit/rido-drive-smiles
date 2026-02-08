@@ -291,7 +291,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <CardTitle>Przychody aut</CardTitle>
               <TooltipProvider>
@@ -308,11 +308,11 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Rok:</Label>
+                <Label className="text-sm whitespace-nowrap">Rok:</Label>
                 <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,14 +322,14 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Okres:</Label>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Label className="text-sm whitespace-nowrap">Okres:</Label>
                 <Select 
                   value={selectedWeek?.toString() || ''} 
                   onValueChange={(v) => setSelectedWeek(parseInt(v))}
                   disabled={selectedWeek === null}
                 >
-                  <SelectTrigger className="w-[280px]">
+                  <SelectTrigger className="flex-1 sm:w-[240px]">
                     <SelectValue placeholder="Wybierz okres" />
                   </SelectTrigger>
                   <SelectContent>

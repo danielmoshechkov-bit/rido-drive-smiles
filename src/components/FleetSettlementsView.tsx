@@ -1428,11 +1428,73 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         </div>
       )}
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="pb-4">
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-4 overflow-x-hidden">
             <CardTitle>Rozliczenia kierowców</CardTitle>
-            <div className="w-full flex items-center gap-4 flex-wrap">
+            {/* Mobile layout: stacked */}
+            <div className="flex flex-col gap-3 md:hidden">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Miasto:</Label>
+                  <Select value={selectedCityId} onValueChange={setSelectedCityId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Wszystkie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie</SelectItem>
+                      {cities.map(city => (
+                        <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Rok:</Label>
+                  <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(year => (
+                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Okres:</Label>
+                <Select 
+                  value={selectedWeek?.toString() || ''} 
+                  onValueChange={(v) => setSelectedWeek(parseInt(v))}
+                  disabled={selectedWeek === null}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Wybierz okres" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map(week => (
+                      <SelectItem key={week.number} value={week.number.toString()}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Szukaj kierowcy..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+            </div>
+            
+            {/* Desktop layout: inline */}
+            <div className="hidden md:flex w-full items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Miasto:</Label>
                 <Select value={selectedCityId} onValueChange={setSelectedCityId}>
@@ -1490,50 +1552,95 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 />
               </div>
               {/* Checkbox removed - filtering handled automatically in fetchSettlements */}
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <div className="h-6 w-px bg-border hidden md:block" />
+              <div className="flex flex-wrap items-center gap-2">
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => { setPayoutType('cash'); setPayoutDialogOpen(true); }}
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs"
                 >
                   <Banknote className="h-4 w-4" />
-                  Generuj KW gotówka
+                  <span className="hidden sm:inline">Generuj</span> KW gotówka
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => { setPayoutType('transfer'); setPayoutDialogOpen(true); }}
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs"
                 >
                   <CreditCard className="h-4 w-4" />
-                  Generuj przelew
+                  <span className="hidden sm:inline">Generuj</span> przelew
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={handleCheckUnmappedDrivers}
                   disabled={checkingUnmapped}
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs"
                 >
                   {checkingUnmapped ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Users className="h-4 w-4" />
                   )}
-                  Sprawdź nowych kierowców
+                  <span className="hidden sm:inline">Sprawdź</span> nowych
                 </Button>
                 <Button 
                   variant="destructive" 
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Usuń rozliczenie
+                  <span className="hidden sm:inline">Usuń rozliczenie</span>
                 </Button>
               </div>
+            </div>
+            
+            {/* Mobile action buttons - 2 rows */}
+            <div className="md:hidden grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => { setPayoutType('cash'); setPayoutDialogOpen(true); }}
+                className="gap-1.5 text-xs h-9"
+              >
+                <Banknote className="h-4 w-4" />
+                KW gotówka
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => { setPayoutType('transfer'); setPayoutDialogOpen(true); }}
+                className="gap-1.5 text-xs h-9"
+              >
+                <CreditCard className="h-4 w-4" />
+                Przelew
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCheckUnmappedDrivers}
+                disabled={checkingUnmapped}
+                className="gap-1.5 text-xs h-9"
+              >
+                {checkingUnmapped ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Users className="h-4 w-4" />
+                )}
+                Nowi
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="gap-1.5 text-xs h-9"
+              >
+                <Trash2 className="h-4 w-4" />
+                Usuń
+              </Button>
             </div>
           </div>
         </CardHeader>

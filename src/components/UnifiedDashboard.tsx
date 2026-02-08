@@ -254,7 +254,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle pt-[env(safe-area-inset-top)]">
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-3">
