@@ -880,11 +880,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Tax is now calculated as vat_amount below with B2B support
         // The 'tax' field from edge function is no longer used to avoid double taxation
 
-        // Pobierz service_fee - PRIORYTET: opłata flotowa, potem plan kierowcy
+        // Pobierz service_fee - PRIORYTET: opłata flotowa (nawet jeśli 0), potem plan kierowcy
         const driverAppUser = (driver as any).driver_app_users;
         const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
-        // Jeśli flota ustawiła base_fee > 0, użyj jej. W przeciwnym razie użyj planu kierowcy.
-        const service_fee = fleetBaseFee > 0 ? fleetBaseFee : (plan?.service_fee || 50);
+        // Jeśli flota ustawiła base_fee (włącznie z 0), użyj jej. W przeciwnym razie użyj planu kierowcy.
+        // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
+        const service_fee = fleetBaseFee !== null && fleetBaseFee !== undefined 
+          ? fleetBaseFee 
+          : (plan?.service_fee ?? 50);
 
         // Pobierz wynajem z przypisanego pojazdu
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
