@@ -161,12 +161,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
             Zarządzanie Flotą
           </DropdownMenuItem>
         )}
-        {accountTypes.isDriver && (
-          <DropdownMenuItem onClick={() => navigate('/driver')}>
-            <User className="h-4 w-4 mr-2" />
-            Portal Kierowcy
-          </DropdownMenuItem>
-        )}
+        {/* Portal Kierowcy - only shown if user has driver role */}
         {/* Panel Giełdy removed - users go through Portal Klienta */}
         {accountTypes.isRealEstate && (
           <DropdownMenuItem onClick={() => navigate('/nieruchomosci/agent/panel')}>
