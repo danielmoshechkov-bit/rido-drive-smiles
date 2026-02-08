@@ -1,165 +1,132 @@
 
-# Plan Naprawy Systemu Mapowania Kierowców
+# Plan Naprawy Systemu Rozliczeń i Przypisań Kierowców
 
 ## Zdiagnozowane Problemy
 
-### Problem 1: Parser Uber CSV nie łączy imienia z nazwiskiem
+### Problem 1: Kierowca nie jest przypisany do pojazdu po podpisaniu umowy najmu
 
-W pliku `supabase/functions/settlements/index.ts` (linia 669):
-```javascript
-const driverNameIdx = headers.findIndex(h => 
-  h.includes('name') || h.includes('imię') || h.includes('imie') || h.includes('nazwisko')
-);
-```
+**Analiza:**
+- W sekcji "Najem" widać aktywną umowę: Toyota Corolla (WW999S) wynajęta przez Andrei Gustoi
+- W sekcji "Auta" ten sam pojazd pokazuje "Kierowca: Brak"
+- Przyczyna: Funkcja `finalizeContract()` w `RentalContractSignatureFlow.tsx` (linia 330-366) aktualizuje tylko status pojazdu na "wynajęty", ale NIE tworzy wpisu w tabeli `driver_vehicle_assignments`
 
-Uber CSV ma **dwie osobne kolumny**:
-- `imię kierowcy` (index 1)
-- `nazwisko kierowcy` (index 2)
+**Rozwiązanie:**
+W funkcji `finalizeContract()` dodać tworzenie przypisania kierowcy do pojazdu:
 
-Parser znajduje tylko pierwszą (imię) i używa jej jako pełnego imienia - dlatego "Aneta" nie pasuje do "Aneta Sknadaj".
-
-### Problem 2: Fuzzy matching nie ma danych o istniejących kierowcach
-
-W `existingDriversMap` (linie 309-316) kierowcy są indeksowani tylko po:
-- `phone:numer`
-- `getrido:id`
-- `uber:platform_id`
-- `bolt:platform_id`
-- `freenow:platform_id`
-
-**Brak indeksowania po imieniu i nazwisku!** Dlatego fuzzy matching nie może znaleźć kierowcy "Aneta Sknadaj" - nie wie że taki istnieje.
-
-### Problem 3: Flotowy nie może edytować Platform ID
-
-W `DriverExpandedPanel.tsx` (linie 256-261), tryb `fleet` pokazuje tylko statyczny tekst:
-```tsx
-} else (
-  platforms.map(platform => (
-    <div key={platform} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
-      <span className="text-sm font-medium uppercase w-20">{platform}:</span>
-      <span className="text-sm">{getPlatformId(platform) || '—'}</span>
-    </div>
-  ))
-)}
+```typescript
+// Po zaktualizowaniu statusu pojazdu (linia 347), dodać:
+await supabase
+  .from('driver_vehicle_assignments')
+  .upsert({
+    driver_id: rental.driver.id,
+    vehicle_id: rental.vehicle.id,
+    fleet_id: fleetId,
+    status: 'active',
+    assigned_at: new Date().toISOString()
+  }, { onConflict: 'driver_id,vehicle_id' });
 ```
 
 ---
 
-## Rozwiązanie
+### Problem 2: Błąd przy wgrywaniu CSV - "Edge Function returned a non-2xx status code"
 
-### Faza 1: Poprawka parsera Uber CSV
+**Analiza z logów Edge Function:**
+```
+ERROR: TypeError: supabase.from(...).upsert(...).catch is not a function
+    at parseUberCsv (settlements/index.ts:588:19)
+```
 
-**Plik:** `supabase/functions/settlements/index.ts`
+Błąd występuje w liniach 797 i 936 gdzie używana jest składnia:
+```javascript
+await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e) => {...});
+```
 
-Zmienić detekcję kolumn imienia i nazwiska na osobne:
+W Supabase Edge Functions, klient Supabase zwraca `{ data, error }` a nie Promise z `.catch()`.
+
+**Rozwiązanie:**
+Zmienić wszystkie wystąpienia `.catch()` na prawidłową obsługę błędów:
 
 ```typescript
-// Znajdź osobne kolumny dla imienia i nazwiska
-const firstNameIdx = headers.findIndex(h => 
-  h.includes('imię') || h.includes('imie') || h.includes('first') || h === 'first_name'
-);
-const lastNameIdx = headers.findIndex(h => 
-  h.includes('nazwisko') || h.includes('last') || h === 'last_name'
-);
+// PRZED (błędne):
+await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e) => {
+  console.log('Error:', e.message);
+});
 
-// Alternatywnie: pełne imię w jednej kolumnie
-const fullNameIdx = headers.findIndex(h => 
-  (h.includes('name') && !h.includes('first') && !h.includes('last')) ||
-  h.includes('kierowca') ||
-  h.includes('driver')
-);
-
-// W pętli parsowania:
-let driverName = '';
-if (firstNameIdx !== -1 && lastNameIdx !== -1) {
-  // Uber format: osobne kolumny
-  const firstName = row[firstNameIdx]?.trim() || '';
-  const lastName = row[lastNameIdx]?.trim() || '';
-  driverName = `${firstName} ${lastName}`.trim();
-} else if (fullNameIdx !== -1) {
-  // Bolt/FreeNow format: jedno pole
-  driverName = row[fullNameIdx]?.trim() || '';
+// PO (poprawne):
+const { error: upsertError } = await supabase.from('unmapped_settlement_drivers').upsert({...});
+if (upsertError) {
+  console.log('⚠️ unmapped_settlement_drivers upsert error:', upsertError.message);
 }
 ```
 
-### Faza 2: Dodać kierowców do mapy po nazwisku (dla fuzzy matchingu)
+Miejsca do poprawienia:
+- Linia ~797 (parseUberCsv)
+- Linia ~936 (parseBoltCsv)  
+- Linia ~945 (parseBoltCsv - driver_platform_ids)
+- Podobne miejsca w parseFreenowCsv
 
-**Plik:** `supabase/functions/settlements/index.ts`
+---
 
-Po linii 316, dodać indeksowanie po pełnym imieniu:
+### Problem 3: Odwrócenie logiki "Ukryj 0" + Alert o nowych rekordach
 
-```typescript
-existingDrivers?.forEach((driver: any) => {
-  // Istniejące klucze...
-  if (driver.phone) existingDriversMap.set(`phone:${driver.phone.trim()}`, driver);
-  if (driver.getrido_id) existingDriversMap.set(`getrido:${driver.getrido_id.trim()}`, driver);
-  if (Array.isArray(driver.driver_platform_ids)) {
-    driver.driver_platform_ids.forEach((pid: any) => {
-      existingDriversMap.set(`${pid.platform}:${pid.platform_id.trim()}`, driver);
-    });
-  }
-  
-  // NOWE: Dodaj też kierowcę pod kluczem nazwy (dla fuzzy matchingu)
-  const fullName = `${driver.first_name || ''} ${driver.last_name || ''}`.trim().toLowerCase();
-  if (fullName) {
-    existingDriversMap.set(`name:${fullName}`, driver);
-  }
-});
-```
+**Obecny stan:**
+- Checkbox "Ukryj 0" domyślnie wyłączony (`hideZeroRows = false`)
+- Użytkownik musi włączyć, żeby schować zerowe wyniki
+- Brak alertu o nowych rekordach z CSV
 
-### Faza 3: Umożliwić flotowemu edycję Platform ID
+**Rozwiązanie:**
 
-**Plik:** `src/components/DriverExpandedPanel.tsx`
+1. **Odwrócić logikę:**
+   - Zmienić domyślną wartość: `useState<boolean>(true)` (ukryj zera domyślnie)
+   - Zmienić label na: "Pokaż wyniki zerowe" 
+   - Zmienić logikę: pokazuj zera gdy checkbox zaznaczony
 
-Zmienić warunek na liniach 245-262:
+2. **Dodać alert o nowych rekordach:**
+   Po wgraniu CSV, jeśli są nowe rekordy → automatycznie pokazać alert z przyciskiem otwierającym modal mapowania
+
+**Zmiana w `FleetSettlementsView.tsx`:**
 
 ```tsx
-{/* ID Platform - edytowalne dla admina I flotowego */}
-<div className="space-y-3">
-  <h4 className="font-medium text-sm">ID Platform</h4>
-  <div className="space-y-3">
-    {platforms.map(platform => (
-      <PlatformIdEditor
-        key={platform}
-        driverId={driver.id}
-        platform={platform}
-        currentId={getPlatformId(platform)}
-        onUpdate={onUpdate}
-      />
-    ))}
-  </div>
-</div>
-```
+// Linia 103 - zmienić domyślną wartość
+const [showZeroRows, setShowZeroRows] = useState<boolean>(false); // domyślnie ukryte
 
-Usunąć warunek `mode === 'admin'` dla tej sekcji - flotowy też powinien móc uzupełnić ID.
+// Linia 1385-1391 - zmienić checkbox
+<Checkbox
+  id="showZero"
+  checked={showZeroRows}
+  onCheckedChange={(checked) => setShowZeroRows(checked === true)}
+/>
+<Label htmlFor="showZero" className="text-sm cursor-pointer">
+  Pokaż "0" wyniki
+</Label>
 
-### Faza 4: Poprawić zapis do unmapped_settlement_drivers
-
-Problem: kierowcy którzy zostali dopasowani (matched) nie trafiają do `unmapped_settlement_drivers`, ale też ci którzy NIE zostali dopasowani, a dopasowanie zrobiło fuzzy match niskiej jakości.
-
-Dodać logikę zapisu do `unmapped_settlement_drivers` dla każdego kierowcy który:
-- Został utworzony jako nowy (newDrivers)
-- LUB został dopasowany przez fuzzy z wynikiem < 70 (niskie zaufanie)
-
-```typescript
-// Po fuzzy match:
-if (fuzzyResult.driver && fuzzyResult.score >= 50) {
-  driverId = fuzzyResult.driver.id;
-  matchedDrivers++;
-  
-  // Jeśli score < 70, zapisz też do unmapped dla weryfikacji
-  if (fuzzyResult.score < 70) {
-    unmappedDrivers.push({
-      id: driverId,
-      full_name: driverName,
-      uber_id: platformId || null,
-      match_type: fuzzyResult.matchType,
-      match_score: fuzzyResult.score,
-      matched_to: `${fuzzyResult.driver.first_name} ${fuzzyResult.driver.last_name}`
-    });
-  }
+// Linia 1543 - zmienić logikę filtrowania
+if (!showZeroRows && s.total_base === 0 && s.final_payout === 0) {
+  return false;
 }
 ```
+
+3. **Alert o nowych rekordach:**
+   - Dodać nowy state: `const [newRecordsCount, setNewRecordsCount] = useState(0);`
+   - Po imporcie CSV sprawdzić ile nowych rekordów w `unmapped_settlement_drivers`
+   - Wyświetlić alert: "⚠️ Znaleziono X nowych rekordów" z przyciskiem "Sprawdź"
+
+---
+
+### Problem 4: Lepszy modal mapowania nowych kierowców
+
+**Obecny stan:**
+- Modal `UnmappedDriversModal` pokazuje listę bez podziału na platformy
+- Brak informacji o paliwie
+
+**Rozwiązanie:**
+Rozbudować modal o zakładki: Uber | Bolt | FreeNow | Paliwo
+
+Każda zakładka pokazuje:
+- Imię i nazwisko z CSV
+- Platform ID (jeśli jest)
+- Dropdown z wyszukiwarką do wyboru istniejącego kierowcy
+- Opcja "Dodaj jako nowego"
 
 ---
 
@@ -167,17 +134,119 @@ if (fuzzyResult.driver && fuzzyResult.score >= 50) {
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/settlements/index.ts` | Poprawić parser Uber (osobne kolumny imię/nazwisko), dodać indeksowanie kierowców po nazwie |
-| `src/components/DriverExpandedPanel.tsx` | Umożliwić flotowemu edycję Platform ID |
+| `supabase/functions/settlements/index.ts` | Naprawić błąd `.catch()` na poprawną obsługę `{ error }` |
+| `src/components/fleet/RentalContractSignatureFlow.tsx` | Dodać tworzenie `driver_vehicle_assignments` po finalizacji umowy |
+| `src/components/FleetSettlementsView.tsx` | Odwrócić logikę "Ukryj 0" → "Pokaż 0", dodać alert o nowych rekordach |
+| `src/components/fleet/UnmappedDriversModal.tsx` | Dodać podział na platformy (Uber/Bolt/FreeNow/Paliwo) |
 
 ---
 
-## Efekt
+## Szczegóły Techniczne
 
-Po zmianach:
-1. **Uber CSV** będzie poprawnie łączyć "Aneta" + "Sknadaj" → "Aneta Sknadaj"
-2. **Fuzzy matching** znajdzie "Aneta Sknadaj" w bazie kierowców
-3. **Flotowy** będzie mógł ręcznie uzupełnić Uber ID, Bolt ID, FreeNow ID dla swoich kierowców
-4. **Przycisk "Sprawdź nowych"** pokaże kierowców z niskim wynikiem dopasowania do weryfikacji
+### 1. Naprawa Edge Function (settlements/index.ts)
 
-**Szacowany czas: ~2-3h**
+Zmienić wszystkie wystąpienia:
+```typescript
+// Linia ~797 (parseUberCsv):
+- await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e: any) => {...});
++ const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({...});
++ if (unmappedErr) console.log('⚠️ unmapped upsert error:', unmappedErr.message);
+
+// Linia ~936 (parseBoltCsv):
+- await supabase.from('unmapped_settlement_drivers').upsert({...}).catch((e: any) => {...});
++ const { error: unmappedErr2 } = await supabase.from('unmapped_settlement_drivers').upsert({...});
++ if (unmappedErr2) console.log('⚠️ unmapped upsert error:', unmappedErr2.message);
+
+// Linia ~945 (parseBoltCsv - platform_ids):
+- await supabase.from('driver_platform_ids').insert({...}).catch(() => {});
++ const { error: pidErr } = await supabase.from('driver_platform_ids').insert({...});
++ if (pidErr) console.log('⚠️ platform_ids insert error:', pidErr.message);
+```
+
+### 2. Przypisanie kierowcy do pojazdu (RentalContractSignatureFlow.tsx)
+
+W funkcji `finalizeContract()`, po linii 348 dodać:
+
+```typescript
+// Create driver-vehicle assignment for rental history
+if (rental?.driver && rental?.vehicle) {
+  // First deactivate any existing active assignments for this vehicle
+  await supabase
+    .from('driver_vehicle_assignments')
+    .update({ 
+      status: 'inactive', 
+      unassigned_at: new Date().toISOString() 
+    })
+    .eq('vehicle_id', rental.vehicle.id)
+    .eq('status', 'active');
+  
+  // Create new active assignment
+  const { error: assignError } = await supabase
+    .from('driver_vehicle_assignments')
+    .insert({
+      driver_id: rental.driver.id,
+      vehicle_id: rental.vehicle.id,
+      fleet_id: fleetId,
+      status: 'active',
+      assigned_at: new Date().toISOString()
+    });
+  
+  if (assignError) {
+    console.error('Error creating vehicle assignment:', assignError);
+  }
+}
+```
+
+### 3. Odwrócenie logiki "Ukryj 0" (FleetSettlementsView.tsx)
+
+```tsx
+// Linia 103 - zmiana nazwy i domyślnej wartości
+const [showZeroResults, setShowZeroResults] = useState<boolean>(false);
+
+// Linia 1385-1391 - nowy checkbox
+<Checkbox
+  id="showZero"
+  checked={showZeroResults}
+  onCheckedChange={(checked) => setShowZeroResults(checked === true)}
+/>
+<Label htmlFor="showZero" className="text-sm cursor-pointer">
+  Pokaż "0" wyniki
+</Label>
+
+// Linia 1543 - odwrócona logika
+if (!showZeroResults && s.total_base === 0 && s.final_payout === 0) {
+  return false;
+}
+```
+
+### 4. Alert o nowych rekordach
+
+Po udanym imporcie CSV, automatycznie sprawdzić unmapped i pokazać alert:
+
+```tsx
+// Dodać w handleSettlementComplete lub po imporcie:
+const checkForNewRecords = async () => {
+  const { count } = await supabase
+    .from('unmapped_settlement_drivers')
+    .select('*', { count: 'exact', head: true })
+    .eq('fleet_id', fleetId)
+    .eq('status', 'pending');
+  
+  if (count && count > 0) {
+    setNewRecordsCount(count);
+    // Automatycznie pokaż alert lub modal
+  }
+};
+```
+
+---
+
+## Efekt Końcowy
+
+1. **Kierowca automatycznie przypisany do pojazdu** po podpisaniu umowy - widoczny w sekcji "Auta"
+2. **CSV się wgrywa poprawnie** - błąd `.catch()` naprawiony
+3. **Domyślnie ukryte zerowe wyniki** - checkbox "Pokaż 0 wyniki" do ich wyświetlenia
+4. **Alert o nowych rekordach** - informacja ile nowych kierowców wykryto w CSV
+5. **Lepsze mapowanie** - modal z podziałem na platformy
+
+**Szacowany czas implementacji: ~3-4h**
