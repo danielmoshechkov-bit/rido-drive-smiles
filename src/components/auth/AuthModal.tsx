@@ -210,8 +210,9 @@ export function AuthModal({
 
       // Check for success response
       if (response.data?.success) {
-        // Show success screen with email verification message
-        setMode("success");
+        // Close modal and redirect to success page with download instructions
+        onOpenChange(false);
+        navigate("/register-success");
       } else if (response.data?.error) {
         // Error returned in data
         const errorMessage = response.data.error;
