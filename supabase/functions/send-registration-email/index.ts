@@ -135,20 +135,21 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Send email with proper UTF-8 encoding
+    // Send email with proper formatting
+    // Minify HTML to avoid SMTP line length issues (RFC 2821 limit: 998 chars per line)
+    const minifiedHtml = htmlContent
+      .replace(/\r\n/g, '\n')
+      .replace(/\n\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    
     await client.send({
       from: `${senderName} <${senderEmail}>`,
       to: [email],
       subject: finalSubject,
       content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
-      html: htmlContent,
-      mimeContent: [
-        {
-          mimeType: "text/html; charset=utf-8",
-          content: htmlContent,
-          transferEncoding: "quoted-printable",
-        }
-      ],
+      html: minifiedHtml,
     });
 
     await client.close();
