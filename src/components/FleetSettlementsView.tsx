@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -112,11 +112,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
   const [showUnmappedModal, setShowUnmappedModal] = useState(false);
   const [checkingUnmapped, setCheckingUnmapped] = useState(false);
+  const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
 
-  // Check for unmapped drivers
+  // Check for unmapped drivers - enhanced to also check for drivers without driver_app_users
   const handleCheckUnmappedDrivers = async () => {
     setCheckingUnmapped(true);
     try {
+      // 1. Check unmapped_settlement_drivers table
       const { data: unmapped, error } = await supabase
         .from('unmapped_settlement_drivers')
         .select('*')
@@ -124,9 +126,46 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .eq('status', 'pending');
       
       if (error) throw error;
+
+      // 2. Check for drivers in this fleet without driver_app_users (auto-created by import)
+      const { data: allFleetDrivers } = await supabase
+        .from('drivers')
+        .select(`
+          id, first_name, last_name, phone,
+          driver_platform_ids(platform, platform_id),
+          driver_app_users(user_id)
+        `)
+        .eq('fleet_id', fleetId);
+
+      // Find drivers without driver_app_users (likely auto-created)
+      const driversWithoutAppUsers = (allFleetDrivers || []).filter(d => {
+        const appUsers = (d as any).driver_app_users;
+        return !appUsers || (Array.isArray(appUsers) && appUsers.length === 0) || 
+               (Array.isArray(appUsers) && appUsers.every((au: any) => !au.user_id));
+      });
+
+      // Convert to unmapped format
+      const autoCreatedUnmapped = driversWithoutAppUsers.map(d => {
+        const platformIds = (d as any).driver_platform_ids || [];
+        const uberId = platformIds.find((p: any) => p.platform === 'uber')?.platform_id;
+        const boltId = platformIds.find((p: any) => p.platform === 'bolt')?.platform_id;
+        const freenowId = platformIds.find((p: any) => p.platform === 'freenow')?.platform_id;
+
+        return {
+          id: `auto-${d.id}`,
+          full_name: `${d.first_name} ${d.last_name}`,
+          uber_id: uberId,
+          bolt_id: boltId,
+          freenow_id: freenowId,
+          phone: d.phone,
+          auto_created_driver_id: d.id
+        };
+      });
+
+      const allUnmapped = [...(unmapped || []), ...autoCreatedUnmapped];
       
-      if (unmapped && unmapped.length > 0) {
-        setUnmappedDrivers(unmapped);
+      if (allUnmapped.length > 0) {
+        setUnmappedDrivers(allUnmapped);
         setShowUnmappedModal(true);
       } else {
         toast.info('Brak nowych kierowców do zmapowania');
@@ -136,6 +175,34 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       toast.error('Błąd sprawdzania nowych kierowców');
     } finally {
       setCheckingUnmapped(false);
+    }
+  };
+
+  // Auto-check for new records after settlement data loads
+  const checkForNewRecordsAfterLoad = async () => {
+    try {
+      const { count: pendingCount } = await supabase
+        .from('unmapped_settlement_drivers')
+        .select('*', { count: 'exact', head: true })
+        .eq('fleet_id', fleetId)
+        .eq('status', 'pending');
+
+      // Also check for drivers without app users
+      const { data: driversWithoutAppUsers } = await supabase
+        .from('drivers')
+        .select('id, driver_app_users!left(user_id)')
+        .eq('fleet_id', fleetId);
+
+      const noAppUserCount = (driversWithoutAppUsers || []).filter(d => {
+        const appUsers = (d as any).driver_app_users;
+        return !appUsers || (Array.isArray(appUsers) && appUsers.length === 0) ||
+               (Array.isArray(appUsers) && appUsers.every((au: any) => !au.user_id));
+      }).length;
+
+      const totalNew = (pendingCount || 0) + noAppUserCount;
+      setNewRecordsAlert(totalNew);
+    } catch (err) {
+      console.error('Error checking new records:', err);
     }
   };
 
@@ -488,6 +555,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   useEffect(() => {
     if (fleetId && selectedWeek !== null) {
       fetchSettlements();
+      checkForNewRecordsAfterLoad();
     }
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId]);
 
@@ -630,7 +698,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           city_id,
           fuel_card_number,
           payment_method,
-          driver_app_users!inner(settlement_plan_id, user_id)
+          driver_app_users!left(settlement_plan_id, user_id)
         `)
         .eq('fleet_id', fleetId);
 
@@ -1320,6 +1388,38 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         onTabChange={setActiveSubTab}
         tabs={subTabs}
       />
+      
+      {/* Alert about new unmapped records */}
+      {newRecordsAlert > 0 && (
+        <div className="mb-4 p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <div>
+              <span className="font-medium text-amber-800">
+                Znaleziono {newRecordsAlert} {newRecordsAlert === 1 ? 'nowy rekord' : 'nowe rekordy'}
+              </span>
+              <span className="text-amber-700 ml-1">
+                — kierowcy do przypisania w systemie
+              </span>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleCheckUnmappedDrivers}
+            disabled={checkingUnmapped}
+            className="border-amber-500/50 text-amber-800 hover:bg-amber-500/20"
+          >
+            {checkingUnmapped ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Users className="h-4 w-4 mr-2" />
+            )}
+            Przypisz kierowców
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-4">
         <div className="w-full space-y-4">
