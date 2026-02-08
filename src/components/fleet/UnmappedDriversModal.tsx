@@ -103,77 +103,94 @@ export function UnmappedDriversModal({
 
   const fetchUnmappedFuelCards = async () => {
     try {
+      console.log('🔍 FUEL: Fetching all drivers with fuel cards...');
+      
       // Get all drivers' fuel card numbers from ALL drivers globally
       const { data: allDrivers, error: driversError } = await supabase
         .from("drivers")
-        .select("fuel_card_number")
+        .select("id, fuel_card_number")
         .not("fuel_card_number", "is", null);
 
       if (driversError) {
         console.error('Error fetching drivers fuel cards:', driversError);
       }
 
-      // Build normalized set for comparison - normalize by stripping leading zeros
-      const assignedCardsNormalized = new Set<string>();
-      const assignedCardsRaw = new Set<string>();
+      // Build comprehensive set for comparison - all possible formats
+      const assignedCardsSet = new Set<string>();
       allDrivers?.forEach(d => {
         if (d.fuel_card_number && d.fuel_card_number.trim()) {
           const raw = d.fuel_card_number.trim();
-          const normalized = raw.replace(/^0+/, '');
-          assignedCardsNormalized.add(normalized);
-          assignedCardsRaw.add(raw);
+          const normalized = raw.replace(/^0+/, ''); // Remove all leading zeros
+          
+          // Add ALL possible formats to catch any match
+          assignedCardsSet.add(raw);                          // Original: "0010206980198"
+          assignedCardsSet.add(normalized);                   // No zeros: "10206980198"
+          assignedCardsSet.add('00' + normalized);            // 2 zeros: "0010206980198"
+          assignedCardsSet.add('0' + normalized);             // 1 zero: "010206980198"
+          assignedCardsSet.add('000' + normalized);           // 3 zeros: "00010206980198"
         }
       });
 
-      console.log('🔍 FUEL DEBUG - Assigned cards RAW:', Array.from(assignedCardsRaw));
-      console.log('🔍 FUEL DEBUG - Assigned cards NORMALIZED:', Array.from(assignedCardsNormalized));
+      console.log('🔍 FUEL: Assigned cards (all formats):', Array.from(assignedCardsSet));
 
-      // Get ALL recent fuel transactions (last 3 months)
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      // Get ALL fuel transactions (last 6 months for better coverage)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
       const { data: transactions, error: txError } = await supabase
         .from("fuel_transactions")
         .select("card_number, total_amount, transaction_date")
-        .gte("transaction_date", threeMonthsAgo.toISOString().split('T')[0]);
+        .gte("transaction_date", sixMonthsAgo.toISOString().split('T')[0]);
 
       if (txError) {
         console.error('Error fetching fuel transactions:', txError);
+        return;
       }
 
-      // Get unique card numbers from transactions
-      const uniqueTransactionCards = [...new Set((transactions || []).map(t => t.card_number).filter(Boolean))];
-      console.log('🔍 FUEL DEBUG - All transaction card numbers:', uniqueTransactionCards);
+      console.log('🔍 FUEL: Found', transactions?.length || 0, 'transactions in last 6 months');
 
-      // Group by card and filter unassigned
-      const cardTotals: Record<string, { amount: number; count: number }> = {};
+      // Get unique card numbers from transactions for debugging
+      const uniqueCards = [...new Set((transactions || []).map(t => t.card_number).filter(Boolean))];
+      console.log('🔍 FUEL: Unique transaction card numbers:', uniqueCards);
+
+      // Group by normalized card number and filter unassigned
+      const cardTotals: Record<string, { amount: number; count: number; originalCards: Set<string> }> = {};
       
       (transactions || []).forEach(t => {
         if (!t.card_number || !t.card_number.trim()) return;
         
         const cardRaw = t.card_number.trim();
-        // Normalize by stripping leading zeros
-        const cardNormalized = cardRaw.replace(/^0+/, '');
+        const cardNormalized = cardRaw.replace(/^0+/, ''); // Normalize by removing leading zeros
         
-        // Check if assigned - check both normalized and raw
-        const isAssigned = assignedCardsNormalized.has(cardNormalized) || assignedCardsRaw.has(cardRaw);
+        // Check if this card (in ANY format) is assigned to a driver
+        const isAssigned = assignedCardsSet.has(cardRaw) || 
+                          assignedCardsSet.has(cardNormalized);
+        
+        console.log(`🔍 FUEL: Card "${cardRaw}" (normalized: "${cardNormalized}"): isAssigned=${isAssigned}`);
         
         if (!isAssigned) {
-          if (!cardTotals[cardRaw]) {
-            cardTotals[cardRaw] = { amount: 0, count: 0 };
+          // Use normalized as key to group different formats of same card
+          if (!cardTotals[cardNormalized]) {
+            cardTotals[cardNormalized] = { amount: 0, count: 0, originalCards: new Set() };
           }
-          cardTotals[cardRaw].amount += t.total_amount || 0;
-          cardTotals[cardRaw].count += 1;
+          cardTotals[cardNormalized].amount += t.total_amount || 0;
+          cardTotals[cardNormalized].count += 1;
+          cardTotals[cardNormalized].originalCards.add(cardRaw);
         }
       });
 
-      const unassigned = Object.entries(cardTotals).map(([card, data]) => ({
-        card_number: card,
-        total_amount: data.amount,
-        transaction_count: data.count
-      }));
+      // Convert to array, using original card number format for display
+      const unassigned = Object.entries(cardTotals).map(([normalizedCard, data]) => {
+        // Use one of the original card formats for display (first one found)
+        const displayCard = data.originalCards.values().next().value || normalizedCard;
+        return {
+          card_number: displayCard,
+          total_amount: data.amount,
+          transaction_count: data.count
+        };
+      });
 
-      console.log('🔍 FUEL DEBUG - FINAL Unassigned cards:', unassigned);
+      console.log('🔍 FUEL: FINAL Unassigned cards:', unassigned);
       setUnmappedFuelCards(unassigned);
     } catch (err) {
       console.error("Error fetching unmapped fuel cards:", err);

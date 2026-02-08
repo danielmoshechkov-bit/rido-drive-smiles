@@ -755,11 +755,15 @@ async function parseUberCsv(
 
     // 3. Create new driver if no match found
     if (!driverId) {
+      console.log(`🔍 UBER: No match found for "${driverName}" (platformId: ${platformId}), attempting to create new driver...`);
+      
       const nameParts = driverName.split(' ');
       const firstName = nameParts[0] || 'Uber';
       const lastName = nameParts.slice(1).join(' ') || 'Driver';
+      const fullName = `${firstName} ${lastName}`.trim();
       
-      const { data: newDriver, error } = await supabase
+      // CRITICAL FIX: Create new driver record
+      const { data: newDriver, error: insertError } = await supabase
         .from('drivers')
         .insert({
           first_name: firstName,
@@ -771,12 +775,13 @@ async function parseUberCsv(
         .select('id')
         .single();
       
-      if (!error && newDriver) {
+      if (insertError) {
+        console.error(`❌ UBER: Failed to create driver "${fullName}":`, insertError);
+      } else if (newDriver) {
         driverId = newDriver.id;
         newDrivers++;
         
-        const fullName = `${firstName} ${lastName}`;
-        console.log(`🆕 UBER: Created new driver: ${fullName} (ID: ${driverId})`);
+        console.log(`🆕 UBER: Created new driver: ${fullName} (ID: ${driverId}, platformId: ${platformId})`);
         
         unmappedDrivers.push({
           id: driverId,
@@ -786,7 +791,7 @@ async function parseUberCsv(
           freenow_id: null
         });
         
-        // ALWAYS save to unmapped_settlement_drivers (with driver_id for linking)
+        // Save to unmapped_settlement_drivers for fleet manager to link
         const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
           fleet_id: fleet_id || null,
           driver_id: driverId,
@@ -798,14 +803,22 @@ async function parseUberCsv(
         }, { onConflict: 'driver_id' });
         if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
         
+        // Link platform ID to new driver
         if (platformId) {
-          await supabase.from('driver_platform_ids').insert({
+          const { error: pidError } = await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
             platform: 'uber',
             platform_id: platformId
           });
-          existingDriversMap.set(`uber:${platformId}`, { id: driverId, first_name: nameParts[0], last_name: nameParts.slice(1).join(' ') });
+          if (pidError) {
+            console.log('⚠️ UBER: Failed to insert platform_id:', pidError.message);
+          } else {
+            console.log(`✅ UBER: Linked platform_id ${platformId} to driver ${driverId}`);
+            existingDriversMap.set(`uber:${platformId}`, { id: driverId, first_name: firstName, last_name: lastName });
+          }
         }
+      } else {
+        console.error(`❌ UBER: newDriver is null for "${fullName}"`);
       }
     }
 
