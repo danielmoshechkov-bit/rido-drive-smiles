@@ -148,18 +148,54 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Auto-check for new records after settlement data loads
-  // Only counts truly NEW platform IDs from CSV, not existing drivers without accounts
+  // Counts NEW platform IDs from CSV AND unassigned fuel cards
   const checkForNewRecordsAfterLoad = async () => {
     try {
-      const { count: pendingCount } = await supabase
+      // Count pending unmapped drivers (new platform IDs from CSV)
+      const { count: pendingDriversCount } = await supabase
         .from('unmapped_settlement_drivers')
         .select('*', { count: 'exact', head: true })
         .eq('fleet_id', fleetId)
         .eq('status', 'pending');
 
-      // Only count pending unmapped records - NOT drivers without app accounts
-      // because those are already in the system with assigned platform IDs
-      setNewRecordsAlert(pendingCount || 0);
+      // Also check for unmapped fuel cards
+      // Get ALL drivers' fuel cards from the fleet
+      const { data: fleetDrivers } = await supabase
+        .from("drivers")
+        .select("fuel_card_number")
+        .eq("fleet_id", fleetId)
+        .not("fuel_card_number", "is", null);
+
+      const assignedCardsSet = new Set<string>();
+      fleetDrivers?.forEach(d => {
+        if (d.fuel_card_number?.trim()) {
+          const normalized = d.fuel_card_number.trim().replace(/^0+/, '');
+          assignedCardsSet.add(normalized);
+          assignedCardsSet.add(d.fuel_card_number.trim());
+        }
+      });
+
+      // Get recent fuel transactions (last 3 months) - check for unassigned cards
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const { data: fuelTx } = await supabase
+        .from("fuel_transactions")
+        .select("card_number")
+        .gte("transaction_date", threeMonthsAgo.toISOString().split('T')[0]);
+
+      const unassignedFuelCards = new Set<string>();
+      fuelTx?.forEach(t => {
+        if (!t.card_number?.trim()) return;
+        const cardRaw = t.card_number.trim();
+        const cardNormalized = cardRaw.replace(/^0+/, '');
+        if (!assignedCardsSet.has(cardRaw) && !assignedCardsSet.has(cardNormalized)) {
+          unassignedFuelCards.add(cardNormalized);
+        }
+      });
+
+      const totalNew = (pendingDriversCount || 0) + unassignedFuelCards.size;
+      setNewRecordsAlert(totalNew);
     } catch (err) {
       console.error('Error checking new records:', err);
     }
@@ -1013,8 +1049,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_base,
           total_commission,
           total_cash,
-          tax_8_percent: vat_amount, // Use vat_amount (calculated with B2B logic) instead of tax from edge function
-          vat_amount: 0, // Set to 0 since we're using tax_8_percent for the actual VAT
+          tax_8_percent: vat_amount,
+          vat_amount: vat_amount, // FIXED: Display actual VAT amount in table
           service_fee,
           additional_fees,
           rental,
