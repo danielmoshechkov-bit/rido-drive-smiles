@@ -58,11 +58,15 @@ interface RidoAssistantWidgetProps {
 
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  // Temporarily disabled - show coming soon message
+  const isTemporarilyDisabled = true;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Cześć! Jestem Rido AI 🚗 Mogę pomóc Ci z:\n\n• Wyszukiwaniem ofert (auta, usługi)\n• Wystawianiem faktur\n• Weryfikacją kontrahentów\n• I wieloma innymi zadaniami!\n\nPowiedz lub napisz czego szukasz.",
+      content: isTemporarilyDisabled 
+        ? "🚧 Rido AI jest tymczasowo niedostępny.\n\nPracujemy nad ulepszeniami i wkrótce wrócę z nowymi funkcjami!\n\nDziękuję za cierpliwość."
+        : "Cześć! Jestem Rido AI 🚗 Mogę pomóc Ci z:\n\n• Wyszukiwaniem ofert (auta, usługi)\n• Wystawianiem faktur\n• Weryfikacją kontrahentów\n• I wieloma innymi zadaniami!\n\nPowiedz lub napisz czego szukasz.",
       timestamp: new Date(),
     },
   ]);
@@ -424,38 +428,48 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
             </div>
           )}
 
-          {/* Input */}
+          {/* Input - disabled when temporarily unavailable */}
           <div className="p-4 border-t bg-background">
-            <div className="flex gap-2 items-center">
-              <VoiceInput
-                onTranscription={handleVoiceTranscription}
-                disabled={isLoading}
-                size="md"
-              />
-              <Input
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Napisz lub powiedz: 'Rido, ...'"
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button
-                size="icon"
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Kliknij 🎤 aby mówić lub wpisz polecenie
-            </p>
+            {isTemporarilyDisabled ? (
+              <div className="text-center py-2">
+                <p className="text-sm text-muted-foreground">
+                  AI - wkrótce dostępna
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2 items-center">
+                  <VoiceInput
+                    onTranscription={handleVoiceTranscription}
+                    disabled={isLoading}
+                    size="md"
+                  />
+                  <Input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Napisz lub powiedz: 'Rido, ...'"
+                    disabled={isLoading}
+                    className="flex-1"
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSend}
+                    disabled={!inputValue.trim() || isLoading}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Kliknij 🎤 aby mówić lub wpisz polecenie
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
