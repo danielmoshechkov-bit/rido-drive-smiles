@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Link2, Loader2, Search, UserPlus, Car, Fuel } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertTriangle, Link2, Loader2, Search, Plus, Car, Fuel, ChevronDown, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,7 @@ export function UnmappedDriversModal({
   const [saving, setSaving] = useState(false);
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
   const [unmappedFuelCards, setUnmappedFuelCards] = useState<UnmappedFuelCard[]>([]);
+  const [openSelectors, setOpenSelectors] = useState<Record<string, boolean>>({});
 
   // Filter drivers by platform
   const uberDrivers = unmappedDrivers.filter(d => d.uber_id);
@@ -289,57 +290,118 @@ export function UnmappedDriversModal({
     return num.replace(/(\d{4})/g, '$1 ').trim();
   };
 
-  const renderDriverSelector = (
-    record: UnmappedDriver | UnmappedFuelCard,
+  // Compact driver selector with popover
+  const renderCompactDriverSelector = (
     recordId: string,
     selectedValue: string | undefined,
     onSelect: (id: string, value: string) => void,
     searchKey: string
   ) => {
+    const isOpen = openSelectors[searchKey] || false;
     const filteredDrivers = getFilteredDrivers(searchKey);
-    
+    const selectedDriver = existingDrivers.find(d => d.id === selectedValue);
+
     return (
-      <div className="space-y-2">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Szukaj kierowcy..."
-            className="pl-8 h-8 text-sm"
-            value={searchQueries[searchKey] || ""}
-            onChange={(e) => setSearchQueries(prev => ({ ...prev, [searchKey]: e.target.value }))}
-          />
-        </div>
-        <div className="border rounded-md max-h-32 overflow-y-auto">
-          <div
-            className={cn(
-              "px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 flex items-center gap-2",
-              !selectedValue && "bg-muted/30"
-            )}
-            onClick={() => onSelect(recordId, "_clear")}
-          >
-            <span className="text-muted-foreground">— Nie wybrano —</span>
-          </div>
-          {filteredDrivers.map(driver => (
-            <div
-              key={driver.id}
+      <div className="flex items-center gap-1.5">
+        <Popover 
+          open={isOpen} 
+          onOpenChange={(open) => setOpenSelectors(prev => ({ ...prev, [searchKey]: open }))}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
               className={cn(
-                "px-3 py-2 text-sm cursor-pointer hover:bg-muted/50",
-                selectedValue === driver.id && "bg-primary/10 font-medium"
+                "w-44 justify-between h-8 text-xs",
+                selectedValue && "bg-primary/5 border-primary/30"
               )}
-              onClick={() => onSelect(recordId, driver.id)}
             >
-              {driver.first_name} {driver.last_name}
-              {driver.phone && (
-                <span className="text-muted-foreground ml-1">({driver.phone})</span>
+              <span className="truncate">
+                {selectedDriver 
+                  ? `${selectedDriver.first_name} ${selectedDriver.last_name}` 
+                  : "Wybierz kierowcę"
+                }
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 ml-1 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-0" align="start">
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Szukaj..."
+                  className="h-8 text-sm pl-7"
+                  value={searchQueries[searchKey] || ""}
+                  onChange={(e) => setSearchQueries(prev => ({ ...prev, [searchKey]: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {filteredDrivers.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  Nie znaleziono kierowców
+                </div>
+              ) : (
+                filteredDrivers.map(driver => (
+                  <div
+                    key={driver.id}
+                    className={cn(
+                      "px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 flex items-center gap-2",
+                      selectedValue === driver.id && "bg-primary/10"
+                    )}
+                    onClick={() => {
+                      onSelect(recordId, driver.id);
+                      setOpenSelectors(prev => ({ ...prev, [searchKey]: false }));
+                      setSearchQueries(prev => ({ ...prev, [searchKey]: "" }));
+                    }}
+                  >
+                    {selectedValue === driver.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    <span className="truncate">
+                      {driver.first_name} {driver.last_name}
+                    </span>
+                    {driver.phone && (
+                      <span className="text-muted-foreground text-xs ml-auto shrink-0">
+                        {driver.phone}
+                      </span>
+                    )}
+                  </div>
+                ))
               )}
             </div>
-          ))}
-        </div>
+          </PopoverContent>
+        </Popover>
+        
+        {/* Plus button for new driver */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={() => {
+            toast.info("Funkcja dodawania nowego kierowcy - użyj modułu Kierowcy");
+          }}
+          title="Dodaj nowego kierowcę"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+        
+        {/* Clear button */}
+        {selectedValue && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onSelect(recordId, "_clear")}
+            title="Wyczyść wybór"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     );
   };
 
-  const renderPlatformTable = (drivers: UnmappedDriver[], platform: string) => {
+  const renderPlatformList = (drivers: UnmappedDriver[], platform: string) => {
     if (drivers.length === 0) {
       return (
         <div className="py-8 text-center text-muted-foreground">
@@ -349,54 +411,48 @@ export function UnmappedDriversModal({
     }
 
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Imię i nazwisko</TableHead>
-            <TableHead>ID platformy</TableHead>
-            {platform === "bolt" && <TableHead>Telefon / Email</TableHead>}
-            <TableHead className="w-[280px]">Przypisz do kierowcy</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {drivers.map(driver => {
-            const platformId = platform === "uber" ? driver.uber_id :
-                              platform === "bolt" ? driver.bolt_id :
-                              driver.freenow_id;
-            
-            return (
-              <TableRow key={driver.id}>
-                <TableCell className="font-medium">
+      <div className="space-y-2">
+        {drivers.map(driver => {
+          const platformId = platform === "uber" ? driver.uber_id :
+                            platform === "bolt" ? driver.bolt_id :
+                            driver.freenow_id;
+          
+          return (
+            <div 
+              key={driver.id} 
+              className="flex items-center gap-3 py-2 px-3 border rounded-md bg-muted/20"
+            >
+              <div className="w-36 shrink-0">
+                <span className="font-medium text-sm truncate block">
                   {driver.full_name || "Nieznany"}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {platformId ? (platformId.length > 16 ? `${platformId.slice(0, 16)}...` : platformId) : "-"}
-                  </Badge>
-                </TableCell>
-                {platform === "bolt" && (
-                  <TableCell className="text-sm text-muted-foreground">
-                    {driver.phone || driver.email || "-"}
-                  </TableCell>
+                </span>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs shrink-0 max-w-32">
+                <span className="truncate">
+                  {platformId ? (platformId.length > 12 ? `${platformId.slice(0, 12)}...` : platformId) : "-"}
+                </span>
+              </Badge>
+              {platform === "bolt" && (driver.phone || driver.email) && (
+                <span className="text-xs text-muted-foreground truncate max-w-24">
+                  {driver.phone || driver.email}
+                </span>
+              )}
+              <div className="ml-auto">
+                {renderCompactDriverSelector(
+                  driver.id,
+                  mappings[driver.id],
+                  handleMapping,
+                  `${platform}-${driver.id}`
                 )}
-                <TableCell>
-                  {renderDriverSelector(
-                    driver,
-                    driver.id,
-                    mappings[driver.id],
-                    handleMapping,
-                    `${platform}-${driver.id}`
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
-  const renderFuelTable = () => {
+  const renderFuelList = () => {
     if (unmappedFuelCards.length === 0) {
       return (
         <div className="py-8 text-center text-muted-foreground">
@@ -406,48 +462,43 @@ export function UnmappedDriversModal({
     }
 
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Numer karty</TableHead>
-            <TableHead className="text-right">Transakcje</TableHead>
-            <TableHead className="text-right">Kwota</TableHead>
-            <TableHead className="w-[280px]">Przypisz do kierowcy</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {unmappedFuelCards.map(card => (
-            <TableRow key={card.card_number}>
-              <TableCell className="font-mono tabular-nums">
+      <div className="space-y-2">
+        {unmappedFuelCards.map(card => (
+          <div 
+            key={card.card_number} 
+            className="flex items-center gap-3 py-2 px-3 border rounded-md bg-muted/20"
+          >
+            <div className="w-36 shrink-0">
+              <span className="font-medium text-sm tabular-nums">
                 {formatCardNumber(card.card_number)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {card.transaction_count}
-              </TableCell>
-              <TableCell className="text-right tabular-nums font-medium">
-                {card.total_amount.toFixed(2)} zł
-              </TableCell>
-              <TableCell>
-                {renderDriverSelector(
-                  card,
-                  card.card_number,
-                  fuelMappings[card.card_number],
-                  handleFuelMapping,
-                  `fuel-${card.card_number}`
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground shrink-0">
+              <span className="tabular-nums">{card.transaction_count}</span> transakcji
+            </div>
+            <div className="text-sm font-medium tabular-nums shrink-0">
+              {card.total_amount.toFixed(2)} zł
+            </div>
+            <div className="ml-auto">
+              {renderCompactDriverSelector(
+                card.card_number,
+                fuelMappings[card.card_number],
+                handleFuelMapping,
+                `fuel-${card.card_number}`
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     );
   };
 
   const totalNewRecords = uberDrivers.length + boltDrivers.length + freenowDrivers.length + unmappedFuelCards.length;
+  const totalMappingsCount = Object.keys(mappings).length + Object.keys(fuelMappings).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -466,54 +517,59 @@ export function UnmappedDriversModal({
         ) : (
           <Tabs defaultValue="uber" className="flex-1 overflow-hidden flex flex-col">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="uber" className="flex items-center gap-2">
-                <Car className="h-4 w-4" />
+              <TabsTrigger value="uber" className="flex items-center gap-1.5 text-xs">
+                <Car className="h-3.5 w-3.5" />
                 Uber
                 {uberDrivers.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{uberDrivers.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{uberDrivers.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="bolt" className="flex items-center gap-2">
-                <Car className="h-4 w-4" />
+              <TabsTrigger value="bolt" className="flex items-center gap-1.5 text-xs">
+                <Car className="h-3.5 w-3.5" />
                 Bolt
                 {boltDrivers.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{boltDrivers.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{boltDrivers.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="freenow" className="flex items-center gap-2">
-                <Car className="h-4 w-4" />
+              <TabsTrigger value="freenow" className="flex items-center gap-1.5 text-xs">
+                <Car className="h-3.5 w-3.5" />
                 FreeNow
                 {freenowDrivers.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{freenowDrivers.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{freenowDrivers.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="fuel" className="flex items-center gap-2">
-                <Fuel className="h-4 w-4" />
+              <TabsTrigger value="fuel" className="flex items-center gap-1.5 text-xs">
+                <Fuel className="h-3.5 w-3.5" />
                 Paliwo
                 {unmappedFuelCards.length > 0 && (
-                  <Badge variant="destructive" className="ml-1">{unmappedFuelCards.length}</Badge>
+                  <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">{unmappedFuelCards.length}</Badge>
                 )}
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-y-auto mt-4">
+            <div className="flex-1 overflow-y-auto mt-4 pr-1">
               <TabsContent value="uber" className="mt-0">
-                {renderPlatformTable(uberDrivers, "uber")}
+                {renderPlatformList(uberDrivers, "uber")}
               </TabsContent>
               <TabsContent value="bolt" className="mt-0">
-                {renderPlatformTable(boltDrivers, "bolt")}
+                {renderPlatformList(boltDrivers, "bolt")}
               </TabsContent>
               <TabsContent value="freenow" className="mt-0">
-                {renderPlatformTable(freenowDrivers, "freenow")}
+                {renderPlatformList(freenowDrivers, "freenow")}
               </TabsContent>
               <TabsContent value="fuel" className="mt-0">
-                {renderFuelTable()}
+                {renderFuelList()}
               </TabsContent>
             </div>
           </Tabs>
         )}
 
         <DialogFooter className="gap-2 pt-4 border-t">
+          {totalMappingsCount > 0 && (
+            <span className="text-sm text-muted-foreground mr-auto">
+              Wybrano: {totalMappingsCount} powiązań
+            </span>
+          )}
           <Button variant="outline" onClick={handleSkip}>
             Pomiń
           </Button>

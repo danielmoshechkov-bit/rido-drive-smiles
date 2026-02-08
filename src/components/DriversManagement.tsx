@@ -449,16 +449,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                     <Shield className="h-4 w-4" />
                     Przyznaj rolę
                   </Button>
-                  <Button 
-                    onClick={() => {
-                      toast.info('Funkcja aktualizacji kierowców - w przygotowaniu');
-                    }}
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Aktualizuj kierowców
-                  </Button>
+                  {/* Przycisk ukryty do czasu implementacji funkcji */}
                 </>
               )}
               <Button 
