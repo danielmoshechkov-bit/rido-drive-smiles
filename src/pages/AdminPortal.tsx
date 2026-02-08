@@ -12,6 +12,7 @@ import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSet
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { EmailSettings } from '@/components/EmailSettings';
+import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -340,7 +341,11 @@ export default function AdminPortal() {
           </TabsContent>
 
           {/* Users Tab */}
-          <TabsContent value="users">
+          <TabsContent value="users" className="space-y-6">
+            {/* All Auth Users Panel */}
+            <AdminAuthUsersPanel />
+            
+            {/* Admin Roles Manager */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
