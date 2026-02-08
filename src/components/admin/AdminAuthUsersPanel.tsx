@@ -47,21 +47,18 @@ export function AdminAuthUsersPanel() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: null,
+        body: { action: 'list' },
       });
 
-      // Use query params for GET request
-      const response = await supabase.functions.invoke('admin-users?action=list', {
-        method: 'GET',
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      setUsers(response.data?.users || []);
+      setUsers(data?.users || []);
     } catch (error: any) {
       console.error('Error loading users:', error);
       toast.error('Błąd wczytywania użytkowników: ' + (error.message || 'Nieznany błąd'));
@@ -76,8 +73,7 @@ export function AdminAuthUsersPanel() {
     setDeleting(true);
     try {
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        method: 'DELETE',
-        body: { user_id: deleteUserId },
+        body: { action: 'delete', user_id: deleteUserId },
       });
 
       if (error) throw error;
@@ -96,9 +92,8 @@ export function AdminAuthUsersPanel() {
 
   const handleConfirmEmail = async (userId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin-users?action=confirm-email', {
-        method: 'POST',
-        body: { user_id: userId },
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'confirm-email', user_id: userId },
       });
 
       if (error) throw error;

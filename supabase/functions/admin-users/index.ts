@@ -52,14 +52,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    // Parse request body
+    let body: Record<string, unknown> = {};
+    try {
+      const text = await req.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      // No body or invalid JSON
+    }
+
+    const action = body.action as string;
 
     // LIST all auth users
-    if (req.method === "GET" && action === "list") {
-      const search = url.searchParams.get("search") || "";
-      const page = parseInt(url.searchParams.get("page") || "1");
-      const perPage = parseInt(url.searchParams.get("per_page") || "50");
+    if (action === "list") {
+      const search = (body.search as string) || "";
+      const page = parseInt(String(body.page || "1"));
+      const perPage = parseInt(String(body.per_page || "50"));
 
       const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers({
         page,
@@ -120,8 +130,8 @@ Deno.serve(async (req) => {
     }
 
     // DELETE a user
-    if (req.method === "DELETE") {
-      const { user_id } = await req.json();
+    if (action === "delete") {
+      const user_id = body.user_id as string;
       
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id is required" }), { 
@@ -162,8 +172,8 @@ Deno.serve(async (req) => {
     }
 
     // CONFIRM email manually
-    if (req.method === "POST" && action === "confirm-email") {
-      const { user_id } = await req.json();
+    if (action === "confirm-email") {
+      const user_id = body.user_id as string;
       
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id is required" }), { 
