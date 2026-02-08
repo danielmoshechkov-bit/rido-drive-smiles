@@ -103,63 +103,67 @@ export function UnmappedDriversModal({
 
   const fetchUnmappedFuelCards = async () => {
     try {
-      // Get all drivers' fuel card numbers from ALL drivers (not just this fleet)
-      // because fuel transactions might come from cards not yet assigned to any driver
-      const { data: allDrivers } = await supabase
+      // Get all drivers' fuel card numbers from ALL drivers globally
+      const { data: allDrivers, error: driversError } = await supabase
         .from("drivers")
         .select("fuel_card_number")
         .not("fuel_card_number", "is", null);
 
+      if (driversError) {
+        console.error('Error fetching drivers fuel cards:', driversError);
+      }
+
       // Build normalized set for comparison - normalize by stripping leading zeros
       const assignedCardsNormalized = new Set<string>();
+      const assignedCardsRaw = new Set<string>();
       allDrivers?.forEach(d => {
-        if (d.fuel_card_number) {
-          // Always store the normalized (no leading zeros) version
-          const normalized = d.fuel_card_number.replace(/^0+/, '');
+        if (d.fuel_card_number && d.fuel_card_number.trim()) {
+          const raw = d.fuel_card_number.trim();
+          const normalized = raw.replace(/^0+/, '');
           assignedCardsNormalized.add(normalized);
+          assignedCardsRaw.add(raw);
         }
       });
 
-      console.log('🔍 FUEL DEBUG - Assigned cards (normalized):', Array.from(assignedCardsNormalized));
+      console.log('🔍 FUEL DEBUG - Assigned cards RAW:', Array.from(assignedCardsRaw));
+      console.log('🔍 FUEL DEBUG - Assigned cards NORMALIZED:', Array.from(assignedCardsNormalized));
 
-      // Get ALL recent fuel transactions (last 2 months to be safe)
-      const twoMonthsAgo = new Date();
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      // Get ALL recent fuel transactions (last 3 months)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-      // Get ALL fuel transactions - they are not associated with a fleet directly
-      const { data: transactions } = await supabase
+      const { data: transactions, error: txError } = await supabase
         .from("fuel_transactions")
         .select("card_number, total_amount, transaction_date")
-        .gte("transaction_date", twoMonthsAgo.toISOString().split('T')[0])
-        .not("card_number", "is", null)
-        .not("card_number", "eq", "");
+        .gte("transaction_date", threeMonthsAgo.toISOString().split('T')[0]);
 
-      console.log('🔍 FUEL DEBUG - All transactions:', transactions?.length || 0);
-      console.log('🔍 FUEL DEBUG - Transaction card numbers:', [...new Set(transactions?.map(t => t.card_number))]);
+      if (txError) {
+        console.error('Error fetching fuel transactions:', txError);
+      }
+
+      // Get unique card numbers from transactions
+      const uniqueTransactionCards = [...new Set((transactions || []).map(t => t.card_number).filter(Boolean))];
+      console.log('🔍 FUEL DEBUG - All transaction card numbers:', uniqueTransactionCards);
 
       // Group by card and filter unassigned
       const cardTotals: Record<string, { amount: number; count: number }> = {};
-      transactions?.forEach(t => {
-        if (!t.card_number) return;
+      
+      (transactions || []).forEach(t => {
+        if (!t.card_number || !t.card_number.trim()) return;
         
-        // Normalize the transaction card number by stripping leading zeros
-        const transactionNormalized = t.card_number.replace(/^0+/, '');
+        const cardRaw = t.card_number.trim();
+        // Normalize by stripping leading zeros
+        const cardNormalized = cardRaw.replace(/^0+/, '');
         
-        // Check if this normalized card is assigned
-        const isAssigned = assignedCardsNormalized.has(transactionNormalized);
-        
-        console.log('🔍 FUEL CHECK:', { 
-          original: t.card_number, 
-          normalized: transactionNormalized, 
-          isAssigned 
-        });
+        // Check if assigned - check both normalized and raw
+        const isAssigned = assignedCardsNormalized.has(cardNormalized) || assignedCardsRaw.has(cardRaw);
         
         if (!isAssigned) {
-          if (!cardTotals[t.card_number]) {
-            cardTotals[t.card_number] = { amount: 0, count: 0 };
+          if (!cardTotals[cardRaw]) {
+            cardTotals[cardRaw] = { amount: 0, count: 0 };
           }
-          cardTotals[t.card_number].amount += t.total_amount || 0;
-          cardTotals[t.card_number].count += 1;
+          cardTotals[cardRaw].amount += t.total_amount || 0;
+          cardTotals[cardRaw].count += 1;
         }
       });
 
@@ -169,7 +173,7 @@ export function UnmappedDriversModal({
         transaction_count: data.count
       }));
 
-      console.log('🔍 FUEL DEBUG - Unassigned cards:', unassigned);
+      console.log('🔍 FUEL DEBUG - FINAL Unassigned cards:', unassigned);
       setUnmappedFuelCards(unassigned);
     } catch (err) {
       console.error("Error fetching unmapped fuel cards:", err);
@@ -355,41 +359,68 @@ export function UnmappedDriversModal({
           }
         }
 
-        // Update settlements to point to the correct driver
-        // First find what driver_id was auto-created for this unmapped record
-        const { data: autoDriver } = await supabase
-          .from("drivers")
+        // CRITICAL: Create or update driver_app_users entry so driver is no longer "new"
+        // First check if entry already exists
+        const { data: existingDau } = await supabase
+          .from("driver_app_users")
           .select("id")
-          .eq("fleet_id", fleetId)
-          .or(`first_name.ilike.%${unmapped.full_name?.split(' ')[0]}%`)
-          .single();
+          .eq("driver_id", existingDriverId)
+          .maybeSingle();
 
-        if (autoDriver && autoDriver.id !== existingDriverId) {
-          // Transfer settlements from auto-created driver to real driver
+        if (!existingDau) {
+          // Create a placeholder entry
           await supabase
-            .from("settlements")
-            .update({ driver_id: existingDriverId })
-            .eq("driver_id", autoDriver.id);
+            .from("driver_app_users")
+            .insert({
+              driver_id: existingDriverId,
+              user_id: existingDriverId, // Use driver_id as placeholder until real user registers
+            });
         }
 
-        // Mark unmapped driver as resolved
-        await supabase
-          .from("unmapped_settlement_drivers")
-          .update({
-            linked_driver_id: existingDriverId,
-            status: "resolved",
-            resolved_at: new Date().toISOString()
-          })
-          .eq("id", unmappedId);
+        // Handle auto-created driver records (from unmapped ID with "auto-" prefix)
+        if (unmappedId.startsWith('auto-')) {
+          const autoDriverId = unmappedId.replace('auto-', '');
+          
+          if (autoDriverId !== existingDriverId) {
+            // Transfer settlements from auto-created driver to real driver
+            await supabase
+              .from("settlements")
+              .update({ driver_id: existingDriverId })
+              .eq("driver_id", autoDriverId);
+            
+            // Transfer platform IDs
+            await supabase
+              .from("driver_platform_ids")
+              .update({ driver_id: existingDriverId })
+              .eq("driver_id", autoDriverId);
+            
+            // Delete the auto-created driver record
+            await supabase.from("driver_app_users").delete().eq("driver_id", autoDriverId);
+            await supabase.from("drivers").delete().eq("id", autoDriverId);
+          }
+        } else {
+          // Regular unmapped_settlement_drivers record
+          await supabase
+            .from("unmapped_settlement_drivers")
+            .update({
+              linked_driver_id: existingDriverId,
+              status: "resolved",
+              resolved_at: new Date().toISOString()
+            })
+            .eq("id", unmappedId);
+        }
       }
 
-      // Process fuel card mappings
+      // Process fuel card mappings - normalize card number before saving
       for (const [cardNumber, driverId] of Object.entries(fuelMappings)) {
         if (driverId === "_new") continue;
 
+        // Normalize card number by removing leading zeros for storage
+        const normalizedCardNumber = cardNumber.replace(/^0+/, '');
+        
         await supabase
           .from("drivers")
-          .update({ fuel_card_number: cardNumber })
+          .update({ fuel_card_number: normalizedCardNumber })
           .eq("id", driverId);
       }
 
