@@ -65,13 +65,11 @@ jobs:
       - name: Upload to LH.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          # Najlepiej, żeby FTP_SERVER było ustawione na: server408603.lh.pl
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          # UWAGA: Twoje konto FTP ma root: /public_html/getrido-test.pl
-          # więc server-dir musi być "/" (root tego konta), a nie /public_html/
+          # Konto FTP ma root: /public_html/getrido.pl więc używamy /
           server-dir: /
           passive: true
           dangerous-clean-slate: false
