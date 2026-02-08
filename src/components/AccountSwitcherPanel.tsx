@@ -186,35 +186,31 @@ export function AccountSwitcherPanel({
       </CardHeader>
       <CardContent>
         {hasNoSpecializedAccounts ? (
-          /* Show registration options directly when no accounts */
-          <div className="space-y-3">
+          /* Show registration options as tiles when no accounts */
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {availableRegistrationOptions.map((option) => (
               <div
                 key={option.id}
-                className={`border rounded-xl p-4 transition-colors ${
+                className={`border-2 rounded-xl p-4 text-center transition-all ${
                   option.available 
-                    ? 'cursor-pointer hover:bg-muted hover:border-primary' 
-                    : 'opacity-60 cursor-not-allowed bg-muted/30'
+                    ? 'cursor-pointer hover:bg-primary/5 hover:border-primary border-primary/30 bg-primary/5' 
+                    : 'opacity-60 cursor-not-allowed bg-muted/30 border-muted'
                 }`}
                 onClick={() => option.available && handleRegistrationClick(option)}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-lg ${option.available ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                    {option.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{option.label}</p>
-                      {!option.available && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Lock className="h-3 w-3 mr-1" />
-                          Wkrótce
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{option.description}</p>
-                  </div>
+                <div className={`mx-auto mb-2 p-3 rounded-lg w-fit ${
+                  option.available ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {option.icon}
                 </div>
+                <p className="font-medium text-sm">{option.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                {!option.available && (
+                  <Badge variant="secondary" className="mt-2 text-xs">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Wkrótce
+                  </Badge>
+                )}
               </div>
             ))}
           </div>
