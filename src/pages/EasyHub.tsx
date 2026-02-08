@@ -41,6 +41,7 @@ import { FeaturedListings } from "@/components/FeaturedListings";
 import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { LoginModal } from "@/components/LoginModal";
+import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -456,10 +457,41 @@ export default function EasyHub() {
     }
   }, [activeCategory, dynamicTiles]);
 
+  // Get current SEO config based on category
+  const currentSEO = useMemo(() => {
+    switch (activeCategory) {
+      case 'motoryzacja': return seoConfigs.motoryzacja;
+      case 'nieruchomosci': return seoConfigs.nieruchomosci;
+      default: return seoConfigs.home;
+    }
+  }, [activeCategory]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 overflow-x-hidden">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
+      {/* Dynamic SEO */}
+      <SEOHead 
+        title={currentSEO.title}
+        description={currentSEO.description}
+        keywords={currentSEO.keywords}
+        canonicalUrl={`https://getrido.pl${activeCategory === 'main' ? '' : `?kategoria=${activeCategory}`}`}
+        schemaType="WebSite"
+        schemaData={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'GetRido',
+          alternateName: 'GetRido Portal Ogłoszeń',
+          url: 'https://getrido.pl',
+          description: currentSEO.description,
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: 'https://getrido.pl/wyniki?query={search_term_string}',
+            'query-input': 'required name=search_term_string'
+          }
+        }}
+      />
+      
+      {/* Header - with safe area padding for iPhone notch */}
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b pt-[env(safe-area-inset-top)]">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             {activeCategory !== 'main' ? (

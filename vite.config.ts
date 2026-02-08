@@ -27,30 +27,32 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png', 'lovable-uploads/getrido-mascot-email.png'],
+      includeAssets: ['favicon.ico', 'lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png', 'pwa-icon-black.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Get RIDO - Portal Kierowcy',
-        short_name: 'RIDO',
-        description: 'System zarządzania flotą i rozliczeniami dla kierowców',
+        name: 'GetRido – Portal Ogłoszeń i Usług',
+        short_name: 'GetRido',
+        description: 'GetRido – inteligentny portal ogłoszeń nieruchomości, motoryzacji i usług z AI',
         theme_color: '#6C4AE2',
         background_color: '#ffffff',
         display: 'standalone',
         scope: '/',
         start_url: '/',
+        orientation: 'portrait-primary',
         icons: [
           {
-            src: '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png',
+            src: '/pwa-icon-black.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png',
+            src: '/pwa-icon-black.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
           }
-        ]
+        ],
+        categories: ['business', 'shopping', 'lifestyle']
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

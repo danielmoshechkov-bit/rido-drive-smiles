@@ -14,6 +14,7 @@ import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import LanguageSelector from '@/components/LanguageSelector';
 import { PortalCategoryGrid } from '@/components/portal/PortalCategoryGrid';
 import { User } from '@supabase/supabase-js';
+import { SEOHead, seoConfigs } from '@/components/SEOHead';
 
 interface ServiceCategory {
   id: string;
@@ -182,6 +183,21 @@ export default function ServicesMarketplace() {
   if (!selectedCategorySlug) {
     return (
       <div className="min-h-screen bg-background">
+        {/* SEO */}
+        <SEOHead 
+          title={seoConfigs.uslugi.title}
+          description={seoConfigs.uslugi.description}
+          keywords={seoConfigs.uslugi.keywords}
+          canonicalUrl="https://getrido.pl/uslugi"
+          schemaType="ItemList"
+          schemaData={{
+            '@context': 'https://schema.org',
+            '@type': 'ItemList',
+            name: 'Portal Usług GetRido',
+            description: 'Znajdź fachowców i usługodawców: hydraulik, elektryk, sprzątanie, remonty i więcej',
+            url: 'https://getrido.pl/uslugi'
+          }}
+        />
         {/* Header - unified with Nieruchomości */}
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">

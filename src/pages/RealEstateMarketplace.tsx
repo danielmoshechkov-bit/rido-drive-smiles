@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
+import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -571,6 +572,22 @@ export default function RealEstateMarketplace() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      {/* SEO */}
+      <SEOHead 
+        title={seoConfigs.portalNieruchomosci.title}
+        description={seoConfigs.portalNieruchomosci.description}
+        keywords={seoConfigs.portalNieruchomosci.keywords}
+        canonicalUrl="https://getrido.pl/nieruchomosci"
+        schemaType="ItemList"
+        schemaData={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Portal Nieruchomości GetRido',
+          description: 'Ogłoszenia mieszkań, domów i działek na sprzedaż i wynajem',
+          url: 'https://getrido.pl/nieruchomosci',
+          numberOfItems: listings.length
+        }}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">

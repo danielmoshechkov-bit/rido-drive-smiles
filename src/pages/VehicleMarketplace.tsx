@@ -19,6 +19,7 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
+import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import hero image (same style as real estate)
 import heroImage from "@/assets/tile-cars.jpg";
@@ -410,6 +411,22 @@ export default function VehicleMarketplace() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      {/* SEO */}
+      <SEOHead 
+        title={seoConfigs.gielda.title}
+        description={seoConfigs.gielda.description}
+        keywords={seoConfigs.gielda.keywords}
+        canonicalUrl="https://getrido.pl/gielda"
+        schemaType="ItemList"
+        schemaData={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Giełda Samochodowa GetRido',
+          description: 'Ogłoszenia samochodów osobowych, dostawczych, motocykli na sprzedaż i wynajem',
+          url: 'https://getrido.pl/gielda',
+          numberOfItems: filteredListings.length
+        }}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
