@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Loader2, Smartphone, Share, MoreVertical, ArrowLeft, LogIn } from 'lucide-react';
+import { CheckCircle, Loader2, Share, MoreVertical, ArrowLeft, LogIn } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Index from './Index';
+import EasyHub from './EasyHub';
 
 type Platform = 'none' | 'android' | 'iphone';
 
@@ -121,7 +121,7 @@ export default function ActivationConfirm() {
   return (
     <>
       {/* Main portal in background */}
-      <Index />
+      <EasyHub />
       
       {/* Thank you modal overlay */}
       <Dialog open={showModal} onOpenChange={(open) => !open && handleClose()}>
