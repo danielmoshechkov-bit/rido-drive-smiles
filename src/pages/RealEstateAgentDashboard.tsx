@@ -566,11 +566,10 @@ export default function RealEstateAgentDashboard() {
                 <AccountSwitcherPanel 
                   isDriverAccount={isDriverAccount}
                   isFleetAccount={isFleetAccount}
-                  isMarketplaceAccount={isMarketplaceAccount}
                   isRealEstateAccount={true}
                   isAdminAccount={isAdminAccount}
                   isMarketplaceEnabled={true}
-                  currentAccountType="real_estate"
+                  currentAccountType="client"
                   navigate={navigate}
                 />
               </CardContent>

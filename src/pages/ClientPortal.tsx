@@ -15,6 +15,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AddListingModal } from '@/components/AddListingModal';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { isOwnerEmail } from '@/hooks/useOwnerAccess';
 
 import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
@@ -45,7 +47,8 @@ import {
   Building2,
   BarChart3,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import LanguageSelector from '@/components/LanguageSelector';
@@ -110,6 +113,7 @@ export default function ClientPortal() {
   const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [marketplaceProfile, setMarketplaceProfile] = useState<any>(null);
   
   // Invoice state
   const [showCompanySetup, setShowCompanySetup] = useState(false);
@@ -197,7 +201,8 @@ export default function ClientPortal() {
       fetchUserListings(currentUser.id),
       fetchUserFavorites(currentUser.id),
       fetchUserEntities(currentUser.id),
-      fetchUserInvoices(currentUser.id)
+      fetchUserInvoices(currentUser.id),
+      fetchMarketplaceProfile(currentUser.id)
     ]);
     
     setLoading(false);
@@ -228,6 +233,15 @@ export default function ClientPortal() {
       .eq('user_id', userId)
       .maybeSingle();
     setIsMarketplaceAccount(!!data);
+  };
+
+  const fetchMarketplaceProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('marketplace_user_profiles')
+      .select('first_name, last_name')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setMarketplaceProfile(data);
   };
 
   const checkRealEstateAccount = async (userId: string) => {
@@ -465,6 +479,32 @@ export default function ClientPortal() {
   // Księgowość visible only if user has at least one ACTIVE company (entity)
   const activeEntities = userEntities.filter(e => e.is_active !== false);
   const hasCompanySetup = activeEntities.length > 0;
+  
+  // Check if user is owner (has full access)
+  const isOwner = isOwnerEmail(user?.email);
+
+  // Helper function to format user display name
+  const formatUserDisplayName = (userData: any) => {
+    // Try user metadata first
+    let firstName = userData?.user_metadata?.first_name || userData?.user_metadata?.imie || '';
+    let lastName = userData?.user_metadata?.last_name || userData?.user_metadata?.nazwisko || '';
+    
+    // Fallback to marketplace profile
+    if (!firstName && !lastName && marketplaceProfile) {
+      firstName = marketplaceProfile.first_name || '';
+      lastName = marketplaceProfile.last_name || '';
+    }
+    
+    if (firstName && lastName) {
+      // Capitalize first letter of each name
+      const capitalizedFirst = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+      const capitalizedLast = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
+      return `${capitalizedFirst} ${capitalizedLast}`;
+    }
+    
+    // Fallback to email username
+    return userData?.email?.split('@')[0] || 'Użytkownik';
+  };
 
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
@@ -497,20 +537,30 @@ export default function ClientPortal() {
                 <span className="font-semibold text-primary">Moje konto</span>
                 <span className="text-muted-foreground">-</span>
                 <span className="font-medium text-foreground">
-                  {user?.email?.split('@')[0]}
+                  {formatUserDisplayName(user)}
                 </span>
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <AddListingModal 
-                user={user}
-                trigger={
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Dodaj ogłoszenie
-                  </Button>
-                }
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      className={`bg-primary hover:bg-primary/90 ${!isOwner ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      onClick={() => !isOwner && toast.info('Wkrótce udostępnimy tę funkcję')}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Dodaj ogłoszenie
+                      {!isOwner && <Lock className="h-3 w-3 ml-1" />}
+                    </Button>
+                  </TooltipTrigger>
+                  {!isOwner && (
+                    <TooltipContent>
+                      <p>Wkrótce udostępnimy tę funkcję</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
               <div className="scale-90">
                 <LanguageSelector />
               </div>
@@ -528,14 +578,25 @@ export default function ClientPortal() {
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex items-center gap-2">
-              <AddListingModal 
-                user={user}
-                trigger={
-                  <Button size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                }
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm"
+                      className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
+                      onClick={() => !isOwner && toast.info('Wkrótce udostępnimy tę funkcję')}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {!isOwner && <Lock className="h-3 w-3 ml-1" />}
+                    </Button>
+                  </TooltipTrigger>
+                  {!isOwner && (
+                    <TooltipContent>
+                      <p>Wkrótce</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
               <LanguageSelector />
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
@@ -648,40 +709,70 @@ export default function ClientPortal() {
             <div className="space-y-6">
               {/* Quick Actions Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setShowSearchModal(true)}>
-                  <CardContent className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Search className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg">Szukam</h3>
-                        <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
+                {/* Szukam - zablokowane dla non-owners */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card 
+                        className={`transition-shadow ${isOwner ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
+                        onClick={() => isOwner && setShowSearchModal(true)}
+                      >
+                        <CardContent className="p-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-lg bg-primary/10">
+                              <Search className="h-8 w-8 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg flex items-center gap-2">
+                                Szukam
+                                {!isOwner && <Lock className="h-4 w-4 text-muted-foreground" />}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    {!isOwner && (
+                      <TooltipContent>
+                        <p>Wkrótce udostępnimy tę funkcję</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
 
-                <AddListingModal 
-                  user={user}
-                  trigger={
-                    <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-lg bg-amber-100">
-                            <Plus className="h-8 w-8 text-amber-600" />
+                {/* Sprzedaję - zablokowane dla non-owners */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card 
+                        className={`transition-shadow ${isOwner ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
+                      >
+                        <CardContent className="p-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-lg bg-amber-100">
+                              <Plus className="h-8 w-8 text-amber-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg flex items-center gap-2">
+                                Sprzedaję
+                                {!isOwner && <Lock className="h-4 w-4 text-muted-foreground" />}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy, aby wystawiać ogłoszenia</p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-bold text-lg">Sprzedaję</h3>
-                            <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy, aby wystawiać ogłoszenia</p>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      </CardContent>
-                    </Card>
-                  }
-                />
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    {!isOwner && (
+                      <TooltipContent>
+                        <p>Wkrótce udostępnimy tę funkcję</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
 
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('konta')}>
                   <CardContent className="p-6 flex items-center justify-between">
@@ -698,21 +789,43 @@ export default function ClientPortal() {
                   </CardContent>
                 </Card>
 
-                {/* Wystaw fakturę tile */}
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleNewInvoice}>
-                  <CardContent className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-green-100">
-                        <FileText className="h-8 w-8 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg">Wystaw fakturę</h3>
-                        <p className="text-sm text-muted-foreground">Szybko wystaw fakturę VAT dla kontrahenta</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
+                {/* Wystaw fakturę tile - zablokowane dopóki nie ma firmy */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card 
+                        className={`transition-shadow ${hasCompanySetup ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
+                        onClick={() => hasCompanySetup && handleNewInvoice()}
+                      >
+                        <CardContent className="p-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-lg bg-green-100">
+                              <FileText className="h-8 w-8 text-green-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg flex items-center gap-2">
+                                Wystaw fakturę
+                                {!hasCompanySetup && <Lock className="h-4 w-4 text-muted-foreground" />}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {hasCompanySetup 
+                                  ? 'Szybko wystaw fakturę VAT dla kontrahenta'
+                                  : 'Dodaj firmę w ustawieniach, aby wystawiać faktury'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    {!hasCompanySetup && (
+                      <TooltipContent>
+                        <p>Dodaj swoją firmę w zakładce "Ustawienia", aby wystawiać faktury</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
 
               {/* Stats Grid */}
@@ -794,15 +907,26 @@ export default function ClientPortal() {
                 <div className="space-y-6">
                   {totalListings > 0 && (
                     <div className="flex justify-end">
-                      <AddListingModal 
-                        user={user}
-                        trigger={
-                          <Button size="sm">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Dodaj
-                          </Button>
-                        }
-                      />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
+                              onClick={() => isOwner ? toast.info('Funkcja wkrótce') : toast.info('Wkrótce udostępnimy tę funkcję')}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Dodaj
+                              {!isOwner && <Lock className="h-3 w-3 ml-1" />}
+                            </Button>
+                          </TooltipTrigger>
+                          {!isOwner && (
+                            <TooltipContent>
+                              <p>Wkrótce udostępnimy tę funkcję</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   )}
 
@@ -906,15 +1030,25 @@ export default function ClientPortal() {
                         <p className="text-sm text-muted-foreground mb-4">
                           Nie masz jeszcze żadnych ogłoszeń
                         </p>
-                        <AddListingModal 
-                          user={user}
-                          trigger={
-                            <Button>
-                              <Plus className="h-4 w-4 mr-2" />
-                              Dodaj ogłoszenie
-                            </Button>
-                          }
-                        />
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
+                                onClick={() => isOwner ? toast.info('Funkcja wkrótce') : toast.info('Wkrótce udostępnimy tę funkcję')}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Dodaj ogłoszenie
+                                {!isOwner && <Lock className="h-3 w-3 ml-1" />}
+                              </Button>
+                            </TooltipTrigger>
+                            {!isOwner && (
+                              <TooltipContent>
+                                <p>Wkrótce udostępnimy tę funkcję</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
                       </CardContent>
                     </Card>
                   )}

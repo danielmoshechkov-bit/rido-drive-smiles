@@ -15,20 +15,20 @@ import { Car, Truck, User, Plus, Building2, Home, Globe, UserCircle, Briefcase, 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
   isFleetAccount: boolean;
-  isMarketplaceAccount: boolean;
+  isMarketplaceAccount?: boolean; // Optional - not used anymore
   isRealEstateAccount?: boolean;
   isAdminAccount?: boolean;
   isClientPortal?: boolean;
   isSalesAdmin?: boolean;
   isSalesRep?: boolean;
-  isMarketplaceEnabled: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales';
+  isMarketplaceEnabled?: boolean; // Optional - not used anymore
+  currentAccountType: 'driver' | 'fleet' | 'admin' | 'client' | 'sales';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
 }
 
 interface AccountOption {
-  type: 'driver' | 'fleet' | 'marketplace' | 'real_estate' | 'admin' | 'client' | 'sales';
+  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales';
   label: string;
   icon: React.ReactNode;
   route: string;
@@ -47,13 +47,11 @@ interface RegistrationOption {
 export function AccountSwitcherPanel({
   isDriverAccount,
   isFleetAccount,
-  isMarketplaceAccount,
   isRealEstateAccount = false,
   isAdminAccount = false,
   isClientPortal = true,
   isSalesAdmin = false,
   isSalesRep = false,
-  isMarketplaceEnabled,
   currentAccountType,
   navigate,
   hideDriverForFleet = false
@@ -63,7 +61,7 @@ export function AccountSwitcherPanel({
   const hasSalesAccess = isSalesAdmin || isSalesRep;
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
-  // Build list of all available accounts for this user
+  // Build list of all available accounts for this user (excluding Giełda and Nieruchomości)
   const accounts: AccountOption[] = [
     {
       type: 'admin',
@@ -99,21 +97,8 @@ export function AccountSwitcherPanel({
       icon: <UserCircle className="h-8 w-8" />,
       route: '/klient',
       isEnabled: isClientPortal
-    },
-    {
-      type: 'marketplace',
-      label: 'Giełda',
-      icon: <User className="h-8 w-8" />,
-      route: '/gielda',
-      isEnabled: isMarketplaceAccount
-    },
-    {
-      type: 'real_estate',
-      label: 'Nieruchomości',
-      icon: <Home className="h-8 w-8" />,
-      route: '/nieruchomosci/agent/panel',
-      isEnabled: isRealEstateAccount
     }
+    // Removed: marketplace and real_estate - not needed as separate accounts
   ];
 
   // Filter to only show enabled accounts (excluding client portal which is always base)
@@ -170,8 +155,7 @@ export function AccountSwitcherPanel({
   const availableRegistrationOptions = registrationOptions.filter(opt => {
     if (opt.id === 'driver' && isDriverAccount) return false;
     if (opt.id === 'fleet' && isFleetAccount) return false;
-    if (opt.id === 'marketplace' && isMarketplaceAccount) return false;
-    if (opt.id === 'real_estate' && isRealEstateAccount) return false;
+    // marketplace and real_estate registration options remain visible but marked as "coming soon"
     return true;
   });
 

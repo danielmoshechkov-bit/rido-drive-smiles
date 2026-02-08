@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Car, Building, Sparkles, ArrowRight, Plus } from "lucide-react";
+import { Car, Building, Sparkles, ArrowRight, Plus, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { isOwnerEmail } from "@/hooks/useOwnerAccess";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -29,6 +32,7 @@ interface CategoryTile {
   link: string;
   featureKey?: string;
   available: boolean;
+  ownerOnly?: boolean; // New flag for owner-only features
 }
 
 const categories: CategoryTile[] = [
@@ -40,7 +44,8 @@ const categories: CategoryTile[] = [
     image: tileCars,
     link: '/gielda/dodaj-pojazd',
     featureKey: 'vehicle_marketplace_enabled',
-    available: true
+    available: true,
+    ownerOnly: true // Blocked for non-owners
   },
   {
     id: 'realestate',
@@ -50,7 +55,8 @@ const categories: CategoryTile[] = [
     image: tileRealEstate,
     link: '/nieruchomosci/agent/panel?tab=add',
     featureKey: 'real_estate_marketplace_enabled',
-    available: true
+    available: true,
+    ownerOnly: true // Blocked for non-owners
   },
   {
     id: 'services',
@@ -60,18 +66,25 @@ const categories: CategoryTile[] = [
     image: tileHandyman,
     link: '/uslugi/dodaj',
     featureKey: 'services_marketplace_enabled',
-    available: false
+    available: false,
+    ownerOnly: true // Blocked for non-owners
   }
 ];
 
 function CategoryTileCard({ 
   tile, 
-  onClick 
+  onClick,
+  isOwner
 }: { 
   tile: CategoryTile; 
-  onClick: () => void 
+  onClick: () => void;
+  isOwner: boolean;
 }) {
   const Icon = tile.icon;
+  
+  // Check if this tile is accessible
+  const isAccessible = tile.available && (!tile.ownerOnly || isOwner);
+  const showComingSoon = !tile.available || (tile.ownerOnly && !isOwner);
   
   return (
     <Card 
@@ -79,9 +92,9 @@ function CategoryTileCard({
         "group relative overflow-hidden cursor-pointer transition-all duration-300",
         "hover:shadow-xl hover:scale-[1.02]",
         "border-0 shadow-md",
-        !tile.available && "opacity-60 cursor-not-allowed hover:scale-100"
+        !isAccessible && "opacity-60 cursor-not-allowed hover:scale-100"
       )}
-      onClick={() => tile.available && onClick()}
+      onClick={() => isAccessible && onClick()}
     >
       {/* Background image */}
       <div 
@@ -96,14 +109,15 @@ function CategoryTileCard({
         <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
           <Icon className="h-5 w-5 text-white" />
         </div>
-        <h3 className="font-bold text-base text-white leading-tight">
+        <h3 className="font-bold text-base text-white leading-tight flex items-center gap-2">
           {tile.title}
+          {showComingSoon && <Lock className="h-4 w-4 text-white/70" />}
         </h3>
         <p className="text-xs text-white/80 mt-1 line-clamp-2">
           {tile.description}
         </p>
         
-        {!tile.available && (
+        {showComingSoon && (
           <Badge 
             variant="secondary" 
             className="absolute top-2 right-2 text-xs px-2 py-0.5 bg-white/90"
@@ -112,7 +126,7 @@ function CategoryTileCard({
           </Badge>
         )}
         
-        {tile.available && (
+        {isAccessible && (
           <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
             <ArrowRight className="h-3 w-3 text-white" />
           </div>
@@ -129,11 +143,21 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const [pendingCategory, setPendingCategory] = useState<CategoryTile | null>(null);
   const { features } = useFeatureToggles();
   const { isAdmin } = useUserRole();
+  const [isOwner, setIsOwner] = useState(false);
+  
+  // Check if current user is owner
+  useEffect(() => {
+    const checkOwner = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      setIsOwner(isOwnerEmail(currentUser?.email));
+    };
+    checkOwner();
+  }, []);
 
   // Filter categories based on feature toggles and admin status
   const availableCategories = categories.map(cat => {
-    // Admin can always access Services
-    if (cat.id === 'services' && isAdmin) {
+    // Admin/owner can always access Services
+    if (cat.id === 'services' && (isAdmin || isOwner)) {
       return { ...cat, available: true };
     }
     return {
@@ -143,6 +167,11 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   });
 
   const handleOpenModal = () => {
+    // Check if user is owner for non-owners show toast
+    if (user && !isOwnerEmail(user.email)) {
+      toast.info('Ta funkcja będzie dostępna wkrótce');
+      return;
+    }
     // Always open category selection first, even for non-logged users
     setOpen(true);
   };
@@ -209,6 +238,7 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
                 key={tile.id}
                 tile={tile}
                 onClick={() => handleCategoryClick(tile)}
+                isOwner={isOwner}
               />
             ))}
           </div>
