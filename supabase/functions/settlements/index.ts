@@ -734,27 +734,35 @@ async function parseUberCsv(
     }
     
     // 1b. CRITICAL: Also check database directly for platform_id (in case cache is stale)
+    // BUT only match within the same fleet to prevent cross-fleet matching!
     if (!driverId && platformId) {
-      const { data: existingPlatformId } = await supabase
+      // Build a query that joins platform_ids with drivers and filters by fleet
+      let platformQuery = supabase
         .from('driver_platform_ids')
-        .select('driver_id')
+        .select('driver_id, drivers!inner(id, first_name, last_name, fleet_id)')
         .eq('platform', 'uber')
-        .eq('platform_id', platformId)
-        .maybeSingle();
+        .eq('platform_id', platformId);
+      
+      // CRITICAL: Only match drivers from the same fleet!
+      if (fleet_id) {
+        platformQuery = platformQuery.eq('drivers.fleet_id', fleet_id);
+      }
+      
+      const { data: existingPlatformId } = await platformQuery.maybeSingle();
       
       if (existingPlatformId?.driver_id) {
         driverId = existingPlatformId.driver_id;
         matchedDrivers++;
-        console.log(`✅ UBER: Matched by platform ID (DB lookup): ${platformId} → ${driverId}`);
+        console.log(`✅ UBER: Matched by platform ID (DB lookup, same fleet): ${platformId} → ${driverId}`);
         
-        // Update cache
-        const { data: driver } = await supabase
-          .from('drivers')
-          .select('id, first_name, last_name')
-          .eq('id', driverId)
-          .single();
-        if (driver) {
-          existingDriversMap.set(`uber:${platformId}`, driver);
+        // Update cache with driver info
+        const driverInfo = existingPlatformId.drivers;
+        if (driverInfo) {
+          existingDriversMap.set(`uber:${platformId}`, { 
+            id: driverInfo.id, 
+            first_name: driverInfo.first_name, 
+            last_name: driverInfo.last_name 
+          });
         }
       }
     }

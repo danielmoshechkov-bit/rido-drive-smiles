@@ -451,16 +451,60 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
 
   if (drivers.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-muted-foreground">
-            {mode === 'fleet' 
-              ? "Brak kierowców w tej flocie. Zaproś kierowcę do floty lub dodaj go ręcznie."
-              : "Brak kierowców dla wybranego miasta/floty. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
-            }
-          </p>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardContent className="p-8 text-center space-y-4">
+            <Users className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <p className="text-muted-foreground">
+              {mode === 'fleet' 
+                ? "Brak kierowców w tej flocie. Zaproś kierowcę do floty lub dodaj go ręcznie."
+                : "Brak kierowców dla wybranego miasta/floty. Zaimportuj dane CSV lub dodaj kierowcę ręcznie."
+              }
+            </p>
+            {mode === 'fleet' && (
+              <div className="flex justify-center gap-3 pt-2">
+                <Button onClick={() => setShowFleetInviteModal(true)} variant="outline" className="gap-2">
+                  <Mail className="h-4 w-4" />
+                  Zaproś kierowcę
+                </Button>
+                <Button onClick={() => setShowAddModal(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Dodaj kierowcę
+                </Button>
+              </div>
+            )}
+            {mode === 'admin' && cityId && (
+              <div className="flex justify-center gap-3 pt-2">
+                <Button onClick={() => setShowAddModal(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Dodaj kierowcę
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Modal components still need to be rendered */}
+        <AddDriverModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={handleAddDriver}
+          cityId={cityId || undefined}
+        />
+        
+        {fleetId && (
+          <FleetInvitationModal
+            isOpen={showFleetInviteModal}
+            onClose={() => setShowFleetInviteModal(false)}
+            onSuccess={() => {
+              refetch();
+              onDriverUpdate();
+            }}
+            fleetId={fleetId}
+            availableVehicles={availableVehicles}
+          />
+        )}
+      </>
     );
   }
 
