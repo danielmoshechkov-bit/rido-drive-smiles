@@ -30,6 +30,7 @@ export default function FleetRegister() {
     nip: "",
     address_street: "",
     address_number: "",
+    address_apartment: "",
     address_city: "",
     address_postal_code: "",
     
@@ -49,6 +50,14 @@ export default function FleetRegister() {
     acceptTerms: false,
     acceptRodo: false,
   });
+
+  const formatPostalCode = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 5);
+    if (digits.length > 2) {
+      return digits.slice(0, 2) + "-" + digits.slice(2);
+    }
+    return digits;
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -92,6 +101,8 @@ export default function FleetRegister() {
       } else if (!/^\d{10}$/.test(formData.nip.replace(/[\s-]/g, ""))) {
         errors.nip = "NIP musi mieć 10 cyfr";
       }
+      if (!formData.address_street.trim()) errors.address_street = "Ulica jest wymagana";
+      if (!formData.address_number.trim()) errors.address_number = "Nr domu jest wymagany";
       if (!formData.address_city.trim()) errors.address_city = "Miasto jest wymagane";
     }
     
@@ -146,7 +157,7 @@ export default function FleetRegister() {
           company_name: formData.company_name,
           company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
           nip: formData.nip.replace(/[\s-]/g, ""),
-          address: `${formData.address_street} ${formData.address_number}`.trim(),
+          address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
           city: formData.address_city,
           postal_code: formData.address_postal_code,
           contact_name: formData.contact_name,
@@ -205,7 +216,7 @@ export default function FleetRegister() {
           company_name: formData.company_name,
           company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
           nip: formData.nip.replace(/[\s-]/g, ""),
-          address: `${formData.address_street} ${formData.address_number}`.trim(),
+          address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
           city: formData.address_city,
           postal_code: formData.address_postal_code,
           contact_name: formData.contact_name,
@@ -324,19 +335,40 @@ export default function FleetRegister() {
                   {renderField("company_short_name", "Nazwa skrócona", <FileText className="h-4 w-4" />, "text", "TaxiPartner", false)}
                   {renderField("nip", "NIP", <FileText className="h-4 w-4" />, "text", "1234567890")}
                   
+                  {renderField("address_street", "Ulica", <MapPin className="h-4 w-4" />, "text", "ul. Główna")}
+                  
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
-                      {renderField("address_street", "Ulica", <MapPin className="h-4 w-4" />, "text", "ul. Główna", false)}
+                    <div>
+                      {renderField("address_number", "Nr domu", <MapPin className="h-4 w-4" />, "text", "10")}
                     </div>
                     <div>
-                      {renderField("address_number", "Nr", <MapPin className="h-4 w-4" />, "text", "10", false)}
+                      {renderField("address_apartment", "Nr lokalu", <MapPin className="h-4 w-4" />, "text", "5", false)}
+                    </div>
+                    <div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address_postal_code">Kod pocztowy *</Label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                          </div>
+                          <Input
+                            id="address_postal_code"
+                            type="text"
+                            value={formData.address_postal_code}
+                            onChange={(e) => {
+                              const formatted = formatPostalCode(e.target.value);
+                              setFormData({ ...formData, address_postal_code: formatted });
+                            }}
+                            placeholder="00-000"
+                            className="pl-10"
+                            required
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    {renderField("address_city", "Miasto", <MapPin className="h-4 w-4" />, "text", "Warszawa")}
-                    {renderField("address_postal_code", "Kod pocztowy", <MapPin className="h-4 w-4" />, "text", "00-000", false)}
-                  </div>
+                  {renderField("address_city", "Miasto", <MapPin className="h-4 w-4" />, "text", "Warszawa")}
                 </>
               )}
 
