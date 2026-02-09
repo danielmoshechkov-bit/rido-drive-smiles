@@ -64,7 +64,7 @@ export function AddFleetDriverModal({
         .eq('fleet_id', fleetId)
         .not('city_id', 'is', null)
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (existingDriver?.city_id) {
         cityId = existingDriver.city_id;
@@ -74,7 +74,7 @@ export function AddFleetDriverModal({
           .from('cities')
           .select('id')
           .limit(1)
-          .single();
+          .maybeSingle();
         cityId = cities?.id || null;
       }
 
@@ -281,27 +281,43 @@ export function AddFleetDriverModal({
             {/* Platform IDs */}
             <div className="border-t pt-4 mt-4">
               <p className="text-sm font-medium text-muted-foreground mb-3">Identyfikatory platform (opcjonalne)</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder="GetRido ID"
-                  value={formData.getrido_id}
-                  onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
-                />
-                <Input
-                  placeholder="Uber ID"
-                  value={formData.uber_id}
-                  onChange={e => setFormData({ ...formData, uber_id: e.target.value })}
-                />
-                <Input
-                  placeholder="Bolt ID"
-                  value={formData.bolt_id}
-                  onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
-                />
-                <Input
-                  placeholder="FreeNow ID"
-                  value={formData.freenow_id}
-                  onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
-                />
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="getrido_id" className="text-xs">GetRido ID</Label>
+                  <Input
+                    id="getrido_id"
+                    placeholder="GetRido ID"
+                    value={formData.getrido_id}
+                    onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="uber_id" className="text-xs">Uber ID</Label>
+                  <Input
+                    id="uber_id"
+                    placeholder="Uber ID"
+                    value={formData.uber_id}
+                    onChange={e => setFormData({ ...formData, uber_id: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="bolt_id" className="text-xs">Bolt ID <span className="text-muted-foreground font-normal">(numer telefonu kierowcy)</span></Label>
+                  <Input
+                    id="bolt_id"
+                    placeholder="np. +48123456789"
+                    value={formData.bolt_id}
+                    onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="freenow_id" className="text-xs">FreeNow ID <span className="text-muted-foreground font-normal">(ID kierowcy z FreeNow)</span></Label>
+                  <Input
+                    id="freenow_id"
+                    placeholder="FreeNow Driver ID"
+                    value={formData.freenow_id}
+                    onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
