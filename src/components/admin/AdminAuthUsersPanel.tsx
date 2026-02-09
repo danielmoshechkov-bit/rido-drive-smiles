@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Users, Search, Trash2, CheckCircle, XCircle, RefreshCw, Mail } from 'lucide-react';
+import { Loader2, Users, Search, Trash2, CheckCircle, XCircle, RefreshCw, Mail, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AuthUser {
@@ -38,6 +38,7 @@ export function AdminAuthUsersPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [dateSortOrder, setDateSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadUsers();
@@ -110,16 +111,22 @@ export function AdminAuthUsersPanel() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      user.email?.toLowerCase().includes(query) ||
-      user.first_name?.toLowerCase().includes(query) ||
-      user.last_name?.toLowerCase().includes(query) ||
-      user.phone?.includes(query)
-    );
-  });
+  const filteredUsers = users
+    .filter(user => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        user.email?.toLowerCase().includes(query) ||
+        user.first_name?.toLowerCase().includes(query) ||
+        user.last_name?.toLowerCase().includes(query) ||
+        user.phone?.includes(query)
+      );
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
 
   return (
     <>
@@ -171,7 +178,21 @@ export function AdminAuthUsersPanel() {
                     <TableHead>Imię i nazwisko</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Typ konta</TableHead>
-                    <TableHead>Data rejestracji</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 font-medium hover:bg-transparent"
+                        onClick={() => setDateSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      >
+                        Data rejestracji
+                        {dateSortOrder === 'desc' ? (
+                          <ArrowDown className="h-3 w-3 ml-1" />
+                        ) : (
+                          <ArrowUp className="h-3 w-3 ml-1" />
+                        )}
+                      </Button>
+                    </TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
