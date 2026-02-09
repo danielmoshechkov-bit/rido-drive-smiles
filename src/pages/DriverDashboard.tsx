@@ -493,7 +493,7 @@ const DriverDashboard = () => {
             {features.account_switching_enabled && (
               <TabsTrigger value="accounts">
                 <Repeat className="h-4 w-4 mr-2" />
-                Przełącz konto
+                Wybierz moduł
               </TabsTrigger>
             )}
           </TabsPill>
@@ -576,7 +576,7 @@ const DriverDashboard = () => {
                         onClick={() => setActiveTab('accounts')}
                       >
                         <Repeat className="h-4 w-4 mr-2" />
-                        Przełącz konto
+                        Wybierz moduł
                       </Button>
                     </SheetTrigger>
                   )}
@@ -594,7 +594,7 @@ const DriverDashboard = () => {
                     {activeTab === 'documents' && t('driver.tabs.documents')}
                     {activeTab === 'informacje' && t('driver.tabs.information')}
                     {activeTab === 'marketplace' && t('driver.tabs.marketplace')}
-                    {activeTab === 'accounts' && 'Przełącz konto'}
+                    {activeTab === 'accounts' && 'Wybierz moduł'}
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
                 </div>
@@ -656,7 +656,7 @@ const DriverDashboard = () => {
                       onClick={() => setActiveTab('accounts')}
                     >
                       <Repeat className="h-3 w-3 mr-2" />
-                      Przełącz konto
+                      Wybierz moduł
                     </Button>
                   )}
                 </div>
