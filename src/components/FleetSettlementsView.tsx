@@ -115,6 +115,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [checkingUnmapped, setCheckingUnmapped] = useState(false);
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
   const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
+  // Manual overrides for editable columns (składka ZUS, Opłata, Wynajem, Dług)
+  const [manualOverrides, setManualOverrides] = useState<Record<string, {
+    additional_fees?: Record<number, number>;
+    service_fee?: number;
+    rental?: number;
+  }>>({});
+  const [editingCell, setEditingCell] = useState<{ driverId: string; field: string; index?: number } | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
@@ -535,6 +543,89 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     } finally {
       setIsDeleting(false);
     }
+  };
+
+
+
+
+  // Apply manual overrides and recalculate payout
+  const getEffectiveSettlement = (settlement: DriverSettlement) => {
+    const overrides = manualOverrides[settlement.driver_id];
+    if (!overrides) return settlement;
+
+    const s = { ...settlement };
+    
+    if (overrides.service_fee !== undefined) s.service_fee = overrides.service_fee;
+    if (overrides.rental !== undefined) s.rental = overrides.rental;
+    if (overrides.additional_fees) {
+      s.additional_fees = s.additional_fees.map((fee, idx) => 
+        overrides.additional_fees?.[idx] !== undefined 
+          ? { ...fee, amount: overrides.additional_fees[idx] } 
+          : fee
+      );
+    }
+    
+    // Recalculate payout
+    const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+    s.final_payout = s.total_base - s.total_commission - s.vat_amount - s.service_fee - total_additional - (s.rental || 0) - s.total_cash - s.fuel + s.fuel_vat_refund;
+    
+    return s;
+  };
+
+  const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
+    setEditingCell({ driverId, field, index });
+    setEditValue(currentValue.toFixed(2));
+  };
+
+  const commitEdit = () => {
+    if (!editingCell) return;
+    const val = parseFloat(editValue.replace(',', '.')) || 0;
+    const { driverId, field, index } = editingCell;
+    
+    setManualOverrides(prev => {
+      const existing = prev[driverId] || {};
+      if (field === 'additional_fee' && index !== undefined) {
+        return { ...prev, [driverId]: { ...existing, additional_fees: { ...existing.additional_fees, [index]: val } } };
+      }
+      return { ...prev, [driverId]: { ...existing, [field]: val } };
+    });
+    
+    setEditingCell(null);
+  };
+
+  const cancelEdit = () => setEditingCell(null);
+
+  // Render an editable cell
+  const renderEditableCell = (driverId: string, field: string, value: number, hasActivity: boolean, index?: number) => {
+    const isEditing = editingCell?.driverId === driverId && editingCell?.field === field && editingCell?.index === index;
+    const isOverridden = !!manualOverrides[driverId]?.[field === 'additional_fee' ? 'additional_fees' : field as keyof typeof manualOverrides[string]];
+    
+    if (isEditing) {
+      return (
+        <Input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitEdit();
+            if (e.key === 'Escape') cancelEdit();
+          }}
+          className="h-6 w-20 text-xs text-right px-1 py-0"
+          autoFocus
+        />
+      );
+    }
+    
+    return (
+      <span 
+        className={`cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 transition-colors ${isOverridden ? 'bg-yellow-100 dark:bg-yellow-900/30 font-semibold' : ''}`}
+        onClick={() => startEditing(driverId, field, value, index)}
+        title="Kliknij aby edytować"
+      >
+        {value > 0 ? `-${formatCurrency(value)}` : (hasActivity ? '0,00' : '-')}
+      </span>
+    );
   };
 
 
@@ -1071,22 +1162,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
 
       // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze i null
-      // Pokazuj tylko kierowców którzy mają AKTYWNE zarobki (total_base > 0)
-      // UKRYJ: 
-      // - Kierowców z ujemnym saldem (już odfiltrowane jako null wyżej)
-      // - Kierowców bez żadnych rozliczeń
-      const settlementsDriverIds = new Set(settlementsData?.map(s => s.driver_id) || []);
-      
+      // Pokazuj TYLKO kierowców którzy mają zarobki (total_base > 0)
+      // UKRYJ: kierowców z zerowym saldem, bez zarobków, właścicieli
       const filteredAggregated = aggregated
         .filter((row): row is NonNullable<typeof row> => row !== null) // Remove null rows (fleet owners)
         .filter(row => {
-          // UKRYJ kierowców z zerowym saldem i bez rozliczeń
-          if (row.total_base === 0 && !settlementsDriverIds.has(row.driver_id)) {
-            return false;
-          }
-          
-          // Pokaż kierowców z pozytywnymi zarobkami lub z rozliczeniami
-          return row.total_base > 0 || settlementsDriverIds.has(row.driver_id);
+          // UKRYJ kierowców z zerowym lub ujemnym total_base - nie pokazuj pustych wierszy
+          return row.total_base > 0 || row.has_negative_balance === true;
         });
 
       console.log('📈 Aggregated settlements:', aggregated.length);
@@ -1939,7 +2021,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSettlements.map((settlement) => {
+                    {filteredSettlements.map((rawSettlement) => {
+                      const settlement = getEffectiveSettlement(rawSettlement);
                       // Check platform activity (driver worked if base > 0)
                       const hasUberActivity = settlement.uber_base > 0;
                       const hasBoltActivity = settlement.bolt_base > 0;
@@ -1988,17 +2071,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                           {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>
+                        {/* Editable: additional fees (składka ZUS etc.) */}
                         {settlement.additional_fees.map((fee, idx) => (
                           <TableCell key={idx} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                            -{formatCurrency(fee.amount)}
+                            {renderEditableCell(settlement.driver_id, 'additional_fee', fee.amount, hasAnyActivity, idx)}
                           </TableCell>
                         ))}
+                        {/* Editable: Opłata */}
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          {settlement.service_fee > 0 ? `-${formatCurrency(settlement.service_fee)}` : (hasAnyActivity ? '0,00' : '-')}
+                          {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
                         </TableCell>
+                        {/* Editable: Wynajem */}
                         <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          {(settlement.rental || 0) > 0 ? `-${formatCurrency(settlement.rental || 0)}` : (hasAnyActivity ? '0,00' : '-')}
+                          {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>
+                        {/* Wypłata (auto-calculated) */}
                         <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
                           {settlement.has_negative_balance && (
@@ -2007,6 +2094,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </Badge>
                           )}
                         </TableCell>
+                        {/* Dług - clickable to view history */}
                         <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
                             const debt = driverDebts[settlement.driver_id] || 0;
