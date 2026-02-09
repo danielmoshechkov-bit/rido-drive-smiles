@@ -242,7 +242,10 @@ export default function FleetRegister() {
         return;
       }
 
-      if (response.error) throw new Error(response.error.message);
+      if (response.error) {
+        console.error("Fleet registration invoke error:", response.error);
+        throw new Error(typeof response.error === 'string' ? response.error : response.error.message || "Błąd rejestracji");
+      }
 
       // Redirect to success page
       navigate("/fleet/rejestracja-sukces");
