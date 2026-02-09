@@ -173,16 +173,40 @@ Deno.serve(async (req) => {
     const firstName = nameParts[0] || contact_name;
     const lastName = nameParts.slice(1).join(" ") || "";
     
+    // Find or create a default city_id for the fleet's city
+    let cityId: string | null = null;
+    const { data: cityData } = await supabaseAdmin
+      .from("cities")
+      .select("id")
+      .ilike("name", city)
+      .limit(1)
+      .maybeSingle();
+    
+    if (cityData) {
+      cityId = cityData.id;
+    } else {
+      // Try to get any default city
+      const { data: defaultCity } = await supabaseAdmin
+        .from("cities")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      cityId = defaultCity?.id || null;
+    }
+
+    const driverInsert: Record<string, any> = {
+      fleet_id: fleetData.id,
+      first_name: firstName,
+      last_name: lastName,
+      email: contact_email,
+      phone: contact_phone,
+      payment_method: 'transfer',
+    };
+    if (cityId) driverInsert.city_id = cityId;
+
     const { data: driverData, error: driverError } = await supabaseAdmin
       .from("drivers")
-      .insert({
-        fleet_id: fleetData.id,
-        first_name: firstName,
-        last_name: lastName,
-        email: contact_email,
-        phone: contact_phone,
-        payment_method: 'transfer'
-      })
+      .insert(driverInsert)
       .select()
       .single();
 
