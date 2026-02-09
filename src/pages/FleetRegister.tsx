@@ -335,7 +335,7 @@ export default function FleetRegister() {
                   
                   <div className="grid grid-cols-2 gap-3">
                     {renderField("address_city", "Miasto", <MapPin className="h-4 w-4" />, "text", "Warszawa")}
-                    {renderField("address_postal_code", "Kod pocztowy", <MapPin className="h-4 w-4" />, "text", "00-001", false)}
+                    {renderField("address_postal_code", "Kod pocztowy", <MapPin className="h-4 w-4" />, "text", "00-000", false)}
                   </div>
                 </>
               )}

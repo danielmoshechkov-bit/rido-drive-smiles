@@ -51,7 +51,7 @@ export function Step3Account({
         <p className="text-sm text-muted-foreground">Dane do logowania w portalu do zarządzania flotą</p>
       </div>
       
-      {renderField("email", "Email do logowania", <Mail className="h-4 w-4" />, "email", "admin@firma.pl")}
+      {renderField("email", "Email", <Mail className="h-4 w-4" />, "email", "admin@firma.pl")}
       
       {/* Password field with strength indicator */}
       <div className="space-y-2">
