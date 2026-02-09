@@ -47,10 +47,11 @@ interface DriversManagementProps {
 export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, mode = 'admin' }: DriversManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('all');
-  const [filters, setFilters] = useState<{ fleets: string[]; statuses: string[]; paymentMethods: string[] }>({
+  const [filters, setFilters] = useState<{ fleets: string[]; statuses: string[]; paymentMethods: string[]; fleetCompanyId?: string }>({
     fleets: [],
     statuses: [],
-    paymentMethods: []
+    paymentMethods: [],
+    fleetCompanyId: undefined
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFleetInviteModal, setShowFleetInviteModal] = useState(false);
@@ -207,8 +208,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         return false;
       }
     }
+
+    // Fleet company filter
+    if (filters.fleetCompanyId) {
+      if (driver.fleet_id !== filters.fleetCompanyId) {
+        return false;
+      }
+    }
     
-    // Search filter
+    // Search filter (name, email, phone)
     const matchesSearch = 
       `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||

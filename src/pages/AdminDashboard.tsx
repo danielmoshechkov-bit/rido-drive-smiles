@@ -160,12 +160,33 @@ const AdminDashboard = () => {
     }
   };
 
+  const [newUsersThisWeek, setNewUsersThisWeek] = useState(0);
+  const [newDriversThisWeek, setNewDriversThisWeek] = useState(0);
+
+  // Fetch weekly new users and drivers counts
+  useEffect(() => {
+    const fetchWeeklyStats = async () => {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const weekAgoISO = oneWeekAgo.toISOString();
+
+      const [usersRes, driversRes] = await Promise.all([
+        supabase.from('marketplace_user_profiles').select('id', { count: 'exact', head: true }).gte('created_at', weekAgoISO),
+        supabase.from('drivers').select('id', { count: 'exact', head: true }).gte('created_at', weekAgoISO),
+      ]);
+
+      setNewUsersThisWeek(usersRes.count || 0);
+      setNewDriversThisWeek(driversRes.count || 0);
+    };
+    fetchWeeklyStats();
+  }, []);
+
   // Dynamic stats based on real data
   const weeklyStats = {
     totalDrivers: drivers.length,
-    totalEarnings: 0, // TODO: Calculate from settlements
-    totalTrips: 0, // TODO: Calculate from settlements
-    averageRating: 0 // TODO: Calculate from settlements
+    totalEarnings: 0,
+    totalTrips: 0,
+    averageRating: 0
   };
 
   const getServiceColor = (service: string) => {
@@ -495,6 +516,32 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{weeklyStats.averageRating}/5</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* New users/drivers this week */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4 text-green-600" />
+                    Nowi użytkownicy (ten tydzień)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-700">{newUsersThisWeek}</div>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Car className="h-4 w-4 text-blue-600" />
+                    Nowi kierowcy (ten tydzień)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-700">{newDriversThisWeek}</div>
                 </CardContent>
               </Card>
             </div>
