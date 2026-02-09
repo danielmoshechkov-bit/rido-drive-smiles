@@ -140,19 +140,55 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Delete from marketplace_user_profiles first (if exists)
+      // 1. Find fleet(s) owned by this user (via user_roles with fleet_id)
+      const { data: userFleetRoles } = await supabaseAdmin
+        .from('user_roles')
+        .select('fleet_id')
+        .eq('user_id', user_id)
+        .in('role', ['fleet_settlement', 'fleet_rental']);
+
+      const fleetIds = (userFleetRoles || [])
+        .map(r => r.fleet_id)
+        .filter(Boolean) as string[];
+
+      // 2. Delete fleet-related data for each fleet
+      for (const fid of fleetIds) {
+        // Delete driver_platform_ids for drivers in this fleet
+        const { data: fleetDrivers } = await supabaseAdmin
+          .from('drivers')
+          .select('id')
+          .eq('fleet_id', fid);
+        
+        const driverIds = (fleetDrivers || []).map(d => d.id);
+        
+        if (driverIds.length > 0) {
+          await supabaseAdmin.from('driver_platform_ids').delete().in('driver_id', driverIds);
+          await supabaseAdmin.from('driver_fleet_relations').delete().in('driver_id', driverIds);
+          await supabaseAdmin.from('driver_app_users').delete().in('driver_id', driverIds);
+          await supabaseAdmin.from('driver_document_statuses').delete().in('driver_id', driverIds);
+          await supabaseAdmin.from('drivers').delete().eq('fleet_id', fid);
+        }
+
+        // Delete the fleet itself (this frees the NIP)
+        await supabaseAdmin.from('fleets').delete().eq('id', fid);
+      }
+
+      // 3. Delete from driver_app_users (if user was also a driver)
+      await supabaseAdmin.from('driver_app_users').delete().eq('user_id', user_id);
+
+      // 4. Delete from marketplace_user_profiles (if exists)
       await supabaseAdmin
         .from('marketplace_user_profiles')
         .delete()
         .eq('user_id', user_id);
 
-      // Delete from user_roles
+      // 5. Delete from user_roles
       await supabaseAdmin
         .from('user_roles')
         .delete()
         .eq('user_id', user_id);
 
-      // Delete auth user
+      // 6. Delete auth user
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
 
       if (deleteError) {

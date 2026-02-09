@@ -12,6 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, UserPlus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AddFleetDriverModalProps {
   isOpen: boolean;
@@ -32,15 +39,10 @@ export function AddFleetDriverModal({
     last_name: '',
     email: '',
     phone: '',
-    pesel: '',
-    address_street: '',
-    address_city: '',
-    address_postal_code: '',
-    license_number: '',
-    getrido_id: '',
     uber_id: '',
     bolt_id: '',
     freenow_id: '',
+    payment_method: 'cash' as 'cash' | 'transfer',
     iban: '',
   });
 
@@ -54,10 +56,8 @@ export function AddFleetDriverModal({
 
     setLoading(true);
     try {
-      // Get city_id from existing fleet driver or from cities table
       let cityId: string | null = null;
       
-      // Try to get city from existing driver in this fleet
       const { data: existingDriver } = await supabase
         .from('drivers')
         .select('city_id')
@@ -69,7 +69,6 @@ export function AddFleetDriverModal({
       if (existingDriver?.city_id) {
         cityId = existingDriver.city_id;
       } else {
-        // Fallback: get first available city
         const { data: cities } = await supabase
           .from('cities')
           .select('id')
@@ -84,7 +83,6 @@ export function AddFleetDriverModal({
         return;
       }
 
-      // Create the driver
       const { data: driver, error: driverError } = await supabase
         .from('drivers')
         .insert({
@@ -92,13 +90,8 @@ export function AddFleetDriverModal({
           last_name: formData.last_name.trim(),
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
-          pesel: formData.pesel.trim() || null,
-          address_street: formData.address_street.trim() || null,
-          address_city: formData.address_city.trim() || null,
-          address_postal_code: formData.address_postal_code.trim() || null,
-          license_number: formData.license_number.trim() || null,
-          getrido_id: formData.getrido_id.trim() || null,
-          iban: formData.iban.trim() || null,
+          payment_method: formData.payment_method,
+          iban: formData.payment_method === 'transfer' ? (formData.iban.trim() || null) : null,
           fleet_id: fleetId,
           city_id: cityId,
         })
@@ -144,15 +137,10 @@ export function AddFleetDriverModal({
       last_name: '',
       email: '',
       phone: '',
-      pesel: '',
-      address_street: '',
-      address_city: '',
-      address_postal_code: '',
-      license_number: '',
-      getrido_id: '',
       uber_id: '',
       bolt_id: '',
       freenow_id: '',
+      payment_method: 'cash',
       iban: '',
     });
     onClose();
@@ -195,102 +183,33 @@ export function AddFleetDriverModal({
             </div>
 
             {/* Contact */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                placeholder="jan@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefon</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+48 123 456 789"
-              />
-            </div>
-
-            {/* Personal data for contract */}
-            <div className="border-t pt-4 mt-4">
-              <p className="text-sm font-medium text-muted-foreground mb-3">Dane do umowy (opcjonalne)</p>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pesel">PESEL</Label>
-                  <Input
-                    id="pesel"
-                    value={formData.pesel}
-                    onChange={e => setFormData({ ...formData, pesel: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-                    placeholder="00000000000"
-                    maxLength={11}
-                    className="font-mono"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="license_number">Numer prawa jazdy</Label>
-                  <Input
-                    id="license_number"
-                    value={formData.license_number}
-                    onChange={e => setFormData({ ...formData, license_number: e.target.value.toUpperCase() })}
-                    placeholder="np. ABC123456"
-                    className="uppercase"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="address_street">Ulica i numer</Label>
-                  <Input
-                    id="address_street"
-                    value={formData.address_street}
-                    onChange={e => setFormData({ ...formData, address_street: e.target.value })}
-                    placeholder="np. ul. Przykładowa 10/5"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="address_postal_code">Kod pocztowy</Label>
-                    <Input
-                      id="address_postal_code"
-                      value={formData.address_postal_code}
-                      onChange={e => setFormData({ ...formData, address_postal_code: e.target.value })}
-                      placeholder="00-000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address_city">Miasto</Label>
-                    <Input
-                      id="address_city"
-                      value={formData.address_city}
-                      onChange={e => setFormData({ ...formData, address_city: e.target.value })}
-                      placeholder="Warszawa"
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="jan@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefon</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+48 123 456 789"
+                />
               </div>
             </div>
 
             {/* Platform IDs */}
             <div className="border-t pt-4 mt-4">
               <p className="text-sm font-medium text-muted-foreground mb-3">Identyfikatory platform (opcjonalne)</p>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="getrido_id" className="text-xs">GetRido ID</Label>
-                  <Input
-                    id="getrido_id"
-                    placeholder="GetRido ID"
-                    value={formData.getrido_id}
-                    onChange={e => setFormData({ ...formData, getrido_id: e.target.value })}
-                  />
-                </div>
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="uber_id" className="text-xs">Uber ID</Label>
                   <Input
@@ -301,37 +220,63 @@ export function AddFleetDriverModal({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="bolt_id" className="text-xs">Bolt ID <span className="text-muted-foreground font-normal">(numer telefonu kierowcy)</span></Label>
+                  <Label htmlFor="bolt_id" className="text-xs">
+                    Bolt ID
+                  </Label>
                   <Input
                     id="bolt_id"
-                    placeholder="np. +48123456789"
+                    placeholder="nr telefonu"
                     value={formData.bolt_id}
                     onChange={e => setFormData({ ...formData, bolt_id: e.target.value })}
                   />
+                  <p className="text-[10px] text-muted-foreground">Numer telefonu używany w aplikacji Bolt</p>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="freenow_id" className="text-xs">FreeNow ID <span className="text-muted-foreground font-normal">(ID kierowcy z FreeNow)</span></Label>
+                  <Label htmlFor="freenow_id" className="text-xs">
+                    FreeNow ID
+                  </Label>
                   <Input
                     id="freenow_id"
-                    placeholder="FreeNow Driver ID"
+                    placeholder="ID kierowcy"
                     value={formData.freenow_id}
                     onChange={e => setFormData({ ...formData, freenow_id: e.target.value })}
                   />
+                  <p className="text-[10px] text-muted-foreground">ID kierowcy z panelu FreeNow</p>
                 </div>
               </div>
             </div>
 
-            {/* IBAN */}
-            <div className="space-y-2">
-              <Label htmlFor="iban">Numer konta (IBAN)</Label>
-              <Input
-                id="iban"
-                value={formData.iban}
-                onChange={e => setFormData({ ...formData, iban: e.target.value })}
-                placeholder="PL00 0000 0000 0000 0000 0000 0000"
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">Konto do wypłat dla kierowcy</p>
+            {/* Payment method */}
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Metoda wypłaty</p>
+              <div className="space-y-3">
+                <Select
+                  value={formData.payment_method}
+                  onValueChange={(val: 'cash' | 'transfer') => setFormData({ ...formData, payment_method: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Gotówka</SelectItem>
+                    <SelectItem value="transfer">Przelew bankowy</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {formData.payment_method === 'transfer' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="iban">Numer konta (IBAN)</Label>
+                    <Input
+                      id="iban"
+                      value={formData.iban}
+                      onChange={e => setFormData({ ...formData, iban: e.target.value })}
+                      placeholder="PL00 0000 0000 0000 0000 0000 0000"
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">Konto do wypłat dla kierowcy</p>
+                  </div>
+                )}
+              </div>
             </div>
           </form>
         </ScrollArea>
@@ -342,7 +287,7 @@ export function AddFleetDriverModal({
           </Button>
           <Button type="submit" form="add-driver-form" disabled={loading} className="flex-1">
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Dodaj
+            Dodaj kierowcę
           </Button>
         </div>
       </DialogContent>
