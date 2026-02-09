@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     if (toggleData && !toggleData.is_enabled) {
       return new Response(
         JSON.stringify({ error: "Rejestracja floty jest tymczasowo wyłączona. Skontaktuj się z administratorem." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     if (existingFleet) {
       return new Response(
         JSON.stringify({ error: "Flota z tym NIP-em już istnieje w systemie.", field: "nip" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       if (!email || !password) {
         return new Response(
           JSON.stringify({ error: "Email i hasło są wymagane dla nowych użytkowników." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -106,13 +106,13 @@ Deno.serve(async (req) => {
         if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
           return new Response(
             JSON.stringify({ error: "Ten email jest już zarejestrowany.", field: "email" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
         return new Response(
           JSON.stringify({ error: authError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
       }
       return new Response(
         JSON.stringify({ error: "Błąd tworzenia floty: " + fleetError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
