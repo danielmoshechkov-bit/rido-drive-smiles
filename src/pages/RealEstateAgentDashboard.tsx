@@ -368,7 +368,7 @@ export default function RealEstateAgentDashboard() {
           </TabsTrigger>
           <TabsTrigger value="accounts">
             <Repeat className="h-4 w-4 mr-2" />
-            Przełącz konto
+            Wybierz moduł
           </TabsTrigger>
 
           <TabsContent value="listings">
@@ -559,8 +559,8 @@ export default function RealEstateAgentDashboard() {
           <TabsContent value="accounts">
             <Card>
               <CardHeader>
-                <CardTitle>Przełącz konto</CardTitle>
-                <CardDescription>Przełącz między swoimi kontami w systemie</CardDescription>
+                <CardTitle>Wybierz moduł</CardTitle>
+                <CardDescription>Przełącz między modułami w systemie</CardDescription>
               </CardHeader>
               <CardContent>
                 <AccountSwitcherPanel 
