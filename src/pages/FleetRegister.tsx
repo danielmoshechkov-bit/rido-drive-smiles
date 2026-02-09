@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck } from "lucide-react";
+import { Step3Account } from "@/components/fleet/Step3Account";
 
 interface FieldErrors {
   [key: string]: string | undefined;
@@ -372,7 +373,7 @@ export default function FleetRegister() {
                           onCheckedChange={(checked) => setIsHuman(checked === true)}
                         />
                         <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-green-600" />
+                          <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-500" />
                           <label htmlFor="human" className="text-sm font-medium">Nie jestem robotem</label>
                         </div>
                       </div>
@@ -383,52 +384,15 @@ export default function FleetRegister() {
 
               {/* Step 3: Account */}
               {step === 3 && (
-                <>
-                  <div className="p-4 bg-muted rounded-lg mb-4">
-                    <h4 className="font-medium mb-1">Konto administratora floty</h4>
-                    <p className="text-sm text-muted-foreground">Dane do logowania w panelu floty</p>
-                  </div>
-                  
-                  {renderField("email", "Email do logowania", <Mail className="h-4 w-4" />, "email", "admin@firma.pl")}
-                  {renderField("password", "Hasło", <ShieldCheck className="h-4 w-4" />, "password", "Minimum 6 znaków")}
-                  {renderField("confirmPassword", "Potwierdź hasło", <ShieldCheck className="h-4 w-4" />, "password", "Powtórz hasło")}
-                  
-                  <div className="space-y-3 pt-4">
-                    <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg border">
-                      <Checkbox
-                        id="human"
-                        checked={isHuman}
-                        onCheckedChange={(checked) => setIsHuman(checked === true)}
-                      />
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-green-600" />
-                        <label htmlFor="human" className="text-sm font-medium">Nie jestem robotem</label>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start space-x-2">
-                      <Checkbox
-                        id="terms"
-                        checked={formData.acceptTerms}
-                        onCheckedChange={(checked) => setFormData({ ...formData, acceptTerms: checked === true })}
-                      />
-                      <label htmlFor="terms" className="text-sm text-muted-foreground">
-                        Akceptuję <a href="/prawne?tab=regulamin" className="text-primary hover:underline">regulamin</a> *
-                      </label>
-                    </div>
-
-                    <div className="flex items-start space-x-2">
-                      <Checkbox
-                        id="rodo"
-                        checked={formData.acceptRodo}
-                        onCheckedChange={(checked) => setFormData({ ...formData, acceptRodo: checked === true })}
-                      />
-                      <label htmlFor="rodo" className="text-sm text-muted-foreground">
-                        Akceptuję <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">politykę prywatności</a> *
-                      </label>
-                    </div>
-                  </div>
-                </>
+                <Step3Account
+                  formData={formData}
+                  setFormData={setFormData}
+                  fieldErrors={fieldErrors}
+                  setFieldErrors={setFieldErrors}
+                  isHuman={isHuman}
+                  setIsHuman={setIsHuman}
+                  renderField={renderField}
+                />
               )}
 
               {/* Navigation buttons */}

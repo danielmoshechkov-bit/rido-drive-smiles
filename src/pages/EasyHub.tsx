@@ -150,8 +150,8 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
   },
   {
     id: 'portal-flotowy',
-    title: 'Portal zarządzania Flotą',
-    description: 'Zarządzaj flotą i kierowcami',
+    title: 'Portal do zarządzania Flotą',
+    description: 'Zarządzaj flotą, rozliczeniami i kierowcami',
     icon: Calculator,
     image: tileFleet,
     link: '/fleet',
@@ -227,26 +227,27 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
           className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
           style={{ backgroundImage: `url(${tile.image})` }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+          {/* Stronger gradient for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
         </div>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-muted" />
       )}
       
-      {/* Content - matching ServiceCategoryTile styling */}
-      <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
-        <h3 className={cn(
-          "font-bold text-sm md:text-base leading-tight",
-          tile.image ? "text-white" : "text-foreground"
-        )}>
-          {tile.title}
-        </h3>
-        <p className={cn(
-          "text-[10px] md:text-xs mt-0.5 line-clamp-2",
-          tile.image ? "text-white/80" : "text-muted-foreground"
-        )}>
-          {tile.description}
-        </p>
+        {/* Content - matching ServiceCategoryTile styling */}
+        <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
+          <h3 className={cn(
+            "font-bold text-sm md:text-base leading-tight drop-shadow-lg",
+            tile.image ? "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_60%),_0_2px_8px_rgb(0_0_0_/_40%)]" : "text-foreground"
+          )}>
+            {tile.title}
+          </h3>
+          <p className={cn(
+            "text-[11px] md:text-xs mt-0.5 line-clamp-2 font-medium",
+            tile.image ? "text-white/95 [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]" : "text-muted-foreground"
+          )}>
+            {tile.description}
+          </p>
         
         {!tile.available && (
           <Badge 
