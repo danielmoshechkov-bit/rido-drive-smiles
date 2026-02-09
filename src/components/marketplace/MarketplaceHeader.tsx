@@ -105,7 +105,7 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Twoje konta</DropdownMenuLabel>
+                      <DropdownMenuLabel>Wybierz moduł</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       
                       {/* Current: Marketplace */}
