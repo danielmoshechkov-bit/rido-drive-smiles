@@ -526,7 +526,7 @@ export default function ClientPortal() {
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
-    { id: 'konta', label: 'Dodaj konto', icon: RefreshCw },
+    { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
   ];
 
   // Redirect away from ksiegowosc tab if user loses company access (in render, not useEffect)
@@ -793,8 +793,8 @@ export default function ClientPortal() {
                         <Users className="h-8 w-8 text-purple-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Dodaj konto</h3>
-                        <p className="text-sm text-muted-foreground">Zarejestruj się jako kierowca, flota lub sprzedawca</p>
+                        <h3 className="font-bold text-lg">Wybierz moduł</h3>
+                        <p className="text-sm text-muted-foreground">Przełącz między modułami lub dodaj nowy</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
