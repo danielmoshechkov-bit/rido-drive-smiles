@@ -228,11 +228,11 @@ Deno.serve(async (req) => {
           type: 'signup',
           email,
           options: {
-            redirectTo: 'https://getrido.pl/fleet/aktywacja'
+            redirectTo: 'https://rido-drive-smiles.lovable.app/fleet/aktywacja'
           }
         });
         
-        const activationLink = linkData?.properties?.action_link || `https://getrido.pl/fleet/aktywacja?email=${encodeURIComponent(email)}`;
+        const activationLink = linkData?.properties?.action_link || `https://rido-drive-smiles.lovable.app/fleet/aktywacja?email=${encodeURIComponent(email)}`;
         
         // Call email sending function
         const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-fleet-registration-email`, {

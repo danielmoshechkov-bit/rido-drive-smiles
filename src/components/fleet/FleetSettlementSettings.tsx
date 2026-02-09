@@ -145,7 +145,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       toast.error('Brak NIP floty - uzupełnij dane firmy');
       return;
     }
-    const link = `${window.location.origin}/rejestracja?nip=${fleetNip}`;
+    const link = `${window.location.origin}/driver/register?nip=${fleetNip}`;
     navigator.clipboard.writeText(link);
     toast.success('Link skopiowany do schowka');
   };
@@ -373,7 +373,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
               <div className="flex items-center gap-2">
                 <Input 
                   readOnly 
-                  value={fleetNip ? `${window.location.origin}/rejestracja?nip=${fleetNip}` : 'Brak NIP - uzupełnij dane firmy'} 
+                  value={fleetNip ? `${window.location.origin}/driver/register?nip=${fleetNip}` : 'Brak NIP - uzupełnij dane firmy'} 
                   className="font-mono text-xs"
                 />
                 <Button 
