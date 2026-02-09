@@ -233,11 +233,8 @@ export default function FleetRegister() {
 
       if (response.error) throw new Error(response.error.message);
 
-      toast.success("Rejestracja floty zakończona!", {
-        duration: 8000,
-        description: "Twoja flota została zarejestrowana. Możesz się teraz zalogować."
-      });
-      navigate("/auth");
+      // Redirect to success page
+      navigate("/fleet/rejestracja-sukces");
     } catch (error: any) {
       console.error("Fleet registration error:", error);
       toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");

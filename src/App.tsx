@@ -45,6 +45,7 @@ import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import FleetLanding from "./pages/FleetLanding";
 import FleetRegister from "./pages/FleetRegister";
+import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
@@ -120,6 +121,8 @@ const App = () => (
                 <Route path="/ubezpieczenia/panel" element={<InsuranceAgentDashboard />} />
                 <Route path="/fleet" element={<FleetLanding />} />
                 <Route path="/fleet/rejestracja" element={<FleetRegister />} />
+                <Route path="/fleet/rejestracja-sukces" element={<FleetRegisterSuccess />} />
+                <Route path="/fleet/aktywacja" element={<ActivationConfirm />} />
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/marketplace" element={<AdminMarketplace />} />

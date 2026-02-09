@@ -88,11 +88,11 @@ Deno.serve(async (req) => {
         );
       }
 
-      // 1. Create auth user
+      // 1. Create auth user (NOT auto-confirmed - requires email verification)
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // Auto-confirm for fleet accounts
+        email_confirm: false, // Require email confirmation
         user_metadata: { 
           company_name, 
           contact_name,
@@ -220,11 +220,51 @@ Deno.serve(async (req) => {
 
     console.log("🎉 Fleet registration completed for:", company_name);
 
+    // 7. Send activation email for new users
+    if (!existing_user_id && email) {
+      try {
+        // Generate activation link
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'signup',
+          email,
+          options: {
+            redirectTo: 'https://getrido.pl/fleet/aktywacja'
+          }
+        });
+        
+        const activationLink = linkData?.properties?.action_link || `https://getrido.pl/fleet/aktywacja?email=${encodeURIComponent(email)}`;
+        
+        // Call email sending function
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-fleet-registration-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`
+          },
+          body: JSON.stringify({
+            email,
+            company_name,
+            contact_name,
+            activation_link: activationLink
+          })
+        });
+        
+        if (emailResponse.ok) {
+          console.log("✅ Fleet activation email sent");
+        } else {
+          console.error("⚠️ Failed to send activation email:", await emailResponse.text());
+        }
+      } catch (emailError) {
+        console.error("⚠️ Email sending error (non-fatal):", emailError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Flota została zarejestrowana! Możesz się teraz zalogować.",
-        fleet_id: fleetData.id
+        message: "Flota została zarejestrowana! Sprawdź email, aby aktywować konto.",
+        fleet_id: fleetData.id,
+        requires_activation: !existing_user_id
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

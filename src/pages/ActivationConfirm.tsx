@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Loader2, Share, MoreVertical, ArrowLeft, LogIn } from 'lucide-react';
+import { CheckCircle, Loader2, Share, MoreVertical, ArrowLeft, LogIn, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EasyHub from './EasyHub';
 
@@ -15,11 +15,15 @@ type Platform = 'none' | 'android' | 'iphone';
  */
 export default function ActivationConfirm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('none');
+  
+  // Detect if this is a fleet activation based on the path
+  const isFleetActivation = location.pathname.includes('/fleet/');
 
   useEffect(() => {
     const handleActivation = async () => {
@@ -27,7 +31,7 @@ export default function ActivationConfirm() {
       const tokenHash = searchParams.get('token_hash');
       const type = searchParams.get('type') || 'signup';
 
-      console.log('Activation params:', { token: !!token, tokenHash: !!tokenHash, type });
+      console.log('Activation params:', { token: !!token, tokenHash: !!tokenHash, type, isFleet: isFleetActivation });
 
       // If we have Supabase auth tokens, verify them
       if (tokenHash || token) {
@@ -79,7 +83,7 @@ export default function ActivationConfirm() {
     };
 
     handleActivation();
-  }, [searchParams]);
+  }, [searchParams, isFleetActivation]);
 
   const handleClose = () => {
     setShowModal(false);
@@ -87,6 +91,11 @@ export default function ActivationConfirm() {
   };
 
   const handleLogin = () => {
+    setShowModal(false);
+    navigate('/auth');
+  };
+
+  const handleFleetLogin = () => {
     setShowModal(false);
     navigate('/auth');
   };
@@ -128,27 +137,37 @@ export default function ActivationConfirm() {
         <DialogContent className="max-w-lg">
           <DialogHeader className="flex flex-col items-center gap-4 text-center">
             <div className="flex items-center gap-3">
-              <img 
-                src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-                alt="GetRido" 
-                className="h-12 w-12"
-              />
+              {isFleetActivation ? (
+                <div className="h-12 w-12 bg-primary rounded-xl flex items-center justify-center">
+                  <Building2 className="h-7 w-7 text-primary-foreground" />
+                </div>
+              ) : (
+                <img 
+                  src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+                  alt="GetRido" 
+                  className="h-12 w-12"
+                />
+              )}
             </div>
-            <CheckCircle className="h-16 w-16 text-green-500" />
+            <CheckCircle className="h-16 w-16 text-green-600" />
             <DialogTitle className="text-2xl font-bold text-green-600">
-              🎉 Dziękujemy za rejestrację!
+              {isFleetActivation 
+                ? '🎉 Dziękujemy za rejestrację floty!' 
+                : '🎉 Dziękujemy za rejestrację!'}
             </DialogTitle>
             <DialogDescription className="text-base">
-              Twoje konto w GetRido zostało pomyślnie aktywowane. ✅
+              {isFleetActivation 
+                ? 'Konto administratora floty zostało pomyślnie aktywowane. Możesz teraz zarządzać flotą, kierowcami i rozliczeniami. ✅'
+                : 'Twoje konto w GetRido zostało pomyślnie aktywowane. ✅'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="mt-4 space-y-4">
             {selectedPlatform === 'none' ? (
               <>
-                <Button onClick={handleLogin} className="w-full" size="lg">
+                <Button onClick={isFleetActivation ? handleFleetLogin : handleLogin} className="w-full" size="lg">
                   <LogIn className="h-4 w-4 mr-2" />
-                  🚗 Zaloguj się do portalu
+                  {isFleetActivation ? '🚀 Zaloguj się do panelu floty' : '🚗 Zaloguj się do portalu'}
                 </Button>
 
                 <div className="pt-4 border-t">
