@@ -446,7 +446,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               )}
               <TabsTrigger value="accounts">
                 <Repeat className="h-4 w-4 mr-2" />
-                Przełącz konto
+                Wybierz moduł
               </TabsTrigger>
             </TabsPill>
             </div>

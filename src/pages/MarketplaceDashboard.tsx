@@ -413,7 +413,7 @@ export default function MarketplaceDashboard() {
                 className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
               >
                 <Repeat className="h-4 w-4 mr-2" />
-                Przełącz konto
+                Wybierz moduł
               </TabsTrigger>
             )}
           </TabsList>
@@ -474,7 +474,7 @@ export default function MarketplaceDashboard() {
                     <Users className="h-10 w-10 text-green-500" />
                     <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                   </div>
-                  <CardTitle className="text-xl">Przełącz konto</CardTitle>
+                  <CardTitle className="text-xl">Wybierz moduł</CardTitle>
                   <CardDescription>
                     Zarządzaj kontami kierowcy, floty i sprzedawcy
                   </CardDescription>

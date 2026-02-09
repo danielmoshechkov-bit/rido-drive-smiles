@@ -168,7 +168,7 @@ export default function SalesPortal() {
                 className="gap-2 rounded-xl"
               >
                 <ArrowLeftRight className="h-4 w-4" />
-                Przełącz konto
+                Wybierz moduł
               </Button>
               <LanguageSelector />
               <UserDropdown 

@@ -173,7 +173,7 @@ export default function ServiceProviderDashboard() {
           )}
           <TabsTrigger value="account">
             <Users className="h-4 w-4 mr-1.5" />
-            Przełącz konto
+            Wybierz moduł
           </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-1.5" />

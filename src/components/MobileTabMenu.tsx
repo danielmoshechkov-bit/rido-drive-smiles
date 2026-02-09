@@ -42,7 +42,7 @@ export function MobileTabMenu({
       case 'settings': return t('admin.settings');
       case 'informacje': return 'Informacje';
       case 'my-settlements': return 'Moje rozliczenia';
-      case 'accounts': return 'Przełącz konto';
+      case 'accounts': return 'Wybierz moduł';
       case 'fleet-accounts': return 'Konta flotowe';
       case 'user-roles': return 'Uprawnienia';
       case 'plans': return 'Plany';
@@ -168,7 +168,7 @@ export function MobileTabMenu({
                   onClick={() => handleTabChange('accounts')}
                 >
                   <Repeat className="h-3 w-3 mr-2" />
-                  Przełącz konto
+                  Wybierz moduł
                 </Button>
               )}
             </div>
