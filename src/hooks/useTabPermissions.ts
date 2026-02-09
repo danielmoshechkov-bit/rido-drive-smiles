@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, UserRole } from './useUserRole';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
+const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
+
 interface TabPermissions {
   [tabId: string]: boolean;
 }
@@ -14,6 +16,10 @@ export const useTabPermissions = () => {
 
   useEffect(() => {
     const fetchPermissions = async () => {
+      // Check if current user is an owner (for documents tab gating)
+      const { data: { user } } = await supabase.auth.getUser();
+      const isOwner = user?.email ? OWNER_EMAILS.includes(user.email.toLowerCase()) : false;
+
       // Admin has access to everything
       if (isAdmin) {
         setPermissions({
@@ -23,8 +29,8 @@ export const useTabPermissions = () => {
           'fleet': true,
           'fleet.vehicles': true,
           'fleet.fleets': true,
-          'documents': true,
-          'documents.list': true,
+          'documents': isOwner,
+          'documents.list': isOwner,
           'fleet-accounts': true,
           'user-roles': true,
           'plans': true,
@@ -89,6 +95,8 @@ export const useTabPermissions = () => {
         // Merge permissions from all roles (if user has multiple roles)
         const mergedPermissions: TabPermissions = {};
         data?.forEach(perm => {
+          // Gate documents tab to owners only
+          if (perm.tab_id.startsWith('documents') && !isOwner) return;
           mergedPermissions[perm.tab_id] = perm.is_visible;
         });
 
