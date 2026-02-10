@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin, Car } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin, Car, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -65,6 +66,9 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   const [accountStatuses, setAccountStatuses] = useState<Record<string, 'active' | 'partial' | 'none'>>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [selectedDrivers, setSelectedDrivers] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const { cities } = useCities();
   
@@ -368,6 +372,46 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
+  const toggleDriverSelection = (driverId: string) => {
+    setSelectedDrivers(prev => {
+      const next = new Set(prev);
+      if (next.has(driverId)) next.delete(driverId);
+      else next.add(driverId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDrivers.size === filteredDrivers.length) {
+      setSelectedDrivers(new Set());
+    } else {
+      setSelectedDrivers(new Set(filteredDrivers.map(d => d.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDrivers.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedDrivers);
+      for (const id of ids) {
+        const { error } = await supabase.from('drivers').delete().eq('id', id).select('id');
+        if (error) {
+          console.error(`Error deleting driver ${id}:`, error);
+        }
+      }
+      toast.success(`Usunięto ${ids.length} kierowców`);
+      setSelectedDrivers(new Set());
+      await refetch();
+      onDriverUpdate();
+    } catch (error: any) {
+      toast.error(`Błąd: ${error?.message || 'Nieznany błąd'}`);
+    } finally {
+      setIsBulkDeleting(false);
+      setBulkDeleteDialogOpen(false);
+    }
+  };
+
   const resetDriverRegistration = async (driverId: string, email: string, driverName: string) => {
     if (!confirm(`Czy na pewno chcesz zresetować rejestrację kierowcy ${driverName}?\n\nKierowca będzie musiał się ponownie zarejestrować używając tego samego emaila (${email}), ale zachowa swoje dane (rozliczenia, dokumenty).`)) return;
 
@@ -627,6 +671,17 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                   <Plus className="h-4 w-4" />
                   Dodaj kierowcę
                 </Button>
+                {selectedDrivers.size > 0 && (
+                  <Button 
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Usuń ({selectedDrivers.size})
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -680,12 +735,18 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
               {filteredDrivers.map((driver) => (
                 <div 
                   key={driver.id} 
-                  className="border rounded-lg p-6 hover:bg-muted/50 transition-colors cursor-pointer"
+                  className={`border rounded-lg p-6 hover:bg-muted/50 transition-colors cursor-pointer ${selectedDrivers.has(driver.id) ? 'border-primary bg-primary/5' : ''}`}
                   onClick={() => toggleDriverExpansion(driver.id)}
                 >
                   <div className="flex items-start justify-between">
                      <div className="flex-1">
                        <div className="flex items-center gap-2 mb-2">
+                         <Checkbox
+                           checked={selectedDrivers.has(driver.id)}
+                           onCheckedChange={() => toggleDriverSelection(driver.id)}
+                           onClick={(e) => e.stopPropagation()}
+                           className="mr-1"
+                         />
                          <h3 className="font-medium">
                            {driver.first_name} {driver.last_name}
                          </h3>
@@ -1173,6 +1234,37 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
               onClick={removeFromFleet}
             >
               Potwierdź
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usuwanie wielu kierowców</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="py-4 space-y-4">
+            <p>
+              <strong>Uwaga:</strong> Zaznaczono <strong>{selectedDrivers.size}</strong> kierowców do usunięcia.
+            </p>
+            <p className="text-muted-foreground">
+              Wszyscy zaznaczeni kierowcy zostaną trwale usunięci. Tej operacji nie można cofnąć.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Anuluj</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              {isBulkDeleting ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Usuwanie...</>
+              ) : (
+                <>Usuń {selectedDrivers.size} kierowców</>
+              )}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
