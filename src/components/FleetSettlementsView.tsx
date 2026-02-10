@@ -1919,7 +1919,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <span className="hidden sm:inline">Generuj</span> KW gotówka
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="sm"
                   onClick={() => setBankTransferDialogOpen(true)}
                   className="gap-1.5 text-xs"
@@ -2309,7 +2309,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
                       
                       return (
-                      <TableRow key={settlement.driver_id} className="hover:bg-muted/60 transition-colors">
+                      <TableRow key={settlement.driver_id} className="hover:bg-primary/10 transition-colors cursor-pointer">
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
