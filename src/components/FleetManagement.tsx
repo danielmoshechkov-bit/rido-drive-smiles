@@ -34,6 +34,7 @@ import { AddFleetDriverModal } from "./fleet/AddFleetDriverModal";
 import { VehicleRentalWizard } from "./fleet/VehicleRentalWizard";
 import { FleetContractSettings } from "./fleet/FleetContractSettings";
 import { syncRentalAssignments } from "@/hooks/useRentalSync";
+import { VehicleOwnerSelector } from "./fleet/VehicleOwnerSelector";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -604,6 +605,17 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                           userRole={userType}
                                         />
                                       </div>
+                                      {userType === 'fleet' && fleetId && (
+                                        <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                          <span className="text-xs text-muted-foreground">Właściciel:</span>
+                                          <VehicleOwnerSelector
+                                            vehicleId={vehicle.id}
+                                            fleetId={fleetId}
+                                            currentOwnerId={(vehicle as any).owner_id}
+                                            onOwnerChange={fetchVehicles}
+                                          />
+                                        </div>
+                                      )}
                                 </div>
                                
                                 {/* Rząd 2 - kierowca i dokumenty */}
