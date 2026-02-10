@@ -592,7 +592,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
     setEditingCell({ driverId, field, index });
-    setEditValue(formatCurrency(currentValue));
+    // Use plain number string (dot decimal) so user can type naturally from left to right
+    setEditValue(currentValue > 0 ? currentValue.toFixed(2) : '');
   };
 
   const commitEdit = async () => {
@@ -625,10 +626,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       if (existingSettlements && existingSettlements.length > 0) {
         const updateData: any = {};
         if (field === 'rental') updateData.rental_fee = val;
-        if (field === 'service_fee') updateData.service_fee = val;
-        // For additional fees, store in amounts JSON
-        if (field === 'additional_fee' && index !== undefined) {
-          const feeKey = `manual_fee_${index}`;
+        // For service_fee and additional fees, store in amounts JSON
+        if (field === 'service_fee' || (field === 'additional_fee' && index !== undefined)) {
           // Fetch current amounts to merge
           const { data: currentData } = await supabase
             .from('settlements')
@@ -636,7 +635,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             .eq('id', existingSettlements[0].id)
             .single();
           const amounts = (currentData?.amounts as any) || {};
-          amounts[feeKey] = val;
+          if (field === 'service_fee') {
+            amounts.manual_service_fee = val;
+          } else if (field === 'additional_fee' && index !== undefined) {
+            amounts[`manual_fee_${index}`] = val;
+          }
           updateData.amounts = amounts;
         }
         
@@ -667,7 +670,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (isEditing) {
       return (
         <Input
-          type="text"
+          type="number"
+          step="0.01"
+          min="0"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={commitEdit}
@@ -675,7 +680,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             if (e.key === 'Enter') commitEdit();
             if (e.key === 'Escape') cancelEdit();
           }}
-          className="h-6 w-20 text-xs text-right px-1 py-0"
+          className="h-6 w-24 text-xs text-right px-1 py-0"
           autoFocus
         />
       );
@@ -1041,18 +1046,28 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Tax is now calculated as vat_amount below with B2B support
         // The 'tax' field from edge function is no longer used to avoid double taxation
 
-        // Pobierz service_fee - PRIORYTET: opłata flotowa (nawet jeśli 0), potem plan kierowcy
+        // Pobierz service_fee - PRIORYTET: zapisana wartość z amounts JSON, potem opłata flotowa, potem plan
         const driverAppUser = (driver as any).driver_app_users;
         const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
-        // Jeśli flota ustawiła base_fee (włącznie z 0), użyj jej. W przeciwnym razie użyj planu kierowcy.
+        
+        // Check if there's a persisted override in settlement record (amounts JSON)
+        const firstSettlement = driverSettlements[0];
+        const firstAmounts = (firstSettlement?.amounts as any) || {};
+        const persistedServiceFee = firstAmounts.manual_service_fee;
+        const persistedRentalFee = firstSettlement?.rental_fee;
+        
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
-        const service_fee = fleetBaseFee !== null && fleetBaseFee !== undefined 
-          ? fleetBaseFee 
-          : (plan?.service_fee ?? 50);
+        const service_fee = persistedServiceFee !== null && persistedServiceFee !== undefined
+          ? persistedServiceFee
+          : (fleetBaseFee !== null && fleetBaseFee !== undefined 
+            ? fleetBaseFee 
+            : (plan?.service_fee ?? 50));
 
-        // Pobierz wynajem z przypisanego pojazdu
+        // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
-        const rental = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        const rental = persistedRentalFee !== null && persistedRentalFee !== undefined
+          ? persistedRentalFee
+          : ((assignment?.vehicles as any)?.weekly_rental_fee || 0);
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
@@ -1185,10 +1200,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             if (fee.frequency === 'monthly' && isFirstWeek) return true;
             return false;
           })
-          .map(fee => ({
-            name: fee.name,
-            amount: fee.type === 'fixed' ? fee.amount : total_base * (fee.amount / 100)
-          }));
+          .map((fee, idx) => {
+            // Check for persisted override in amounts JSON
+            const manualKey = `manual_fee_${idx}`;
+            const manualVal = firstAmounts[manualKey];
+            const baseAmount = fee.type === 'fixed' ? fee.amount : total_base * (fee.amount / 100);
+            return {
+              name: fee.name,
+              amount: manualVal !== null && manualVal !== undefined ? manualVal : baseAmount
+            };
+          });
 
         const total_additional_fees = additional_fees.reduce((sum, f) => sum + f.amount, 0);
 
@@ -2099,14 +2120,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
                             <button
-                              className="inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                              title="Dodaj opłatę/dodatek"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
+                              title="Dodaj opłatę lub wpłatę dla tego kierowcy"
                               onClick={() => {
                                 setChargeDriver({ id: settlement.driver_id, name: settlement.driver_name });
                                 setChargeModalOpen(true);
                               }}
                             >
                               <Plus className="h-3 w-3" />
+                              <span>opłata</span>
                             </button>
                           </span>
                         </TableCell>

@@ -33,6 +33,7 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
         .eq('driver_id', driverId);
       
       // Add transaction record
-      const today = new Date().toISOString().split('T')[0];
+      const dateVal = paymentDate || new Date().toISOString().split('T')[0];
       await supabase
         .from('driver_debt_transactions')
         .insert({
@@ -92,8 +93,8 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
           amount: amount,
           balance_before: currentDebt,
           balance_after: newBalance,
-          period_from: today,
-          period_to: today,
+          period_from: dateVal,
+          period_to: dateVal,
           description: paymentNote || 'Wpłata ręczna'
         });
       
@@ -168,12 +169,21 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
                   />
                   <span className="flex items-center text-sm text-muted-foreground">zł</span>
                 </div>
-                <Input
-                  type="text"
-                  placeholder="Notatka (opcjonalnie)"
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Notatka (opcjonalnie)"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-[140px]"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handlePayment} disabled={saving}>
                     {saving ? 'Zapisywanie...' : 'Zapisz wpłatę'}

@@ -9,10 +9,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Building2, Settings } from 'lucide-react';
+import { Download, Building2, Settings, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface BankTransferExportDialogProps {
@@ -38,6 +39,14 @@ interface BankFormat {
   amountFormat: 'comma' | 'dot';
   columns: string[];
   extension: string;
+}
+
+interface MissingAccountDriver {
+  id: string;
+  name: string;
+  payout: number;
+  iban: string;
+  switchToCash: boolean;
 }
 
 const POLISH_BANKS: BankFormat[] = [
@@ -154,6 +163,8 @@ export function BankTransferExportDialog({
   const [transferTitle, setTransferTitle] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [missingAccounts, setMissingAccounts] = useState<MissingAccountDriver[]>([]);
+  const [showMissingAccounts, setShowMissingAccounts] = useState(false);
 
   // Load fleet settings for default transfer title
   useEffect(() => {
@@ -173,6 +184,8 @@ export function BankTransferExportDialog({
     
     if (open) {
       loadFleetSettings();
+      setMissingAccounts([]);
+      setShowMissingAccounts(false);
     }
   }, [open, fleetId, periodLabel]);
 
@@ -213,19 +226,80 @@ export function BankTransferExportDialog({
 
       if (transferDrivers.length === 0) {
         toast.info('Brak kierowców z przelewem do eksportu');
+        setLoading(false);
+        return;
+      }
+
+      // Check for missing bank accounts
+      const driversWithoutIban = transferDrivers.filter(s => {
+        const driver = driverMap.get(s.driver_id);
+        const iban = (driver?.iban || '').replace(/\s/g, '');
+        return !iban || iban.length < 20;
+      });
+
+      if (driversWithoutIban.length > 0 && !showMissingAccounts) {
+        // Show missing accounts panel
+        setMissingAccounts(driversWithoutIban.map(s => {
+          const driver = driverMap.get(s.driver_id);
+          return {
+            id: s.driver_id,
+            name: `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name,
+            payout: s.final_payout,
+            iban: driver?.iban || '',
+            switchToCash: false,
+          };
+        }));
+        setShowMissingAccounts(true);
+        setLoading(false);
+        return;
+      }
+
+      // If showing missing accounts, apply changes first
+      if (showMissingAccounts && missingAccounts.length > 0) {
+        for (const ma of missingAccounts) {
+          if (ma.switchToCash) {
+            await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', ma.id);
+          } else if (ma.iban.replace(/\s/g, '').length >= 20) {
+            await supabase.from('drivers').update({ iban: ma.iban }).eq('id', ma.id);
+          }
+        }
+        // Re-fetch drivers
+        const { data: updatedDrivers } = await supabase
+          .from('drivers')
+          .select('id, first_name, last_name, iban, payment_method, billing_method, driver_app_users!left(settlement_frequency, payout_requested_at)')
+          .eq('fleet_id', fleetId);
+        if (updatedDrivers) {
+          driversData.length = 0;
+          driversData.push(...updatedDrivers);
+          driverMap.clear();
+          updatedDrivers.forEach(d => driverMap.set(d.id, d as any));
+        }
+      }
+
+      // Re-filter after potential updates (exclude switched-to-cash and still missing iban)
+      const finalTransferDrivers = transferDrivers.filter(s => {
+        const driver = driverMap.get(s.driver_id);
+        if (!driver) return false;
+        if (driver.payment_method !== 'transfer') return false;
+        const iban = (driver?.iban || '').replace(/\s/g, '');
+        return iban && iban.length >= 20;
+      });
+
+      if (finalTransferDrivers.length === 0) {
+        toast.info('Brak kierowców z prawidłowym nr konta do eksportu');
+        setLoading(false);
         return;
       }
 
       // Generate file content based on bank format
       let content = '';
-      const sep = bank.separator;
 
       // Header row for some banks
       if (bank.id === 'universal') {
-        content = `Odbiorca${sep}IBAN${sep}Kwota${sep}Tytuł\n`;
+        content = `Odbiorca${bank.separator}IBAN${bank.separator}Kwota${bank.separator}Tytuł\n`;
       }
 
-      transferDrivers.forEach(s => {
+      finalTransferDrivers.forEach(s => {
         const driver = driverMap.get(s.driver_id);
         const iban = (driver?.iban || '').replace(/\s/g, '');
         const amount = bank.amountFormat === 'comma' 
@@ -243,30 +317,28 @@ export function BankTransferExportDialog({
         // Build row based on bank format
         switch (bank.id) {
           case 'mbank':
-            content += `${iban}${sep}${amount}${sep}${driverName}${sep}${sep}${title}\n`;
+            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${bank.separator}${title}\n`;
             break;
           case 'pko_bp':
           case 'pekao':
-            content += `${iban}${sep}${amount}${sep}${driverName}${sep}${title}\n`;
+            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${title}\n`;
             break;
           case 'ing':
-            content += `${iban}${sep}${amount}${sep}PLN${sep}${driverName}${sep}${title}\n`;
+            content += `${iban}${bank.separator}${amount}${bank.separator}PLN${bank.separator}${driverName}${bank.separator}${title}\n`;
             break;
           case 'santander':
-            content += `${iban}${sep}${amount}${sep}${driverName}${sep}${title}\n`;
+            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${title}\n`;
             break;
           case 'alior':
-            // Alior Bank: NR_RACHUNKU|KWOTA|PLN|NAZWA|TYTUŁ - no header, no BOM, | separator
             content += `${iban.replace(/\D/g, '')}|${s.final_payout.toFixed(2)}|PLN|${driverName}|${title.substring(0, 140)}\n`;
             break;
           default:
-            content += `${driverName}${sep}${iban}${sep}${amount}${sep}${title}\n`;
+            content += `${driverName}${bank.separator}${iban}${bank.separator}${amount}${bank.separator}${title}\n`;
         }
       });
 
       // Create and download file
       const encoding = bank.encoding === 'windows-1250' ? 'windows-1250' : 'utf-8';
-      // Alior Bank: no BOM, plain UTF-8
       const bom = (encoding === 'utf-8' && bank.id !== 'alior') ? '\ufeff' : '';
       const blob = new Blob([bom + content.trimEnd() + (bank.id === 'alior' ? '' : '\n')], { 
         type: `text/${bank.extension};charset=${encoding}` 
@@ -282,13 +354,13 @@ export function BankTransferExportDialog({
       link.click();
 
       // Clear payout_requested_at for processed drivers
-      const processedDriverIds = transferDrivers.map(s => s.driver_id);
+      const processedDriverIds = finalTransferDrivers.map(s => s.driver_id);
       await supabase
         .from('driver_app_users')
         .update({ payout_requested_at: null })
         .in('driver_id', processedDriverIds);
 
-      toast.success(`Wyeksportowano ${transferDrivers.length} przelewów w formacie ${bank.name}`);
+      toast.success(`Wyeksportowano ${finalTransferDrivers.length} przelewów w formacie ${bank.name}`);
       onOpenChange(false);
     } catch (error) {
       console.error('Error exporting transfers:', error);
@@ -314,7 +386,7 @@ export function BankTransferExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
@@ -326,6 +398,49 @@ export function BankTransferExportDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Missing accounts warning */}
+          {showMissingAccounts && missingAccounts.length > 0 && (
+            <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-3">
+              <div className="flex items-center gap-2 text-amber-800 font-medium text-sm">
+                <AlertTriangle className="h-4 w-4" />
+                {missingAccounts.length} kierowców bez nr konta
+              </div>
+              <p className="text-xs text-amber-700">
+                Wpisz nr konta lub zaznacz "Gotówka" aby zmienić sposób wypłaty.
+              </p>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {missingAccounts.map((ma, idx) => (
+                  <div key={ma.id} className="flex items-center gap-2 text-xs">
+                    <span className="w-[120px] truncate font-medium">{ma.name}</span>
+                    <span className="text-muted-foreground w-[60px] text-right">{ma.payout.toFixed(2)} zł</span>
+                    <Input
+                      placeholder="Nr konta (26 cyfr)"
+                      value={ma.iban}
+                      onChange={(e) => {
+                        setMissingAccounts(prev => prev.map((m, i) => 
+                          i === idx ? { ...m, iban: e.target.value, switchToCash: false } : m
+                        ));
+                      }}
+                      disabled={ma.switchToCash}
+                      className="h-7 text-xs flex-1"
+                    />
+                    <div className="flex items-center gap-1 whitespace-nowrap">
+                      <Checkbox
+                        checked={ma.switchToCash}
+                        onCheckedChange={(checked) => {
+                          setMissingAccounts(prev => prev.map((m, i) => 
+                            i === idx ? { ...m, switchToCash: !!checked } : m
+                          ));
+                        }}
+                      />
+                      <span className="text-xs">Gotówka</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Bank Selection */}
           <div className="space-y-2">
             <Label>Bank</Label>
@@ -360,7 +475,7 @@ export function BankTransferExportDialog({
             <Input
               value={transferTitle}
               onChange={(e) => setTransferTitle(e.target.value)}
-              placeholder="np. Rozliczenie tygodniowe"
+              placeholder="np. wynajem auta"
             />
             <p className="text-xs text-muted-foreground">
               Dla kierowców B2B tytuł zostanie automatycznie zmieniony na "Faktura"
@@ -401,7 +516,7 @@ export function BankTransferExportDialog({
           </Button>
           <Button onClick={handleExport} disabled={loading} className="gap-2">
             <Download className="h-4 w-4" />
-            {loading ? 'Generowanie...' : 'Pobierz plik'}
+            {loading ? 'Generowanie...' : showMissingAccounts ? 'Zapisz i generuj' : 'Pobierz plik'}
           </Button>
         </div>
       </DialogContent>
