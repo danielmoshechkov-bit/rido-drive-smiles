@@ -4590,6 +4590,59 @@ export type Database = {
           },
         ]
       }
+      fleet_city_settings: {
+        Row: {
+          additional_percent_rate: number
+          base_fee: number
+          city_name: string
+          created_at: string
+          fleet_id: string
+          id: string
+          invoice_email: string | null
+          is_active: boolean
+          secondary_vat_rate: number
+          settlement_mode: string
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          additional_percent_rate?: number
+          base_fee?: number
+          city_name: string
+          created_at?: string
+          fleet_id: string
+          id?: string
+          invoice_email?: string | null
+          is_active?: boolean
+          secondary_vat_rate?: number
+          settlement_mode?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          additional_percent_rate?: number
+          base_fee?: number
+          city_name?: string
+          created_at?: string
+          fleet_id?: string
+          id?: string
+          invoice_email?: string | null
+          is_active?: boolean
+          secondary_vat_rate?: number
+          settlement_mode?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_city_settings_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_delegated_roles: {
         Row: {
           assigned_to_driver_id: string
@@ -12187,6 +12240,123 @@ export type Database = {
           },
         ]
       }
+      vehicle_owner_charges: {
+        Row: {
+          adjustment: number
+          adjustment_note: string | null
+          amount: number
+          created_at: string
+          fleet_id: string
+          id: string
+          is_settled: boolean
+          owner_id: string
+          settled_at: string | null
+          vehicle_id: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          adjustment?: number
+          adjustment_note?: string | null
+          amount?: number
+          created_at?: string
+          fleet_id: string
+          id?: string
+          is_settled?: boolean
+          owner_id: string
+          settled_at?: string | null
+          vehicle_id: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          adjustment?: number
+          adjustment_note?: string | null
+          amount?: number
+          created_at?: string
+          fleet_id?: string
+          id?: string
+          is_settled?: boolean
+          owner_id?: string
+          settled_at?: string | null
+          vehicle_id?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_owner_charges_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_owner_charges_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_owner_charges_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_owners: {
+        Row: {
+          bank_account: string | null
+          company_name: string | null
+          created_at: string
+          email: string | null
+          fleet_id: string
+          id: string
+          name: string
+          nip: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank_account?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          fleet_id: string
+          id?: string
+          name: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank_account?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          fleet_id?: string
+          id?: string
+          name?: string
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_owners_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_policies: {
         Row: {
           created_at: string
@@ -12443,6 +12613,7 @@ export type Database = {
           id: string
           model: string
           odometer: number | null
+          owner_id: string | null
           owner_name: string | null
           photos: string[] | null
           plate: string
@@ -12465,6 +12636,7 @@ export type Database = {
           id?: string
           model: string
           odometer?: number | null
+          owner_id?: string | null
           owner_name?: string | null
           photos?: string[] | null
           plate: string
@@ -12487,6 +12659,7 @@ export type Database = {
           id?: string
           model?: string
           odometer?: number | null
+          owner_id?: string | null
           owner_name?: string | null
           photos?: string[] | null
           plate?: string
@@ -12510,6 +12683,13 @@ export type Database = {
             columns: ["fleet_id"]
             isOneToOne: false
             referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_owners"
             referencedColumns: ["id"]
           },
         ]
