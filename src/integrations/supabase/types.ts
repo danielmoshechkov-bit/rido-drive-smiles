@@ -4875,6 +4875,7 @@ export type Database = {
       }
       fleets: {
         Row: {
+          additional_percent_rate: number
           address: string | null
           b2b_enabled: boolean | null
           b2b_invoice_frequency: string | null
@@ -4902,13 +4903,16 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           registration_code: string | null
+          secondary_vat_rate: number
           settlement_frequency_enabled: boolean | null
+          settlement_mode: string
           street: string | null
           transfer_enabled: boolean | null
           transfer_title_template: string | null
           vat_rate: number | null
         }
         Insert: {
+          additional_percent_rate?: number
           address?: string | null
           b2b_enabled?: boolean | null
           b2b_invoice_frequency?: string | null
@@ -4936,13 +4940,16 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           registration_code?: string | null
+          secondary_vat_rate?: number
           settlement_frequency_enabled?: boolean | null
+          settlement_mode?: string
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null
           vat_rate?: number | null
         }
         Update: {
+          additional_percent_rate?: number
           address?: string | null
           b2b_enabled?: boolean | null
           b2b_invoice_frequency?: string | null
@@ -4970,7 +4977,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           registration_code?: string | null
+          secondary_vat_rate?: number
           settlement_frequency_enabled?: boolean | null
+          settlement_mode?: string
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null

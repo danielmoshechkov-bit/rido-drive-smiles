@@ -78,6 +78,11 @@ interface DriverSettlement {
   covered_rental?: boolean;
   // For negative balance tracking
   has_negative_balance?: boolean;
+  // Dual tax mode fields
+  bolt_ef_base?: number;       // Sum of Bolt columns E+F
+  bolt_ijk_base?: number;      // Sum of Bolt columns I+J+K
+  additional_percent_amount?: number; // Additional % from E+F
+  secondary_vat_amount?: number;     // 23% (or custom) from I+J+K
 }
 
 interface FleetFee {
@@ -832,12 +837,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Fetch fleet settings (VAT rate and base fee)
       const { data: fleetData } = await supabase
         .from('fleets')
-        .select('vat_rate, base_fee')
+        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate')
         .eq('id', fleetId)
         .maybeSingle();
       
       const fleetVatRate = (fleetData as any)?.vat_rate ?? 8;
       const fleetBaseFee = (fleetData as any)?.base_fee ?? 0;
+      const fleetSettlementMode = (fleetData as any)?.settlement_mode ?? 'single_tax';
+      const fleetSecondaryVatRate = (fleetData as any)?.secondary_vat_rate ?? 23;
+      const fleetAdditionalPercentRate = (fleetData as any)?.additional_percent_rate ?? 0;
 
       // Fetch active fleet settlement fees
       const { data: fleetFeesData } = await supabase
@@ -1156,36 +1164,61 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
 
         // Calculate VAT amount from fleet settings
-        // Tax is already calculated in edge function but we need to handle B2B drivers here
         // B2B drivers with vat_payer=true don't pay VAT - they handle it themselves
-        // B2B drivers with vat_payer=false get 8% VAT deducted (like regular drivers)
         const driverInfo = driver as any;
         const appUserData = driverInfo.driver_app_users;
         const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
         const isB2BDriver = driverInfo.payment_method === 'b2b';
         const isB2BVatPayer = isB2BDriver && b2bProfile?.vat_payer === true;
         const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
-        // IMPORTANT: Use vat_amount instead of 'tax' from edge function to support B2B
-        // The 'tax' from edge function is a duplicate - we calculate VAT here with B2B logic
-        const vat_amount = total_base * (effectiveVatRate / 100);
+
+        // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
+        let vat_amount = 0;
+        let bolt_ef_base = 0;
+        let bolt_ijk_base = 0;
+        let additional_percent_amount = 0;
+        let secondary_vat_amount = 0;
+
+        if (fleetSettlementMode === 'dual_tax') {
+          // Aggregate Bolt columns E, F, I, J, K from amounts JSON
+          bolt_ef_base = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
+          }, 0);
+          bolt_ijk_base = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_col_i || '0') + parseFloat(amounts.bolt_col_j || '0') + parseFloat(amounts.bolt_col_k || '0');
+          }, 0);
+          
+          // Tax 1: VAT% from Bolt E+F (brutto)
+          const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_ef_base * (effectiveVatRate / 100);
+          // Additional %: optional extra percent from E+F
+          additional_percent_amount = isB2BVatPayer ? 0 : bolt_ef_base * (fleetAdditionalPercentRate / 100);
+          // Tax 2: secondary VAT% from I+J+K (campaigns, refunds, cancellations)
+          secondary_vat_amount = isB2BVatPayer ? 0 : bolt_ijk_base * (fleetSecondaryVatRate / 100);
+          
+          // For Uber and FreeNow, still use standard VAT from total base
+          const uber_freenow_base = uber_base + freenow_base;
+          const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
+          
+          vat_amount = bolt_vat_ef + uber_freenow_vat;
+        } else {
+          // === SINGLE TAX MODE (current): VAT from total brutto ===
+          vat_amount = total_base * (effectiveVatRate / 100);
+        }
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
         const isFirstFullWeekOfMonth = (weekStart: string): boolean => {
           const start = new Date(weekStart);
-          // Tydzień jest "pierwszym pełnym" jeśli poniedziałek wypada między 1 a 7 dniem miesiąca
           return start.getDate() >= 1 && start.getDate() <= 7;
         };
 
         const isFirstWeek = periodStart ? isFirstFullWeekOfMonth(periodStart) : false;
 
         // Calculate additional fees from fleet_settlement_fees
-        // Tygodniowe ZAWSZE + miesięczne TYLKO w pierwszym tygodniu miesiąca
-        // PLUS: sprawdzenie valid_from/valid_to dla każdej opłaty
         const additional_fees = fleetFees
           .filter(fee => {
-            // Sprawdź zakres ważności opłaty (valid_from / valid_to)
             const periodStartDate = periodStart ? new Date(periodStart) : new Date();
-            
             if ((fee as any).valid_from) {
               const validFromDate = new Date((fee as any).valid_from);
               if (validFromDate > periodStartDate) return false;
@@ -1194,14 +1227,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               const validToDate = new Date((fee as any).valid_to);
               if (validToDate < periodStartDate) return false;
             }
-            
-            // Sprawdź częstotliwość
             if (fee.frequency === 'weekly') return true;
             if (fee.frequency === 'monthly' && isFirstWeek) return true;
             return false;
           })
           .map((fee, idx) => {
-            // Check for persisted override in amounts JSON
             const manualKey = `manual_fee_${idx}`;
             const manualVal = firstAmounts[manualKey];
             const baseAmount = fee.type === 'fixed' ? fee.amount : total_base * (fee.amount / 100);
@@ -1213,11 +1243,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_additional_fees = additional_fees.reduce((sum, f) => sum + f.amount, 0);
 
-        // FIXED: Use vat_amount INSTEAD of tax (they are the same 8% tax, just calculated differently)
-        // tax = from edge function (doesn't handle B2B)
-        // vat_amount = calculated here with B2B logic
-        // service_fee już zawiera fleetBaseFee gdy > 0, więc NIE dodawaj fleetBaseFee osobno
-        const payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+        // Calculate payout based on mode
+        let payout: number;
+        if (fleetSettlementMode === 'dual_tax') {
+          // Dual tax: Payout = bolt_payout_s - tax1(8% of E+F) - additional% - tax2(23% of I+J+K)
+          // Plus Uber/FreeNow net (their base - their VAT)
+          const bolt_payout_s = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_payout_s || '0');
+          }, 0);
+          const uber_freenow_base = uber_base + freenow_base;
+          const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
+          
+          payout = bolt_payout_s - vat_amount - additional_percent_amount - secondary_vat_amount
+                   + (uber_freenow_base - uber_freenow_vat)
+                   - total_commission - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+        } else {
+          // Single tax (current formula)
+          payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+        }
 
         return {
           driver_id: driver.id,
@@ -1235,7 +1279,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_commission,
           total_cash,
           tax_8_percent: vat_amount,
-          vat_amount: vat_amount, // FIXED: Display actual VAT amount in table
+          vat_amount,
           service_fee,
           additional_fees,
           rental,
@@ -1243,6 +1287,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: total_base - total_commission - vat_amount,
           final_payout: payout,
+          // Dual tax fields
+          bolt_ef_base,
+          bolt_ijk_base,
+          additional_percent_amount,
+          secondary_vat_amount,
         };
       });
 
@@ -2083,6 +2132,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT</TableHead>
+                      {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Dod. %</TableHead>
+                      )}
+                      {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT kamp.</TableHead>
+                      )}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
                       {activeFees.filter(fee => {
                         // Sprawdź valid_from/valid_to
@@ -2168,6 +2223,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.vat_amount, hasAnyActivity, true)}
                         </TableCell>
+                        {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            {(settlement.additional_percent_amount || 0) > 0 ? `-${formatCurrency(settlement.additional_percent_amount || 0)}` : '-'}
+                          </TableCell>
+                        )}
+                        {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            {(settlement.secondary_vat_amount || 0) > 0 ? `-${formatCurrency(settlement.secondary_vat_amount || 0)}` : '-'}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                           {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>
@@ -2261,6 +2326,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.vat_amount, 0))}
                       </TableCell>
+                      {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_percent_amount || 0), 0))}
+                        </TableCell>
+                      )}
+                      {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
+                        <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.secondary_vat_amount || 0), 0))}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         +{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0))}
                       </TableCell>
