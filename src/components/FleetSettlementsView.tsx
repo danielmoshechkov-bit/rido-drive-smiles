@@ -79,10 +79,16 @@ interface DriverSettlement {
   // For negative balance tracking
   has_negative_balance?: boolean;
   // Dual tax mode fields
-  bolt_ef_base?: number;       // Sum of Bolt columns E+F
-  bolt_ijk_base?: number;      // Sum of Bolt columns I+J+K
-  additional_percent_amount?: number; // Additional % from E+F
-  secondary_vat_amount?: number;     // 23% (or custom) from I+J+K
+  bolt_ef_base?: number;
+  bolt_ijk_base?: number;
+  additional_percent_amount?: number;
+  secondary_vat_amount?: number;
+  // Dual tax display fields
+  bolt_tips?: number;
+  bolt_bonusy?: number;
+  bolt_rekompensaty?: number;
+  bolt_anulacje?: number;
+  netto?: number;
 }
 
 interface FleetFee {
@@ -1216,22 +1222,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         let secondary_vat_amount = 0;
 
         if (fleetSettlementMode === 'dual_tax') {
-          // Aggregate Bolt columns E, F, I, J, K from amounts JSON
+          // Aggregate Bolt columns E, F, G, I, J, K from amounts JSON
           bolt_ef_base = driverSettlements.reduce((sum, s) => {
             const amounts = s.amounts as any || {};
             return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
           }, 0);
-          bolt_ijk_base = driverSettlements.reduce((sum, s) => {
+          
+          // Bonusy (I) + Rekompensaty (K) - these are 23% VAT items, FULLY deducted from payout
+          const bolt_i_base = driverSettlements.reduce((sum, s) => {
             const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_i || '0') + parseFloat(amounts.bolt_col_j || '0') + parseFloat(amounts.bolt_col_k || '0');
+            return sum + parseFloat(amounts.bolt_col_i || '0');
           }, 0);
+          const bolt_k_base = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_col_k || '0');
+          }, 0);
+          // Anulacje (J) - informational only, already reflected in Bolt payout S
+          const bolt_j_base = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_col_j || '0');
+          }, 0);
+          // Napiwki (G) - informational, included in S
+          const bolt_g_tips = driverSettlements.reduce((sum, s) => {
+            const amounts = s.amounts as any || {};
+            return sum + parseFloat(amounts.bolt_col_g || '0');
+          }, 0);
+          
+          bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base; // Keep for backward compat
           
           // Tax 1: VAT% from Bolt E+F (brutto)
           const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_ef_base * (effectiveVatRate / 100);
           // Additional %: optional extra percent from E+F
           additional_percent_amount = isB2BVatPayer ? 0 : bolt_ef_base * (fleetAdditionalPercentRate / 100);
-          // Tax 2: secondary VAT% from I+J+K (campaigns, refunds, cancellations)
-          secondary_vat_amount = isB2BVatPayer ? 0 : bolt_ijk_base * (fleetSecondaryVatRate / 100);
+          // Bonusy + Rekompensaty: FULL amount deducted (not multiplied by 23%)
+          // The (23%) label indicates VAT category, fleet keeps entire amount for tax accounting
+          secondary_vat_amount = isB2BVatPayer ? 0 : Math.abs(bolt_i_base) + Math.abs(bolt_k_base);
           
           // For Uber and FreeNow, still use standard VAT from total base
           const uber_freenow_base = uber_base + freenow_base;
@@ -1282,25 +1307,54 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Calculate payout based on mode
         let payout: number;
         if (fleetSettlementMode === 'dual_tax') {
-          // Dual tax: Payout = bolt_payout_s - tax1(8% of E+F) - additional% - tax2(23% of I+J+K)
-          // Plus Uber/FreeNow net (their base - their VAT)
+          // Reference formula (verified against 3 examples):
+          // Wypłata = bolt_payout_s - VAT%(Brutto) - Bonusy_full - Rekompensaty_full
+          //           - service_fee - additional_fees - rental - fuel + fuel_vat_refund
+          //           + (uber/freenow net contribution)
+          // Note: bolt_payout_s (column S) already has bolt commission AND bolt cash deducted
           const bolt_payout_s = driverSettlements.reduce((sum, s) => {
             const amounts = s.amounts as any || {};
             return sum + parseFloat(amounts.bolt_payout_s || '0');
           }, 0);
           const uber_freenow_base = uber_base + freenow_base;
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
-          
-          // In dual_tax mode, bolt_payout_s (column S) already has bolt commission deducted
-          // So we only subtract uber + freenow commission, not bolt commission
           const non_bolt_commission = uber_commission + freenow_commission;
-          payout = bolt_payout_s - vat_amount - additional_percent_amount - secondary_vat_amount
-                   + (uber_freenow_base - uber_freenow_vat)
-                   - non_bolt_commission - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+          // Only subtract non-bolt cash (bolt cash is already removed from S)
+          const non_bolt_cash = uber_cash + freenow_cash;
+          
+          payout = bolt_payout_s 
+                   - vat_amount                  // VAT% of Brutto (E+F)
+                   - additional_percent_amount    // Additional % of Brutto (if configured)
+                   - secondary_vat_amount         // Full Bonusy(I) + Rekompensaty(K)
+                   + (uber_freenow_base - uber_freenow_vat) // Uber/FreeNow contribution
+                   - non_bolt_commission          // Uber/FreeNow commissions
+                   - non_bolt_cash                // Uber/FreeNow cash (bolt cash already in S)
+                   - service_fee - total_additional_fees - rental 
+                   - total_fuel + total_fuel_vat_refund;
         } else {
           // Single tax (current formula)
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
+
+        // Aggregate Bolt tips and anulacje for display
+        const bolt_tips = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_g || '0');
+        }, 0);
+        const bolt_bonusy = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_i || '0');
+        }, 0);
+        const bolt_rekompensaty = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_k || '0');
+        }, 0);
+        const bolt_anulacje = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_j || '0');
+        }, 0);
+        // Netto = Brutto - Prowizja (what driver earned before fleet deductions)
+        const netto = total_base - total_commission;
 
         return {
           driver_id: driver.id,
@@ -1324,13 +1378,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           rental,
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
-          net_without_commission: total_base - total_commission - vat_amount,
+          net_without_commission: netto,
           final_payout: payout,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,
           additional_percent_amount,
           secondary_vat_amount,
+          // Display fields for dual_tax reference columns
+          bolt_tips,
+          bolt_bonusy,
+          bolt_rekompensaty,
+          bolt_anulacje,
+          netto,
         };
       });
 
@@ -2159,23 +2219,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
                       <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
+                      {fleetSettlementModeState === 'dual_tax' ? (
+                        <>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Brutto</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">{fleetVatRateState}%</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Pob. gotówka</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Napiwki</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Bonusy ({fleetSecondaryVatRateState}%)</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp. ({fleetSecondaryVatRateState}%)</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Prowizja</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Zwroty</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Netto</TableHead>
+                        </>
+                      ) : (
+                        <>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
+                        </>
+                      )}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
+                      {fleetSettlementModeState !== 'dual_tax' && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
+                      )}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
                       {fleetSettlementModeState === 'dual_tax' && fleetAdditionalPercentRateState > 0 && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Dod. {fleetAdditionalPercentRateState}%</TableHead>
-                      )}
-                      {fleetSettlementModeState === 'dual_tax' && (
-                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetSecondaryVatRateState}% kamp.</TableHead>
                       )}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
                       {activeFees.filter(fee => {
@@ -2226,50 +2304,94 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </button>
                           </span>
                         </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                          {hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.uber_cash, hasUberActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {hasBoltActivity ? formatCurrency(settlement.bolt_base) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.bolt_cash, hasBoltActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.bolt_commission, hasBoltActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {hasFreenowActivity ? formatCurrency(settlement.freenow_base) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.freenow_cash, hasFreenowActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.total_cash, hasAnyActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.total_commission, hasAnyActivity, true)}
-                        </TableCell>
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                          {displayValue(settlement.fuel, hasAnyActivity, true)}
-                        </TableCell>
+                        {fleetSettlementModeState === 'dual_tax' ? (
+                          <>
+                            {/* Brutto */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                              {hasAnyActivity ? formatCurrency(settlement.total_base) : '-'}
+                            </TableCell>
+                            {/* VAT% */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.vat_amount, hasAnyActivity, true)}
+                            </TableCell>
+                            {/* Pob. gotówka */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.total_cash, hasAnyActivity, true)}
+                            </TableCell>
+                            {/* Napiwki */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                              {(settlement.bolt_tips || 0) > 0 ? formatCurrency(settlement.bolt_tips || 0) : (hasAnyActivity ? '0,00' : '-')}
+                            </TableCell>
+                            {/* Bonusy (23%) */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                              {(settlement.bolt_bonusy || 0) > 0 ? formatCurrency(settlement.bolt_bonusy || 0) : (hasAnyActivity ? '0,00' : '-')}
+                            </TableCell>
+                            {/* Rekompensaty (23%) */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                              {(settlement.bolt_rekompensaty || 0) > 0 ? formatCurrency(settlement.bolt_rekompensaty || 0) : (hasAnyActivity ? '0,00' : '-')}
+                            </TableCell>
+                            {/* Anulacja */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                              {(settlement.bolt_anulacje || 0) !== 0 ? formatCurrency(Math.abs(settlement.bolt_anulacje || 0)) : (hasAnyActivity ? '0,00' : '-')}
+                            </TableCell>
+                            {/* Prowizja */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.total_commission, hasAnyActivity, true)}
+                            </TableCell>
+                            {/* Zwroty do pas. */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                              {hasAnyActivity ? '0,00' : '-'}
+                            </TableCell>
+                            {/* Netto */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap">
+                              {hasAnyActivity ? formatCurrency(settlement.netto || 0) : '-'}
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                              {hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.uber_cash, hasUberActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                              {hasBoltActivity ? formatCurrency(settlement.bolt_base) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.bolt_cash, hasBoltActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.bolt_commission, hasBoltActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                              {hasFreenowActivity ? formatCurrency(settlement.freenow_base) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.freenow_cash, hasFreenowActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.total_cash, hasAnyActivity, true)}
+                            </TableCell>
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                              {displayValue(settlement.total_commission, hasAnyActivity, true)}
+                            </TableCell>
+                          </>
+                        )}
+                        {fleetSettlementModeState !== 'dual_tax' && (
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            {displayValue(settlement.fuel, hasAnyActivity, true)}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.vat_amount, hasAnyActivity, true)}
                         </TableCell>
                         {fleetSettlementModeState === 'dual_tax' && fleetAdditionalPercentRateState > 0 && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                             {(settlement.additional_percent_amount || 0) > 0 ? `-${formatCurrency(settlement.additional_percent_amount || 0)}` : '-'}
-                          </TableCell>
-                        )}
-                        {fleetSettlementModeState === 'dual_tax' && (
-                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
-                            {(settlement.secondary_vat_amount || 0) > 0 ? `-${formatCurrency(settlement.secondary_vat_amount || 0)}` : '-'}
                           </TableCell>
                         )}
                         <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
