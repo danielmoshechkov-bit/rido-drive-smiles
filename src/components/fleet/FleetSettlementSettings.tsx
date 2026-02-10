@@ -47,6 +47,11 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [invoiceEmail, setInvoiceEmail] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
   
+  // Settlement mode: single_tax (current) or dual_tax (two separate taxes)
+  const [settlementMode, setSettlementMode] = useState<'single_tax' | 'dual_tax'>('single_tax');
+  const [secondaryVatRate, setSecondaryVatRate] = useState<string>('23');
+  const [additionalPercentRate, setAdditionalPercentRate] = useState<string>('0');
+  
   // Payment methods settings
   const [cashEnabled, setCashEnabled] = useState(false);
   const [cashPickupDay, setCashPickupDay] = useState('wtorek');
@@ -86,7 +91,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_address_postal_code, cash_address_street, cash_address_number, b2b_enabled, b2b_invoice_frequency, transfer_enabled')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_address_postal_code, cash_address_street, cash_address_number, b2b_enabled, b2b_invoice_frequency, transfer_enabled, settlement_mode, secondary_vat_rate, additional_percent_rate')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -97,6 +102,9 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setVatRate(((data as any).vat_rate ?? 8).toString());
       setBaseFee(((data as any).base_fee ?? 0).toString());
       setInvoiceEmail((data as any).invoice_email ?? '');
+      setSettlementMode(((data as any).settlement_mode ?? 'single_tax') as 'single_tax' | 'dual_tax');
+      setSecondaryVatRate(((data as any).secondary_vat_rate ?? 23).toString());
+      setAdditionalPercentRate(((data as any).additional_percent_rate ?? 0).toString());
       // Payment methods
       setCashEnabled((data as any).cash_enabled ?? false);
       setCashPickupDay((data as any).cash_pickup_day ?? 'wtorek');
@@ -127,7 +135,14 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
     try {
       const { error } = await supabase
         .from('fleets')
-        .update({ vat_rate: vat, base_fee: fee, invoice_email: invoiceEmail || null } as any)
+        .update({ 
+          vat_rate: vat, 
+          base_fee: fee, 
+          invoice_email: invoiceEmail || null,
+          settlement_mode: settlementMode,
+          secondary_vat_rate: parseFloat(secondaryVatRate) || 23,
+          additional_percent_rate: parseFloat(additionalPercentRate) || 0,
+        } as any)
         .eq('id', fleetId);
       
       if (error) throw error;
@@ -404,6 +419,37 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Settlement Mode Selector */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Tryb rozliczeń</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${settlementMode === 'single_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                    <input
+                      type="radio"
+                      name="settlement_mode"
+                      value="single_tax"
+                      checked={settlementMode === 'single_tax'}
+                      onChange={() => setSettlementMode('single_tax')}
+                      className="sr-only"
+                    />
+                    <span className="text-xs font-medium">Jeden podatek</span>
+                    <span className="text-[10px] text-muted-foreground">VAT od całości brutto</span>
+                  </label>
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${settlementMode === 'dual_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                    <input
+                      type="radio"
+                      name="settlement_mode"
+                      value="dual_tax"
+                      checked={settlementMode === 'dual_tax'}
+                      onChange={() => setSettlementMode('dual_tax')}
+                      className="sr-only"
+                    />
+                    <span className="text-xs font-medium">Dwa podatki</span>
+                    <span className="text-[10px] text-muted-foreground">8% + 23% od kampanii</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="vat-rate" className="text-xs">VAT (%)</Label>
@@ -433,6 +479,46 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
                   />
                 </div>
               </div>
+
+              {/* Dual tax mode extra settings */}
+              {settlementMode === 'dual_tax' && (
+                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                  <p className="text-xs font-medium text-muted-foreground">Ustawienia trybu "Dwa podatki"</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="additional-percent" className="text-xs">Dodatkowy % od brutto (E+F)</Label>
+                      <Input
+                        id="additional-percent"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="0"
+                        value={additionalPercentRate}
+                        onChange={(e) => setAdditionalPercentRate(e.target.value)}
+                        className="h-8"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Np. 1 = dodatkowe 1% od brutto Bolt</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="secondary-vat" className="text-xs">VAT kampanie/anulowania (%)</Label>
+                      <Input
+                        id="secondary-vat"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="23"
+                        value={secondaryVatRate}
+                        onChange={(e) => setSecondaryVatRate(e.target.value)}
+                        className="h-8"
+                      />
+                      <p className="text-[10px] text-muted-foreground">VAT od kolumn I+J+K Bolt CSV</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <Label htmlFor="invoice-email" className="text-xs">Mail do faktur (B2B)</Label>
                 <Input

@@ -32,6 +32,12 @@ interface PlatformData {
   bolt_commission: number;
   bolt_tax_8: number;
   bolt_net: number;
+  // Bolt extra columns for dual_tax mode
+  bolt_col_e: number; // Column E
+  bolt_col_f: number; // Column F
+  bolt_col_i: number; // Column I - Zarobki z kampanii
+  bolt_col_j: number; // Column J - Zwroty wydatków
+  bolt_col_k: number; // Column K - Opłaty za anulowanie
   // FreeNow
   freenow_base_s: number;
   freenow_commission_t: number;
@@ -428,6 +434,11 @@ async function process3PlatformCsvs(
         bolt_commission: data.bolt_commission || 0,
         bolt_tax_8: data.bolt_tax_8 || 0,
         bolt_net: data.bolt_net || 0,
+        bolt_col_e: data.bolt_col_e || 0,
+        bolt_col_f: data.bolt_col_f || 0,
+        bolt_col_i: data.bolt_col_i || 0,
+        bolt_col_j: data.bolt_col_j || 0,
+        bolt_col_k: data.bolt_col_k || 0,
         freenow_base_s: data.freenow_base_s || 0,
         freenow_commission_t: data.freenow_commission_t || 0,
         freenow_cash_f: data.freenow_cash_f || 0,
@@ -946,6 +957,13 @@ async function parseBoltCsv(
     const bolt_commission = bolt_projected_d > 0 ? (bolt_projected_d - bolt_cash - bolt_payout_s) : 0;
     const bolt_tax_8 = bolt_projected_d * 0.08;
     const bolt_net = bolt_projected_d - bolt_tax_8 - bolt_commission;
+    
+    // Extra columns for dual_tax mode (0-indexed: E=4, F=5, I=8, J=9, K=10)
+    const bolt_col_e = parsePLNumber(row[4] || '0');
+    const bolt_col_f = parsePLNumber(row[5] || '0');
+    const bolt_col_i = parsePLNumber(row[8] || '0');
+    const bolt_col_j = parsePLNumber(row[9] || '0');
+    const bolt_col_k = parsePLNumber(row[10] || '0');
 
     const platformId = row[driverIdIdx]?.trim();
     const driverName = row[driverNameIdx]?.trim() || '';
@@ -1076,6 +1094,11 @@ async function parseBoltCsv(
       existing.bolt_commission = bolt_commission;
       existing.bolt_tax_8 = bolt_tax_8;
       existing.bolt_net = bolt_net;
+      existing.bolt_col_e = bolt_col_e;
+      existing.bolt_col_f = bolt_col_f;
+      existing.bolt_col_i = bolt_col_i;
+      existing.bolt_col_j = bolt_col_j;
+      existing.bolt_col_k = bolt_col_k;
       driverDataMap.set(driverId, existing);
     }
   }
@@ -1268,6 +1291,11 @@ function createEmptyPlatformData(driverId: string): PlatformData {
     bolt_commission: 0,
     bolt_tax_8: 0,
     bolt_net: 0,
+    bolt_col_e: 0,
+    bolt_col_f: 0,
+    bolt_col_i: 0,
+    bolt_col_j: 0,
+    bolt_col_k: 0,
     freenow_base_s: 0,
     freenow_commission_t: 0,
     freenow_cash_f: 0,
