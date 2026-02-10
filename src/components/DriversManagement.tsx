@@ -924,6 +924,30 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             )}
                             <span className="text-xs text-muted-foreground">zł</span>
                           </div>
+
+                          <div className="flex items-center gap-2">
+                            <Banknote size={14} />
+                            <span className="text-xs text-muted-foreground">Nr konta:</span>
+                            {mode === 'admin' || mode === 'fleet' ? (
+                              <InlineEdit
+                                value={(driver as any).bank_account || ''}
+                                onSave={async (value) => {
+                                  const { error } = await supabase
+                                    .from('drivers')
+                                    .update({ bank_account: value.trim() || null } as any)
+                                    .eq('id', driver.id);
+                                  if (error) toast.error('Błąd zapisu');
+                                  else {
+                                    toast.success('Nr konta zapisany');
+                                    refetch();
+                                  }
+                                }}
+                                placeholder="00 0000 0000 0000 0000 0000 0000"
+                              />
+                            ) : (
+                              <span className="font-mono text-xs">{(driver as any).bank_account || '-'}</span>
+                            )}
+                          </div>
                         </div>
                     </div>
                     

@@ -4143,6 +4143,7 @@ export type Database = {
           address_country: string | null
           address_postal_code: string | null
           address_street: string | null
+          bank_account: string | null
           billing_method: string | null
           city_id: string
           consent_fleet_reviews: boolean | null
@@ -4185,6 +4186,7 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          bank_account?: string | null
           billing_method?: string | null
           city_id: string
           consent_fleet_reviews?: boolean | null
@@ -4227,6 +4229,7 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          bank_account?: string | null
           billing_method?: string | null
           city_id?: string
           consent_fleet_reviews?: boolean | null
