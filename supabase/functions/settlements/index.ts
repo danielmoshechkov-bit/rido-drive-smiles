@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
     const { data: settlementPeriod, error: periodError } = await supabase
       .from('settlement_periods')
       .insert({
-        city_id,
+        city_id: effectiveCityId,
         week_start: period_from,
         week_end: period_to,
         status: 'robocze',
@@ -942,6 +942,10 @@ async function parseBoltCsv(
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
   const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
   const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('kierowca'));
+  // Bolt CSV: Column A = name, Column B = email, Column C = phone
+  const emailIdx = headers.findIndex(h => h.includes('email') || h.includes('e-mail') || h.includes('adres email') || h.includes('mail'));
+  const phoneIdx = headers.findIndex(h => h.includes('telefon') || h.includes('phone') || h.includes('numer telefonu') || h.includes('nr telefonu'));
+  console.log('📊 BOLT CSV - indeksy:', { projectedIdx, payoutIdx, cashIdx, driverIdIdx, driverNameIdx, emailIdx, phoneIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -1031,20 +1035,67 @@ async function parseBoltCsv(
       }
     }
 
-    // 3. Create new driver if no match
+    // 3. Check by name if driver already exists in this fleet (prevent duplicates)
+    if (!driverId && driverName) {
+      const nameParts = driverName.split(' ');
+      const firstName = nameParts[0] || 'Bolt';
+      const lastName = nameParts.slice(1).join(' ') || 'Driver';
+      
+      let existingQuery = supabase
+        .from('drivers')
+        .select('id, first_name, last_name')
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName);
+      
+      if (fleet_id) {
+        existingQuery = existingQuery.eq('fleet_id', fleet_id);
+      }
+      
+      const { data: existingByName } = await existingQuery.maybeSingle();
+      
+      if (existingByName) {
+        driverId = existingByName.id;
+        matchedDrivers++;
+        console.log(`✅ BOLT: Found existing driver by name "${firstName} ${lastName}" (ID: ${driverId})`);
+        
+        if (platformId) {
+          const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
+            driver_id: driverId,
+            platform: 'bolt',
+            platform_id: platformId
+          }, { onConflict: 'driver_id,platform' });
+          if (!pidErr) {
+            existingDriversMap.set(`bolt:${platformId}`, existingByName);
+          }
+        }
+      }
+    }
+    
+    // 4. Create NEW driver ONLY if no match by platform ID or name
     if (!driverId) {
       const nameParts = driverName.split(' ');
       const firstName = nameParts[0] || 'Bolt';
       const lastName = nameParts.slice(1).join(' ') || 'Driver';
       
+      // Extract email and phone from Bolt CSV columns
+      const driverEmail = emailIdx !== -1 ? (row[emailIdx]?.trim() || '') : '';
+      const driverPhone = phoneIdx !== -1 ? (row[phoneIdx]?.trim() || '') : '';
+      
+      // Use phone as Bolt platform ID if no driver ID column
+      const boltPlatformId = platformId || driverPhone || null;
+      
+      const driverInsertData: any = {
+        first_name: firstName,
+        last_name: lastName,
+        city_id: city_id,
+        fleet_id: fleet_id || null
+      };
+      if (driverEmail) driverInsertData.email = driverEmail;
+      if (driverPhone) driverInsertData.phone = driverPhone;
+      
       const { data: newDriver, error } = await supabase
         .from('drivers')
-        .insert({
-          first_name: firstName,
-          last_name: lastName,
-          city_id: city_id,
-          fleet_id: fleet_id || null
-        })
+        .insert(driverInsertData)
         .select('id')
         .single();
       
@@ -1053,13 +1104,13 @@ async function parseBoltCsv(
         newDrivers++;
         
         const fullName = `${firstName} ${lastName}`;
-        console.log(`🆕 BOLT: Created new driver: ${fullName} (ID: ${driverId})`);
+        console.log(`🆕 BOLT: Created new driver: ${fullName} (ID: ${driverId}, email: ${driverEmail}, phone: ${driverPhone})`);
         
         unmappedDrivers.push({
           id: driverId,
           full_name: fullName,
           uber_id: null,
-          bolt_id: platformId || null,
+          bolt_id: boltPlatformId,
           freenow_id: null
         });
         
@@ -1069,19 +1120,23 @@ async function parseBoltCsv(
           driver_id: driverId,
           full_name: fullName,
           uber_id: null,
-          bolt_id: platformId || null,
+          bolt_id: boltPlatformId,
           freenow_id: null,
           status: 'pending'
         }, { onConflict: 'driver_id' });
         if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
         
-        if (platformId) {
+        // Save Bolt platform ID (phone number or driver ID)
+        if (boltPlatformId) {
           const { error: pidErr } = await supabase.from('driver_platform_ids').insert({
             driver_id: driverId,
             platform: 'bolt',
-            platform_id: platformId
+            platform_id: boltPlatformId
           });
           if (pidErr) console.log('⚠️ bolt platform_ids insert error:', pidErr.message);
+          else {
+            existingDriversMap.set(`bolt:${boltPlatformId}`, { id: driverId, first_name: firstName, last_name: lastName });
+          }
         }
       }
     }
