@@ -878,16 +878,24 @@ async function parseUberCsv(
         });
         
         // Save to unmapped_settlement_drivers for fleet manager to link
-        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
-          fleet_id: fleet_id || null,
-          driver_id: driverId,
-          full_name: fullName,
-          uber_id: platformId || null,
-          bolt_id: null,
-          freenow_id: null,
-          status: 'pending'
-        }, { onConflict: 'driver_id' });
-        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        // But only if not already resolved (don't reset resolved records)
+        const { data: existingUnmapped } = await supabase.from('unmapped_settlement_drivers')
+          .select('id, status')
+          .eq('driver_id', driverId)
+          .maybeSingle();
+        
+        if (!existingUnmapped || existingUnmapped.status !== 'resolved') {
+          const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
+            fleet_id: fleet_id || null,
+            driver_id: driverId,
+            full_name: fullName,
+            uber_id: platformId || null,
+            bolt_id: null,
+            freenow_id: null,
+            status: 'pending'
+          }, { onConflict: 'driver_id' });
+          if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        }
         
         // Link platform ID to new driver
         if (platformId) {
@@ -1114,17 +1122,24 @@ async function parseBoltCsv(
           freenow_id: null
         });
         
-        // ALWAYS save to unmapped_settlement_drivers
-        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
-          fleet_id: fleet_id || null,
-          driver_id: driverId,
-          full_name: fullName,
-          uber_id: null,
-          bolt_id: boltPlatformId,
-          freenow_id: null,
-          status: 'pending'
-        }, { onConflict: 'driver_id' });
-        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        // Save to unmapped_settlement_drivers only if not already resolved
+        const { data: existingUnmappedBolt } = await supabase.from('unmapped_settlement_drivers')
+          .select('id, status')
+          .eq('driver_id', driverId)
+          .maybeSingle();
+        
+        if (!existingUnmappedBolt || existingUnmappedBolt.status !== 'resolved') {
+          const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
+            fleet_id: fleet_id || null,
+            driver_id: driverId,
+            full_name: fullName,
+            uber_id: null,
+            bolt_id: boltPlatformId,
+            freenow_id: null,
+            status: 'pending'
+          }, { onConflict: 'driver_id' });
+          if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        }
         
         // Save Bolt platform ID (phone number or driver ID)
         if (boltPlatformId) {
@@ -1294,17 +1309,24 @@ async function parseFreenowCsv(
           freenow_id: platformId || null
         });
         
-        // ALWAYS save to unmapped_settlement_drivers
-        const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
-          fleet_id: fleet_id || null,
-          driver_id: driverId,
-          full_name: fullName,
-          uber_id: null,
-          bolt_id: null,
-          freenow_id: platformId || null,
-          status: 'pending'
-        }, { onConflict: 'driver_id' });
-        if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        // Save to unmapped_settlement_drivers only if not already resolved
+        const { data: existingUnmappedFN } = await supabase.from('unmapped_settlement_drivers')
+          .select('id, status')
+          .eq('driver_id', driverId)
+          .maybeSingle();
+        
+        if (!existingUnmappedFN || existingUnmappedFN.status !== 'resolved') {
+          const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
+            fleet_id: fleet_id || null,
+            driver_id: driverId,
+            full_name: fullName,
+            uber_id: null,
+            bolt_id: null,
+            freenow_id: platformId || null,
+            status: 'pending'
+          }, { onConflict: 'driver_id' });
+          if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
+        }
         
         if (platformId) {
           const { error: pidErr } = await supabase.from('driver_platform_ids').insert({
@@ -1490,18 +1512,25 @@ async function findOrCreateDriver(
   const fullName = `${firstName} ${lastName}`;
   console.log(`🆕 RIDO: Created new driver: ${fullName} (ID: ${newDriver.id})`);
 
-  // ALWAYS save to unmapped_settlement_drivers (with driver_id)
-  await supabase.from('unmapped_settlement_drivers').upsert({
-    fleet_id: fleet_id || null,
-    driver_id: newDriver.id,
-    full_name: fullName,
-    uber_id: rowData.uberId || null,
-    bolt_id: null,
-    freenow_id: null,
-    status: 'pending'
-  }, { onConflict: 'driver_id' }).catch((e: any) => {
-    console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-  });
+  // Save to unmapped_settlement_drivers only if not already resolved
+  const { data: existingUnmappedRido } = await supabase.from('unmapped_settlement_drivers')
+    .select('id, status')
+    .eq('driver_id', newDriver.id)
+    .maybeSingle();
+  
+  if (!existingUnmappedRido || existingUnmappedRido.status !== 'resolved') {
+    await supabase.from('unmapped_settlement_drivers').upsert({
+      fleet_id: fleet_id || null,
+      driver_id: newDriver.id,
+      full_name: fullName,
+      uber_id: rowData.uberId || null,
+      bolt_id: null,
+      freenow_id: null,
+      status: 'pending'
+    }, { onConflict: 'driver_id' }).catch((e: any) => {
+      console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
+    });
+  }
 
   // Add to map for future lookups
   if (rowData.phone) existingDriversMap.set(`phone:${rowData.phone}`, newDriver);
