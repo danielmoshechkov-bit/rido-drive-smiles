@@ -141,11 +141,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
+  // Payment status tracking (green check = paid, red X = unpaid)
+  const [paidDrivers, setPaidDrivers] = useState<Set<string>>(new Set());
   // Fleet settings for display in headers
   const [fleetVatRateState, setFleetVatRateState] = useState(8);
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
+
+  const togglePaidStatus = (driverId: string) => {
+    setPaidDrivers(prev => {
+      const next = new Set(prev);
+      if (next.has(driverId)) next.delete(driverId);
+      else next.add(driverId);
+      return next;
+    });
+  };
+
+  const markTransferDriversPaid = (driverIds: string[]) => {
+    setPaidDrivers(prev => {
+      const next = new Set(prev);
+      driverIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
 
   // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
@@ -760,6 +779,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (fleetId && selectedWeek !== null) {
       fetchSettlements();
       checkForNewRecordsAfterLoad();
+      setPaidDrivers(new Set()); // Reset payment status on week change
     }
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId]);
 
@@ -2027,7 +2047,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         {/* Bank Transfer Export Dialog */}
         <BankTransferExportDialog
           open={bankTransferDialogOpen}
-          onOpenChange={setBankTransferDialogOpen}
+          onOpenChange={(open) => {
+            setBankTransferDialogOpen(open);
+            if (!open) {
+              // Auto-mark transfer drivers as paid when dialog closes
+              const transferDriverIds = settlements
+                .filter(s => s.payment_method === 'transfer' && s.final_payout !== 0)
+                .map(s => s.driver_id);
+              markTransferDriversPaid(transferDriverIds);
+            }
+          }}
           fleetId={fleetId}
           settlements={settlements}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
@@ -2321,6 +2350,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>
                       <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>
+                      <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2487,6 +2517,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               </Badge>
                             );
                           })()}
+                        </TableCell>
+                        {/* Opłacony - toggle */}
+                        <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); togglePaidStatus(settlement.driver_id); }}
+                            className="p-1 rounded hover:bg-muted transition-colors"
+                            title={paidDrivers.has(settlement.driver_id) ? "Oznacz jako nieopłacony" : "Oznacz jako opłacony"}
+                          >
+                            {paidDrivers.has(settlement.driver_id) ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <X className="h-4 w-4 text-red-500" />
+                            )}
+                          </button>
                         </TableCell>
                       </TableRow>
                     )})}
