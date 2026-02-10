@@ -602,8 +602,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
     setEditingCell({ driverId, field, index });
-    // Use plain number string (dot decimal) so user can type naturally from left to right
-    setEditValue(currentValue > 0 ? currentValue.toFixed(2) : '');
+    // Start with empty so user can type fresh value
+    setEditValue('');
   };
 
   const commitEdit = async () => {
@@ -621,47 +621,68 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     
     // Persist to settlements table
     try {
-      const settlement = settlements.find(s => s.driver_id === driverId);
-      if (!settlement || !currentWeek) return;
-      
-      // Find settlement record(s) for this driver in current period
-      const { data: existingSettlements } = await supabase
-        .from('settlements')
-        .select('id')
-        .eq('driver_id', driverId)
-        .gte('period_from', currentWeek.start)
-        .lte('period_to', currentWeek.end)
-        .limit(1);
-      
-      if (existingSettlements && existingSettlements.length > 0) {
-        const updateData: any = {};
-        if (field === 'rental') updateData.rental_fee = val;
-        // For service_fee and additional fees, store in amounts JSON
-        if (field === 'service_fee' || (field === 'additional_fee' && index !== undefined)) {
-          // Fetch current amounts to merge
-          const { data: currentData } = await supabase
-            .from('settlements')
-            .select('amounts')
-            .eq('id', existingSettlements[0].id)
-            .single();
-          const amounts = (currentData?.amounts as any) || {};
-          if (field === 'service_fee') {
-            amounts.manual_service_fee = val;
-          } else if (field === 'additional_fee' && index !== undefined) {
-            amounts[`manual_fee_${index}`] = val;
-          }
-          updateData.amounts = amounts;
-        }
-        
-        if (Object.keys(updateData).length > 0) {
-          await supabase
-            .from('settlements')
-            .update(updateData)
-            .eq('id', existingSettlements[0].id);
-        }
+      if (!currentWeek) {
+        console.error('No currentWeek for saving');
+        toast.error('Brak wybranego okresu');
+        setEditingCell(null);
+        return;
       }
       
-      toast.success('Zapisano zmianę');
+      // Find ALL settlement records for this driver in current period
+      const { data: existingSettlements, error: fetchErr } = await supabase
+        .from('settlements')
+        .select('id, amounts')
+        .eq('driver_id', driverId)
+        .gte('period_from', currentWeek.start)
+        .lte('period_to', currentWeek.end);
+      
+      if (fetchErr) {
+        console.error('Error fetching settlements for save:', fetchErr);
+        toast.error('Błąd odczytu rozliczenia');
+        setEditingCell(null);
+        return;
+      }
+
+      if (!existingSettlements || existingSettlements.length === 0) {
+        console.error('No settlement records found for driver', driverId, 'period', currentWeek);
+        toast.error('Brak rekordu rozliczenia do zapisu');
+        setEditingCell(null);
+        return;
+      }
+      
+      // Update the first settlement record
+      const targetId = existingSettlements[0].id;
+      const updateData: any = {};
+      
+      if (field === 'rental') {
+        updateData.rental_fee = val;
+      }
+      
+      // For service_fee and additional fees, store in amounts JSON
+      if (field === 'service_fee' || (field === 'additional_fee' && index !== undefined)) {
+        const amounts = (existingSettlements[0].amounts as any) || {};
+        if (field === 'service_fee') {
+          amounts.manual_service_fee = val;
+        } else if (field === 'additional_fee' && index !== undefined) {
+          amounts[`manual_fee_${index}`] = val;
+        }
+        updateData.amounts = amounts;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateErr } = await supabase
+          .from('settlements')
+          .update(updateData)
+          .eq('id', targetId);
+        
+        if (updateErr) {
+          console.error('Error saving override:', updateErr);
+          toast.error('Błąd zapisu: ' + updateErr.message);
+        } else {
+          console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
+          toast.success('Zapisano zmianę');
+        }
+      }
     } catch (err) {
       console.error('Error saving override:', err);
       toast.error('Błąd zapisu');
@@ -680,16 +701,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (isEditing) {
       return (
         <Input
-          type="number"
-          step="0.01"
-          min="0"
+          type="text"
+          inputMode="decimal"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={(e) => {
+            // Allow only numbers, dots and commas
+            const v = e.target.value.replace(/[^0-9.,]/g, '');
+            setEditValue(v);
+          }}
           onBlur={commitEdit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commitEdit();
             if (e.key === 'Escape') cancelEdit();
           }}
+          placeholder="0.00"
           className="h-6 w-24 text-xs text-right px-1 py-0"
           autoFocus
         />
