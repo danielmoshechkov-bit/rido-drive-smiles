@@ -161,7 +161,7 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
       )}
 
       {showDropdown && (
-        <div className="absolute z-50 mt-2 w-72 bg-background border rounded-xl shadow-lg max-h-80 flex flex-col">
+        <div className="absolute z-50 mt-2 w-72 bg-background border rounded-xl shadow-lg max-h-80 flex flex-col overflow-hidden">
           <div className="p-3 border-b flex justify-between items-center">
             <h3 className="font-medium text-sm">Wybierz właściciela</h3>
             <div className="flex items-center gap-1">
@@ -185,7 +185,7 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
               className="h-8 text-sm"
             />
           </div>
-          <div className="flex-1 p-2 overflow-y-auto space-y-1">
+          <div className="flex-1 p-2 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
             {filteredOwners.map(owner => (
               <div
                 key={owner.id}
