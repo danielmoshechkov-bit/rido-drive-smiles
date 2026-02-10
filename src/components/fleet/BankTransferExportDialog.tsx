@@ -122,12 +122,12 @@ const POLISH_BANKS: BankFormat[] = [
     id: 'alior',
     name: 'Alior Bank',
     shortName: 'Alior',
-    separator: ';',
+    separator: '|',
     encoding: 'utf-8',
     dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'title'],
-    extension: 'csv'
+    amountFormat: 'dot',
+    columns: ['account', 'amount', 'currency', 'name', 'title'],
+    extension: 'txt'
   },
   {
     id: 'universal',
@@ -167,7 +167,7 @@ export function BankTransferExportDialog({
       if (data && (data as any).transfer_title_template) {
         setTransferTitle((data as any).transfer_title_template);
       } else {
-        setTransferTitle(`Rozliczenie ${periodLabel}`);
+        setTransferTitle('wynajem auta');
       }
     };
     
@@ -255,6 +255,10 @@ export function BankTransferExportDialog({
           case 'santander':
             content += `${iban}${sep}${amount}${sep}${driverName}${sep}${title}\n`;
             break;
+          case 'alior':
+            // Alior Bank: NR_RACHUNKU|KWOTA|PLN|NAZWA|TYTUŁ - no header, no BOM, | separator
+            content += `${iban.replace(/\D/g, '')}|${s.final_payout.toFixed(2)}|PLN|${driverName}|${title.substring(0, 140)}\n`;
+            break;
           default:
             content += `${driverName}${sep}${iban}${sep}${amount}${sep}${title}\n`;
         }
@@ -262,8 +266,9 @@ export function BankTransferExportDialog({
 
       // Create and download file
       const encoding = bank.encoding === 'windows-1250' ? 'windows-1250' : 'utf-8';
-      const bom = encoding === 'utf-8' ? '\ufeff' : '';
-      const blob = new Blob([bom + content], { 
+      // Alior Bank: no BOM, plain UTF-8
+      const bom = (encoding === 'utf-8' && bank.id !== 'alior') ? '\ufeff' : '';
+      const blob = new Blob([bom + content.trimEnd() + (bank.id === 'alior' ? '' : '\n')], { 
         type: `text/${bank.extension};charset=${encoding}` 
       });
       

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,7 @@ import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
+import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -123,6 +124,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   }>>({});
   const [editingCell, setEditingCell] = useState<{ driverId: string; field: string; index?: number } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [chargeModalOpen, setChargeModalOpen] = useState(false);
+  const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
 
   // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
@@ -572,14 +575,29 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return s;
   };
 
-  const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
-    setEditingCell({ driverId, field, index });
-    setEditValue(currentValue.toFixed(2));
+  // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
+  const parseLocalizedNumber = (value: string): number => {
+    if (!value) return 0;
+    let str = value.trim().replace(/\s/g, '');
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
   };
 
-  const commitEdit = () => {
+  const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
+    setEditingCell({ driverId, field, index });
+    setEditValue(formatCurrency(currentValue));
+  };
+
+  const commitEdit = async () => {
     if (!editingCell) return;
-    const val = parseFloat(editValue.replace(',', '.')) || 0;
+    const val = parseLocalizedNumber(editValue);
     const { driverId, field, index } = editingCell;
     
     setManualOverrides(prev => {
@@ -589,6 +607,52 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       }
       return { ...prev, [driverId]: { ...existing, [field]: val } };
     });
+    
+    // Persist to settlements table
+    try {
+      const settlement = settlements.find(s => s.driver_id === driverId);
+      if (!settlement || !currentWeek) return;
+      
+      // Find settlement record(s) for this driver in current period
+      const { data: existingSettlements } = await supabase
+        .from('settlements')
+        .select('id')
+        .eq('driver_id', driverId)
+        .gte('period_from', currentWeek.start)
+        .lte('period_to', currentWeek.end)
+        .limit(1);
+      
+      if (existingSettlements && existingSettlements.length > 0) {
+        const updateData: any = {};
+        if (field === 'rental') updateData.rental_fee = val;
+        if (field === 'service_fee') updateData.service_fee = val;
+        // For additional fees, store in amounts JSON
+        if (field === 'additional_fee' && index !== undefined) {
+          const feeKey = `manual_fee_${index}`;
+          // Fetch current amounts to merge
+          const { data: currentData } = await supabase
+            .from('settlements')
+            .select('amounts')
+            .eq('id', existingSettlements[0].id)
+            .single();
+          const amounts = (currentData?.amounts as any) || {};
+          amounts[feeKey] = val;
+          updateData.amounts = amounts;
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          await supabase
+            .from('settlements')
+            .update(updateData)
+            .eq('id', existingSettlements[0].id);
+        }
+      }
+      
+      toast.success('Zapisano zmianę');
+    } catch (err) {
+      console.error('Error saving override:', err);
+      toast.error('Błąd zapisu');
+    }
     
     setEditingCell(null);
   };
@@ -2031,7 +2095,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       
                       return (
                       <TableRow key={settlement.driver_id}>
-                        <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">{settlement.driver_name}</TableCell>
+                        <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
+                          <span className="flex items-center gap-1">
+                            {settlement.driver_name}
+                            <button
+                              className="inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              title="Dodaj opłatę/dodatek"
+                              onClick={() => {
+                                setChargeDriver({ id: settlement.driver_id, name: settlement.driver_name });
+                                setChargeModalOpen(true);
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </span>
+                        </TableCell>
                         <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                           {hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}
                         </TableCell>
@@ -2222,10 +2300,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             </DialogDescription>
           </DialogHeader>
           {selectedDriverForDebt && (
-            <DriverDebtHistory driverId={selectedDriverForDebt.id} />
+            <DriverDebtHistory 
+              driverId={selectedDriverForDebt.id} 
+              onDebtChanged={() => {
+                fetchSettlements();
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Charge/Bonus Modal */}
+      {chargeDriver && (
+        <AddDriverChargeModal
+          open={chargeModalOpen}
+          onOpenChange={setChargeModalOpen}
+          driverId={chargeDriver.id}
+          driverName={chargeDriver.name}
+          periodFrom={currentWeek?.start}
+          periodTo={currentWeek?.end}
+          onComplete={() => {
+            fetchSettlements();
+          }}
+        />
+      )}
     </Card>
 
       {/* Unmapped Drivers Modal */}
