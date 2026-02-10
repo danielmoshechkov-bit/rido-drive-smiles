@@ -197,6 +197,18 @@ export function UnmappedDriversModal({
     }
   };
 
+  // Helper to mark unmapped record as resolved
+  const resolveUnmappedRecord = async (unmappedId: string, linkedDriverId: string) => {
+    await supabase
+      .from('unmapped_settlement_drivers')
+      .update({
+        linked_driver_id: linkedDriverId,
+        status: 'resolved',
+        resolved_at: new Date().toISOString()
+      })
+      .eq('id', unmappedId);
+  };
+
   // Function to add a new driver with platform ID
   const handleAddNewDriver = async (unmappedDriver: UnmappedDriver, platform: string) => {
     try {
@@ -227,6 +239,7 @@ export function UnmappedDriversModal({
           
           // If driver already belongs to THIS fleet, just map them
           if (existingDriver.fleet_id === fleetId) {
+            await resolveUnmappedRecord(unmappedDriver.id, existingPlatformId.driver_id);
             await fetchExistingDrivers();
             handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
             toast.success(`Kierowca ${existingDriver.first_name} ${existingDriver.last_name} już jest w Twojej flocie - przypisano.`);
@@ -262,7 +275,8 @@ export function UnmappedDriversModal({
           // Refresh existing drivers list
           await fetchExistingDrivers();
           
-          // Map the unmapped record to the transferred driver
+           // Map the unmapped record to the transferred driver
+          await resolveUnmappedRecord(unmappedDriver.id, existingPlatformId.driver_id);
           handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
           
           toast.success(
@@ -299,6 +313,7 @@ export function UnmappedDriversModal({
             }, { onConflict: 'driver_id,platform' });
         }
         
+        await resolveUnmappedRecord(unmappedDriver.id, existingDriverByName.id);
         await fetchExistingDrivers();
         handleMapping(unmappedDriver.id, existingDriverByName.id);
         toast.success(`Przypisano platformę do istniejącego kierowcy: ${firstName} ${lastName}`);
@@ -349,6 +364,16 @@ export function UnmappedDriversModal({
             user_id: newDriver.id, // Use driver_id as placeholder
           });
       }
+
+      // Mark unmapped record as resolved immediately
+      await supabase
+        .from('unmapped_settlement_drivers')
+        .update({
+          linked_driver_id: newDriver.id,
+          status: 'resolved',
+          resolved_at: new Date().toISOString()
+        })
+        .eq('id', unmappedDriver.id);
 
       // Refresh existing drivers list
       await fetchExistingDrivers();
