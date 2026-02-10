@@ -284,7 +284,7 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-6 flex-wrap">
                           <div className="min-w-[100px]">
                             <span className="font-medium text-sm text-muted-foreground">Flota:</span>
                             <div className="font-semibold" onClick={(e) => e.stopPropagation()}>
@@ -295,16 +295,6 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
                               />
                             </div>
                           </div>
-                          {fleetId && (
-                            <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
-                              <VehicleOwnerSelector
-                                vehicleId={vehicle.id}
-                                fleetId={fleetId}
-                                currentOwnerId={(vehicle as any).owner_id}
-                                onOwnerChange={loadVehicles}
-                              />
-                            </div>
-                          )}
                           <div className="min-w-[160px]">
                             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <span className="text-sm text-muted-foreground">Wynajem od:</span>
@@ -326,6 +316,17 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
                               <span className="text-sm text-muted-foreground">zł/tydz.</span>
                             </div>
                           </div>
+                          {fleetId && (
+                            <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-sm text-muted-foreground">Właściciel:</span>
+                              <VehicleOwnerSelector
+                                vehicleId={vehicle.id}
+                                fleetId={fleetId}
+                                currentOwnerId={(vehicle as any).owner_id}
+                                onOwnerChange={loadVehicles}
+                              />
+                            </div>
+                          )}
                         </div>
                         
                         {/* Second row - documents and VIN */}
