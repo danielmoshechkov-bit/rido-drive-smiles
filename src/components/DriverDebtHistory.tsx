@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 interface DebtTransaction {
   id: string;
@@ -19,12 +23,17 @@ interface DebtTransaction {
 
 interface DriverDebtHistoryProps {
   driverId: string;
+  onDebtChanged?: () => void;
 }
 
-export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
+export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistoryProps) => {
   const [transactions, setTransactions] = useState<DebtTransaction[]>([]);
   const [currentDebt, setCurrentDebt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchDebtData();
@@ -33,7 +42,6 @@ export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
   const fetchDebtData = async () => {
     setLoading(true);
     
-    // Pobierz aktualny dług
     const { data: debtData } = await supabase
       .from('driver_debts')
       .select('current_balance')
@@ -44,7 +52,6 @@ export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
       setCurrentDebt(debtData.current_balance);
     }
 
-    // Pobierz historię transakcji
     const { data: txData } = await supabase
       .from('driver_debt_transactions')
       .select('*')
@@ -56,6 +63,52 @@ export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
     }
     
     setLoading(false);
+  };
+
+  const handlePayment = async () => {
+    const amount = parseFloat(paymentAmount.replace(',', '.'));
+    if (!amount || amount <= 0) {
+      toast.error('Wprowadź poprawną kwotę');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const newBalance = Math.max(0, currentDebt - amount);
+      
+      // Update debt balance
+      await supabase
+        .from('driver_debts')
+        .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+        .eq('driver_id', driverId);
+      
+      // Add transaction record
+      const today = new Date().toISOString().split('T')[0];
+      await supabase
+        .from('driver_debt_transactions')
+        .insert({
+          driver_id: driverId,
+          type: 'payment',
+          amount: amount,
+          balance_before: currentDebt,
+          balance_after: newBalance,
+          period_from: today,
+          period_to: today,
+          description: paymentNote || 'Wpłata ręczna'
+        });
+      
+      toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);
+      setPaymentAmount('');
+      setPaymentNote('');
+      setShowPaymentForm(false);
+      await fetchDebtData();
+      onDebtChanged?.();
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      toast.error('Błąd rejestracji wpłaty');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -88,7 +141,52 @@ export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Payment form */}
+        {currentDebt > 0 && (
+          <div>
+            {!showPaymentForm ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowPaymentForm(true)}
+                className="gap-2 w-full"
+              >
+                <Plus className="h-4 w-4" />
+                Zarejestruj wpłatę
+              </Button>
+            ) : (
+              <div className="p-3 rounded-lg border bg-green-50 border-green-200 space-y-3">
+                <Label className="text-sm font-medium">Wpłata na poczet długu</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Kwota (np. 200)"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="flex items-center text-sm text-muted-foreground">zł</span>
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Notatka (opcjonalnie)"
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handlePayment} disabled={saving}>
+                    {saving ? 'Zapisywanie...' : 'Zapisz wpłatę'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowPaymentForm(false)}>
+                    Anuluj
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {transactions.length === 0 ? (
           <div className="text-center text-muted-foreground py-4">
             Brak historii transakcji
@@ -113,12 +211,15 @@ export const DriverDebtHistory = ({ driverId }: DriverDebtHistoryProps) => {
                     )}
                     <div>
                       <div className="font-medium">
-                        {tx.type === 'debt_increase' ? 'Narastanie długu' : 'Spłata długu'}
+                        {tx.type === 'debt_increase' ? 'Narastanie długu' : tx.type === 'payment' ? 'Wpłata' : 'Spłata długu'}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {format(new Date(tx.period_from), 'dd.MM', { locale: pl })} -{' '}
                         {format(new Date(tx.period_to), 'dd.MM.yyyy', { locale: pl })}
                       </div>
+                      {tx.description && tx.type === 'payment' && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{tx.description}</div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
