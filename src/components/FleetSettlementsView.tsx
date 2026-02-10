@@ -131,6 +131,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
+  // Fleet settings for display in headers
+  const [fleetVatRateState, setFleetVatRateState] = useState(8);
+  const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
+  const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
+  const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
 
   // Check for unmapped drivers - only shows truly NEW platform IDs from CSV imports
   const handleCheckUnmappedDrivers = async () => {
@@ -846,6 +851,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const fleetSettlementMode = (fleetData as any)?.settlement_mode ?? 'single_tax';
       const fleetSecondaryVatRate = (fleetData as any)?.secondary_vat_rate ?? 23;
       const fleetAdditionalPercentRate = (fleetData as any)?.additional_percent_rate ?? 0;
+      
+      // Store in state for header display
+      setFleetVatRateState(fleetVatRate);
+      setFleetSettlementModeState(fleetSettlementMode);
+      setFleetSecondaryVatRateState(fleetSecondaryVatRate);
+      setFleetAdditionalPercentRateState(fleetAdditionalPercentRate);
 
       // Fetch active fleet settlement fees
       const { data: fleetFeesData } = await supabase
@@ -1255,9 +1266,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const uber_freenow_base = uber_base + freenow_base;
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
+          // In dual_tax mode, bolt_payout_s (column S) already has bolt commission deducted
+          // So we only subtract uber + freenow commission, not bolt commission
+          const non_bolt_commission = uber_commission + freenow_commission;
           payout = bolt_payout_s - vat_amount - additional_percent_amount - secondary_vat_amount
                    + (uber_freenow_base - uber_freenow_vat)
-                   - total_commission - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+                   - non_bolt_commission - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         } else {
           // Single tax (current formula)
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
@@ -2115,9 +2129,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               
               {/* Desktop View - Full table */}
-              <div className="hidden md:block overflow-x-auto pb-4">
+              <div className="hidden md:block overflow-x-auto pb-4" style={{ maxHeight: '80vh' }}>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
                       <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>
@@ -2131,12 +2145,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT</TableHead>
-                      {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
-                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Dod. %</TableHead>
+                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
+                      {fleetSettlementModeState === 'dual_tax' && fleetAdditionalPercentRateState > 0 && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Dod. {fleetAdditionalPercentRateState}%</TableHead>
                       )}
-                      {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
-                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT kamp.</TableHead>
+                      {fleetSettlementModeState === 'dual_tax' && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetSecondaryVatRateState}% kamp.</TableHead>
                       )}
                       <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
                       {activeFees.filter(fee => {
@@ -2223,12 +2237,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.vat_amount, hasAnyActivity, true)}
                         </TableCell>
-                        {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
+                        {fleetSettlementModeState === 'dual_tax' && fleetAdditionalPercentRateState > 0 && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                             {(settlement.additional_percent_amount || 0) > 0 ? `-${formatCurrency(settlement.additional_percent_amount || 0)}` : '-'}
                           </TableCell>
                         )}
-                        {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
+                        {fleetSettlementModeState === 'dual_tax' && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                             {(settlement.secondary_vat_amount || 0) > 0 ? `-${formatCurrency(settlement.secondary_vat_amount || 0)}` : '-'}
                           </TableCell>
@@ -2326,12 +2340,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.vat_amount, 0))}
                       </TableCell>
-                      {filteredSettlements.some(s => (s.additional_percent_amount || 0) > 0) && (
+                      {fleetSettlementModeState === 'dual_tax' && fleetAdditionalPercentRateState > 0 && (
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_percent_amount || 0), 0))}
                         </TableCell>
                       )}
-                      {filteredSettlements.some(s => (s.secondary_vat_amount || 0) > 0) && (
+                      {fleetSettlementModeState === 'dual_tax' && (
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.secondary_vat_amount || 0), 0))}
                         </TableCell>
