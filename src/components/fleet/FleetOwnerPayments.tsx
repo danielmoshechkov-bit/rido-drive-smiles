@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -9,8 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, CheckCircle, Plus, Minus } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle, Plus, Minus, AlertTriangle, User } from "lucide-react";
 import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
+
+interface VehicleDriver {
+  driver_id: string;
+  driver_name: string;
+  week_start: string;
+  earned: number;
+  shortfall: number; // positive means driver didn't cover the fee
+}
 
 interface OwnerSummary {
   owner_id: string;
@@ -24,6 +32,8 @@ interface OwnerSummary {
     brand: string;
     model: string;
     weekly_rental_fee: number;
+    assigned_driver?: { id: string; name: string };
+    driver_shortfalls: VehicleDriver[];
   }[];
   total_weekly: number;
   total_owed: number; // accumulated unsettled amount
@@ -72,7 +82,30 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         .in("owner_id" as any, ownerIds)
         .eq("status", "aktywne");
 
-      // Get unsettled charges
+      const vehicleIds = (vehiclesData || []).map((v: any) => v.id);
+
+      // Get active driver assignments for these vehicles
+      const { data: assignmentsData } = await supabase
+        .from("driver_vehicle_assignments" as any)
+        .select("vehicle_id, driver_id, status")
+        .in("vehicle_id", vehicleIds)
+        .eq("status", "active");
+
+      // Get driver names
+      const driverIds = [...new Set(((assignmentsData as any[]) || []).map((a: any) => a.driver_id))];
+      let driversMap: Record<string, string> = {};
+      if (driverIds.length > 0) {
+        const { data: driversData } = await supabase
+          .from("drivers")
+          .select("id, first_name, last_name")
+          .in("id", driverIds);
+        driversMap = ((driversData as any[]) || []).reduce((acc: any, d: any) => {
+          acc[d.id] = `${d.first_name} ${d.last_name}`;
+          return acc;
+        }, {});
+      }
+
+      // Get unsettled charges (includes shortfall info)
       const { data: chargesData } = await supabase
         .from("vehicle_owner_charges" as any)
         .select("*")
@@ -92,13 +125,42 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           company_name: owner.company_name,
           phone: owner.phone,
           bank_account: owner.bank_account,
-          vehicles: ownerVehicles.map((v: any) => ({
-            id: v.id,
-            plate: v.plate,
-            brand: v.brand,
-            model: v.model,
-            weekly_rental_fee: parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0"),
-          })),
+          vehicles: ownerVehicles.map((v: any) => {
+            const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
+            const vehicleCharges = ownerCharges.filter((c: any) => c.vehicle_id === v.id);
+            
+            // Build shortfall records from charges where amount < rental fee
+            const shortfalls: VehicleDriver[] = vehicleCharges
+              .filter((c: any) => {
+                const amt = parseFloat(c.amount?.toString() || "0");
+                const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
+                return amt > 0 && amt < rentalFee;
+              })
+              .map((c: any) => {
+                const amt = parseFloat(c.amount?.toString() || "0");
+                const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
+                return {
+                  driver_id: assignment?.driver_id || "",
+                  driver_name: assignment?.driver_id ? (driversMap[assignment.driver_id] || "Nieznany") : "Brak kierowcy",
+                  week_start: c.week_start,
+                  earned: amt,
+                  shortfall: rentalFee - amt,
+                };
+              });
+
+            return {
+              id: v.id,
+              plate: v.plate,
+              brand: v.brand,
+              model: v.model,
+              weekly_rental_fee: parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0"),
+              assigned_driver: assignment?.driver_id ? {
+                id: assignment.driver_id,
+                name: driversMap[assignment.driver_id] || "Nieznany",
+              } : undefined,
+              driver_shortfalls: shortfalls,
+            };
+          }),
           total_weekly: totalWeekly,
           total_owed: totalOwed,
           adjustments: ownerCharges
@@ -237,7 +299,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                       size="sm"
                       className="gap-1"
                       onClick={(e) => { e.stopPropagation(); handleSettle(owner.owner_id); }}
-                      disabled={owner.total_owed === 0}
+                      disabled={false}
                     >
                       <CheckCircle className="h-3 w-3" />
                       Rozliczone
@@ -254,27 +316,57 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                     <TableRow>
                       <TableHead className="text-xs">Pojazd</TableHead>
                       <TableHead className="text-xs">Nr rej.</TableHead>
+                      <TableHead className="text-xs">Kierowca</TableHead>
                       <TableHead className="text-right text-xs">Stawka/tydz.</TableHead>
                       <TableHead className="text-xs">Akcje</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {owner.vehicles.map(v => (
-                      <TableRow key={v.id} className="hover:bg-primary/10">
-                        <TableCell className="text-sm">{v.brand} {v.model}</TableCell>
-                        <TableCell className="text-sm font-mono">{v.plate}</TableCell>
-                        <TableCell className="text-right text-sm">{formatCurrency(v.weekly_rental_fee)}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs gap-1"
-                            onClick={() => setAdjustmentDialog({ ownerId: owner.owner_id, vehicleId: v.id })}
-                          >
-                            <Plus className="h-3 w-3" /> Korekta
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <React.Fragment key={v.id}>
+                        <TableRow className="hover:bg-primary/10">
+                          <TableCell className="text-sm">{v.brand} {v.model}</TableCell>
+                          <TableCell className="text-sm font-mono">{v.plate}</TableCell>
+                          <TableCell className="text-sm">
+                            {v.assigned_driver ? (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3 text-muted-foreground" />
+                                {v.assigned_driver.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Brak</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">{formatCurrency(v.weekly_rental_fee)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs gap-1"
+                              onClick={() => setAdjustmentDialog({ ownerId: owner.owner_id, vehicleId: v.id })}
+                            >
+                              <Plus className="h-3 w-3" /> Korekta
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {v.driver_shortfalls.length > 0 && v.driver_shortfalls.map((sf, idx) => (
+                          <TableRow key={`${v.id}-sf-${idx}`} className="bg-destructive/5">
+                            <TableCell colSpan={2} className="text-xs py-1 pl-8">
+                              <span className="flex items-center gap-1 text-destructive">
+                                <AlertTriangle className="h-3 w-3" />
+                                Tyg. {sf.week_start}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-xs py-1">{sf.driver_name}</TableCell>
+                            <TableCell className="text-right text-xs py-1">
+                              <span className="text-muted-foreground">wyjezdził: {formatCurrency(sf.earned)}</span>
+                              {" "}
+                              <span className="text-destructive font-medium">brak: {formatCurrency(sf.shortfall)}</span>
+                            </TableCell>
+                            <TableCell className="py-1" />
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
