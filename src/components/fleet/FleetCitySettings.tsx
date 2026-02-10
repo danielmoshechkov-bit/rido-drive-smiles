@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { useCities } from "@/hooks/useCities";
 
 interface CitySettings {
   id: string;
@@ -32,9 +34,11 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CitySettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const { cities: availableCities, addCity: addCityToSystem } = useCities();
 
   // Form state
   const [cityName, setCityName] = useState("");
+  const [newCityName, setNewCityName] = useState("");
   const [settlementMode, setSettlementMode] = useState<"single_tax" | "dual_tax">("single_tax");
   const [vatRate, setVatRate] = useState("8");
   const [baseFee, setBaseFee] = useState("0");
@@ -67,6 +71,7 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
   const openAdd = () => {
     setEditing(null);
     setCityName("");
+    setNewCityName("");
     setSettlementMode("single_tax");
     setVatRate("8");
     setBaseFee("0");
@@ -89,15 +94,33 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
   };
 
   const handleSave = async () => {
-    if (!cityName.trim()) {
-      toast.error("Podaj nazwę miasta");
+    let finalCityName = cityName;
+    
+    if (cityName === "__new__") {
+      if (!newCityName.trim()) {
+        toast.error("Podaj nazwę nowego miasta");
+        return;
+      }
+      finalCityName = newCityName.trim();
+      try {
+        await addCityToSystem(finalCityName);
+      } catch (err: any) {
+        if (!err.message?.includes("duplicate")) {
+          toast.error("Błąd dodawania miasta: " + err.message);
+          return;
+        }
+      }
+    }
+    
+    if (!finalCityName || finalCityName === "__new__") {
+      toast.error("Wybierz miasto");
       return;
     }
     setSaving(true);
     try {
       const payload = {
         fleet_id: fleetId,
-        city_name: cityName.trim(),
+        city_name: finalCityName,
         settlement_mode: settlementMode,
         vat_rate: parseFloat(vatRate) || 0,
         base_fee: parseFloat(baseFee) || 0,
@@ -154,7 +177,7 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
               Ustawienia rozliczeń per miasto
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              Różne stawki VAT i opłaty dla różnych miast. Kierowcy przypisani do danego miasta dostaną te ustawienia.
+              Różne stawki VAT i opłaty dla Bolt i Uber w różnych miastach. Kierowcy przypisani do danego miasta dostaną te ustawienia.
             </CardDescription>
           </div>
           <Button size="sm" onClick={openAdd} className="gap-1">
@@ -219,8 +242,33 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Nazwa miasta *</Label>
-              <Input value={cityName} onChange={(e) => setCityName(e.target.value)} placeholder="np. Warszawa" disabled={!!editing} />
+              <Label className="text-xs">Miasto *</Label>
+              {editing ? (
+                <Input value={cityName} disabled />
+              ) : (
+                <div className="space-y-2">
+                  <Select value={cityName} onValueChange={setCityName}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wybierz miasto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCities
+                        .filter(c => !cities.some(existing => existing.city_name === c.name))
+                        .map(c => (
+                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      <SelectItem value="__new__">+ Dodaj nowe miasto...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {cityName === "__new__" && (
+                    <Input
+                      value={newCityName}
+                      onChange={(e) => setNewCityName(e.target.value)}
+                      placeholder="Wpisz nazwę nowego miasta"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

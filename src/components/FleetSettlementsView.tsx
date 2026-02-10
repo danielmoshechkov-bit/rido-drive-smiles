@@ -1475,9 +1475,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetSettlementSettings fleetId={fleetId} />
+        <FleetCitySettings fleetId={fleetId} />
         <div className="mt-4">
-          <FleetCitySettings fleetId={fleetId} />
+          <FleetSettlementSettings fleetId={fleetId} />
         </div>
       </div>
     );
