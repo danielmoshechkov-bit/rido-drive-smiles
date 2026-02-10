@@ -164,7 +164,18 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
         <div className="absolute z-50 mt-2 w-72 bg-background border rounded-xl shadow-lg max-h-80 flex flex-col">
           <div className="p-3 border-b flex justify-between items-center">
             <h3 className="font-medium text-sm">Wybierz właściciela</h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowDropdown(false)} className="h-6 w-6 p-0">✕</Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-primary hover:text-primary"
+                onClick={() => { setShowDropdown(false); setShowAddDialog(true); }}
+                title="Dodaj właściciela"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowDropdown(false)} className="h-6 w-6 p-0">✕</Button>
+            </div>
           </div>
           <div className="p-2 border-b">
             <Input
@@ -187,18 +198,18 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
               </div>
             ))}
             {filteredOwners.length === 0 && (
-              <div className="text-center py-2 text-muted-foreground text-sm">Brak właścicieli</div>
+              <div className="text-center py-4 text-muted-foreground text-sm space-y-2">
+                <p>Brak właścicieli</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={() => { setShowDropdown(false); setShowAddDialog(true); }}
+                >
+                  <Plus className="h-3 w-3" /> Dodaj właściciela
+                </Button>
+              </div>
             )}
-          </div>
-          <div className="p-2 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-1 text-xs"
-              onClick={() => { setShowDropdown(false); setShowAddDialog(true); }}
-            >
-              <Plus className="h-3 w-3" /> Dodaj właściciela
-            </Button>
           </div>
         </div>
       )}

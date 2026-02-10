@@ -35,6 +35,7 @@ import { VehicleRentalWizard } from "./fleet/VehicleRentalWizard";
 import { FleetContractSettings } from "./fleet/FleetContractSettings";
 import { syncRentalAssignments } from "@/hooks/useRentalSync";
 import { VehicleOwnerSelector } from "./fleet/VehicleOwnerSelector";
+import { FleetOwnersTab } from "./fleet/FleetOwnersTab";
 
 interface FleetManagementProps {
   cityId?: string | null;
@@ -442,6 +443,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         onTabChange={setActiveTab}
         tabs={[
           { value: "vehicles", label: "Auta", visible: true },
+          { value: "owners", label: "Nasz wynajem", visible: userType === 'fleet' && !!fleetId },
           { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
           { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
           { value: "settings", label: "Ustawienia umowy", visible: userType === 'fleet' && !!fleetId },
@@ -823,6 +825,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
 
       {activeTab === "driver-vehicles" && userType === 'admin' && (
         <DriverVehiclesTab />
+      )}
+
+      {activeTab === "owners" && userType === 'fleet' && fleetId && (
+        <FleetOwnersTab fleetId={fleetId} />
       )}
 
       {activeTab === "najem" && userType === 'fleet' && fleetId && (
