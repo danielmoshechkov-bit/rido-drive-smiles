@@ -32,6 +32,8 @@ import { CompanyRevenueSummary } from './CompanyRevenueSummary';
 import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
+import { FleetOwnerPayments } from './fleet/FleetOwnerPayments';
+import { FleetCitySettings } from './fleet/FleetCitySettings';
 import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
@@ -1435,6 +1437,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { value: "drivers", label: "Rozliczenia kierowców", visible: true },
     { value: "vehicles", label: "Przychody aut", visible: true },
     { value: "fuel", label: "Paliwo", visible: true },
+    { value: "owner_payments", label: "My winni", visible: true },
     { value: "reports", label: "Raporty", visible: true },
     { value: "settings", label: "Ustawienia rozliczeń", visible: true }
   ];
@@ -1473,6 +1476,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           tabs={subTabs}
         />
         <FleetSettlementSettings fleetId={fleetId} />
+        <div className="mt-4">
+          <FleetCitySettings fleetId={fleetId} />
+        </div>
+      </div>
+    );
+  }
+
+  // Render "My winni" tab
+  if (activeSubTab === "owner_payments") {
+    return (
+      <div>
+        <UniversalSubTabBar
+          activeTab={activeSubTab}
+          onTabChange={setActiveSubTab}
+          tabs={subTabs}
+        />
+        <FleetOwnerPayments fleetId={fleetId} />
       </div>
     );
   }

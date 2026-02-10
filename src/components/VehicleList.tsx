@@ -14,6 +14,7 @@ import { VehicleReviewsTab } from "./VehicleReviewsTab";
 import { ExpiryBadges } from "./ExpiryBadges";
 import { InlineEdit } from "./InlineEdit";
 import { VehicleFleetSelector } from "./VehicleFleetSelector";
+import { VehicleOwnerSelector } from "./fleet/VehicleOwnerSelector";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -294,6 +295,16 @@ export const VehicleList = ({ driverId, fleetId }: VehicleListProps) => {
                               />
                             </div>
                           </div>
+                          {fleetId && (
+                            <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                              <VehicleOwnerSelector
+                                vehicleId={vehicle.id}
+                                fleetId={fleetId}
+                                currentOwnerId={(vehicle as any).owner_id}
+                                onOwnerChange={loadVehicles}
+                              />
+                            </div>
+                          )}
                           <div className="min-w-[160px]">
                             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <span className="text-sm text-muted-foreground">Wynajem od:</span>
