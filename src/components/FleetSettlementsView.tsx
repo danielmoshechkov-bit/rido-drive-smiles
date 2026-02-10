@@ -1111,11 +1111,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const persistedRentalFee = firstSettlement?.rental_fee;
         
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
+        // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) fleet base fee, 4) plan fee
+        const driverCustomFee = (driver as any).custom_weekly_fee;
         const service_fee = persistedServiceFee !== null && persistedServiceFee !== undefined
           ? persistedServiceFee
-          : (fleetBaseFee !== null && fleetBaseFee !== undefined 
-            ? fleetBaseFee 
-            : (plan?.service_fee ?? 50));
+          : (driverCustomFee !== null && driverCustomFee !== undefined
+            ? driverCustomFee
+            : (fleetBaseFee !== null && fleetBaseFee !== undefined 
+              ? fleetBaseFee 
+              : (plan?.service_fee ?? 50)));
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);

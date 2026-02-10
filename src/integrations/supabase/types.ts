@@ -4152,6 +4152,7 @@ export type Database = {
           correspondence_postal_code: string | null
           correspondence_street: string | null
           created_at: string
+          custom_weekly_fee: number | null
           email: string | null
           first_name: string | null
           fleet_id: string | null
@@ -4193,6 +4194,7 @@ export type Database = {
           correspondence_postal_code?: string | null
           correspondence_street?: string | null
           created_at?: string
+          custom_weekly_fee?: number | null
           email?: string | null
           first_name?: string | null
           fleet_id?: string | null
@@ -4234,6 +4236,7 @@ export type Database = {
           correspondence_postal_code?: string | null
           correspondence_street?: string | null
           created_at?: string
+          custom_weekly_fee?: number | null
           email?: string | null
           first_name?: string | null
           fleet_id?: string | null

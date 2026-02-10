@@ -899,6 +899,31 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               <span>{(driver as any).fuel_card_pin || '-'}</span>
                             )}
                           </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Opłata tyg.:</span>
+                            {mode === 'admin' || mode === 'fleet' ? (
+                              <InlineEdit
+                                value={(driver as any).custom_weekly_fee?.toString() || ''}
+                                onSave={async (value) => {
+                                  const numVal = value.trim() === '' ? null : parseFloat(value.replace(',', '.'));
+                                  const { error } = await supabase
+                                    .from('drivers')
+                                    .update({ custom_weekly_fee: numVal } as any)
+                                    .eq('id', driver.id);
+                                  if (error) toast.error('Błąd zapisu');
+                                  else {
+                                    toast.success('Opłata tygodniowa zapisana');
+                                    refetch();
+                                  }
+                                }}
+                                placeholder="domyślna"
+                              />
+                            ) : (
+                              <span>{(driver as any).custom_weekly_fee || '-'}</span>
+                            )}
+                            <span className="text-xs text-muted-foreground">zł</span>
+                          </div>
                         </div>
                     </div>
                     
