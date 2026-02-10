@@ -1369,6 +1369,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
+        // === DŁUG: odejmij istniejący dług od wypłaty ===
+        const existingDebt = debtsMap[driver.id] || 0;
+        let adjustedPayout = payout;
+        let remainingDebt = existingDebt;
+
+        if (existingDebt > 0 && payout > 0) {
+          if (payout >= existingDebt) {
+            // Wypłata pokrywa cały dług
+            adjustedPayout = payout - existingDebt;
+            remainingDebt = 0;
+          } else {
+            // Wypłata nie pokrywa - cała idzie na dług, reszta przenosi się
+            remainingDebt = existingDebt - payout;
+            adjustedPayout = 0;
+          }
+        }
+
         // Aggregate Bolt tips and anulacje for display
         const bolt_tips = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
@@ -1413,7 +1430,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
-          final_payout: payout,
+          final_payout: adjustedPayout,
+          debt_current: remainingDebt,
+          debt_previous: existingDebt,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,
@@ -2499,7 +2518,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - clickable to view history */}
                         <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const debt = driverDebts[settlement.driver_id] || 0;
+                            const debt = settlement.debt_current || 0;
                             if (debt <= 0) {
                               return (
                                 <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
