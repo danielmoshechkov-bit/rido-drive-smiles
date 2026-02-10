@@ -1142,10 +1142,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               : (plan?.service_fee ?? 50)));
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
+        // WAŻNE: persistedRentalFee === 0 oznacza "nie ustawiono" (domyślna wartość z importu),
+        // więc traktuj 0 jak brak override i weź wartość z pojazdu
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
-        const rental = persistedRentalFee !== null && persistedRentalFee !== undefined
+        const vehicleRentalFee = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        const rental = (persistedRentalFee !== null && persistedRentalFee !== undefined && persistedRentalFee > 0)
           ? persistedRentalFee
-          : ((assignment?.vehicles as any)?.weekly_rental_fee || 0);
+          : vehicleRentalFee;
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
@@ -2292,7 +2295,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               
               {/* Desktop View - Full table */}
-              <div className="hidden md:block overflow-x-auto pb-4" style={{ maxHeight: '80vh' }}>
+              <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible" style={{ maxHeight: '80vh' }}>
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
