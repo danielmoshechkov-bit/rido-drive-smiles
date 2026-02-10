@@ -42,8 +42,8 @@ import FleetLiveMap from "@/components/maps/FleetLiveMap";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
 import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
-import { FleetOwnerPayments } from "@/components/fleet/FleetOwnerPayments";
-import { CreditCard } from "lucide-react"; // fleet owner payments
+import { PaymentSubTabs } from "@/components/fleet/PaymentSubTabs";
+import { CreditCard } from "lucide-react";
 import { MobileTabMenu } from "@/components/MobileTabMenu";
 
 interface UnifiedDashboardProps {
@@ -681,19 +681,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
 
           {userType === 'fleet' && fleetId && (
             <TabsContent value="rental-payments" className="space-y-6">
-              <Tabs defaultValue="nam-winni" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="nam-winni">Nam winni</TabsTrigger>
-                  <TabsTrigger value="my-winni">My winni</TabsTrigger>
-                </TabsList>
-                <TabsContent value="nam-winni" className="space-y-6">
-                  <FleetPaymentNotifications fleetId={fleetId} />
-                  <RentalPaymentReminders fleetId={fleetId} />
-                </TabsContent>
-                <TabsContent value="my-winni" className="space-y-6">
-                  <FleetOwnerPayments fleetId={fleetId} />
-                </TabsContent>
-              </Tabs>
+              <PaymentSubTabs fleetId={fleetId} />
             </TabsContent>
           )}
 

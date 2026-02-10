@@ -15,12 +15,14 @@ import { useCities } from "@/hooks/useCities";
 interface CitySettings {
   id: string;
   city_name: string;
+  platform: string;
   settlement_mode: string;
   vat_rate: number;
   base_fee: number;
   additional_percent_rate: number;
   secondary_vat_rate: number;
   invoice_email: string | null;
+  uber_calculation_mode: string | null;
   is_active: boolean;
 }
 
@@ -39,12 +41,14 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
   // Form state
   const [cityName, setCityName] = useState("");
   const [newCityName, setNewCityName] = useState("");
+  const [platform, setPlatform] = useState<"bolt" | "uber">("bolt");
   const [settlementMode, setSettlementMode] = useState<"single_tax" | "dual_tax">("single_tax");
   const [vatRate, setVatRate] = useState("8");
   const [baseFee, setBaseFee] = useState("0");
   const [additionalPercent, setAdditionalPercent] = useState("0");
   const [secondaryVat, setSecondaryVat] = useState("23");
   const [invoiceEmail, setInvoiceEmail] = useState("");
+  const [uberCalcMode, setUberCalcMode] = useState<"netto" | "brutto">("netto");
 
   useEffect(() => {
     fetchCities();
@@ -72,24 +76,28 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
     setEditing(null);
     setCityName("");
     setNewCityName("");
+    setPlatform("bolt");
     setSettlementMode("single_tax");
     setVatRate("8");
     setBaseFee("0");
     setAdditionalPercent("0");
     setSecondaryVat("23");
     setInvoiceEmail("");
+    setUberCalcMode("netto");
     setDialogOpen(true);
   };
 
   const openEdit = (city: CitySettings) => {
     setEditing(city);
     setCityName(city.city_name);
+    setPlatform((city.platform || "bolt") as "bolt" | "uber");
     setSettlementMode(city.settlement_mode as "single_tax" | "dual_tax");
     setVatRate(city.vat_rate.toString());
     setBaseFee(city.base_fee.toString());
     setAdditionalPercent(city.additional_percent_rate.toString());
     setSecondaryVat(city.secondary_vat_rate.toString());
     setInvoiceEmail(city.invoice_email || "");
+    setUberCalcMode((city.uber_calculation_mode || "netto") as "netto" | "brutto");
     setDialogOpen(true);
   };
 
@@ -121,12 +129,14 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
       const payload = {
         fleet_id: fleetId,
         city_name: finalCityName,
+        platform,
         settlement_mode: settlementMode,
         vat_rate: parseFloat(vatRate) || 0,
         base_fee: parseFloat(baseFee) || 0,
         additional_percent_rate: parseFloat(additionalPercent) || 0,
         secondary_vat_rate: parseFloat(secondaryVat) || 23,
         invoice_email: invoiceEmail.trim() || null,
+        uber_calculation_mode: platform === "uber" ? uberCalcMode : null,
       };
 
       if (editing) {
@@ -135,13 +145,13 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
           .update(payload)
           .eq("id", editing.id);
         if (error) throw error;
-        toast.success("Ustawienia miasta zaktualizowane");
+        toast.success("Ustawienia zaktualizowane");
       } else {
         const { error } = await supabase
           .from("fleet_city_settings" as any)
           .insert([payload]);
         if (error) throw error;
-        toast.success("Miasto dodane");
+        toast.success("Ustawienia dodane");
       }
       setDialogOpen(false);
       fetchCities();
@@ -153,7 +163,7 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Usunąć ustawienia tego miasta?")) return;
+    if (!confirm("Usunąć ustawienia?")) return;
     try {
       const { error } = await supabase
         .from("fleet_city_settings" as any)
@@ -167,6 +177,11 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
     }
   };
 
+  const getPlatformBadge = (p: string) => {
+    if (p === "uber") return <Badge className="bg-black text-white text-[10px]">Uber</Badge>;
+    return <Badge className="bg-green-600 text-white text-[10px]">Bolt</Badge>;
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -177,11 +192,11 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
               Ustawienia rozliczeń per miasto
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              Różne stawki VAT i opłaty dla Bolt i Uber w różnych miastach. Kierowcy przypisani do danego miasta dostaną te ustawienia.
+              Oddzielne stawki VAT i opłaty dla Bolt i Uber w każdym mieście.
             </CardDescription>
           </div>
           <Button size="sm" onClick={openAdd} className="gap-1">
-            <Plus className="h-3 w-3" /> Dodaj miasto
+            <Plus className="h-3 w-3" /> Dodaj
           </Button>
         </div>
       </CardHeader>
@@ -198,9 +213,9 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Miasto</TableHead>
+                  <TableHead className="text-xs">Platforma</TableHead>
                   <TableHead className="text-xs">Tryb</TableHead>
                   <TableHead className="text-xs">VAT</TableHead>
-                  <TableHead className="text-xs">Opłata</TableHead>
                   <TableHead className="text-xs">Dod. %</TableHead>
                   <TableHead className="text-xs">Akcje</TableHead>
                 </TableRow>
@@ -209,13 +224,16 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
                 {cities.map(city => (
                   <TableRow key={city.id} className="hover:bg-primary/10">
                     <TableCell className="font-medium text-sm">{city.city_name}</TableCell>
+                    <TableCell>{getPlatformBadge(city.platform)}</TableCell>
                     <TableCell>
                       <Badge variant={city.settlement_mode === "dual_tax" ? "default" : "secondary"} className="text-[10px]">
                         {city.settlement_mode === "dual_tax" ? "Dwa podatki" : "Jeden podatek"}
                       </Badge>
+                      {city.platform === "uber" && city.uber_calculation_mode === "brutto" && (
+                        <Badge variant="outline" className="text-[9px] ml-1">od brutto</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">{city.vat_rate}%</TableCell>
-                    <TableCell className="text-sm">{city.base_fee} zł</TableCell>
                     <TableCell className="text-sm">{city.additional_percent_rate}%</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -238,9 +256,10 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edytuj ustawienia miasta" : "Dodaj miasto"}</DialogTitle>
+            <DialogTitle>{editing ? "Edytuj ustawienia" : "Dodaj ustawienia miasta"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* City selector */}
             <div>
               <Label className="text-xs">Miasto *</Label>
               {editing ? (
@@ -252,11 +271,9 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
                       <SelectValue placeholder="Wybierz miasto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableCities
-                        .filter(c => !cities.some(existing => existing.city_name === c.name))
-                        .map(c => (
-                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                        ))}
+                      {availableCities.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
                       <SelectItem value="__new__">+ Dodaj nowe miasto...</SelectItem>
                     </SelectContent>
                   </Select>
@@ -271,6 +288,22 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
               )}
             </div>
 
+            {/* Platform selector */}
+            <div>
+              <Label className="text-xs">Platforma</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${platform === "bolt" ? "border-green-500 bg-green-500/10" : "hover:bg-muted"}`}>
+                  <input type="radio" className="sr-only" checked={platform === "bolt"} onChange={() => setPlatform("bolt")} />
+                  <span className="text-xs font-bold text-green-600">Bolt</span>
+                </label>
+                <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${platform === "uber" ? "border-black bg-black/5" : "hover:bg-muted"}`}>
+                  <input type="radio" className="sr-only" checked={platform === "uber"} onChange={() => setPlatform("uber")} />
+                  <span className="text-xs font-bold">Uber</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Settlement mode */}
             <div>
               <Label className="text-xs">Tryb rozliczeń</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
@@ -286,6 +319,25 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
                 </label>
               </div>
             </div>
+
+            {/* Uber calculation mode */}
+            {platform === "uber" && settlementMode === "dual_tax" && (
+              <div>
+                <Label className="text-xs">Sposób obliczania Uber</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberCalcMode === "netto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+                    <input type="radio" className="sr-only" checked={uberCalcMode === "netto"} onChange={() => setUberCalcMode("netto")} />
+                    <span className="text-xs font-medium">Od netto</span>
+                    <span className="text-[10px] text-muted-foreground">netto + 25% = brutto</span>
+                  </label>
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberCalcMode === "brutto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+                    <input type="radio" className="sr-only" checked={uberCalcMode === "brutto"} onChange={() => setUberCalcMode("brutto")} />
+                    <span className="text-xs font-medium">Od brutto</span>
+                    <span className="text-[10px] text-muted-foreground">kol. G z CSV</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>

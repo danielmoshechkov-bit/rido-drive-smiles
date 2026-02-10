@@ -4600,8 +4600,10 @@ export type Database = {
           id: string
           invoice_email: string | null
           is_active: boolean
+          platform: string
           secondary_vat_rate: number
           settlement_mode: string
+          uber_calculation_mode: string | null
           updated_at: string
           vat_rate: number
         }
@@ -4614,8 +4616,10 @@ export type Database = {
           id?: string
           invoice_email?: string | null
           is_active?: boolean
+          platform?: string
           secondary_vat_rate?: number
           settlement_mode?: string
+          uber_calculation_mode?: string | null
           updated_at?: string
           vat_rate?: number
         }
@@ -4628,8 +4632,10 @@ export type Database = {
           id?: string
           invoice_email?: string | null
           is_active?: boolean
+          platform?: string
           secondary_vat_rate?: number
           settlement_mode?: string
+          uber_calculation_mode?: string | null
           updated_at?: string
           vat_rate?: number
         }
