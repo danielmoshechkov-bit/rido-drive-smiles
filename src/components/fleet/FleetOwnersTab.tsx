@@ -25,7 +25,7 @@ interface OwnerVehicle {
   plate: string;
   brand: string;
   model: string;
-  weekly_rental_fee: number | null;
+  owner_rental_fee: number | null;
 }
 
 interface FleetOwnersTabProps {
@@ -71,7 +71,7 @@ export function FleetOwnersTab({ fleetId }: FleetOwnersTabProps) {
 
       const { data: vehiclesData } = await (supabase
         .from("vehicles")
-        .select("id, plate, brand, model, weekly_rental_fee, owner_id") as any)
+        .select("id, plate, brand, model, weekly_rental_fee, owner_rental_fee, owner_id") as any)
         .in("owner_id", ownerIds);
 
       const result = (ownersData as any[]).map(owner => ({
@@ -188,7 +188,7 @@ export function FleetOwnersTab({ fleetId }: FleetOwnersTabProps) {
           <div className="space-y-3">
             {owners.map(owner => {
               const totalWeekly = owner.vehicles.reduce(
-                (sum, v) => sum + (parseFloat(v.weekly_rental_fee?.toString() || "0")), 0
+                (sum, v) => sum + (parseFloat(v.owner_rental_fee?.toString() || "0")), 0
               );
 
               return (
@@ -262,7 +262,7 @@ export function FleetOwnersTab({ fleetId }: FleetOwnersTabProps) {
                                   <span className="ml-2 font-mono text-sm text-muted-foreground">{v.plate}</span>
                                 </div>
                                 <div className="text-sm font-semibold">
-                                  {formatCurrency(parseFloat(v.weekly_rental_fee?.toString() || "0"))}/tydz.
+                                  {formatCurrency(parseFloat(v.owner_rental_fee?.toString() || "0"))}/tydz.
                                 </div>
                               </div>
                             ))}

@@ -68,7 +68,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       // Get vehicles assigned to these owners
       const { data: vehiclesData } = await (supabase
         .from("vehicles")
-        .select("id, plate, brand, model, weekly_rental_fee, owner_id") as any)
+        .select("id, plate, brand, model, weekly_rental_fee, owner_rental_fee, owner_id") as any)
         .in("owner_id" as any, ownerIds)
         .eq("status", "aktywne");
 
@@ -83,7 +83,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       const summaries: OwnerSummary[] = (ownersData as any[]).map(owner => {
         const ownerVehicles = (vehiclesData || []).filter((v: any) => v.owner_id === owner.id);
         const ownerCharges = ((chargesData as any[]) || []).filter(c => c.owner_id === owner.id);
-        const totalWeekly = ownerVehicles.reduce((sum: number, v: any) => sum + (parseFloat(v.weekly_rental_fee?.toString() || "0")), 0);
+        const totalWeekly = ownerVehicles.reduce((sum: number, v: any) => sum + (parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0")), 0);
         const totalOwed = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
 
         return {
@@ -97,7 +97,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
             plate: v.plate,
             brand: v.brand,
             model: v.model,
-            weekly_rental_fee: parseFloat(v.weekly_rental_fee?.toString() || "0"),
+            weekly_rental_fee: parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0"),
           })),
           total_weekly: totalWeekly,
           total_owed: totalOwed,

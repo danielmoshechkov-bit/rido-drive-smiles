@@ -12624,6 +12624,7 @@ export type Database = {
           odometer: number | null
           owner_id: string | null
           owner_name: string | null
+          owner_rental_fee: number | null
           photos: string[] | null
           plate: string
           power: number | null
@@ -12647,6 +12648,7 @@ export type Database = {
           odometer?: number | null
           owner_id?: string | null
           owner_name?: string | null
+          owner_rental_fee?: number | null
           photos?: string[] | null
           plate: string
           power?: number | null
@@ -12670,6 +12672,7 @@ export type Database = {
           odometer?: number | null
           owner_id?: string | null
           owner_name?: string | null
+          owner_rental_fee?: number | null
           photos?: string[] | null
           plate?: string
           power?: number | null

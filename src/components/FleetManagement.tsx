@@ -608,15 +608,40 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                         />
                                       </div>
                                       {userType === 'fleet' && fleetId && (
-                                        <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
-                                          <span className="text-xs text-muted-foreground">Właściciel:</span>
-                                          <VehicleOwnerSelector
-                                            vehicleId={vehicle.id}
-                                            fleetId={fleetId}
-                                            currentOwnerId={(vehicle as any).owner_id}
-                                            onOwnerChange={fetchVehicles}
-                                          />
-                                        </div>
+                                        <>
+                                          <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                            <span className="text-xs text-muted-foreground">Właściciel:</span>
+                                            <VehicleOwnerSelector
+                                              vehicleId={vehicle.id}
+                                              fleetId={fleetId}
+                                              currentOwnerId={(vehicle as any).owner_id}
+                                              onOwnerChange={fetchVehicles}
+                                            />
+                                          </div>
+                                          {(vehicle as any).owner_id && (
+                                            <div className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                              <span className="text-xs text-muted-foreground">Kwota najmu:</span>
+                                              <div className="font-semibold flex items-center gap-1">
+                                                <InlineEdit
+                                                  value={(vehicle as any).owner_rental_fee?.toString() || "0"}
+                                                  onSave={async (value) => {
+                                                    const fee = parseFloat(value.replace(',', '.')) || 0;
+                                                    const { error } = await supabase
+                                                      .from("vehicles")
+                                                      .update({ owner_rental_fee: fee } as any)
+                                                      .eq("id", vehicle.id);
+                                                    if (error) toast.error("Błąd zapisu");
+                                                    else {
+                                                      toast.success("Kwota najmu zapisana");
+                                                      fetchVehicles();
+                                                    }
+                                                  }}
+                                                />
+                                                <span className="text-sm text-muted-foreground">zł/tydz.</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </>
                                       )}
                                 </div>
                                
