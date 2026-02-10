@@ -41,16 +41,23 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const [savingFrequencyToggle, setSavingFrequencyToggle] = useState(false);
   const [fleetNip, setFleetNip] = useState<string | null>(null);
   
-  // Fleet-level VAT and base fee settings
+  // Bolt settings
   const [vatRate, setVatRate] = useState<string>('8');
   const [baseFee, setBaseFee] = useState<string>('0');
   const [invoiceEmail, setInvoiceEmail] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
-  
-  // Settlement mode: single_tax (current) or dual_tax (two separate taxes)
   const [settlementMode, setSettlementMode] = useState<'single_tax' | 'dual_tax'>('single_tax');
   const [secondaryVatRate, setSecondaryVatRate] = useState<string>('23');
   const [additionalPercentRate, setAdditionalPercentRate] = useState<string>('0');
+  
+  // Uber settings
+  const [uberVatRate, setUberVatRate] = useState<string>('8');
+  const [uberBaseFee, setUberBaseFee] = useState<string>('0');
+  const [uberSettlementMode, setUberSettlementMode] = useState<'single_tax' | 'dual_tax'>('single_tax');
+  const [uberCalcMode, setUberCalcMode] = useState<'netto' | 'brutto'>('netto');
+  const [uberSecondaryVatRate, setUberSecondaryVatRate] = useState<string>('23');
+  const [uberAdditionalPercentRate, setUberAdditionalPercentRate] = useState<string>('0');
+  const [savingUberSettings, setSavingUberSettings] = useState(false);
   
   // Payment methods settings
   const [cashEnabled, setCashEnabled] = useState(false);
@@ -91,7 +98,7 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   const fetchFleetSettings = async () => {
     const { data, error } = await supabase
       .from('fleets')
-      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_address_postal_code, cash_address_street, cash_address_number, b2b_enabled, b2b_invoice_frequency, transfer_enabled, settlement_mode, secondary_vat_rate, additional_percent_rate')
+      .select('driver_plan_selection_enabled, settlement_frequency_enabled, nip, vat_rate, base_fee, invoice_email, cash_enabled, cash_pickup_day, cash_pickup_location, cash_address_postal_code, cash_address_street, cash_address_number, b2b_enabled, b2b_invoice_frequency, transfer_enabled, settlement_mode, secondary_vat_rate, additional_percent_rate, uber_vat_rate, uber_base_fee, uber_settlement_mode, uber_calculation_mode, uber_secondary_vat_rate, uber_additional_percent_rate')
       .eq('id', fleetId)
       .maybeSingle();
 
@@ -105,6 +112,13 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       setSettlementMode(((data as any).settlement_mode ?? 'single_tax') as 'single_tax' | 'dual_tax');
       setSecondaryVatRate(((data as any).secondary_vat_rate ?? 23).toString());
       setAdditionalPercentRate(((data as any).additional_percent_rate ?? 0).toString());
+      // Uber
+      setUberVatRate(((data as any).uber_vat_rate ?? 8).toString());
+      setUberBaseFee(((data as any).uber_base_fee ?? 0).toString());
+      setUberSettlementMode(((data as any).uber_settlement_mode ?? 'single_tax') as 'single_tax' | 'dual_tax');
+      setUberCalcMode(((data as any).uber_calculation_mode ?? 'netto') as 'netto' | 'brutto');
+      setUberSecondaryVatRate(((data as any).uber_secondary_vat_rate ?? 23).toString());
+      setUberAdditionalPercentRate(((data as any).uber_additional_percent_rate ?? 0).toString());
       // Payment methods
       setCashEnabled((data as any).cash_enabled ?? false);
       setCashPickupDay((data as any).cash_pickup_day ?? 'wtorek');
@@ -152,6 +166,35 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
       toast.error('Błąd zapisywania ustawień');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleSaveUberSettings = async () => {
+    const vat = parseFloat(uberVatRate);
+    if (isNaN(vat) || vat < 0 || vat > 100) {
+      toast.error('Stawka VAT musi być między 0 a 100');
+      return;
+    }
+    setSavingUberSettings(true);
+    try {
+      const { error } = await supabase
+        .from('fleets')
+        .update({
+          uber_vat_rate: vat,
+          uber_base_fee: parseFloat(uberBaseFee) || 0,
+          uber_settlement_mode: uberSettlementMode,
+          uber_calculation_mode: uberCalcMode,
+          uber_secondary_vat_rate: parseFloat(uberSecondaryVatRate) || 23,
+          uber_additional_percent_rate: parseFloat(uberAdditionalPercentRate) || 0,
+        } as any)
+        .eq('id', fleetId);
+      if (error) throw error;
+      toast.success('Ustawienia Uber zapisane');
+    } catch (error) {
+      console.error('Error saving Uber settings:', error);
+      toast.error('Błąd zapisywania ustawień Uber');
+    } finally {
+      setSavingUberSettings(false);
     }
   };
 
@@ -371,79 +414,30 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Row 1: Registration Link + Settlement Settings */}
+        {/* Row 1: Bolt + Uber Settlement Settings side by side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          {/* Registration Link Section */}
+          {/* Bolt Settings */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Link className="h-4 w-4" />
-                Link rejestracyjny
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Kierowcy rejestrujący się przez ten link zostaną automatycznie przypisani do floty
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Input 
-                  readOnly 
-                  value={fleetNip ? `${window.location.origin}/driver/register?nip=${fleetNip}` : 'Brak NIP - uzupełnij dane firmy'} 
-                  className="font-mono text-xs"
-                />
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={copyRegistrationLink}
-                  disabled={!fleetNip}
-                  title="Kopiuj link"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                NIP floty: <span className="font-mono font-bold">{fleetNip || 'nie ustawiono'}</span>
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Fleet-level VAT and Base Fee Settings */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Settings className="h-4 w-4" />
+                <Badge className="bg-green-600 text-white text-[10px]">Bolt</Badge>
                 Ustawienia rozliczeń
               </CardTitle>
               <CardDescription className="text-xs">
-                Globalne ustawienia dla wszystkich kierowców
+                Globalne ustawienia Bolt dla wszystkich kierowców
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Settlement Mode Selector */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Tryb rozliczeń</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${settlementMode === 'single_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
-                    <input
-                      type="radio"
-                      name="settlement_mode"
-                      value="single_tax"
-                      checked={settlementMode === 'single_tax'}
-                      onChange={() => setSettlementMode('single_tax')}
-                      className="sr-only"
-                    />
+                    <input type="radio" name="bolt_settlement_mode" value="single_tax" checked={settlementMode === 'single_tax'} onChange={() => setSettlementMode('single_tax')} className="sr-only" />
                     <span className="text-xs font-medium">Jeden podatek</span>
                     <span className="text-[10px] text-muted-foreground">VAT od całości brutto</span>
                   </label>
                   <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${settlementMode === 'dual_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
-                    <input
-                      type="radio"
-                      name="settlement_mode"
-                      value="dual_tax"
-                      checked={settlementMode === 'dual_tax'}
-                      onChange={() => setSettlementMode('dual_tax')}
-                      className="sr-only"
-                    />
+                    <input type="radio" name="bolt_settlement_mode" value="dual_tax" checked={settlementMode === 'dual_tax'} onChange={() => setSettlementMode('dual_tax')} className="sr-only" />
                     <span className="text-xs font-medium">Dwa podatki</span>
                     <span className="text-[10px] text-muted-foreground">8% + 23% od kampanii</span>
                   </label>
@@ -452,67 +446,27 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="vat-rate" className="text-xs">VAT (%)</Label>
-                  <Input
-                    id="vat-rate"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    placeholder="8"
-                    value={vatRate}
-                    onChange={(e) => setVatRate(e.target.value)}
-                    className="h-8"
-                  />
+                  <Label className="text-xs">VAT (%)</Label>
+                  <Input type="number" min="0" max="100" step="0.01" value={vatRate} onChange={(e) => setVatRate(e.target.value)} className="h-8" />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="base-fee" className="text-xs">Opłata stała (zł)</Label>
-                  <Input
-                    id="base-fee"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0"
-                    value={baseFee}
-                    onChange={(e) => setBaseFee(e.target.value)}
-                    className="h-8"
-                  />
+                  <Label className="text-xs">Opłata stała (zł)</Label>
+                  <Input type="number" min="0" step="0.01" value={baseFee} onChange={(e) => setBaseFee(e.target.value)} className="h-8" />
                 </div>
               </div>
 
-              {/* Dual tax mode extra settings */}
               {settlementMode === 'dual_tax' && (
                 <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Ustawienia trybu "Dwa podatki"</p>
+                  <p className="text-xs font-medium text-muted-foreground">Ustawienia "Dwa podatki"</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="additional-percent" className="text-xs">Dodatkowy % od brutto (E+F)</Label>
-                      <Input
-                        id="additional-percent"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="0"
-                        value={additionalPercentRate}
-                        onChange={(e) => setAdditionalPercentRate(e.target.value)}
-                        className="h-8"
-                      />
+                      <Label className="text-xs">Dodatkowy % od brutto (E+F)</Label>
+                      <Input type="number" min="0" max="100" step="0.01" value={additionalPercentRate} onChange={(e) => setAdditionalPercentRate(e.target.value)} className="h-8" />
                       <p className="text-[10px] text-muted-foreground">Np. 1 = dodatkowe 1% od brutto Bolt</p>
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="secondary-vat" className="text-xs">VAT kampanie/anulowania (%)</Label>
-                      <Input
-                        id="secondary-vat"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="23"
-                        value={secondaryVatRate}
-                        onChange={(e) => setSecondaryVatRate(e.target.value)}
-                        className="h-8"
-                      />
+                      <Label className="text-xs">VAT kampanie/anulowania (%)</Label>
+                      <Input type="number" min="0" max="100" step="0.01" value={secondaryVatRate} onChange={(e) => setSecondaryVatRate(e.target.value)} className="h-8" />
                       <p className="text-[10px] text-muted-foreground">VAT od kolumn I+J+K Bolt CSV</p>
                     </div>
                   </div>
@@ -520,25 +474,123 @@ export const FleetSettlementSettings = ({ fleetId }: FleetSettlementSettingsProp
               )}
 
               <div className="space-y-1">
-                <Label htmlFor="invoice-email" className="text-xs">Mail do faktur (B2B)</Label>
-                <Input
-                  id="invoice-email"
-                  type="email"
-                  placeholder="faktury@firma.pl"
-                  value={invoiceEmail}
-                  onChange={(e) => setInvoiceEmail(e.target.value)}
-                  className="h-8"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Na ten adres kierowcy B2B będą wysyłać swoje faktury
-                </p>
+                <Label className="text-xs">Mail do faktur (B2B)</Label>
+                <Input type="email" placeholder="faktury@firma.pl" value={invoiceEmail} onChange={(e) => setInvoiceEmail(e.target.value)} className="h-8" />
+                <p className="text-xs text-muted-foreground">Na ten adres kierowcy B2B będą wysyłać swoje faktury</p>
               </div>
               <Button onClick={handleSaveSettings} disabled={savingSettings} size="sm" className="w-full">
-                {savingSettings ? 'Zapisywanie...' : 'Zapisz'}
+                {savingSettings ? 'Zapisywanie...' : 'Zapisz Bolt'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Uber Settings */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Badge className="bg-black text-white text-[10px]">Uber</Badge>
+                Ustawienia rozliczeń
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Globalne ustawienia Uber dla wszystkich kierowców
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Tryb rozliczeń</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberSettlementMode === 'single_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                    <input type="radio" name="uber_settlement_mode" value="single_tax" checked={uberSettlementMode === 'single_tax'} onChange={() => setUberSettlementMode('single_tax')} className="sr-only" />
+                    <span className="text-xs font-medium">Jeden podatek</span>
+                    <span className="text-[10px] text-muted-foreground">VAT od netto</span>
+                  </label>
+                  <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberSettlementMode === 'dual_tax' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                    <input type="radio" name="uber_settlement_mode" value="dual_tax" checked={uberSettlementMode === 'dual_tax'} onChange={() => setUberSettlementMode('dual_tax')} className="sr-only" />
+                    <span className="text-xs font-medium">Dwa podatki</span>
+                    <span className="text-[10px] text-muted-foreground">netto/brutto + kampanie</span>
+                  </label>
+                </div>
+              </div>
+
+              {uberSettlementMode === 'dual_tax' && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Sposób obliczania podstawy</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberCalcMode === 'netto' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                      <input type="radio" name="uber_calc_mode" value="netto" checked={uberCalcMode === 'netto'} onChange={() => setUberCalcMode('netto')} className="sr-only" />
+                      <span className="text-xs font-medium">Od netto</span>
+                      <span className="text-[10px] text-muted-foreground">netto + 25% = brutto</span>
+                    </label>
+                    <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${uberCalcMode === 'brutto' ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}>
+                      <input type="radio" name="uber_calc_mode" value="brutto" checked={uberCalcMode === 'brutto'} onChange={() => setUberCalcMode('brutto')} className="sr-only" />
+                      <span className="text-xs font-medium">Od brutto</span>
+                      <span className="text-[10px] text-muted-foreground">kol. G z CSV Uber</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">VAT (%)</Label>
+                  <Input type="number" min="0" max="100" step="0.01" value={uberVatRate} onChange={(e) => setUberVatRate(e.target.value)} className="h-8" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Opłata stała (zł)</Label>
+                  <Input type="number" min="0" step="0.01" value={uberBaseFee} onChange={(e) => setUberBaseFee(e.target.value)} className="h-8" />
+                </div>
+              </div>
+
+              {uberSettlementMode === 'dual_tax' && (
+                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                  <p className="text-xs font-medium text-muted-foreground">Ustawienia "Dwa podatki"</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Dodatkowy % od brutto</Label>
+                      <Input type="number" min="0" max="100" step="0.01" value={uberAdditionalPercentRate} onChange={(e) => setUberAdditionalPercentRate(e.target.value)} className="h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">VAT kampanie (%)</Label>
+                      <Input type="number" min="0" max="100" step="0.01" value={uberSecondaryVatRate} onChange={(e) => setUberSecondaryVatRate(e.target.value)} className="h-8" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleSaveUberSettings} disabled={savingUberSettings} size="sm" className="w-full">
+                {savingUberSettings ? 'Zapisywanie...' : 'Zapisz Uber'}
               </Button>
             </CardContent>
           </Card>
         </div>
+
+        {/* Registration Link - moved below */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link className="h-4 w-4" />
+              Link rejestracyjny
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Kierowcy rejestrujący się przez ten link zostaną automatycznie przypisani do floty
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Input 
+                readOnly 
+                value={fleetNip ? `${window.location.origin}/driver/register?nip=${fleetNip}` : 'Brak NIP - uzupełnij dane firmy'} 
+                className="font-mono text-xs"
+              />
+              <Button variant="outline" size="icon" onClick={copyRegistrationLink} disabled={!fleetNip} title="Kopiuj link">
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              NIP floty: <span className="font-mono font-bold">{fleetNip || 'nie ustawiono'}</span>
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Row 2: Toggles */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">

@@ -4974,6 +4974,12 @@ export type Database = {
           street: string | null
           transfer_enabled: boolean | null
           transfer_title_template: string | null
+          uber_additional_percent_rate: number | null
+          uber_base_fee: number | null
+          uber_calculation_mode: string | null
+          uber_secondary_vat_rate: number | null
+          uber_settlement_mode: string | null
+          uber_vat_rate: number | null
           vat_rate: number | null
         }
         Insert: {
@@ -5011,6 +5017,12 @@ export type Database = {
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null
+          uber_additional_percent_rate?: number | null
+          uber_base_fee?: number | null
+          uber_calculation_mode?: string | null
+          uber_secondary_vat_rate?: number | null
+          uber_settlement_mode?: string | null
+          uber_vat_rate?: number | null
           vat_rate?: number | null
         }
         Update: {
@@ -5048,6 +5060,12 @@ export type Database = {
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null
+          uber_additional_percent_rate?: number | null
+          uber_base_fee?: number | null
+          uber_calculation_mode?: string | null
+          uber_secondary_vat_rate?: number | null
+          uber_settlement_mode?: string | null
+          uber_vat_rate?: number | null
           vat_rate?: number | null
         }
         Relationships: []
