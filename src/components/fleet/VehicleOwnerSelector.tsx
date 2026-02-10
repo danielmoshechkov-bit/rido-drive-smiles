@@ -161,8 +161,8 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
       )}
 
       {showDropdown && (
-        <div className="absolute z-50 mt-2 w-72 bg-background border rounded-xl shadow-lg max-h-80 flex flex-col overflow-hidden">
-          <div className="p-3 border-b flex justify-between items-center">
+        <div className="absolute z-50 mt-2 w-72 bg-background border rounded-xl shadow-lg flex flex-col" style={{ maxHeight: '280px' }}>
+          <div className="p-3 border-b flex justify-between items-center shrink-0">
             <h3 className="font-medium text-sm">Wybierz właściciela</h3>
             <div className="flex items-center gap-1">
               <Button
@@ -177,7 +177,7 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
               <Button variant="ghost" size="sm" onClick={() => setShowDropdown(false)} className="h-6 w-6 p-0">✕</Button>
             </div>
           </div>
-          <div className="p-2 border-b">
+          <div className="p-2 border-b shrink-0">
             <Input
               placeholder="Szukaj..."
               value={searchQuery}
@@ -185,7 +185,7 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
               className="h-8 text-sm"
             />
           </div>
-          <div className="flex-1 p-2 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
+          <div className="p-2 overflow-y-auto space-y-1" style={{ maxHeight: '180px' }}>
             {filteredOwners.map(owner => (
               <div
                 key={owner.id}
