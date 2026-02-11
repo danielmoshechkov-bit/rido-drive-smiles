@@ -2519,9 +2519,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
                             const debt = settlement.debt_current || 0;
+                            const badgeClick = () => {
+                              setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
+                              setDebtDialogOpen(true);
+                            };
                             if (debt <= 0) {
                               return (
-                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                <Badge 
+                                  variant="outline" 
+                                  className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] cursor-pointer"
+                                  onClick={badgeClick}
+                                >
                                   ✓ 0
                                 </Badge>
                               );
@@ -2530,10 +2538,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               <Badge 
                                 variant="destructive" 
                                 className="cursor-pointer text-[10px]"
-                                onClick={() => {
-                                  setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
-                                  setDebtDialogOpen(true);
-                                }}
+                                onClick={badgeClick}
                               >
                                 {formatCurrency(debt)} zł
                               </Badge>
