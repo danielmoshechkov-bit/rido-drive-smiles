@@ -641,9 +641,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       );
     }
     
-    // Recalculate payout
+    // Recalculate payout based on settlement mode
     const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
-    s.final_payout = s.total_base - s.total_commission - s.vat_amount - s.service_fee - total_additional - (s.rental || 0) - s.total_cash - s.fuel + s.fuel_vat_refund;
+    
+    if (fleetSettlementModeState === 'dual_tax') {
+      // Dual tax: Netto - Cash - VAT%(D) - 23%(I+J+K) - fees
+      const netto_calc = s.total_base - s.total_commission;
+      s.final_payout = netto_calc - s.total_cash - s.vat_amount - (s.secondary_vat_amount || 0) 
+                       - s.service_fee - total_additional - (s.rental || 0) - s.fuel + s.fuel_vat_refund;
+    } else {
+      s.final_payout = s.total_base - s.total_commission - s.vat_amount - s.service_fee - total_additional - (s.rental || 0) - s.total_cash - s.fuel + s.fuel_vat_refund;
+    }
     
     return s;
   };
@@ -1315,15 +1323,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           
           bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base; // Keep for backward compat
           
-          // Tax 1: Combined VAT% + Additional% from Bolt E+F (brutto)
+          // Tax 1: Combined VAT% + Additional% from Bolt D (brutto)
           // e.g. 8% VAT + 1% additional = 9% total
           const combinedVatRate = effectiveVatRate + fleetAdditionalPercentRate;
-          const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_ef_base * (combinedVatRate / 100);
-          // additional_percent_amount merged into vat_amount (combined rate)
+          // Use bolt_base (Column D) for primary VAT calculation
+          const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_base * (combinedVatRate / 100);
           additional_percent_amount = 0;
-          // Bonusy + Rekompensaty: FULL amount deducted (not multiplied by 23%)
-          // The (23%) label indicates VAT category, fleet keeps entire amount for tax accounting
-          secondary_vat_amount = isB2BVatPayer ? 0 : Math.abs(bolt_i_base) + Math.abs(bolt_k_base);
+          // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
+          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (fleetSecondaryVatRate / 100);
           
           // For Uber and FreeNow, still use standard VAT from total base
           const uber_freenow_base = uber_base + freenow_base;
@@ -1374,28 +1381,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Calculate payout based on mode
         let payout: number;
         if (fleetSettlementMode === 'dual_tax') {
-          // Reference formula (verified against 3 examples):
-          // Wypłata = bolt_payout_s - VAT%(Brutto) - Bonusy_full - Rekompensaty_full
-          //           - service_fee - additional_fees - rental - fuel + fuel_vat_refund
-          //           + (uber/freenow net contribution)
-          // Note: bolt_payout_s (column S) already has bolt commission AND bolt cash deducted
-          const bolt_payout_s = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_payout_s || '0');
-          }, 0);
-          const uber_freenow_base = uber_base + freenow_base;
-          const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
-          const non_bolt_commission = uber_commission + freenow_commission;
-          // Only subtract non-bolt cash (bolt cash is already removed from S)
-          const non_bolt_cash = uber_cash + freenow_cash;
+          // Correct formula: Netto(R) - Cash(G) - 9%(D) - 23%(I+J+K) - fees
+          // netto_calc = total_base - total_commission (= bolt_net + uber_net + freenow_net)
+          const netto_calc = total_base - total_commission;
           
-          payout = bolt_payout_s 
-                   - vat_amount                  // VAT% of Brutto (E+F)
-                   - additional_percent_amount    // Additional % of Brutto (if configured)
-                   - secondary_vat_amount         // Full Bonusy(I) + Rekompensaty(K)
-                   + (uber_freenow_base - uber_freenow_vat) // Uber/FreeNow contribution
-                   - non_bolt_commission          // Uber/FreeNow commissions
-                   - non_bolt_cash                // Uber/FreeNow cash (bolt cash already in S)
+          payout = netto_calc 
+                   - total_cash                   // Cash (G) from all platforms
+                   - vat_amount                   // Combined VAT% of Brutto (D)
+                   - secondary_vat_amount         // 23% of (I+J+K)
                    - service_fee - total_additional_fees - rental 
                    - total_fuel + total_fuel_vat_refund;
         } else {
@@ -1471,7 +1464,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           bolt_ef_base,
           bolt_ijk_base,
           additional_percent_amount,
-          secondary_vat_amount,
+          secondary_vat_amount: secondary_vat_amount,
           // Display fields for dual_tax reference columns
           bolt_tips,
           bolt_bonusy,

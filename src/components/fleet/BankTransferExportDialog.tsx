@@ -417,9 +417,17 @@ export function BankTransferExportDialog({
                       placeholder="Nr konta (26 cyfr)"
                       value={ma.iban}
                       onChange={(e) => {
+                        const newIban = e.target.value;
                         setMissingAccounts(prev => prev.map((m, i) => 
-                          i === idx ? { ...m, iban: e.target.value, switchToCash: false } : m
+                          i === idx ? { ...m, iban: newIban, switchToCash: false } : m
                         ));
+                      }}
+                      onBlur={async () => {
+                        // Auto-save IBAN when valid (26+ digits)
+                        const cleanIban = ma.iban.replace(/\s/g, '');
+                        if (cleanIban.length >= 20 && !ma.switchToCash) {
+                          await supabase.from('drivers').update({ iban: ma.iban }).eq('id', ma.id);
+                        }
                       }}
                       disabled={ma.switchToCash}
                       className="h-7 text-xs flex-1"

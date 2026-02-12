@@ -167,8 +167,8 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           .from('settlements')
           .select('driver_id, rental_fee')
           .in('driver_id', assignedDriverIds)
-          .eq('week_start', weekStart)
-          .eq('week_end', weekEnd);
+          .gte('period_from', weekStart)
+          .lte('period_to', weekEnd);
         
         rentalPayments = paymentsData || [];
       }
