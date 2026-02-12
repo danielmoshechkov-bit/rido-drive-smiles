@@ -2377,8 +2377,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Pob. gotówka</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Napiwki</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Bonusy ({fleetSecondaryVatRateState}%)</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp. ({fleetSecondaryVatRateState}%)</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja ({fleetSecondaryVatRateState}%)</TableHead>
+                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp.</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Prowizja</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Zwroty</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Netto</TableHead>
@@ -2475,12 +2475,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                               {(settlement.bolt_bonusy || 0) > 0 ? formatCurrency(settlement.bolt_bonusy || 0) : (hasAnyActivity ? '0,00' : '-')}
                             </TableCell>
-                            {/* Rekompensaty (23%) */}
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            {/* Anulacja (23%) - bolt_col_k */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                               {(settlement.bolt_rekompensaty || 0) > 0 ? formatCurrency(settlement.bolt_rekompensaty || 0) : (hasAnyActivity ? '0,00' : '-')}
                             </TableCell>
-                            {/* Anulacja */}
-                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            {/* Rekompensaty - bolt_col_j */}
+                            <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                               {(settlement.bolt_anulacje || 0) !== 0 ? formatCurrency(Math.abs(settlement.bolt_anulacje || 0)) : (hasAnyActivity ? '0,00' : '-')}
                             </TableCell>
                             {/* Prowizja */}
