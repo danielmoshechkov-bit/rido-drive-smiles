@@ -73,17 +73,12 @@ export function SupportTicketsPanel() {
   const generateRepairPrompt = async (ticketId: string) => {
     setGenerating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const resp = await fetch(`https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/generate-repair-prompt`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ ticket_id: ticketId }),
+      const resp = await supabase.functions.invoke('generate-repair-prompt', {
+        body: { ticket_id: ticketId },
       });
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
+      const result = resp.data;
+      if (resp.error) throw new Error(resp.error.message || 'Błąd');
+      if (result?.error) throw new Error(result.error);
       toast.success('Prompt naprawczy wygenerowany!');
       fetchAll();
       setSelectedTicket(null);

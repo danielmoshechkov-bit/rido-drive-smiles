@@ -319,12 +319,21 @@ function DatePickerModal({
 export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
   const [policyTo, setPolicyTo] = useState<string | undefined>();
   const [inspTo, setInspTo] = useState<string | undefined>();
+  const [terminationDate, setTerminationDate] = useState<string | undefined>();
   const [policyOpen, setPolicyOpen] = useState(false);
   const [inspOpen, setInspOpen] = useState(false);
+  const [terminationOpen, setTerminationOpen] = useState(false);
 
   const load = async () => {
     setPolicyTo(await getLatestPolicyValidTo(vehicleId));
     setInspTo(await getLatestInspectionValidTo(vehicleId));
+    // Load contract termination date from vehicles table
+    const { data } = await supabase
+      .from("vehicles")
+      .select("contract_termination_date")
+      .eq("id", vehicleId)
+      .maybeSingle();
+    setTerminationDate((data as any)?.contract_termination_date || undefined);
   };
 
   useEffect(() => {
@@ -395,6 +404,32 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
         Przegląd: {formatDisplayDate(inspTo)}
       </Badge>
 
+      {/* Contract Termination */}
+      {terminationDate && (
+        <Badge 
+          className={`rounded-full cursor-pointer hover:opacity-80 ${colorFor(terminationDate)}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setTerminationOpen(true);
+          }}
+        >
+          Wypow.: {formatDisplayDate(terminationDate)}
+        </Badge>
+      )}
+      {!terminationDate && (
+        <Badge 
+          className="rounded-full cursor-pointer hover:opacity-80 bg-muted text-muted-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setTerminationOpen(true);
+          }}
+        >
+          + Wypow.
+        </Badge>
+      )}
+
       {/* Date Picker Modals */}
       <DatePickerModal
         isOpen={policyOpen}
@@ -410,6 +445,24 @@ export function ExpiryBadges({ vehicleId }: { vehicleId: string }) {
         selected={inspTo ? new Date(inspTo) : undefined}
         onSelect={(date) => saveDate("insp", date)}
         title="Data ważności przeglądu"
+      />
+
+      <DatePickerModal
+        isOpen={terminationOpen}
+        onClose={() => setTerminationOpen(false)}
+        selected={terminationDate ? new Date(terminationDate) : undefined}
+        onSelect={async (date) => {
+          const value = format(date, "yyyy-MM-dd");
+          const { error } = await supabase
+            .from("vehicles")
+            .update({ contract_termination_date: value } as any)
+            .eq("id", vehicleId);
+          if (error) return toast.error(error.message);
+          setTerminationDate(value);
+          setTerminationOpen(false);
+          toast.success("Zapisano datę wypowiedzenia");
+        }}
+        title="Data wypowiedzenia umowy"
       />
     </div>
   );
