@@ -11093,6 +11093,51 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          admin_notes: string | null
+          ai_repair_prompt: string | null
+          created_at: string
+          description: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          screenshot_urls: string[] | null
+          status: string
+          submitted_by: string
+          submitted_by_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          ai_repair_prompt?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screenshot_urls?: string[] | null
+          status?: string
+          submitted_by: string
+          submitted_by_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          ai_repair_prompt?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screenshot_urls?: string[] | null
+          status?: string
+          submitted_by?: string
+          submitted_by_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_alerts: {
         Row: {
           category: string
@@ -11226,6 +11271,27 @@ export type Database = {
           name?: string
           ryczalt_rate?: number | null
           vat_deductible_percent?: number | null
+        }
+        Relationships: []
+      }
+      ticket_chat_whitelist: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
         }
         Relationships: []
       }

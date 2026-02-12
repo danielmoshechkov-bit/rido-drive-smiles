@@ -11,13 +11,14 @@ import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
+import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
 import { EmailSettings } from '@/components/EmailSettings';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
 import { SecurityApiKeysPanel } from '@/components/admin/SecurityApiKeysPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield } from 'lucide-react';
+import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield, TicketCheck } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -87,6 +88,7 @@ export default function AdminPortal() {
 
   const tabs = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
+    { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
     { value: 'api', label: 'API i Integracje', icon: Settings },
     { value: 'security', label: 'Zabezpieczenia', icon: Shield },
     { value: 'voice', label: 'Głos i TTS', icon: Volume2 },
@@ -193,6 +195,24 @@ export default function AdminPortal() {
           {/* AI Assistant Tab */}
           <TabsContent value="ai-assistant">
             <AdminAIAssistant />
+          </TabsContent>
+
+          {/* Tickets Tab */}
+          <TabsContent value="tickets">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TicketCheck className="h-5 w-5" />
+                  Zgłoszenia i naprawy
+                </CardTitle>
+                <CardDescription>
+                  Zgłoszenia od użytkowników, generowanie promptów naprawczych AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SupportTicketsPanel />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* API & Integrations Tab */}
