@@ -21,9 +21,10 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error("Nieprawidłowy token");
 
-    // Check admin
+    // Check admin or fleet_settlement
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    if (!isAdmin) throw new Error("Brak uprawnień administratora");
+    const { data: isFleet } = await supabase.rpc("has_role", { _user_id: user.id, _role: "fleet_settlement" });
+    if (!isAdmin && !isFleet) throw new Error("Brak uprawnień administratora");
 
     const { ticket_id } = await req.json();
     if (!ticket_id) throw new Error("ticket_id jest wymagany");
