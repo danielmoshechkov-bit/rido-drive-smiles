@@ -102,38 +102,40 @@ export function FeatureTogglesManagement() {
               return acc;
             }, {} as Record<string, FeatureToggle[]>)
           ).map(([category, categoryToggles]) => (
-            <div key={category} className="space-y-4">
+            <div key={category} className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-2">
                 {CATEGORY_LABELS[category] || category}
               </h3>
-              {categoryToggles.map((toggle) => (
-                <div 
-                  key={toggle.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="space-y-1">
-                    <Label htmlFor={toggle.id} className="text-base font-medium cursor-pointer">
-                      {toggle.feature_name}
-                    </Label>
-                    {toggle.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {toggle.description}
-                      </p>
-                    )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {categoryToggles.map((toggle) => (
+                  <div 
+                    key={toggle.id} 
+                    className="flex items-center justify-between p-3 border rounded-lg gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <Label htmlFor={toggle.id} className="text-sm font-medium cursor-pointer leading-tight">
+                        {toggle.feature_name}
+                      </Label>
+                      {toggle.description && (
+                        <p className="text-xs text-muted-foreground truncate" title={toggle.description}>
+                          {toggle.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {updating === toggle.id && (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      )}
+                      <Switch
+                        id={toggle.id}
+                        checked={toggle.is_enabled}
+                        onCheckedChange={() => handleToggle(toggle)}
+                        disabled={updating === toggle.id}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {updating === toggle.id && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    <Switch
-                      id={toggle.id}
-                      checked={toggle.is_enabled}
-                      onCheckedChange={() => handleToggle(toggle)}
-                      disabled={updating === toggle.id}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ))
         )}
