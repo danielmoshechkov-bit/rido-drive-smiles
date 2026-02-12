@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus, SlidersHorizontal } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,6 +149,39 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
+  // Column visibility state for single_tax mode
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+
+  const SINGLE_TAX_COLUMNS = [
+    { key: 'uber', label: 'Uber' },
+    { key: 'uber_cash', label: 'Uber got.' },
+    { key: 'bolt', label: 'Bolt' },
+    { key: 'bolt_cash', label: 'Bolt got.' },
+    { key: 'bolt_commission', label: 'Bolt prow.' },
+    { key: 'freenow', label: 'FreeNow' },
+    { key: 'freenow_cash', label: 'FN got.' },
+    { key: 'freenow_commission', label: 'FN prow.' },
+    { key: 'total_cash', label: 'Razem got.' },
+    { key: 'total_commission', label: 'Razem prow.' },
+    { key: 'fuel', label: 'Paliwo' },
+    { key: 'vat', label: 'VAT' },
+    { key: 'vat_refund', label: 'VAT zwrot' },
+    { key: 'service_fee', label: 'Opłata' },
+    { key: 'rental', label: 'Wynajem' },
+    { key: 'payout', label: 'Wypłata' },
+    { key: 'debt', label: 'Dług' },
+    { key: 'paid', label: 'Opłacony' },
+  ];
+
+  const isColVisible = (key: string) => !hiddenColumns.has(key);
+  const toggleColumn = (key: string) => {
+    setHiddenColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const togglePaidStatus = (driverId: string) => {
     setPaidDrivers(prev => {
@@ -1974,6 +2008,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 </Select>
               </div>
               <div className="h-6 w-px bg-border hidden md:block" />
+              {/* Column visibility popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Kolumny
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" align="start">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Widoczność kolumn</p>
+                  <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                    {SINGLE_TAX_COLUMNS.map(col => (
+                      <label key={col.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                        <Checkbox
+                          checked={isColVisible(col.key)}
+                          onCheckedChange={() => toggleColumn(col.key)}
+                        />
+                        {col.label}
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <div className="h-6 w-px bg-border hidden md:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <Button 
                   variant="outline" 
@@ -2334,25 +2392,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         </>
                       ) : (
                         <>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>
+                          {isColVisible('uber') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>}
+                          {isColVisible('uber_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>}
+                          {isColVisible('bolt') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>}
+                          {isColVisible('bolt_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>}
+                          {isColVisible('bolt_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>}
+                          {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
+                          {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
+                          {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
+                          {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
+                          {isColVisible('total_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>}
                         </>
                       )}
-                      {fleetSettlementModeState !== 'dual_tax' && (
+                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
                       )}
-                      {fleetSettlementModeState !== 'dual_tax' && (
+                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('vat') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
                       )}
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>
+                      {isColVisible('vat_refund') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>}
                       {activeFees.filter(fee => {
                         // Sprawdź valid_from/valid_to
                         const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
@@ -2368,11 +2426,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       }).map(fee => (
                         <TableHead key={fee.id} className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">{fee.name}</TableHead>
                       ))}
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>
-                      <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>
-                      <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>
-                      <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>
+                      {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
+                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>}
+                      {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
+                      {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2447,51 +2505,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           </>
                         ) : (
                           <>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                            {isColVisible('uber') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                               {hasUberActivity ? formatCurrency(settlement.uber_base) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('uber_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.uber_cash, hasUberActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('bolt') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                               {hasBoltActivity ? formatCurrency(settlement.bolt_base) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('bolt_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.bolt_cash, hasBoltActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('bolt_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.bolt_commission, hasBoltActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('freenow') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                               {hasFreenowActivity ? formatCurrency(settlement.freenow_base) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('freenow_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.freenow_cash, hasFreenowActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
                               {displayValue(settlement.total_cash, hasAnyActivity, true)}
-                            </TableCell>
-                            <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                            </TableCell>}
+                            {isColVisible('total_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
                               {displayValue(settlement.total_commission, hasAnyActivity, true)}
-                            </TableCell>
+                            </TableCell>}
                           </>
                         )}
-                        {fleetSettlementModeState !== 'dual_tax' && (
+                        {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                             {displayValue(settlement.fuel, hasAnyActivity, true)}
                           </TableCell>
                         )}
-                        {fleetSettlementModeState !== 'dual_tax' && (
+                        {fleetSettlementModeState !== 'dual_tax' && isColVisible('vat') && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                             {displayValue(settlement.vat_amount, hasAnyActivity, true)}
                           </TableCell>
                         )}
-                        <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                        {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                           {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
-                        </TableCell>
+                        </TableCell>}
                         {/* Editable: additional fees (składka ZUS etc.) */}
                         {settlement.additional_fees.map((fee, idx) => (
                           <TableCell key={idx} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
@@ -2499,24 +2557,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           </TableCell>
                         ))}
                         {/* Editable: Opłata */}
-                        <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                        {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
-                        </TableCell>
+                        </TableCell>}
                         {/* Editable: Wynajem */}
-                        <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
-                        </TableCell>
+                        </TableCell>}
                         {/* Wypłata (auto-calculated) */}
-                        <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
                           {settlement.has_negative_balance && (
                             <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
                               MINUS
                             </Badge>
                           )}
-                        </TableCell>
+                        </TableCell>}
                         {/* Dług - clickable to view history */}
-                        <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                        {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
                             const debt = settlement.debt_current || 0;
                             const badgeClick = () => {
@@ -2544,9 +2602,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               </Badge>
                             );
                           })()}
-                        </TableCell>
+                        </TableCell>}
                         {/* Opłacony - toggle */}
-                        <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                        {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           <button
                             onClick={(e) => { e.stopPropagation(); togglePaidStatus(settlement.driver_id); }}
                             className="p-1 rounded hover:bg-muted transition-colors"
@@ -2558,7 +2616,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               <X className="h-4 w-4 text-red-500" />
                             )}
                           </button>
-                        </TableCell>
+                        </TableCell>}
                       </TableRow>
                     )})}
                   </TableBody>
@@ -2568,52 +2626,53 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
                       </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                      {isColVisible('uber') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
+                      </TableCell>}
+                      {isColVisible('uber_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('bolt') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('bolt_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('bolt_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('freenow') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('freenow_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('total_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
-                      </TableCell>
-                      {fleetSettlementModeState !== 'dual_tax' && (
+                      </TableCell>}
+                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel, 0))}
                         </TableCell>
                       )}
-                      {fleetSettlementModeState !== 'dual_tax' && (
+                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('vat') && (
                         <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.vat_amount, 0))}
                         </TableCell>
                       )}
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                      {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                         +{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0))}
-                      </TableCell>
+                      </TableCell>}
                       {activeFees.filter(fee => {
-                        // Ten sam filtr co w nagłówkach
                         const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
                         if ((fee as any).valid_from && new Date((fee as any).valid_from) > weekStart) return false;
                         if ((fee as any).valid_to && new Date((fee as any).valid_to) < weekStart) return false;
-                        
                         if (fee.frequency === 'weekly') return true;
                         if (fee.frequency === 'monthly') {
                           return weekStart.getDate() >= 1 && weekStart.getDate() <= 7;
@@ -2624,16 +2683,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_fees[idx]?.amount || 0), 0))}
                         </TableCell>
                       ))}
-                      <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                      {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
-                      </TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
-                      </TableCell>
-                      <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                      </TableCell>}
+                      {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                      </TableCell>
-                      <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                      </TableCell>}
+                      {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
                           const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
                           return totalDebt > 0 ? (
@@ -2646,7 +2705,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </Badge>
                           );
                         })()}
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   </TableFooter>
                 </Table>
