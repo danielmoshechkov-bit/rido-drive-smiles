@@ -85,16 +85,12 @@ const TicketChatWidget = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const resp = await fetch('https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/ticket-ai-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ description, screenshot_urls: screenshots }),
+      const resp = await supabase.functions.invoke('ticket-ai-chat', {
+        body: { description, screenshot_urls: screenshots },
       });
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
+      const result = resp.data;
+      if (resp.error) throw new Error(resp.error.message || 'Błąd');
+      if (result?.error) throw new Error(result.error);
       setMessages((prev) => [...prev, { role: 'assistant', content: result.message }]);
     } catch (e: any) {
       setMessages((prev) => [...prev, { role: 'assistant', content: `Błąd: ${e.message}` }]);

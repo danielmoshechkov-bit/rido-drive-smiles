@@ -33,22 +33,39 @@ serve(async (req) => {
     const { description, screenshot_urls } = await req.json();
     if (!description) throw new Error("Opis jest wymagany");
 
-    // Use Lovable AI to generate a thank-you response and structured ticket
+    // Get OpenAI API key from ai_settings
+    const { data: aiSettings } = await supabase
+      .from("ai_settings")
+      .select("openai_api_key_encrypted")
+      .limit(1)
+      .maybeSingle();
+
+    const openaiKey = aiSettings?.openai_api_key_encrypted;
+    
+    // Fallback to Lovable API key if no OpenAI key configured
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    
+    const useOpenAI = !!openaiKey;
+    const apiUrl = useOpenAI 
+      ? "https://api.openai.com/v1/chat/completions"
+      : "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const apiKey = useOpenAI ? openaiKey : LOVABLE_API_KEY;
+    const model = useOpenAI ? "gpt-4o" : "google/gemini-3-flash-preview";
+
+    if (!apiKey) throw new Error("Brak skonfigurowanego klucza API (OpenAI lub Lovable)");
 
     const screenshotContext = screenshot_urls?.length
       ? `\nUżytkownik załączył ${screenshot_urls.length} screenshot(ów).`
       : "";
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model,
         messages: [
           {
             role: "system",

@@ -12702,6 +12702,7 @@ export type Database = {
           brand: string
           city_id: string | null
           color: string | null
+          contract_termination_date: string | null
           created_at: string
           engine_capacity: number | null
           fleet_id: string | null
@@ -12726,6 +12727,7 @@ export type Database = {
           brand: string
           city_id?: string | null
           color?: string | null
+          contract_termination_date?: string | null
           created_at?: string
           engine_capacity?: number | null
           fleet_id?: string | null
@@ -12750,6 +12752,7 @@ export type Database = {
           brand?: string
           city_id?: string | null
           color?: string | null
+          contract_termination_date?: string | null
           created_at?: string
           engine_capacity?: number | null
           fleet_id?: string | null

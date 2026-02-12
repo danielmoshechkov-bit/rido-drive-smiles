@@ -665,8 +665,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
     setEditingCell({ driverId, field, index });
-    // Start with empty so user can type fresh value
-    setEditValue('');
+    // Show the current value so user can edit it (not zero it out)
+    setEditValue(currentValue !== 0 ? currentValue.toString() : '');
   };
 
   const commitEdit = async () => {
