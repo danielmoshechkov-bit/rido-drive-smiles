@@ -171,3 +171,9 @@ verify_jwt = false
 
 [functions.admin-ai-agent]
 verify_jwt = false
+
+[functions.ticket-ai-chat]
+verify_jwt = false
+
+[functions.generate-repair-prompt]
+verify_jwt = false

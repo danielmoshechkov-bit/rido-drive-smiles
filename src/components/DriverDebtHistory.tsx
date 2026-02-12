@@ -31,9 +31,12 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
   const [currentDebt, setCurrentDebt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showAddDebtForm, setShowAddDebtForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [debtAmount, setDebtAmount] = useState('');
+  const [debtNote, setDebtNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -77,13 +80,24 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
     try {
       const newBalance = Math.max(0, currentDebt - amount);
       
-      // Update debt balance
-      await supabase
+      // Update or create debt balance
+      const { data: existing } = await supabase
         .from('driver_debts')
-        .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('driver_id', driverId);
+        .select('id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('driver_debts')
+          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('driver_id', driverId);
+      } else {
+        await supabase
+          .from('driver_debts')
+          .insert({ driver_id: driverId, current_balance: newBalance });
+      }
       
-      // Add transaction record
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
       await supabase
         .from('driver_debt_transactions')
@@ -107,6 +121,62 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
     } catch (err) {
       console.error('Error recording payment:', err);
       toast.error('Błąd rejestracji wpłaty');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddDebt = async () => {
+    const amount = parseFloat(debtAmount.replace(',', '.'));
+    if (!amount || amount <= 0) {
+      toast.error('Wprowadź poprawną kwotę');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const newBalance = currentDebt + amount;
+
+      const { data: existing } = await supabase
+        .from('driver_debts')
+        .select('id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('driver_debts')
+          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('driver_id', driverId);
+      } else {
+        await supabase
+          .from('driver_debts')
+          .insert({ driver_id: driverId, current_balance: newBalance });
+      }
+
+      const dateVal = new Date().toISOString().split('T')[0];
+      await supabase
+        .from('driver_debt_transactions')
+        .insert({
+          driver_id: driverId,
+          type: 'debt_increase',
+          amount: amount,
+          balance_before: currentDebt,
+          balance_after: newBalance,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: debtNote || 'Dług dodany ręcznie'
+        });
+
+      toast.success(`Dług ${amount.toFixed(2)} zł dodany`);
+      setDebtAmount('');
+      setDebtNote('');
+      setShowAddDebtForm(false);
+      await fetchDebtData();
+      onDebtChanged?.();
+    } catch (err) {
+      console.error('Error adding debt:', err);
+      toast.error('Błąd dodawania długu');
     } finally {
       setSaving(false);
     }
@@ -143,57 +213,102 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Payment form */}
-        {currentDebt > 0 && (
-          <div>
-            {!showPaymentForm ? (
+        {/* Action buttons - always show */}
+        <div className="flex gap-2">
+          {!showPaymentForm && !showAddDebtForm && (
+            <>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setShowPaymentForm(true)}
-                className="gap-2 w-full"
+                onClick={() => setShowAddDebtForm(true)}
+                className="gap-2 flex-1"
               >
-                <Plus className="h-4 w-4" />
-                Zarejestruj wpłatę
+                <TrendingDown className="h-4 w-4 text-destructive" />
+                Dodaj dług
               </Button>
-            ) : (
-              <div className="p-3 rounded-lg border bg-green-50 border-green-200 space-y-3">
-                <Label className="text-sm font-medium">Wpłata na poczet długu</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Kwota (np. 200)"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="flex-1"
-                  />
-                  <span className="flex items-center text-sm text-muted-foreground">zł</span>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Notatka (opcjonalnie)"
-                    value={paymentNote}
-                    onChange={(e) => setPaymentNote(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-[140px]"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handlePayment} disabled={saving}>
-                    {saving ? 'Zapisywanie...' : 'Zapisz wpłatę'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setShowPaymentForm(false)}>
-                    Anuluj
-                  </Button>
-                </div>
-              </div>
-            )}
+              {currentDebt > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowPaymentForm(true)}
+                  className="gap-2 flex-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Zarejestruj wpłatę
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Add debt form */}
+        {showAddDebtForm && (
+          <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3">
+            <Label className="text-sm font-medium">Dodaj dług</Label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Kwota (np. 200)"
+                value={debtAmount}
+                onChange={(e) => setDebtAmount(e.target.value)}
+                className="flex-1"
+              />
+              <span className="flex items-center text-sm text-muted-foreground">zł</span>
+            </div>
+            <Input
+              type="text"
+              placeholder="Notatka (opcjonalnie)"
+              value={debtNote}
+              onChange={(e) => setDebtNote(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" onClick={handleAddDebt} disabled={saving}>
+                {saving ? 'Zapisywanie...' : 'Dodaj dług'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowAddDebtForm(false)}>
+                Anuluj
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Payment form */}
+        {showPaymentForm && (
+          <div className="p-3 rounded-lg border border-green-200 bg-green-50 space-y-3">
+            <Label className="text-sm font-medium">Wpłata na poczet długu</Label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Kwota (np. 200)"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="flex-1"
+              />
+              <span className="flex items-center text-sm text-muted-foreground">zł</span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Notatka (opcjonalnie)"
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className="w-[140px]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handlePayment} disabled={saving}>
+                {saving ? 'Zapisywanie...' : 'Zapisz wpłatę'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowPaymentForm(false)}>
+                Anuluj
+              </Button>
+            </div>
           </div>
         )}
 
