@@ -112,12 +112,45 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         .in("owner_id", ownerIds)
         .eq("is_settled", false);
 
+      // Also calculate owed amounts from actual settlements (rental deductions from drivers)
+      // This ensures "My winni" reflects what was actually deducted from drivers for owner's vehicles
+      const { data: recentSettlements } = await supabase
+        .from("settlements")
+        .select("driver_id, rental_fee, period_from, period_to")
+        .in("driver_id", driverIds.length > 0 ? driverIds : ['__none__'])
+        .gt("rental_fee", 0);
+
+      // Map driver → vehicle → owner rental deductions
+      const assignmentDriverVehicle = new Map<string, string>();
+      ((assignmentsData as any[]) || []).forEach((a: any) => {
+        assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
+      });
+
+      const vehicleOwnerMap = new Map<string, string>();
+      (vehiclesData || []).forEach((v: any) => {
+        vehicleOwnerMap.set(v.id, v.owner_id);
+      });
+
+      // Calculate total rental collected per owner from settlements
+      const ownerSettlementTotals = new Map<string, number>();
+      (recentSettlements || []).forEach((s: any) => {
+        const vehicleId = assignmentDriverVehicle.get(s.driver_id);
+        if (!vehicleId) return;
+        const ownerId = vehicleOwnerMap.get(vehicleId);
+        if (!ownerId) return;
+        const rentalFee = parseFloat(s.rental_fee?.toString() || "0");
+        ownerSettlementTotals.set(ownerId, (ownerSettlementTotals.get(ownerId) || 0) + rentalFee);
+      });
+
       // Build summary
       const summaries: OwnerSummary[] = (ownersData as any[]).map(owner => {
         const ownerVehicles = (vehiclesData || []).filter((v: any) => v.owner_id === owner.id);
         const ownerCharges = ((chargesData as any[]) || []).filter(c => c.owner_id === owner.id);
         const totalWeekly = ownerVehicles.reduce((sum: number, v: any) => sum + (parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0")), 0);
-        const totalOwed = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
+        const chargesOwed = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
+        // Use settlement-based total if charges are empty (fallback)
+        const settlementOwed = ownerSettlementTotals.get(owner.id) || 0;
+        const totalOwed = chargesOwed > 0 ? chargesOwed : settlementOwed;
 
         return {
           owner_id: owner.id,
