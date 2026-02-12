@@ -198,7 +198,7 @@ export function BankTransferExportDialog({
       const { data: driversData } = await supabase
         .from('drivers')
         .select(`
-          id, first_name, last_name, iban, payment_method, billing_method,
+          id, first_name, last_name, iban, bank_account, payment_method, billing_method,
           driver_app_users!left(settlement_frequency, payout_requested_at)
         `)
         .eq('fleet_id', fleetId);
@@ -230,11 +230,16 @@ export function BankTransferExportDialog({
         return;
       }
 
-      // Check for missing bank accounts
+      // Check for missing bank accounts (check both iban and bank_account fields)
+      const getDriverIban = (driver: any) => {
+        const iban = (driver?.iban || '').replace(/\s/g, '');
+        const bankAccount = (driver?.bank_account || '').replace(/\s/g, '');
+        return iban.length >= 20 ? iban : (bankAccount.length >= 20 ? bankAccount : '');
+      };
+
       const driversWithoutIban = transferDrivers.filter(s => {
         const driver = driverMap.get(s.driver_id);
-        const iban = (driver?.iban || '').replace(/\s/g, '');
-        return !iban || iban.length < 20;
+        return !getDriverIban(driver);
       });
 
       if (driversWithoutIban.length > 0 && !showMissingAccounts) {
@@ -260,13 +265,13 @@ export function BankTransferExportDialog({
           if (ma.switchToCash) {
             await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', ma.id);
           } else if (ma.iban.replace(/\s/g, '').length >= 20) {
-            await supabase.from('drivers').update({ iban: ma.iban }).eq('id', ma.id);
+            await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
           }
         }
         // Re-fetch drivers
         const { data: updatedDrivers } = await supabase
           .from('drivers')
-          .select('id, first_name, last_name, iban, payment_method, billing_method, driver_app_users!left(settlement_frequency, payout_requested_at)')
+          .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, driver_app_users!left(settlement_frequency, payout_requested_at)')
           .eq('fleet_id', fleetId);
         if (updatedDrivers) {
           driversData.length = 0;
@@ -281,8 +286,7 @@ export function BankTransferExportDialog({
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
         if (driver.payment_method !== 'transfer') return false;
-        const iban = (driver?.iban || '').replace(/\s/g, '');
-        return iban && iban.length >= 20;
+        return !!getDriverIban(driver);
       });
 
       if (finalTransferDrivers.length === 0) {
@@ -301,8 +305,8 @@ export function BankTransferExportDialog({
 
       finalTransferDrivers.forEach(s => {
         const driver = driverMap.get(s.driver_id);
-        const iban = (driver?.iban || '').replace(/\s/g, '');
-        const amount = bank.amountFormat === 'comma' 
+        const iban = getDriverIban(driver);
+        const amount = bank.amountFormat === 'comma'
           ? s.final_payout.toFixed(2).replace('.', ',')
           : s.final_payout.toFixed(2);
         
@@ -426,7 +430,7 @@ export function BankTransferExportDialog({
                         // Auto-save IBAN when valid (26+ digits)
                         const cleanIban = ma.iban.replace(/\s/g, '');
                         if (cleanIban.length >= 20 && !ma.switchToCash) {
-                          await supabase.from('drivers').update({ iban: ma.iban }).eq('id', ma.id);
+                          await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
                         }
                       }}
                       disabled={ma.switchToCash}

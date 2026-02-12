@@ -993,9 +993,10 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               <InlineEdit
                                 value={(driver as any).bank_account || ''}
                                 onSave={async (value) => {
+                                  const cleanValue = value.trim() || null;
                                   const { error } = await supabase
                                     .from('drivers')
-                                    .update({ bank_account: value.trim() || null } as any)
+                                    .update({ bank_account: cleanValue, iban: cleanValue } as any)
                                     .eq('id', driver.id);
                                   if (error) toast.error('Błąd zapisu');
                                   else {
