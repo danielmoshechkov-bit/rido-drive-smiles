@@ -10815,7 +10815,9 @@ export type Database = {
           debt_payment: number | null
           driver_id: string
           id: string
+          is_paid: boolean | null
           net_amount: number | null
+          paid_at: string | null
           period_from: string | null
           period_to: string | null
           platform: string
@@ -10839,7 +10841,9 @@ export type Database = {
           debt_payment?: number | null
           driver_id: string
           id?: string
+          is_paid?: boolean | null
           net_amount?: number | null
+          paid_at?: string | null
           period_from?: string | null
           period_to?: string | null
           platform: string
@@ -10863,7 +10867,9 @@ export type Database = {
           debt_payment?: number | null
           driver_id?: string
           id?: string
+          is_paid?: boolean | null
           net_amount?: number | null
+          paid_at?: string | null
           period_from?: string | null
           period_to?: string | null
           platform?: string
@@ -12414,6 +12420,7 @@ export type Database = {
           name: string
           nip: string | null
           notes: string | null
+          payment_method: string | null
           phone: string | null
           updated_at: string
         }
@@ -12427,6 +12434,7 @@ export type Database = {
           name: string
           nip?: string | null
           notes?: string | null
+          payment_method?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -12440,6 +12448,7 @@ export type Database = {
           name?: string
           nip?: string | null
           notes?: string | null
+          payment_method?: string | null
           phone?: string | null
           updated_at?: string
         }

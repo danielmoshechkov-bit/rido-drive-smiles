@@ -183,13 +183,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     });
   };
 
-  const togglePaidStatus = (driverId: string) => {
+  const togglePaidStatus = async (driverId: string) => {
+    const newPaid = !paidDrivers.has(driverId);
     setPaidDrivers(prev => {
       const next = new Set(prev);
-      if (next.has(driverId)) next.delete(driverId);
-      else next.add(driverId);
+      if (newPaid) next.add(driverId);
+      else next.delete(driverId);
       return next;
     });
+    // Persist to DB
+    try {
+      const currentWeekData = weeks.find(w => w.number === selectedWeek);
+      if (!currentWeekData) return;
+      await supabase
+        .from('settlements')
+        .update({ is_paid: newPaid, paid_at: newPaid ? new Date().toISOString() : null } as any)
+        .eq('driver_id', driverId)
+        .gte('period_from', currentWeekData.start)
+        .lte('period_to', currentWeekData.end);
+    } catch (e) {
+      console.error('Error saving paid status:', e);
+    }
   };
 
   const markTransferDriversPaid = (driverIds: string[]) => {
@@ -821,9 +835,26 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     if (fleetId && selectedWeek !== null) {
       fetchSettlements();
       checkForNewRecordsAfterLoad();
-      setPaidDrivers(new Set()); // Reset payment status on week change
+      loadPaidStatus();
     }
   }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId]);
+
+  const loadPaidStatus = async () => {
+    const currentWeekData = weeks.find(w => w.number === selectedWeek);
+    if (!currentWeekData) { setPaidDrivers(new Set()); return; }
+    try {
+      const { data } = await (supabase
+        .from('settlements')
+        .select('driver_id, is_paid') as any)
+        .gte('period_from', currentWeekData.start)
+        .lte('period_to', currentWeekData.end)
+        .eq('is_paid', true);
+      const paidSet = new Set<string>((data || []).map((d: any) => d.driver_id as string));
+      setPaidDrivers(paidSet);
+    } catch (e) {
+      setPaidDrivers(new Set());
+    }
+  };
 
   useEffect(() => {
     // For admin, default to "my" (Przychód firmy)
@@ -2375,7 +2406,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Brutto</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">{fleetVatRateState + fleetAdditionalPercentRateState}%</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Pob. gotówka</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Napiwki</TableHead>
+                          
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Bonusy ({fleetSecondaryVatRateState}%)</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja ({fleetSecondaryVatRateState}%)</TableHead>
                           <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp.</TableHead>
@@ -2466,10 +2497,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             {/* Pob. gotówka */}
                             <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                               {displayValue(settlement.total_cash, hasAnyActivity, true)}
-                            </TableCell>
-                            {/* Napiwki */}
-                            <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                              {(settlement.bolt_tips || 0) > 0 ? formatCurrency(settlement.bolt_tips || 0) : (hasAnyActivity ? '0,00' : '-')}
                             </TableCell>
                             {/* Bonusy (23%) */}
                             <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
