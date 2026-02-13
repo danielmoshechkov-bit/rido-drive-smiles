@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { RidoAssistantWidget } from "@/components/ai/RidoAssistantWidget";
+import TicketChatWidget from "@/components/TicketChatWidget";
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
 import Index from "./pages/Index";
@@ -155,6 +156,8 @@ const App = () => (
               </Routes>
               {/* Global AI Assistant Widget */}
               <RidoAssistantWidget />
+              {/* Global Ticket Chat Widget */}
+              <TicketChatWidget />
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
             </CompareProvider>

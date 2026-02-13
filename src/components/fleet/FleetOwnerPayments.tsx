@@ -25,7 +25,9 @@ interface OwnerSummary {
   owner_name: string;
   company_name: string | null;
   phone: string | null;
+  email: string | null;
   bank_account: string | null;
+  payment_method: string | null;
   vehicles: {
     id: string;
     plate: string;
@@ -63,7 +65,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       // Get all owners for this fleet
       const { data: ownersData } = await supabase
         .from("vehicle_owners" as any)
-        .select("id, name, company_name, phone, bank_account")
+        .select("id, name, company_name, phone, email, bank_account, payment_method")
         .eq("fleet_id", fleetId)
         .order("name");
 
@@ -112,6 +114,14 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         .in("owner_id", ownerIds)
         .eq("is_settled", false);
 
+      // Check if ANY charges exist (settled or not) to decide fallback
+      const { data: allChargesData } = await supabase
+        .from("vehicle_owner_charges" as any)
+        .select("owner_id")
+        .in("owner_id", ownerIds)
+        .limit(1000);
+      const ownersWithCharges = new Set(((allChargesData as any[]) || []).map((c: any) => c.owner_id));
+
       // Also calculate owed amounts from actual settlements (rental deductions from drivers)
       // This ensures "My winni" reflects what was actually deducted from drivers for owner's vehicles
       const { data: recentSettlements } = await supabase
@@ -148,16 +158,20 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         const ownerCharges = ((chargesData as any[]) || []).filter(c => c.owner_id === owner.id);
         const totalWeekly = ownerVehicles.reduce((sum: number, v: any) => sum + (parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0")), 0);
         const chargesOwed = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
-        // Use settlement-based total if charges are empty (fallback)
+        // Use settlement-based total ONLY if no charges exist at all for this owner (fallback)
+        // If charges exist (even settled ones), use charges-based total (which may be 0 = fully settled)
+        const hasAnyCharges = ownersWithCharges.has(owner.id);
         const settlementOwed = ownerSettlementTotals.get(owner.id) || 0;
-        const totalOwed = chargesOwed > 0 ? chargesOwed : settlementOwed;
+        const totalOwed = hasAnyCharges ? chargesOwed : settlementOwed;
 
         return {
           owner_id: owner.id,
           owner_name: owner.name,
           company_name: owner.company_name,
           phone: owner.phone,
+          email: owner.email,
           bank_account: owner.bank_account,
+          payment_method: owner.payment_method,
           vehicles: ownerVehicles.map((v: any) => {
             const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
             const vehicleCharges = ownerCharges.filter((c: any) => c.vehicle_id === v.id);
@@ -218,14 +232,36 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     if (!confirm("Czy na pewno chcesz oznaczyć jako rozliczone? Suma się wyzeruje.")) return;
 
     try {
-      const { error } = await supabase
+      // Mark existing unsettled charges as settled
+      await supabase
         .from("vehicle_owner_charges" as any)
         .update({ is_settled: true, settled_at: new Date().toISOString() })
         .eq("owner_id", ownerId)
         .eq("fleet_id", fleetId)
         .eq("is_settled", false);
 
-      if (error) throw error;
+      // Also insert a "settled" marker to prevent fallback calculation from showing old amounts
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + 1);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      await supabase
+        .from("vehicle_owner_charges" as any)
+        .insert([{
+          fleet_id: fleetId,
+          owner_id: ownerId,
+          vehicle_id: null,
+          week_start: weekStart.toISOString().split("T")[0],
+          week_end: weekEnd.toISOString().split("T")[0],
+          amount: 0,
+          adjustment: 0,
+          adjustment_note: "Rozliczenie - wyzerowano saldo",
+          is_settled: true,
+          settled_at: new Date().toISOString(),
+        }]);
+
       toast.success("Rozliczone!");
       fetchOwnerData();
     } catch (error: any) {
@@ -421,10 +457,16 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                 )}
 
                 {owner.phone && (
-                  <p className="text-xs text-muted-foreground mt-3">Tel: {owner.phone}</p>
+                  <p className="text-xs text-muted-foreground mt-3">📱 Tel: {owner.phone}</p>
+                )}
+                {owner.email && (
+                  <p className="text-xs text-muted-foreground">📧 Email: {owner.email}</p>
                 )}
                 {owner.bank_account && (
-                  <p className="text-xs text-muted-foreground">Konto: {owner.bank_account}</p>
+                  <p className="text-xs text-muted-foreground">🏦 Konto: {owner.bank_account}</p>
+                )}
+                {owner.payment_method && (
+                  <p className="text-xs text-muted-foreground">💳 Rozliczenie: {owner.payment_method === 'przelew' ? 'Przelew' : 'Gotówka'}</p>
                 )}
               </CardContent>
             </CollapsibleContent>

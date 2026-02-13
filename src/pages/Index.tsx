@@ -11,7 +11,7 @@ import Kontakt from "@/components/Kontakt";
 import SEOSection from "@/components/SEOSection";
 import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
-import TicketChatWidget from "@/components/TicketChatWidget";
+
 import CallButton from "@/components/CallButton";
 import CookieBanner from "@/components/CookieBanner";
 
@@ -33,7 +33,7 @@ const Index = () => {
       </main>
       <Footer />
       <ChatWidget />
-      <TicketChatWidget />
+      
       <CallButton />
       <CookieBanner />
     </div>
