@@ -325,7 +325,7 @@ export default function MarketplaceDashboard() {
       if (isFleetAccount) {
         navigate("/fleet/dashboard");
       } else {
-        toast.info("Rejestracja floty - wkrótce dostępna");
+        navigate("/fleet/rejestracja");
       }
     } else {
       // Already on marketplace
@@ -832,7 +832,7 @@ export default function MarketplaceDashboard() {
             ) : (
               <Card 
                 className="cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => toast.info("Rejestracja floty - wkrótce dostępna")}
+                onClick={() => navigate("/fleet/rejestracja")}
               >
                 <CardContent className="p-4 flex items-center gap-3">
                   <Truck className="h-6 w-6 text-muted-foreground" />
