@@ -20,6 +20,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilderWizard';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
+import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
@@ -595,45 +596,7 @@ export default function ServiceProviderDashboard() {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader><CardTitle>Ustawienia konta</CardTitle><CardDescription>Dane kontaktowe i informacje o firmie</CardDescription></CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Typ konta</Label>
-                  <Select value={settingsForm.business_type} onValueChange={v => setSettingsForm(p => ({ ...p, business_type: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="firma">Firma</SelectItem>
-                      <SelectItem value="osoba">Osoba prywatna</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {settingsForm.business_type === 'firma' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Nazwa firmy</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm(p => ({ ...p, company_name: e.target.value }))} /></div>
-                    <div className="space-y-2"><Label>NIP</Label><Input value={settingsForm.nip} onChange={e => setSettingsForm(p => ({ ...p, nip: e.target.value }))} placeholder="0000000000" /></div>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Imię</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm(p => ({ ...p, first_name: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Nazwisko</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm(p => ({ ...p, last_name: e.target.value }))} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm(p => ({ ...p, email: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Telefon</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm(p => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2"><Label>Adres</Label><Input value={settingsForm.address} onChange={e => setSettingsForm(p => ({ ...p, address: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Miasto</Label><Input value={settingsForm.city} onChange={e => setSettingsForm(p => ({ ...p, city: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Kod pocztowy</Label><Input value={settingsForm.postal_code} onChange={e => setSettingsForm(p => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" /></div>
-                </div>
-                <div className="space-y-2"><Label>Strona WWW</Label><Input value={settingsForm.website} onChange={e => setSettingsForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
-                <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm(p => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
-                <div className="flex justify-end">
-                  <Button className="gap-2" onClick={() => toast.success('Ustawienia zapisane')}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
           </TabsContent>
 
           {/* Workshop Tab */}
