@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -12,7 +15,11 @@ import {
   Grid3X3,
   LayoutGrid,
   Clock,
-  Loader2
+  Loader2,
+  Monitor,
+  Trash2,
+  UserPlus,
+  X
 } from "lucide-react";
 import { format, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isToday, isSameMonth, getHours, getMinutes, differenceInMinutes, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -26,7 +33,18 @@ import { CalendarEventDialog } from "./CalendarEventDialog";
 
 type ViewType = "day" | "week" | "month" | "agenda";
 
-const HOUR_HEIGHT = 60; // piksele na godzinę
+interface Workstation {
+  id: string;
+  name: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  workstation_id?: string;
+}
+
+const HOUR_HEIGHT = 60;
 const START_HOUR = 6;
 const END_HOUR = 22;
 
@@ -37,6 +55,15 @@ export function CalendarView() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
 
+  // Workstations & employees
+  const [workstations, setWorkstations] = useState<Workstation[]>([]);
+  const [selectedWorkstation, setSelectedWorkstation] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showAddWorkstation, setShowAddWorkstation] = useState(false);
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [newWorkstationName, setNewWorkstationName] = useState("");
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+
   const { data: calendar, isLoading: calendarLoading } = useDefaultCalendar();
   const calendarIds = calendar ? [calendar.id] : [];
   
@@ -45,6 +72,32 @@ export function CalendarView() {
     view,
     currentDate
   );
+
+  const addWorkstation = () => {
+    if (!newWorkstationName.trim()) return;
+    const ws: Workstation = { id: crypto.randomUUID(), name: newWorkstationName.trim() };
+    setWorkstations(prev => [...prev, ws]);
+    if (!selectedWorkstation) setSelectedWorkstation(ws.id);
+    setNewWorkstationName("");
+    setShowAddWorkstation(false);
+  };
+
+  const removeWorkstation = (id: string) => {
+    setWorkstations(prev => prev.filter(w => w.id !== id));
+    if (selectedWorkstation === id) setSelectedWorkstation(workstations.find(w => w.id !== id)?.id || null);
+  };
+
+  const addEmployee = () => {
+    if (!newEmployeeName.trim()) return;
+    const emp: Employee = { id: crypto.randomUUID(), name: newEmployeeName.trim(), workstation_id: selectedWorkstation || undefined };
+    setEmployees(prev => [...prev, emp]);
+    setNewEmployeeName("");
+    setShowAddEmployee(false);
+  };
+
+  const removeEmployee = (id: string) => {
+    setEmployees(prev => prev.filter(e => e.id !== id));
+  };
 
   const navigatePrev = () => {
     switch (view) {
@@ -380,7 +433,50 @@ export function CalendarView() {
 
   return (
     <Card className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
-      <CardHeader className="flex-shrink-0 pb-2">
+      <CardHeader className="flex-shrink-0 pb-2 space-y-3">
+        {/* Workstation tabs */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Monitor className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground mr-1">Stanowiska:</span>
+          {workstations.length === 0 ? (
+            <span className="text-xs text-muted-foreground">Brak stanowisk</span>
+          ) : (
+            workstations.map(ws => (
+              <Button
+                key={ws.id}
+                variant={selectedWorkstation === ws.id ? "default" : "outline"}
+                size="sm"
+                className="gap-1 h-7 text-xs"
+                onClick={() => setSelectedWorkstation(ws.id)}
+              >
+                {ws.name}
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeWorkstation(ws.id); }}
+                  className="ml-1 opacity-50 hover:opacity-100"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Button>
+            ))
+          )}
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddWorkstation(true)}>
+            <Plus className="h-3 w-3" /> Dodaj stanowisko
+          </Button>
+          <div className="border-l pl-2 ml-2">
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddEmployee(true)}>
+              <UserPlus className="h-3 w-3" /> Pracownik
+            </Button>
+          </div>
+          {employees.filter(e => !selectedWorkstation || e.workstation_id === selectedWorkstation).map(emp => (
+            <Badge key={emp.id} variant="secondary" className="gap-1 text-xs">
+              {emp.name}
+              <button onClick={() => removeEmployee(emp.id)} className="opacity-50 hover:opacity-100">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+
         <div className="flex items-center justify-between flex-wrap gap-2">
           {/* Navigation */}
           <div className="flex items-center gap-2">
@@ -465,6 +561,36 @@ export function CalendarView() {
         defaultEnd={selectedSlot?.end}
         calendarId={calendar?.id || ""}
       />
+
+      {/* Add Workstation Dialog */}
+      <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Label>Nazwa stanowiska</Label>
+            <Input value={newWorkstationName} onChange={e => setNewWorkstationName(e.target.value)} placeholder="np. Podnośnik 1, Stanowisko detailing" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
+            <Button onClick={addWorkstation} disabled={!newWorkstationName.trim()}>Dodaj</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Employee Dialog */}
+      <Dialog open={showAddEmployee} onOpenChange={setShowAddEmployee}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Dodaj pracownika</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Label>Imię i nazwisko</Label>
+            <Input value={newEmployeeName} onChange={e => setNewEmployeeName(e.target.value)} placeholder="np. Jan Kowalski" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddEmployee(false)}>Anuluj</Button>
+            <Button onClick={addEmployee} disabled={!newEmployeeName.trim()}>Dodaj</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

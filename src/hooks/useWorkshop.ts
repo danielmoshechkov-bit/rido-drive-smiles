@@ -9,13 +9,16 @@ export function useWorkshopProviderId() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
         .single();
+      if (error) throw error;
       return data?.id as string;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 }
 
