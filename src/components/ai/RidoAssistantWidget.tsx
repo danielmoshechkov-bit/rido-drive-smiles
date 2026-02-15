@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { 
-  MessageCircle, X, Send, Loader2, Upload, Image as ImageIcon, CheckCircle
+  MessageCircle, X, Send, Loader2, Upload, Image as ImageIcon, CheckCircle, Lock, ZoomIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface RidoAssistantWidgetProps {
   defaultOpen?: boolean;
@@ -14,14 +15,15 @@ interface RidoAssistantWidgetProps {
 
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [isAllowed, setIsAllowed] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAllowed, setIsAllowed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -137,8 +139,8 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
     setSent(false);
   };
 
-  // Must be logged in AND on the whitelist
-  if (!isLoggedIn || !isAllowed) return null;
+  // Determine if user can submit
+  const canSubmit = isLoggedIn && isAllowed;
 
   return (
     <>
@@ -163,7 +165,23 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
             </Button>
           </div>
 
-          {sent ? (
+          {!canSubmit ? (
+            /* BLOCKED STATE - not logged in or not on whitelist */
+            <div className="p-8 text-center space-y-4">
+              <Lock className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+              <div>
+                <p className="font-semibold text-lg">Funkcja chwilowo wyłączona</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Pracujemy nad systemem zgłoszeń. Niedługo uruchomimy tę funkcję dla wszystkich użytkowników.
+                </p>
+                {!isLoggedIn && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Zaloguj się, aby sprawdzić dostęp.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : sent ? (
             <div className="p-8 text-center space-y-4">
               <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
               <div>
@@ -211,17 +229,34 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
                 />
               </div>
 
+              {/* Photo thumbnails with preview */}
               {attachedFiles.length > 0 && (
-                <div className="space-y-2">
-                  {attachedFiles.map((file, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm bg-muted rounded-lg px-3 py-2">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate flex-1">{file.name}</span>
-                      <button onClick={() => removeFile(idx)} className="text-destructive hover:text-destructive/80">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="flex gap-2 flex-wrap">
+                  {attachedFiles.map((file, idx) => {
+                    const url = URL.createObjectURL(file);
+                    return (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={url}
+                          className="h-16 w-16 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                          alt={file.name}
+                          onClick={() => setPreviewImage(url)}
+                        />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                          className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full h-4 w-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => setPreviewImage(url)}
+                          className="absolute bottom-0 right-0 bg-background/80 rounded-tl p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <ZoomIn className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -241,6 +276,15 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
           )}
         </div>
       )}
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-2xl p-2">
+          {previewImage && (
+            <img src={previewImage} className="w-full rounded" alt="Podgląd" />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

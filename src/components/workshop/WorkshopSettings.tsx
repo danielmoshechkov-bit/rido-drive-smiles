@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useWorkshopStatuses } from '@/hooks/useWorkshop';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Settings, Building2, FileText, Mail, Palette,
   CreditCard, Calendar, Users, Wrench, ClipboardList, Package,
-  Plus, Trash2, GripVertical, Save
+  Plus, Trash2, GripVertical, Save, Loader2
 } from 'lucide-react';
 
 interface Props {
@@ -159,8 +163,8 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
 
       {sectionKey === 'dane-firmy' && <CompanyDataSettings />}
       {sectionKey === 'w-statusy' && <StatusSettings statuses={statuses} />}
-      {sectionKey === 'w-stanowiska' && <WorkstationSettings />}
-      {sectionKey === 'w-pracownicy' && <WorkerSettings />}
+      {sectionKey === 'w-stanowiska' && <WorkstationSettings providerId={providerId} />}
+      {sectionKey === 'w-pracownicy' && <WorkerSettings providerId={providerId} />}
       {sectionKey === 'w-godziny' && <WorkingHoursSettings />}
       {sectionKey === 'karta-zlecenia' && <OrderCardSettings />}
 
@@ -272,62 +276,262 @@ function StatusSettings({ statuses }: { statuses: any[] }) {
   );
 }
 
-function WorkstationSettings() {
+// ---- FUNCTIONAL Workstation Settings ----
+function WorkstationSettings({ providerId }: { providerId: string }) {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState('');
+
+  const { data: workstations = [], isLoading } = useQuery({
+    queryKey: ['workshop-workstations', providerId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_workstations')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from('workshop_workstations')
+        .insert({ provider_id: providerId, name, is_active: true });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      toast.success('Stanowisko dodane');
+      setDialogOpen(false);
+      setName('');
+    },
+    onError: (e: any) => {
+      console.error('Workstation add error:', e);
+      toast.error('Błąd: ' + e.message);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('workshop_workstations')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      toast.success('Stanowisko usunięte');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
           Dodaj stanowiska pracy (podnośniki, stanowiska detailingowe itp.) widoczne w terminarzu.
         </p>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>NAZWA STANOWISKA</TableHead>
-              <TableHead>TYP</TableHead>
-              <TableHead>AKTYWNE</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                Brak stanowisk — dodaj pierwsze stanowisko
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Dodaj stanowisko</Button>
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>NAZWA STANOWISKA</TableHead>
+                <TableHead>AKTYWNE</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {workstations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    Brak stanowisk — dodaj pierwsze stanowisko
+                  </TableCell>
+                </TableRow>
+              ) : (
+                workstations.map((ws: any) => (
+                  <TableRow key={ws.id}>
+                    <TableCell className="font-medium">{ws.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={ws.is_active ? 'default' : 'secondary'}>
+                        {ws.is_active ? 'Tak' : 'Nie'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(ws.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+        <Button variant="outline" className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4" /> Dodaj stanowisko
+        </Button>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nazwa stanowiska *</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Podnośnik 1, Stanowisko detailing" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
+              <Button onClick={() => addMut.mutate()} disabled={!name.trim() || addMut.isPending}>
+                {addMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Dodaj
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
 }
 
-function WorkerSettings() {
+// ---- FUNCTIONAL Worker Settings ----
+function WorkerSettings({ providerId }: { providerId: string }) {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [empName, setEmpName] = useState('');
+  const [phone, setPhone] = useState('');
+
+  const { data: employees = [], isLoading } = useQuery({
+    queryKey: ['workshop-employees', providerId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_employees')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from('workshop_employees')
+        .insert({
+          provider_id: providerId,
+          name: empName,
+          phone: phone || null,
+          is_active: true,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-employees'] });
+      toast.success('Pracownik dodany');
+      setDialogOpen(false);
+      setEmpName('');
+      setPhone('');
+    },
+    onError: (e: any) => {
+      console.error('Employee add error:', e);
+      toast.error('Błąd: ' + e.message);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('workshop_employees')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-employees'] });
+      toast.success('Pracownik usunięty');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
           Lista mechaników i pracowników warsztatu. Przypisywanie do zleceń i stanowisk.
         </p>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>IMIĘ I NAZWISKO</TableHead>
-              <TableHead>STANOWISKO</TableHead>
-              <TableHead>TELEFON</TableHead>
-              <TableHead>AKTYWNY</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                Brak pracowników — dodaj pierwszego pracownika
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Dodaj pracownika</Button>
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>IMIĘ I NAZWISKO</TableHead>
+                <TableHead>TELEFON</TableHead>
+                <TableHead>AKTYWNY</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {employees.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    Brak pracowników — dodaj pierwszego pracownika
+                  </TableCell>
+                </TableRow>
+              ) : (
+                employees.map((emp: any) => (
+                  <TableRow key={emp.id}>
+                    <TableCell className="font-medium">{emp.name}</TableCell>
+                    <TableCell>{emp.phone || '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant={emp.is_active ? 'default' : 'secondary'}>
+                        {emp.is_active ? 'Tak' : 'Nie'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(emp.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+        <Button variant="outline" className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4" /> Dodaj pracownika
+        </Button>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Dodaj pracownika</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Imię i nazwisko *</Label>
+                <Input value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Jan Kowalski" />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 000 000 000" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
+              <Button onClick={() => addMut.mutate()} disabled={!empName.trim() || addMut.isPending}>
+                {addMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Dodaj
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
