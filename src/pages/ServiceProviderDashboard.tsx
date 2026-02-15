@@ -208,38 +208,48 @@ export default function ServiceProviderDashboard() {
   });
 
   const handleSaveService = async () => {
-    if (!serviceForm.name || !providerId) return;
+    if (!serviceForm.name || !providerId) {
+      toast.error('Podaj nazwę usługi');
+      return;
+    }
 
-    // Upload photos
-    const photoUrls: string[] = editingService?.photos || [];
-    for (const file of servicePhotos) {
-      const ext = file.name.split('.').pop();
-      const path = `services/${providerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file);
-      if (!uploadErr) {
+    try {
+      // Upload photos
+      const photoUrls: string[] = editingService?.photos || [];
+      for (const file of servicePhotos) {
+        const ext = file.name.split('.').pop();
+        const path = `services/${providerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file);
+        if (uploadErr) {
+          console.error('Upload error:', uploadErr);
+          continue;
+        }
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
         photoUrls.push(urlData.publicUrl);
       }
-    }
 
-    const svcData = {
-      name: serviceForm.name,
-      short_description: serviceForm.short_description,
-      description: serviceForm.description,
-      price_from: parseFloat(serviceForm.price_from) || 0,
-      price_to: parseFloat(serviceForm.price_to) || 0,
-      category: serviceForm.category,
-      is_active: serviceForm.is_active,
-      photos: photoUrls,
-    };
+      const svcData = {
+        name: serviceForm.name,
+        short_description: serviceForm.short_description,
+        description: serviceForm.description,
+        price_from: parseFloat(serviceForm.price_from) || 0,
+        price_to: parseFloat(serviceForm.price_to) || 0,
+        category: serviceForm.category,
+        is_active: serviceForm.is_active,
+        photos: photoUrls,
+      };
 
-    if (editingService) {
-      updateServiceMut.mutate({ id: editingService.id, ...svcData });
-    } else {
-      createServiceMut.mutate(svcData);
+      if (editingService) {
+        await updateServiceMut.mutateAsync({ id: editingService.id, ...svcData });
+      } else {
+        await createServiceMut.mutateAsync(svcData);
+      }
+      setServiceDialog(false);
+      resetServiceForm();
+    } catch (err: any) {
+      console.error('Save service error:', err);
+      toast.error('Błąd zapisu: ' + (err?.message || 'Spróbuj ponownie'));
     }
-    setServiceDialog(false);
-    resetServiceForm();
   };
 
   const resetServiceForm = () => {

@@ -15,8 +15,8 @@ export function useWorkshopProviderId() {
         .eq('user_id', user.id)
         .maybeSingle();
       if (error) throw error;
-      if (!data) throw new Error('No service provider found');
-      return data?.id as string;
+      if (!data) return null;
+      return data.id as string;
     },
     retry: 3,
     retryDelay: 1000,
