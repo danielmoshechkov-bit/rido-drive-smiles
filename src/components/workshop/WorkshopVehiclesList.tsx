@@ -13,7 +13,7 @@ interface Props {
   onSelectVehicle?: (vehicle: any) => void;
 }
 
-export function WorkshopVehiclesList({ providerId, onBack }: Props) {
+export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Props) {
   const { data: vehicles = [], isLoading } = useWorkshopVehicles(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
