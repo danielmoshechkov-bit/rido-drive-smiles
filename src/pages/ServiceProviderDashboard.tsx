@@ -243,10 +243,12 @@ export default function ServiceProviderDashboard() {
               Strona WWW
             </TabsTrigger>
           )}
-          <TabsTrigger value="account">
-            <Users className="h-4 w-4 mr-1.5" />
-            Wybierz moduł
-          </TabsTrigger>
+          {(roles.includes('fleet_settlement') || roles.includes('fleet_rental') || roles.includes('admin') || roles.includes('driver')) && (
+            <TabsTrigger value="account">
+              <Users className="h-4 w-4 mr-1.5" />
+              Wybierz moduł
+            </TabsTrigger>
+          )}
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-1.5" />
             Ustawienia
@@ -508,20 +510,22 @@ export default function ServiceProviderDashboard() {
           )}
 
           {/* Account Switcher Tab */}
-          <TabsContent value="account" className="mt-6">
-            <AccountSwitcherPanel
-              isDriverAccount={roles.includes('driver')}
-              isFleetAccount={roles.includes('fleet_settlement') || roles.includes('fleet_rental')}
-              isMarketplaceAccount={roles.includes('marketplace_user')}
-              isRealEstateAccount={roles.includes('real_estate_agent') || roles.includes('real_estate_admin')}
-              isAdminAccount={roles.includes('admin')}
-              isSalesAdmin={roles.includes('sales_admin')}
-              isSalesRep={roles.includes('sales_rep')}
-              isMarketplaceEnabled={true}
-              currentAccountType="client"
-              navigate={navigate}
-            />
-          </TabsContent>
+          {(roles.includes('fleet_settlement') || roles.includes('fleet_rental') || roles.includes('admin') || roles.includes('driver')) && (
+            <TabsContent value="account" className="mt-6">
+              <AccountSwitcherPanel
+                isDriverAccount={roles.includes('driver')}
+                isFleetAccount={roles.includes('fleet_settlement') || roles.includes('fleet_rental')}
+                isMarketplaceAccount={roles.includes('marketplace_user')}
+                isRealEstateAccount={roles.includes('real_estate_agent') || roles.includes('real_estate_admin')}
+                isAdminAccount={roles.includes('admin')}
+                isSalesAdmin={roles.includes('sales_admin')}
+                isSalesRep={roles.includes('sales_rep')}
+                isMarketplaceEnabled={true}
+                currentAccountType="client"
+                navigate={navigate}
+              />
+            </TabsContent>
+          )}
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
