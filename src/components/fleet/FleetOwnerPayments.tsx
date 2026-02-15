@@ -165,13 +165,13 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         vehicleOwnerMap.set(v.id, v.owner_id);
       });
 
-      // Calculate driver earnings per vehicle for the week
+      // Calculate driver earnings per vehicle for the week (use actual_payout as indicator of what driver earned)
       const vehicleDriverEarnings = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
         if (vehicleId) {
-          const rentalFee = parseFloat(s.rental_fee?.toString() || "0");
-          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + rentalFee);
+          const payout = parseFloat(s.actual_payout?.toString() || "0");
+          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + Math.abs(payout));
         }
       });
 
@@ -432,9 +432,9 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                         </div>
                       </div>
                       <Button
-                        variant={owner.is_settled ? "default" : "destructive"}
+                        variant={owner.is_settled ? "outline" : "destructive"}
                         size="sm"
-                        className="gap-1"
+                        className={`gap-1 ${owner.is_settled ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' : ''}`}
                         onClick={(e) => { e.stopPropagation(); handleToggleSettle(owner.owner_id, owner.is_settled); }}
                       >
                         <CheckCircle className="h-3 w-3" />

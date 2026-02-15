@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
-export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | 'sales_admin' | 'sales_rep' | null;
+export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | 'sales_admin' | 'sales_rep' | 'service_provider' | null;
 
 interface UseUserRoleReturn {
   role: UserRole;
