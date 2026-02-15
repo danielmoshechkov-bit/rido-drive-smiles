@@ -115,12 +115,11 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
       const { error: ticketError } = await supabase
         .from('support_tickets')
         .insert({
-          submitted_by: user.id,
           submitted_by_email: user.email,
           description: description.trim(),
           screenshot_urls: screenshotUrls,
           status: 'new',
-        });
+        } as any);
       if (ticketError) throw ticketError;
 
       setSent(true);
