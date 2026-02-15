@@ -553,14 +553,17 @@ export function CalendarView() {
       </CardContent>
 
       {/* Event Dialog */}
-      <CalendarEventDialog
-        open={showEventDialog}
-        onOpenChange={setShowEventDialog}
-        event={selectedEvent}
-        defaultStart={selectedSlot?.start}
-        defaultEnd={selectedSlot?.end}
-        calendarId={calendar?.id || ""}
-      />
+      {calendar?.id && (
+        <CalendarEventDialog
+          open={showEventDialog}
+          onOpenChange={setShowEventDialog}
+          event={selectedEvent}
+          defaultStart={selectedSlot?.start}
+          defaultEnd={selectedSlot?.end}
+          calendarId={calendar.id}
+          employees={employees}
+        />
+      )}
 
       {/* Add Workstation Dialog */}
       <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>

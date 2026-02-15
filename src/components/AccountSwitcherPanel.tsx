@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Building2, Lock } from "lucide-react";
+import { Plus, Building2, Lock, Wrench } from "lucide-react";
 
 // Module images
 import clientPortalImg from "@/assets/modules/client-portal.jpg";
@@ -28,13 +28,14 @@ interface AccountSwitcherPanelProps {
   isSalesAdmin?: boolean;
   isSalesRep?: boolean;
   isMarketplaceEnabled?: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'admin' | 'client' | 'sales';
+  isServiceProvider?: boolean;
+  currentAccountType: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
 }
 
 interface AccountOption {
-  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales';
+  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider';
   label: string;
   description: string;
   image: string;
@@ -59,6 +60,7 @@ export function AccountSwitcherPanel({
   isClientPortal = true,
   isSalesAdmin = false,
   isSalesRep = false,
+  isServiceProvider = false,
   currentAccountType,
   navigate,
   hideDriverForFleet = false
@@ -101,6 +103,14 @@ export function AccountSwitcherPanel({
       image: driverImg,
       route: '/driver',
       isEnabled: showDriverOption
+    },
+    {
+      type: 'service_provider',
+      label: 'Panel Usługodawcy',
+      description: 'Zarządzanie usługami i zleceniami',
+      image: clientPortalImg,
+      route: '/uslugi/panel',
+      isEnabled: isServiceProvider
     },
     {
       type: 'client',

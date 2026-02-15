@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText, UserCircle } from "lucide-react";
+import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText, UserCircle, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
     isRealEstate: boolean;
     isAdmin: boolean;
     isAccounting: boolean;
+    isServiceProvider: boolean;
   }>({
     isDriver: false,
     isFleet: false,
@@ -32,6 +33,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
     isRealEstate: false,
     isAdmin: false,
     isAccounting: false,
+    isServiceProvider: false,
   });
 
   useEffect(() => {
@@ -85,6 +87,14 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         .eq("role", "accounting_admin")
         .maybeSingle();
       
+      // Check for service provider
+      const { data: serviceProviderRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "service_provider")
+        .maybeSingle();
+      
       setAccountTypes({
         isDriver: !!driverApp?.driver_id,
         isFleet: !!fleetRoles && fleetRoles.length > 0,
@@ -92,6 +102,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         isRealEstate: !!realEstateRoles && realEstateRoles.length > 0,
         isAdmin: isMainAdmin || !!adminRole,
         isAccounting: !!accountingRole,
+        isServiceProvider: !!serviceProviderRole,
       });
     };
     
@@ -182,6 +193,14 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           <UserCircle className="h-4 w-4 mr-2" />
           Portal Klienta
         </DropdownMenuItem>
+        
+        {/* Service Provider Panel */}
+        {accountTypes.isServiceProvider && (
+          <DropdownMenuItem onClick={() => navigate('/uslugi/panel')}>
+            <Wrench className="h-4 w-4 mr-2" />
+            Panel Usługodawcy
+          </DropdownMenuItem>
+        )}
         
         {/* Invoice button for all users */}
         <DropdownMenuItem onClick={() => navigate('/faktury')}>
