@@ -12427,7 +12427,7 @@ export type Database = {
           is_settled: boolean
           owner_id: string
           settled_at: string | null
-          vehicle_id: string
+          vehicle_id: string | null
           week_end: string
           week_start: string
         }
@@ -12441,7 +12441,7 @@ export type Database = {
           is_settled?: boolean
           owner_id: string
           settled_at?: string | null
-          vehicle_id: string
+          vehicle_id?: string | null
           week_end: string
           week_start: string
         }
@@ -12455,7 +12455,7 @@ export type Database = {
           is_settled?: boolean
           owner_id?: string
           settled_at?: string | null
-          vehicle_id?: string
+          vehicle_id?: string | null
           week_end?: string
           week_start?: string
         }
