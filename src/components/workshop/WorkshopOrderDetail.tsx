@@ -7,6 +7,7 @@ import { WorkshopOrderBasicTab } from './tabs/WorkshopOrderBasicTab';
 import { WorkshopOrderFilesTab } from './tabs/WorkshopOrderFilesTab';
 import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
+import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users
@@ -40,6 +41,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const updateOrder = useUpdateWorkshopOrder();
   const [activeTab, setActiveTab] = useState('basic');
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
 
   const clientName = order.client
     ? order.client.client_type === 'company'
@@ -54,15 +57,26 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const changeStatus = async (newStatus: string) => {
     await updateOrder.mutateAsync({ id: order.id, status_name: newStatus });
     toast.success(`Status zmieniony na: ${newStatus}`);
+    // Auto-open SMS dialog for certain statuses
+    if (newStatus === 'Akceptacja klienta') {
+      setSmsType('quote');
+      setSmsOpen(true);
+    } else if (newStatus === 'Gotowy do odbioru') {
+      setSmsType('ready');
+      setSmsOpen(true);
+    }
   };
 
-  const sendSmsToClient = () => {
-    if (!order.client?.phone) {
-      toast.error('Klient nie ma numeru telefonu');
-      return;
+  const openSms = (type: 'reception' | 'quote' | 'ready') => {
+    setSmsType(type);
+    setSmsOpen(true);
+  };
+
+  const copyClientLink = () => {
+    if (order.client_code) {
+      navigator.clipboard.writeText(`${window.location.origin}/warsztat/klient/${order.client_code}`);
+      toast.success('Link do zlecenia skopiowany');
     }
-    toast.info('Wysyłanie SMS do klienta...');
-    // TODO: integrate SMS API
   };
 
   return (
@@ -136,10 +150,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             >
               <Send className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={sendSmsToClient}>
+            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => openSms('reception')}>
               <MessageSquare className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" title="Link do zlecenia">
+            <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
               <Link2 className="h-4 w-4" />
             </Button>
           </div>
@@ -191,6 +205,14 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* SMS Dialog */}
+      <WorkshopSmsDialog
+        open={smsOpen}
+        onOpenChange={setSmsOpen}
+        order={order}
+        type={smsType}
+      />
     </div>
   );
 }
