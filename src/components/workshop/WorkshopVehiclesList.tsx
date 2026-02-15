@@ -10,6 +10,7 @@ import { Plus, Search, Loader2, Car, User } from 'lucide-react';
 interface Props {
   providerId: string;
   onBack: () => void;
+  onSelectVehicle?: (vehicle: any) => void;
 }
 
 export function WorkshopVehiclesList({ providerId, onBack }: Props) {
