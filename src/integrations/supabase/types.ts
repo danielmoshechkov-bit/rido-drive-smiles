@@ -13262,6 +13262,47 @@ export type Database = {
           },
         ]
       }
+      workshop_mechanics: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          is_active: boolean | null
+          last_name: string | null
+          phone: string | null
+          provider_id: string
+          specialization: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          provider_id: string
+          specialization?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          provider_id?: string
+          specialization?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_mechanics_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_order_files: {
         Row: {
           created_at: string | null
@@ -13397,6 +13438,53 @@ export type Database = {
           },
         ]
       }
+      workshop_order_signatures: {
+        Row: {
+          created_at: string
+          document_type: string
+          fingerprint: string | null
+          id: string
+          ip_address: string | null
+          order_id: string
+          signature_data: string | null
+          signature_method: string | null
+          signed_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          order_id: string
+          signature_data?: string | null
+          signature_method?: string | null
+          signed_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          order_id?: string
+          signature_data?: string | null
+          signature_method?: string | null
+          signed_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_signatures_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_order_status_history: {
         Row: {
           changed_by: string | null
@@ -13483,6 +13571,7 @@ export type Database = {
         Row: {
           acceptance_date: string | null
           client_acceptance_confirmed: boolean | null
+          client_code: string | null
           client_id: string | null
           completed_at: string | null
           created_at: string | null
@@ -13491,6 +13580,8 @@ export type Database = {
           fuel_level: string | null
           id: string
           internal_notes: string | null
+          last_sms_sent_at: string | null
+          mechanic_id: string | null
           mechanic_notes: string | null
           mileage: number | null
           order_number: string
@@ -13503,6 +13594,7 @@ export type Database = {
           reception_protocol: boolean | null
           registration_document: boolean | null
           return_parts_to_client: boolean | null
+          sms_sent_count: number | null
           start_date: string | null
           status_id: string | null
           status_name: string | null
@@ -13514,10 +13606,12 @@ export type Database = {
           updated_at: string | null
           vehicle_id: string | null
           worker: string | null
+          workstation_id: string | null
         }
         Insert: {
           acceptance_date?: string | null
           client_acceptance_confirmed?: boolean | null
+          client_code?: string | null
           client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
@@ -13526,6 +13620,8 @@ export type Database = {
           fuel_level?: string | null
           id?: string
           internal_notes?: string | null
+          last_sms_sent_at?: string | null
+          mechanic_id?: string | null
           mechanic_notes?: string | null
           mileage?: number | null
           order_number: string
@@ -13538,6 +13634,7 @@ export type Database = {
           reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          sms_sent_count?: number | null
           start_date?: string | null
           status_id?: string | null
           status_name?: string | null
@@ -13549,10 +13646,12 @@ export type Database = {
           updated_at?: string | null
           vehicle_id?: string | null
           worker?: string | null
+          workstation_id?: string | null
         }
         Update: {
           acceptance_date?: string | null
           client_acceptance_confirmed?: boolean | null
+          client_code?: string | null
           client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
@@ -13561,6 +13660,8 @@ export type Database = {
           fuel_level?: string | null
           id?: string
           internal_notes?: string | null
+          last_sms_sent_at?: string | null
+          mechanic_id?: string | null
           mechanic_notes?: string | null
           mileage?: number | null
           order_number?: string
@@ -13573,6 +13674,7 @@ export type Database = {
           reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          sms_sent_count?: number | null
           start_date?: string | null
           status_id?: string | null
           status_name?: string | null
@@ -13584,6 +13686,7 @@ export type Database = {
           updated_at?: string | null
           vehicle_id?: string | null
           worker?: string | null
+          workstation_id?: string | null
         }
         Relationships: [
           {
@@ -13591,6 +13694,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "workshop_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_mechanic_id_fkey"
+            columns: ["mechanic_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_mechanics"
             referencedColumns: ["id"]
           },
           {
@@ -13609,6 +13719,107 @@ export type Database = {
           },
           {
             foreignKeyName: "workshop_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_workstation_id_fkey"
+            columns: ["workstation_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_workstations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_tire_storage: {
+        Row: {
+          client_id: string | null
+          condition: string | null
+          created_at: string
+          dot_code: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          photo_urls: string[] | null
+          pickup_at: string | null
+          production_year: number | null
+          provider_id: string
+          quantity: number | null
+          season: string | null
+          storage_number: string | null
+          stored_at: string | null
+          tire_brand: string | null
+          tire_model: string | null
+          tire_size: string | null
+          tire_type: string | null
+          tread_depth_mm: number | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          condition?: string | null
+          created_at?: string
+          dot_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          photo_urls?: string[] | null
+          pickup_at?: string | null
+          production_year?: number | null
+          provider_id: string
+          quantity?: number | null
+          season?: string | null
+          storage_number?: string | null
+          stored_at?: string | null
+          tire_brand?: string | null
+          tire_model?: string | null
+          tire_size?: string | null
+          tire_type?: string | null
+          tread_depth_mm?: number | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          condition?: string | null
+          created_at?: string
+          dot_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          photo_urls?: string[] | null
+          pickup_at?: string | null
+          production_year?: number | null
+          provider_id?: string
+          quantity?: number | null
+          season?: string | null
+          storage_number?: string | null
+          stored_at?: string | null
+          tire_brand?: string | null
+          tire_model?: string | null
+          tire_size?: string | null
+          tire_type?: string | null
+          tread_depth_mm?: number | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_tire_storage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_tire_storage_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_tire_storage_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "workshop_vehicles"
@@ -13687,6 +13898,44 @@ export type Database = {
           },
           {
             foreignKeyName: "workshop_vehicles_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_workstations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          provider_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          provider_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          provider_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_workstations_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"

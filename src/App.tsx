@@ -64,6 +64,7 @@ import InvoicingLanding from "./pages/InvoicingLanding";
 import DriverInfoLanding from "./pages/DriverInfoLanding";
 import SalesPortal from "./pages/SalesPortal";
 import RentalClientPortal from "./pages/RentalClientPortal";
+import WorkshopClientCard from "./pages/WorkshopClientCard";
 const queryClient = new QueryClient();
 
 /**
@@ -148,6 +149,7 @@ const App = () => (
                 <Route path="/handlowiec" element={<SalesPortal />} />
                 <Route path="/prawne" element={<LegalPage />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
+                <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
                 {/* Aliases for marketplace add listing */}
                 <Route path="/dodaj" element={<AddVehicleListing />} />
                 <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />
