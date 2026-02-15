@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { 
-  MessageCircle, X, Send, Loader2, Paperclip, Upload, Image as ImageIcon, CheckCircle
+  MessageCircle, X, Send, Loader2, Upload, Image as ImageIcon, CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,21 +22,31 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   const [sent, setSent] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      const allowedEmails = [
+      if (!user?.email) return;
+      setUserEmail(user.email);
+
+      // Check DB whitelist
+      const { data: whitelist } = await (supabase as any)
+        .from('support_ticket_whitelist')
+        .select('email')
+        .eq('is_active', true);
+
+      const whitelistEmails = (whitelist || []).map((w: any) => w.email.toLowerCase());
+      
+      // Fallback hardcoded list
+      const hardcoded = [
         'daniel.moshechkov@gmail.com',
         'anastasiia.shapovalova1991@gmail.com',
         'piotrkrolakartcom@o2.pl',
       ];
-      if (user?.email) {
-        setUserEmail(user.email);
-        if (allowedEmails.includes(user.email.toLowerCase())) {
-          setIsAllowed(true);
-        }
+
+      const allAllowed = [...new Set([...whitelistEmails, ...hardcoded])];
+      if (allAllowed.includes(user.email.toLowerCase())) {
+        setIsAllowed(true);
       }
     };
     checkAccess();
@@ -59,13 +68,13 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
       setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
     }
   };
@@ -82,7 +91,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nie zalogowany');
 
-      // Upload screenshots
       const screenshotUrls: string[] = [];
       for (const file of attachedFiles) {
         const ext = file.name.split('.').pop();
@@ -98,7 +106,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
         }
       }
 
-      // Insert ticket
       await (supabase as any)
         .from('support_tickets')
         .insert({
@@ -139,7 +146,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
 
       {isOpen && (
         <div className="fixed bottom-4 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] bg-background border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-primary/10 to-primary/5">
             <div>
               <h3 className="font-semibold">Zgłoś uwagę</h3>
@@ -155,18 +161,12 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
               <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
               <div>
                 <p className="font-semibold text-lg">Dziękujemy!</p>
-                <p className="text-sm text-muted-foreground">Twoje zgłoszenie zostało wysłane. Zajmiemy się nim jak najszybciej.</p>
+                <p className="text-sm text-muted-foreground">Twoje zgłoszenie zostało wysłane.</p>
               </div>
               <Button variant="outline" onClick={resetForm}>Wyślij kolejne</Button>
             </div>
           ) : (
-            <div 
-              ref={dropRef}
-              className="p-4 space-y-4"
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
+            <div className="p-4 space-y-4">
               <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
                 🔧 Pracujemy nad ulepszeniem portalu! Jeśli masz uwagi dotyczące zmian, dodania funkcji, nazwy lub układu — napisz do nas, dodaj screen i wyślij. My to poprawimy!
               </div>
@@ -179,13 +179,15 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
                 className="resize-none"
               />
 
-              {/* Drop zone / file attachment */}
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
                   isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"
                 )}
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               >
                 <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
@@ -202,7 +204,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
                 />
               </div>
 
-              {/* Attached files */}
               {attachedFiles.length > 0 && (
                 <div className="space-y-2">
                   {attachedFiles.map((file, idx) => (

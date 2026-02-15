@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
@@ -25,9 +25,11 @@ import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
-  Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image
+  Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
+  Upload, X, ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,6 +55,7 @@ export default function ServiceProviderDashboard() {
   const [configData, setConfigData] = useState<any>(null);
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
+  const [providerId, setProviderId] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalBookings: 0,
     pendingBookings: 0,
@@ -61,18 +64,22 @@ export default function ServiceProviderDashboard() {
   });
 
   // Services state
-  const [services, setServices] = useState<ServiceItem[]>([]);
   const [serviceDialog, setServiceDialog] = useState(false);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [serviceForm, setServiceForm] = useState({
     name: '', short_description: '', description: '', price_from: '', price_to: '', category: 'ogolne', is_active: true
   });
+  const [servicePhotos, setServicePhotos] = useState<File[]>([]);
+  const serviceFileRef = useRef<HTMLInputElement>(null);
+  const [isDraggingService, setIsDraggingService] = useState(false);
 
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
     business_type: 'firma', company_name: '', first_name: '', last_name: '',
     email: '', phone: '', address: '', city: '', postal_code: '', nip: '', website: '', bio: ''
   });
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (roleLoading) return;
@@ -101,9 +108,10 @@ export default function ServiceProviderDashboard() {
       .from('service_providers')
       .select('id, rating_avg, rating_count, company_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (provider) {
+      setProviderId(provider.id);
       const { count: totalCount } = await supabase
         .from('booking_appointments')
         .select('*', { count: 'exact', head: true })
@@ -139,9 +147,81 @@ export default function ServiceProviderDashboard() {
     setLoading(false);
   };
 
-  const handleSaveService = () => {
-    const newService: ServiceItem = {
-      id: editingService?.id || crypto.randomUUID(),
+  // ---- DB-backed services ----
+  const { data: services = [] } = useQuery({
+    queryKey: ['provider-services', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('provider_services')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as ServiceItem[];
+    },
+  });
+
+  const createServiceMut = useMutation({
+    mutationFn: async (svc: any) => {
+      const { error } = await (supabase as any)
+        .from('provider_services')
+        .insert({ ...svc, provider_id: providerId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-services'] });
+      toast.success('Usługa dodana');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateServiceMut = useMutation({
+    mutationFn: async ({ id, ...updates }: any) => {
+      const { error } = await (supabase as any)
+        .from('provider_services')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-services'] });
+      toast.success('Usługa zaktualizowana');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteServiceMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('provider_services')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-services'] });
+      toast.success('Usługa usunięta');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleSaveService = async () => {
+    if (!serviceForm.name || !providerId) return;
+
+    // Upload photos
+    const photoUrls: string[] = editingService?.photos || [];
+    for (const file of servicePhotos) {
+      const ext = file.name.split('.').pop();
+      const path = `services/${providerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file);
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+        photoUrls.push(urlData.publicUrl);
+      }
+    }
+
+    const svcData = {
       name: serviceForm.name,
       short_description: serviceForm.short_description,
       description: serviceForm.description,
@@ -149,41 +229,52 @@ export default function ServiceProviderDashboard() {
       price_to: parseFloat(serviceForm.price_to) || 0,
       category: serviceForm.category,
       is_active: serviceForm.is_active,
-      photos: editingService?.photos || [],
+      photos: photoUrls,
     };
 
     if (editingService) {
-      setServices(prev => prev.map(s => s.id === editingService.id ? newService : s));
+      updateServiceMut.mutate({ id: editingService.id, ...svcData });
     } else {
-      setServices(prev => [newService, ...prev]);
+      createServiceMut.mutate(svcData);
     }
-    toast.success(editingService ? 'Usługa zaktualizowana' : 'Usługa dodana');
     setServiceDialog(false);
     resetServiceForm();
   };
 
   const resetServiceForm = () => {
     setEditingService(null);
+    setServicePhotos([]);
     setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', category: 'ogolne', is_active: true });
   };
 
   const openEditService = (service: ServiceItem) => {
     setEditingService(service);
+    setServicePhotos([]);
     setServiceForm({
       name: service.name,
-      short_description: service.short_description,
-      description: service.description,
-      price_from: service.price_from.toString(),
-      price_to: service.price_to.toString(),
-      category: service.category,
+      short_description: service.short_description || '',
+      description: service.description || '',
+      price_from: service.price_from?.toString() || '',
+      price_to: service.price_to?.toString() || '',
+      category: service.category || 'ogolne',
       is_active: service.is_active,
     });
     setServiceDialog(true);
   };
 
-  const deleteService = (id: string) => {
-    setServices(prev => prev.filter(s => s.id !== id));
-    toast.success('Usługa usunięta');
+  const handleServiceFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingService(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    setServicePhotos(prev => [...prev, ...files].slice(0, 10));
+  }, []);
+
+  const handleServiceFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+      setServicePhotos(prev => [...prev, ...files].slice(0, 10));
+    }
   };
 
   if (loading) {
@@ -256,57 +347,24 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="dashboard" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie rezerwacje</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5 text-primary" />
-                    <span className="text-2xl font-bold">{stats.totalBookings}</span>
-                  </div>
-                </CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie rezerwacje</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" /><span className="text-2xl font-bold">{stats.totalBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Oczekujące</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-yellow-500" />
-                    <span className="text-2xl font-bold">{stats.pendingBookings}</span>
-                  </div>
-                </CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Oczekujące</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-yellow-500" /><span className="text-2xl font-bold">{stats.pendingBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Średnia ocena</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                    <span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span>
-                  </div>
-                </CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Średnia ocena</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /><span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">AI Agent</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-5 w-5 text-primary" />
-                    <Badge variant={configData?.is_active ? 'default' : 'secondary'}>
-                      {configData?.is_active ? 'Aktywny' : 'Nieaktywny'}
-                    </Badge>
-                  </div>
-                </CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">AI Agent</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge></div></CardContent>
               </Card>
             </div>
             <Card>
-              <CardHeader>
-                <CardTitle>Szybkie akcje</CardTitle>
-                <CardDescription>Najczęściej używane funkcje</CardDescription>
-              </CardHeader>
+              <CardHeader><CardTitle>Szybkie akcje</CardTitle><CardDescription>Najczęściej używane funkcje</CardDescription></CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Button variant="outline" onClick={() => setActiveTab('bookings')}><ClipboardList className="h-4 w-4 mr-2" />Rezerwacje</Button>
                 <Button variant="outline" onClick={() => setActiveTab('calendar')}><Calendar className="h-4 w-4 mr-2" />Kalendarz</Button>
@@ -342,7 +400,7 @@ export default function ServiceProviderDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nazwa usługi</TableHead>
-                        <TableHead>Krótki opis</TableHead>
+                        <TableHead>Kategoria</TableHead>
                         <TableHead className="text-right">Cena od</TableHead>
                         <TableHead className="text-right">Cena do</TableHead>
                         <TableHead>Status</TableHead>
@@ -350,10 +408,10 @@ export default function ServiceProviderDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {services.map(service => (
+                      {services.map((service: ServiceItem) => (
                         <TableRow key={service.id}>
                           <TableCell className="font-medium">{service.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{service.short_description}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{service.category}</TableCell>
                           <TableCell className="text-right">{service.price_from} zł</TableCell>
                           <TableCell className="text-right">{service.price_to > 0 ? `${service.price_to} zł` : '—'}</TableCell>
                           <TableCell>
@@ -366,7 +424,7 @@ export default function ServiceProviderDashboard() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditService(service)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteService(service.id)}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteServiceMut.mutate(service.id)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -385,7 +443,7 @@ export default function ServiceProviderDashboard() {
                 <DialogHeader>
                   <DialogTitle>{editingService ? 'Edytuj usługę' : 'Dodaj nową usługę'}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
                     <Label>Nazwa usługi *</Label>
                     <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju, Korekta lakieru" />
@@ -426,11 +484,37 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>Zdjęcia usługi</Label>
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground">
-                      <Image className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">Przeciągnij zdjęcia lub kliknij aby wybrać</p>
-                      <Button variant="outline" size="sm" className="mt-2">Wybierz pliki</Button>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDraggingService ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50'}`}
+                      onClick={() => serviceFileRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingService(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDraggingService(false); }}
+                      onDrop={handleServiceFileDrop}
+                    >
+                      <Upload className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm text-muted-foreground">Przeciągnij zdjęcia lub <span className="text-primary font-medium">kliknij aby wybrać</span></p>
+                      <input ref={serviceFileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleServiceFileSelect} />
                     </div>
+                    {/* Show existing photos */}
+                    {editingService?.photos && editingService.photos.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {editingService.photos.map((url, i) => (
+                          <img key={i} src={url} className="h-16 w-16 object-cover rounded" alt="" />
+                        ))}
+                      </div>
+                    )}
+                    {/* Show new photos */}
+                    {servicePhotos.length > 0 && (
+                      <div className="space-y-1">
+                        {servicePhotos.map((file, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm bg-muted rounded px-3 py-1.5">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="truncate flex-1">{file.name}</span>
+                            <button onClick={() => setServicePhotos(prev => prev.filter((_, i) => i !== idx))} className="text-destructive"><X className="h-3 w-3" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={serviceForm.is_active} onCheckedChange={v => setServiceForm(p => ({ ...p, is_active: v }))} />
@@ -439,7 +523,9 @@ export default function ServiceProviderDashboard() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setServiceDialog(false)}>Anuluj</Button>
-                  <Button onClick={handleSaveService} disabled={!serviceForm.name}><Save className="h-4 w-4 mr-2" />Zapisz</Button>
+                  <Button onClick={handleSaveService} disabled={!serviceForm.name || createServiceMut.isPending || updateServiceMut.isPending}>
+                    <Save className="h-4 w-4 mr-2" />Zapisz
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -453,13 +539,8 @@ export default function ServiceProviderDashboard() {
           {/* Bookings Tab */}
           <TabsContent value="bookings" className="mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Rezerwacje</CardTitle>
-                <CardDescription>Nadchodzące i zakończone zlecenia</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p>
-              </CardContent>
+              <CardHeader><CardTitle>Rezerwacje</CardTitle><CardDescription>Nadchodzące i zakończone zlecenia</CardDescription></CardHeader>
+              <CardContent><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
             </Card>
           </TabsContent>
 
@@ -467,27 +548,15 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="ai-agent" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Phone className="h-5 w-5" /> AI Agent Telefoniczny
-                </CardTitle>
+                <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> AI Agent Telefoniczny</CardTitle>
                 <CardDescription>Automatyczna obsługa połączeń przychodzących</CardDescription>
               </CardHeader>
               <CardContent>
                 {configData ? (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Status:</span>
-                      <Badge variant={configData.is_active ? 'default' : 'secondary'}>
-                        {configData.is_active ? 'Aktywny' : 'Nieaktywny'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Firma:</span>
-                      <span>{configData.company_name}</span>
-                    </div>
-                    <Button className="w-full mt-4" onClick={() => setActiveTab('settings')}>
-                      <Settings className="h-4 w-4 mr-2" /> Konfiguruj AI Agenta
-                    </Button>
+                    <div className="flex items-center justify-between"><span className="font-medium">Status:</span><Badge variant={configData.is_active ? 'default' : 'secondary'}>{configData.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge></div>
+                    <div className="flex items-center justify-between"><span className="font-medium">Firma:</span><span>{configData.company_name}</span></div>
+                    <Button className="w-full mt-4" onClick={() => setActiveTab('settings')}><Settings className="h-4 w-4 mr-2" /> Konfiguruj AI Agenta</Button>
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -527,10 +596,7 @@ export default function ServiceProviderDashboard() {
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Ustawienia konta</CardTitle>
-                <CardDescription>Dane kontaktowe i informacje o firmie</CardDescription>
-              </CardHeader>
+              <CardHeader><CardTitle>Ustawienia konta</CardTitle><CardDescription>Dane kontaktowe i informacje o firmie</CardDescription></CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label>Typ konta</Label>
@@ -544,62 +610,27 @@ export default function ServiceProviderDashboard() {
                 </div>
                 {settingsForm.business_type === 'firma' && (
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nazwa firmy</Label>
-                      <Input value={settingsForm.company_name} onChange={e => setSettingsForm(p => ({ ...p, company_name: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>NIP</Label>
-                      <Input value={settingsForm.nip} onChange={e => setSettingsForm(p => ({ ...p, nip: e.target.value }))} placeholder="0000000000" />
-                    </div>
+                    <div className="space-y-2"><Label>Nazwa firmy</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm(p => ({ ...p, company_name: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label>NIP</Label><Input value={settingsForm.nip} onChange={e => setSettingsForm(p => ({ ...p, nip: e.target.value }))} placeholder="0000000000" /></div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Imię</Label>
-                    <Input value={settingsForm.first_name} onChange={e => setSettingsForm(p => ({ ...p, first_name: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nazwisko</Label>
-                    <Input value={settingsForm.last_name} onChange={e => setSettingsForm(p => ({ ...p, last_name: e.target.value }))} />
-                  </div>
+                  <div className="space-y-2"><Label>Imię</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm(p => ({ ...p, first_name: e.target.value }))} /></div>
+                  <div className="space-y-2"><Label>Nazwisko</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm(p => ({ ...p, last_name: e.target.value }))} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input type="email" value={settingsForm.email} onChange={e => setSettingsForm(p => ({ ...p, email: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Telefon</Label>
-                    <Input value={settingsForm.phone} onChange={e => setSettingsForm(p => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" />
-                  </div>
+                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm(p => ({ ...p, email: e.target.value }))} /></div>
+                  <div className="space-y-2"><Label>Telefon</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm(p => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Adres</Label>
-                    <Input value={settingsForm.address} onChange={e => setSettingsForm(p => ({ ...p, address: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Miasto</Label>
-                    <Input value={settingsForm.city} onChange={e => setSettingsForm(p => ({ ...p, city: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Kod pocztowy</Label>
-                    <Input value={settingsForm.postal_code} onChange={e => setSettingsForm(p => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" />
-                  </div>
+                  <div className="space-y-2"><Label>Adres</Label><Input value={settingsForm.address} onChange={e => setSettingsForm(p => ({ ...p, address: e.target.value }))} /></div>
+                  <div className="space-y-2"><Label>Miasto</Label><Input value={settingsForm.city} onChange={e => setSettingsForm(p => ({ ...p, city: e.target.value }))} /></div>
+                  <div className="space-y-2"><Label>Kod pocztowy</Label><Input value={settingsForm.postal_code} onChange={e => setSettingsForm(p => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" /></div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Strona WWW</Label>
-                  <Input value={settingsForm.website} onChange={e => setSettingsForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Opis działalności</Label>
-                  <Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm(p => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." />
-                </div>
+                <div className="space-y-2"><Label>Strona WWW</Label><Input value={settingsForm.website} onChange={e => setSettingsForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
+                <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm(p => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
                 <div className="flex justify-end">
-                  <Button className="gap-2" onClick={() => toast.success('Ustawienia zapisane')}>
-                    <Save className="h-4 w-4" /> Zapisz ustawienia
-                  </Button>
+                  <Button className="gap-2" onClick={() => toast.success('Ustawienia zapisane')}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
                 </div>
               </CardContent>
             </Card>
