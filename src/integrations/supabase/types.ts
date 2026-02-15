@@ -11198,7 +11198,7 @@ export type Database = {
           reviewed_by?: string | null
           screenshot_urls?: string[] | null
           status?: string
-          submitted_by: string
+          submitted_by?: string
           submitted_by_email?: string | null
           updated_at?: string
         }
