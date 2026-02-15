@@ -504,14 +504,18 @@ export default function ServiceProviderDashboard() {
                         ))}
                       </div>
                     )}
-                    {/* Show new photos */}
+                    {/* Show new photos as thumbnails */}
                     {servicePhotos.length > 0 && (
-                      <div className="space-y-1">
+                      <div className="flex gap-2 flex-wrap">
                         {servicePhotos.map((file, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-sm bg-muted rounded px-3 py-1.5">
-                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                            <span className="truncate flex-1">{file.name}</span>
-                            <button onClick={() => setServicePhotos(prev => prev.filter((_, i) => i !== idx))} className="text-destructive"><X className="h-3 w-3" /></button>
+                          <div key={idx} className="relative group">
+                            <img src={URL.createObjectURL(file)} className="h-16 w-16 object-cover rounded border" alt={file.name} />
+                            <button
+                              onClick={() => setServicePhotos(prev => prev.filter((_, i) => i !== idx))}
+                              className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full h-4 w-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
                         ))}
                       </div>

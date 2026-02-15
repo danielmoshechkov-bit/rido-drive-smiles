@@ -160,7 +160,7 @@ export function CalendarEventDialog({
     }
 
     if (!calendarId) {
-      toast.error("Brak kalendarza — spróbuj odświeżyć stronę");
+      toast.error("Brak kalendarza — odśwież stronę i spróbuj ponownie");
       return;
     }
 
