@@ -76,7 +76,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
               </TableHeader>
               <TableBody>
                 {filtered.map((v: any) => (
-                  <TableRow key={v.id} className="hover:bg-accent/50">
+                  <TableRow key={v.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => onSelectVehicle?.(v)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Car className="h-4 w-4 text-muted-foreground" />
