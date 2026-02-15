@@ -13169,6 +13169,416 @@ export type Database = {
           },
         ]
       }
+      workshop_clients: {
+        Row: {
+          city: string | null
+          client_type: string
+          company_name: string | null
+          country: string | null
+          created_at: string | null
+          default_vehicle_id: string | null
+          description: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          marketing_consent: boolean | null
+          nip: string | null
+          payment_method: string | null
+          payment_term: string | null
+          phone: string | null
+          postal_code: string | null
+          product_discount_percent: number | null
+          provider_id: string
+          service_discount_percent: number | null
+          street: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          client_type?: string
+          company_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          default_vehicle_id?: string | null
+          description?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          marketing_consent?: boolean | null
+          nip?: string | null
+          payment_method?: string | null
+          payment_term?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          product_discount_percent?: number | null
+          provider_id: string
+          service_discount_percent?: number | null
+          street?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          client_type?: string
+          company_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          default_vehicle_id?: string | null
+          description?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          marketing_consent?: boolean | null
+          nip?: string | null
+          payment_method?: string | null
+          payment_term?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          product_discount_percent?: number | null
+          provider_id?: string
+          service_discount_percent?: number | null
+          street?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_clients_default_vehicle_fk"
+            columns: ["default_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_clients_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_items: {
+        Row: {
+          created_at: string | null
+          discount_percent: number | null
+          id: string
+          item_type: string | null
+          mechanic: string | null
+          name: string
+          order_id: string
+          quantity: number | null
+          sort_order: number | null
+          total_gross: number | null
+          total_net: number | null
+          unit: string | null
+          unit_price_gross: number | null
+          unit_price_net: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          discount_percent?: number | null
+          id?: string
+          item_type?: string | null
+          mechanic?: string | null
+          name: string
+          order_id: string
+          quantity?: number | null
+          sort_order?: number | null
+          total_gross?: number | null
+          total_net?: number | null
+          unit?: string | null
+          unit_price_gross?: number | null
+          unit_price_net?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          discount_percent?: number | null
+          id?: string
+          item_type?: string | null
+          mechanic?: string | null
+          name?: string
+          order_id?: string
+          quantity?: number | null
+          sort_order?: number | null
+          total_gross?: number | null
+          total_net?: number | null
+          unit?: string | null
+          unit_price_gross?: number | null
+          unit_price_net?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          new_status: string
+          old_status: string | null
+          order_id: string
+          sms_sent: boolean | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_status: string
+          old_status?: string | null
+          order_id: string
+          sms_sent?: boolean | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          order_id?: string
+          sms_sent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_statuses: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          provider_id: string
+          sends_sms: boolean | null
+          sms_template: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          provider_id: string
+          sends_sms?: boolean | null
+          sms_template?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          provider_id?: string
+          sends_sms?: boolean | null
+          sms_template?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_statuses_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_orders: {
+        Row: {
+          acceptance_date: string | null
+          client_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          internal_notes: string | null
+          order_number: string
+          price_mode: string | null
+          provider_id: string
+          registration_document: boolean | null
+          return_parts_to_client: boolean | null
+          status_id: string | null
+          status_name: string | null
+          test_drive_consent: boolean | null
+          top_up_fluids: boolean | null
+          top_up_lights: boolean | null
+          total_gross: number | null
+          total_net: number | null
+          updated_at: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          acceptance_date?: string | null
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          internal_notes?: string | null
+          order_number: string
+          price_mode?: string | null
+          provider_id: string
+          registration_document?: boolean | null
+          return_parts_to_client?: boolean | null
+          status_id?: string | null
+          status_name?: string | null
+          test_drive_consent?: boolean | null
+          top_up_fluids?: boolean | null
+          top_up_lights?: boolean | null
+          total_gross?: number | null
+          total_net?: number | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          acceptance_date?: string | null
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          internal_notes?: string | null
+          order_number?: string
+          price_mode?: string | null
+          provider_id?: string
+          registration_document?: boolean | null
+          return_parts_to_client?: boolean | null
+          status_id?: string | null
+          status_name?: string | null
+          test_drive_consent?: boolean | null
+          top_up_fluids?: boolean | null
+          top_up_lights?: boolean | null
+          total_gross?: number | null
+          total_net?: number | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_order_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_vehicles: {
+        Row: {
+          brand: string | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          engine_capacity_cm3: number | null
+          engine_number: string | null
+          engine_power_kw: number | null
+          first_registration_date: string | null
+          fuel_type: string | null
+          id: string
+          mileage_unit: string | null
+          model: string | null
+          owner_client_id: string | null
+          plate: string | null
+          provider_id: string
+          updated_at: string | null
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          brand?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          engine_capacity_cm3?: number | null
+          engine_number?: string | null
+          engine_power_kw?: number | null
+          first_registration_date?: string | null
+          fuel_type?: string | null
+          id?: string
+          mileage_unit?: string | null
+          model?: string | null
+          owner_client_id?: string | null
+          plate?: string | null
+          provider_id: string
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          brand?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          engine_capacity_cm3?: number | null
+          engine_number?: string | null
+          engine_power_kw?: number | null
+          first_registration_date?: string | null
+          fuel_type?: string | null
+          id?: string
+          mileage_unit?: string | null
+          model?: string | null
+          owner_client_id?: string | null
+          plate?: string | null
+          provider_id?: string
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_vehicles_owner_client_id_fkey"
+            columns: ["owner_client_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_vehicles_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -13225,6 +13635,10 @@ export type Database = {
       }
       increment_driver_debt: {
         Args: { p_amount: number; p_driver_id: string }
+        Returns: undefined
+      }
+      init_workshop_default_statuses: {
+        Args: { p_provider_id: string }
         Returns: undefined
       }
       is_accounting_admin_for_entity: {
