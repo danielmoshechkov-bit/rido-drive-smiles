@@ -3,6 +3,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { WorkshopOrdersList } from './WorkshopOrdersList';
 import { WorkshopOrderDetail } from './WorkshopOrderDetail';
+import { WorkshopClientsList } from './WorkshopClientsList';
+import { WorkshopVehiclesList } from './WorkshopVehiclesList';
+import { WorkshopScheduler } from './WorkshopScheduler';
+import { WorkshopSales } from './WorkshopSales';
+import { WorkshopReports } from './WorkshopReports';
 import {
   ClipboardList, CheckSquare, Calendar, ShoppingCart,
   Receipt, Package, Users, Car, BarChart3, Warehouse,
@@ -12,13 +17,13 @@ import {
 const modules = [
   { key: 'zlecenia', label: 'Zlecenia', icon: ClipboardList, ready: true },
   { key: 'zadania', label: 'Zadania', icon: CheckSquare, ready: false },
-  { key: 'terminarz', label: 'Terminarz', icon: Calendar, ready: false },
+  { key: 'terminarz', label: 'Terminarz', icon: Calendar, ready: true },
   { key: 'zakupy', label: 'Zakupy', icon: ShoppingCart, ready: false },
-  { key: 'sprzedaz', label: 'Sprzedaż', icon: Receipt, ready: false },
+  { key: 'sprzedaz', label: 'Sprzedaż', icon: Receipt, ready: true },
   { key: 'towary', label: 'Towary', icon: Package, ready: false },
-  { key: 'klienci', label: 'Klienci', icon: Users, ready: false },
-  { key: 'pojazdy', label: 'Pojazdy', icon: Car, ready: false },
-  { key: 'raporty', label: 'Raporty', icon: BarChart3, ready: false },
+  { key: 'klienci', label: 'Klienci', icon: Users, ready: true },
+  { key: 'pojazdy', label: 'Pojazdy', icon: Car, ready: true },
+  { key: 'raporty', label: 'Raporty', icon: BarChart3, ready: true },
   { key: 'magazyn', label: 'Magazyn', icon: Warehouse, ready: false },
   { key: 'przechowalnia', label: 'Przechowalnia', icon: Archive, ready: false },
   { key: 'dane-naprawcze', label: 'Dane naprawcze', icon: Wrench, ready: false },
@@ -58,20 +63,40 @@ export function WorkshopDashboard() {
     );
   }
 
-  // Module view
+  const goHome = () => setActiveModule(null);
+
+  // Module views
   if (activeModule === 'zlecenia') {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setActiveModule(null)} className="text-primary hover:underline text-sm">
-            🏠
-          </button>
+          <button onClick={goHome} className="text-primary hover:underline text-sm">🏠</button>
           <span className="text-muted-foreground">/</span>
           <h2 className="text-xl font-bold">Zlecenia</h2>
         </div>
         <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />
       </div>
     );
+  }
+
+  if (activeModule === 'klienci') {
+    return <WorkshopClientsList providerId={providerId} onBack={goHome} />;
+  }
+
+  if (activeModule === 'pojazdy') {
+    return <WorkshopVehiclesList providerId={providerId} onBack={goHome} />;
+  }
+
+  if (activeModule === 'terminarz') {
+    return <WorkshopScheduler providerId={providerId} onBack={goHome} />;
+  }
+
+  if (activeModule === 'sprzedaz') {
+    return <WorkshopSales providerId={providerId} onBack={goHome} />;
+  }
+
+  if (activeModule === 'raporty') {
+    return <WorkshopReports providerId={providerId} onBack={goHome} />;
   }
 
   // Dashboard grid
