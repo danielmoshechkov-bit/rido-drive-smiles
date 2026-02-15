@@ -28,14 +28,14 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
 
   useEffect(() => {
     const checkAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) {
         setIsLoggedIn(false);
         setIsAllowed(false);
         return;
       }
       setIsLoggedIn(true);
-      setUserEmail(user.email);
+      setUserEmail(session.user.email);
 
       // Check DB whitelist
       const { data: whitelist } = await (supabase as any)
@@ -53,11 +53,23 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
       ];
 
       const allAllowed = [...new Set([...whitelistEmails, ...hardcoded])];
-      if (allAllowed.includes(user.email.toLowerCase())) {
-        setIsAllowed(true);
-      }
+      setIsAllowed(allAllowed.includes(session.user.email.toLowerCase()));
     };
+    
     checkAccess();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user?.email) {
+        setIsLoggedIn(false);
+        setIsAllowed(false);
+      } else {
+        setIsLoggedIn(true);
+        setUserEmail(session.user.email);
+        checkAccess();
+      }
+    });
+    
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
