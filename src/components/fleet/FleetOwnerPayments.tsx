@@ -262,6 +262,9 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     const weekData = weeks.find(w => w.number.toString() === selectedWeek);
     if (!weekData) return;
 
+    // Optimistic UI update
+    setOwners(prev => prev.map(o => o.owner_id === ownerId ? { ...o, is_settled: !currentlySettled } : o));
+
     try {
       if (currentlySettled) {
         // Un-settle: remove the settled marker
@@ -276,16 +279,16 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
 
         toast.success("Status zmieniony na: Nie rozliczone");
       } else {
-        // Settle: mark as settled
+        // Settle: mark all existing charges as settled
         await supabase
           .from("vehicle_owner_charges" as any)
           .update({ is_settled: true, settled_at: new Date().toISOString() })
           .eq("owner_id", ownerId)
           .eq("fleet_id", fleetId)
-          .eq("is_settled", false)
           .gte("week_start", weekData.start)
           .lte("week_end", weekData.end);
 
+        // Insert settlement marker
         await supabase
           .from("vehicle_owner_charges" as any)
           .insert([{
@@ -305,6 +308,8 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       }
       fetchOwnerData();
     } catch (error: any) {
+      // Revert optimistic update
+      setOwners(prev => prev.map(o => o.owner_id === ownerId ? { ...o, is_settled: currentlySettled } : o));
       toast.error(error.message);
     }
   };
