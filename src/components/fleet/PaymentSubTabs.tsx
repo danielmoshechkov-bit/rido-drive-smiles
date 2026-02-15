@@ -24,16 +24,16 @@ export function PaymentSubTabs({ fleetId }: PaymentSubTabsProps) {
         tabs={PAYMENT_TABS}
       />
 
-      {activeTab === "nam-winni" && (
+      <div style={{ display: activeTab === "nam-winni" ? "block" : "none" }}>
         <div className="space-y-6">
           <FleetPaymentNotifications fleetId={fleetId} />
           <RentalPaymentReminders fleetId={fleetId} />
         </div>
-      )}
+      </div>
 
-      {activeTab === "my-winni" && (
+      <div style={{ display: activeTab === "my-winni" ? "block" : "none" }}>
         <FleetOwnerPayments fleetId={fleetId} />
-      )}
+      </div>
     </div>
   );
 }

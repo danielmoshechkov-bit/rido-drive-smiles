@@ -208,8 +208,12 @@ export default function ServiceProviderDashboard() {
   });
 
   const handleSaveService = async () => {
-    if (!serviceForm.name || !providerId) {
+    if (!serviceForm.name.trim()) {
       toast.error('Podaj nazwę usługi');
+      return;
+    }
+    if (!providerId) {
+      toast.error('Brak ID usługodawcy — odśwież stronę');
       return;
     }
 
@@ -613,9 +617,8 @@ export default function ServiceProviderDashboard() {
             <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
           </TabsContent>
 
-          {/* Workshop Tab */}
           <TabsContent value="workshop" className="mt-6">
-            <WorkshopDashboard />
+            <WorkshopDashboard providerId={providerId} />
           </TabsContent>
         </TabsPill>
       </main>

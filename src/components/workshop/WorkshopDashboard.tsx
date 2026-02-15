@@ -36,13 +36,18 @@ const modules = [
   { key: 'ustawienia', label: 'Ustawienia', icon: Settings, ready: true },
 ];
 
-export function WorkshopDashboard() {
-  const { data: providerId, isLoading, error } = useWorkshopProviderId();
+interface WorkshopDashboardProps {
+  providerId?: string | null;
+}
+
+export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashboardProps = {}) {
+  const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
+  const providerId = propProviderId || hookProviderId;
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
 
-  if (isLoading) {
+  if (!providerId && isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -54,12 +59,9 @@ export function WorkshopDashboard() {
     return (
       <div className="text-center py-20 text-muted-foreground">
         <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium">Ładowanie modułu zarządzania...</p>
-        <p className="text-sm mt-2">Jeśli to trwa dłużej, odśwież stronę.</p>
+        <p className="text-lg font-medium">Brak konta usługodawcy</p>
+        <p className="text-sm mt-2">Skontaktuj się z administratorem portalu.</p>
         {error && <p className="text-xs text-destructive mt-2">Błąd: {(error as Error).message}</p>}
-        <Button className="mt-4" variant="outline" onClick={() => window.location.reload()}>
-          Odśwież stronę
-        </Button>
       </div>
     );
   }
