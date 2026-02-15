@@ -607,46 +607,11 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                           userRole={userType}
                                         />
                                       </div>
-                                      {userType === 'fleet' && fleetId && (
-                                        <>
-                                          <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
-                                            <span className="text-xs text-muted-foreground">Właściciel:</span>
-                                            <VehicleOwnerSelector
-                                              vehicleId={vehicle.id}
-                                              fleetId={fleetId}
-                                              currentOwnerId={(vehicle as any).owner_id}
-                                              onOwnerChange={fetchVehicles}
-                                            />
-                                          </div>
-                                          {(vehicle as any).owner_id && (
-                                            <div className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
-                                              <span className="text-xs text-muted-foreground">Kwota najmu:</span>
-                                              <div className="font-semibold flex items-center gap-1">
-                                                <InlineEdit
-                                                  value={(vehicle as any).owner_rental_fee?.toString() || "0"}
-                                                  onSave={async (value) => {
-                                                    const fee = parseFloat(value.replace(',', '.')) || 0;
-                                                    const { error } = await supabase
-                                                      .from("vehicles")
-                                                      .update({ owner_rental_fee: fee } as any)
-                                                      .eq("id", vehicle.id);
-                                                    if (error) toast.error("Błąd zapisu");
-                                                    else {
-                                                      toast.success("Kwota najmu zapisana");
-                                                      fetchVehicles();
-                                                    }
-                                                  }}
-                                                />
-                                                <span className="text-sm text-muted-foreground">zł/tydz.</span>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </>
-                                      )}
+                                      
                                 </div>
                                
                                 {/* Rząd 2 - kierowca i dokumenty */}
-                                <div className="flex items-center gap-6 pt-2 border-t border-border/50">
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-border/50">
                                      <div className="min-w-[150px]" onClick={(e) => e.stopPropagation()}>
                                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                                           Kierowca:
@@ -684,6 +649,42 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                         <ExpiryBadges vehicleId={vehicle.id} />
                                       </div>
                                     </div>
+                                    {userType === 'fleet' && fleetId && (
+                                      <>
+                                        <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                          <span className="text-xs text-muted-foreground">Właściciel:</span>
+                                          <VehicleOwnerSelector
+                                            vehicleId={vehicle.id}
+                                            fleetId={fleetId}
+                                            currentOwnerId={(vehicle as any).owner_id}
+                                            onOwnerChange={fetchVehicles}
+                                          />
+                                        </div>
+                                        {(vehicle as any).owner_id && (
+                                          <div className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                            <span className="text-xs text-muted-foreground">Opłata dla właściciela:</span>
+                                            <div className="font-semibold flex items-center gap-1">
+                                              <InlineEdit
+                                                value={(vehicle as any).owner_rental_fee?.toString() || "0"}
+                                                onSave={async (value) => {
+                                                  const fee = parseFloat(value.replace(',', '.')) || 0;
+                                                  const { error } = await supabase
+                                                    .from("vehicles")
+                                                    .update({ owner_rental_fee: fee } as any)
+                                                    .eq("id", vehicle.id);
+                                                  if (error) toast.error("Błąd zapisu");
+                                                  else {
+                                                    toast.success("Opłata zapisana");
+                                                    fetchVehicles();
+                                                  }
+                                                }}
+                                              />
+                                              <span className="text-sm text-muted-foreground">zł/tydz.</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
                                     {userType === 'fleet' && fleetId && isMarketplaceEnabled && (
                                        <div className="min-w-[100px] flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                          <Switch

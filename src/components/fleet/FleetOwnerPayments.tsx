@@ -143,6 +143,12 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         .gte("period_from", weekData.start)
         .lte("period_to", weekData.end);
 
+      // Map driver → vehicle
+      const assignmentDriverVehicle = new Map<string, string>();
+      ((assignmentsData as any[]) || []).forEach((a: any) => {
+        assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
+      });
+
       // Map driver → actual payout (how much was deducted from their earnings for rent)
       const vehicleDriverPayout = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
@@ -151,12 +157,6 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           const payout = parseFloat(s.actual_payout?.toString() || "0");
           vehicleDriverPayout.set(vehicleId, (vehicleDriverPayout.get(vehicleId) || 0) + Math.abs(payout));
         }
-      });
-
-      // Map driver → vehicle
-      const assignmentDriverVehicle = new Map<string, string>();
-      ((assignmentsData as any[]) || []).forEach((a: any) => {
-        assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
       });
 
       // Map vehicle → owner
