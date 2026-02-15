@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, CheckCircle, Plus, Minus, AlertTriangle, User } from "lucide-react";
-import { getAvailableWeeks, getCurrentWeekNumber } from "@/lib/utils";
+import { getAvailableWeeks } from "@/lib/utils";
 
 interface VehicleDriver {
   driver_id: string;
   driver_name: string;
   week_start: string;
   earned: number;
-  shortfall: number; // positive means driver didn't cover the fee
+  shortfall: number;
 }
 
 interface OwnerSummary {
@@ -35,10 +36,11 @@ interface OwnerSummary {
     model: string;
     weekly_rental_fee: number;
     assigned_driver?: { id: string; name: string };
+    driver_earned: number; // how much driver earned for this vehicle
     driver_shortfalls: VehicleDriver[];
   }[];
   total_weekly: number;
-  total_owed: number; // accumulated unsettled amount
+  total_owed: number;
   adjustments: { note: string; amount: number; date: string }[];
 }
 
@@ -54,14 +56,30 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentNote, setAdjustmentNote] = useState("");
   const [adjustmentType, setAdjustmentType] = useState<"minus" | "plus">("minus");
+  
+  // Period selector
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<string>('');
+  const weeks = getAvailableWeeks(selectedYear);
 
   useEffect(() => {
-    fetchOwnerData();
-  }, [fleetId]);
+    if (weeks.length) {
+      setSelectedWeek(weeks[0].number.toString());
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
+    if (selectedWeek) {
+      fetchOwnerData();
+    }
+  }, [fleetId, selectedWeek]);
 
   const fetchOwnerData = async () => {
     setLoading(true);
     try {
+      const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+      if (!weekData) { setLoading(false); return; }
+
       // Get all owners for this fleet
       const { data: ownersData } = await supabase
         .from("vehicle_owners" as any)
@@ -107,62 +125,64 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         }, {});
       }
 
-      // Get unsettled charges (includes shortfall info)
+      // Get charges for selected week
       const { data: chargesData } = await supabase
         .from("vehicle_owner_charges" as any)
         .select("*")
         .in("owner_id", ownerIds)
-        .eq("is_settled", false);
+        .gte("week_start", weekData.start)
+        .lte("week_end", weekData.end);
 
-      // Check if ANY charges exist (settled or not) to decide fallback
-      const { data: allChargesData } = await supabase
-        .from("vehicle_owner_charges" as any)
-        .select("owner_id")
-        .in("owner_id", ownerIds)
-        .limit(1000);
-      const ownersWithCharges = new Set(((allChargesData as any[]) || []).map((c: any) => c.owner_id));
-
-      // Also calculate owed amounts from actual settlements (rental deductions from drivers)
-      // This ensures "My winni" reflects what was actually deducted from drivers for owner's vehicles
-      const { data: recentSettlements } = await supabase
+      // Get settlements for drivers in selected week - to know how much each driver earned
+      const { data: settlementsData } = await supabase
         .from("settlements")
-        .select("driver_id, rental_fee, period_from, period_to")
+        .select("driver_id, rental_fee, actual_payout, total_earnings, period_from, period_to")
         .in("driver_id", driverIds.length > 0 ? driverIds : ['__none__'])
-        .gt("rental_fee", 0);
+        .gte("period_from", weekData.start)
+        .lte("period_to", weekData.end);
 
-      // Map driver → vehicle → owner rental deductions
+      // Map driver → vehicle
       const assignmentDriverVehicle = new Map<string, string>();
       ((assignmentsData as any[]) || []).forEach((a: any) => {
         assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
       });
 
+      // Map vehicle → owner
       const vehicleOwnerMap = new Map<string, string>();
       (vehiclesData || []).forEach((v: any) => {
         vehicleOwnerMap.set(v.id, v.owner_id);
       });
 
-      // Calculate total rental collected per owner from settlements
-      const ownerSettlementTotals = new Map<string, number>();
-      (recentSettlements || []).forEach((s: any) => {
+      // Calculate driver earnings per vehicle for the week
+      const vehicleDriverEarnings = new Map<string, number>();
+      (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
-        if (!vehicleId) return;
-        const ownerId = vehicleOwnerMap.get(vehicleId);
-        if (!ownerId) return;
-        const rentalFee = parseFloat(s.rental_fee?.toString() || "0");
-        ownerSettlementTotals.set(ownerId, (ownerSettlementTotals.get(ownerId) || 0) + rentalFee);
+        if (vehicleId) {
+          const rentalFee = parseFloat(s.rental_fee?.toString() || "0");
+          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + rentalFee);
+        }
       });
 
       // Build summary
       const summaries: OwnerSummary[] = (ownersData as any[]).map(owner => {
         const ownerVehicles = (vehiclesData || []).filter((v: any) => v.owner_id === owner.id);
-        const ownerCharges = ((chargesData as any[]) || []).filter(c => c.owner_id === owner.id);
+        const ownerCharges = ((chargesData as any[]) || []).filter((c: any) => c.owner_id === owner.id);
         const totalWeekly = ownerVehicles.reduce((sum: number, v: any) => sum + (parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0")), 0);
-        const chargesOwed = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
-        // Use settlement-based total ONLY if no charges exist at all for this owner (fallback)
-        // If charges exist (even settled ones), use charges-based total (which may be 0 = fully settled)
-        const hasAnyCharges = ownersWithCharges.has(owner.id);
-        const settlementOwed = ownerSettlementTotals.get(owner.id) || 0;
-        const totalOwed = hasAnyCharges ? chargesOwed : settlementOwed;
+        
+        // Calculate total from charges (adjustments) for this week
+        const chargesTotal = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
+        
+        // Calculate total from driver rental deductions for this week
+        let settlementTotal = 0;
+        ownerVehicles.forEach((v: any) => {
+          const earned = vehicleDriverEarnings.get(v.id) || 0;
+          settlementTotal += earned;
+        });
+
+        // If charges exist for this week, use charges; otherwise use settlement-based
+        const hasChargesThisWeek = ownerCharges.length > 0;
+        const isSettled = ownerCharges.some((c: any) => c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie"));
+        const totalOwed = isSettled ? chargesTotal : (hasChargesThisWeek ? chargesTotal : settlementTotal || totalWeekly);
 
         return {
           owner_id: owner.id,
@@ -174,37 +194,32 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           payment_method: owner.payment_method,
           vehicles: ownerVehicles.map((v: any) => {
             const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
-            const vehicleCharges = ownerCharges.filter((c: any) => c.vehicle_id === v.id);
-            
-            // Build shortfall records from charges where amount < rental fee
-            const shortfalls: VehicleDriver[] = vehicleCharges
-              .filter((c: any) => {
-                const amt = parseFloat(c.amount?.toString() || "0");
-                const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
-                return amt > 0 && amt < rentalFee;
-              })
-              .map((c: any) => {
-                const amt = parseFloat(c.amount?.toString() || "0");
-                const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
-                return {
-                  driver_id: assignment?.driver_id || "",
-                  driver_name: assignment?.driver_id ? (driversMap[assignment.driver_id] || "Nieznany") : "Brak kierowcy",
-                  week_start: c.week_start,
-                  earned: amt,
-                  shortfall: rentalFee - amt,
-                };
+            const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
+            const driverEarned = vehicleDriverEarnings.get(v.id) || 0;
+
+            // Shortfall: driver didn't cover the full rental
+            const shortfalls: VehicleDriver[] = [];
+            if (assignment?.driver_id && driverEarned > 0 && driverEarned < rentalFee) {
+              shortfalls.push({
+                driver_id: assignment.driver_id,
+                driver_name: driversMap[assignment.driver_id] || "Nieznany",
+                week_start: weekData.start,
+                earned: driverEarned,
+                shortfall: rentalFee - driverEarned,
               });
+            }
 
             return {
               id: v.id,
               plate: v.plate,
               brand: v.brand,
               model: v.model,
-              weekly_rental_fee: parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0"),
+              weekly_rental_fee: rentalFee,
               assigned_driver: assignment?.driver_id ? {
                 id: assignment.driver_id,
                 name: driversMap[assignment.driver_id] || "Nieznany",
               } : undefined,
+              driver_earned: driverEarned,
               driver_shortfalls: shortfalls,
             };
           }),
@@ -218,7 +233,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
               date: c.week_start,
             })),
         };
-      }).filter(o => o.vehicles.length > 0); // Only show owners with vehicles
+      }).filter(o => o.vehicles.length > 0);
 
       setOwners(summaries);
     } catch (error) {
@@ -229,32 +244,31 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
   };
 
   const handleSettle = async (ownerId: string) => {
-    if (!confirm("Czy na pewno chcesz oznaczyć jako rozliczone? Suma się wyzeruje.")) return;
+    const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+    if (!weekData) return;
+    
+    if (!confirm(`Oznaczyć jako rozliczone za tydzień ${weekData.label}?`)) return;
 
     try {
-      // Mark existing unsettled charges as settled
+      // Mark existing unsettled charges as settled for this week
       await supabase
         .from("vehicle_owner_charges" as any)
         .update({ is_settled: true, settled_at: new Date().toISOString() })
         .eq("owner_id", ownerId)
         .eq("fleet_id", fleetId)
-        .eq("is_settled", false);
+        .eq("is_settled", false)
+        .gte("week_start", weekData.start)
+        .lte("week_end", weekData.end);
 
-      // Also insert a "settled" marker to prevent fallback calculation from showing old amounts
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay() + 1);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-
+      // Insert settled marker for this specific week
       await supabase
         .from("vehicle_owner_charges" as any)
         .insert([{
           fleet_id: fleetId,
           owner_id: ownerId,
           vehicle_id: null,
-          week_start: weekStart.toISOString().split("T")[0],
-          week_end: weekEnd.toISOString().split("T")[0],
+          week_start: weekData.start,
+          week_end: weekData.end,
           amount: 0,
           adjustment: 0,
           adjustment_note: "Rozliczenie - wyzerowano saldo",
@@ -262,7 +276,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           settled_at: new Date().toISOString(),
         }]);
 
-      toast.success("Rozliczone!");
+      toast.success(`✅ Tydzień ${weekData.label} rozliczony!`);
       fetchOwnerData();
     } catch (error: any) {
       toast.error(error.message);
@@ -271,6 +285,8 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
 
   const handleAddAdjustment = async () => {
     if (!adjustmentDialog || !adjustmentAmount) return;
+    const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+    if (!weekData) return;
 
     const amount = parseFloat(adjustmentAmount.replace(",", "."));
     if (isNaN(amount)) {
@@ -279,11 +295,6 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     }
 
     const finalAmount = adjustmentType === "minus" ? -Math.abs(amount) : Math.abs(amount);
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
 
     try {
       const { error } = await supabase
@@ -292,8 +303,8 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           fleet_id: fleetId,
           owner_id: adjustmentDialog.ownerId,
           vehicle_id: adjustmentDialog.vehicleId,
-          week_start: weekStart.toISOString().split("T")[0],
-          week_end: weekEnd.toISOString().split("T")[0],
+          week_start: weekData.start,
+          week_end: weekData.end,
           amount: 0,
           adjustment: finalAmount,
           adjustment_note: adjustmentNote || (adjustmentType === "minus" ? "Odliczenie" : "Dopłata"),
@@ -325,154 +336,189 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     setExpandedOwners(next);
   };
 
-  if (loading) {
-    return <div className="text-center py-8 text-muted-foreground">Ładowanie...</div>;
-  }
-
-  if (owners.length === 0) {
-    return (
+  return (
+    <div className="space-y-4">
+      {/* Period selector */}
       <Card>
-        <CardContent className="text-center py-8 text-muted-foreground">
-          Brak właścicieli pojazdów. Przypisz właścicieli do samochodów w zakładce "Auta".
+        <CardContent className="py-3">
+          <div className="flex gap-3 items-center flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Rok</label>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="h-9 px-3 w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026].map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Okres</label>
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger className="h-9 px-3 w-[280px]">
+                  <SelectValue placeholder="Wybierz tydzień" />
+                </SelectTrigger>
+                <SelectContent>
+                  {weeks.map(week => (
+                    <SelectItem key={week.number} value={week.number.toString()}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <div className="space-y-3">
-      {owners.map(owner => (
-        <Card key={owner.owner_id}>
-          <Collapsible open={expandedOwners.has(owner.owner_id)} onOpenChange={() => toggleExpanded(owner.owner_id)}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <CardTitle className="text-base">{owner.company_name || owner.owner_name}</CardTitle>
-                      {owner.company_name && (
-                        <p className="text-xs text-muted-foreground">{owner.owner_name}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground">{owner.vehicles.length} aut • stawka tyg.: {formatCurrency(owner.total_weekly)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-xs text-muted-foreground">Do zapłaty:</div>
-                      <div className={`text-lg font-bold ${owner.total_owed > 0 ? "text-destructive" : "text-green-600"}`}>
-                        {formatCurrency(owner.total_owed)}
+      {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Ładowanie...</div>
+      ) : owners.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8 text-muted-foreground">
+            Brak właścicieli pojazdów. Przypisz właścicieli do samochodów w zakładce "Auta".
+          </CardContent>
+        </Card>
+      ) : (
+        owners.map(owner => (
+          <Card key={owner.owner_id}>
+            <Collapsible open={expandedOwners.has(owner.owner_id)} onOpenChange={() => toggleExpanded(owner.owner_id)}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <CardTitle className="text-base">{owner.company_name || owner.owner_name}</CardTitle>
+                        {owner.company_name && (
+                          <p className="text-xs text-muted-foreground">{owner.owner_name}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{owner.vehicles.length} aut • stawka tyg.: {formatCurrency(owner.total_weekly)}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="gap-1"
-                      onClick={(e) => { e.stopPropagation(); handleSettle(owner.owner_id); }}
-                      disabled={false}
-                    >
-                      <CheckCircle className="h-3 w-3" />
-                      Rozliczone
-                    </Button>
-                    {expandedOwners.has(owner.owner_id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Pojazd</TableHead>
-                      <TableHead className="text-xs">Nr rej.</TableHead>
-                      <TableHead className="text-xs">Kierowca</TableHead>
-                      <TableHead className="text-right text-xs">Stawka/tydz.</TableHead>
-                      <TableHead className="text-xs">Akcje</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {owner.vehicles.map(v => (
-                      <React.Fragment key={v.id}>
-                        <TableRow className="hover:bg-primary/10">
-                          <TableCell className="text-sm">{v.brand} {v.model}</TableCell>
-                          <TableCell className="text-sm font-mono">{v.plate}</TableCell>
-                          <TableCell className="text-sm">
-                            {v.assigned_driver ? (
-                              <span className="flex items-center gap-1">
-                                <User className="h-3 w-3 text-muted-foreground" />
-                                {v.assigned_driver.name}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">Brak</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">{formatCurrency(v.weekly_rental_fee)}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs gap-1"
-                              onClick={() => setAdjustmentDialog({ ownerId: owner.owner_id, vehicleId: v.id })}
-                            >
-                              <Plus className="h-3 w-3" /> Korekta
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        {v.driver_shortfalls.length > 0 && v.driver_shortfalls.map((sf, idx) => (
-                          <TableRow key={`${v.id}-sf-${idx}`} className="bg-destructive/5">
-                            <TableCell colSpan={2} className="text-xs py-1 pl-8">
-                              <span className="flex items-center gap-1 text-destructive">
-                                <AlertTriangle className="h-3 w-3" />
-                                Tyg. {sf.week_start}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-xs py-1">{sf.driver_name}</TableCell>
-                            <TableCell className="text-right text-xs py-1">
-                              <span className="text-muted-foreground">wyjezdził: {formatCurrency(sf.earned)}</span>
-                              {" "}
-                              <span className="text-destructive font-medium">brak: {formatCurrency(sf.shortfall)}</span>
-                            </TableCell>
-                            <TableCell className="py-1" />
-                          </TableRow>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {owner.adjustments.length > 0 && (
-                  <div className="mt-3 border-t pt-3">
-                    <h4 className="text-xs font-medium text-muted-foreground mb-2">Korekty:</h4>
-                    <div className="space-y-1">
-                      {owner.adjustments.map((adj, i) => (
-                        <div key={i} className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">{adj.note} ({adj.date})</span>
-                          <span className={adj.amount < 0 ? "text-green-600" : "text-destructive"}>
-                            {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
-                          </span>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground">Do zapłaty:</div>
+                        <div className={`text-lg font-bold ${owner.total_owed > 0 ? "text-destructive" : "text-green-600"}`}>
+                          {formatCurrency(owner.total_owed)}
                         </div>
-                      ))}
+                      </div>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="gap-1"
+                        onClick={(e) => { e.stopPropagation(); handleSettle(owner.owner_id); }}
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Rozliczone
+                      </Button>
+                      {expandedOwners.has(owner.owner_id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </div>
                   </div>
-                )}
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Pojazd</TableHead>
+                        <TableHead className="text-xs">Nr rej.</TableHead>
+                        <TableHead className="text-xs">Kierowca</TableHead>
+                        <TableHead className="text-right text-xs">Stawka/tydz.</TableHead>
+                        <TableHead className="text-right text-xs">Wyjezdzone</TableHead>
+                        <TableHead className="text-xs">Akcje</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {owner.vehicles.map(v => (
+                        <React.Fragment key={v.id}>
+                          <TableRow className="hover:bg-primary/10">
+                            <TableCell className="text-sm">{v.brand} {v.model}</TableCell>
+                            <TableCell className="text-sm font-mono">{v.plate}</TableCell>
+                            <TableCell className="text-sm">
+                              {v.assigned_driver ? (
+                                <span className="flex items-center gap-1">
+                                  <User className="h-3 w-3 text-muted-foreground" />
+                                  {v.assigned_driver.name}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">Brak</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right text-sm">{formatCurrency(v.weekly_rental_fee)}</TableCell>
+                            <TableCell className="text-right text-sm">
+                              {v.driver_earned > 0 ? (
+                                <span className={`font-medium ${v.driver_earned >= v.weekly_rental_fee ? 'text-green-600' : 'text-destructive'}`}>
+                                  {formatCurrency(v.driver_earned)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs gap-1"
+                                onClick={() => setAdjustmentDialog({ ownerId: owner.owner_id, vehicleId: v.id })}
+                              >
+                                <Plus className="h-3 w-3" /> Korekta
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                          {v.driver_shortfalls.length > 0 && v.driver_shortfalls.map((sf, idx) => (
+                            <TableRow key={`${v.id}-sf-${idx}`} className="bg-destructive/5">
+                              <TableCell colSpan={2} className="text-xs py-1 pl-8">
+                                <span className="flex items-center gap-1 text-destructive">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Niedopłata
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs py-1">{sf.driver_name}</TableCell>
+                              <TableCell className="text-right text-xs py-1" colSpan={2}>
+                                <span className="text-destructive font-medium">brak: {formatCurrency(sf.shortfall)}</span>
+                              </TableCell>
+                              <TableCell className="py-1" />
+                            </TableRow>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
 
-                {owner.phone && (
-                  <p className="text-xs text-muted-foreground mt-3">📱 Tel: {owner.phone}</p>
-                )}
-                {owner.email && (
-                  <p className="text-xs text-muted-foreground">📧 Email: {owner.email}</p>
-                )}
-                {owner.bank_account && (
-                  <p className="text-xs text-muted-foreground">🏦 Konto: {owner.bank_account}</p>
-                )}
-                {owner.payment_method && (
-                  <p className="text-xs text-muted-foreground">💳 Rozliczenie: {owner.payment_method === 'przelew' ? 'Przelew' : 'Gotówka'}</p>
-                )}
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-      ))}
+                  {owner.adjustments.length > 0 && (
+                    <div className="mt-3 border-t pt-3">
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2">Korekty:</h4>
+                      <div className="space-y-1">
+                        {owner.adjustments.map((adj, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{adj.note} ({adj.date})</span>
+                            <span className={adj.amount < 0 ? "text-green-600" : "text-destructive"}>
+                              {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(owner.phone || owner.email || owner.bank_account || owner.payment_method) && (
+                    <div className="mt-3 border-t pt-3 space-y-0.5">
+                      {owner.phone && <p className="text-xs text-muted-foreground">📱 Tel: {owner.phone}</p>}
+                      {owner.email && <p className="text-xs text-muted-foreground">📧 Email: {owner.email}</p>}
+                      {owner.bank_account && <p className="text-xs text-muted-foreground">🏦 Konto: {owner.bank_account}</p>}
+                      {owner.payment_method && <p className="text-xs text-muted-foreground">💳 Rozliczenie: {owner.payment_method === 'przelew' ? 'Przelew' : 'Gotówka'}</p>}
+                    </div>
+                  )}
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        ))
+      )}
 
       {/* Adjustment Dialog */}
       <Dialog open={!!adjustmentDialog} onOpenChange={(open) => !open && setAdjustmentDialog(null)}>

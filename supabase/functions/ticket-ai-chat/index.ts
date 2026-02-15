@@ -33,67 +33,7 @@ serve(async (req) => {
     const { description, screenshot_urls } = await req.json();
     if (!description) throw new Error("Opis jest wymagany");
 
-    // Get OpenAI API key from ai_settings
-    const { data: aiSettings } = await supabase
-      .from("ai_settings")
-      .select("openai_api_key_encrypted")
-      .limit(1)
-      .maybeSingle();
-
-    const openaiKey = aiSettings?.openai_api_key_encrypted;
-    
-    // Fallback to Lovable API key if no OpenAI key configured
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    const useOpenAI = !!openaiKey;
-    const apiUrl = useOpenAI 
-      ? "https://api.openai.com/v1/chat/completions"
-      : "https://ai.gateway.lovable.dev/v1/chat/completions";
-    const apiKey = useOpenAI ? openaiKey : LOVABLE_API_KEY;
-    const model = useOpenAI ? "gpt-4o" : "google/gemini-3-flash-preview";
-
-    if (!apiKey) throw new Error("Brak skonfigurowanego klucza API (OpenAI lub Lovable)");
-
-    const screenshotContext = screenshot_urls?.length
-      ? `\nUżytkownik załączył ${screenshot_urls.length} screenshot(ów).`
-      : "";
-
-    const aiResponse = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: `Jesteś asystentem obsługi zgłoszeń portalu GetRido/Rido. Twoje zadania:
-1. Podziękuj użytkownikowi za zgłoszenie po polsku
-2. Potwierdź że zgłoszenie zostało zarejestrowane
-3. Krótko podsumuj problem w 1-2 zdaniach
-
-Odpowiadaj KRÓTKO, uprzejmie, po polsku. Max 3 zdania.`,
-          },
-          {
-            role: "user",
-            content: `Zgłoszenie od ${user.email}:\n${description}${screenshotContext}`,
-          },
-        ],
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error("Błąd AI");
-    }
-
-    const aiData = await aiResponse.json();
-    const aiMessage = aiData.choices?.[0]?.message?.content || "Dziękujemy za zgłoszenie!";
-
-    // Save the ticket to database
+    // Save the ticket FIRST - before AI processing
     const { data: ticket, error: ticketError } = await supabase
       .from("support_tickets")
       .insert({
@@ -109,6 +49,67 @@ Odpowiadaj KRÓTKO, uprzejmie, po polsku. Max 3 zdania.`,
     if (ticketError) {
       console.error("Ticket save error:", ticketError);
       throw new Error("Nie udało się zapisać zgłoszenia");
+    }
+
+    // Try AI response (optional - ticket is already saved)
+    let aiMessage = `✅ Zgłoszenie #${ticket.id.slice(0, 8)} zostało zapisane. Dziękujemy za raport!`;
+
+    try {
+      const { data: aiSettings } = await supabase
+        .from("ai_settings")
+        .select("openai_api_key_encrypted")
+        .limit(1)
+        .maybeSingle();
+
+      const openaiKey = aiSettings?.openai_api_key_encrypted;
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      
+      const useOpenAI = !!openaiKey;
+      const apiUrl = useOpenAI 
+        ? "https://api.openai.com/v1/chat/completions"
+        : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      const apiKey = useOpenAI ? openaiKey : LOVABLE_API_KEY;
+      const model = useOpenAI ? "gpt-4o" : "google/gemini-3-flash-preview";
+
+      if (apiKey) {
+        const screenshotContext = screenshot_urls?.length
+          ? `\nUżytkownik załączył ${screenshot_urls.length} screenshot(ów).`
+          : "";
+
+        const aiResponse = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "system",
+                content: `Jesteś asystentem obsługi zgłoszeń portalu GetRido/Rido. Twoje zadania:
+1. Podziękuj użytkownikowi za zgłoszenie po polsku
+2. Potwierdź że zgłoszenie zostało zarejestrowane
+3. Krótko podsumuj problem w 1-2 zdaniach
+
+Odpowiadaj KRÓTKO, uprzejmie, po polsku. Max 3 zdania.`,
+              },
+              {
+                role: "user",
+                content: `Zgłoszenie od ${user.email}:\n${description}${screenshotContext}`,
+              },
+            ],
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          const content = aiData.choices?.[0]?.message?.content;
+          if (content) aiMessage = content;
+        }
+      }
+    } catch (aiErr) {
+      console.error("AI processing failed (ticket already saved):", aiErr);
     }
 
     return new Response(JSON.stringify({ 
