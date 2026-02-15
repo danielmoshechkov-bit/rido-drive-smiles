@@ -106,7 +106,7 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
         }
       }
 
-      await (supabase as any)
+      const { error: ticketError } = await supabase
         .from('support_tickets')
         .insert({
           submitted_by: user.id,
@@ -115,6 +115,7 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
           screenshot_urls: screenshotUrls,
           status: 'new',
         });
+      if (ticketError) throw ticketError;
 
       setSent(true);
       toast.success('Zgłoszenie wysłane!');
