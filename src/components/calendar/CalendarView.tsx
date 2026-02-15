@@ -255,7 +255,7 @@ export function CalendarView() {
   };
 
   const handleSlotClick = (day: Date, hour: number) => {
-    if (!calendar?.id) {
+    if (calendarLoading) {
       toast.error("Kalendarz się ładuje, spróbuj za chwilę");
       return;
     }
@@ -275,7 +275,7 @@ export function CalendarView() {
   };
 
   const handleAddButtonClick = () => {
-    if (!calendar?.id) {
+    if (calendarLoading) {
       toast.error("Kalendarz się ładuje, spróbuj za chwilę");
       return;
     }
@@ -415,7 +415,7 @@ export function CalendarView() {
     );
   };
 
-  if (calendarLoading) {
+  if (calendarLoading && !calendar) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
