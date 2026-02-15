@@ -36,7 +36,7 @@ const modules = [
 ];
 
 export function WorkshopDashboard() {
-  const { data: providerId, isLoading } = useWorkshopProviderId();
+  const { data: providerId, isLoading, error } = useWorkshopProviderId();
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
@@ -54,7 +54,8 @@ export function WorkshopDashboard() {
       <div className="text-center py-20 text-muted-foreground">
         <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
         <p className="text-lg font-medium">Brak przypisanego konta usługodawcy</p>
-        <p className="text-sm">Skontaktuj się z administratorem portalu.</p>
+        <p className="text-sm mt-2">Skontaktuj się z administratorem portalu.</p>
+        {error && <p className="text-xs text-destructive mt-2">Błąd: {(error as Error).message}</p>}
       </div>
     );
   }
