@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { WorkshopOrdersList } from './WorkshopOrdersList';
+import { WorkshopOrderDetail } from './WorkshopOrderDetail';
 import {
   ClipboardList, CheckSquare, Calendar, ShoppingCart,
   Receipt, Package, Users, Car, BarChart3, Warehouse,
@@ -26,6 +27,7 @@ const modules = [
 export function WorkshopDashboard() {
   const { data: providerId, isLoading } = useWorkshopProviderId();
   const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   if (isLoading) {
     return (
@@ -45,6 +47,17 @@ export function WorkshopDashboard() {
     );
   }
 
+  // Order detail view
+  if (selectedOrder) {
+    return (
+      <WorkshopOrderDetail
+        order={selectedOrder}
+        providerId={providerId}
+        onBack={() => setSelectedOrder(null)}
+      />
+    );
+  }
+
   // Module view
   if (activeModule === 'zlecenia') {
     return (
@@ -56,7 +69,7 @@ export function WorkshopDashboard() {
           <span className="text-muted-foreground">/</span>
           <h2 className="text-xl font-bold">Zlecenia</h2>
         </div>
-        <WorkshopOrdersList providerId={providerId} />
+        <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />
       </div>
     );
   }

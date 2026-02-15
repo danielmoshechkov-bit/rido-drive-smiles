@@ -13180,6 +13180,7 @@ export type Database = {
           description: string | null
           email: string | null
           first_name: string | null
+          goods_discount_percent: number | null
           id: string
           last_name: string | null
           marketing_consent: boolean | null
@@ -13204,6 +13205,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           first_name?: string | null
+          goods_discount_percent?: number | null
           id?: string
           last_name?: string | null
           marketing_consent?: boolean | null
@@ -13228,6 +13230,7 @@ export type Database = {
           description?: string | null
           email?: string | null
           first_name?: string | null
+          goods_discount_percent?: number | null
           id?: string
           last_name?: string | null
           marketing_consent?: boolean | null
@@ -13259,6 +13262,41 @@ export type Database = {
           },
         ]
       }
+      workshop_order_files: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_files_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_order_items: {
         Row: {
           created_at: string | null
@@ -13273,6 +13311,8 @@ export type Database = {
           total_gross: number | null
           total_net: number | null
           unit: string | null
+          unit_cost_gross: number | null
+          unit_cost_net: number | null
           unit_price_gross: number | null
           unit_price_net: number | null
         }
@@ -13289,6 +13329,8 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           unit?: string | null
+          unit_cost_gross?: number | null
+          unit_cost_net?: number | null
           unit_price_gross?: number | null
           unit_price_net?: number | null
         }
@@ -13305,12 +13347,49 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           unit?: string | null
+          unit_cost_gross?: number | null
+          unit_cost_net?: number | null
           unit_price_gross?: number | null
           unit_price_net?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "workshop_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_photos: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string | null
+          order_id: string
+          photo_type: string | null
+          photo_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          order_id: string
+          photo_type?: string | null
+          photo_url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          order_id?: string
+          photo_type?: string | null
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_photos_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "workshop_orders"
@@ -13403,17 +13482,28 @@ export type Database = {
       workshop_orders: {
         Row: {
           acceptance_date: string | null
+          client_acceptance_confirmed: boolean | null
           client_id: string | null
           completed_at: string | null
           created_at: string | null
+          damage_description: string | null
           description: string | null
+          fuel_level: string | null
           id: string
           internal_notes: string | null
+          mechanic_notes: string | null
+          mileage: number | null
           order_number: string
+          pickup_date: string | null
+          post_completion_notes: string | null
           price_mode: string | null
           provider_id: string
+          quote_accepted: boolean | null
+          ready_notification_sent: boolean | null
+          reception_protocol: boolean | null
           registration_document: boolean | null
           return_parts_to_client: boolean | null
+          start_date: string | null
           status_id: string | null
           status_name: string | null
           test_drive_consent: boolean | null
@@ -13423,20 +13513,32 @@ export type Database = {
           total_net: number | null
           updated_at: string | null
           vehicle_id: string | null
+          worker: string | null
         }
         Insert: {
           acceptance_date?: string | null
+          client_acceptance_confirmed?: boolean | null
           client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
+          damage_description?: string | null
           description?: string | null
+          fuel_level?: string | null
           id?: string
           internal_notes?: string | null
+          mechanic_notes?: string | null
+          mileage?: number | null
           order_number: string
+          pickup_date?: string | null
+          post_completion_notes?: string | null
           price_mode?: string | null
           provider_id: string
+          quote_accepted?: boolean | null
+          ready_notification_sent?: boolean | null
+          reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          start_date?: string | null
           status_id?: string | null
           status_name?: string | null
           test_drive_consent?: boolean | null
@@ -13446,20 +13548,32 @@ export type Database = {
           total_net?: number | null
           updated_at?: string | null
           vehicle_id?: string | null
+          worker?: string | null
         }
         Update: {
           acceptance_date?: string | null
+          client_acceptance_confirmed?: boolean | null
           client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
+          damage_description?: string | null
           description?: string | null
+          fuel_level?: string | null
           id?: string
           internal_notes?: string | null
+          mechanic_notes?: string | null
+          mileage?: number | null
           order_number?: string
+          pickup_date?: string | null
+          post_completion_notes?: string | null
           price_mode?: string | null
           provider_id?: string
+          quote_accepted?: boolean | null
+          ready_notification_sent?: boolean | null
+          reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          start_date?: string | null
           status_id?: string | null
           status_name?: string | null
           test_drive_consent?: boolean | null
@@ -13469,6 +13583,7 @@ export type Database = {
           total_net?: number | null
           updated_at?: string | null
           vehicle_id?: string | null
+          worker?: string | null
         }
         Relationships: [
           {

@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 
 interface Props {
   providerId: string;
+  onSelectOrder?: (order: any) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -31,7 +32,7 @@ const statusColors: Record<string, string> = {
   'Zakończone': 'bg-gray-800 text-white',
 };
 
-export function WorkshopOrdersList({ providerId }: Props) {
+export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -153,7 +154,7 @@ export function WorkshopOrdersList({ providerId }: Props) {
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order: any) => (
-                  <TableRow key={order.id} className="group">
+                  <TableRow key={order.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => onSelectOrder?.(order)}>
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.has(order.id)}
