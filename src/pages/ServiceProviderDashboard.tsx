@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilderWizard';
+import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
@@ -27,7 +28,8 @@ import {
   Clock,
   Star,
   Globe,
-  Bot
+  Bot,
+  Hammer
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -160,6 +162,10 @@ export default function ServiceProviderDashboard() {
           <TabsTrigger value="bookings">
             <ClipboardList className="h-4 w-4 mr-1.5" />
             Rezerwacje
+          </TabsTrigger>
+          <TabsTrigger value="workshop">
+            <Hammer className="h-4 w-4 mr-1.5" />
+            Warsztat
           </TabsTrigger>
           <TabsTrigger value="ai-agent">
             <Bot className="h-4 w-4 mr-1.5" />
@@ -398,6 +404,11 @@ export default function ServiceProviderDashboard() {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Workshop Tab */}
+          <TabsContent value="workshop" className="mt-6">
+            <WorkshopDashboard />
           </TabsContent>
         </TabsPill>
       </main>
