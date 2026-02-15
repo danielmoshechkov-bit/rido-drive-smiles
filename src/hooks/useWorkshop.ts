@@ -13,8 +13,9 @@ export function useWorkshopProviderId() {
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('No service provider found');
       return data?.id as string;
     },
     retry: 3,

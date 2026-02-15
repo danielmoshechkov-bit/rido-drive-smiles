@@ -46,6 +46,7 @@ interface CalendarEventDialogProps {
   defaultStart?: Date;
   defaultEnd?: Date;
   calendarId: string;
+  employees?: { id: string; name: string }[];
 }
 
 const EVENT_COLORS = [
@@ -74,6 +75,7 @@ export function CalendarEventDialog({
   defaultStart,
   defaultEnd,
   calendarId,
+  employees = [],
 }: CalendarEventDialogProps) {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
@@ -92,6 +94,8 @@ export function CalendarEventDialog({
   const [allDay, setAllDay] = useState(false);
   const [color, setColor] = useState("#8b5cf6");
   const [type, setType] = useState<"private_event" | "blocked_time" | "reminder" | "task">("private_event");
+  const [assignedEmployee, setAssignedEmployee] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("60");
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -121,6 +125,8 @@ export function CalendarEventDialog({
         setAllDay(false);
         setColor("#8b5cf6");
         setType("private_event");
+        setAssignedEmployee("");
+        setDurationMinutes("60");
         setStartDate(start);
         setEndDate(end);
         setStartTime(format(start, "HH:mm"));
@@ -129,19 +135,32 @@ export function CalendarEventDialog({
     }
   }, [open, event, defaultStart, defaultEnd]);
 
+  // Auto-calculate end time when duration changes
+  const handleDurationChange = (mins: string) => {
+    setDurationMinutes(mins);
+    if (startDate && startTime) {
+      const [h, m] = startTime.split(":").map(Number);
+      const start = new Date(startDate);
+      start.setHours(h, m, 0, 0);
+      const end = new Date(start.getTime() + parseInt(mins) * 60000);
+      setEndDate(end);
+      setEndTime(format(end, "HH:mm"));
+    }
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error("Podaj tytuł wydarzenia");
       return;
     }
 
-    if (!startDate || !endDate) {
+    if (!startDate) {
       toast.error("Wybierz datę");
       return;
     }
 
     if (!calendarId) {
-      toast.error("Brak kalendarza");
+      toast.error("Brak kalendarza — spróbuj odświeżyć stronę");
       return;
     }
 
@@ -150,8 +169,9 @@ export function CalendarEventDialog({
     const [endHours, endMins] = endTime.split(":").map(Number);
 
     const startAt = setMinutes(setHours(startDate, startHours), startMins);
-    const endAt = setMinutes(setHours(endDate, endHours), endMins);
-
+    const computedEnd = endDate || startDate;
+    const endAt = setMinutes(setHours(computedEnd, endHours), endMins);
+    
     if (endAt <= startAt) {
       toast.error("Data zakończenia musi być późniejsza niż rozpoczęcia");
       return;
@@ -268,6 +288,24 @@ export function CalendarEventDialog({
             </div>
           </div>
 
+          {/* Employee assignment */}
+          {employees.length > 0 && (
+            <div className="space-y-2">
+              <Label>Przydziel pracownika</Label>
+              <Select value={assignedEmployee} onValueChange={setAssignedEmployee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz pracownika (opcjonalnie)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Brak</SelectItem>
+                  {employees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* All day toggle */}
           <div className="flex items-center justify-between">
             <Label htmlFor="all-day" className="flex items-center gap-2">
@@ -333,6 +371,29 @@ export function CalendarEventDialog({
               </div>
             )}
           </div>
+
+          {/* Duration */}
+          {!allDay && (
+            <div className="space-y-2">
+              <Label>Czas trwania</Label>
+              <Select value={durationMinutes} onValueChange={handleDurationChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 min</SelectItem>
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="45">45 min</SelectItem>
+                  <SelectItem value="60">1 godz.</SelectItem>
+                  <SelectItem value="90">1,5 godz.</SelectItem>
+                  <SelectItem value="120">2 godz.</SelectItem>
+                  <SelectItem value="180">3 godz.</SelectItem>
+                  <SelectItem value="240">4 godz.</SelectItem>
+                  <SelectItem value="480">8 godz.</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* End date/time */}
           <div className="grid grid-cols-2 gap-4">

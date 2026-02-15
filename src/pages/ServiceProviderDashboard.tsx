@@ -517,8 +517,9 @@ export default function ServiceProviderDashboard() {
               isAdminAccount={roles.includes('admin')}
               isSalesAdmin={roles.includes('sales_admin')}
               isSalesRep={roles.includes('sales_rep')}
+              isServiceProvider={true}
               isMarketplaceEnabled={true}
-              currentAccountType="client"
+              currentAccountType="service_provider"
               navigate={navigate}
             />
           </TabsContent>
