@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { WorkshopOrdersList } from './WorkshopOrdersList';
 import { WorkshopOrderDetail } from './WorkshopOrderDetail';
@@ -53,9 +54,12 @@ export function WorkshopDashboard() {
     return (
       <div className="text-center py-20 text-muted-foreground">
         <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium">Brak przypisanego konta usługodawcy</p>
-        <p className="text-sm mt-2">Skontaktuj się z administratorem portalu.</p>
+        <p className="text-lg font-medium">Ładowanie modułu zarządzania...</p>
+        <p className="text-sm mt-2">Jeśli to trwa dłużej, odśwież stronę.</p>
         {error && <p className="text-xs text-destructive mt-2">Błąd: {(error as Error).message}</p>}
+        <Button className="mt-4" variant="outline" onClick={() => window.location.reload()}>
+          Odśwież stronę
+        </Button>
       </div>
     );
   }

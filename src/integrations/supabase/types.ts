@@ -14099,6 +14099,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_user_provider_ids: { Args: { p_user_id: string }; Returns: string[] }
       get_voice_cache_stats: {
         Args: never
         Returns: {

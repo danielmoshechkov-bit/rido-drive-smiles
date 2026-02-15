@@ -15,6 +15,7 @@ interface RidoAssistantWidgetProps {
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isAllowed, setIsAllowed] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -26,7 +27,12 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   useEffect(() => {
     const checkAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) return;
+      if (!user?.email) {
+        setIsLoggedIn(false);
+        setIsAllowed(false);
+        return;
+      }
+      setIsLoggedIn(true);
       setUserEmail(user.email);
 
       // Check DB whitelist
@@ -132,7 +138,8 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
     setSent(false);
   };
 
-  if (!isAllowed) return null;
+  // Must be logged in AND on the whitelist
+  if (!isLoggedIn || !isAllowed) return null;
 
   return (
     <>
