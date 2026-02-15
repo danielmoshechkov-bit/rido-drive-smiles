@@ -72,6 +72,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
 
   useEffect(() => {
     if (selectedWeek) {
+      setSettledMap({});
       fetchOwnerData();
     }
   }, [fleetId, selectedWeek]);
@@ -258,16 +259,40 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     }
   };
 
-  const handleToggleSettle = async (ownerId: string, currentlySettled: boolean) => {
+  // Separate local state for settlement status to avoid being overridden by DB fetch
+  const [settledMap, setSettledMap] = useState<Record<string, { settled: boolean; date: string | null }>>({});
+
+  // Sync settledMap from DB data
+  useEffect(() => {
+    const map: Record<string, { settled: boolean; date: string | null }> = {};
+    owners.forEach(o => {
+      if (!(o.owner_id in settledMap)) {
+        map[o.owner_id] = { settled: o.is_settled, date: null };
+      }
+    });
+    if (Object.keys(map).length > 0) {
+      setSettledMap(prev => ({ ...map, ...prev }));
+    }
+  }, [owners]);
+
+  const isOwnerSettled = (ownerId: string) => settledMap[ownerId]?.settled ?? false;
+  const settledDate = (ownerId: string) => settledMap[ownerId]?.date ?? null;
+
+  const handleToggleSettle = async (ownerId: string) => {
     const weekData = weeks.find(w => w.number.toString() === selectedWeek);
     if (!weekData) return;
 
-    // Optimistic UI update
-    setOwners(prev => prev.map(o => o.owner_id === ownerId ? { ...o, is_settled: !currentlySettled } : o));
+    const currentlySettled = isOwnerSettled(ownerId);
+    const now = new Date().toISOString();
+
+    // Immediately update local state
+    setSettledMap(prev => ({
+      ...prev,
+      [ownerId]: { settled: !currentlySettled, date: !currentlySettled ? now : null }
+    }));
 
     try {
       if (currentlySettled) {
-        // Un-settle: remove the settled marker
         await supabase
           .from("vehicle_owner_charges" as any)
           .delete()
@@ -279,16 +304,14 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
 
         toast.success("Status zmieniony na: Nie rozliczone");
       } else {
-        // Settle: mark all existing charges as settled
         await supabase
           .from("vehicle_owner_charges" as any)
-          .update({ is_settled: true, settled_at: new Date().toISOString() })
+          .update({ is_settled: true, settled_at: now })
           .eq("owner_id", ownerId)
           .eq("fleet_id", fleetId)
           .gte("week_start", weekData.start)
           .lte("week_end", weekData.end);
 
-        // Insert settlement marker
         await supabase
           .from("vehicle_owner_charges" as any)
           .insert([{
@@ -301,15 +324,17 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
             adjustment: 0,
             adjustment_note: "Rozliczenie - wyzerowano saldo",
             is_settled: true,
-            settled_at: new Date().toISOString(),
+            settled_at: now,
           }]);
 
         toast.success(`✅ Tydzień ${weekData.label} rozliczony!`);
       }
-      fetchOwnerData();
     } catch (error: any) {
-      // Revert optimistic update
-      setOwners(prev => prev.map(o => o.owner_id === ownerId ? { ...o, is_settled: currentlySettled } : o));
+      // Revert
+      setSettledMap(prev => ({
+        ...prev,
+        [ownerId]: { settled: currentlySettled, date: currentlySettled ? now : null }
+      }));
       toast.error(error.message);
     }
   };
@@ -436,15 +461,28 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                           {formatCurrency(owner.total_owed)}
                         </div>
                       </div>
-                      <Button
-                        variant={owner.is_settled ? "outline" : "destructive"}
-                        size="sm"
-                        className={`gap-1 ${owner.is_settled ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); handleToggleSettle(owner.owner_id, owner.is_settled); }}
-                      >
-                        <CheckCircle className="h-3 w-3" />
-                        {owner.is_settled ? "Rozliczone" : "Nie rozliczone"}
-                      </Button>
+                      {(() => {
+                        const settled = isOwnerSettled(owner.owner_id);
+                        const date = settledDate(owner.owner_id);
+                        return (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`gap-1 ${settled ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' : 'bg-red-500 hover:bg-red-600 text-white border-red-500'}`}
+                              onClick={(e) => { e.stopPropagation(); handleToggleSettle(owner.owner_id); }}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              {settled ? "Rozliczone" : "Nie rozliczone"}
+                            </Button>
+                            {settled && date && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(date).toLocaleDateString('pl-PL')} {new Date(date).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {expandedOwners.has(owner.owner_id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </div>
                   </div>

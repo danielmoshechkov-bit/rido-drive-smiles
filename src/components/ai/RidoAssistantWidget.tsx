@@ -60,11 +60,16 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isOwnerUser, setIsOwnerUser] = useState(false);
   
-  // Check if user is owner - owners get full access
+  // Check if user is owner or allowed user - they get full access
   useEffect(() => {
     const checkOwner = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email && ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'].includes(user.email)) {
+      const allowedEmails = [
+        'daniel.moshechkov@gmail.com',
+        'anastasiia.shapovalova1991@gmail.com',
+        'piotrkrolakartcom@o2.pl',
+      ];
+      if (user?.email && allowedEmails.includes(user.email.toLowerCase())) {
         setIsOwnerUser(true);
       }
     };
