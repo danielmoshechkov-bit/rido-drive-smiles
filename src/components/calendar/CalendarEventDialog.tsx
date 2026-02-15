@@ -47,6 +47,7 @@ interface CalendarEventDialogProps {
   defaultEnd?: Date;
   calendarId: string;
   employees?: { id: string; name: string }[];
+  services?: { id: string; name: string; price_from?: number; price_to?: number }[];
 }
 
 const EVENT_COLORS = [
@@ -76,6 +77,7 @@ export function CalendarEventDialog({
   defaultEnd,
   calendarId,
   employees = [],
+  services = [],
 }: CalendarEventDialogProps) {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
@@ -86,7 +88,7 @@ export function CalendarEventDialog({
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [startTime, setStartTime] = useState("09:00");
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -103,7 +105,7 @@ export function CalendarEventDialog({
       if (event) {
         setTitle(event.title);
         setDescription(event.description || "");
-        setLocation(event.location || "");
+        setSelectedServiceId("");
         setAllDay(event.all_day);
         setColor(event.color || "#8b5cf6");
         setType(event.type as any);
@@ -121,7 +123,7 @@ export function CalendarEventDialog({
         
         setTitle("");
         setDescription("");
-        setLocation("");
+        setSelectedServiceId("");
         setAllDay(false);
         setColor("#8b5cf6");
         setType("private_event");
@@ -182,7 +184,7 @@ export function CalendarEventDialog({
       type,
       title: title.trim(),
       description: description.trim() || undefined,
-      location: location.trim() || undefined,
+      location: undefined,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       all_day: allDay,
@@ -228,17 +230,55 @@ export function CalendarEventDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Tytuł</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Np. Spotkanie z klientem"
-              autoFocus
-            />
-          </div>
+          {/* Service / Title */}
+          {services.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Usługa / czynność</Label>
+              <Select
+                value={selectedServiceId}
+                onValueChange={(v) => {
+                  setSelectedServiceId(v);
+                  if (v !== "custom") {
+                    const svc = services.find(s => s.id === v);
+                    if (svc) setTitle(svc.name);
+                  } else {
+                    setTitle("");
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz usługę lub czynność" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map(svc => (
+                    <SelectItem key={svc.id} value={svc.id}>
+                      {svc.name}{svc.price_from ? ` (od ${svc.price_from} zł)` : ''}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">+ Inna czynność...</SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedServiceId === "custom" && (
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Wpisz nazwę czynności"
+                  className="mt-2"
+                />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="title">Tytuł</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Np. Spotkanie z klientem"
+                autoFocus
+              />
+            </div>
+          )}
 
           {/* Type & Color */}
           <div className="grid grid-cols-2 gap-4">
@@ -288,23 +328,7 @@ export function CalendarEventDialog({
             </div>
           </div>
 
-          {/* Employee assignment */}
-          {employees.length > 0 && (
-            <div className="space-y-2">
-              <Label>Przydziel pracownika</Label>
-              <Select value={assignedEmployee} onValueChange={setAssignedEmployee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Wybierz pracownika (opcjonalnie)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Brak</SelectItem>
-                  {employees.map(emp => (
-                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+
 
           {/* All day toggle */}
           <div className="flex items-center justify-between">
@@ -444,18 +468,23 @@ export function CalendarEventDialog({
             )}
           </div>
 
-          {/* Location */}
+          {/* Employee assignment (replaces Location) */}
           <div className="space-y-2">
-            <Label htmlFor="location" className="flex items-center gap-2">
+            <Label className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              Lokalizacja
+              Pracownik
             </Label>
-            <Input
-              id="location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Adres lub link do spotkania"
-            />
+            <Select value={assignedEmployee} onValueChange={setAssignedEmployee}>
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz pracownika (opcjonalnie)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Brak</SelectItem>
+                {employees.map(emp => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Description */}
