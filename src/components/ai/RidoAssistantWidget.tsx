@@ -58,18 +58,30 @@ interface RidoAssistantWidgetProps {
 
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  // Temporarily disabled - show coming soon message
-  const isTemporarilyDisabled = true;
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: isTemporarilyDisabled 
-        ? "🚧 Rido AI jest tymczasowo niedostępny.\n\nPracujemy nad ulepszeniami i wkrótce wrócę z nowymi funkcjami!\n\nDziękuję za cierpliwość."
-        : "Cześć! Jestem Rido AI 🚗 Mogę pomóc Ci z:\n\n• Wyszukiwaniem ofert (auta, usługi)\n• Wystawianiem faktur\n• Weryfikacją kontrahentów\n• I wieloma innymi zadaniami!\n\nPowiedz lub napisz czego szukasz.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [isOwnerUser, setIsOwnerUser] = useState(false);
+  
+  // Check if user is owner - owners get full access
+  useEffect(() => {
+    const checkOwner = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email && ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'].includes(user.email)) {
+        setIsOwnerUser(true);
+      }
+    };
+    checkOwner();
+  }, []);
+  
+  // Temporarily disabled for non-owner users
+  const isTemporarilyDisabled = !isOwnerUser;
+  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // Update welcome message when owner status changes
+  useEffect(() => {
+    const welcomeContent = isTemporarilyDisabled 
+      ? "🚧 Rido AI jest tymczasowo niedostępny.\n\nPracujemy nad ulepszeniami i wkrótce wrócę z nowymi funkcjami!\n\nDziękuję za cierpliwość."
+      : "Cześć! Jestem Rido AI 🚗 Mogę pomóc Ci z:\n\n• Wyszukiwaniem ofert (auta, usługi)\n• Wystawianiem faktur\n• Weryfikacją kontrahentów\n• I wieloma innymi zadaniami!\n\nPowiedz lub napisz czego szukasz.";
+    setMessages([{ id: "welcome", role: "assistant", content: welcomeContent, timestamp: new Date() }]);
+  }, [isTemporarilyDisabled]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<{

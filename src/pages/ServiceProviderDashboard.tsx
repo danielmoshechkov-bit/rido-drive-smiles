@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
-  const { roles } = useUserRole();
+  const { roles, loading: roleLoading } = useUserRole();
   const { features } = useFeatureToggles();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +50,19 @@ export default function ServiceProviderDashboard() {
     averageRating: 0
   });
 
+  // Check access using useUserRole hook
   useEffect(() => {
+    if (roleLoading) return;
+    
+    const isServiceProvider = roles.some(r => r === 'service_provider');
+    if (!isServiceProvider) {
+      toast.error('Brak uprawnień do panelu usługodawcy');
+      navigate('/auth');
+      return;
+    }
+    
     checkAuth();
-  }, []);
+  }, [roleLoading, roles]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -63,18 +73,6 @@ export default function ServiceProviderDashboard() {
     }
 
     setUser(user);
-
-    // Check if user has service_provider role
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id);
-
-    if (!roles?.some(r => r.role === 'service_provider')) {
-      toast.error('Brak uprawnień do panelu usługodawcy');
-      navigate('/auth');
-      return;
-    }
 
     // Fetch AI agent config for this user
     const { data: config } = await supabase
