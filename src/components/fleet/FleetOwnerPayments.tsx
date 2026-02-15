@@ -195,7 +195,10 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         // If charges exist for this week, use charges; otherwise use settlement-based
         const hasChargesThisWeek = ownerCharges.length > 0;
         const isSettled = ownerCharges.some((c: any) => c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie"));
-        const totalOwed = isSettled ? chargesTotal : (hasChargesThisWeek ? chargesTotal : settlementTotal || totalWeekly);
+        // When settled, still show original amount (not zeroed charges) so user can always see the value
+        const nonSettlementCharges = ownerCharges.filter((c: any) => !(c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie")));
+        const realChargesTotal = nonSettlementCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
+        const totalOwed = hasChargesThisWeek ? (nonSettlementCharges.length > 0 ? realChargesTotal : (settlementTotal || totalWeekly)) : (settlementTotal || totalWeekly);
 
         return {
           owner_id: owner.id,

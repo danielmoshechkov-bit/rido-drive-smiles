@@ -105,6 +105,22 @@ export function CalendarView() {
     },
   });
 
+  // DB-backed services
+  const { data: services = [] } = useQuery({
+    queryKey: ['calendar-services', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('provider_services')
+        .select('id, name, price_from, price_to')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const addWorkstationMut = useMutation({
     mutationFn: async (name: string) => {
       const maxSort = workstations.length;
@@ -517,6 +533,7 @@ export function CalendarView() {
         defaultEnd={selectedSlot?.end}
         calendarId={calendar?.id || ""}
         employees={employees}
+        services={services}
       />
 
       {/* Add Workstation Dialog */}
