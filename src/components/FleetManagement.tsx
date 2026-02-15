@@ -573,7 +573,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                              {/* DESKTOP VIEW - full layout */}
                              <div className="hidden md:block flex-1 space-y-3">
                                 {/* Rząd 1 - podstawowe info */}
-                                <div className="flex items-center gap-6">
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                                    <div className="min-w-[100px]">
                                      <span className="text-xs text-muted-foreground">Nr rej.:</span>
                                      <div className="font-bold text-sm">{vehicle.plate}</div>

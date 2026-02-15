@@ -29,6 +29,7 @@ interface OwnerSummary {
   email: string | null;
   bank_account: string | null;
   payment_method: string | null;
+  is_settled: boolean;
   vehicles: {
     id: string;
     plate: string;
@@ -37,6 +38,7 @@ interface OwnerSummary {
     weekly_rental_fee: number;
     assigned_driver?: { id: string; name: string };
     driver_earned: number; // how much driver earned for this vehicle
+    driver_payout: number; // actual payout (what was deducted from driver)
     driver_shortfalls: VehicleDriver[];
   }[];
   total_weekly: number;
@@ -141,6 +143,16 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         .gte("period_from", weekData.start)
         .lte("period_to", weekData.end);
 
+      // Map driver → actual payout (how much was deducted from their earnings for rent)
+      const vehicleDriverPayout = new Map<string, number>();
+      (settlementsData || []).forEach((s: any) => {
+        const vehicleId = assignmentDriverVehicle.get(s.driver_id);
+        if (vehicleId) {
+          const payout = parseFloat(s.actual_payout?.toString() || "0");
+          vehicleDriverPayout.set(vehicleId, (vehicleDriverPayout.get(vehicleId) || 0) + Math.abs(payout));
+        }
+      });
+
       // Map driver → vehicle
       const assignmentDriverVehicle = new Map<string, string>();
       ((assignmentsData as any[]) || []).forEach((a: any) => {
@@ -192,10 +204,12 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           email: owner.email,
           bank_account: owner.bank_account,
           payment_method: owner.payment_method,
+          is_settled: isSettled,
           vehicles: ownerVehicles.map((v: any) => {
             const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
             const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
             const driverEarned = vehicleDriverEarnings.get(v.id) || 0;
+            const driverPayout = vehicleDriverPayout.get(v.id) || 0;
 
             // Shortfall: driver didn't cover the full rental
             const shortfalls: VehicleDriver[] = [];
@@ -220,6 +234,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                 name: driversMap[assignment.driver_id] || "Nieznany",
               } : undefined,
               driver_earned: driverEarned,
+              driver_payout: driverPayout,
               driver_shortfalls: shortfalls,
             };
           }),
@@ -243,40 +258,51 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
     }
   };
 
-  const handleSettle = async (ownerId: string) => {
+  const handleToggleSettle = async (ownerId: string, currentlySettled: boolean) => {
     const weekData = weeks.find(w => w.number.toString() === selectedWeek);
     if (!weekData) return;
-    
-    if (!confirm(`Oznaczyć jako rozliczone za tydzień ${weekData.label}?`)) return;
 
     try {
-      // Mark existing unsettled charges as settled for this week
-      await supabase
-        .from("vehicle_owner_charges" as any)
-        .update({ is_settled: true, settled_at: new Date().toISOString() })
-        .eq("owner_id", ownerId)
-        .eq("fleet_id", fleetId)
-        .eq("is_settled", false)
-        .gte("week_start", weekData.start)
-        .lte("week_end", weekData.end);
+      if (currentlySettled) {
+        // Un-settle: remove the settled marker
+        await supabase
+          .from("vehicle_owner_charges" as any)
+          .delete()
+          .eq("owner_id", ownerId)
+          .eq("fleet_id", fleetId)
+          .eq("is_settled", true)
+          .gte("week_start", weekData.start)
+          .lte("week_end", weekData.end);
 
-      // Insert settled marker for this specific week
-      await supabase
-        .from("vehicle_owner_charges" as any)
-        .insert([{
-          fleet_id: fleetId,
-          owner_id: ownerId,
-          vehicle_id: null,
-          week_start: weekData.start,
-          week_end: weekData.end,
-          amount: 0,
-          adjustment: 0,
-          adjustment_note: "Rozliczenie - wyzerowano saldo",
-          is_settled: true,
-          settled_at: new Date().toISOString(),
-        }]);
+        toast.success("Status zmieniony na: Nie rozliczone");
+      } else {
+        // Settle: mark as settled
+        await supabase
+          .from("vehicle_owner_charges" as any)
+          .update({ is_settled: true, settled_at: new Date().toISOString() })
+          .eq("owner_id", ownerId)
+          .eq("fleet_id", fleetId)
+          .eq("is_settled", false)
+          .gte("week_start", weekData.start)
+          .lte("week_end", weekData.end);
 
-      toast.success(`✅ Tydzień ${weekData.label} rozliczony!`);
+        await supabase
+          .from("vehicle_owner_charges" as any)
+          .insert([{
+            fleet_id: fleetId,
+            owner_id: ownerId,
+            vehicle_id: null,
+            week_start: weekData.start,
+            week_end: weekData.end,
+            amount: 0,
+            adjustment: 0,
+            adjustment_note: "Rozliczenie - wyzerowano saldo",
+            is_settled: true,
+            settled_at: new Date().toISOString(),
+          }]);
+
+        toast.success(`✅ Tydzień ${weekData.label} rozliczony!`);
+      }
       fetchOwnerData();
     } catch (error: any) {
       toast.error(error.message);
@@ -406,13 +432,13 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                         </div>
                       </div>
                       <Button
-                        variant="default"
+                        variant={owner.is_settled ? "default" : "destructive"}
                         size="sm"
                         className="gap-1"
-                        onClick={(e) => { e.stopPropagation(); handleSettle(owner.owner_id); }}
+                        onClick={(e) => { e.stopPropagation(); handleToggleSettle(owner.owner_id, owner.is_settled); }}
                       >
                         <CheckCircle className="h-3 w-3" />
-                        Rozliczone
+                        {owner.is_settled ? "Rozliczone" : "Nie rozliczone"}
                       </Button>
                       {expandedOwners.has(owner.owner_id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </div>
@@ -451,9 +477,18 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                             <TableCell className="text-right text-sm">{formatCurrency(v.weekly_rental_fee)}</TableCell>
                             <TableCell className="text-right text-sm">
                               {v.driver_earned > 0 ? (
-                                <span className={`font-medium ${v.driver_earned >= v.weekly_rental_fee ? 'text-green-600' : 'text-destructive'}`}>
-                                  {formatCurrency(v.driver_earned)}
-                                </span>
+                                <div>
+                                  <span className={`font-medium ${v.driver_earned >= v.weekly_rental_fee ? 'text-green-600' : 'text-destructive'}`}>
+                                    {formatCurrency(Math.min(v.driver_earned, v.weekly_rental_fee))}
+                                  </span>
+                                  {v.driver_earned < v.weekly_rental_fee && (
+                                    <div className="text-[10px] text-muted-foreground">
+                                      z {formatCurrency(v.weekly_rental_fee)}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : v.assigned_driver ? (
+                                <span className="text-destructive text-xs font-medium">0,00 zł</span>
                               ) : (
                                 <span className="text-muted-foreground text-xs">-</span>
                               )}
