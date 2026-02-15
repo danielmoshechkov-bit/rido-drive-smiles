@@ -10,9 +10,10 @@ import { Plus, Search, Loader2, Car, User } from 'lucide-react';
 interface Props {
   providerId: string;
   onBack: () => void;
+  onSelectVehicle?: (vehicle: any) => void;
 }
 
-export function WorkshopVehiclesList({ providerId, onBack }: Props) {
+export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Props) {
   const { data: vehicles = [], isLoading } = useWorkshopVehicles(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -75,7 +76,7 @@ export function WorkshopVehiclesList({ providerId, onBack }: Props) {
               </TableHeader>
               <TableBody>
                 {filtered.map((v: any) => (
-                  <TableRow key={v.id} className="hover:bg-accent/50">
+                  <TableRow key={v.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => onSelectVehicle?.(v)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Car className="h-4 w-4 text-muted-foreground" />

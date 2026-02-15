@@ -5,13 +5,18 @@ import { WorkshopOrdersList } from './WorkshopOrdersList';
 import { WorkshopOrderDetail } from './WorkshopOrderDetail';
 import { WorkshopClientsList } from './WorkshopClientsList';
 import { WorkshopVehiclesList } from './WorkshopVehiclesList';
+import { WorkshopVehicleDetail } from './WorkshopVehicleDetail';
 import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopSales } from './WorkshopSales';
 import { WorkshopReports } from './WorkshopReports';
+import { WorkshopWarehouse } from './WorkshopWarehouse';
+import { WorkshopTireStorage } from './WorkshopTireStorage';
+import { WorkshopRepairData } from './WorkshopRepairData';
+import { WorkshopSettings } from './WorkshopSettings';
 import {
   ClipboardList, CheckSquare, Calendar, ShoppingCart,
   Receipt, Package, Users, Car, BarChart3, Warehouse,
-  Archive, Wrench, Loader2
+  Archive, Wrench, Loader2, Settings
 } from 'lucide-react';
 
 const modules = [
@@ -24,15 +29,17 @@ const modules = [
   { key: 'klienci', label: 'Klienci', icon: Users, ready: true },
   { key: 'pojazdy', label: 'Pojazdy', icon: Car, ready: true },
   { key: 'raporty', label: 'Raporty', icon: BarChart3, ready: true },
-  { key: 'magazyn', label: 'Magazyn', icon: Warehouse, ready: false },
-  { key: 'przechowalnia', label: 'Przechowalnia', icon: Archive, ready: false },
-  { key: 'dane-naprawcze', label: 'Dane naprawcze', icon: Wrench, ready: false },
+  { key: 'magazyn', label: 'Magazyn', icon: Warehouse, ready: true },
+  { key: 'przechowalnia', label: 'Przechowalnia', icon: Archive, ready: true },
+  { key: 'dane-naprawcze', label: 'Dane naprawcze', icon: Wrench, ready: true },
+  { key: 'ustawienia', label: 'Ustawienia', icon: Settings, ready: true },
 ];
 
 export function WorkshopDashboard() {
   const { data: providerId, isLoading } = useWorkshopProviderId();
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
 
   if (isLoading) {
     return (
@@ -63,6 +70,21 @@ export function WorkshopDashboard() {
     );
   }
 
+  // Vehicle detail view
+  if (selectedVehicle) {
+    return (
+      <WorkshopVehicleDetail
+        vehicle={selectedVehicle}
+        providerId={providerId}
+        onBack={() => setSelectedVehicle(null)}
+        onOpenOrder={(order) => {
+          setSelectedVehicle(null);
+          setSelectedOrder(order);
+        }}
+      />
+    );
+  }
+
   const goHome = () => setActiveModule(null);
 
   // Module views
@@ -79,25 +101,17 @@ export function WorkshopDashboard() {
     );
   }
 
-  if (activeModule === 'klienci') {
-    return <WorkshopClientsList providerId={providerId} onBack={goHome} />;
-  }
-
+  if (activeModule === 'klienci') return <WorkshopClientsList providerId={providerId} onBack={goHome} />;
   if (activeModule === 'pojazdy') {
-    return <WorkshopVehiclesList providerId={providerId} onBack={goHome} />;
+    return <WorkshopVehiclesList providerId={providerId} onBack={goHome} onSelectVehicle={setSelectedVehicle} />;
   }
-
-  if (activeModule === 'terminarz') {
-    return <WorkshopScheduler providerId={providerId} onBack={goHome} />;
-  }
-
-  if (activeModule === 'sprzedaz') {
-    return <WorkshopSales providerId={providerId} onBack={goHome} />;
-  }
-
-  if (activeModule === 'raporty') {
-    return <WorkshopReports providerId={providerId} onBack={goHome} />;
-  }
+  if (activeModule === 'terminarz') return <WorkshopScheduler providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'sprzedaz') return <WorkshopSales providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'raporty') return <WorkshopReports providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'magazyn') return <WorkshopWarehouse providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'przechowalnia') return <WorkshopTireStorage providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'dane-naprawcze') return <WorkshopRepairData providerId={providerId} onBack={goHome} />;
+  if (activeModule === 'ustawienia') return <WorkshopSettings providerId={providerId} onBack={goHome} />;
 
   // Dashboard grid
   return (
