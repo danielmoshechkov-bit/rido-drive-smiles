@@ -194,6 +194,19 @@ export default function ClientPortal() {
     setAccountFirstName(currentUser.user_metadata?.first_name || currentUser.user_metadata?.imie || '');
     setAccountLastName(currentUser.user_metadata?.last_name || currentUser.user_metadata?.nazwisko || '');
 
+    // Check if service_provider — redirect to their dedicated panel
+    const { data: spRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .eq('role', 'service_provider')
+      .maybeSingle();
+    
+    if (spRole) {
+      navigate('/uslugi/panel', { replace: true });
+      return;
+    }
+
     // Check account types
     await Promise.all([
       checkDriverAccount(currentUser.id),
