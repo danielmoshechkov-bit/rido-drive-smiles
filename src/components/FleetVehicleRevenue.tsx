@@ -159,23 +159,26 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
       const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
 
-      // Fetch rental payments from settlements for this week
-      let rentalPayments: Array<{ driver_id: string; rental_fee: number }> = [];
+      // Fetch actual earnings from settlements for this week
+      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, rental_fee')
+          .select('driver_id, actual_payout, total_earnings')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
         
-        rentalPayments = paymentsData || [];
+        driverSettlements = paymentsData || [];
       }
 
-      const rentalPaymentMap = new Map<string, number>(
-        rentalPayments.map(p => [p.driver_id, parseFloat(p.rental_fee?.toString() || '0')])
-      );
+      // Map driver_id → actual_payout (what driver actually earned/covered)
+      const driverEarningsMap = new Map<string, number>();
+      driverSettlements.forEach(s => {
+        const payout = parseFloat(s.actual_payout?.toString() || '0');
+        driverEarningsMap.set(s.driver_id, (driverEarningsMap.get(s.driver_id) || 0) + Math.abs(payout));
+      });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
       const revenueData: VehicleRevenue[] = vehicles
@@ -186,9 +189,10 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           const proportionalRent = assignment?.assigned_at 
             ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
             : 0;
-          const paidAmount = assignment?.driver_id 
-            ? (rentalPaymentMap.get(assignment.driver_id) || 0) 
+          const driverEarned = assignment?.driver_id 
+            ? (driverEarningsMap.get(assignment.driver_id) || 0) 
             : 0;
+          const paidAmount = Math.min(driverEarned, proportionalRent);
 
           return {
             driver_id: assignment?.driver_id || null,

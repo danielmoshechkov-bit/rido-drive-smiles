@@ -3760,6 +3760,75 @@ export type Database = {
           },
         ]
       }
+      driver_document_requests: {
+        Row: {
+          contract_number: string | null
+          created_at: string
+          driver_id: string
+          file_url: string | null
+          filled_data: Json | null
+          fleet_id: string | null
+          id: string
+          signature_ip: string | null
+          signature_url: string | null
+          signature_user_agent: string | null
+          signed_at: string | null
+          status: string
+          template_code: string
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          contract_number?: string | null
+          created_at?: string
+          driver_id: string
+          file_url?: string | null
+          filled_data?: Json | null
+          fleet_id?: string | null
+          id?: string
+          signature_ip?: string | null
+          signature_url?: string | null
+          signature_user_agent?: string | null
+          signed_at?: string | null
+          status?: string
+          template_code: string
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          contract_number?: string | null
+          created_at?: string
+          driver_id?: string
+          file_url?: string | null
+          filled_data?: Json | null
+          fleet_id?: string | null
+          id?: string
+          signature_ip?: string | null
+          signature_url?: string | null
+          signature_user_agent?: string | null
+          signed_at?: string | null
+          status?: string
+          template_code?: string
+          template_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_document_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_document_requests_fleet_id_fkey"
+            columns: ["fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_document_statuses: {
         Row: {
           created_at: string

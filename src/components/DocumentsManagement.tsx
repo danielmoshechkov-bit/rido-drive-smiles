@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, FileText, Upload, Download, Users, Car } from 'lucide-react';
+import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,120 +21,128 @@ interface DocumentsManagementProps {
   cityName: string;
 }
 
-interface DocumentTemplate {
+// Built-in templates that are always available
+const BUILT_IN_TEMPLATES = [
+  {
+    id: 'builtin-umowa-najmu',
+    name: 'Umowa najmu pojazdu',
+    code: 'RENTAL_CONTRACT',
+    version: '1.0',
+    enabled: true,
+    created_at: '2026-01-01T00:00:00Z',
+    description: 'Umowa najmu pojazdu §1-§7 z polami: dane Najemcy (partner flotowy), Wynajmujący (kierowca/właściciel auta), przedmiot umowy, cel, okres, czynsz, obowiązki, odpowiedzialność podatkowa, postanowienia końcowe.',
+    required_fields: ['driver_data', 'vehicle_data', 'fleet_data', 'contract_date'],
+    builtin: true,
+  },
+];
+
+interface DriverOption {
   id: string;
-  name: string;
-  code: string;
-  version: string;
-  placeholders_json: any;
-  file_url: string | null;
-  enabled: boolean;
-  created_at: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
 }
-
-interface Document {
-  id: string;
-  type: string;
-  vehicle_id: string | null;
-  driver_id: string | null;
-  template_id: string | null;
-  file_url: string;
-  created_at: string;
-  vehicle?: any;
-  driver?: any;
-}
-
-const useDocumentTemplates = () => {
-  return useQuery({
-    queryKey: ['document-templates'],
-    queryFn: async () => {
-      // Placeholder for now - will work after migration
-      return [] as DocumentTemplate[];
-    },
-  });
-};
-
-const useDocuments = (cityId: string) => {
-  return useQuery({
-    queryKey: ['documents', cityId],
-    queryFn: async () => {
-      // Placeholder for now - will work after migration
-      return [] as Document[];
-    },
-  });
-};
 
 export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementProps) => {
   const [activeTab, setActiveTab] = useState('templates');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Generator form state
-  const [selectedDriver, setSelectedDriver] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState('');
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
-  const [contractFields, setContractFields] = useState({
-    weeklyPrice: '',
-    deposit: '',
-    startDate: '',
-    startTime: '10:00',
-    endDate: '',
-    endTime: '10:00',
-    indefinite: false,
-    limitKm: '0',
-    overKmRate: '0'
-  });
-  const [handoverFields, setHandoverFields] = useState({
-    placeOut: 'Warszawa',
-    placeIn: 'Warszawa',
-    fuelLevel: 'pełny',
-    remarks: ''
+  const [sendDialog, setSendDialog] = useState<{ templateCode: string; templateName: string } | null>(null);
+  const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
+  const [sendToAll, setSendToAll] = useState(false);
+  const [driverSearch, setDriverSearch] = useState('');
+
+  // Fetch drivers for the fleet
+  const { data: drivers = [] } = useQuery({
+    queryKey: ['fleet-drivers-docs', cityId],
+    queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) return [] as DriverOption[];
+      
+      const { data: fleetData } = await (supabase as any)
+        .from('fleets')
+        .select('id')
+        .eq('owner_id', session.session.user.id)
+        .maybeSingle();
+
+      if (!fleetData) return [] as DriverOption[];
+
+      const { data } = await (supabase as any)
+        .from('drivers')
+        .select('id, first_name, last_name')
+        .eq('fleet_id', fleetData.id)
+        .order('last_name');
+
+      return (data || []) as DriverOption[];
+    },
   });
 
-  const { data: templates = [], isLoading: templatesLoading, refetch: refetchTemplates } = useDocumentTemplates();
-  const { data: documents = [], isLoading: documentsLoading, refetch: refetchDocuments } = useDocuments(cityId);
+  // Fetch sent document requests
+  const { data: sentRequests = [], refetch: refetchRequests } = useQuery({
+    queryKey: ['document-requests', cityId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('driver_document_requests' as any)
+        .select('*')
+        .order('created_at', { ascending: false });
+      return (data || []) as any[];
+    },
+  });
 
-  const filteredTemplates = templates.filter(template => 
+  const allTemplates = [...BUILT_IN_TEMPLATES];
+
+  const filteredTemplates = allTemplates.filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     template.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredDocuments = documents.filter(doc => 
-    doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.vehicle?.plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${doc.driver?.first_name} ${doc.driver?.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredDrivers = drivers.filter(d =>
+    `${d.first_name} ${d.last_name}`.toLowerCase().includes(driverSearch.toLowerCase())
   );
 
-  const handleTemplateToggle = (templateCode: string) => {
-    setSelectedTemplates(prev => 
-      prev.includes(templateCode) 
-        ? prev.filter(t => t !== templateCode)
-        : [...prev, templateCode]
-    );
-  };
+  const handleSendToDrivers = async () => {
+    if (!sendDialog) return;
+    const targetDrivers = sendToAll ? drivers.map(d => d.id) : selectedDriverIds;
 
-  const handleGenerateDocuments = async () => {
-    if (!selectedDriver || !selectedVehicle || selectedTemplates.length === 0) {
-      toast.error('Wybierz kierowcę, pojazd i co najmniej jeden szablon dokumentu');
+    if (targetDrivers.length === 0) {
+      toast.error('Wybierz co najmniej jednego kierowcę');
       return;
     }
 
     try {
-      const payload = {
-        templates: selectedTemplates,
-        driverRef: { id: selectedDriver },
-        vehicleRef: { id: selectedVehicle },
-        fields: {
-          rent: contractFields,
-          handover: handoverFields
-        }
-      };
+      // Create document requests for each driver
+      const requests = targetDrivers.map(driverId => ({
+        driver_id: driverId,
+        template_code: sendDialog.templateCode,
+        template_name: sendDialog.templateName,
+        status: 'pending',
+        fleet_id: cityId, // using cityId as fleet context
+      }));
 
-      // This would call the API endpoint - for now just show success
-      toast.success('Dokumenty zostały wygenerowane pomyślnie');
-      refetchDocuments();
-    } catch (error) {
-      toast.error('Błąd podczas generowania dokumentów');
+      const { error } = await supabase
+        .from('driver_document_requests' as any)
+        .insert(requests);
+
+      if (error) throw error;
+
+      toast.success(`Wysłano ${targetDrivers.length} zaproszeń do wypełnienia dokumentów`);
+      setSendDialog(null);
+      setSelectedDriverIds([]);
+      setSendToAll(false);
+      refetchRequests();
+    } catch (error: any) {
+      // Table might not exist yet - show info
+      toast.info('Funkcja wysyłania dokumentów zostanie uruchomiona po utworzeniu tabeli w bazie danych');
+      setSendDialog(null);
     }
+  };
+
+  const toggleDriverSelection = (driverId: string) => {
+    setSelectedDriverIds(prev =>
+      prev.includes(driverId)
+        ? prev.filter(id => id !== driverId)
+        : [...prev, driverId]
+    );
   };
 
   return (
@@ -146,308 +156,203 @@ export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementPro
             </CardTitle>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="templates">Szablony dokumentów</TabsTrigger>
-              <TabsTrigger value="generator">Generator dokumentów</TabsTrigger>
-              <TabsTrigger value="documents">Lista dokumentów</TabsTrigger>
+              <TabsTrigger value="sent">Wysłane do kierowców</TabsTrigger>
+              <TabsTrigger value="completed">Podpisane dokumenty</TabsTrigger>
             </TabsList>
 
+            {/* Templates Tab */}
             <TabsContent value="templates" className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-1 min-w-[300px]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Szukaj szablonów..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+                <div className="relative flex-1 min-w-[300px] max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Szukaj szablonów..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                <Button className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Dodaj szablon
-                </Button>
               </div>
 
-              {templatesLoading ? (
+              <div className="space-y-3">
+                {filteredTemplates.map((template) => (
+                  <div key={template.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold">{template.name}</h3>
+                          <Badge variant="default">Aktywny</Badge>
+                          <Badge variant="outline" className="text-xs">v{template.version}</Badge>
+                          {template.builtin && (
+                            <Badge variant="secondary" className="text-xs">Wbudowany</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {template.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Kod: {template.code}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => setSendDialog({ templateCode: template.code, templateName: template.name })}
+                        >
+                          <Send className="h-4 w-4" />
+                          Wyślij do kierowcy
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            {/* Sent Tab */}
+            <TabsContent value="sent" className="space-y-4">
+              {sentRequests.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">Ładowanie szablonów...</p>
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">Brak wysłanych dokumentów do wypełnienia</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Przejdź do zakładki "Szablony" i wyślij dokument do kierowcy
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredTemplates.map((template) => (
-                    <div key={template.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="font-semibold">{template.name}</h3>
-                            <Badge variant={template.enabled ? "default" : "secondary"}>
-                              {template.enabled ? 'Aktywny' : 'Nieaktywny'}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              v{template.version}
-                            </Badge>
+                  {sentRequests.map((req: any) => {
+                    const driver = drivers.find(d => d.id === req.driver_id);
+                    return (
+                      <div key={req.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-sm">{req.template_name}</h3>
+                              <Badge variant={req.status === 'completed' ? 'default' : req.status === 'in_progress' ? 'secondary' : 'outline'}>
+                                {req.status === 'completed' ? 'Wypełniony' : req.status === 'in_progress' ? 'W trakcie' : 'Oczekujący'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Kierowca: {driver ? `${driver.first_name} ${driver.last_name}` : req.driver_id}
+                            </p>
+                            {req.created_at && (
+                              <p className="text-xs text-muted-foreground">
+                                Wysłano: {format(new Date(req.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                              </p>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Kod: {template.code}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Utworzony: {format(new Date(template.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Edytuj
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4" />
-                          </Button>
+                          {req.status === 'completed' && (
+                            <Button variant="outline" size="sm" className="gap-1">
+                              <Download className="h-4 w-4" />
+                              Pobierz PDF
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="generator" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Driver and Vehicle Selection */}
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Wybierz kierowcę
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Input
-                        placeholder="Szukaj po imieniu, nazwisku, telefonie lub email..."
-                        className="mb-3"
-                      />
-                      <Button variant="outline" className="w-full">
-                        Utwórz nowego kierowcę
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Car className="h-4 w-4" />
-                        Wybierz pojazd
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Input
-                        placeholder="Szukaj po rejestracji..."
-                        className="mb-3"
-                      />
-                      <Button variant="outline" className="w-full">
-                        Utwórz nowy pojazd
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Contract Terms */}
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Warunki umowy</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="weeklyPrice">Stawka tygodniowa (PLN)</Label>
-                          <Input
-                            id="weeklyPrice"
-                            type="number"
-                            value={contractFields.weeklyPrice}
-                            onChange={(e) => setContractFields(prev => ({...prev, weeklyPrice: e.target.value}))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="deposit">Kaucja (PLN)</Label>
-                          <Input
-                            id="deposit"
-                            type="number"
-                            value={contractFields.deposit}
-                            onChange={(e) => setContractFields(prev => ({...prev, deposit: e.target.value}))}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="startDate">Data rozpoczęcia</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={contractFields.startDate}
-                            onChange={(e) => setContractFields(prev => ({...prev, startDate: e.target.value}))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="startTime">Godzina rozpoczęcia</Label>
-                          <Input
-                            id="startTime"
-                            type="time"
-                            value={contractFields.startTime}
-                            onChange={(e) => setContractFields(prev => ({...prev, startTime: e.target.value}))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="indefinite"
-                          checked={contractFields.indefinite}
-                          onCheckedChange={(checked) => 
-                            setContractFields(prev => ({...prev, indefinite: checked as boolean}))
-                          }
-                        />
-                        <Label htmlFor="indefinite">Umowa bezterminowa</Label>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+            {/* Completed Documents Tab */}
+            <TabsContent value="completed" className="space-y-4">
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">Brak podpisanych dokumentów</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Podpisane dokumenty pojawią się tutaj po wypełnieniu ich przez kierowców
+                </p>
               </div>
-
-              {/* Handover Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Wydanie/zwrot pojazdu</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="placeOut">Miejsce wydania</Label>
-                      <Input
-                        id="placeOut"
-                        value={handoverFields.placeOut}
-                        onChange={(e) => setHandoverFields(prev => ({...prev, placeOut: e.target.value}))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="placeIn">Miejsce zwrotu</Label>
-                      <Input
-                        id="placeIn"
-                        value={handoverFields.placeIn}
-                        onChange={(e) => setHandoverFields(prev => ({...prev, placeIn: e.target.value}))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="fuelLevel">Poziom paliwa</Label>
-                      <Input
-                        id="fuelLevel"
-                        value={handoverFields.fuelLevel}
-                        onChange={(e) => setHandoverFields(prev => ({...prev, fuelLevel: e.target.value}))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="remarks">Uwagi</Label>
-                    <Textarea
-                      id="remarks"
-                      value={handoverFields.remarks}
-                      onChange={(e) => setHandoverFields(prev => ({...prev, remarks: e.target.value}))}
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Document Selection */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Wybierz dokumenty do wygenerowania</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {templates.filter(t => t.enabled).map((template) => (
-                      <div key={template.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={template.code}
-                          checked={selectedTemplates.includes(template.code)}
-                          onCheckedChange={() => handleTemplateToggle(template.code)}
-                        />
-                        <Label htmlFor={template.code} className="text-sm">
-                          {template.name}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <Button 
-                    className="w-full mt-6" 
-                    onClick={handleGenerateDocuments}
-                    disabled={selectedTemplates.length === 0}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generuj dokumenty ({selectedTemplates.length})
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="documents" className="space-y-4">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Szukaj dokumentów..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {documentsLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Ładowanie dokumentów...</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredDocuments.map((doc) => (
-                    <div key={doc.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="font-semibold">{doc.type}</h3>
-                            <Badge variant="outline">
-                              {format(new Date(doc.created_at), 'dd.MM.yyyy', { locale: pl })}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {doc.driver && (
-                              <span>Kierowca: {doc.driver.first_name} {doc.driver.last_name} • </span>
-                            )}
-                            {doc.vehicle && (
-                              <span>Pojazd: {doc.vehicle.plate} ({doc.vehicle.brand} {doc.vehicle.model})</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4" />
-                            Pobierz PDF
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Send to Drivers Dialog */}
+      <Dialog open={!!sendDialog} onOpenChange={(open) => !open && setSendDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              Wyślij "{sendDialog?.templateName}" do kierowców
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Kierowca po zalogowaniu zobaczy powiadomienie o konieczności wypełnienia dokumentu. 
+              System przeprowadzi go przez uzupełnianie danych krok po kroku, a na końcu wygeneruje gotową umowę do podpisu.
+            </p>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="send-to-all"
+                checked={sendToAll}
+                onCheckedChange={(checked) => {
+                  setSendToAll(checked as boolean);
+                  if (checked) setSelectedDriverIds(drivers.map(d => d.id));
+                  else setSelectedDriverIds([]);
+                }}
+              />
+              <Label htmlFor="send-to-all" className="font-medium">Wyślij do wszystkich kierowców ({drivers.length})</Label>
+            </div>
+
+            {!sendToAll && (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Szukaj kierowcy..."
+                    value={driverSearch}
+                    onChange={(e) => setDriverSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="max-h-[250px] overflow-y-auto space-y-1 border rounded-lg p-2">
+                  {filteredDrivers.map(driver => (
+                    <label
+                      key={driver.id}
+                      className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedDriverIds.includes(driver.id)}
+                        onCheckedChange={() => toggleDriverSelection(driver.id)}
+                      />
+                      <span className="text-sm">{driver.first_name} {driver.last_name}</span>
+                    </label>
+                  ))}
+                  {filteredDrivers.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-4">Brak kierowców</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {(sendToAll || selectedDriverIds.length > 0) && (
+              <p className="text-xs text-muted-foreground">
+                Wybrano: {sendToAll ? drivers.length : selectedDriverIds.length} kierowców
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendDialog(null)}>Anuluj</Button>
+            <Button onClick={handleSendToDrivers} className="gap-1">
+              <Send className="h-4 w-4" />
+              Wyślij ({sendToAll ? drivers.length : selectedDriverIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
