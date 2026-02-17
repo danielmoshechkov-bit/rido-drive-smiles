@@ -49,7 +49,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
       const hardcoded = [
         'daniel.moshechkov@gmail.com',
         'anastasiia.shapovalova1991@gmail.com',
-        'piotrkrolakartcom@o2.pl',
       ];
 
       const allAllowed = [...new Set([...whitelistEmails, ...hardcoded])];
