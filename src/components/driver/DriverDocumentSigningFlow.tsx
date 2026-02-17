@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,6 @@ interface DriverDocumentSigningFlowProps {
   onComplete?: () => void;
 }
 
-// Steps for the rental contract
 const STEPS = [
   { id: 'personal', label: 'Dane osobowe', icon: User },
   { id: 'vehicle', label: 'Dane pojazdu', icon: Car },
@@ -48,10 +48,28 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
   // Form data
   const [formData, setFormData] = useState({
-    // Personal
     full_name: '',
     pesel: '',
-    address: '',
+    // Adres zameldowania
+    reg_street: '',
+    reg_house: '',
+    reg_apartment: '',
+    reg_postal_code: '',
+    reg_city: '',
+    // Adres korespondencyjny
+    corr_same_as_reg: true,
+    corr_street: '',
+    corr_house: '',
+    corr_apartment: '',
+    corr_postal_code: '',
+    corr_city: '',
+    // Adres zamieszkania
+    res_same_as_reg: true,
+    res_street: '',
+    res_house: '',
+    res_apartment: '',
+    res_postal_code: '',
+    res_city: '',
     // Vehicle
     car_brand: '',
     car_model: '',
@@ -63,6 +81,9 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     payment_method: 'transfer' as 'transfer' | 'cash',
     bank_account: '',
   });
+
+  // Fleet data for contract
+  const [fleetData, setFleetData] = useState<any>(null);
 
   useEffect(() => {
     loadPendingDocuments();
@@ -80,12 +101,23 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
     if (!error && data) {
       setPendingDocs(data as any as PendingDocument[]);
+      // Load fleet data for first doc
+      if (data.length > 0) {
+        const fleetId = (data[0] as any).fleet_id;
+        if (fleetId) {
+          const { data: fleet } = await supabase
+            .from('fleets')
+            .select('name, nip, address, city, postal_code, krs, owner_name')
+            .eq('id', fleetId)
+            .single();
+          setFleetData(fleet);
+        }
+      }
     }
     setLoading(false);
   };
 
   const loadDriverData = async () => {
-    // Pre-fill with existing driver data
     const { data: driver } = await supabase
       .from('drivers')
       .select('first_name, last_name, email, phone, iban')
@@ -100,7 +132,6 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
       }));
     }
 
-    // Check for assigned vehicles
     const { data: assignments } = await supabase
       .from('vehicle_driver_assignments' as any)
       .select('vehicles(brand, model, year, vin, color, registration_number)')
@@ -124,23 +155,45 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     }
   };
 
-  const updateField = (field: string, value: string) => {
+  const updateField = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getRegisteredAddress = () =>
+    `${formData.reg_street} ${formData.reg_house}${formData.reg_apartment ? '/' + formData.reg_apartment : ''}, ${formData.reg_postal_code} ${formData.reg_city}`;
+
+  const getCorrespondenceAddress = () => {
+    if (formData.corr_same_as_reg) return getRegisteredAddress();
+    return `${formData.corr_street} ${formData.corr_house}${formData.corr_apartment ? '/' + formData.corr_apartment : ''}, ${formData.corr_postal_code} ${formData.corr_city}`;
+  };
+
+  const getResidentialAddress = () => {
+    if (formData.res_same_as_reg) return getRegisteredAddress();
+    return `${formData.res_street} ${formData.res_house}${formData.res_apartment ? '/' + formData.res_apartment : ''}, ${formData.res_postal_code} ${formData.res_city}`;
   };
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0: // Personal
-        return formData.full_name && formData.pesel && formData.address;
-      case 1: // Vehicle
+      case 0:
+        return formData.full_name && formData.pesel && formData.reg_street && formData.reg_house && formData.reg_postal_code && formData.reg_city
+          && (formData.corr_same_as_reg || (formData.corr_street && formData.corr_house && formData.corr_postal_code && formData.corr_city))
+          && (formData.res_same_as_reg || (formData.res_street && formData.res_house && formData.res_postal_code && formData.res_city));
+      case 1:
         return formData.car_brand && formData.car_model && formData.car_vin && formData.car_registration;
-      case 2: // Payment
+      case 2:
         return formData.payment_method === 'cash' || (formData.payment_method === 'transfer' && formData.bank_account);
-      case 3: // Preview
+      case 3:
         return true;
       default:
         return false;
     }
+  };
+
+  const generateContractNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const num = Math.floor(Math.random() * 9000) + 1000;
+    return `${num}/${year}`;
   };
 
   const handleSign = async (signatureDataUrl: string) => {
@@ -148,7 +201,6 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     setSaving(true);
 
     try {
-      // Upload signature image
       const blob = await fetch(signatureDataUrl).then(r => r.blob());
       const path = `signatures/${driverId}/${activeDoc.id}_${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage
@@ -163,12 +215,21 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
         signatureUrl = publicUrl;
       }
 
-      // Update the document request with filled data and signature
+      const contractNumber = activeDoc.contract_number || generateContractNumber();
+
+      const filledData = {
+        ...formData,
+        registered_address: getRegisteredAddress(),
+        correspondence_address: getCorrespondenceAddress(),
+        residential_address: getResidentialAddress(),
+      };
+
       const { error } = await supabase
         .from('driver_document_requests' as any)
         .update({
           status: 'signed',
-          filled_data: formData,
+          filled_data: filledData,
+          contract_number: contractNumber,
           signed_at: new Date().toISOString(),
           signature_url: signatureUrl,
           signature_ip: 'browser',
@@ -179,7 +240,6 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
       if (error) throw error;
 
-      // Also update driver record with new data
       await supabase
         .from('drivers')
         .update({
@@ -202,53 +262,131 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
   const getContractPreviewHtml = () => {
     if (!activeDoc) return '';
-    
+    const contractNum = activeDoc.contract_number || '(zostanie nadany)';
+    const today = new Date().toLocaleDateString('pl-PL');
+    const fleetName = fleetData?.name || '[Nazwa Partnera Flotowego]';
+    const fleetAddress = fleetData?.address ? `${fleetData.address}${fleetData.postal_code ? ', ' + fleetData.postal_code : ''} ${fleetData.city || ''}` : '……………………………………………………………';
+    const fleetNip = fleetData?.nip || '…………………………………';
+    const fleetKrs = fleetData?.krs || '…………………………………';
+    const fleetOwner = fleetData?.owner_name || '……………………………………………';
+
     return `
-      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.6;">
-        <h2 style="text-align: center;">UMOWA NAJMU POJAZDU</h2>
-        <p style="text-align: center;">${activeDoc.contract_number ? `Nr ${activeDoc.contract_number}` : ''}</p>
-        
-        <h3>§1 Strony umowy</h3>
-        <p><strong>Najemca (Partner Flotowy):</strong> [dane floty]</p>
-        <p><strong>Wynajmujący:</strong><br/>
-        ${formData.full_name}<br/>
-        PESEL: ${formData.pesel}<br/>
-        Adres: ${formData.address}</p>
-        
-        <h3>§2 Przedmiot umowy</h3>
-        <p>Marka: ${formData.car_brand}<br/>
-        Model: ${formData.car_model}<br/>
-        Rok: ${formData.car_year}<br/>
-        VIN: ${formData.car_vin}<br/>
-        Kolor: ${formData.car_color}<br/>
-        Nr rejestracyjny: ${formData.car_registration}</p>
-        
-        <h3>§3 Okres trwania</h3>
-        <p>Umowa na czas nieokreślony. Wypowiedzenie z 7-dniowym okresem.</p>
-        
-        <h3>§4 Czynsz najmu</h3>
-        <p>Rozliczenie: ${formData.payment_method === 'transfer' ? 'Przelew bankowy' : 'Gotówka'}</p>
-        ${formData.payment_method === 'transfer' ? `<p>Nr konta: ${formData.bank_account}</p>` : ''}
-        
-        <h3>§5 Obowiązki Wynajmującego</h3>
-        <p>Utrzymywanie pojazdu, zapewnienie badań technicznych i OC.</p>
-        
-        <h3>§6 Odpowiedzialność podatkowa</h3>
-        <p>Czynsz stanowi przychód Wynajmującego. Samodzielne rozliczenie podatku.</p>
-        
-        <h3>§7 Postanowienia końcowe</h3>
-        <p>Zastosowanie przepisów KC. Zmiany wymagają formy pisemnej.</p>
-      </div>
-    `;
+<div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a;">
+  <h1 style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;">UMOWA NAJMU POJAZDU</h1>
+  <p style="text-align: center; font-size: 13px; margin-bottom: 30px;">Nr ${contractNum}</p>
+  
+  <p style="text-align: center; margin-bottom: 30px;">zawarta w dniu <strong>${today}</strong> pomiędzy:</p>
+  
+  <div style="margin-bottom: 20px; padding: 15px; border-left: 3px solid #333;">
+    <p style="margin: 0;"><strong>${fleetName}</strong></p>
+    <p style="margin: 2px 0;">z siedzibą: ${fleetAddress}</p>
+    <p style="margin: 2px 0;">NIP: ${fleetNip}</p>
+    <p style="margin: 2px 0;">KRS / CEIDG: ${fleetKrs}</p>
+    <p style="margin: 2px 0;">reprezentowaną przez: ${fleetOwner}</p>
+    <p style="margin: 5px 0 0; font-style: italic;">zwaną dalej „Najemcą"</p>
+  </div>
+  
+  <p style="text-align: center; margin: 15px 0;">a</p>
+  
+  <div style="margin-bottom: 25px; padding: 15px; border-left: 3px solid #333;">
+    <p style="margin: 0;">Panem/Panią: <strong>${formData.full_name}</strong></p>
+    <p style="margin: 2px 0;">PESEL: ${formData.pesel}</p>
+    <p style="margin: 2px 0;">adres zameldowania: ${getRegisteredAddress()}</p>
+    <p style="margin: 2px 0;">adres zamieszkania: ${getResidentialAddress()}</p>
+    <p style="margin: 5px 0 0; font-style: italic;">zwanym/ą dalej „Wynajmującym"</p>
+  </div>
+
+  <hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;" />
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§1 Przedmiot umowy</h2>
+  <p>Wynajmujący oddaje Najemcy do używania pojazd:</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+    <tr><td style="padding: 4px 8px; width: 180px;"><strong>Marka:</strong></td><td style="padding: 4px 8px;">${formData.car_brand}</td></tr>
+    <tr><td style="padding: 4px 8px;"><strong>Model:</strong></td><td style="padding: 4px 8px;">${formData.car_model}</td></tr>
+    <tr><td style="padding: 4px 8px;"><strong>Numer VIN:</strong></td><td style="padding: 4px 8px;">${formData.car_vin}</td></tr>
+    <tr><td style="padding: 4px 8px;"><strong>Numer rejestracyjny:</strong></td><td style="padding: 4px 8px;">${formData.car_registration}</td></tr>
+  </table>
+  <p>Wynajmujący oświadcza, że:</p>
+  <p style="margin-left: 15px;">a) jest właścicielem pojazdu lub posiada tytuł prawny do jego wynajmu,</p>
+  <p style="margin-left: 15px;">b) pojazd jest sprawny technicznie i dopuszczony do ruchu,</p>
+  <p style="margin-left: 15px;">c) pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</p>
+  <p style="margin-left: 15px;">d) pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§2 Cel najmu</h2>
+  <p>Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.</p>
+  <p>Umowa niniejsza ma charakter cywilnoprawny i nie stanowi umowy o pracę ani nie tworzy stosunku podporządkowania pomiędzy Stronami.</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§3 Okres trwania umowy</h2>
+  <p>Umowa zostaje zawarta na czas nieokreślony.</p>
+  <p>Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</p>
+  <p>W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§4 Czynsz najmu</h2>
+  <p>Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</p>
+  <p>Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu, w szczególności liczby przejazdów, obrotu generowanego przy wykorzystaniu pojazdu lub liczby przejechanych kilometrów.</p>
+  <p>Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
+  <p>Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
+  <p>Czynsz będzie płatny ${formData.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego: <strong>' + formData.bank_account + '</strong>' : 'gotówką'}.</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§5 Obowiązki Wynajmującego</h2>
+  <p>Utrzymywanie pojazdu w należytym stanie technicznym.</p>
+  <p>Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</p>
+  <p>Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§6 Odpowiedzialność podatkowa</h2>
+  <p>Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</p>
+  <p>Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego z tytułu otrzymanego czynszu zgodnie z obowiązującymi przepisami prawa.</p>
+  <p>Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</p>
+
+  <h2 style="font-size: 14px; margin-top: 25px;">§7 Postanowienia końcowe</h2>
+  <p>W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</p>
+  <p>Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</p>
+  <p>Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
+  <p>Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
+
+  <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+    <div style="text-align: center; width: 45%;">
+      <p style="margin-bottom: 40px;"><strong>Wynajmujący</strong></p>
+      <p>……………………………………</p>
+    </div>
+    <div style="text-align: center; width: 45%;">
+      <p style="margin-bottom: 40px;"><strong>Najemca</strong></p>
+      <p>……………………………………</p>
+    </div>
+  </div>
+</div>`;
   };
 
-  if (loading) {
-    return null;
-  }
+  const renderAddressBlock = (prefix: string, label: string) => (
+    <div className="space-y-3">
+      <h4 className="font-medium text-sm">{label}</h4>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Label>Ulica *</Label>
+          <Input value={(formData as any)[`${prefix}_street`]} onChange={e => updateField(`${prefix}_street`, e.target.value)} placeholder="ul. Przykładowa" />
+        </div>
+        <div>
+          <Label>Nr domu *</Label>
+          <Input value={(formData as any)[`${prefix}_house`]} onChange={e => updateField(`${prefix}_house`, e.target.value)} placeholder="10" />
+        </div>
+        <div>
+          <Label>Nr lokalu</Label>
+          <Input value={(formData as any)[`${prefix}_apartment`]} onChange={e => updateField(`${prefix}_apartment`, e.target.value)} placeholder="5" />
+        </div>
+        <div>
+          <Label>Kod pocztowy *</Label>
+          <Input value={(formData as any)[`${prefix}_postal_code`]} onChange={e => updateField(`${prefix}_postal_code`, e.target.value)} placeholder="00-000" maxLength={6} />
+        </div>
+        <div>
+          <Label>Miasto *</Label>
+          <Input value={(formData as any)[`${prefix}_city`]} onChange={e => updateField(`${prefix}_city`, e.target.value)} placeholder="Warszawa" />
+        </div>
+      </div>
+    </div>
+  );
 
-  if (pendingDocs.length === 0) {
-    return null;
-  }
+  if (loading) return null;
+  if (pendingDocs.length === 0) return null;
 
   return (
     <>
@@ -271,18 +409,11 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                       <FileText className="h-5 w-5 text-primary" />
                       <div>
                         <p className="font-medium text-sm">{doc.template_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {doc.contract_number ? `Nr ${doc.contract_number}` : 'Oczekuje na wypełnienie'}
-                        </p>
+                        <p className="text-xs text-muted-foreground">Oczekuje na wypełnienie</p>
                       </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      onClick={() => { setActiveDoc(doc); setCurrentStep(0); }}
-                      className="gap-1"
-                    >
-                      Wypełnij
-                      <ChevronRight className="h-4 w-4" />
+                    <Button size="sm" onClick={() => { setActiveDoc(doc); setCurrentStep(0); }} className="gap-1">
+                      Wypełnij <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -298,7 +429,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              {activeDoc?.template_name}
+              Umowa Najmu Pojazdu
             </DialogTitle>
           </DialogHeader>
 
@@ -324,9 +455,9 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
             })}
           </div>
 
-          {/* Step Content */}
+          {/* Step 0 - Personal data with addresses */}
           {currentStep === 0 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <h3 className="font-semibold flex items-center gap-2">
                 <User className="h-5 w-5" />
                 Dane osobowe Wynajmującego
@@ -340,14 +471,52 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                   <Label>PESEL *</Label>
                   <Input value={formData.pesel} onChange={e => updateField('pesel', e.target.value)} placeholder="00000000000" maxLength={11} />
                 </div>
-                <div>
-                  <Label>Adres zamieszkania *</Label>
-                  <Input value={formData.address} onChange={e => updateField('address', e.target.value)} placeholder="ul. Przykładowa 1, 00-000 Warszawa" />
+              </div>
+
+              {/* Adres zameldowania */}
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                {renderAddressBlock('reg', '📍 Adres zameldowania')}
+              </div>
+
+              {/* Adres korespondencyjny */}
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm">📬 Adres korespondencyjny</h4>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs">
+                    <Checkbox 
+                      checked={formData.corr_same_as_reg} 
+                      onCheckedChange={(checked) => updateField('corr_same_as_reg', !!checked)}
+                    />
+                    Taki sam jak zameldowania
+                  </label>
                 </div>
+                {!formData.corr_same_as_reg && renderAddressBlock('corr', '')}
+                {formData.corr_same_as_reg && (
+                  <p className="text-xs text-muted-foreground italic">Zostanie użyty adres zameldowania</p>
+                )}
+              </div>
+
+              {/* Adres zamieszkania */}
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm">🏠 Adres zamieszkania</h4>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs">
+                    <Checkbox 
+                      checked={formData.res_same_as_reg} 
+                      onCheckedChange={(checked) => updateField('res_same_as_reg', !!checked)}
+                    />
+                    Taki sam jak zameldowania
+                  </label>
+                </div>
+                {!formData.res_same_as_reg && renderAddressBlock('res', '')}
+                {formData.res_same_as_reg && (
+                  <p className="text-xs text-muted-foreground italic">Zostanie użyty adres zameldowania</p>
+                )}
               </div>
             </div>
           )}
 
+          {/* Step 1 - Vehicle */}
           {currentStep === 1 && (
             <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
@@ -383,6 +552,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
             </div>
           )}
 
+          {/* Step 2 - Payment */}
           {currentStep === 2 && (
             <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
@@ -393,9 +563,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                 <div>
                   <Label>Metoda płatności *</Label>
                   <Select value={formData.payment_method} onValueChange={v => updateField('payment_method', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="transfer">Przelew bankowy</SelectItem>
                       <SelectItem value="cash">Gotówka</SelectItem>
@@ -405,17 +573,14 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                 {formData.payment_method === 'transfer' && (
                   <div>
                     <Label>Numer konta bankowego (IBAN) *</Label>
-                    <Input 
-                      value={formData.bank_account} 
-                      onChange={e => updateField('bank_account', e.target.value)} 
-                      placeholder="PL 00 0000 0000 0000 0000 0000 0000" 
-                    />
+                    <Input value={formData.bank_account} onChange={e => updateField('bank_account', e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
                   </div>
                 )}
               </div>
             </div>
           )}
 
+          {/* Step 3 - Preview */}
           {currentStep === 3 && (
             <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
@@ -432,6 +597,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
             </div>
           )}
 
+          {/* Step 4 - Signature */}
           {currentStep === 4 && (
             <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
@@ -459,18 +625,10 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
           {/* Navigation */}
           {currentStep < 4 && (
             <DialogFooter className="flex justify-between mt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-                disabled={currentStep === 0}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Wstecz
+              <Button variant="outline" onClick={() => setCurrentStep(Math.max(0, currentStep - 1))} disabled={currentStep === 0}>
+                <ChevronLeft className="h-4 w-4 mr-1" /> Wstecz
               </Button>
-              <Button 
-                onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={!canProceed()}
-              >
+              <Button onClick={() => setCurrentStep(currentStep + 1)} disabled={!canProceed()}>
                 {currentStep === 3 ? 'Przejdź do podpisu' : 'Dalej'}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye } from 'lucide-react';
+import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -287,15 +287,55 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
               )}
             </TabsContent>
 
-            {/* Completed Documents Tab */}
+            {/* Completed Documents Tab - shows all contracts with status */}
             <TabsContent value="completed" className="space-y-4">
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">Brak podpisanych dokumentów</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Podpisane dokumenty pojawią się tutaj po wypełnieniu ich przez kierowców
-                </p>
-              </div>
+              {drivers.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">Brak kierowców</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-[1fr_140px_120px_100px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
+                    <span>Kierowca</span>
+                    <span>Nr umowy</span>
+                    <span>Dokument</span>
+                    <span className="text-center">Status</span>
+                  </div>
+                  {drivers.map(driver => {
+                    const docReq = existingRequests.find(
+                      r => r.driver_id === driver.id && r.template_code === 'RENTAL_CONTRACT'
+                    );
+                    const isSigned = docReq?.status === 'signed' || docReq?.status === 'completed';
+                    const isPending = docReq?.status === 'pending';
+                    const fullReq = sentRequests.find((r: any) => r.driver_id === driver.id && r.template_code === 'RENTAL_CONTRACT');
+                    const contractNum = fullReq?.contract_number;
+
+                    return (
+                      <div key={driver.id} className="grid grid-cols-[1fr_140px_120px_100px] gap-2 items-center px-4 py-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <span className="font-medium text-sm">{driver.first_name} {driver.last_name}</span>
+                        <span className="text-xs text-muted-foreground">{contractNum || '—'}</span>
+                        <span className="text-xs">Umowa najmu</span>
+                        <div className="flex justify-center">
+                          {isSigned ? (
+                            <Badge className="bg-green-600 text-white text-[10px] gap-1">
+                              <CheckCircle className="h-3 w-3" /> Podpisana
+                            </Badge>
+                          ) : isPending ? (
+                            <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px]">
+                              Oczekuje
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-[10px]">
+                              Nie podpisana
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
