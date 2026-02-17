@@ -185,20 +185,23 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         // Calculate total from charges (adjustments) for this week
         const chargesTotal = ownerCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
         
-        // Calculate total from driver rental deductions for this week
-        let settlementTotal = 0;
+      // Calculate total earned by drivers (capped at owner fee per vehicle)
+        let totalDriverCovered = 0;
         ownerVehicles.forEach((v: any) => {
+          const rentalFee = parseFloat(v.owner_rental_fee?.toString() || v.weekly_rental_fee?.toString() || "0");
           const earned = vehicleDriverEarnings.get(v.id) || 0;
-          settlementTotal += earned;
+          // Each vehicle contributes min(earned, fee) - what driver actually covered
+          totalDriverCovered += Math.min(earned, rentalFee);
         });
 
-        // If charges exist for this week, use charges; otherwise use settlement-based
+        // Adjustments from charges
         const hasChargesThisWeek = ownerCharges.length > 0;
         const isSettled = ownerCharges.some((c: any) => c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie"));
-        // When settled, still show original amount (not zeroed charges) so user can always see the value
         const nonSettlementCharges = ownerCharges.filter((c: any) => !(c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie")));
-        const realChargesTotal = nonSettlementCharges.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || "0") + parseFloat(c.adjustment?.toString() || "0"), 0);
-        const totalOwed = hasChargesThisWeek ? (nonSettlementCharges.length > 0 ? realChargesTotal : (settlementTotal || totalWeekly)) : (settlementTotal || totalWeekly);
+        const adjustmentsTotal = nonSettlementCharges.reduce((sum: number, c: any) => sum + parseFloat(c.adjustment?.toString() || "0"), 0);
+        
+        // Total owed = what drivers covered + adjustments (if no driver data, fall back to weekly total)
+        const totalOwed = totalDriverCovered > 0 ? (totalDriverCovered + adjustmentsTotal) : totalWeekly;
 
         return {
           owner_id: owner.id,
@@ -460,9 +463,10 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <div className="text-xs text-muted-foreground">Do zapłaty:</div>
-                        <div className={`text-lg font-bold ${owner.total_owed > 0 ? "text-destructive" : "text-green-600"}`}>
+                        <div className={`text-lg font-bold ${owner.total_owed < owner.total_weekly ? "text-destructive" : "text-green-600"}`}>
                           {formatCurrency(owner.total_owed)}
                         </div>
+                        <div className="text-[10px] text-muted-foreground">z {formatCurrency(owner.total_weekly)}</div>
                       </div>
                       {(() => {
                         const settled = isOwnerSettled(owner.owner_id);
