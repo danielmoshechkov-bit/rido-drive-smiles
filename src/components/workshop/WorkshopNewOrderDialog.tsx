@@ -24,6 +24,7 @@ interface TaskItem {
   unit: string;
   quantity: number;
   price: number;
+  purchase_price: number;
   discount: number;
 }
 
@@ -38,7 +39,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [description, setDescription] = useState('');
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>('gross');
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [newTask, setNewTask] = useState<TaskItem>({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, discount: 0 });
+  const [newTask, setNewTask] = useState<TaskItem>({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, purchase_price: 0, discount: 0 });
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -95,7 +96,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const addTask = () => {
     if (!newTask.name) return;
     setTasks([...tasks, { ...newTask }]);
-    setNewTask({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, discount: 0 });
+    setNewTask({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, purchase_price: 0, discount: 0 });
   };
 
   const removeTask = (i: number) => setTasks(tasks.filter((_, idx) => idx !== i));
@@ -130,6 +131,8 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         quantity: t.quantity,
         unit_price_gross: priceMode === 'gross' ? t.price : t.price * 1.23,
         unit_price_net: priceMode === 'net' ? t.price : t.price / 1.23,
+        unit_cost_gross: priceMode === 'gross' ? t.purchase_price : t.purchase_price * 1.23,
+        unit_cost_net: priceMode === 'net' ? t.purchase_price : t.purchase_price / 1.23,
         discount_percent: t.discount,
         total_gross: priceMode === 'gross' ? discounted : discounted * 1.23,
         total_net: priceMode === 'net' ? discounted : discounted / 1.23,
@@ -257,8 +260,11 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     <TableHead>Mechanik</TableHead>
                     <TableHead>Jedn</TableHead>
                     <TableHead className="text-right">Ilość</TableHead>
+                    <TableHead className="text-right">Cena {priceMode === 'net' ? 'netto' : 'brutto'}</TableHead>
+                    <TableHead className="text-right">Cena zakupu</TableHead>
                     <TableHead className="text-right">Rabat %</TableHead>
                     <TableHead className="text-right">Koszt</TableHead>
+                    <TableHead className="text-right">Zysk</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -266,14 +272,21 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   {tasks.map((t, i) => {
                     const base = t.quantity * t.price;
                     const cost = base - (base * t.discount / 100);
+                    const purchaseCost = t.quantity * t.purchase_price;
+                    const profit = cost - purchaseCost;
                     return (
                       <TableRow key={i}>
                         <TableCell className="font-medium">{t.name}</TableCell>
                         <TableCell>{t.mechanic}</TableCell>
                         <TableCell>{t.unit}</TableCell>
                         <TableCell className="text-right">{t.quantity}</TableCell>
+                        <TableCell className="text-right">{t.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{t.purchase_price.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{t.discount}%</TableCell>
                         <TableCell className="text-right">{cost.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-medium ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {profit.toFixed(2)}
+                        </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeTask(i)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -284,24 +297,28 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   })}
                   {tasks.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">Brak danych</TableCell>
+                      <TableCell colSpan={10} className="text-center text-muted-foreground">Brak danych</TableCell>
                     </TableRow>
                   )}
                   <TableRow className="font-semibold border-t-2">
-                    <TableCell colSpan={5}>Razem</TableCell>
+                    <TableCell colSpan={7}>Razem</TableCell>
                     <TableCell className="text-right">{totalCost.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-green-600">
+                      {(totalCost - tasks.reduce((s, t) => s + t.quantity * t.purchase_price, 0)).toFixed(2)}
+                    </TableCell>
                     <TableCell></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
 
               {/* Add task row */}
-              <div className="grid grid-cols-6 gap-2 mt-2 items-end">
+              <div className="grid grid-cols-7 gap-2 mt-2 items-end">
                 <Input placeholder="Nazwa" value={newTask.name} onChange={e => setNewTask(p => ({ ...p, name: e.target.value }))} />
                 <Input placeholder="Mechanik" value={newTask.mechanic} onChange={e => setNewTask(p => ({ ...p, mechanic: e.target.value }))} />
-                <Input placeholder="Jedn" value={newTask.unit} onChange={e => setNewTask(p => ({ ...p, unit: e.target.value }))} />
+                <Input placeholder="Jedn" value={newTask.unit} onChange={e => setNewTask(p => ({ ...p, unit: e.target.value }))} className="w-16" />
                 <Input type="number" placeholder="Ilość" value={newTask.quantity} onChange={e => setNewTask(p => ({ ...p, quantity: Number(e.target.value) }))} />
-                <Input type="number" placeholder="Cena" value={newTask.price || ''} onChange={e => setNewTask(p => ({ ...p, price: Number(e.target.value) }))} />
+                <Input type="number" placeholder={`Cena ${priceMode === 'net' ? 'netto' : 'brutto'}`} value={newTask.price || ''} onChange={e => setNewTask(p => ({ ...p, price: Number(e.target.value) }))} />
+                <Input type="number" placeholder="Cena zakupu" value={newTask.purchase_price || ''} onChange={e => setNewTask(p => ({ ...p, purchase_price: Number(e.target.value) }))} />
                 <Button onClick={addTask} className="gap-1"><Plus className="h-4 w-4" /> Dodaj</Button>
               </div>
             </div>

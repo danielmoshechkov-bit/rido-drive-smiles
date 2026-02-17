@@ -12,7 +12,7 @@ import {
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import {
   Plus, Search, CheckCircle, Calendar, Wallet, Users, Car, Trash2,
-  Phone, ClipboardList, Filter, Loader2
+  Phone, Wrench, Filter, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -163,7 +163,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                        <Wrench className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{order.order_number}</span>
                       </div>
                     </TableCell>

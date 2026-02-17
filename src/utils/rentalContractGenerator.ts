@@ -6,6 +6,7 @@ export interface ContractData {
   // Basic info
   contractNumber: string;
   createdAt: string;
+  contractDate?: string; // custom date of contract signing (can be earlier)
   
   // Vehicle
   vehicleBrand: string;
@@ -14,7 +15,7 @@ export interface ContractData {
   vehicleVin: string;
   vehicleYear: number | null;
   
-  // Driver/Tenant
+  // Driver/Tenant (Najemca - fleet partner)
   driverFirstName: string;
   driverLastName: string;
   driverPesel: string;
@@ -23,12 +24,14 @@ export interface ContractData {
   driverEmail: string;
   driverLicenseNumber: string;
   
-  // Fleet/Lessor
+  // Fleet/Lessor (Wynajmujący - vehicle owner)
   fleetName: string;
   fleetNip?: string;
   fleetAddress?: string;
   fleetPhone?: string;
   fleetEmail?: string;
+  fleetKrsCeidg?: string;
+  fleetRepresentedBy?: string;
   
   // Rental terms
   rentalType: 'standard' | 'taxi' | 'long_term' | 'buyout';
@@ -45,18 +48,13 @@ export interface ContractData {
   fleetSignedAt?: string;
 }
 
-const RENTAL_TYPE_LABELS: Record<string, string> = {
-  standard: 'najem zwykły / prywatny',
-  taxi: 'najem do celów przewozu osób (taxi/Uber/Bolt)',
-  long_term: 'najem długoterminowy',
-  buyout: 'najem z opcją wykupu',
-};
+export function generateContractNumber(year: number, sequence: number): string {
+  return `${sequence}/${year}`;
+}
 
 export function generateRentalContractHtml(data: ContractData): string {
-  const rentalTypeLabel = RENTAL_TYPE_LABELS[data.rentalType] || 'najem standardowy';
-  const periodText = data.isIndefinite 
-    ? `na czas nieokreślony, począwszy od dnia ${format(new Date(data.rentalStart), "d MMMM yyyy", { locale: pl })}`
-    : `od dnia ${format(new Date(data.rentalStart), "d MMMM yyyy", { locale: pl })} do dnia ${data.rentalEnd ? format(new Date(data.rentalEnd), "d MMMM yyyy", { locale: pl }) : '—'}`;
+  const contractDate = data.contractDate || data.createdAt;
+  const formattedDate = format(new Date(contractDate), "d MMMM yyyy", { locale: pl });
 
   return `
 <!DOCTYPE html>
@@ -85,15 +83,6 @@ export function generateRentalContractHtml(data: ContractData): string {
       background: white;
       padding: 15mm;
     }
-    .header { 
-      text-align: right; 
-      margin-bottom: 30px;
-      font-size: 11pt;
-    }
-    .header-place-date {
-      text-align: right;
-      margin-bottom: 40px;
-    }
     .title-block {
       text-align: center;
       margin-bottom: 30px;
@@ -103,17 +92,17 @@ export function generateRentalContractHtml(data: ContractData): string {
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 2px;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
     }
     .title-block .subtitle { 
       font-size: 11pt; 
+      margin-bottom: 5px;
     }
     .section { margin-bottom: 20px; }
     .section-title { 
       font-size: 12pt; 
       font-weight: bold; 
       margin-bottom: 10px;
-      text-decoration: underline;
       text-align: center;
     }
     .paragraph { 
@@ -125,54 +114,29 @@ export function generateRentalContractHtml(data: ContractData): string {
       margin-bottom: 12px; 
       text-align: justify; 
     }
-    .parties-table {
-      width: 100%;
+    .parties-block {
       margin-bottom: 20px;
-      border-collapse: collapse;
     }
-    .parties-table td {
-      width: 50%;
-      vertical-align: top;
-      padding: 10px;
+    .party-block {
+      margin-bottom: 15px;
+      padding-left: 20px;
     }
     .party-label { 
       font-weight: bold;
       margin-bottom: 5px;
-      text-transform: uppercase;
-      font-size: 10pt;
     }
-    .party-name { font-weight: bold; margin-bottom: 5px; }
-    .party-details { font-size: 11pt; line-height: 1.4; }
-    .vehicle-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 15px 0;
-      border: 1px solid #000;
+    .party-details { font-size: 11pt; line-height: 1.5; }
+    .vehicle-info {
+      padding-left: 20px;
+      margin: 10px 0;
     }
-    .vehicle-table td, .vehicle-table th {
-      border: 1px solid #000;
-      padding: 8px 12px;
-      text-align: left;
-    }
-    .vehicle-table th {
-      background: #f5f5f5;
-      font-weight: bold;
-      width: 35%;
-    }
-    .terms-box { 
-      border: 2px solid #000;
-      padding: 15px;
-      margin: 15px 0;
-      background: #fafafa;
-    }
-    .fee { 
-      font-size: 14pt; 
-      font-weight: bold; 
+    .vehicle-info p {
+      margin-bottom: 4px;
     }
     .signatures { 
       display: flex; 
       justify-content: space-between;
-      margin-top: 50px;
+      margin-top: 60px;
       padding-top: 20px;
     }
     .signature { 
@@ -187,217 +151,161 @@ export function generateRentalContractHtml(data: ContractData): string {
     }
     .signature-img { max-width: 150px; max-height: 60px; }
     .signature-date { font-size: 9pt; margin-top: 5px; }
-    .important { font-weight: bold; }
     ol, ul { margin-left: 25px; margin-bottom: 12px; }
-    ol li, ul li { margin-bottom: 8px; }
+    ol li, ul li { margin-bottom: 6px; }
     .small-text { font-size: 10pt; }
   </style>
 </head>
 <body>
   <div class="contract">
-    <!-- Header with place and date -->
-    <div class="header-place-date">
-      Warszawa, dnia ${format(new Date(data.createdAt), "d MMMM yyyy", { locale: pl })} r.
-    </div>
-
     <!-- Title -->
     <div class="title-block">
       <h1>Umowa Najmu Pojazdu</h1>
       <div class="subtitle">Nr: ${data.contractNumber}</div>
-      <div class="subtitle small-text">zawarta w formie dokumentowej za pośrednictwem Portalu GetRido</div>
     </div>
 
-    <div class="section">
-      <div class="section-title">§1. Strony Umowy</div>
-      <table class="parties-table">
-        <tr>
-          <td>
-            <div class="party-label">Wynajmujący:</div>
-            <div class="party-name">${data.fleetName}</div>
-            <div class="party-details">
-              ${data.fleetNip ? `NIP: ${data.fleetNip}<br>` : ''}
-              ${data.fleetAddress || ''}<br>
-              ${data.fleetPhone ? `Tel: ${data.fleetPhone}<br>` : ''}
-              ${data.fleetEmail ? `Email: ${data.fleetEmail}` : ''}
-            </div>
-          </td>
-          <td>
-            <div class="party-label">Najemca:</div>
-            <div class="party-name">${data.driverFirstName} ${data.driverLastName}</div>
-            <div class="party-details">
-              PESEL: ${data.driverPesel || '—'}<br>
-              ${data.driverAddress}<br>
-              Tel: ${data.driverPhone}<br>
-              Email: ${data.driverEmail}<br>
-              Prawo jazdy: ${data.driverLicenseNumber || '—'}
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
+    <p class="paragraph-no-indent" style="margin-bottom: 25px;">
+      zawarta w dniu <strong>${formattedDate}</strong> pomiędzy:
+    </p>
 
-    <div class="section">
-      <div class="section-title">§2. Przedmiot Umowy</div>
-      <p class="paragraph-no-indent">
-        Wynajmujący oddaje Najemcy do używania pojazd o następujących parametrach:
-      </p>
-      <table class="vehicle-table">
-        <tr>
-          <th>Marka i model</th>
-          <td>${data.vehicleBrand} ${data.vehicleModel}</td>
-        </tr>
-        <tr>
-          <th>Nr rejestracyjny</th>
-          <td>${data.vehiclePlate}</td>
-        </tr>
-        <tr>
-          <th>VIN</th>
-          <td>${data.vehicleVin || '—'}</td>
-        </tr>
-        <tr>
-          <th>Rok produkcji</th>
-          <td>${data.vehicleYear || '—'}</td>
-        </tr>
-      </table>
-      <p class="paragraph">
-        Pojazd wydawany jest Najemcy w stanie opisanym w elektronicznym protokole zdawczo-odbiorczym, 
-        stanowiącym integralną część niniejszej Umowy.
-      </p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">§3. Rodzaj i cel najmu</div>
-      <p class="paragraph">
-        Najem realizowany jest jako: <strong>${rentalTypeLabel}</strong>.
-        ${data.rentalType === 'taxi' ? 'Pojazd może być wykorzystywany do świadczenia usług przewozu osób za pośrednictwem platform Uber, Bolt lub podobnych.' : ''}
-        ${data.rentalType === 'buyout' ? 'Najemca ma prawo do wykupu pojazdu na warunkach określonych w osobnym aneksie.' : ''}
-      </p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">§4. Czas trwania Umowy</div>
-      <p class="paragraph">
-        Umowa zostaje zawarta ${periodText}.
-        ${data.isIndefinite ? 'Każda ze Stron może wypowiedzieć Umowę z zachowaniem 14-dniowego okresu wypowiedzenia.' : ''}
-      </p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">§5. Czynsz i płatności</div>
-      <div class="terms-box">
-        <p>Stawka czynszu najmu: <span class="fee">${data.weeklyFee.toLocaleString('pl-PL')} zł tygodniowo</span></p>
-        <p class="small-text" style="margin-top: 8px;">Czynsz płatny jest z góry, w cyklach tygodniowych, do każdego poniedziałku.</p>
+    <!-- Parties -->
+    <div class="parties-block">
+      <div class="party-block">
+        <p><strong>${data.fleetName}</strong></p>
+        <div class="party-details">
+          ${data.fleetAddress ? `<p>z siedzibą: ${data.fleetAddress}</p>` : ''}
+          ${data.fleetNip ? `<p>NIP: ${data.fleetNip}</p>` : ''}
+          ${data.fleetKrsCeidg ? `<p>KRS / CEIDG: ${data.fleetKrsCeidg}</p>` : ''}
+          ${data.fleetRepresentedBy ? `<p>reprezentowaną przez: ${data.fleetRepresentedBy}</p>` : ''}
+        </div>
+        <p>zwaną dalej <strong>„Najemcą"</strong></p>
       </div>
-      <p class="paragraph">
-        Wynajmujący ma prawo pobrać kaucję zabezpieczającą. Wcześniejszy zwrot pojazdu nie zwalnia 
-        Najemcy z obowiązku zapłaty czynszu za pełny okres rozliczeniowy lub wypowiedzenia.
-      </p>
+
+      <p style="text-align: center; margin: 15px 0;">a</p>
+
+      <div class="party-block">
+        <p><strong>${data.driverFirstName} ${data.driverLastName}</strong></p>
+        <div class="party-details">
+          ${data.driverPesel ? `<p>PESEL: ${data.driverPesel}</p>` : ''}
+          ${data.driverAddress ? `<p>adres zamieszkania: ${data.driverAddress}</p>` : ''}
+        </div>
+        <p>zwanym/ą dalej <strong>„Wynajmującym"</strong></p>
+      </div>
     </div>
 
+    <!-- §1 Przedmiot umowy -->
     <div class="section">
-      <div class="section-title">§6. Obowiązki Najemcy</div>
-      <p class="paragraph">
-        Najemca zobowiązuje się użytkować pojazd zgodnie z jego przeznaczeniem, przepisami prawa 
-        oraz postanowieniami niniejszej Umowy. Zabrania się dokonywania jakichkolwiek przeróbek 
-        lub ingerencji w pojazd bez pisemnej zgody Wynajmującego.
-      </p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">§7. Wypowiedzenie Umowy</div>
-      <ol>
-        <li>Najemca może wypowiedzieć Umowę zawartą na czas nieokreślony z 14-dniowym okresem wypowiedzenia.</li>
-        <li>Wypowiedzenie nie zwalnia Najemcy z obowiązku zapłaty należnego czynszu.</li>
-        <li>Wynajmujący może wypowiedzieć Umowę z zachowaniem 14 dni lub ze skutkiem natychmiastowym 
-        w przypadku naruszenia Umowy, w szczególności przy braku płatności.</li>
-        <li>Wypowiedzenie może nastąpić w formie dokumentowej (SMS, e-mail, komunikator).</li>
+      <div class="section-title">§1 Przedmiot umowy</div>
+      <p class="paragraph-no-indent">Wynajmujący oddaje Najemcy do używania pojazd:</p>
+      <div class="vehicle-info">
+        <p>Marka: <strong>${data.vehicleBrand}</strong></p>
+        <p>Model: <strong>${data.vehicleModel}</strong></p>
+        <p>Numer VIN: <strong>${data.vehicleVin || '—'}</strong></p>
+        <p>Numer rejestracyjny: <strong>${data.vehiclePlate}</strong></p>
+      </div>
+      <p class="paragraph-no-indent" style="margin-top: 15px;">Wynajmujący oświadcza, że:</p>
+      <ol type="a" style="margin-left: 25px;">
+        <li>jest właścicielem pojazdu lub posiada tytuł prawny do jego wynajmu,</li>
+        <li>pojazd jest sprawny technicznie i dopuszczony do ruchu,</li>
+        <li>pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</li>
+        <li>pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</li>
       </ol>
     </div>
 
+    <!-- §2 Cel najmu -->
     <div class="section">
-      <div class="section-title">§8. Zwrot pojazdu</div>
+      <div class="section-title">§2 Cel najmu</div>
       <p class="paragraph">
-        Po wypowiedzeniu Umowy Najemca zobowiązany jest zwrócić pojazd w terminie wskazanym przez 
-        Wynajmującego, nie krótszym niż 30 minut od doręczenia wypowiedzenia, w miejscu wskazanym 
-        przez Wynajmującego. Brak zwrotu skutkuje naliczaniem kar oraz zgłoszeniem podejrzenia 
-        przywłaszczenia pojazdu.
+        Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji 
+        usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.
       </p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">§9. Protokół zdawczo-odbiorczy</div>
       <p class="paragraph">
-        Wydanie i zwrot pojazdu dokumentowane są elektronicznym protokołem w Portalu GetRido. 
-        Protokół wraz ze zdjęciami i historią systemową stanowi dowód stanu pojazdu.
+        Umowa niniejsza ma charakter cywilnoprawny i nie stanowi umowy o pracę ani nie tworzy stosunku 
+        podporządkowania pomiędzy Stronami.
       </p>
     </div>
 
+    <!-- §3 Okres trwania umowy -->
     <div class="section">
-      <div class="section-title">§10. Odpowiedzialność za części pojazdu</div>
-      <p class="paragraph important">
-        W przypadku demontażu, usunięcia lub wymiany jakichkolwiek części pojazdu bez zgody 
-        Wynajmującego, Najemca ponosi koszt nowych części według cen ASO powiększonych o 50% 
-        oraz pełny koszt naprawy w autoryzowanym serwisie.
-      </p>
+      <div class="section-title">§3 Okres trwania umowy</div>
+      <ol>
+        <li>Umowa zostaje zawarta na czas nieokreślony.</li>
+        <li>Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</li>
+        <li>W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</li>
+      </ol>
     </div>
 
+    <!-- §4 Czynsz najmu -->
     <div class="section">
-      <div class="section-title">§11. Dane osobowe</div>
-      <p class="paragraph">
-        Dane osobowe przetwarzane są przez Portal GetRido oraz Wynajmującego. Najemca wyraża zgodę 
-        na przekazanie danych Policji, ubezpieczycielom i podmiotom windykacyjnym. Strony uznają 
-        za dowody: dokumenty elektroniczne, zdjęcia, logi systemowe oraz dane GPS.
-      </p>
+      <div class="section-title">§4 Czynsz najmu</div>
+      <ol>
+        <li>Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</li>
+        <li>Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu, w szczególności liczby przejazdów, obrotu generowanego przy wykorzystaniu pojazdu lub liczby przejechanych kilometrów.</li>
+        <li>Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</li>
+        <li>Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</li>
+        <li>Czynsz będzie płatny przelewem na rachunek bankowy Wynajmującego wskazany w niniejszej umowie.</li>
+      </ol>
     </div>
 
+    <!-- §5 Obowiązki Wynajmującego -->
     <div class="section">
-      <div class="section-title">§12. Postanowienia końcowe</div>
-      <p class="paragraph">
-        Do Umowy stosuje się prawo polskie. Umowa w wersji elektronicznej stanowi oryginał. 
-        Integralną częścią Umowy są Ogólne Warunki Najmu (OWU) udostępnione w Portalu GetRido.
-      </p>
+      <div class="section-title">§5 Obowiązki Wynajmującego</div>
+      <ol>
+        <li>Utrzymywanie pojazdu w należytym stanie technicznym.</li>
+        <li>Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</li>
+        <li>Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</li>
+      </ol>
     </div>
 
-    <!-- Signatures - Vertical layout: Wynajmujący first (top), Najemca second (bottom) -->
-    <div style="margin-top: 50px; padding-top: 20px;">
-      <!-- LESSOR/LANDLORD FIRST (Wynajmujący) -->
-      <div style="margin-bottom: 40px; text-align: center;">
-        <div style="display: flex; justify-content: center; gap: 40px; align-items: flex-end;">
-          ${data.fleetStampUrl ? `
-            <div style="text-align: center;">
-              <img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px;" alt="Pieczątka" />
-              <div style="font-size: 9pt; margin-top: 5px;">Pieczątka</div>
-            </div>
-          ` : ''}
-          <div style="text-align: center;">
-            ${data.fleetSignatureUrl 
-              ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
-              : '<div style="height: 60px;"></div>'
-            }
-            <div class="signature-line" style="border-top: 1px solid #000; margin-top: 10px; padding-top: 8px; font-size: 10pt;">
-              Podpis Wynajmującego<br>
-              ${data.fleetName}
-            </div>
-            ${data.fleetSignedAt 
-              ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
-              : ''
-            }
-          </div>
-        </div>
-      </div>
+    <!-- §6 Odpowiedzialność podatkowa -->
+    <div class="section">
+      <div class="section-title">§6 Odpowiedzialność podatkowa</div>
+      <ol>
+        <li>Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</li>
+        <li>Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego z tytułu otrzymanego czynszu zgodnie z obowiązującymi przepisami prawa.</li>
+        <li>Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</li>
+      </ol>
+    </div>
 
-      <!-- TENANT SECOND (Najemca) -->
-      <div style="text-align: center;">
-        ${data.driverSignatureUrl 
-          ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
+    <!-- §7 Postanowienia końcowe -->
+    <div class="section">
+      <div class="section-title">§7 Postanowienia końcowe</div>
+      <ol>
+        <li>W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</li>
+        <li>Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</li>
+        <li>Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</li>
+        <li>Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</li>
+      </ol>
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+      <div class="signature">
+        ${data.fleetSignatureUrl 
+          ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
           : '<div style="height: 60px;"></div>'
         }
-        <div class="signature-line" style="border-top: 1px solid #000; margin-top: 10px; padding-top: 8px; font-size: 10pt; max-width: 200px; margin-left: auto; margin-right: auto;">
-          Podpis Najemcy<br>
+        ${data.fleetStampUrl ? `<img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px; margin-bottom: 5px;" alt="Pieczątka" />` : ''}
+        <div class="signature-line">
+          Wynajmujący<br>
           ${data.driverFirstName} ${data.driverLastName}
         </div>
         ${data.driverSignedAt 
           ? `<div class="signature-date">Podpisano: ${format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm")}</div>`
+          : ''
+        }
+      </div>
+      <div class="signature">
+        ${data.driverSignatureUrl 
+          ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
+          : '<div style="height: 60px;"></div>'
+        }
+        <div class="signature-line">
+          Najemca<br>
+          ${data.fleetName}
+        </div>
+        ${data.fleetSignedAt 
+          ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
           : ''
         }
       </div>
