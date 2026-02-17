@@ -19,6 +19,7 @@ import { pl } from 'date-fns/locale';
 interface DocumentsManagementProps {
   cityId: string;
   cityName: string;
+  fleetId?: string | null;
 }
 
 // Built-in templates that are always available
@@ -44,7 +45,7 @@ interface DriverOption {
   phone?: string;
 }
 
-export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementProps) => {
+export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsManagementProps) => {
   const [activeTab, setActiveTab] = useState('templates');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendDialog, setSendDialog] = useState<{ templateCode: string; templateName: string } | null>(null);
@@ -52,29 +53,49 @@ export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementPro
   const [sendToAll, setSendToAll] = useState(false);
   const [driverSearch, setDriverSearch] = useState('');
 
-  // Fetch drivers for the fleet
-  const { data: drivers = [] } = useQuery({
-    queryKey: ['fleet-drivers-docs', cityId],
+  // Resolve the fleet ID - either passed directly or fetched from session
+  const { data: resolvedFleetId } = useQuery({
+    queryKey: ['resolved-fleet-id', fleetId],
     queryFn: async () => {
+      if (fleetId) return fleetId;
       const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) return [] as DriverOption[];
-      
+      if (!session?.session?.user) return null;
       const { data: fleetData } = await (supabase as any)
         .from('fleets')
         .select('id')
         .eq('owner_id', session.session.user.id)
         .maybeSingle();
+      return fleetData?.id || null;
+    },
+  });
 
-      if (!fleetData) return [] as DriverOption[];
-
-      const { data } = await (supabase as any)
+  // Fetch drivers for the fleet
+  const { data: drivers = [] } = useQuery({
+    queryKey: ['fleet-drivers-docs', resolvedFleetId],
+    queryFn: async () => {
+      if (!resolvedFleetId) return [] as DriverOption[];
+      const { data } = await supabase
         .from('drivers')
         .select('id, first_name, last_name')
-        .eq('fleet_id', fleetData.id)
+        .eq('fleet_id', resolvedFleetId)
         .order('last_name');
-
       return (data || []) as DriverOption[];
     },
+    enabled: !!resolvedFleetId,
+  });
+
+  // Fetch existing signed/pending document requests to show status per driver
+  const { data: existingRequests = [] } = useQuery({
+    queryKey: ['doc-requests-status', resolvedFleetId],
+    queryFn: async () => {
+      if (!resolvedFleetId) return [];
+      const { data } = await supabase
+        .from('driver_document_requests' as any)
+        .select('driver_id, template_code, status')
+        .eq('fleet_id', resolvedFleetId);
+      return (data || []) as unknown as Array<{ driver_id: string; template_code: string; status: string }>;
+    },
+    enabled: !!resolvedFleetId,
   });
 
   // Fetch sent document requests
@@ -116,7 +137,7 @@ export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementPro
         template_code: sendDialog.templateCode,
         template_name: sendDialog.templateName,
         status: 'pending',
-        fleet_id: cityId, // using cityId as fleet context
+        fleet_id: resolvedFleetId || cityId,
       }));
 
       const { error } = await supabase
@@ -319,18 +340,42 @@ export const DocumentsManagement = ({ cityId, cityName }: DocumentsManagementPro
                   />
                 </div>
                 <div className="max-h-[250px] overflow-y-auto space-y-1 border rounded-lg p-2">
-                  {filteredDrivers.map(driver => (
-                    <label
-                      key={driver.id}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={selectedDriverIds.includes(driver.id)}
-                        onCheckedChange={() => toggleDriverSelection(driver.id)}
-                      />
-                      <span className="text-sm">{driver.first_name} {driver.last_name}</span>
-                    </label>
-                  ))}
+                  {filteredDrivers.map(driver => {
+                    const driverDocStatus = sendDialog ? existingRequests.find(
+                      r => r.driver_id === driver.id && r.template_code === sendDialog.templateCode
+                    ) : null;
+                    const isSigned = driverDocStatus?.status === 'signed' || driverDocStatus?.status === 'completed';
+                    const isPending = driverDocStatus?.status === 'pending';
+                    
+                    return (
+                      <label
+                        key={driver.id}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={selectedDriverIds.includes(driver.id)}
+                          onCheckedChange={() => toggleDriverSelection(driver.id)}
+                          disabled={isSigned}
+                        />
+                        <span className="text-sm flex-1">{driver.first_name} {driver.last_name}</span>
+                        {isSigned && (
+                          <Badge variant="default" className="text-[10px] gap-1 bg-green-600">
+                            ✓ Podpisana
+                          </Badge>
+                        )}
+                        {isPending && (
+                          <Badge variant="outline" className="text-[10px] gap-1 text-orange-600 border-orange-300">
+                            Oczekuje
+                          </Badge>
+                        )}
+                        {!driverDocStatus && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Brak
+                          </Badge>
+                        )}
+                      </label>
+                    );
+                  })}
                   {filteredDrivers.length === 0 && (
                     <p className="text-center text-sm text-muted-foreground py-4">Brak kierowców</p>
                   )}
