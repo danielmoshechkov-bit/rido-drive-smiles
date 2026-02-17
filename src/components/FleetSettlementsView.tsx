@@ -601,19 +601,45 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       console.log(`🗑️ Deleting ${settlementsToDelete.length} settlements...`);
 
-      // 2. Revert debt payments for each driver
-      for (const settlement of settlementsToDelete) {
-        if (settlement.debt_payment && settlement.debt_payment > 0) {
-          console.log(`💰 Reverting debt payment for driver ${settlement.driver_id}: +${settlement.debt_payment}`);
-          await supabase.rpc('increment_driver_debt', {
-            p_driver_id: settlement.driver_id,
-            p_amount: settlement.debt_payment
-          });
-        }
+      const settlementIds = settlementsToDelete.map(s => s.id);
+
+      // 2. Delete debt transactions linked to these settlements
+      const { error: debtTxError } = await supabase
+        .from('driver_debt_transactions')
+        .delete()
+        .in('settlement_id', settlementIds);
+
+      if (debtTxError) {
+        console.warn('Error deleting debt transactions:', debtTxError);
       }
 
-      // 3. Delete settlements from database
-      const settlementIds = settlementsToDelete.map(s => s.id);
+      // 3. Recalculate driver debts from remaining transactions
+      const affectedDriverIds = [...new Set(settlementsToDelete.map(s => s.driver_id))];
+      for (const driverId of affectedDriverIds) {
+        // Sum all remaining transactions
+        const { data: txData } = await supabase
+          .from('driver_debt_transactions')
+          .select('type, amount')
+          .eq('driver_id', driverId);
+        
+        let newBalance = 0;
+        (txData || []).forEach(tx => {
+          if (tx.type === 'debt_increase' || tx.type === 'manual_add') {
+            newBalance += Math.abs(tx.amount);
+          } else {
+            newBalance -= Math.abs(tx.amount);
+          }
+        });
+        if (newBalance < 0) newBalance = 0;
+
+        await supabase.from('driver_debts').upsert({
+          driver_id: driverId,
+          current_balance: newBalance,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'driver_id' });
+      }
+
+      // 4. Delete settlements from database
       const { error: deleteError } = await supabase
         .from('settlements')
         .delete()
@@ -2495,8 +2521,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
                       {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
-                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>}
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -2627,15 +2653,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>}
-                        {/* Wypłata (auto-calculated) */}
-                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
-                          {settlement.has_negative_balance && (
-                            <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
-                              MINUS
-                            </Badge>
-                          )}
-                        </TableCell>}
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
@@ -2665,6 +2682,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               </Badge>
                             );
                           })()}
+                        </TableCell>}
+                        {/* Wypłata (auto-calculated) */}
+                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                          {formatCurrency(settlement.final_payout)}
+                          {settlement.has_negative_balance && (
+                            <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
+                              MINUS
+                            </Badge>
+                          )}
                         </TableCell>}
                         {/* Opłacony - toggle */}
                         {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
@@ -2752,9 +2778,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
                       </TableCell>}
-                      {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                      </TableCell>}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
                           const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
@@ -2768,6 +2791,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </Badge>
                           );
                         })()}
+                      </TableCell>}
+                      {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
                       </TableCell>}
                     </TableRow>
                   </TableFooter>
