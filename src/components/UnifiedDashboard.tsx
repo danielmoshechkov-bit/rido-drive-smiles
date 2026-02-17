@@ -579,6 +579,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 <DocumentsManagement 
                   cityId={userType === 'admin' ? selectedCity?.id : null}
                   cityName={userType === 'admin' ? selectedCity?.name || '' : fleetName || ''}
+                  fleetId={fleetId}
                 />
               )}
             </TabsContent>
