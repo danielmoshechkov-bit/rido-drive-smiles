@@ -39,6 +39,7 @@ import { DriverDocumentsPanel } from "@/components/driver/DriverDocumentsPanel";
 import { DriverPersonalInfo } from "@/components/driver/DriverPersonalInfo";
 import { DriverB2BProfile } from "@/components/driver/DriverB2BProfile";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { DriverDocumentSigningFlow } from "@/components/driver/DriverDocumentSigningFlow";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
@@ -699,6 +700,9 @@ const DriverDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* Document signing notification banner - shows above all content */}
+        {driverData?.driver_id && <DriverDocumentSigningFlow driverId={driverData.driver_id} />}
 
         {/* Tab Content - rendered based on activeTab state */}
         {activeTab === 'weekly-report' && <SettlementsWithSubTabs driverData={driverData} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />}

@@ -1432,7 +1432,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         let adjustedPayout = payout;
         let remainingDebt = existingDebt;
 
-        if (existingDebt > 0 && payout > 0) {
+        if (payout < 0) {
+          // Ujemna wypłata = narastanie długu
+          remainingDebt = existingDebt + Math.abs(payout);
+          adjustedPayout = 0;
+        } else if (existingDebt > 0 && payout > 0) {
           if (payout >= existingDebt) {
             // Wypłata pokrywa cały dług
             adjustedPayout = payout - existingDebt;
@@ -1520,6 +1524,45 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('✅ Sample settlement:', filteredAggregated[0]);
       
       setSettlements(filteredAggregated);
+
+      // === AUTO-PERSIST DEBT CHANGES ===
+      // Sync negative payouts and debt repayments to driver_debts table
+      for (const s of filteredAggregated) {
+        if (!s) continue;
+        const existingDebt = debtsMap[s.driver_id] || 0;
+        const newDebt = s.debt_current || 0;
+        
+        // Only persist if debt changed
+        if (Math.abs(newDebt - existingDebt) > 0.01) {
+          console.log(`💰 Syncing debt for ${s.driver_name}: ${existingDebt} → ${newDebt}`);
+          
+          // Upsert driver_debts
+          await supabase.from('driver_debts').upsert({
+            driver_id: s.driver_id,
+            current_balance: newDebt,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'driver_id' });
+
+          // Update settlement records with debt info
+          if (currentWeek) {
+            await supabase
+              .from('settlements')
+              .update({
+                debt_before: existingDebt,
+                debt_after: newDebt,
+                debt_payment: existingDebt > 0 && newDebt < existingDebt ? existingDebt - newDebt : 0,
+                actual_payout: s.final_payout
+              })
+              .eq('driver_id', s.driver_id)
+              .gte('period_from', currentWeek.start)
+              .lte('period_to', currentWeek.end);
+          }
+          
+          // Update local state
+          debtsMap[s.driver_id] = newDebt;
+        }
+      }
+      setDriverDebts({ ...debtsMap });
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
