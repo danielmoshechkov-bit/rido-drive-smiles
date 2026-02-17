@@ -82,8 +82,8 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     bank_account: '',
   });
 
-  // Fleet data for contract
   const [fleetData, setFleetData] = useState<any>(null);
+  const [fleetSignature, setFleetSignature] = useState<{ signature_url: string | null; stamp_url: string | null } | null>(null);
 
   useEffect(() => {
     loadPendingDocuments();
@@ -107,10 +107,19 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
         if (fleetId) {
           const { data: fleet } = await supabase
             .from('fleets')
-            .select('name, nip, address, city, postal_code, krs, owner_name')
+            .select('name, nip, address, city, postal_code, krs, owner_name, logo_url')
             .eq('id', fleetId)
             .single();
           setFleetData(fleet);
+
+          // Load fleet signature
+          const { data: sig } = await (supabase as any)
+            .from('fleet_signatures')
+            .select('signature_url, stamp_url')
+            .eq('fleet_id', fleetId)
+            .eq('is_active', true)
+            .maybeSingle();
+          if (sig) setFleetSignature(sig);
         }
       }
     }
@@ -189,11 +198,26 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     }
   };
 
-  const generateContractNumber = () => {
+  const generateContractNumber = async (): Promise<string> => {
     const now = new Date();
     const year = now.getFullYear();
-    const num = Math.floor(Math.random() * 9000) + 1000;
-    return `${num}/${year}`;
+    // Get current max contract number for this year from all requests
+    const { data } = await supabase
+      .from('driver_document_requests' as any)
+      .select('contract_number')
+      .not('contract_number', 'is', null);
+    
+    let maxNum = 0;
+    if (data) {
+      for (const row of data as any[]) {
+        const cn = row.contract_number as string;
+        if (cn && cn.endsWith(`/${year}`)) {
+          const num = parseInt(cn.split('/')[0], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+    return `${maxNum + 1}/${year}`;
   };
 
   const handleSign = async (signatureDataUrl: string) => {
@@ -215,7 +239,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
         signatureUrl = publicUrl;
       }
 
-      const contractNumber = activeDoc.contract_number || generateContractNumber();
+      const contractNumber = activeDoc.contract_number || await generateContractNumber();
 
       const filledData = {
         ...formData,
@@ -262,18 +286,24 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
   const getContractPreviewHtml = () => {
     if (!activeDoc) return '';
-    const contractNum = activeDoc.contract_number || '(zostanie nadany)';
+    const contractNum = activeDoc.contract_number || '(zostanie nadany automatycznie)';
     const today = new Date().toLocaleDateString('pl-PL');
     const fleetName = fleetData?.name || '[Nazwa Partnera Flotowego]';
     const fleetAddress = fleetData?.address ? `${fleetData.address}${fleetData.postal_code ? ', ' + fleetData.postal_code : ''} ${fleetData.city || ''}` : '……………………………………………………………';
     const fleetNip = fleetData?.nip || '…………………………………';
     const fleetKrs = fleetData?.krs || '…………………………………';
     const fleetOwner = fleetData?.owner_name || '……………………………………………';
+    const fleetLogoUrl = (fleetData as any)?.logo_url || null;
+    const fleetSigUrl = fleetSignature?.signature_url || null;
+    const fleetStampUrl = fleetSignature?.stamp_url || null;
 
     return `
 <div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a;">
+  
+  ${fleetLogoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${fleetLogoUrl}" alt="Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;" /></div>` : ''}
+
   <h1 style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;">UMOWA NAJMU POJAZDU</h1>
-  <p style="text-align: center; font-size: 13px; margin-bottom: 30px;">Nr ${contractNum}</p>
+  <p style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 25px;">Nr ${contractNum}</p>
   
   <p style="text-align: center; margin-bottom: 30px;">zawarta w dniu <strong>${today}</strong> pomiędzy:</p>
   
@@ -298,60 +328,67 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
   <hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;" />
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§1 Przedmiot umowy</h2>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§1 Przedmiot umowy</h2>
   <p>Wynajmujący oddaje Najemcy do używania pojazd:</p>
-  <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
-    <tr><td style="padding: 4px 8px; width: 180px;"><strong>Marka:</strong></td><td style="padding: 4px 8px;">${formData.car_brand}</td></tr>
-    <tr><td style="padding: 4px 8px;"><strong>Model:</strong></td><td style="padding: 4px 8px;">${formData.car_model}</td></tr>
-    <tr><td style="padding: 4px 8px;"><strong>Numer VIN:</strong></td><td style="padding: 4px 8px;">${formData.car_vin}</td></tr>
-    <tr><td style="padding: 4px 8px;"><strong>Numer rejestracyjny:</strong></td><td style="padding: 4px 8px;">${formData.car_registration}</td></tr>
+  <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ddd;">
+    <tr style="background: #f5f5f5;"><td style="padding: 6px 12px; border: 1px solid #ddd; width: 180px;"><strong>Marka:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${formData.car_brand}</td></tr>
+    <tr><td style="padding: 6px 12px; border: 1px solid #ddd;"><strong>Model:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${formData.car_model}</td></tr>
+    <tr style="background: #f5f5f5;"><td style="padding: 6px 12px; border: 1px solid #ddd;"><strong>Numer VIN:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${formData.car_vin}</td></tr>
+    <tr><td style="padding: 6px 12px; border: 1px solid #ddd;"><strong>Numer rejestracyjny:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${formData.car_registration}</td></tr>
   </table>
   <p>Wynajmujący oświadcza, że:</p>
-  <p style="margin-left: 15px;">a) jest właścicielem pojazdu lub posiada tytuł prawny do jego wynajmu,</p>
-  <p style="margin-left: 15px;">b) pojazd jest sprawny technicznie i dopuszczony do ruchu,</p>
-  <p style="margin-left: 15px;">c) pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</p>
-  <p style="margin-left: 15px;">d) pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</p>
+  <p style="margin-left: 20px;">a) jest właścicielem pojazdu lub posiada tytuł prawny do jego wynajmu,</p>
+  <p style="margin-left: 20px;">b) pojazd jest sprawny technicznie i dopuszczony do ruchu,</p>
+  <p style="margin-left: 20px;">c) pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</p>
+  <p style="margin-left: 20px;">d) pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§2 Cel najmu</h2>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§2 Cel najmu</h2>
   <p>Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.</p>
   <p>Umowa niniejsza ma charakter cywilnoprawny i nie stanowi umowy o pracę ani nie tworzy stosunku podporządkowania pomiędzy Stronami.</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§3 Okres trwania umowy</h2>
-  <p>Umowa zostaje zawarta na czas nieokreślony.</p>
-  <p>Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</p>
-  <p>W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§3 Okres trwania umowy</h2>
+  <p>1. Umowa zostaje zawarta na czas nieokreślony.</p>
+  <p>2. Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</p>
+  <p>3. W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§4 Czynsz najmu</h2>
-  <p>Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</p>
-  <p>Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu, w szczególności liczby przejazdów, obrotu generowanego przy wykorzystaniu pojazdu lub liczby przejechanych kilometrów.</p>
-  <p>Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
-  <p>Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
-  <p>Czynsz będzie płatny ${formData.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego: <strong>' + formData.bank_account + '</strong>' : 'gotówką'}.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§4 Czynsz najmu</h2>
+  <p>1. Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</p>
+  <p>2. Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu, w szczególności liczby przejazdów, obrotu generowanego przy wykorzystaniu pojazdu lub liczby przejechanych kilometrów.</p>
+  <p>3. Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
+  <p>4. Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
+  <p>5. Czynsz będzie płatny ${formData.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego nr: <strong>' + formData.bank_account + '</strong>' : 'gotówką'}.</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§5 Obowiązki Wynajmującego</h2>
-  <p>Utrzymywanie pojazdu w należytym stanie technicznym.</p>
-  <p>Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</p>
-  <p>Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§5 Obowiązki Wynajmującego</h2>
+  <p>1. Utrzymywanie pojazdu w należytym stanie technicznym.</p>
+  <p>2. Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</p>
+  <p>3. Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§6 Odpowiedzialność podatkowa</h2>
-  <p>Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</p>
-  <p>Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego z tytułu otrzymanego czynszu zgodnie z obowiązującymi przepisami prawa.</p>
-  <p>Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§6 Odpowiedzialność podatkowa</h2>
+  <p>1. Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</p>
+  <p>2. Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego z tytułu otrzymanego czynszu zgodnie z obowiązującymi przepisami prawa.</p>
+  <p>3. Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</p>
 
-  <h2 style="font-size: 14px; margin-top: 25px;">§7 Postanowienia końcowe</h2>
-  <p>W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</p>
-  <p>Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</p>
-  <p>Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
-  <p>Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§7 Postanowienia końcowe</h2>
+  <p>1. W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</p>
+  <p>2. Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</p>
+  <p>3. Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
+  <p>4. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
 
-  <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+  <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
     <div style="text-align: center; width: 45%;">
-      <p style="margin-bottom: 40px;"><strong>Wynajmujący</strong></p>
-      <p>……………………………………</p>
+      <p style="margin-bottom: 10px; font-weight: bold;">Wynajmujący</p>
+      <p style="color: #888; font-size: 11px; margin-bottom: 15px;">(kierowca / właściciel pojazdu)</p>
+      <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
+        <p style="color: #aaa;">……………………………………</p>
+      </div>
     </div>
     <div style="text-align: center; width: 45%;">
-      <p style="margin-bottom: 40px;"><strong>Najemca</strong></p>
-      <p>……………………………………</p>
+      <p style="margin-bottom: 10px; font-weight: bold;">Najemca</p>
+      <p style="color: #888; font-size: 11px; margin-bottom: 15px;">${fleetName}</p>
+      <div style="min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;">
+        ${fleetSigUrl ? `<img src="${fleetSigUrl}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
+        ${fleetStampUrl ? `<img src="${fleetStampUrl}" alt="Pieczątka" style="max-height: 40px; margin-top: 5px;" />` : ''}
+      </div>
     </div>
   </div>
 </div>`;

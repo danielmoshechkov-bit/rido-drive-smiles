@@ -26,16 +26,20 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [stampUrl, setStampUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [autoSignEnabled, setAutoSignEnabled] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [uploadingStamp, setUploadingStamp] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const stampInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSignature();
+    loadLogo();
   }, [fleetId]);
 
   const loadSignature = async () => {
@@ -254,6 +258,52 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
     }
   };
 
+  const loadLogo = async () => {
+    const { data } = await supabase
+      .from('fleets')
+      .select('logo_url')
+      .eq('id', fleetId)
+      .single();
+    if (data) setLogoUrl((data as any).logo_url || null);
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const fileName = `fleet_logos/${fleetId}/${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from("driver-documents")
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from("driver-documents")
+        .getPublicUrl(fileName);
+      await supabase.from('fleets').update({ logo_url: publicUrl } as any).eq('id', fleetId);
+      setLogoUrl(publicUrl);
+      toast.success("Logo zostało zapisane!");
+    } catch (error: any) {
+      toast.error("Błąd wgrywania logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const deleteLogo = async () => {
+    if (!confirm("Czy na pewno chcesz usunąć logo?")) return;
+    setSaving(true);
+    try {
+      await supabase.from('fleets').update({ logo_url: null } as any).eq('id', fleetId);
+      setLogoUrl(null);
+      toast.success("Logo zostało usunięte");
+    } catch (error) {
+      toast.error("Błąd usuwania logo");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteStamp = async () => {
     if (!confirm("Czy na pewno chcesz usunąć pieczątkę?")) return;
 
@@ -284,6 +334,54 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
 
   return (
     <div className="space-y-6">
+      {/* Logo Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            Logo floty
+          </CardTitle>
+          <CardDescription>
+            Logo będzie widoczne na umowach najmu i dokumentach
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {logoUrl ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Logo zapisane</span>
+              </div>
+              <div className="border rounded-lg p-4 bg-white">
+                <img src={logoUrl} alt="Logo floty" className="max-h-20 mx-auto object-contain" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  Zmień logo
+                </Button>
+                <Button variant="destructive" onClick={deleteLogo} disabled={saving} className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Usuń
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
+                <AlertCircle className="h-5 w-5" />
+                <span>Brak logo (opcjonalne)</span>
+              </div>
+              <Button onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="gap-2">
+                {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Wgraj logo
+              </Button>
+            </div>
+          )}
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

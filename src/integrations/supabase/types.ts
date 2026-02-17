@@ -5030,6 +5030,8 @@ export type Database = {
           house_number: string | null
           id: string
           invoice_email: string | null
+          krs: string | null
+          logo_url: string | null
           name: string
           nip: string | null
           owner_name: string | null
@@ -5073,6 +5075,8 @@ export type Database = {
           house_number?: string | null
           id?: string
           invoice_email?: string | null
+          krs?: string | null
+          logo_url?: string | null
           name: string
           nip?: string | null
           owner_name?: string | null
@@ -5116,6 +5120,8 @@ export type Database = {
           house_number?: string | null
           id?: string
           invoice_email?: string | null
+          krs?: string | null
+          logo_url?: string | null
           name?: string
           nip?: string | null
           owner_name?: string | null
