@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -14,7 +15,8 @@ import {
   CheckCircle,
   AlertCircle,
   Stamp,
-  Upload
+  Upload,
+  Building2
 } from "lucide-react";
 
 interface FleetContractSettingsProps {
@@ -22,6 +24,7 @@ interface FleetContractSettingsProps {
 }
 
 export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
+  const [settingsTab, setSettingsTab] = useState('company');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
@@ -32,18 +35,28 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   const [uploadingStamp, setUploadingStamp] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   
+  // Company data
+  const [companyData, setCompanyData] = useState({
+    name: '', nip: '', krs: '', address: '', city: '', postal_code: '', owner_name: ''
+  });
+  const [savingCompany, setSavingCompany] = useState(false);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const stampInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadSignature();
-    loadLogo();
+    loadAll();
   }, [fleetId]);
 
-  const loadSignature = async () => {
+  const loadAll = async () => {
     setLoading(true);
+    await Promise.all([loadSignature(), loadFleetData()]);
+    setLoading(false);
+  };
+
+  const loadSignature = async () => {
     try {
       const supabaseAny = supabase as any;
       const { data, error } = await supabaseAny
@@ -52,90 +65,83 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
         .eq("fleet_id", fleetId)
         .eq("is_active", true)
         .single();
-
       if (!error && data) {
         setSignatureUrl(data.signature_url);
         setStampUrl(data.stamp_url || null);
         setAutoSignEnabled(data.auto_sign_enabled !== false);
       }
-    } catch (error) {
-      // No signature found - that's ok
-    } finally {
-      setLoading(false);
+    } catch {}
+  };
+
+  const loadFleetData = async () => {
+    const { data } = await supabase
+      .from('fleets')
+      .select('name, nip, krs, address, city, postal_code, owner_name, logo_url')
+      .eq('id', fleetId)
+      .single();
+    if (data) {
+      setCompanyData({
+        name: (data as any).name || '',
+        nip: (data as any).nip || '',
+        krs: (data as any).krs || '',
+        address: (data as any).address || '',
+        city: (data as any).city || '',
+        postal_code: (data as any).postal_code || '',
+        owner_name: (data as any).owner_name || '',
+      });
+      setLogoUrl((data as any).logo_url || null);
     }
   };
 
+  const saveCompanyData = async () => {
+    setSavingCompany(true);
+    try {
+      await supabase.from('fleets').update(companyData as any).eq('id', fleetId);
+      toast.success("Dane firmy zapisane!");
+    } catch { toast.error("Błąd zapisu"); }
+    finally { setSavingCompany(false); }
+  };
+
+  // Canvas drawing functions
   const initCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    // Set canvas size
     canvas.width = canvas.offsetWidth * 2;
     canvas.height = canvas.offsetHeight * 2;
     ctx.scale(2, 2);
-    
-    // Style
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    
-    // Clear
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
-  useEffect(() => {
-    if (isDrawing) {
-      initCanvas();
-    }
-  }, [isDrawing]);
+  useEffect(() => { if (isDrawing) initCanvas(); }, [isDrawing]);
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-
     const rect = canvas.getBoundingClientRect();
-    
-    if ("touches" in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
-      };
-    }
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    if ("touches" in e) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     isDrawingRef.current = true;
     const { x, y } = getCoordinates(e);
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    }
+    if (ctx) { ctx.beginPath(); ctx.moveTo(x, y); }
   };
-
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawingRef.current) return;
     const { x, y } = getCoordinates(e);
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) {
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
+    if (ctx) { ctx.lineTo(x, y); ctx.stroke(); }
   };
-
-  const stopDrawing = () => {
-    isDrawingRef.current = false;
-  };
-
+  const stopDrawing = () => { isDrawingRef.current = false; };
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -148,123 +154,59 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   const saveSignature = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     setSaving(true);
     try {
-      // Convert canvas to blob
       const dataUrl = canvas.toDataURL("image/png");
       const blob = await (await fetch(dataUrl)).blob();
-      
-      // Upload to storage
       const fileName = `fleet_signatures/${fleetId}/${Date.now()}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from("driver-documents")
-        .upload(fileName, blob, { contentType: "image/png" });
-
+      const { error: uploadError } = await supabase.storage.from("driver-documents").upload(fileName, blob, { contentType: "image/png" });
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("driver-documents")
-        .getPublicUrl(fileName);
-
-      // Save to database
+      const { data: { publicUrl } } = supabase.storage.from("driver-documents").getPublicUrl(fileName);
       const supabaseAny = supabase as any;
-      await supabaseAny.from("fleet_signatures").upsert({
-        fleet_id: fleetId,
-        signature_url: publicUrl,
-        is_active: true,
-        auto_sign_enabled: autoSignEnabled,
-      }, { onConflict: "fleet_id" });
-
+      await supabaseAny.from("fleet_signatures").upsert({ fleet_id: fleetId, signature_url: publicUrl, is_active: true, auto_sign_enabled: autoSignEnabled }, { onConflict: "fleet_id" });
       setSignatureUrl(publicUrl);
       setIsDrawing(false);
       toast.success("Podpis został zapisany!");
-    } catch (error: any) {
-      console.error("Error saving signature:", error);
-      toast.error("Błąd zapisywania podpisu");
-    } finally {
-      setSaving(false);
-    }
+    } catch (error: any) { toast.error("Błąd zapisywania podpisu"); }
+    finally { setSaving(false); }
   };
 
   const deleteSignature = async () => {
     if (!confirm("Czy na pewno chcesz usunąć zapisany podpis?")) return;
-
     setSaving(true);
     try {
       const supabaseAny = supabase as any;
-      await supabaseAny
-        .from("fleet_signatures")
-        .update({ is_active: false })
-        .eq("fleet_id", fleetId);
-
+      await supabaseAny.from("fleet_signatures").update({ is_active: false }).eq("fleet_id", fleetId);
       setSignatureUrl(null);
       toast.success("Podpis został usunięty");
-    } catch (error) {
-      toast.error("Błąd usuwania podpisu");
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error("Błąd usuwania podpisu"); }
+    finally { setSaving(false); }
   };
 
   const updateAutoSign = async (enabled: boolean) => {
     setAutoSignEnabled(enabled);
     try {
       const supabaseAny = supabase as any;
-      await supabaseAny
-        .from("fleet_signatures")
-        .update({ auto_sign_enabled: enabled })
-        .eq("fleet_id", fleetId)
-        .eq("is_active", true);
-      
+      await supabaseAny.from("fleet_signatures").update({ auto_sign_enabled: enabled }).eq("fleet_id", fleetId).eq("is_active", true);
       toast.success(enabled ? "Auto-podpis włączony" : "Auto-podpis wyłączony");
-    } catch (error) {
-      toast.error("Błąd aktualizacji ustawień");
-    }
+    } catch { toast.error("Błąd aktualizacji ustawień"); }
   };
 
   const handleStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploadingStamp(true);
     try {
       const fileName = `fleet_stamps/${fleetId}/${Date.now()}.${file.name.split('.').pop()}`;
-      const { error: uploadError } = await supabase.storage
-        .from("driver-documents")
-        .upload(fileName, file, { contentType: file.type });
-
+      const { error: uploadError } = await supabase.storage.from("driver-documents").upload(fileName, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("driver-documents")
-        .getPublicUrl(fileName);
-
-      // Save to database
+      const { data: { publicUrl } } = supabase.storage.from("driver-documents").getPublicUrl(fileName);
       const supabaseAny = supabase as any;
-      await supabaseAny.from("fleet_signatures").upsert({
-        fleet_id: fleetId,
-        stamp_url: publicUrl,
-        is_active: true,
-      }, { onConflict: "fleet_id" });
-
+      await supabaseAny.from("fleet_signatures").upsert({ fleet_id: fleetId, stamp_url: publicUrl, is_active: true }, { onConflict: "fleet_id" });
       setStampUrl(publicUrl);
       toast.success("Pieczątka została zapisana!");
-    } catch (error: any) {
-      console.error("Error uploading stamp:", error);
-      toast.error("Błąd wgrywania pieczątki");
-    } finally {
-      setUploadingStamp(false);
-    }
-  };
-
-  const loadLogo = async () => {
-    const { data } = await supabase
-      .from('fleets')
-      .select('logo_url')
-      .eq('id', fleetId)
-      .single();
-    if (data) setLogoUrl((data as any).logo_url || null);
+    } catch { toast.error("Błąd wgrywania pieczątki"); }
+    finally { setUploadingStamp(false); }
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,21 +215,14 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
     setUploadingLogo(true);
     try {
       const fileName = `fleet_logos/${fleetId}/${Date.now()}.${file.name.split('.').pop()}`;
-      const { error: uploadError } = await supabase.storage
-        .from("driver-documents")
-        .upload(fileName, file, { contentType: file.type });
+      const { error: uploadError } = await supabase.storage.from("driver-documents").upload(fileName, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage
-        .from("driver-documents")
-        .getPublicUrl(fileName);
+      const { data: { publicUrl } } = supabase.storage.from("driver-documents").getPublicUrl(fileName);
       await supabase.from('fleets').update({ logo_url: publicUrl } as any).eq('id', fleetId);
       setLogoUrl(publicUrl);
       toast.success("Logo zostało zapisane!");
-    } catch (error: any) {
-      toast.error("Błąd wgrywania logo");
-    } finally {
-      setUploadingLogo(false);
-    }
+    } catch { toast.error("Błąd wgrywania logo"); }
+    finally { setUploadingLogo(false); }
   };
 
   const deleteLogo = async () => {
@@ -297,31 +232,20 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
       await supabase.from('fleets').update({ logo_url: null } as any).eq('id', fleetId);
       setLogoUrl(null);
       toast.success("Logo zostało usunięte");
-    } catch (error) {
-      toast.error("Błąd usuwania logo");
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error("Błąd usuwania logo"); }
+    finally { setSaving(false); }
   };
 
   const deleteStamp = async () => {
     if (!confirm("Czy na pewno chcesz usunąć pieczątkę?")) return;
-
     setSaving(true);
     try {
       const supabaseAny = supabase as any;
-      await supabaseAny
-        .from("fleet_signatures")
-        .update({ stamp_url: null })
-        .eq("fleet_id", fleetId);
-
+      await supabaseAny.from("fleet_signatures").update({ stamp_url: null }).eq("fleet_id", fleetId);
       setStampUrl(null);
       toast.success("Pieczątka została usunięta");
-    } catch (error) {
-      toast.error("Błąd usuwania pieczątki");
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error("Błąd usuwania pieczątki"); }
+    finally { setSaving(false); }
   };
 
   if (loading) {
@@ -334,262 +258,206 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Logo Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Logo floty
-          </CardTitle>
-          <CardDescription>
-            Logo będzie widoczne na umowach najmu i dokumentach
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {logoUrl ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">Logo zapisane</span>
-              </div>
-              <div className="border rounded-lg p-4 bg-white">
-                <img src={logoUrl} alt="Logo floty" className="max-h-20 mx-auto object-contain" />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Zmień logo
-                </Button>
-                <Button variant="destructive" onClick={deleteLogo} disabled={saving} className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  Usuń
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
-                <AlertCircle className="h-5 w-5" />
-                <span>Brak logo (opcjonalne)</span>
-              </div>
-              <Button onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="gap-2">
-                {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Wgraj logo
-              </Button>
-            </div>
-          )}
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-        </CardContent>
-      </Card>
+      <Tabs value={settingsTab} onValueChange={setSettingsTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="company" className="gap-1"><Building2 className="h-3.5 w-3.5" /> Dane firmy</TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1"><PenTool className="h-3.5 w-3.5" /> Ustawienia umów</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PenTool className="h-5 w-5" />
-            Podpis floty
-          </CardTitle>
-          <CardDescription>
-            Zapisany podpis będzie automatycznie używany przy podpisywaniu umów najmu
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Current signature display */}
-          {signatureUrl && !isDrawing && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">Podpis zapisany</span>
-              </div>
-              
-              <div className="border rounded-lg p-4 bg-white">
-                <img 
-                  src={signatureUrl} 
-                  alt="Zapisany podpis" 
-                  className="max-h-24 mx-auto"
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="auto-sign"
-                    checked={autoSignEnabled}
-                    onCheckedChange={updateAutoSign}
-                  />
-                  <Label htmlFor="auto-sign" className="cursor-pointer">
-                    Automatycznie podpisuj umowy
-                  </Label>
+        {/* Company Data Tab */}
+        <TabsContent value="company" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Dane firmy
+              </CardTitle>
+              <CardDescription>Dane potrzebne do generowania umów najmu</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nazwa firmy *</Label>
+                  <Input value={companyData.name} onChange={e => setCompanyData(p => ({...p, name: e.target.value}))} placeholder="np. Car4Ride sp. z o.o." />
+                </div>
+                <div className="space-y-2">
+                  <Label>NIP *</Label>
+                  <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 5223252793" />
+                </div>
+                <div className="space-y-2">
+                  <Label>KRS / CEIDG</Label>
+                  <Input value={companyData.krs} onChange={e => setCompanyData(p => ({...p, krs: e.target.value}))} placeholder="np. 0000123456" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Reprezentant *</Label>
+                  <Input value={companyData.owner_name} onChange={e => setCompanyData(p => ({...p, owner_name: e.target.value}))} placeholder="Imię i nazwisko" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Adres siedziby *</Label>
+                  <Input value={companyData.address} onChange={e => setCompanyData(p => ({...p, address: e.target.value}))} placeholder="ul. Przykładowa 1/2" />
+                </div>
+                <div className="grid grid-cols-[100px_1fr] gap-2">
+                  <div className="space-y-2">
+                    <Label>Kod pocztowy</Label>
+                    <Input value={companyData.postal_code} onChange={e => setCompanyData(p => ({...p, postal_code: e.target.value}))} placeholder="00-000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Miasto</Label>
+                    <Input value={companyData.city} onChange={e => setCompanyData(p => ({...p, city: e.target.value}))} placeholder="Warszawa" />
+                  </div>
                 </div>
               </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDrawing(true)}
-                  className="gap-2"
-                >
-                  <PenTool className="h-4 w-4" />
-                  Zmień podpis
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={deleteSignature}
-                  disabled={saving}
-                  className="gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Usuń
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* No signature - show add button */}
-          {!signatureUrl && !isDrawing && (
-            <div className="text-center py-8">
-              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
-                <AlertCircle className="h-5 w-5" />
-                <span>Brak zapisanego podpisu</span>
-              </div>
-              <Button onClick={() => setIsDrawing(true)} className="gap-2">
-                <PenTool className="h-4 w-4" />
-                Dodaj podpis
+              <Button onClick={saveCompanyData} disabled={savingCompany} className="gap-2">
+                {savingCompany ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Zapisz dane firmy
               </Button>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {/* Drawing canvas */}
-          {isDrawing && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Narysuj podpis palcem lub myszką w polu poniżej
-              </p>
-              
-              <div className="border-2 border-dashed border-primary/50 rounded-lg overflow-hidden">
-                <canvas
-                  ref={canvasRef}
-                  className="w-full h-40 bg-white cursor-crosshair touch-none"
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={clearCanvas}
-                  className="gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Wyczyść
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDrawing(false)}
-                >
-                  Anuluj
-                </Button>
-                <Button
-                  onClick={saveSignature}
-                  disabled={saving}
-                  className="flex-1 gap-2"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Zapisz podpis
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Stamp Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Stamp className="h-5 w-5" />
-            Pieczątka floty
-          </CardTitle>
-          <CardDescription>
-            Opcjonalna pieczątka wyświetlana na umowach obok podpisu
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {stampUrl ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">Pieczątka zapisana</span>
-              </div>
-              
-              <div className="border rounded-lg p-4 bg-white">
-                <img 
-                  src={stampUrl} 
-                  alt="Pieczątka floty" 
-                  className="max-h-24 mx-auto"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => stampInputRef.current?.click()}
-                  disabled={uploadingStamp}
-                  className="gap-2"
-                >
+        {/* Document Settings Tab */}
+        <TabsContent value="documents" className="space-y-4 mt-4">
+          {/* 3 cards side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Logo */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
                   <Upload className="h-4 w-4" />
-                  Zmień pieczątkę
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={deleteStamp}
-                  disabled={saving}
-                  className="gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Usuń
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
-                <AlertCircle className="h-5 w-5" />
-                <span>Brak pieczątki (opcjonalne)</span>
-              </div>
-              <Button 
-                onClick={() => stampInputRef.current?.click()} 
-                disabled={uploadingStamp}
-                className="gap-2"
-              >
-                {uploadingStamp ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Logo firmy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
+                {logoUrl ? (
+                  <>
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
+                      <img src={logoUrl} alt="Logo" className="max-h-16 max-w-full object-contain" />
+                    </div>
+                    <div className="flex gap-1 w-full">
+                      <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="flex-1 text-xs gap-1">
+                        <Upload className="h-3 w-3" /> Zmień
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={deleteLogo} disabled={saving} className="text-destructive hover:text-destructive text-xs">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </>
                 ) : (
-                  <Upload className="h-4 w-4" />
+                  <div className="text-center py-4">
+                    <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-2">Brak logo</p>
+                    <Button size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="gap-1 text-xs">
+                      {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                      Wgraj logo
+                    </Button>
+                  </div>
                 )}
-                Wgraj pieczątkę
-              </Button>
-            </div>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              </CardContent>
+            </Card>
+
+            {/* Signature */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <PenTool className="h-4 w-4" />
+                  Podpis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
+                {signatureUrl && !isDrawing ? (
+                  <>
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
+                      <img src={signatureUrl} alt="Podpis" className="max-h-16 max-w-full object-contain" />
+                    </div>
+                    <div className="flex gap-1 w-full">
+                      <Button variant="outline" size="sm" onClick={() => setIsDrawing(true)} className="flex-1 text-xs gap-1">
+                        <PenTool className="h-3 w-3" /> Zmień
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={deleteSignature} disabled={saving} className="text-destructive hover:text-destructive text-xs">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </>
+                ) : isDrawing ? (
+                  <div className="w-full space-y-2">
+                    <div className="border-2 border-dashed border-primary/50 rounded-lg overflow-hidden">
+                      <canvas ref={canvasRef} className="w-full h-28 bg-white cursor-crosshair touch-none"
+                        onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" onClick={clearCanvas} className="text-xs"><Trash2 className="h-3 w-3" /></Button>
+                      <Button variant="outline" size="sm" onClick={() => setIsDrawing(false)} className="text-xs">Anuluj</Button>
+                      <Button size="sm" onClick={saveSignature} disabled={saving} className="flex-1 text-xs gap-1">
+                        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Zapisz
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-2">Brak podpisu</p>
+                    <Button size="sm" onClick={() => setIsDrawing(true)} className="gap-1 text-xs">
+                      <PenTool className="h-3 w-3" /> Dodaj podpis
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Stamp */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Stamp className="h-4 w-4" />
+                  Pieczątka
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
+                {stampUrl ? (
+                  <>
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
+                      <img src={stampUrl} alt="Pieczątka" className="max-h-16 max-w-full object-contain" />
+                    </div>
+                    <div className="flex gap-1 w-full">
+                      <Button variant="outline" size="sm" onClick={() => stampInputRef.current?.click()} disabled={uploadingStamp} className="flex-1 text-xs gap-1">
+                        <Upload className="h-3 w-3" /> Zmień
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={deleteStamp} disabled={saving} className="text-destructive hover:text-destructive text-xs">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-2">Brak pieczątki</p>
+                    <Button size="sm" onClick={() => stampInputRef.current?.click()} disabled={uploadingStamp} className="gap-1 text-xs">
+                      {uploadingStamp ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                      Wgraj pieczątkę
+                    </Button>
+                  </div>
+                )}
+                <input ref={stampInputRef} type="file" accept="image/*" className="hidden" onChange={handleStampUpload} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Auto-sign toggle */}
+          {signatureUrl && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3">
+                  <Switch id="auto-sign" checked={autoSignEnabled} onCheckedChange={updateAutoSign} />
+                  <Label htmlFor="auto-sign" className="cursor-pointer">Automatycznie podpisuj umowy</Label>
+                </div>
+              </CardContent>
+            </Card>
           )}
-          
-          <input
-            ref={stampInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleStampUpload}
-          />
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
