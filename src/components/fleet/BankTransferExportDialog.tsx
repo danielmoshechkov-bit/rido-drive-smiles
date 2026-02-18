@@ -203,6 +203,18 @@ export function BankTransferExportDialog({
         `)
         .eq('fleet_id', fleetId);
 
+      // Get signed rental contracts for transfer title
+      const { data: signedContracts } = await supabase
+        .from('driver_document_requests')
+        .select('driver_id, contract_number')
+        .eq('fleet_id', fleetId)
+        .eq('template_code', 'RENTAL_CONTRACT')
+        .eq('status', 'signed');
+
+      const contractMap = new Map(
+        (signedContracts || []).map(c => [c.driver_id, c.contract_number])
+      );
+
       if (!driversData) {
         toast.error('Brak danych kierowców');
         return;
@@ -310,9 +322,12 @@ export function BankTransferExportDialog({
           ? s.final_payout.toFixed(2).replace('.', ',')
           : s.final_payout.toFixed(2);
         
-        // Determine title based on billing method
+        // Determine title: signed contract number > B2B invoice > default
         let title = transferTitle;
-        if (driver?.billing_method === 'b2b' || driver?.billing_method === 'B2B') {
+        const contractNumber = contractMap.get(s.driver_id);
+        if (contractNumber) {
+          title = `Umowa najmu auta nr ${contractNumber}`;
+        } else if (driver?.billing_method === 'b2b' || driver?.billing_method === 'B2B') {
           title = `Faktura ${periodLabel}`;
         }
 
