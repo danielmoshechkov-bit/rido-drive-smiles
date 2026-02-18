@@ -183,14 +183,21 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0:
-        return formData.full_name && formData.pesel && formData.reg_street && formData.reg_house && formData.reg_postal_code && formData.reg_city
+      case 0: {
+        const peselDigits = formData.pesel.replace(/\D/g, '');
+        return formData.full_name && peselDigits.length === 11 && formData.reg_street && formData.reg_house && formData.reg_postal_code && formData.reg_city
           && (formData.corr_same_as_reg || (formData.corr_street && formData.corr_house && formData.corr_postal_code && formData.corr_city))
           && (formData.res_same_as_reg || (formData.res_street && formData.res_house && formData.res_postal_code && formData.res_city));
-      case 1:
-        return formData.car_brand && formData.car_model && formData.car_vin && formData.car_registration;
-      case 2:
-        return formData.payment_method === 'cash' || (formData.payment_method === 'transfer' && formData.bank_account);
+      }
+      case 1: {
+        const vinClean = formData.car_vin.replace(/\s/g, '');
+        return formData.car_brand && formData.car_model && vinClean.length === 17 && formData.car_registration;
+      }
+      case 2: {
+        if (formData.payment_method === 'cash') return true;
+        const ibanClean = formData.bank_account.replace(/\s/g, '');
+        return (ibanClean.length === 26 && /^\d+$/.test(ibanClean)) || (ibanClean.length === 28 && /^PL\d{26}$/i.test(ibanClean));
+      }
       case 3:
         return true;
       default:
@@ -225,14 +232,20 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     setSaving(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || driverId;
+      
       const blob = await fetch(signatureDataUrl).then(r => r.blob());
-      const path = `signatures/${driverId}/${activeDoc.id}_${Date.now()}.png`;
+      const path = `${userId}/${activeDoc.id}_signature_${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage
         .from('driver-documents')
         .upload(path, blob, { contentType: 'image/png' });
 
       let signatureUrl = '';
-      if (!uploadError) {
+      if (uploadError) {
+        console.error('Signature upload error:', uploadError);
+        toast.error('Błąd uploadu podpisu, ale umowa zostanie zapisana');
+      } else {
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
           .getPublicUrl(path);
@@ -514,7 +527,13 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                 </div>
                 <div>
                   <Label>PESEL *</Label>
-                  <Input value={formData.pesel} onChange={e => updateField('pesel', e.target.value)} placeholder="00000000000" maxLength={11} />
+                  <Input value={formData.pesel} onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    updateField('pesel', val);
+                  }} placeholder="00000000000" maxLength={11} />
+                  {formData.pesel && formData.pesel.length > 0 && formData.pesel.length !== 11 && (
+                    <p className="text-xs text-destructive mt-1">PESEL musi mieć dokładnie 11 cyfr (wpisano: {formData.pesel.length})</p>
+                  )}
                 </div>
               </div>
 
@@ -587,7 +606,10 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                 </div>
                 <div>
                   <Label>Numer VIN *</Label>
-                  <Input value={formData.car_vin} onChange={e => updateField('car_vin', e.target.value)} placeholder="JTDBR32E860..." maxLength={17} />
+                  <Input value={formData.car_vin} onChange={e => updateField('car_vin', e.target.value.toUpperCase())} placeholder="JTDBR32E860..." maxLength={17} />
+                  {formData.car_vin && formData.car_vin.replace(/\s/g, '').length !== 17 && (
+                    <p className="text-xs text-destructive mt-1">VIN musi mieć dokładnie 17 znaków (wpisano: {formData.car_vin.replace(/\s/g, '').length})</p>
+                  )}
                 </div>
                 <div>
                   <Label>Nr rejestracyjny *</Label>
@@ -629,8 +651,8 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                     }} placeholder="PL 0000 0000 0000 0000 0000 0000" maxLength={39} />
                     {formData.bank_account && (() => {
                       const cleaned = formData.bank_account.replace(/\s/g, '');
-                      const isValid = (cleaned.length === 26 && /^\d+$/.test(cleaned)) || (cleaned.length === 28 && /^PL\d{26}$/.test(cleaned));
-                      if (!isValid && cleaned.length > 0) return <p className="text-xs text-destructive mt-1">Nieprawidłowy format IBAN (26 cyfr lub PL + 26 cyfr)</p>;
+                      const isValid = (cleaned.length === 26 && /^\d+$/.test(cleaned)) || (cleaned.length === 28 && /^PL\d{26}$/i.test(cleaned));
+                      if (!isValid && cleaned.length > 0) return <p className="text-xs text-destructive mt-1">Nieprawidłowy format IBAN (26 cyfr lub PL + 26 cyfr). Wpisano: {cleaned.length} znaków</p>;
                       return null;
                     })()}
                   </div>
