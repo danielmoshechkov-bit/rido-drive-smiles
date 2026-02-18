@@ -99,18 +99,23 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
       }
       
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
-      await supabase
+      const { error: txError } = await supabase
         .from('driver_debt_transactions')
         .insert({
           driver_id: driverId,
           type: 'payment',
-          amount: amount,
+          amount: -amount,
           balance_before: currentDebt,
           balance_after: newBalance,
           period_from: dateVal,
           period_to: dateVal,
-          description: paymentNote || 'Wpłata ręczna'
+          description: paymentNote || 'Wpłata własna kierowcy'
         });
+      
+      if (txError) {
+        console.error('Error inserting payment transaction:', txError);
+        toast.error('Saldo zaktualizowane, ale nie udało się zapisać transakcji');
+      }
       
       toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);
       setPaymentAmount('');
@@ -318,48 +323,70 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
           </div>
         ) : (
           <div className="space-y-2">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className={`p-3 rounded-lg border ${
-                  tx.type === 'debt_increase'
-                    ? 'bg-red-50 border-red-200'
-                    : 'bg-green-50 border-green-200'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {tx.type === 'debt_increase' ? (
-                      <TrendingDown className="text-red-600" size={20} />
-                    ) : (
-                      <TrendingUp className="text-green-600" size={20} />
-                    )}
-                    <div>
-                      <div className="font-medium">
-                        {tx.type === 'debt_increase' ? 'Narastanie długu' : tx.type === 'payment' ? 'Wpłata' : 'Spłata długu'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {format(new Date(tx.period_from), 'dd.MM', { locale: pl })} -{' '}
-                        {format(new Date(tx.period_to), 'dd.MM.yyyy', { locale: pl })}
-                      </div>
-                      {tx.description && tx.type === 'payment' && (
-                        <div className="text-xs text-muted-foreground mt-0.5">{tx.description}</div>
+            {transactions.map((tx) => {
+              const isDebtIncrease = tx.type === 'debt_increase';
+              const isManualPayment = tx.type === 'payment';
+              const isDebtPayment = tx.type === 'debt_payment';
+              const isReducing = isManualPayment || isDebtPayment;
+              
+              // Determine label and sublabel
+              let label = '';
+              let sublabel = '';
+              if (isDebtIncrease) {
+                label = 'Narastanie długu';
+                sublabel = tx.description || 'Ujemne saldo z rozliczenia';
+              } else if (isManualPayment) {
+                label = 'Wpłata własna';
+                sublabel = tx.description || 'Wpłata gotówkowa / przelew';
+              } else if (isDebtPayment) {
+                label = 'Spłata z rozliczenia';
+                sublabel = tx.description || 'Automatyczna spłata z zarobków';
+              } else {
+                label = tx.type;
+                sublabel = tx.description || '';
+              }
+
+              return (
+                <div
+                  key={tx.id}
+                  className={`p-3 rounded-lg border ${
+                    isDebtIncrease
+                      ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
+                      : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      {isDebtIncrease ? (
+                        <TrendingDown className="text-destructive" size={20} />
+                      ) : (
+                        <TrendingUp className="text-green-600" size={20} />
                       )}
+                      <div>
+                        <div className="font-medium text-sm">{label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(tx.period_from), 'dd.MM', { locale: pl })} -{' '}
+                          {format(new Date(tx.period_to), 'dd.MM.yyyy', { locale: pl })}
+                        </div>
+                        {sublabel && (
+                          <div className="text-xs text-muted-foreground mt-0.5 italic">{sublabel}</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-bold ${
-                      tx.type === 'debt_increase' ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {tx.type === 'debt_increase' ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} zł
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Saldo: {tx.balance_after.toFixed(2)} zł
+                    <div className="text-right">
+                      <div className={`font-bold ${
+                        isDebtIncrease ? 'text-destructive' : 'text-green-600'
+                      }`}>
+                        {isDebtIncrease ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} zł
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Saldo: {tx.balance_after.toFixed(2)} zł
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
