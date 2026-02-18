@@ -17,6 +17,7 @@ import { SettlementsManagement } from "@/components/SettlementsManagement";
 import { FleetManagement } from "@/components/FleetManagement";
 import { DocumentsManagement } from "@/components/DocumentsManagement";
 import RidoSettings from "@/components/RidoSettings";
+import { FleetContractSettings } from "@/components/fleet/FleetContractSettings";
 import { SettlementVisibilitySettings } from "@/components/SettlementVisibilitySettings";
 import { SettlementPlansManagement } from "@/components/SettlementPlansManagement";
 import { FleetAccountsManagement } from "@/components/FleetAccountsManagement";
@@ -433,6 +434,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   {t('admin.settings')}
                 </TabsTrigger>
               )}
+              {userType === 'fleet' && fleetId && (
+                <TabsTrigger value="fleet-settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Ustawienia
+                </TabsTrigger>
+              )}
               {userType === 'fleet' && (
                 <TabsTrigger value="informacje">
                   <Info className="h-4 w-4 mr-2" />
@@ -677,6 +684,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {userType === 'fleet' && fleetId && (
             <TabsContent value="informacje" className="space-y-6">
               <FleetSystemAlerts fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="fleet-settings" className="space-y-6">
+              <FleetContractSettings fleetId={fleetId} />
             </TabsContent>
           )}
 

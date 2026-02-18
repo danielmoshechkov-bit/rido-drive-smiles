@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -18,6 +19,27 @@ import {
   Upload,
   Building2
 } from "lucide-react";
+import { formatPostalCode } from "@/utils/formatters";
+
+// Polish postal code to city mapping
+const POSTAL_CODE_MAP: Record<string, string> = {
+  '00': 'Warszawa', '01': 'Warszawa', '02': 'Warszawa', '03': 'Warszawa', '04': 'Warszawa',
+  '30': 'Kraków', '31': 'Kraków', '50': 'Wrocław', '51': 'Wrocław',
+  '60': 'Poznań', '61': 'Poznań', '80': 'Gdańsk', '81': 'Gdynia',
+  '90': 'Łódź', '91': 'Łódź', '92': 'Łódź', '40': 'Katowice',
+  '70': 'Szczecin', '71': 'Szczecin', '20': 'Lublin', '35': 'Rzeszów',
+  '15': 'Białystok', '25': 'Kielce', '45': 'Opole', '10': 'Olsztyn',
+  '85': 'Bydgoszcz', '87': 'Toruń', '65': 'Zielona Góra', '75': 'Koszalin',
+};
+
+const LEGAL_FORMS = [
+  { value: 'jdg', label: 'Jednoosobowa działalność gospodarcza (JDG)', registry: 'ceidg' },
+  { value: 'sp_zoo', label: 'Spółka z o.o.', registry: 'krs' },
+  { value: 'sp_jawna', label: 'Spółka jawna', registry: 'krs' },
+  { value: 'sp_komandytowa', label: 'Spółka komandytowa', registry: 'krs' },
+  { value: 'sa', label: 'Spółka akcyjna', registry: 'krs' },
+  { value: 'other', label: 'Inna forma prawna', registry: 'krs' },
+];
 
 interface FleetContractSettingsProps {
   fleetId: string;
@@ -37,7 +59,9 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   
   // Company data
   const [companyData, setCompanyData] = useState({
-    name: '', nip: '', krs: '', address: '', city: '', postal_code: '', owner_name: ''
+    name: '', nip: '', krs: '', legal_form: 'sp_zoo',
+    street: '', building_number: '', apartment_number: '',
+    postal_code: '', city: '', owner_name: ''
   });
   const [savingCompany, setSavingCompany] = useState(false);
   
@@ -45,6 +69,10 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   const isDrawingRef = useRef(false);
   const stampInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedLegalForm = LEGAL_FORMS.find(f => f.value === companyData.legal_form);
+  const registryType = selectedLegalForm?.registry || 'krs';
+  const registryLabel = registryType === 'ceidg' ? 'Nr CEIDG' : 'Nr KRS';
 
   useEffect(() => {
     loadAll();
@@ -80,23 +108,78 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
       .eq('id', fleetId)
       .single();
     if (data) {
+      const d = data as any;
+      // Parse address into street + building_number + apartment_number
+      const addressParts = parseAddress(d.address || '');
+      // Determine legal form from krs value
+      const legalForm = d.krs?.startsWith('CEIDG') ? 'jdg' : 'sp_zoo';
       setCompanyData({
-        name: (data as any).name || '',
-        nip: (data as any).nip || '',
-        krs: (data as any).krs || '',
-        address: (data as any).address || '',
-        city: (data as any).city || '',
-        postal_code: (data as any).postal_code || '',
-        owner_name: (data as any).owner_name || '',
+        name: d.name || '',
+        nip: d.nip || '',
+        krs: d.krs?.replace(/^(CEIDG:|KRS:)\s*/i, '') || '',
+        legal_form: legalForm,
+        street: addressParts.street,
+        building_number: addressParts.building,
+        apartment_number: addressParts.apartment,
+        postal_code: d.postal_code || '',
+        city: d.city || '',
+        owner_name: d.owner_name || '',
       });
-      setLogoUrl((data as any).logo_url || null);
+      setLogoUrl(d.logo_url || null);
+    }
+  };
+
+  const parseAddress = (address: string) => {
+    // Try to parse "ul. Przykładowa 1/2" or "ul. Przykładowa 1"
+    const match = address.match(/^(.+?)\s+(\d+\S*?)(?:\/(\S+))?$/);
+    if (match) {
+      return { street: match[1], building: match[2], apartment: match[3] || '' };
+    }
+    return { street: address, building: '', apartment: '' };
+  };
+
+  const buildAddress = () => {
+    let addr = companyData.street;
+    if (companyData.building_number) {
+      addr += ` ${companyData.building_number}`;
+      if (companyData.apartment_number) {
+        addr += `/${companyData.apartment_number}`;
+      }
+    }
+    return addr;
+  };
+
+  const handlePostalCodeChange = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    let formatted = digits;
+    if (digits.length > 2) {
+      formatted = `${digits.substring(0, 2)}-${digits.substring(2, 5)}`;
+    }
+    setCompanyData(p => ({ ...p, postal_code: formatted }));
+    
+    // Auto-suggest city
+    const prefix = digits.substring(0, 2);
+    if (prefix.length === 2 && POSTAL_CODE_MAP[prefix] && !companyData.city) {
+      setCompanyData(p => ({ ...p, postal_code: formatted, city: POSTAL_CODE_MAP[prefix] }));
     }
   };
 
   const saveCompanyData = async () => {
     setSavingCompany(true);
     try {
-      await supabase.from('fleets').update(companyData as any).eq('id', fleetId);
+      const krsValue = registryType === 'ceidg' 
+        ? `CEIDG: ${companyData.krs}` 
+        : `KRS: ${companyData.krs}`;
+      
+      await supabase.from('fleets').update({
+        name: companyData.name,
+        nip: companyData.nip,
+        krs: companyData.krs ? krsValue : '',
+        address: buildAddress(),
+        city: companyData.city,
+        postal_code: companyData.postal_code,
+        owner_name: companyData.owner_name,
+      } as any).eq('id', fleetId);
       toast.success("Dane firmy zapisane!");
     } catch { toast.error("Błąd zapisu"); }
     finally { setSavingCompany(false); }
@@ -285,21 +368,52 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
                   <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 5223252793" />
                 </div>
                 <div className="space-y-2">
-                  <Label>KRS / CEIDG</Label>
-                  <Input value={companyData.krs} onChange={e => setCompanyData(p => ({...p, krs: e.target.value}))} placeholder="np. 0000123456" />
+                  <Label>Forma prawna</Label>
+                  <Select value={companyData.legal_form} onValueChange={v => setCompanyData(p => ({...p, legal_form: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LEGAL_FORMS.map(f => (
+                        <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{registryLabel}</Label>
+                  <Input value={companyData.krs} onChange={e => setCompanyData(p => ({...p, krs: e.target.value}))} placeholder={registryType === 'ceidg' ? 'np. 12345678901' : 'np. 0000123456'} />
                 </div>
                 <div className="space-y-2">
                   <Label>Reprezentant *</Label>
                   <Input value={companyData.owner_name} onChange={e => setCompanyData(p => ({...p, owner_name: e.target.value}))} placeholder="Imię i nazwisko" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Adres siedziby *</Label>
-                  <Input value={companyData.address} onChange={e => setCompanyData(p => ({...p, address: e.target.value}))} placeholder="ul. Przykładowa 1/2" />
-                </div>
-                <div className="grid grid-cols-[100px_1fr] gap-2">
+              </div>
+
+              {/* Structured address */}
+              <div className="border-t pt-4 mt-4">
+                <Label className="text-sm font-semibold mb-3 block">Adres siedziby</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Ulica *</Label>
+                    <Input value={companyData.street} onChange={e => setCompanyData(p => ({...p, street: e.target.value}))} placeholder="ul. Przykładowa" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Nr budynku *</Label>
+                      <Input value={companyData.building_number} onChange={e => setCompanyData(p => ({...p, building_number: e.target.value}))} placeholder="1A" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nr lokalu</Label>
+                      <Input value={companyData.apartment_number} onChange={e => setCompanyData(p => ({...p, apartment_number: e.target.value}))} placeholder="(opcjonalnie)" />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label>Kod pocztowy</Label>
-                    <Input value={companyData.postal_code} onChange={e => setCompanyData(p => ({...p, postal_code: e.target.value}))} placeholder="00-000" />
+                    <Input 
+                      value={companyData.postal_code} 
+                      onChange={e => handlePostalCodeChange(e.target.value)} 
+                      placeholder="00-000" 
+                      maxLength={6} 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Miasto</Label>
@@ -307,6 +421,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
                   </div>
                 </div>
               </div>
+
               <Button onClick={saveCompanyData} disabled={savingCompany} className="gap-2">
                 {savingCompany ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Zapisz dane firmy
@@ -320,7 +435,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
           {/* 3 cards side by side */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Logo */}
-            <Card className="flex flex-col">
+            <Card className="flex flex-col aspect-square md:aspect-auto">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Upload className="h-4 w-4" />
@@ -330,8 +445,8 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
                 {logoUrl ? (
                   <>
-                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
-                      <img src={logoUrl} alt="Logo" className="max-h-16 max-w-full object-contain" />
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center aspect-square max-h-[120px]">
+                      <img src={logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="flex gap-1 w-full">
                       <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="flex-1 text-xs gap-1">
@@ -357,7 +472,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
             </Card>
 
             {/* Signature */}
-            <Card className="flex flex-col">
+            <Card className="flex flex-col aspect-square md:aspect-auto">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <PenTool className="h-4 w-4" />
@@ -367,8 +482,8 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
                 {signatureUrl && !isDrawing ? (
                   <>
-                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
-                      <img src={signatureUrl} alt="Podpis" className="max-h-16 max-w-full object-contain" />
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center aspect-square max-h-[120px]">
+                      <img src={signatureUrl} alt="Podpis" className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="flex gap-1 w-full">
                       <Button variant="outline" size="sm" onClick={() => setIsDrawing(true)} className="flex-1 text-xs gap-1">
@@ -408,7 +523,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
             </Card>
 
             {/* Stamp */}
-            <Card className="flex flex-col">
+            <Card className="flex flex-col aspect-square md:aspect-auto">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Stamp className="h-4 w-4" />
@@ -418,8 +533,8 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               <CardContent className="flex-1 flex flex-col items-center justify-center space-y-3">
                 {stampUrl ? (
                   <>
-                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center min-h-[80px]">
-                      <img src={stampUrl} alt="Pieczątka" className="max-h-16 max-w-full object-contain" />
+                    <div className="border rounded-lg p-3 bg-white w-full flex items-center justify-center aspect-square max-h-[120px]">
+                      <img src={stampUrl} alt="Pieczątka" className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="flex gap-1 w-full">
                       <Button variant="outline" size="sm" onClick={() => stampInputRef.current?.click()} disabled={uploadingStamp} className="flex-1 text-xs gap-1">
