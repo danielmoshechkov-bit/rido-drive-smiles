@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye, CheckCircle, Trash2, RotateCcw, Settings } from 'lucide-react';
+import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye, CheckCircle, Trash2, RotateCcw, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { FleetContractSettings } from '@/components/fleet/FleetContractSettings';
 
 interface DocumentsManagementProps {
   cityId: string;
@@ -30,7 +29,7 @@ const BUILT_IN_TEMPLATES = [
     version: '1.0',
     enabled: true,
     created_at: '2026-01-01T00:00:00Z',
-    description: 'Umowa najmu pojazdu §1-§7 z polami: dane Najemcy (partner flotowy), Wynajmujący (kierowca/właściciel auta), przedmiot umowy, cel, okres, czynsz, obowiązki, odpowiedzialność podatkowa, postanowienia końcowe.',
+    description: 'Umowa najmu pojazdu',
     required_fields: ['driver_data', 'vehicle_data', 'fleet_data', 'contract_date'],
     builtin: true,
   },
@@ -55,6 +54,8 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
   const [completedFilter, setCompletedFilter] = useState<'all' | 'signed' | 'pending' | 'unsigned'>('all');
   const [sentSearch, setSentSearch] = useState('');
   const [previewContract, setPreviewContract] = useState<any>(null);
+  const [contractDate, setContractDate] = useState(new Date().toISOString().split('T')[0]);
+  const [contractNumber, setContractNumber] = useState('');
   const queryClient = useQueryClient();
 
   const { data: resolvedFleetId } = useQuery({
@@ -173,13 +174,28 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     }
 
     try {
-      const requests = newDrivers.map(driverId => ({
-        driver_id: driverId,
-        template_code: sendDialog.templateCode,
-        template_name: sendDialog.templateName,
-        status: 'pending',
-        fleet_id: resolvedFleetId || cityId,
-      }));
+      // Auto-generate contract numbers if not provided
+      const existingNumbers = existingRequests
+        .filter((r: any) => r.contract_number)
+        .map((r: any) => {
+          const match = r.contract_number?.match(/^(\d+)\//);
+          return match ? parseInt(match[1]) : 0;
+        });
+      let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+      const year = new Date().getFullYear();
+
+      const requests = newDrivers.map((driverId, idx) => {
+        const num = contractNumber || `${nextNumber + idx}/${year}`;
+        return {
+          driver_id: driverId,
+          template_code: sendDialog.templateCode,
+          template_name: sendDialog.templateName,
+          status: 'pending',
+          fleet_id: resolvedFleetId || cityId,
+          contract_number: num,
+          contract_date: contractDate,
+        };
+      });
       const { error } = await supabase.from('driver_document_requests' as any).insert(requests);
       if (error) throw error;
       const skipped = targetDrivers.length - newDrivers.length;
@@ -216,7 +232,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
 
   const generateContractHtml = (contract: any) => {
     const fd = contract.filled_data || {};
-    const signedDate = contract.signed_at ? format(new Date(contract.signed_at), 'dd.MM.yyyy') : '';
+    const contractDateStr = contract.contract_date ? format(new Date(contract.contract_date), 'dd.MM.yyyy') : (contract.signed_at ? format(new Date(contract.signed_at), 'dd.MM.yyyy') : '—');
     const fName = (fleetData as any)?.name || '';
     const fAddress = (fleetData as any)?.address ? `${(fleetData as any).address}${(fleetData as any).postal_code ? ', ' + (fleetData as any).postal_code : ''} ${(fleetData as any).city || ''}` : '';
     const fNip = (fleetData as any)?.nip || '';
@@ -231,7 +247,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
   ${logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;" /></div>` : ''}
   <h1 style="text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 2px;">UMOWA NAJMU POJAZDU</h1>
   <p style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 25px;">Nr ${contract.contract_number || '—'}</p>
-  <p style="text-align: center; margin-bottom: 30px;">zawarta w dniu <strong>${signedDate}</strong> pomiędzy:</p>
+  <p style="text-align: center; margin-bottom: 30px;">zawarta w dniu <strong>${contractDateStr}</strong> pomiędzy:</p>
   <div style="margin-bottom: 20px; padding: 15px; border-left: 3px solid #333;">
     <p style="margin: 0;"><strong>${fName}</strong></p>
     <p style="margin: 2px 0;">z siedzibą: ${fAddress}</p>
@@ -330,11 +346,10 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
 
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="templates">Szablony</TabsTrigger>
               <TabsTrigger value="sent">Wysłane</TabsTrigger>
               <TabsTrigger value="completed">Podpisane</TabsTrigger>
-              <TabsTrigger value="settings" className="gap-1"><Settings className="h-3.5 w-3.5" /> Ustawienia</TabsTrigger>
             </TabsList>
 
             {/* Templates Tab */}
@@ -354,11 +369,10 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                           <Badge variant="outline" className="text-xs">v{template.version}</Badge>
                           {template.builtin && <Badge variant="secondary" className="text-xs">Wbudowany</Badge>}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
                         <p className="text-xs text-muted-foreground mt-1">Kod: {template.code}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="default" size="sm" className="gap-1" onClick={() => setSendDialog({ templateCode: template.code, templateName: template.name })}>
+                        <Button variant="default" size="sm" className="gap-1" onClick={() => { setContractDate(new Date().toISOString().split('T')[0]); setContractNumber(''); setSendDialog({ templateCode: template.code, templateName: template.name }); }}>
                           <Send className="h-4 w-4" /> Wyślij do kierowcy
                         </Button>
                       </div>
@@ -491,16 +505,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                   })}
                 </div>
               )}
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="space-y-4">
-              {resolvedFleetId ? (
-                <FleetContractSettings fleetId={resolvedFleetId} />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">Ładowanie ustawień...</div>
-              )}
-            </TabsContent>
+          </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -542,6 +547,20 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
             <p className="text-sm text-muted-foreground">
               Kierowca po zalogowaniu zobaczy powiadomienie o konieczności wypełnienia dokumentu. Duplikaty nie będą wysyłane.
             </p>
+            
+            {/* Contract date & number */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Data zawarcia umowy</Label>
+                <Input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Nr umowy (opcjonalnie)</Label>
+                <Input placeholder="Auto" value={contractNumber} onChange={e => setContractNumber(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground">Puste = auto numeracja (np. 1/2026)</p>
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox id="send-to-all" checked={sendToAll} onCheckedChange={(checked) => { setSendToAll(checked as boolean); if (checked) setSelectedDriverIds(drivers.map(d => d.id)); else setSelectedDriverIds([]); }} />
               <Label htmlFor="send-to-all" className="font-medium">Wyślij do wszystkich ({drivers.length})</Label>
