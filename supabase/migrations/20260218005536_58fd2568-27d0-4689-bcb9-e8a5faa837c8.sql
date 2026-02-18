@@ -1,0 +1,1 @@
+ALTER TABLE public.driver_document_requests ADD COLUMN IF NOT EXISTS contract_date text;
