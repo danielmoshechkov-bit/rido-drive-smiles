@@ -181,11 +181,11 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
           const match = r.contract_number?.match(/^(\d+)\//);
           return match ? parseInt(match[1]) : 0;
         });
-      let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+      let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 10001;
       const year = new Date().getFullYear();
 
       const requests = newDrivers.map((driverId, idx) => {
-        const num = contractNumber || `${nextNumber + idx}/${year}`;
+        const num = contractNumber || `${String(nextNumber + idx).padStart(7, '0')}/${year}`;
         return {
           driver_id: driverId,
           template_code: sendDialog.templateCode,

@@ -186,30 +186,31 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
   <p style="margin-left: 20px;">c) pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</p>
   <p style="margin-left: 20px;">d) pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§2 Cel najmu</h2>
-  <p>Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.</p>
-  <p>Umowa niniejsza ma charakter cywilnoprawny i nie stanowi umowy o pracę ani nie tworzy stosunku podporządkowania pomiędzy Stronami.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§3 Okres trwania umowy</h2>
-  <p>1. Umowa zostaje zawarta na czas nieokreślony.</p>
-  <p>2. Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</p>
-  <p>3. W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§4 Czynsz najmu</h2>
-  <p>1. Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</p>
+  <p>Pojazd zostaje oddany w najem w celu wykorzystania go do świadczenia usług przewozowych za pośrednictwem aplikacji transportowych.</p>
+  <p>Umowa ma charakter cywilnoprawny i nie stanowi umowy o pracę.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§3 Okres obowiązywania</h2>
+  <p>1. Umowa zawarta na czas nieokreślony.</p>
+  <p>2. Każda ze stron może wypowiedzieć umowę z 7-dniowym okresem wypowiedzenia.</p>
+  <p>3. Najemca może rozwiązać umowę ze skutkiem natychmiastowym w przypadku utraty przez pojazd zdolności do wykonywania usług przewozowych.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§4 Czynsz</h2>
+  <p>1. Czynsz najmu ustalany jest miesięcznie.</p>
   <p>2. Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu.</p>
-  <p>3. Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
-  <p>4. Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
-  <p>5. Czynsz będzie płatny ${fd.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego nr: <strong>' + (fd.bank_account || '') + '</strong>' : 'gotówką'}.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§5 Obowiązki Wynajmującego</h2>
-  <p>1. Utrzymywanie pojazdu w należytym stanie technicznym.</p>
-  <p>2. Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</p>
-  <p>3. Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</p>
+  <p>3. Czynsz może być wypłacany w formie zaliczek tygodniowych.</p>
+  <p>4. Brak eksploatacji pojazdu nie rodzi roszczenia o minimalny czynsz.</p>
+  <p>5. Ostateczne rozliczenie następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
+  <p>6. Czynsz będzie płatny ${fd.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego nr: <strong>' + (fd.bank_account || '') + '</strong>' : 'gotówką'}.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§5 Odpowiedzialność</h2>
+  <p>1. Wynajmujący ponosi odpowiedzialność za stan techniczny pojazdu.</p>
+  <p>2. Mandaty, kary administracyjne oraz inne należności wynikające z eksploatacji pojazdu obciążają Wynajmującego, chyba że wynikają z winy Najemcy.</p>
+  <p>3. Wynajmujący zobowiązuje się do niezwłocznego usuwania usterek uniemożliwiających korzystanie z pojazdu.</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§6 Odpowiedzialność podatkowa</h2>
-  <p>1. Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</p>
-  <p>2. Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego.</p>
-  <p>3. Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</p>
+  <p>1. Czynsz stanowi przychód Wynajmującego.</p>
+  <p>2. Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego zgodnie z obowiązującymi przepisami.</p>
+  <p>3. Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu.</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§7 Postanowienia końcowe</h2>
-  <p>1. W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</p>
-  <p>2. Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</p>
-  <p>3. Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
+  <p>1. W sprawach nieuregulowanych zastosowanie mają przepisy Kodeksu cywilnego.</p>
+  <p>2. Zmiany wymagają formy pisemnej.</p>
+  <p>3. Spory rozstrzyga sąd właściwy dla siedziby Najemcy.</p>
   <p>4. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
   <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
     <div style="text-align: center; width: 40%;">
