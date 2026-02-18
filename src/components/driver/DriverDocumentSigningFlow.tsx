@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/fleet/SignaturePad";
+import { parseRegistryField, getSalutation, getZwanymA } from "@/utils/contractHelpers";
 import {
   FileText, AlertCircle, CheckCircle, ChevronRight, ChevronLeft, 
   Loader2, PenTool, Eye, Car, User, CreditCard
@@ -310,6 +311,15 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     const fleetSigUrl = fleetSignature?.signature_url || null;
     const fleetStampUrl = fleetSignature?.stamp_url || null;
 
+    const registry = parseRegistryField(fleetKrs);
+    const salutation = getSalutation(formData.pesel);
+    const zwanymA = getZwanymA(formData.pesel);
+    const regAddress = getRegisteredAddress();
+    const resAddress = getResidentialAddress();
+    const corrAddress = getCorrespondenceAddress();
+    const showResAddress = !formData.res_same_as_reg && resAddress !== regAddress;
+    const showCorrAddress = !formData.corr_same_as_reg && corrAddress !== regAddress;
+
     return `
 <div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a;">
   
@@ -324,7 +334,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     <p style="margin: 0;"><strong>${fleetName}</strong></p>
     <p style="margin: 2px 0;">z siedzibą: ${fleetAddress}</p>
     <p style="margin: 2px 0;">NIP: ${fleetNip}</p>
-    <p style="margin: 2px 0;">KRS / CEIDG: ${fleetKrs}</p>
+    <p style="margin: 2px 0;">${registry.label}: ${registry.value}</p>
     <p style="margin: 2px 0;">reprezentowaną przez: ${fleetOwner}</p>
     <p style="margin: 5px 0 0; font-style: italic;">zwaną dalej „Najemcą"</p>
   </div>
@@ -332,12 +342,12 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
   <p style="text-align: center; margin: 15px 0;">a</p>
   
   <div style="margin-bottom: 25px; padding: 15px; border-left: 3px solid #333;">
-    <p style="margin: 0;">Panem/Panią: <strong>${formData.full_name}</strong></p>
+    <p style="margin: 0;">${salutation}: <strong>${formData.full_name}</strong></p>
     <p style="margin: 2px 0;">PESEL: ${formData.pesel}</p>
-    <p style="margin: 2px 0;">adres zameldowania: ${getRegisteredAddress()}</p>
-    ${!formData.res_same_as_reg ? `<p style="margin: 2px 0;">adres zamieszkania: ${getResidentialAddress()}</p>` : ''}
-    ${!formData.corr_same_as_reg ? `<p style="margin: 2px 0;">adres korespondencyjny: ${getCorrespondenceAddress()}</p>` : ''}
-    <p style="margin: 5px 0 0; font-style: italic;">zwanym/ą dalej „Wynajmującym"</p>
+    <p style="margin: 2px 0;">adres zameldowania: ${regAddress}</p>
+    ${showResAddress ? `<p style="margin: 2px 0;">adres zamieszkania: ${resAddress}</p>` : ''}
+    ${showCorrAddress ? `<p style="margin: 2px 0;">adres korespondencyjny: ${corrAddress}</p>` : ''}
+    <p style="margin: 5px 0 0; font-style: italic;">${zwanymA} dalej „Wynajmującym"</p>
   </div>
 
   <hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;" />
