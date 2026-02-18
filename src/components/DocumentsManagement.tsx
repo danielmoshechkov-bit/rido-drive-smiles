@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { parseRegistryField, getSalutation, getZwanymA } from '@/utils/contractHelpers';
 
 interface DocumentsManagementProps {
   cityId: string;
@@ -242,6 +243,13 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     const sigUrl = fleetSignature?.signature_url || null;
     const stampUrl = fleetSignature?.stamp_url || null;
 
+    const registry = parseRegistryField(fKrs);
+    const salutation = getSalutation(fd.pesel);
+    const zwanymA = getZwanymA(fd.pesel);
+    const regAddr = fd.registered_address || '—';
+    const resAddr = fd.residential_address || fd.registered_address || '—';
+    const showResAddr = resAddr !== regAddr;
+
     return `
 <div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a;">
   ${logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;" /></div>` : ''}
@@ -252,17 +260,17 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     <p style="margin: 0;"><strong>${fName}</strong></p>
     <p style="margin: 2px 0;">z siedzibą: ${fAddress}</p>
     <p style="margin: 2px 0;">NIP: ${fNip}</p>
-    <p style="margin: 2px 0;">KRS / CEIDG: ${fKrs}</p>
+    <p style="margin: 2px 0;">${registry.label}: ${registry.value}</p>
     <p style="margin: 2px 0;">reprezentowaną przez: ${fOwner}</p>
     <p style="margin: 5px 0 0; font-style: italic;">zwaną dalej „Najemcą"</p>
   </div>
   <p style="text-align: center; margin: 15px 0;">a</p>
   <div style="margin-bottom: 25px; padding: 15px; border-left: 3px solid #333;">
-    <p style="margin: 0;">Panem/Panią: <strong>${fd.full_name || '—'}</strong></p>
+    <p style="margin: 0;">${salutation}: <strong>${fd.full_name || '—'}</strong></p>
     <p style="margin: 2px 0;">PESEL: ${fd.pesel || '—'}</p>
-    <p style="margin: 2px 0;">adres zameldowania: ${fd.registered_address || '—'}</p>
-    <p style="margin: 2px 0;">adres zamieszkania: ${fd.residential_address || fd.registered_address || '—'}</p>
-    <p style="margin: 5px 0 0; font-style: italic;">zwanym/ą dalej „Wynajmującym"</p>
+    <p style="margin: 2px 0;">adres zameldowania: ${regAddr}</p>
+    ${showResAddr ? `<p style="margin: 2px 0;">adres zamieszkania: ${resAddr}</p>` : ''}
+    <p style="margin: 5px 0 0; font-style: italic;">${zwanymA} dalej „Wynajmującym"</p>
   </div>
   <hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;" />
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§1 Przedmiot umowy</h2>
