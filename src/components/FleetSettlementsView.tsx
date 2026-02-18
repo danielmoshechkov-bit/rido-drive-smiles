@@ -1454,23 +1454,36 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
 
         // === DŁUG: odejmij istniejący dług od wypłaty ===
-        const existingDebt = debtsMap[driver.id] || 0;
-        let adjustedPayout = payout;
-        let remainingDebt = existingDebt;
+        // Check if debt was already processed for this settlement period (saved in DB)
+        const settlementWithDebt = driverSettlements.find(s => (s as any).debt_after !== null && (s as any).debt_after !== undefined);
+        const debtAlreadyProcessed = !!settlementWithDebt;
+        
+        let existingDebt: number;
+        let adjustedPayout: number;
+        let remainingDebt: number;
 
-        if (payout < 0) {
-          // Ujemna wypłata = narastanie długu
-          remainingDebt = existingDebt + Math.abs(payout);
-          adjustedPayout = 0;
-        } else if (existingDebt > 0 && payout > 0) {
-          if (payout >= existingDebt) {
-            // Wypłata pokrywa cały dług
-            adjustedPayout = payout - existingDebt;
-            remainingDebt = 0;
-          } else {
-            // Wypłata nie pokrywa - cała idzie na dług, reszta przenosi się
-            remainingDebt = existingDebt - payout;
+        if (debtAlreadyProcessed) {
+          // Use saved debt values - don't recalculate!
+          existingDebt = (settlementWithDebt as any).debt_before || 0;
+          remainingDebt = (settlementWithDebt as any).debt_after || 0;
+          adjustedPayout = (settlementWithDebt as any).actual_payout ?? payout;
+        } else {
+          existingDebt = debtsMap[driver.id] || 0;
+          adjustedPayout = payout;
+          remainingDebt = existingDebt;
+
+          if (payout < 0) {
+            // Ujemna wypłata = narastanie długu
+            remainingDebt = existingDebt + Math.abs(payout);
             adjustedPayout = 0;
+          } else if (existingDebt > 0 && payout > 0) {
+            if (payout >= existingDebt) {
+              adjustedPayout = payout - existingDebt;
+              remainingDebt = 0;
+            } else {
+              remainingDebt = existingDebt - payout;
+              adjustedPayout = 0;
+            }
           }
         }
 
@@ -1552,9 +1565,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setSettlements(filteredAggregated);
 
       // === AUTO-PERSIST DEBT CHANGES ===
-      // Sync negative payouts and debt repayments to driver_debts table
+      // Only persist debt for settlements that haven't been processed yet
       for (const s of filteredAggregated) {
         if (!s) continue;
+        
+        // Check if this driver's settlement already has debt saved in DB
+        const driverSettlements = settlementsData?.filter(st => st.driver_id === s.driver_id) || [];
+        const alreadyHasDebt = driverSettlements.some(st => (st as any).debt_after !== null && (st as any).debt_after !== undefined);
+        
+        if (alreadyHasDebt) {
+          // Debt already processed for this period - skip to prevent duplication
+          continue;
+        }
+        
         const existingDebt = debtsMap[s.driver_id] || 0;
         const newDebt = s.debt_current || 0;
         
