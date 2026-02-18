@@ -212,17 +212,20 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
   <p>3. Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
   <p>4. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
   <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
-    <div style="text-align: center; width: 45%;">
+    <div style="text-align: center; width: 40%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Wynajmujący</p>
+      <p style="color: #888; font-size: 11px; margin-bottom: 5px;">${fd.full_name || '—'}</p>
       <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
-        ${contract.signature_url ? `<img src="${contract.signature_url}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
+        ${contract.signature_url ? `<img src="${contract.signature_url}" alt="Podpis kierowcy" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
       </div>
+      ${contract.signed_at ? `<p style="color: #888; font-size: 10px;">Podpisano: ${format(new Date(contract.signed_at), 'dd.MM.yyyy HH:mm')}</p>` : ''}
     </div>
-    <div style="text-align: center; width: 10%;">
+    <div style="text-align: center; width: 20%;">
       ${stampUrl ? `<div style="display: flex; align-items: center; justify-content: center; height: 100%;"><img src="${stampUrl}" alt="Pieczątka" style="max-height: 50px;" /></div>` : ''}
     </div>
-    <div style="text-align: center; width: 45%;">
+    <div style="text-align: center; width: 40%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Najemca</p>
+      <p style="color: #888; font-size: 11px; margin-bottom: 5px;">${fName}</p>
       <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
         ${sigUrl ? `<img src="${sigUrl}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
       </div>

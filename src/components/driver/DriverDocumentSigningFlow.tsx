@@ -322,7 +322,8 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
     <p style="margin: 0;">Panem/Panią: <strong>${formData.full_name}</strong></p>
     <p style="margin: 2px 0;">PESEL: ${formData.pesel}</p>
     <p style="margin: 2px 0;">adres zameldowania: ${getRegisteredAddress()}</p>
-    <p style="margin: 2px 0;">adres zamieszkania: ${getResidentialAddress()}</p>
+    ${!formData.res_same_as_reg ? `<p style="margin: 2px 0;">adres zamieszkania: ${getResidentialAddress()}</p>` : ''}
+    ${!formData.corr_same_as_reg ? `<p style="margin: 2px 0;">adres korespondencyjny: ${getCorrespondenceAddress()}</p>` : ''}
     <p style="margin: 5px 0 0; font-style: italic;">zwanym/ą dalej „Wynajmującym"</p>
   </div>
 
@@ -375,19 +376,21 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
   <p>4. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
 
   <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
-    <div style="text-align: center; width: 45%;">
+    <div style="text-align: center; width: 40%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Wynajmujący</p>
       <p style="color: #888; font-size: 11px; margin-bottom: 15px;">(kierowca / właściciel pojazdu)</p>
       <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
         <p style="color: #aaa;">……………………………………</p>
       </div>
     </div>
-    <div style="text-align: center; width: 45%;">
+    <div style="text-align: center; width: 20%;">
+      ${fleetStampUrl ? `<div style="display: flex; align-items: center; justify-content: center; height: 100%;"><img src="${fleetStampUrl}" alt="Pieczątka" style="max-height: 50px;" /></div>` : ''}
+    </div>
+    <div style="text-align: center; width: 40%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Najemca</p>
       <p style="color: #888; font-size: 11px; margin-bottom: 15px;">${fleetName}</p>
       <div style="min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;">
         ${fleetSigUrl ? `<img src="${fleetSigUrl}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
-        ${fleetStampUrl ? `<img src="${fleetStampUrl}" alt="Pieczątka" style="max-height: 40px; margin-top: 5px;" />` : ''}
       </div>
     </div>
   </div>
@@ -412,7 +415,11 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
         </div>
         <div>
           <Label>Kod pocztowy *</Label>
-          <Input value={(formData as any)[`${prefix}_postal_code`]} onChange={e => updateField(`${prefix}_postal_code`, e.target.value)} placeholder="00-000" maxLength={6} />
+          <Input value={(formData as any)[`${prefix}_postal_code`]} onChange={e => {
+            const digits = e.target.value.replace(/\D/g, '');
+            const formatted = digits.length > 2 ? `${digits.substring(0, 2)}-${digits.substring(2, 5)}` : digits;
+            updateField(`${prefix}_postal_code`, formatted);
+          }} placeholder="00-000" maxLength={6} />
         </div>
         <div>
           <Label>Miasto *</Label>
@@ -610,7 +617,21 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                 {formData.payment_method === 'transfer' && (
                   <div>
                     <Label>Numer konta bankowego (IBAN) *</Label>
-                    <Input value={formData.bank_account} onChange={e => updateField('bank_account', e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
+                    <Input value={formData.bank_account} onChange={e => {
+                      // Format IBAN: remove non-alphanumeric, group in 4s
+                      const cleaned = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                      const parts: string[] = [];
+                      for (let i = 0; i < cleaned.length; i += 4) {
+                        parts.push(cleaned.slice(i, i + 4));
+                      }
+                      updateField('bank_account', parts.join(' '));
+                    }} placeholder="PL 0000 0000 0000 0000 0000 0000" maxLength={39} />
+                    {formData.bank_account && (() => {
+                      const cleaned = formData.bank_account.replace(/\s/g, '');
+                      const isValid = (cleaned.length === 26 && /^\d+$/.test(cleaned)) || (cleaned.length === 28 && /^PL\d{26}$/.test(cleaned));
+                      if (!isValid && cleaned.length > 0) return <p className="text-xs text-destructive mt-1">Nieprawidłowy format IBAN (26 cyfr lub PL + 26 cyfr)</p>;
+                      return null;
+                    })()}
                   </div>
                 )}
               </div>
