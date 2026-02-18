@@ -3762,6 +3762,7 @@ export type Database = {
       }
       driver_document_requests: {
         Row: {
+          contract_date: string | null
           contract_number: string | null
           created_at: string
           driver_id: string
@@ -3779,6 +3780,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          contract_date?: string | null
           contract_number?: string | null
           created_at?: string
           driver_id: string
@@ -3796,6 +3798,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          contract_date?: string | null
           contract_number?: string | null
           created_at?: string
           driver_id?: string

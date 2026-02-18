@@ -150,7 +150,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
       });
 
-      // Map driver → actual payout (how much was deducted from their earnings for rent)
+      // Map driver → actual payout
       const vehicleDriverPayout = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
@@ -160,19 +160,13 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         }
       });
 
-      // Map vehicle → owner
-      const vehicleOwnerMap = new Map<string, string>();
-      (vehiclesData || []).forEach((v: any) => {
-        vehicleOwnerMap.set(v.id, v.owner_id);
-      });
-
-      // Calculate driver earnings per vehicle for the week (use actual_payout as indicator of what driver earned)
+      // Calculate driver earnings per vehicle for the week (use total_earnings, not actual_payout which may be 0 due to debt)
       const vehicleDriverEarnings = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
         if (vehicleId) {
-          const payout = parseFloat(s.actual_payout?.toString() || "0");
-          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + Math.abs(payout));
+          const earnings = parseFloat(s.total_earnings?.toString() || "0");
+          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + Math.abs(earnings));
         }
       });
 
