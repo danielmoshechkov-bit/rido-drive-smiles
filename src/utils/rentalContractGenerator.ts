@@ -281,11 +281,10 @@ export function generateRentalContractHtml(data: ContractData): string {
     <!-- Signatures -->
     <div class="signatures">
       <div class="signature">
-        ${data.fleetSignatureUrl 
-          ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
+        ${data.driverSignatureUrl 
+          ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
           : '<div style="height: 60px;"></div>'
         }
-        ${data.fleetStampUrl ? `<img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px; margin-bottom: 5px;" alt="Pieczątka" />` : ''}
         <div class="signature-line">
           Wynajmujący<br>
           ${data.driverFirstName} ${data.driverLastName}
@@ -296,10 +295,11 @@ export function generateRentalContractHtml(data: ContractData): string {
         }
       </div>
       <div class="signature">
-        ${data.driverSignatureUrl 
-          ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
+        ${data.fleetSignatureUrl 
+          ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
           : '<div style="height: 60px;"></div>'
         }
+        ${data.fleetStampUrl ? `<img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px; margin-bottom: 5px;" alt="Pieczątka" />` : ''}
         <div class="signature-line">
           Najemca<br>
           ${data.fleetName}

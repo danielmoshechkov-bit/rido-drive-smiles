@@ -651,14 +651,22 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
                   <div>
                     <Label>Numer konta bankowego (IBAN) *</Label>
                     <Input value={formData.bank_account} onChange={e => {
-                      // Format IBAN: remove non-alphanumeric, group in 4s
+                      // Format IBAN: XX XXXX XXXX XXXX XXXX XXXX XXXX (2 first, then groups of 4)
                       const cleaned = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                       const parts: string[] = [];
-                      for (let i = 0; i < cleaned.length; i += 4) {
-                        parts.push(cleaned.slice(i, i + 4));
+                      let hasPrefix = /^PL/i.test(cleaned);
+                      let digits = hasPrefix ? cleaned.slice(2) : cleaned;
+                      if (hasPrefix) parts.push('PL');
+                      if (digits.length > 0) {
+                        parts.push(digits.slice(0, 2));
+                        digits = digits.slice(2);
+                      }
+                      while (digits.length > 0) {
+                        parts.push(digits.slice(0, 4));
+                        digits = digits.slice(4);
                       }
                       updateField('bank_account', parts.join(' '));
-                    }} placeholder="PL 0000 0000 0000 0000 0000 0000" maxLength={39} />
+                    }} placeholder="00 0000 0000 0000 0000 0000 0000" maxLength={39} />
                     {formData.bank_account && (() => {
                       const cleaned = formData.bank_account.replace(/\s/g, '');
                       const isValid = (cleaned.length === 26 && /^\d+$/.test(cleaned)) || (cleaned.length === 28 && /^PL\d{26}$/i.test(cleaned));
