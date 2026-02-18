@@ -1532,7 +1532,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
           final_payout: adjustedPayout,
-          debt_current: remainingDebt,
+          // Always show CURRENT debt from driver_debts (not stale settlement snapshot)
+          debt_current: debtsMap[driver.id] ?? remainingDebt,
           debt_previous: existingDebt,
           // Dual tax fields
           bolt_ef_base,
