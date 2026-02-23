@@ -160,12 +160,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
 
       // Fetch actual earnings from settlements for this week
-      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number }> = [];
+      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, actual_payout, total_earnings, rental_fee')
+          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
@@ -173,14 +173,17 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         driverSettlements = paymentsData || [];
       }
 
-      // Map driver_id → payout before rental (actual_payout + rental_fee)
-      // This is what the driver has available to pay for the car
-      const driverPayoutBeforeRentalMap = new Map<string, number>();
+      // Map driver_id → amount available for car payment (before rental deduction)
+      // actual_payout = net after taxes, cash, service_fee but BEFORE rental
+      // If actual_payout is 0 but driver earned money, use net_amount as fallback
+      const driverAvailableMap = new Map<string, number>();
       driverSettlements.forEach(s => {
         const payout = parseFloat(s.actual_payout?.toString() || '0');
-        const rental = parseFloat(s.rental_fee?.toString() || '0');
-        const beforeRental = payout + rental;
-        driverPayoutBeforeRentalMap.set(s.driver_id, (driverPayoutBeforeRentalMap.get(s.driver_id) || 0) + beforeRental);
+        const earnings = parseFloat(s.total_earnings?.toString() || '0');
+        const netAmount = parseFloat(s.net_amount?.toString() || '0');
+        // Use actual_payout when available, fallback to net_amount when stale (0 but has earnings)
+        const available = payout > 0 ? payout : (earnings > 0 ? netAmount : 0);
+        driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
       });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
@@ -193,7 +196,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
             : 0;
           const driverAvailable = assignment?.driver_id 
-            ? (driverPayoutBeforeRentalMap.get(assignment.driver_id) || 0) 
+            ? (driverAvailableMap.get(assignment.driver_id) || 0) 
             : 0;
           const paidAmount = Math.min(Math.max(driverAvailable, 0), proportionalRent);
 
