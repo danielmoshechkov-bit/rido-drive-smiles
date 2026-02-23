@@ -1305,7 +1305,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW - ale UWZGLĘDNIJ UJEMNE SALDA
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
+        // ALE zachowaj persisted rental i service_fee (ręczne nadpisania)
         if (total_base === 0 && platform_net >= 0) {
+          const zeroFinalPayout = -(service_fee + rental);
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -1323,14 +1325,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             total_cash: 0,
             tax_8_percent: 0,
             vat_amount: 0,
-            service_fee: 0,
+            service_fee,
             additional_fees: [],
-            rental: 0,
+            rental,
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: 0,
-            final_payout: 0,
-            has_negative_balance: false,
+            final_payout: zeroFinalPayout,
+            has_negative_balance: zeroFinalPayout < 0,
           };
         }
 
@@ -1341,8 +1343,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return null;
         }
 
-        // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - NIE NALICZAJ OPŁAT
+        // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - zachowaj rental i service_fee
         if (platform_net < 0) {
+          const negFinalPayout = platform_net - service_fee - rental;
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -1360,13 +1363,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             total_cash: 0,
             tax_8_percent: 0,
             vat_amount: 0,
-            service_fee: 0,
+            service_fee,
             additional_fees: [],
-            rental: 0,
+            rental,
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: platform_net,
+            final_payout: negFinalPayout,
             has_negative_balance: true,
           };
         }
