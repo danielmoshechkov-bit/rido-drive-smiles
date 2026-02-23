@@ -68,6 +68,18 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
     const { data, error } = await supabase.from("fleets").insert([{ name }]).select("id").single();
     if (error) return toast.error(error.message);
     
+    // In fleet mode, also create a partnership record
+    if (managingFleetId) {
+      await supabase.from("driver_fleet_partnerships").insert({
+        driver_id: driverId,
+        partner_fleet_id: data.id,
+        managing_fleet_id: managingFleetId,
+        settled_by: 'managing',
+        is_b2b: false,
+        invoice_frequency: 'weekly',
+      });
+    }
+    
     load();
     
     const { error: updateError } = await supabase.from("drivers").update({
