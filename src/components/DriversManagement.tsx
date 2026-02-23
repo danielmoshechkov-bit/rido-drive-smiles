@@ -766,11 +766,12 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               </div>
                              {/* Fleet badge - admin i fleet */}
                              {(mode === 'admin' || mode === 'fleet') && (
-                               <DriverFleetBadgeSelector 
+                                <DriverFleetBadgeSelector 
                                  driverId={driver.id}
                                  fleetId={(driver as any).fleet_id}
                                  onFleetChange={refetch}
                                  allowAdd={false}
+                                 managingFleetId={mode === 'fleet' ? fleetId : undefined}
                                />
                              )}
                          </div>
