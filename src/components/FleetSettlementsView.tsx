@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
@@ -81,6 +81,7 @@ interface DriverSettlement {
   covered_rental?: boolean;
   // For negative balance tracking
   has_negative_balance?: boolean;
+  negative_deficit?: number; // abs value of negative payout (goes to debt)
   // Dual tax mode fields
   bolt_ef_base?: number;
   bolt_ijk_base?: number;
@@ -896,13 +897,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  // Only set default tab on FIRST mount, not on every roles/fleetId change
+  const defaultTabSetRef = useRef(false);
   useEffect(() => {
-    // For admin, default to "my" (Przychód firmy)
+    if (defaultTabSetRef.current) return; // Don't re-set tab after initial load
+    defaultTabSetRef.current = true;
+    
     if (roles.includes('admin')) {
       setActiveSubTab("my");
     } else {
-      // Always try to fetch myDriverId for fleet owners AND drivers
-      // This ensures "Moje rozliczenia" tab appears for fleet owners too
       fetchMyDriverId();
     }
   }, [fleetId, roles]);
@@ -1374,8 +1377,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: negFinalPayout,
+            final_payout: 0, // Don't show negative payout - deficit goes to debt
             has_negative_balance: true,
+            negative_deficit: Math.abs(negFinalPayout),
           };
         }
 
@@ -1500,12 +1504,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
         const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
-        // For payout display: show real payout value (negative = MINUS badge)
-        // Debt deduction only happens during import, not display
-        let displayPayout = payout;
+        // For payout display: negative payout means driver owes money
+        // Show 0 instead of negative, the deficit goes to debt
         let hasNegativeBalance = payout < 0;
+        let displayPayout = payout;
         
-        if (currentDebtFromDB > 0 && payout > 0) {
+        if (payout < 0) {
+          // Driver didn't earn enough to cover costs - show 0 payout
+          // The abs(payout) will become debt when settlement is saved
+          displayPayout = 0;
+        } else if (currentDebtFromDB > 0 && payout > 0) {
           // Show payout after debt deduction (preview of what would happen)
           if (payout >= currentDebtFromDB) {
             displayPayout = payout - currentDebtFromDB;
@@ -1560,6 +1568,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           net_without_commission: netto,
           final_payout: displayPayout,
           has_negative_balance: hasNegativeBalance,
+          negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
           debt_current: currentDebtFromDB,
           debt_previous: currentDebtFromDB,
           // Dual tax fields
@@ -2695,13 +2704,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           })()}
                         </TableCell>}
                         {/* Wypłata (auto-calculated) */}
-                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
-                          {settlement.has_negative_balance && (
-                            <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
-                              MINUS
-                            </Badge>
-                          )}
+                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${settlement.has_negative_balance ? 'text-red-600' : getAmountColor(settlement.final_payout)}`}>
+                          {settlement.has_negative_balance ? (
+                            <>
+                              {formatCurrency(0)}
+                              <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
+                                -{formatCurrency(settlement.negative_deficit || 0)}
+                              </Badge>
+                            </>
+                          ) : formatCurrency(settlement.final_payout)}
                         </TableCell>}
                         {/* Opłacony - toggle */}
                         {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
