@@ -773,6 +773,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       
       if (field === 'rental') {
         updateData.rental_fee = val;
+        // Also mark in amounts JSON that this was manually set
+        const amounts = (existingSettlements[0].amounts as any) || {};
+        amounts.manual_rental_fee = val;
+        updateData.amounts = amounts;
       }
       
       // For service_fee and additional fees, store in amounts JSON
@@ -1281,13 +1285,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               : (plan?.service_fee ?? 50)));
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
-        // WAŻNE: persistedRentalFee === 0 oznacza "nie ustawiono" (domyślna wartość z importu),
-        // więc traktuj 0 jak brak override i weź wartość z pojazdu
+        // Sprawdź manual_rental_fee w amounts JSON - to jest marker ręcznego nadpisania
+        // Dzięki temu wartość 0 ustawiona ręcznie nie będzie nadpisana wartością z pojazdu
+        const manualRentalFee = firstAmounts.manual_rental_fee;
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
         const vehicleRentalFee = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
-        const rental = (persistedRentalFee !== null && persistedRentalFee !== undefined && persistedRentalFee > 0)
-          ? persistedRentalFee
-          : vehicleRentalFee;
+        const rental = (manualRentalFee !== null && manualRentalFee !== undefined)
+          ? manualRentalFee
+          : (persistedRentalFee !== null && persistedRentalFee !== undefined && persistedRentalFee > 0)
+            ? persistedRentalFee
+            : vehicleRentalFee;
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
