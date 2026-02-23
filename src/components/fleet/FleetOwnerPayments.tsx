@@ -43,7 +43,7 @@ interface OwnerSummary {
   }[];
   total_weekly: number;
   total_owed: number;
-  adjustments: { note: string; amount: number; date: string }[];
+  adjustments: { charge_id: string; note: string; amount: number; date: string }[];
 }
 
 interface FleetOwnerPaymentsProps {
@@ -246,8 +246,9 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           total_weekly: totalWeekly,
           total_owed: totalOwed,
           adjustments: ownerCharges
-            .filter((c: any) => c.adjustment_note)
+            .filter((c: any) => c.adjustment_note && !(c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie")))
             .map((c: any) => ({
+              charge_id: c.id,
               note: c.adjustment_note,
               amount: parseFloat(c.adjustment?.toString() || "0"),
               date: c.week_start,
@@ -379,6 +380,20 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       fetchOwnerData();
     } catch (error: any) {
       toast.error(error.message);
+    }
+  };
+
+  const handleDeleteAdjustment = async (chargeId: string) => {
+    try {
+      const { error } = await supabase
+        .from("vehicle_owner_charges" as any)
+        .delete()
+        .eq("id", chargeId);
+      if (error) throw error;
+      toast.success("Korekta usunięta");
+      fetchOwnerData();
+    } catch (error: any) {
+      toast.error("Błąd usuwania korekty: " + error.message);
     }
   };
 
@@ -572,16 +587,26 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                     </TableBody>
                   </Table>
 
-                  {owner.adjustments.length > 0 && (
+                   {owner.adjustments.length > 0 && (
                     <div className="mt-3 border-t pt-3">
                       <h4 className="text-xs font-medium text-muted-foreground mb-2">Korekty:</h4>
                       <div className="space-y-1">
                         {owner.adjustments.map((adj, i) => (
-                          <div key={i} className="flex justify-between text-xs">
+                          <div key={i} className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">{adj.note} ({adj.date})</span>
-                            <span className={adj.amount < 0 ? "text-green-600" : "text-destructive"}>
-                              {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={adj.amount < 0 ? "text-green-600" : "text-destructive"}>
+                                {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteAdjustment(adj.charge_id)}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
