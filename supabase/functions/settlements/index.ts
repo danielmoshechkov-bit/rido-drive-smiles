@@ -497,17 +497,26 @@ async function processRidoTemplate(
   // P = Paliwo (index 15)
   // U = VAT zwrot (index 20)
 
-  const uberPayoutDIdx = headers.findIndex(h => h.includes('d uber wyplacono')) || 5;
-  const uberCashFIdx = headers.findIndex(h => h.includes('f uber') && h.includes('gotow')) || 6;
-  const boltProjectedDIdx = headers.findIndex(h => h.includes('d bolt')) || 7;
-  const boltCashIdx = headers.findIndex(h => h.includes('g bolt') && h.includes('gotow')) || 8;
-  const boltPayoutSIdx = headers.findIndex(h => h.includes('s bolt')) || 9;
-  const freenowCashFIdx = headers.findIndex(h => h.includes('f freenow') || (h.includes('freenow') && h.includes('gotow'))) || 10;
-  const freenowBaseSIdx = headers.findIndex(h => h.includes('s freenow') && h.includes('zarobki')) || 11;
-  const freenowCommissionTIdx = headers.findIndex(h => h.includes('t freenow') && h.includes('prowizj')) || 12;
-  const fuelIdx = headers.findIndex(h => h === 'paliwo' || h.includes('paliwo')) || 15;
-  const fuelVATRefundIdx = headers.findIndex(h => h.includes('vat') && h.includes('zwrot')) || 20;
+  // Helper: findIndex returns -1 when not found; use fallback index safely
+  const safeIdx = (idx: number, fallback: number) => idx >= 0 ? idx : fallback;
 
+  const uberPayoutDIdx = safeIdx(headers.findIndex(h => h.includes('d uber wyplacono') || h.includes('d uber wypłacono')), 5);
+  const uberCashFIdx = safeIdx(headers.findIndex(h => h.includes('f uber') && h.includes('gotow')), 6);
+  const boltProjectedDIdx = safeIdx(headers.findIndex(h => h.includes('d bolt')), 7);
+  const boltCashIdx = safeIdx(headers.findIndex(h => h.includes('g bolt') && h.includes('gotow')), 8);
+  const boltPayoutSIdx = safeIdx(headers.findIndex(h => h.includes('s bolt')), 9);
+  const freenowCashFIdx = safeIdx(headers.findIndex(h => h.includes('f freenow') || (h.includes('freenow') && h.includes('gotow'))), 10);
+  const freenowBaseSIdx = safeIdx(headers.findIndex(h => h.includes('s freenow') || (h.includes('freenow') && h.includes('zarobki'))), 11);
+  const freenowCommissionTIdx = safeIdx(headers.findIndex(h => h.includes('t freenow') || (h.includes('freenow') && h.includes('prowizj'))), 12);
+  const fuelIdx = safeIdx(headers.findIndex(h => h === 'paliwo' || h.includes('paliwo')), 15);
+  const fuelVATRefundIdx = safeIdx(headers.findIndex(h => h.includes('vat') && h.includes('zwrot')), 20);
+
+  // CRITICAL: Validate that base and commission don't point to the same column
+  if (freenowBaseSIdx === freenowCommissionTIdx && freenowBaseSIdx >= 0) {
+    console.warn(`⚠️ FreeNow base and commission resolved to same column ${freenowBaseSIdx}! Forcing commission to fallback.`);
+  }
+
+  console.log('📊 RIDO Headers:', headers.join(' | '));
   console.log('📊 RIDO Indexes:', { uberPayoutDIdx, uberCashFIdx, boltProjectedDIdx, boltCashIdx, boltPayoutSIdx, freenowCashFIdx, freenowBaseSIdx, freenowCommissionTIdx, fuelIdx, fuelVATRefundIdx });
 
   // Load existing drivers
@@ -551,17 +560,20 @@ async function processRidoTemplate(
       getRidoId: getColValue(row, getRidoIdIdx, 23).trim() || '',
     };
 
-    // Parsowanie wartości z CSV
-    const uber_payout_d = parsePLNumber(row[uberPayoutDIdx] || row[5] || '0');
-    const uber_cash_f = Math.abs(parsePLNumber(row[uberCashFIdx] || row[6] || '0')); // Wartość bezwzględna!
-    const bolt_projected_d = parsePLNumber(row[boltProjectedDIdx] || row[7] || '0');
-    const bolt_cash = Math.abs(parsePLNumber(row[boltCashIdx] || row[8] || '0'));
-    const bolt_payout_s = parsePLNumber(row[boltPayoutSIdx] || row[9] || '0');
-    const freenow_cash_f = Math.abs(parsePLNumber(row[freenowCashFIdx] || row[10] || '0'));
-    const freenow_base_s = parsePLNumber(row[freenowBaseSIdx] || row[11] || '0');
-    const freenow_commission_t = parsePLNumber(row[freenowCommissionTIdx] || row[12] || '0');
-    const fuel = parsePLNumber(row[fuelIdx] || row[15] || '0');
-    const fuelVATRefund = parsePLNumber(row[fuelVATRefundIdx] || row[20] || '0');
+    // Parsowanie wartości z CSV - use detected indexes directly (no double fallback)
+    const uber_payout_d = parsePLNumber(row[uberPayoutDIdx] || '0');
+    const uber_cash_f = Math.abs(parsePLNumber(row[uberCashFIdx] || '0'));
+    const bolt_projected_d = parsePLNumber(row[boltProjectedDIdx] || '0');
+    const bolt_cash = Math.abs(parsePLNumber(row[boltCashIdx] || '0'));
+    const bolt_payout_s = parsePLNumber(row[boltPayoutSIdx] || '0');
+    const freenow_cash_f = Math.abs(parsePLNumber(row[freenowCashFIdx] || '0'));
+    const freenow_base_s = parsePLNumber(row[freenowBaseSIdx] || '0');
+    // CRITICAL: If commission index == base index, it's a detection error - use 0
+    const freenow_commission_t = (freenowCommissionTIdx !== freenowBaseSIdx) 
+      ? parsePLNumber(row[freenowCommissionTIdx] || '0') 
+      : 0;
+    const fuel = parsePLNumber(row[fuelIdx] || '0');
+    const fuelVATRefund = parsePLNumber(row[fuelVATRefundIdx] || '0');
 
     // ============= POPRAWIONA FORMUŁA KALKULACJI =============
     // UBER: base = D + |F| (podstawa opodatkowania = wypłata + gotówka)
