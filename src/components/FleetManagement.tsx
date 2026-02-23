@@ -67,6 +67,7 @@ type Vehicle = {
     last_name: string;
     email?: string;
     assigned_at: string;
+    fleet_id?: string | null;
   } | null;
 };
 
@@ -83,6 +84,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
   const [showAddDriverModal, setShowAddDriverModal] = useState(false);
   const [showRentalWizard, setShowRentalWizard] = useState(false);
   const [fleetInfo, setFleetInfo] = useState<{name: string} | null>(null);
+  const [allFleets, setAllFleets] = useState<{id: string; name: string}[]>([]);
   const { openDropdown, setOpenDropdown } = useGlobalDropdown();
   const { isMarketplaceEnabled } = useFeatureToggles();
 
@@ -139,7 +141,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         vehicle_id,
         assigned_at,
         driver_id,
-        drivers:driver_id(id, first_name, last_name, email)
+        drivers:driver_id(id, first_name, last_name, email, fleet_id)
       `)
       .eq("status", "active");
     
@@ -172,7 +174,8 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
               first_name: (driverData as any).first_name,
               last_name: (driverData as any).last_name,
               email: (driverData as any).email,
-              assigned_at: assignment?.assigned_at
+              assigned_at: assignment?.assigned_at,
+              fleet_id: (driverData as any).fleet_id
             }
           : null
       };
@@ -190,6 +193,25 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
     
     setListedVehicleIds(new Set((data || []).map(l => l.vehicle_id)));
   };
+
+  const loadAllFleets = async () => {
+    const { data } = await supabase.from('fleets').select('id, name').order('name');
+    setAllFleets(data || []);
+  };
+
+  const updateDriverFleet = async (driverId: string, newFleetId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ fleet_id: newFleetId })
+        .eq('id', driverId);
+      if (error) throw error;
+      toast.success('Flota kierowcy zaktualizowana');
+      fetchVehicles();
+    } catch (error) {
+      toast.error('Błąd zmiany floty');
+    }
+  };
   
   useEffect(() => {
     const loadAll = async () => {
@@ -202,6 +224,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
       fetchVehicles();
       loadDrivers();
       loadListedVehicles();
+      loadAllFleets();
     };
     
     loadAll();
@@ -643,6 +666,30 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                                           className="inline-block"
                                         />
                                      </div>
+                                     {vehicle.assignedDriver && (
+                                       <div className="min-w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                         <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                           Flota:
+                                           <ChevronDown className="h-3 w-3 text-primary" />
+                                         </span>
+                                         <UniversalSelector
+                                           id={`driver-fleet-${vehicle.assignedDriver.id}`}
+                                           items={allFleets}
+                                           currentValue={vehicle.assignedDriver.fleet_id || null}
+                                           placeholder={
+                                             allFleets.find(f => f.id === vehicle.assignedDriver?.fleet_id)?.name || "Brak floty"
+                                           }
+                                           searchPlaceholder="Szukaj floty..."
+                                           noResultsText="Brak flot"
+                                           showSearch={true}
+                                           allowClear={true}
+                                           onSelect={async (item) => {
+                                             await updateDriverFleet(vehicle.assignedDriver!.id, item ? item.id : null);
+                                           }}
+                                           className="inline-block"
+                                         />
+                                       </div>
+                                     )}
                                     <div className="min-w-[180px]" onClick={(e) => e.stopPropagation()}>
                                       <span className="text-xs text-muted-foreground">Dokumenty:</span>
                                       <div className="overflow-x-auto">
