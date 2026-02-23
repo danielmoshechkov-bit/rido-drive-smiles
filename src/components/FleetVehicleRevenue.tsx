@@ -160,12 +160,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
 
       // Fetch actual earnings from settlements for this week
-      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number }> = [];
+      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, actual_payout, total_earnings')
+          .select('driver_id, actual_payout, total_earnings, rental_fee')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
@@ -173,12 +173,14 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         driverSettlements = paymentsData || [];
       }
 
-      // Map driver_id → total_earnings (use total_earnings, not actual_payout which may be 0)
-      // total_earnings reflects what driver actually drove/earned before deductions
-      const driverEarningsMap = new Map<string, number>();
+      // Map driver_id → payout before rental (actual_payout + rental_fee)
+      // This is what the driver has available to pay for the car
+      const driverPayoutBeforeRentalMap = new Map<string, number>();
       driverSettlements.forEach(s => {
-        const earnings = parseFloat(s.total_earnings?.toString() || '0');
-        driverEarningsMap.set(s.driver_id, (driverEarningsMap.get(s.driver_id) || 0) + Math.abs(earnings));
+        const payout = parseFloat(s.actual_payout?.toString() || '0');
+        const rental = parseFloat(s.rental_fee?.toString() || '0');
+        const beforeRental = payout + rental;
+        driverPayoutBeforeRentalMap.set(s.driver_id, (driverPayoutBeforeRentalMap.get(s.driver_id) || 0) + beforeRental);
       });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
@@ -190,10 +192,10 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           const proportionalRent = assignment?.assigned_at 
             ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
             : 0;
-          const driverEarned = assignment?.driver_id 
-            ? (driverEarningsMap.get(assignment.driver_id) || 0) 
+          const driverAvailable = assignment?.driver_id 
+            ? (driverPayoutBeforeRentalMap.get(assignment.driver_id) || 0) 
             : 0;
-          const paidAmount = Math.min(driverEarned, proportionalRent);
+          const paidAmount = Math.min(Math.max(driverAvailable, 0), proportionalRent);
 
           return {
             driver_id: assignment?.driver_id || null,
