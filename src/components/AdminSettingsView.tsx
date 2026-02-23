@@ -13,6 +13,8 @@ import { PaidServicesPanel } from './admin/PaidServicesPanel';
 import { UISettingsPanel } from './admin/UISettingsPanel';
 import { AIVoiceAgentSettings } from './admin/AIVoiceAgentSettings';
 import { AICallAdminPanel } from './admin/AICallAdminPanel';
+import { AIHubPanel } from './admin/AIHubPanel';
+import { RoadmapPanel } from './admin/RoadmapPanel';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
@@ -21,7 +23,8 @@ export function AdminSettingsView() {
     { value: "system", label: "Ustawienia systemu", visible: true },
     { value: "ui-settings", label: "Wygląd", visible: true },
     { value: "features", label: "Funkcje", visible: true },
-    { value: "ai", label: "Ustawienia AI", visible: true },
+    { value: "ai-hub", label: "AI Hub", visible: true },
+    { value: "ai", label: "Ustawienia AI (legacy)", visible: true },
     { value: "ai-voice-agent", label: "AI Voice Agent", visible: true },
     { value: "ai-call-admin", label: "AI Call Admin", visible: true },
     { value: "paid-services", label: "Płatne usługi", visible: true },
@@ -30,7 +33,8 @@ export function AdminSettingsView() {
     { value: "fleet-accounts", label: "Konta flotowe", visible: true },
     { value: "visibility", label: "Widoczność", visible: true },
     { value: "tab-visibility", label: "Widoczność zakładek", visible: true },
-    { value: "email", label: "Ustawienia poczty", visible: true }
+    { value: "email", label: "Ustawienia poczty", visible: true },
+    { value: "roadmap", label: "Roadmap / Zadania", visible: true }
   ];
 
 
@@ -45,6 +49,7 @@ export function AdminSettingsView() {
       {activeSubTab === "system" && <RidoSettings />}
       {activeSubTab === "ui-settings" && <UISettingsPanel />}
       {activeSubTab === "features" && <FeatureTogglesManagement />}
+      {activeSubTab === "ai-hub" && <AIHubPanel />}
       {activeSubTab === "ai" && <AISettingsPanel />}
       {activeSubTab === "ai-voice-agent" && <AIVoiceAgentSettings />}
       {activeSubTab === "ai-call-admin" && <AICallAdminPanel />}
@@ -55,6 +60,7 @@ export function AdminSettingsView() {
       {activeSubTab === "visibility" && <SettlementVisibilitySettings />}
       {activeSubTab === "tab-visibility" && <TabVisibilityManager />}
       {activeSubTab === "email" && <EmailSettings />}
+      {activeSubTab === "roadmap" && <RoadmapPanel />}
     </div>
   );
 }

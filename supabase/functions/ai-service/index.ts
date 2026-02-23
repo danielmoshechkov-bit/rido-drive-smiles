@@ -255,7 +255,7 @@ async function callGeminiImage(
   return { editedImageUrl };
 }
 
-// Log AI usage
+// Log AI usage (legacy + new ai_requests_log)
 async function logAIUsage(
   supabase: ReturnType<typeof createClient>,
   userId: string | undefined,
@@ -266,6 +266,7 @@ async function logAIUsage(
   querySummary?: string
 ) {
   try {
+    // Legacy log
     await supabase.from('ai_credit_history').insert({
       user_id: userId || null,
       query_type: aiType,
@@ -276,6 +277,17 @@ async function logAIUsage(
       query_summary: querySummary?.substring(0, 100),
       credits_used: 1,
       was_free: !userId
+    });
+    // New centralized log
+    await supabase.from('ai_requests_log').insert({
+      actor_user_id: userId || null,
+      feature: `ai_${aiType}`,
+      provider: 'lovable',
+      model: modelUsed,
+      task_type: aiType === 'photo_edit' ? 'image' : 'text',
+      status: 'success',
+      response_time_ms: responseTimeMs,
+      tokens_in: tokensUsed,
     });
   } catch (error) {
     console.error('[AI Service] Failed to log usage:', error);
