@@ -1303,36 +1303,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }, 0);
         const platform_net = uber_net + bolt_net + freenow_net;
 
-        // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW - ale UWZGLĘDNIJ UJEMNE SALDA
+        // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
-        // ALE zachowaj persisted rental i service_fee (ręczne nadpisania)
+        // NIE naliczamy ŻADNYCH opłat - zero rental, zero service_fee
         if (total_base === 0 && platform_net >= 0) {
-          const zeroFinalPayout = -(service_fee + rental);
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
-            uber_base: 0,
-            uber_cash: 0,
-            uber_commission: 0,
-            bolt_base: 0,
-            bolt_cash: 0,
-            bolt_commission: 0,
-            freenow_base: 0,
-            freenow_cash: 0,
-            freenow_commission: 0,
-            total_base: 0,
-            total_commission: 0,
-            total_cash: 0,
-            tax_8_percent: 0,
-            vat_amount: 0,
-            service_fee,
+            uber_base: 0, uber_cash: 0, uber_commission: 0,
+            bolt_base: 0, bolt_cash: 0, bolt_commission: 0,
+            freenow_base: 0, freenow_cash: 0, freenow_commission: 0,
+            total_base: 0, total_commission: 0, total_cash: 0,
+            tax_8_percent: 0, vat_amount: 0,
+            service_fee: 0,
             additional_fees: [],
-            rental,
-            fuel: 0,
-            fuel_vat_refund: 0,
+            rental: 0,
+            fuel: 0, fuel_vat_refund: 0,
             net_without_commission: 0,
-            final_payout: zeroFinalPayout,
-            has_negative_balance: zeroFinalPayout < 0,
+            final_payout: 0,
+            has_negative_balance: false,
           };
         }
 
@@ -2825,8 +2814,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           {selectedDriverForDebt && (
             <DriverDebtHistory 
               driverId={selectedDriverForDebt.id} 
-              onDebtChanged={() => {
-                fetchSettlements();
+              onDebtChanged={async () => {
+                // Refresh debt balance in the table immediately
+                const { data: freshDebt } = await supabase
+                  .from('driver_debts')
+                  .select('driver_id, current_balance')
+                  .eq('driver_id', selectedDriverForDebt.id)
+                  .maybeSingle();
+                if (freshDebt) {
+                  setDriverDebts(prev => ({
+                    ...prev,
+                    [freshDebt.driver_id]: freshDebt.current_balance || 0,
+                  }));
+                } else {
+                  setDriverDebts(prev => ({
+                    ...prev,
+                    [selectedDriverForDebt.id]: 0,
+                  }));
+                }
               }}
             />
           )}
