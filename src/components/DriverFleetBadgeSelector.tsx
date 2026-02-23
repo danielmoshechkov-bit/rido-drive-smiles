@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UniversalSelector } from "./UniversalSelector";
+import { AddPartnerFleetModal } from "./fleet/AddPartnerFleetModal";
 
 export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, allowAdd = true, managingFleetId }:{
   driverId: string; 
@@ -12,10 +13,10 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
 }) {
   const [fleets, setFleets] = useState<{id:string;name:string}[]>([]);
   const [partnerFleetId, setPartnerFleetId] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const load = async () => {
     if (managingFleetId) {
-      // Fleet mode: load partner fleets from partnerships for this managing fleet
       const { data: partnerships } = await supabase
         .from("driver_fleet_partnerships")
         .select("partner_fleet:fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)")
@@ -33,7 +34,6 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
       }
       setFleets(result);
 
-      // Find current partner fleet for this driver
       const { data: driverPartnership } = await supabase
         .from("driver_fleet_partnerships")
         .select("partner_fleet_id")
@@ -44,7 +44,6 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
 
       setPartnerFleetId(driverPartnership?.partner_fleet_id || null);
     } else {
-      // Admin mode: show all fleets, use fleet_id directly
       const { data, error } = await supabase.from("fleets").select("id,name").order("name");
       if (!error && data) setFleets(data);
       setPartnerFleetId(fleetId || null);
@@ -55,8 +54,6 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
 
   const handleSelect = async (item: {id: string; name: string} | null) => {
     if (managingFleetId) {
-      // Fleet mode: manage partnership, NOT fleet_id
-      // First deactivate existing partnership for this driver
       await supabase
         .from("driver_fleet_partnerships")
         .update({ is_active: false })
@@ -71,7 +68,6 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
         return;
       }
 
-      // Create new partnership
       const { error } = await supabase.from("driver_fleet_partnerships").insert({
         driver_id: driverId,
         partner_fleet_id: item.id,
@@ -86,7 +82,6 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
       setPartnerFleetId(item.id);
       onFleetChange?.();
     } else {
-      // Admin mode: change fleet_id directly
       if (!item) {
         const { error } = await supabase.from("drivers").update({ fleet_id: null }).eq("id", driverId);
         if (error) return toast.error(error.message);
@@ -102,50 +97,36 @@ export function DriverFleetBadgeSelector({ driverId, fleetId, onFleetChange, all
     }
   };
 
-  const handleAdd = async (name: string) => {
-    const { data, error } = await supabase.from("fleets").insert([{ name }]).select("id").single();
-    if (error) return toast.error(error.message);
-    
-    if (managingFleetId) {
-      // Create partnership and assign
-      const { error: partErr } = await supabase.from("driver_fleet_partnerships").insert({
-        driver_id: driverId,
-        partner_fleet_id: data.id,
-        managing_fleet_id: managingFleetId,
-        settled_by: 'managing',
-        is_b2b: false,
-        invoice_frequency: 'weekly',
-      });
-      if (partErr) return toast.error(partErr.message);
-      setPartnerFleetId(data.id);
-    } else {
-      const { error: updateError } = await supabase.from("drivers").update({ fleet_id: data.id }).eq("id", driverId);
-      if (updateError) return toast.error(updateError.message);
-    }
-    
-    load();
-    toast.success("Dodano i przypisano nową flotę");
-    onFleetChange?.();
-  };
-
   const currentValue = managingFleetId ? partnerFleetId : fleetId;
   const currentFleetName = fleets.find(f => f.id === currentValue)?.name || "Flota partnerska: brak";
 
   return (
-    <UniversalSelector
-      id={`driver-fleet-${driverId}`}
-      items={fleets}
-      currentValue={currentValue}
-      placeholder={currentFleetName}
-      searchPlaceholder="Szukaj floty..."
-      addPlaceholder="Dodaj nową flotę"
-      addButtonText="Dodaj"
-      noResultsText="Brak flot"
-      showSearch={true}
-      showAdd={allowAdd}
-      allowClear={!!managingFleetId}
-      onSelect={handleSelect}
-      onAdd={allowAdd ? handleAdd : undefined}
-    />
+    <>
+      <UniversalSelector
+        id={`driver-fleet-${driverId}`}
+        items={fleets}
+        currentValue={currentValue}
+        placeholder={currentFleetName}
+        searchPlaceholder="Szukaj floty..."
+        addPlaceholder="Dodaj nową flotę"
+        addButtonText="Dodaj"
+        noResultsText="Brak flot"
+        showSearch={true}
+        showAdd={false}
+        showAddNew={allowAdd && !!managingFleetId}
+        allowClear={!!managingFleetId}
+        onSelect={handleSelect}
+        onAddNew={allowAdd && managingFleetId ? () => setShowAddModal(true) : undefined}
+      />
+      {allowAdd && managingFleetId && (
+        <AddPartnerFleetModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          driverId={driverId}
+          managingFleetId={managingFleetId}
+          onAdded={() => { load(); onFleetChange?.(); }}
+        />
+      )}
+    </>
   );
 }
