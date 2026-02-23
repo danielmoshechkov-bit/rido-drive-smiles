@@ -798,6 +798,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         } else {
           console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
           toast.success('Zapisano zmianę');
+          
+          // Clear manual overrides and re-fetch to recalculate everything (payout, etc.)
+          setManualOverrides({});
+          setEditingCell(null);
+          fetchSettlements();
+          return;
         }
       }
     } catch (err) {
