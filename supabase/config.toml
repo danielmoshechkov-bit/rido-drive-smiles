@@ -177,3 +177,36 @@ verify_jwt = false
 
 [functions.generate-repair-prompt]
 verify_jwt = false
+
+[functions.getrido-ai-execute]
+verify_jwt = false
+
+[functions.send-fleet-registration-email]
+verify_jwt = false
+
+[functions.fleet-alerts]
+verify_jwt = false
+
+[functions.workshop-send-sms]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.create-test-accounts]
+verify_jwt = false
+
+[functions.crm-import-asari]
+verify_jwt = false
+
+[functions.ai-call-webhook-meta]
+verify_jwt = false
+
+[functions.ai-call-webhook-telegram]
+verify_jwt = false
+
+[functions.ai-call-worker]
+verify_jwt = false
+
+[functions.ai-generate-call-scripts]
+verify_jwt = false

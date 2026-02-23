@@ -237,6 +237,80 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_roadmap_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_roadmap_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roadmap_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_roadmap_tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          created_by: string | null
+          deadline: string | null
+          description: string | null
+          id: string
+          module: string | null
+          priority: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          module?: string | null
+          priority?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          module?: string | null
+          priority?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       agency_crm_integrations: {
         Row: {
           added_count: number | null
@@ -1242,6 +1316,86 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_feature_flags: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          flag_key: string
+          flag_name: string
+          id: string
+          is_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          flag_key: string
+          flag_name: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          flag_key?: string
+          flag_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_feedback_events: {
+        Row: {
+          conversion_result: string | null
+          corrected_version: string | null
+          created_at: string | null
+          entity_id: string | null
+          error_type: string | null
+          feature: string
+          id: string
+          metadata: Json | null
+          rating: string | null
+          request_log_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          conversion_result?: string | null
+          corrected_version?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          error_type?: string | null
+          feature: string
+          id?: string
+          metadata?: Json | null
+          rating?: string | null
+          request_log_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          conversion_result?: string | null
+          corrected_version?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          error_type?: string | null
+          feature?: string
+          id?: string
+          metadata?: Json | null
+          rating?: string | null
+          request_log_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_events_request_log_id_fkey"
+            columns: ["request_log_id"]
+            isOneToOne: false
+            referencedRelation: "ai_requests_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_guest_usage: {
         Row: {
           created_at: string | null
@@ -1346,6 +1500,78 @@ export type Database = {
           question?: string
           updated_at?: string | null
           use_count?: number | null
+        }
+        Relationships: []
+      }
+      ai_learning_consent: {
+        Row: {
+          consent_given: boolean | null
+          consented_at: string | null
+          consented_by: string | null
+          created_at: string | null
+          entity_id: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          consent_given?: boolean | null
+          consented_at?: string | null
+          consented_by?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          consent_given?: boolean | null
+          consented_at?: string | null
+          consented_by?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_limits_config: {
+        Row: {
+          budget_pln_per_month: number | null
+          created_at: string | null
+          enforcement_mode: string | null
+          id: string
+          max_documents_per_day: number | null
+          max_images_per_day: number | null
+          max_requests_per_day: number | null
+          max_tokens_per_day: number | null
+          scope: string
+          scope_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          budget_pln_per_month?: number | null
+          created_at?: string | null
+          enforcement_mode?: string | null
+          id?: string
+          max_documents_per_day?: number | null
+          max_images_per_day?: number | null
+          max_requests_per_day?: number | null
+          max_tokens_per_day?: number | null
+          scope?: string
+          scope_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          budget_pln_per_month?: number | null
+          created_at?: string | null
+          enforcement_mode?: string | null
+          id?: string
+          max_documents_per_day?: number | null
+          max_images_per_day?: number | null
+          max_requests_per_day?: number | null
+          max_tokens_per_day?: number | null
+          scope?: string
+          scope_id?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -1528,6 +1754,96 @@ export type Database = {
           },
         ]
       }
+      ai_providers: {
+        Row: {
+          admin_note: string | null
+          api_key_encrypted: string | null
+          created_at: string | null
+          daily_limit: number | null
+          default_model: string | null
+          display_name: string
+          id: string
+          is_enabled: boolean | null
+          provider_key: string
+          timeout_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_note?: string | null
+          api_key_encrypted?: string | null
+          created_at?: string | null
+          daily_limit?: number | null
+          default_model?: string | null
+          display_name: string
+          id?: string
+          is_enabled?: boolean | null
+          provider_key: string
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_note?: string | null
+          api_key_encrypted?: string | null
+          created_at?: string | null
+          daily_limit?: number | null
+          default_model?: string | null
+          display_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          provider_key?: string
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_quality_metrics: {
+        Row: {
+          avg_response_time_ms: number | null
+          conversion_rate: number | null
+          correction_rate: number | null
+          created_at: string | null
+          entity_id: string | null
+          feature: string
+          id: string
+          period_end: string
+          period_start: string
+          successful_requests: number | null
+          thumbs_down: number | null
+          thumbs_up: number | null
+          total_requests: number | null
+        }
+        Insert: {
+          avg_response_time_ms?: number | null
+          conversion_rate?: number | null
+          correction_rate?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          feature: string
+          id?: string
+          period_end: string
+          period_start: string
+          successful_requests?: number | null
+          thumbs_down?: number | null
+          thumbs_up?: number | null
+          total_requests?: number | null
+        }
+        Update: {
+          avg_response_time_ms?: number | null
+          conversion_rate?: number | null
+          correction_rate?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          feature?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          successful_requests?: number | null
+          thumbs_down?: number | null
+          thumbs_up?: number | null
+          total_requests?: number | null
+        }
+        Relationships: []
+      }
       ai_query_costs: {
         Row: {
           cost_credits: number
@@ -1551,6 +1867,160 @@ export type Database = {
           query_type?: string
         }
         Relationships: []
+      }
+      ai_requests_log: {
+        Row: {
+          actor_user_id: string | null
+          cache_hit: boolean | null
+          cost_estimate: number | null
+          created_at: string | null
+          error_message: string | null
+          feature: string
+          id: string
+          input_snapshot: Json | null
+          mode: string | null
+          model: string | null
+          output_snapshot: Json | null
+          provider: string | null
+          response_time_ms: number | null
+          status: string | null
+          task_type: string | null
+          tenant_id: string | null
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          cache_hit?: boolean | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          feature: string
+          id?: string
+          input_snapshot?: Json | null
+          mode?: string | null
+          model?: string | null
+          output_snapshot?: Json | null
+          provider?: string | null
+          response_time_ms?: number | null
+          status?: string | null
+          task_type?: string | null
+          tenant_id?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          cache_hit?: boolean | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          feature?: string
+          id?: string
+          input_snapshot?: Json | null
+          mode?: string | null
+          model?: string | null
+          output_snapshot?: Json | null
+          provider?: string | null
+          response_time_ms?: number | null
+          status?: string | null
+          task_type?: string | null
+          tenant_id?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: []
+      }
+      ai_response_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          expires_at: string
+          feature: string
+          id: string
+          mode: string | null
+          query_hash: string
+          response_data: Json
+          tenant_id: string | null
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          expires_at: string
+          feature: string
+          id?: string
+          mode?: string | null
+          query_hash: string
+          response_data: Json
+          tenant_id?: string | null
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string
+          feature?: string
+          id?: string
+          mode?: string | null
+          query_hash?: string
+          response_data?: Json
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_routing_rules: {
+        Row: {
+          allow_fallback: boolean | null
+          created_at: string | null
+          id: string
+          primary_provider_key: string | null
+          secondary_provider_key: string | null
+          task_type: string
+          tertiary_provider_key: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allow_fallback?: boolean | null
+          created_at?: string | null
+          id?: string
+          primary_provider_key?: string | null
+          secondary_provider_key?: string | null
+          task_type: string
+          tertiary_provider_key?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allow_fallback?: boolean | null
+          created_at?: string | null
+          id?: string
+          primary_provider_key?: string | null
+          secondary_provider_key?: string | null
+          task_type?: string
+          tertiary_provider_key?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_routing_rules_primary_provider_key_fkey"
+            columns: ["primary_provider_key"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["provider_key"]
+          },
+          {
+            foreignKeyName: "ai_routing_rules_secondary_provider_key_fkey"
+            columns: ["secondary_provider_key"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["provider_key"]
+          },
+          {
+            foreignKeyName: "ai_routing_rules_tertiary_provider_key_fkey"
+            columns: ["tertiary_provider_key"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["provider_key"]
+          },
+        ]
       }
       ai_settings: {
         Row: {
@@ -1621,6 +2091,75 @@ export type Database = {
           tts_voice_name?: string | null
           updated_at?: string | null
           user_monthly_limit?: number | null
+        }
+        Relationships: []
+      }
+      ai_tenant_context: {
+        Row: {
+          business_description: string | null
+          created_at: string | null
+          entity_id: string
+          id: string
+          industry: string | null
+          language: string | null
+          preferences: Json | null
+          pricing_notes: string | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          business_description?: string | null
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          industry?: string | null
+          language?: string | null
+          preferences?: Json | null
+          pricing_notes?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          business_description?: string | null
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          industry?: string | null
+          language?: string | null
+          preferences?: Json | null
+          pricing_notes?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      ai_user_context: {
+        Row: {
+          created_at: string | null
+          id: string
+          preferred_language: string | null
+          response_style: string | null
+          shortcuts: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          preferred_language?: string | null
+          response_style?: string | null
+          shortcuts?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          preferred_language?: string | null
+          response_style?: string | null
+          shortcuts?: Json | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
