@@ -1481,26 +1481,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
-        // === DŁUG: odejmij istniejący dług od wypłaty ===
-        // ALWAYS use current debt from driver_debts (reflects manual payments)
-        // Settlement snapshot (debt_after) may be stale if user made manual payments
+        // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
         const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
-        let existingDebt = currentDebtFromDB;
-        let adjustedPayout = payout;
-        let remainingDebt = existingDebt;
-
-        if (payout < 0) {
-          // Ujemna wypłata = narastanie długu
-          remainingDebt = existingDebt + Math.abs(payout);
-          adjustedPayout = 0;
-        } else if (existingDebt > 0 && payout > 0) {
-          if (payout >= existingDebt) {
-            adjustedPayout = payout - existingDebt;
-            remainingDebt = 0;
+        // For payout display: show real payout value (negative = MINUS badge)
+        // Debt deduction only happens during import, not display
+        let displayPayout = payout;
+        let hasNegativeBalance = payout < 0;
+        
+        if (currentDebtFromDB > 0 && payout > 0) {
+          // Show payout after debt deduction (preview of what would happen)
+          if (payout >= currentDebtFromDB) {
+            displayPayout = payout - currentDebtFromDB;
           } else {
-            remainingDebt = existingDebt - payout;
-            adjustedPayout = 0;
+            displayPayout = 0;
           }
         }
 
@@ -1548,9 +1542,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
-          final_payout: adjustedPayout,
-          debt_current: remainingDebt,
-          debt_previous: existingDebt,
+          final_payout: displayPayout,
+          has_negative_balance: hasNegativeBalance,
+          debt_current: currentDebtFromDB,
+          debt_previous: currentDebtFromDB,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,

@@ -173,11 +173,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         driverSettlements = paymentsData || [];
       }
 
-      // Map driver_id → actual_payout (what driver actually earned/covered)
+      // Map driver_id → total_earnings (use total_earnings, not actual_payout which may be 0)
+      // total_earnings reflects what driver actually drove/earned before deductions
       const driverEarningsMap = new Map<string, number>();
       driverSettlements.forEach(s => {
-        const payout = parseFloat(s.actual_payout?.toString() || '0');
-        driverEarningsMap.set(s.driver_id, (driverEarningsMap.get(s.driver_id) || 0) + Math.abs(payout));
+        const earnings = parseFloat(s.total_earnings?.toString() || '0');
+        driverEarningsMap.set(s.driver_id, (driverEarningsMap.get(s.driver_id) || 0) + Math.abs(earnings));
       });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
