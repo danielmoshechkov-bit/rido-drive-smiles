@@ -233,8 +233,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // The purpose of this modal is to map NEW platform IDs from CSV,
       // not to manage existing drivers' app accounts.
       
-      if ((unmapped || []).length > 0) {
-        setUnmappedDrivers(unmapped || []);
+      // Filter out unmapped drivers with zero revenue (no point mapping them)
+      const unmappedWithRevenue = (unmapped || []).filter((u: any) => {
+        const totalEarnings = parseFloat(u.total_earnings || u.uber_base || u.bolt_base || u.freenow_base || '0');
+        return totalEarnings !== 0;
+      });
+      
+      if (unmappedWithRevenue.length > 0) {
+        setUnmappedDrivers(unmappedWithRevenue);
         setShowUnmappedModal(true);
       } else {
         toast.info('Brak nowych kierowców do zmapowania. Wszystkie ID z CSV zostały przypisane.');
@@ -1132,6 +1138,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setDriverDebts(debtsMap);
 
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
+      // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
       const driverFuelCards: Record<string, string> = {};
       driversData.forEach(d => {
         const driver = d as any;
@@ -1139,6 +1146,35 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           driverFuelCards[driver.id] = driver.fuel_card_number.replace(/^0+/, '');
         }
       });
+      
+      // For drivers without fuel cards, check if same person (by name) has a card in another fleet
+      const driversWithoutCards = driversData.filter(d => !(d as any).fuel_card_number);
+      if (driversWithoutCards.length > 0) {
+        const names = driversWithoutCards.map(d => `${(d as any).first_name} ${(d as any).last_name}`);
+        const { data: crossFleetCards } = await supabase
+          .from('drivers')
+          .select('first_name, last_name, fuel_card_number')
+          .not('fuel_card_number', 'is', null)
+          .neq('fleet_id', fleetId);
+        
+        if (crossFleetCards) {
+          const cardsByName: Record<string, string> = {};
+          crossFleetCards.forEach((d: any) => {
+            if (d.fuel_card_number) {
+              cardsByName[`${d.first_name} ${d.last_name}`.toLowerCase()] = d.fuel_card_number.replace(/^0+/, '');
+            }
+          });
+          
+          driversWithoutCards.forEach(d => {
+            const driver = d as any;
+            const key = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+            if (cardsByName[key] && !driverFuelCards[driver.id]) {
+              driverFuelCards[driver.id] = cardsByName[key];
+              console.log(`⛽ Cross-fleet fuel card found for ${driver.first_name} ${driver.last_name}: ${cardsByName[key]}`);
+            }
+          });
+        }
+      }
 
       // Agreguj rozliczenia per kierowca
       const aggregated = driversData.map(driver => {
@@ -1454,36 +1490,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
 
         // === DŁUG: odejmij istniejący dług od wypłaty ===
-        // Check if debt was already processed for this settlement period (saved in DB)
-        const settlementWithDebt = driverSettlements.find(s => (s as any).debt_after !== null && (s as any).debt_after !== undefined);
-        const debtAlreadyProcessed = !!settlementWithDebt;
+        // ALWAYS use current debt from driver_debts (reflects manual payments)
+        // Settlement snapshot (debt_after) may be stale if user made manual payments
+        const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
-        let existingDebt: number;
-        let adjustedPayout: number;
-        let remainingDebt: number;
+        let existingDebt = currentDebtFromDB;
+        let adjustedPayout = payout;
+        let remainingDebt = existingDebt;
 
-        if (debtAlreadyProcessed) {
-          // Use saved debt values - don't recalculate!
-          existingDebt = (settlementWithDebt as any).debt_before || 0;
-          remainingDebt = (settlementWithDebt as any).debt_after || 0;
-          adjustedPayout = (settlementWithDebt as any).actual_payout ?? payout;
-        } else {
-          existingDebt = debtsMap[driver.id] || 0;
-          adjustedPayout = payout;
-          remainingDebt = existingDebt;
-
-          if (payout < 0) {
-            // Ujemna wypłata = narastanie długu
-            remainingDebt = existingDebt + Math.abs(payout);
+        if (payout < 0) {
+          // Ujemna wypłata = narastanie długu
+          remainingDebt = existingDebt + Math.abs(payout);
+          adjustedPayout = 0;
+        } else if (existingDebt > 0 && payout > 0) {
+          if (payout >= existingDebt) {
+            adjustedPayout = payout - existingDebt;
+            remainingDebt = 0;
+          } else {
+            remainingDebt = existingDebt - payout;
             adjustedPayout = 0;
-          } else if (existingDebt > 0 && payout > 0) {
-            if (payout >= existingDebt) {
-              adjustedPayout = payout - existingDebt;
-              remainingDebt = 0;
-            } else {
-              remainingDebt = existingDebt - payout;
-              adjustedPayout = 0;
-            }
           }
         }
 
@@ -1532,8 +1557,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
           final_payout: adjustedPayout,
-          // Always show CURRENT debt from driver_debts (not stale settlement snapshot)
-          debt_current: debtsMap[driver.id] ?? remainingDebt,
+          debt_current: remainingDebt,
           debt_previous: existingDebt,
           // Dual tax fields
           bolt_ef_base,
@@ -1566,25 +1590,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setSettlements(filteredAggregated);
 
       // === AUTO-PERSIST DEBT CHANGES ===
-      // Only persist debt for settlements that haven't been processed yet
+      // Debt is now always calculated from driver_debts (current_balance).
+      // We no longer skip based on settlement snapshots since manual payments 
+      // can change debt between settlement loads.
       for (const s of filteredAggregated) {
         if (!s) continue;
         
-        // Check if this driver's settlement already has debt saved in DB
-        const driverSettlements = settlementsData?.filter(st => st.driver_id === s.driver_id) || [];
-        const alreadyHasDebt = driverSettlements.some(st => (st as any).debt_after !== null && (st as any).debt_after !== undefined);
-        
-        if (alreadyHasDebt) {
-          // Debt already processed for this period - skip to prevent duplication
-          continue;
-        }
-        
-        const existingDebt = debtsMap[s.driver_id] || 0;
+        const currentDebtInDB = debtsMap[s.driver_id] ?? 0;
         const newDebt = s.debt_current || 0;
         
-        // Only persist if debt changed
-        if (Math.abs(newDebt - existingDebt) > 0.01) {
-          console.log(`💰 Syncing debt for ${s.driver_name}: ${existingDebt} → ${newDebt}`);
+        // Only persist if debt changed from what's in DB
+        if (Math.abs(newDebt - currentDebtInDB) > 0.01) {
+          console.log(`💰 Syncing debt for ${s.driver_name}: ${currentDebtInDB} → ${newDebt}`);
           
           // Upsert driver_debts
           await supabase.from('driver_debts').upsert({
@@ -1598,9 +1615,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             await supabase
               .from('settlements')
               .update({
-                debt_before: existingDebt,
+                debt_before: s.debt_previous,
                 debt_after: newDebt,
-                debt_payment: existingDebt > 0 && newDebt < existingDebt ? existingDebt - newDebt : 0,
+                debt_payment: (s.debt_previous || 0) > 0 && newDebt < (s.debt_previous || 0) ? (s.debt_previous || 0) - newDebt : 0,
                 actual_payout: s.final_payout
               })
               .eq('driver_id', s.driver_id)
