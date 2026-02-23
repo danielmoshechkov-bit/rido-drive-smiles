@@ -1589,47 +1589,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       
       setSettlements(filteredAggregated);
 
-      // === AUTO-PERSIST DEBT CHANGES ===
-      // Debt is now always calculated from driver_debts (current_balance).
-      // We no longer skip based on settlement snapshots since manual payments 
-      // can change debt between settlement loads.
-      for (const s of filteredAggregated) {
-        if (!s) continue;
-        
-        const currentDebtInDB = debtsMap[s.driver_id] ?? 0;
-        const newDebt = s.debt_current || 0;
-        
-        // Only persist if debt changed from what's in DB
-        if (Math.abs(newDebt - currentDebtInDB) > 0.01) {
-          console.log(`💰 Syncing debt for ${s.driver_name}: ${currentDebtInDB} → ${newDebt}`);
-          
-          // Upsert driver_debts
-          await supabase.from('driver_debts').upsert({
-            driver_id: s.driver_id,
-            current_balance: newDebt,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'driver_id' });
-
-          // Update settlement records with debt info
-          if (currentWeek) {
-            await supabase
-              .from('settlements')
-              .update({
-                debt_before: s.debt_previous,
-                debt_after: newDebt,
-                debt_payment: (s.debt_previous || 0) > 0 && newDebt < (s.debt_previous || 0) ? (s.debt_previous || 0) - newDebt : 0,
-                actual_payout: s.final_payout
-              })
-              .eq('driver_id', s.driver_id)
-              .gte('period_from', currentWeek.start)
-              .lte('period_to', currentWeek.end);
-          }
-          
-          // Update local state
-          debtsMap[s.driver_id] = newDebt;
-        }
-      }
-      setDriverDebts({ ...debtsMap });
+      // NOTE: Debt is NO LONGER auto-persisted on page view.
+      // Debt is only modified during:
+      // 1. Settlement import (edge function)
+      // 2. Manual operations (add debt, add payment in DriverDebtHistory)
+      // 3. Delete settlements handler
+      // This prevents page views from corrupting debt data.
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
