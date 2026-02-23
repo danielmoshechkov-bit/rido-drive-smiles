@@ -798,11 +798,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         } else {
           console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
           toast.success('Zapisano zmianę');
-          
-          // Clear manual overrides and re-fetch to recalculate everything (payout, etc.)
-          setManualOverrides({});
+          // Keep manual overrides (they show correct recalculated values)
+          // Don't re-fetch entire page - just clear editing state
           setEditingCell(null);
-          fetchSettlements();
           return;
         }
       }
@@ -2656,7 +2654,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
                             const debt = settlement.debt_current || 0;
-                            const badgeClick = () => {
+                            const badgeClick = (e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              e.preventDefault();
                               setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
                               setDebtDialogOpen(true);
                             };
