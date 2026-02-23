@@ -139,7 +139,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       // Get settlements for drivers in selected week - to know how much each driver earned
       const { data: settlementsData } = await supabase
         .from("settlements")
-        .select("driver_id, rental_fee, actual_payout, total_earnings, period_from, period_to")
+        .select("driver_id, rental_fee, actual_payout, total_earnings, net_amount, period_from, period_to")
         .in("driver_id", driverIds.length > 0 ? driverIds : ['__none__'])
         .gte("period_from", weekData.start)
         .lte("period_to", weekData.end);
@@ -160,13 +160,17 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         }
       });
 
-      // Calculate driver earnings per vehicle for the week (use total_earnings, not actual_payout which may be 0 due to debt)
+      // Calculate driver available amount per vehicle (after taxes/fees, before rental)
+      // Use actual_payout when > 0, fallback to net_amount when stale
       const vehicleDriverEarnings = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
         if (vehicleId) {
+          const payout = parseFloat(s.actual_payout?.toString() || "0");
           const earnings = parseFloat(s.total_earnings?.toString() || "0");
-          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + Math.abs(earnings));
+          const netAmount = parseFloat(s.net_amount?.toString() || "0");
+          const available = payout > 0 ? payout : (earnings > 0 ? netAmount : 0);
+          vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + available);
         }
       });
 
