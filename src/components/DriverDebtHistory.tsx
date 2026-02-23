@@ -80,24 +80,7 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
     try {
       const newBalance = Math.max(0, currentDebt - amount);
       
-      // Update or create debt balance
-      const { data: existing } = await supabase
-        .from('driver_debts')
-        .select('id')
-        .eq('driver_id', driverId)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from('driver_debts')
-          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
-          .eq('driver_id', driverId);
-      } else {
-        await supabase
-          .from('driver_debts')
-          .insert({ driver_id: driverId, current_balance: newBalance });
-      }
-      
+      // 1. First create the transaction record (most important for history)
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
       const { error: txError } = await supabase
         .from('driver_debt_transactions')
@@ -114,7 +97,44 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
       
       if (txError) {
         console.error('Error inserting payment transaction:', txError);
-        toast.error('Saldo zaktualizowane, ale nie udało się zapisać transakcji');
+        toast.error('Nie udało się zapisać transakcji wpłaty: ' + txError.message);
+        setSaving(false);
+        return; // Don't update balance if transaction failed
+      }
+
+      // 2. Update or create debt balance
+      const { data: existing } = await supabase
+        .from('driver_debts')
+        .select('id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('driver_debts')
+          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('driver_id', driverId);
+      } else {
+        await supabase
+          .from('driver_debts')
+          .insert({ driver_id: driverId, current_balance: newBalance });
+      }
+
+      // 3. Also update the latest settlement's debt_after to reflect the payment
+      const { data: latestSettlement } = await supabase
+        .from('settlements')
+        .select('id')
+        .eq('driver_id', driverId)
+        .not('debt_after', 'is', null)
+        .order('period_from', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (latestSettlement) {
+        await supabase
+          .from('settlements')
+          .update({ debt_after: newBalance })
+          .eq('id', latestSettlement.id);
       }
       
       toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);

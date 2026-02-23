@@ -1196,10 +1196,22 @@ async function parseFreenowCsv(
   const headers = rows[0].map(h => h.toLowerCase().trim());
   
   const baseIdx = headers.findIndex(h => h.includes('zarobki') || h.includes('earnings') || h.includes('base'));
-  const commissionIdx = headers.findIndex(h => h.includes('prowizj') || h.includes('commission'));
+  // CRITICAL: commission column must NOT be the same as base column!
+  // FreeNow CSV may have header like "Zarobki przed odliczeniem prowizji" which matches both patterns
+  let commissionIdx = headers.findIndex((h, idx) => {
+    if (idx === baseIdx) return false; // Skip the base column
+    return h.includes('prowizj') || h.includes('commission');
+  });
+  // If not found with exclusion, try matching specifically "prowizja" as standalone column
+  if (commissionIdx < 0) {
+    commissionIdx = headers.findIndex((h, idx) => idx !== baseIdx && (h === 'prowizja' || h.startsWith('prowizja ') || h.includes('fee')));
+  }
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('cash'));
   const driverIdIdx = headers.findIndex(h => h.includes('driver') && h.includes('id'));
   const driverNameIdx = headers.findIndex(h => h.includes('name') || h.includes('imię') || h.includes('kierowca'));
+  
+  console.log('📊 FREENOW CSV headers:', headers);
+  console.log('📊 FREENOW CSV indexes:', { baseIdx, commissionIdx, cashIdx, driverIdIdx, driverNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
