@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Key, UserCircle, Settings, FileText, Car } from "lucide-react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import { DriverPartnerFleets } from "./fleet/DriverPartnerFleets";
 
 interface DriverExpandedPanelProps {
   driver: Driver;
@@ -331,6 +332,15 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
               </Popover>
             </div>
           </div>
+
+          {/* Partner Fleets Section */}
+          {(driver as any).fleet_id && (
+            <DriverPartnerFleets
+              driverId={driver.id}
+              managingFleetId={(driver as any).fleet_id}
+              onUpdate={onUpdate}
+            />
+          )}
         </div>
 
         <div className="space-y-4">

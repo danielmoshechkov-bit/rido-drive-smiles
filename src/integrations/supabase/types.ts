@@ -3924,6 +3924,70 @@ export type Database = {
           },
         ]
       }
+      driver_fleet_partnerships: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          invoice_frequency: string | null
+          is_active: boolean
+          is_b2b: boolean
+          managing_fleet_id: string
+          partner_fleet_id: string
+          settled_by: string
+          transfer_title_template: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          invoice_frequency?: string | null
+          is_active?: boolean
+          is_b2b?: boolean
+          managing_fleet_id: string
+          partner_fleet_id: string
+          settled_by?: string
+          transfer_title_template?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          invoice_frequency?: string | null
+          is_active?: boolean
+          is_b2b?: boolean
+          managing_fleet_id?: string
+          partner_fleet_id?: string
+          settled_by?: string
+          transfer_title_template?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_fleet_partnerships_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_fleet_partnerships_managing_fleet_id_fkey"
+            columns: ["managing_fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_fleet_partnerships_partner_fleet_id_fkey"
+            columns: ["partner_fleet_id"]
+            isOneToOne: false
+            referencedRelation: "fleets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_fleet_relations: {
         Row: {
           created_at: string | null
