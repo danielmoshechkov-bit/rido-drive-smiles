@@ -764,8 +764,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                   hideFleetName={mode === 'fleet'}
                                 />
                               </div>
-                             {/* Fleet badge - tylko w trybie admin */}
-                             {mode === 'admin' && (
+                             {/* Fleet badge - admin i fleet */}
+                             {(mode === 'admin' || mode === 'fleet') && (
                                <DriverFleetBadgeSelector 
                                  driverId={driver.id}
                                  fleetId={(driver as any).fleet_id}

@@ -199,6 +199,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             ? (driverAvailableMap.get(assignment.driver_id) || 0) 
             : 0;
           const paidAmount = Math.min(Math.max(driverAvailable, 0), proportionalRent);
+          const rentalDebt = Math.max(proportionalRent - paidAmount, 0);
 
           return {
             driver_id: assignment?.driver_id || null,
@@ -211,7 +212,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             weekly_rate: weeklyFee,
             rental_fee: proportionalRent,
             paid_amount: paidAmount,
-            debt_balance: assignment?.driver_id ? (debtMap.get(assignment.driver_id) || 0) : 0,
+            debt_balance: rentalDebt,
           };
         })
         .filter(revenue => revenue.driver_id !== null); // Only show vehicles with assigned drivers
