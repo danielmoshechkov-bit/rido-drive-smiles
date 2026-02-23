@@ -174,15 +174,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       }
 
       // Map driver_id → amount available for car payment (before rental deduction)
-      // actual_payout = net after taxes, cash, service_fee but BEFORE rental
-      // If actual_payout is 0 but driver earned money, use net_amount as fallback
+      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental and debt
+      // This is the correct base for calculating how much of the rental was covered
       const driverAvailableMap = new Map<string, number>();
       driverSettlements.forEach(s => {
-        const payout = parseFloat(s.actual_payout?.toString() || '0');
-        const earnings = parseFloat(s.total_earnings?.toString() || '0');
         const netAmount = parseFloat(s.net_amount?.toString() || '0');
-        // Use actual_payout when available, fallback to net_amount when stale (0 but has earnings)
-        const available = payout > 0 ? payout : (earnings > 0 ? netAmount : 0);
+        const available = Math.max(netAmount, 0);
         driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
       });
 
