@@ -921,9 +921,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       if (data?.driver_id) {
         setMyDriverId(data.driver_id);
         
-        // Only set default tab if not admin (admins default to "my" for company revenue)
-        if (!roles.includes('admin')) {
-          // Check if this driver has any settlements
+        // Fleet managers (fleet_rental/fleet_settlement) should default to "drivers" tab
+        // NOT to "Moje rozliczenia" - they are managers, not drivers
+        const isFleetManager = roles.includes('fleet_rental') || roles.includes('fleet_settlement');
+        
+        if (!roles.includes('admin') && !isFleetManager) {
+          // Only pure drivers default to "my" (Moje rozliczenia)
           const { data: hasSettlements } = await supabase
             .from('settlements')
             .select('id')
@@ -931,12 +934,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             .limit(1)
             .maybeSingle();
           
-          // If has settlements, default to "my", otherwise "drivers"
           if (hasSettlements) {
             setActiveSubTab("my");
           } else {
             setActiveSubTab("drivers");
           }
+        } else if (isFleetManager) {
+          // Fleet managers always default to drivers list
+          setActiveSubTab("drivers");
         }
       }
     } catch (error) {
