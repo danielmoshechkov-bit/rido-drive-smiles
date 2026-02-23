@@ -770,7 +770,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                  driverId={driver.id}
                                  fleetId={(driver as any).fleet_id}
                                  onFleetChange={refetch}
-                                 allowAdd={false}
+                                 allowAdd={true}
                                  managingFleetId={mode === 'fleet' ? fleetId : undefined}
                                />
                              )}
