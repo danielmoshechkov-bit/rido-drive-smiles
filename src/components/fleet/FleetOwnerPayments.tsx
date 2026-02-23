@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, CheckCircle, Plus, Minus, AlertTriangle, User } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle, Plus, Minus, AlertTriangle, User, X } from "lucide-react";
 import { getAvailableWeeks } from "@/lib/utils";
 
 interface VehicleDriver {
@@ -587,26 +587,23 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
                     </TableBody>
                   </Table>
 
-                   {owner.adjustments.length > 0 && (
+                  {owner.adjustments.length > 0 && (
                     <div className="mt-3 border-t pt-3">
                       <h4 className="text-xs font-medium text-muted-foreground mb-2">Korekty:</h4>
-                      <div className="space-y-1">
+                      <div className="flex flex-wrap gap-2">
                         {owner.adjustments.map((adj, i) => (
-                          <div key={i} className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{adj.note} ({adj.date})</span>
-                            <div className="flex items-center gap-2">
-                              <span className={adj.amount < 0 ? "text-green-600" : "text-destructive"}>
-                                {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteAdjustment(adj.charge_id)}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                            </div>
+                          <div key={i} className="inline-flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-1.5 text-xs">
+                            <span className="text-muted-foreground">{adj.note}</span>
+                            <span className={`font-semibold ${adj.amount < 0 ? "text-green-600" : "text-destructive"}`}>
+                              {adj.amount > 0 ? "+" : ""}{formatCurrency(adj.amount)}
+                            </span>
+                            <button
+                              className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                              onClick={() => handleDeleteAdjustment(adj.charge_id)}
+                              title="Usuń korektę"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
