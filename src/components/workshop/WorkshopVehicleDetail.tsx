@@ -115,13 +115,23 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="dane">Dane pojazdu</TabsTrigger>
-          <TabsTrigger value="pliki">Pliki</TabsTrigger>
-          <TabsTrigger value="zlecenia">Historia zleceń</TabsTrigger>
-          <TabsTrigger value="zadania">Historia zadań</TabsTrigger>
-          <TabsTrigger value="przebiegi">Przebiegi</TabsTrigger>
-          <TabsTrigger value="naprawcze">Dane naprawcze</TabsTrigger>
+        <TabsList className="bg-muted/40 p-1 rounded-lg">
+          {[
+            { value: 'dane', label: 'Dane pojazdu' },
+            { value: 'pliki', label: 'Pliki' },
+            { value: 'zlecenia', label: 'Historia zleceń' },
+            { value: 'zadania', label: 'Historia zadań' },
+            { value: 'przebiegi', label: 'Przebiegi' },
+            { value: 'naprawcze', label: 'Dane naprawcze' },
+          ].map(tab => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="data-[state=active]:bg-[hsl(45,100%,70%)] data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-sm hover:bg-[hsl(45,100%,85%)] transition-colors"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Vehicle data */}

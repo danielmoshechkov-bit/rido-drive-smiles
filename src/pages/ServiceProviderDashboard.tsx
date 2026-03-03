@@ -59,6 +59,7 @@ export default function ServiceProviderDashboard() {
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [providerId, setProviderId] = useState<string | null>(null);
+  const [workspaceAllowed, setWorkspaceAllowed] = useState(false);
   const [stats, setStats] = useState({
     totalBookings: 0,
     pendingBookings: 0,
@@ -99,6 +100,16 @@ export default function ServiceProviderDashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate('/auth'); return; }
     setUser(user);
+
+    // Check workspace whitelist
+    if (features.ai_workspace_enabled && user.email) {
+      const { data: wl } = await (supabase as any)
+        .from('workspace_email_whitelist')
+        .select('id')
+        .eq('email', user.email.toLowerCase())
+        .maybeSingle();
+      setWorkspaceAllowed(!!wl);
+    }
 
     const { data: config } = await supabase
       .from('ai_agent_configs')
@@ -351,7 +362,7 @@ export default function ServiceProviderDashboard() {
               Strona WWW
             </TabsTrigger>
           )}
-          {features.ai_workspace_enabled && (
+          {features.ai_workspace_enabled && workspaceAllowed && (
             <TabsTrigger value="workspace">
               <Briefcase className="h-4 w-4 mr-1.5" />
               Workspace
@@ -608,7 +619,7 @@ export default function ServiceProviderDashboard() {
           )}
 
           {/* Workspace Tab */}
-          {features.ai_workspace_enabled && (
+          {features.ai_workspace_enabled && workspaceAllowed && (
             <TabsContent value="workspace" className="mt-6">
               <WorkspaceView />
             </TabsContent>

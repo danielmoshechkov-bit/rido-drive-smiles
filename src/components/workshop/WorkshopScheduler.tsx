@@ -140,18 +140,9 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
     });
   };
 
-  // Check if cell is occupied by a spanning order (or resize preview)
+  // Check if cell is occupied by a spanning order
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    // Check resize preview occupation
-    if (resizingOrder && resizingOrder.scheduled_start && resizingOrder.scheduled_station_id === stationId) {
-      const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
-      const effStart = resizeStartHour ?? new Date(resizingOrder.scheduled_start).getHours();
-      const effEnd = resizeTargetHour ?? (effStart + getOrderSpan(resizingOrder));
-      if (rDate === dayStr && hour >= effStart && hour < effEnd) {
-        return true;
-      }
-    }
     return orders.some((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
@@ -160,18 +151,6 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
       const span = getOrderSpan(o);
       return hour >= oHour && hour < oHour + span;
     });
-  };
-
-  // Check if cell is part of the resize preview (for coloring)
-  const isResizePreviewCell = (stationId: string, day: Date, hour: number) => {
-    if (!resizingOrder || !resizingOrder.scheduled_start) return false;
-    if (resizingOrder.scheduled_station_id !== stationId) return false;
-    const dayStr = format(day, 'yyyy-MM-dd');
-    const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
-    if (dayStr !== rDate) return false;
-    const effStart = resizeStartHour ?? new Date(resizingOrder.scheduled_start).getHours();
-    const effEnd = resizeTargetHour ?? (effStart + getOrderSpan(resizingOrder));
-    return hour >= effStart && hour < effEnd;
   };
 
   const weekDays = useMemo(() => {
@@ -418,26 +397,44 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
                         const key = cellKey(st.id, day, hour);
                         const isDragOver = dragOverCell === key;
                         const scheduledOrder = getOrderStartingAt(st.id, day, hour);
-                        const occupied = !scheduledOrder && isCellOccupied(st.id, day, hour);
                         const today = isToday(day);
-                        const span = scheduledOrder ? getOrderSpan(scheduledOrder) : 1;
 
-                        // If cell is part of a spanning order but not the start, skip or show resize preview color
-                        if (occupied) {
-                          const isResizePreview = isResizePreviewCell(st.id, day, hour);
-                          return (
-                            <td key={key} className={`border-b border-r border-foreground/15 p-0 h-14 ${isResizePreview ? 'bg-[hsl(220,70%,55%)]' : ''}`} />
-                          );
+                        // Check if this cell is part of a multi-hour order (not the starting cell)
+                        if (!scheduledOrder) {
+                          const dayStr = format(day, 'yyyy-MM-dd');
+                          // Check if occupied by a real order's span
+                          const isPartOfOrder = orders.some((o: any) => {
+                            if (!o.scheduled_start || o.scheduled_station_id !== st.id) return false;
+                            const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
+                            if (oDate !== dayStr) return false;
+                            const oHour = new Date(o.scheduled_start).getHours();
+                            const span = getOrderSpan(o);
+                            // Check if resizing changes span
+                            if (resizingOrder && resizingOrder.id === o.id) {
+                              const effStart = resizeStartHour ?? oHour;
+                              const effEnd = resizeTargetHour ?? (oHour + span);
+                              return hour > effStart && hour < effEnd;
+                            }
+                            return hour > oHour && hour < oHour + span;
+                          });
+                          
+                          if (isPartOfOrder) {
+                            // This cell is covered by a rowSpan - don't render it
+                            return null;
+                          }
                         }
 
-                        // Calculate resize preview span (accounting for both top/bottom resize)
-                        let displaySpan = span;
-                        let displayStartHour = hour;
-                        if (resizingOrder && scheduledOrder && resizingOrder.id === scheduledOrder.id) {
-                          const effStart = resizeStartHour ?? new Date(scheduledOrder.scheduled_start).getHours();
-                          const effEnd = resizeTargetHour ?? (effStart + span);
-                          displaySpan = Math.max(1, effEnd - effStart);
-                          displayStartHour = effStart;
+                        // Calculate span for the starting cell
+                        let displaySpan = 1;
+                        if (scheduledOrder) {
+                          const origSpan = getOrderSpan(scheduledOrder);
+                          if (resizingOrder && resizingOrder.id === scheduledOrder.id) {
+                            const effStart = resizeStartHour ?? new Date(scheduledOrder.scheduled_start).getHours();
+                            const effEnd = resizeTargetHour ?? (effStart + origSpan);
+                            displaySpan = Math.max(1, effEnd - effStart);
+                          } else {
+                            displaySpan = origSpan;
+                          }
                         }
 
                         return (
@@ -450,9 +447,9 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                             } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
                             onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
-                            onDragOver={(e) => { if (!occupied) { e.preventDefault(); setDragOverCell(key); } }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
                             onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
-                            onDrop={() => !occupied && handleDrop(day, hour, st.id)}
+                            onDrop={() => handleDrop(day, hour, st.id)}
                           >
                             {scheduledOrder ? (
                               <div
