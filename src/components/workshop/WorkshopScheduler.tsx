@@ -268,12 +268,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-        <Button onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> Dodaj zlecenie
-        </Button>
-      </div>
+      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
 
       {/* Unplanned orders */}
       <Card
@@ -286,6 +281,9 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-lg">Zadania do rozplanowania</h3>
+              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2">
+                <Plus className="h-4 w-4" /> Dodaj zadanie
+              </Button>
               {dragSource === 'scheduled' && (
                 <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
                   <Undo2 className="h-3 w-3" /> Upuść tutaj aby cofnąć
