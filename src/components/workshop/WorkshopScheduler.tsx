@@ -268,11 +268,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
-        <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
+      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
 
       {/* Unplanned orders */}
       <Card
@@ -441,11 +437,12 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
                           <td
                             key={key}
                             rowSpan={scheduledOrder ? displaySpan : 1}
-                            className={`border-b border-r border-foreground/15 ${scheduledOrder ? 'p-0' : 'p-0.5'} cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
+                            className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
                               today
                                 ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                             } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                            style={scheduledOrder ? { height: `${displaySpan * 56}px` } : undefined}
                             onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
                             onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
                             onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
@@ -453,7 +450,8 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
                           >
                             {scheduledOrder ? (
                               <div
-                                className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1.5 text-[10px] h-full w-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+                                className="bg-[hsl(220,70%,55%)] text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+                                style={{ height: 'calc(100% - 4px)' }}
                                 draggable
                                 onDragStart={(e) => { e.stopPropagation(); setDraggedOrder(scheduledOrder); setDragSource('scheduled'); }}
                                 onDragEnd={resetDrag}
