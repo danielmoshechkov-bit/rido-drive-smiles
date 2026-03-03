@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreateWorkshopVehicle } from '@/hooks/useWorkshop';
-import { Car, Search, Loader2 } from 'lucide-react';
+import { useCreateWorkshopVehicle, useWorkshopClients } from '@/hooks/useWorkshop';
+import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -19,13 +19,34 @@ const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór
 
 export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const create = useCreateWorkshopVehicle();
+  const { data: clients = [] } = useWorkshopClients(providerId);
   const [form, setForm] = useState({
     brand: '', model: '', color: '', vin: '', plate: '', year: '',
     first_registration_date: '', fuel_type: '', engine_number: '',
-    engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: ''
+    engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '',
+    owner_client_id: '',
   });
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [showOwnerList, setShowOwnerList] = useState(false);
 
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
+
+  const filteredClients = useMemo(() => {
+    if (!ownerSearch) return clients;
+    const s = ownerSearch.toLowerCase();
+    return clients.filter((c: any) =>
+      c.first_name?.toLowerCase().includes(s) ||
+      c.last_name?.toLowerCase().includes(s) ||
+      c.company_name?.toLowerCase().includes(s)
+    );
+  }, [clients, ownerSearch]);
+
+  const selectedOwner = clients.find((c: any) => c.id === form.owner_client_id);
+  const ownerLabel = selectedOwner
+    ? selectedOwner.client_type === 'company'
+      ? selectedOwner.company_name
+      : `${selectedOwner.first_name || ''} ${selectedOwner.last_name || ''}`.trim()
+    : '';
 
   const handleSubmit = async () => {
     if (!form.brand && !form.plate) return;
@@ -44,9 +65,10 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       engine_power_kw: form.engine_power_kw ? parseInt(form.engine_power_kw) : null,
       mileage_unit: form.mileage_unit,
       description: form.description || null,
+      owner_client_id: form.owner_client_id || null,
     });
     onCreated?.(vehicle);
-    setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '' });
+    setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '' });
     onOpenChange(false);
   };
 
@@ -65,17 +87,51 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <Label>Numer VIN</Label>
               <div className="relative">
                 <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="VIN" className="pr-10" />
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Numer rejestracyjny</Label>
               <div className="relative">
                 <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" className="pr-10" />
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
               </div>
             </div>
           </div>
+
+          {/* Owner */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Właściciel pojazdu</Label>
+            {form.owner_client_id ? (
+              <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium flex-1">{ownerLabel}</span>
+                <Button variant="ghost" size="sm" onClick={() => { set('owner_client_id', ''); setShowOwnerList(true); }}>Zmień</Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  value={ownerSearch}
+                  onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
+                  onFocus={() => setShowOwnerList(true)}
+                  placeholder="Wyszukaj właściciela z listy klientów..."
+                />
+                {showOwnerList && (
+                  <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-48 overflow-y-auto">
+                    {filteredClients.map((c: any) => (
+                      <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm transition-colors" onClick={() => { set('owner_client_id', c.id); setShowOwnerList(false); setOwnerSearch(''); }}>
+                        <div className="font-medium">
+                          {c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}
+                        </div>
+                      </button>
+                    ))}
+                    {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak klientów</div>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Brand, Model, Color */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
@@ -129,7 +185,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
           {/* Description */}
           <div className="space-y-1.5">
             <Label>Opis pojazdu</Label>
-            <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis pojazdu" rows={3} />
+            <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis pojazdu" rows={2} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>

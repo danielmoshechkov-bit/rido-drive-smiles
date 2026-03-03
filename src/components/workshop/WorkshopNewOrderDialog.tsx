@@ -249,7 +249,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                               <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
                             </button>
                             {filteredVehicles.map((v: any) => (
-                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setVehicleId(v.id); setShowVehicleList(false); setVehicleSearch(''); setErrors(e => { const { vehicle, ...rest } = e; return rest; }); }}>
+                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setVehicleId(v.id); setShowVehicleList(false); setVehicleSearch(''); setErrors(e => { const { vehicle, ...rest } = e; return rest; }); if (v.owner_client_id && !clientId) setClientId(v.owner_client_id); }}>
                                 <div className="flex items-center gap-2">
                                   <Car className="h-3.5 w-3.5 text-muted-foreground" />
                                   <div>
