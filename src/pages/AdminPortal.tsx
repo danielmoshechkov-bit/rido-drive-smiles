@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
-import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
+
 import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement';
 import { UserRolesManager } from '@/components/UserRolesManager';
 import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
-import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
+
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
@@ -19,7 +19,7 @@ import { SecurityApiKeysPanel } from '@/components/admin/SecurityApiKeysPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield, TicketCheck, Briefcase } from 'lucide-react';
+import { Loader2, Settings, Palette, Users, Wrench, Building2, Calculator, LayoutGrid, Bot, Mail, Shield, TicketCheck, Briefcase } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -90,9 +90,7 @@ export default function AdminPortal() {
   const tabs = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
-    { value: 'api', label: 'API i Integracje', icon: Settings },
     { value: 'security', label: 'Zabezpieczenia', icon: Shield },
-    { value: 'voice', label: 'Głos i TTS', icon: Volume2 },
     { value: 'email', label: 'Poczta email', icon: Mail },
     { value: 'registries', label: 'Rejestry', icon: Building2 },
     { value: 'accounting', label: 'Księgowość', icon: Calculator },
@@ -217,45 +215,9 @@ export default function AdminPortal() {
             </Card>
           </TabsContent>
 
-          {/* API & Integrations Tab */}
-          <TabsContent value="api">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Ustawienia AI
-                </CardTitle>
-                <CardDescription>
-                  Konfiguracja kluczy API dla OpenAI, Gemini i innych usług AI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AISettingsPanel />
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Security & API Keys Tab */}
           <TabsContent value="security">
             <SecurityApiKeysPanel />
-          </TabsContent>
-
-          {/* Voice / TTS Tab */}
-          <TabsContent value="voice">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Volume2 className="h-5 w-5" />
-                  Ustawienia głosu
-                </CardTitle>
-                <CardDescription>
-                  Konfiguracja TTS (synteza mowy) dla nawigacji i asystenta
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TTSSettingsPanel />
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Email Settings Tab */}
