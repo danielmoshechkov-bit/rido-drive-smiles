@@ -119,15 +119,20 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   if (selectedVehicle) {
     return (
-      <WorkshopVehicleDetail
-        vehicle={selectedVehicle}
-        providerId={providerId}
-        onBack={() => setSelectedVehicle(null)}
-        onOpenOrder={(order) => {
-          setSelectedVehicle(null);
-          setSelectedOrder(order);
-        }}
-      />
+      <div className="flex gap-0 min-h-[calc(100vh-200px)]">
+        <WorkshopSidebar activeModule="pojazdy" onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
+        <div className="flex-1 pl-3 min-w-0">
+          <WorkshopVehicleDetail
+            vehicle={selectedVehicle}
+            providerId={providerId}
+            onBack={() => setSelectedVehicle(null)}
+            onOpenOrder={(order) => {
+              setSelectedVehicle(null);
+              setSelectedOrder(order);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
